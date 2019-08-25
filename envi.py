@@ -181,11 +181,12 @@ def load_envi_data(filename, mmap=False):
     numpy_type = map_envi_type_to_numpy_type(metadata['data type'], metadata['byte order'])
 
     # Load the binary data itself.
+    header_offset = metadata['header offset']
     with open(filename) as f:
         if mmap:
-            data = numpy.memmap(f, numpy_type, 'r')
+            data = numpy.memmap(f, numpy_type, 'r', offset=header_offset)
         else:
-            data = numpy.fromfile(f, numpy_type)
+            data = numpy.fromfile(f, numpy_type, offset=header_offset)
 
     # Figure out the shape of the 3D array, based on the interleaving.
 
