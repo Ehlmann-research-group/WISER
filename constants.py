@@ -1,0 +1,11 @@
+
+
+# Red:  700-635nm
+RED_WAVELENGTH = 700
+
+# Green:  560-520nm
+GREEN_WAVELENGTH = 530
+
+# Blue:  490-450nm
+BLUE_WAVELENGTH = 470
+
