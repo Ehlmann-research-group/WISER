@@ -160,7 +160,7 @@ def load_envi_header(f):
     return metadata
 
 
-def load_envi_data(filename, mmap=False):
+def load_envi_data(filename, mmap=True):
     '''
     Loads the specified ENVI data file from disk.  The filename is the path
     to the binary data file; the header file is assumed to be at the path
@@ -206,7 +206,7 @@ def load_envi_data(filename, mmap=False):
     elif interleave == 'bil':  # Band-interleaved-by-line:  [lines, bands, samples]
         data.shape = (lines, bands, samples)
     else:
-        raise EnviFileFormatError('Unrecognized ENVI interleave "{interleave}"')
+        raise EnviFileFormatError(f'Unrecognized ENVI interleave "{interleave}"')
 
     return (metadata, data)
 
