@@ -160,7 +160,7 @@ def load_envi_header(f):
     return metadata
 
 
-def load_envi_data(filename, mmap=True):
+def load_envi_data(filename, header_filename=None, mmap=True):
     '''
     Loads the specified ENVI data file from disk.  The filename is the path
     to the binary data file; the header file is assumed to be at the path
@@ -173,8 +173,11 @@ def load_envi_data(filename, mmap=True):
     needing to be loaded in its entirety up-front.
     '''
 
+    if header_filename is None:
+        header_filename = filename + '.hdr'
+
     # Load the metadata so that we know what we're in for.
-    with open(filename + '.hdr') as f:
+    with open(header_filename) as f:
         metadata = load_envi_header(f)
 
     # Figure out the numpy element type from the ENVI header
@@ -209,5 +212,3 @@ def load_envi_data(filename, mmap=True):
         raise EnviFileFormatError(f'Unrecognized ENVI interleave "{interleave}"')
 
     return (metadata, data)
-
-

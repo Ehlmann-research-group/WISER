@@ -16,12 +16,13 @@ def closest_value(values, desired):
 
     min_dist = None
     closest = None
+    i_closest = None
 
-    for current in values:
+    for (i, current) in enumerate(values):
         current_dist = abs(current - desired)
         if closest is None or current_dist < min_dist:
+            i_closest = i
             closest = current
             min_dist = current_dist
 
-    return closest
-
+    return (i_closest, closest)
