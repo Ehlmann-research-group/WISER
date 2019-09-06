@@ -139,14 +139,14 @@ def load_envi_header(f):
         metadata[name] = value
 
     # These attributes are integers
-    for k in ['samples', 'lines', 'bands', 'header offset', 'data type', 'byte order', 'y start', 'data ignore value']:
+    for k in ['samples', 'lines', 'bands', 'header offset', 'data type', 'byte order', 'y start']:
         if k in metadata:
             metadata[k] = int(metadata[k])
 
     # These attributes are floats
-    # for k in []:
-    #     if k in metadata:
-    #         metadata[k] = float(metadata[k])
+    for k in ['data ignore value']:
+        if k in metadata:
+            metadata[k] = float(metadata[k])
 
     # These attributes are lists of floats
     for k in ['wavelength', 'correction factors', 'smoothing factors', 'fwhm']:
