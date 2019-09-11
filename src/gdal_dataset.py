@@ -1,8 +1,9 @@
 from urllib.parse import urlparse
 
 from dataset import RasterDataSet, RasterDataLoader
-from units import make_spectral_value
+from units import make_spectral_value, convert_spectral
 
+from astropy import units as u
 from osgeo import gdal, gdalconst
 
 
@@ -62,7 +63,7 @@ class GDALRasterDataSet(RasterDataSet):
                         '{x_size} {y_size} {data_type}  Band-{band_index} '   \
                         'values:  {band.XSize} {band.YSize} {band.DataType}')
 
-            info = {'description' : band.GetDescription()}
+            info = {'index':band_index - 1, 'description':band.GetDescription()}
 
             gdal_metadata = band.GetMetadata()
             if 'wavelength' in gdal_metadata and 'wavelength_units' in gdal_metadata:
@@ -77,6 +78,7 @@ class GDALRasterDataSet(RasterDataSet):
                 try:
                     wl_value = float(wl_str)
                     wavelength = make_spectral_value(wl_value, wl_units)
+                    wavelength = convert_spectral(wavelength, u.nm)
                     info['wavelength'] = wavelength
                 except:
                     # TODO(donnie):  Probably want to store this error on the
@@ -105,6 +107,7 @@ class GDALRasterDataSet(RasterDataSet):
         details about the band.  Dictionaries may (but are not required to)
         contain these keys:
 
+        *   'index' - the integer index of the band
         *   'description' - the string description of the band
         *   'wavelength' - a value-with-units for the spectral wavelength of
             the band.  astropy.units is used to represent the values-with-units.
@@ -145,9 +148,6 @@ class GDALRasterDataSet(RasterDataSet):
         # Note that GDAL indexes bands from 1, not 0.
         band = self.gdal_dataset.GetRasterBand(band_index + 1)
         np_array = band.GetVirtualMemAutoArray()
-
-        # The numpy array comes back with the order [y][x], so reverse this.
-        np_array = np_array.swapaxes(0, 1)
 
         return np_array
 

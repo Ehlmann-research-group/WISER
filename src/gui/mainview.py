@@ -15,7 +15,6 @@ class DataVisualizerApp(QMainWindow):
 
         self.current_dir = os.getcwd()
 
-
     def init_menus(self):
         print('Initializing menus.')
 
