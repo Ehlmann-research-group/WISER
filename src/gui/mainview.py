@@ -4,7 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-
+from .rasterview import RasterView
 
 
 class DataVisualizerApp(QMainWindow):
@@ -14,6 +14,20 @@ class DataVisualizerApp(QMainWindow):
         self.setWindowTitle('Data Visualizer App')
 
         self.current_dir = os.getcwd()
+
+        self.summary_raster = RasterView()
+        dockable = QDockWidget("Summary", parent=self)
+        dockable.setWidget(self.summary_raster)
+        self.addDockWidget(Qt.LeftDockWidgetArea, dockable)
+
+        self.detail_raster = RasterView()
+        dockable = QDockWidget("Detail", parent=self)
+        dockable.setWidget(self.detail_raster)
+        self.addDockWidget(Qt.RightDockWidgetArea, dockable)
+
+        self.main_raster = RasterView()
+        self.setCentralWidget(self.main_raster)
+
 
     def init_menus(self):
         print('Initializing menus.')
@@ -47,13 +61,3 @@ class DataVisualizerApp(QMainWindow):
         if len(selected[0]) > 0:
             # Remember the directory of the selected file, for next file-open
             self.current_dir = os.path.dirname(selected[0])
-
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-
-    ui = DataVisualizerApp()
-    ui.init_menus()
-    ui.show()
-
-    sys.exit(app.exec_())

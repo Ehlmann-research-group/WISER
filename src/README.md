@@ -10,3 +10,7 @@ Good Python / Qt tutorials:
 GDAL Notes on Virtual-Memory Access:
 
 *   https://trac.osgeo.org/gdal/wiki/rfc45_virtualmem
+
+Accessing files over SSH:
+
+*   http://docs.paramiko.org/en/2.6/
