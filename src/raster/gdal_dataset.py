@@ -1,7 +1,8 @@
+import os
 from urllib.parse import urlparse
 
-from dataset import RasterDataSet, RasterDataLoader
-from units import make_spectral_value, convert_spectral
+from .dataset import RasterDataSet, RasterDataLoader
+from .units import make_spectral_value, convert_spectral
 
 from astropy import units as u
 from osgeo import gdal, gdalconst
@@ -87,6 +88,10 @@ class GDALRasterDataSet(RasterDataSet):
 
             self.band_info.append(info)
 
+    def get_filepath(self):
+        # TODO(donnie):  Probably want to think about exactly how we implement
+        #     this...
+        return self.gdal_dataset.GetFileList()[0]
 
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
@@ -187,6 +192,20 @@ class GDALRasterDataLoader(RasterDataLoader):
 
         # TODO(donnie):  For now, assume we have a file path.
         # TODO(donnie):  Use urllib.parse.urlparse(urlstring) to parse URLs.
+
+        # ENVI files:  GDAL doesn't like dealing with the ".hdr" files, so if we
+        # are given a ".hdr" file, try to find the corresponding data file.
+        if path_or_url.endswith('.hdr'):
+            s = path_or_url[:-4]
+            if os.path.isfile(s):
+                path_or_url = s
+            else:
+                s = s + '.img'
+                if os.path.isfile(s):
+                    path_or_url = s
+                else:
+                    raise ValueError(f"Can't find raster file corresponding to"
+                                     " ENVI header file {path_or_url}")
 
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()

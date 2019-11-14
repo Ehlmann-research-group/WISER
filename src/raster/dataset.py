@@ -22,6 +22,13 @@ class RasterDataSet:
         employ various performance-improvement techniques.
     '''
 
+    def get_filepath(self):
+        '''
+        Returns the path and filename of the file that the raster data was
+        loaded from.  This may be None if the data is in-memory only.
+        '''
+        pass
+
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
         pass
@@ -41,6 +48,7 @@ class RasterDataSet:
         details about the band.  Dictionaries may (but are not required to)
         contain these keys:
 
+        *   'index' - the integer index of the band
         *   'description' - the string description of the band
         *   'wavelength' - a value-with-units for the spectral wavelength of
             the band.  astropy.units is used to represent the values-with-units.

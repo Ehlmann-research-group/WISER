@@ -1,5 +1,3 @@
-import sys
-
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -14,7 +12,7 @@ import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
 
-class SpectrumPlot(QDialog):
+class SpectrumPlot(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -35,6 +33,7 @@ class SpectrumPlot(QDialog):
 
         self.spectral_series = []
 
+
     def clear(self):
         self.spectral_series.clear()
         self.axes.clear()
@@ -49,7 +48,6 @@ class SpectrumPlot(QDialog):
 
         self.axes.plot(spectrum, linewidth=0.5, scalex=True, scaley=False)
         self.figure_canvas.draw()
-
 
     def set_spectrum(self, spectrum, band_info=None):
         self.clear()
