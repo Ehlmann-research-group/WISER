@@ -91,7 +91,7 @@ class DataVisualizerApp(QMainWindow):
             self.tr('All files (*)'),
         ]
 
-        selected = QFileDialog.getOpenFileName(parent=self,
+        selected = QFileDialog.getOpenFileName(self,
             self.tr("Open Spectal Data File"),
             self.current_dir, ';;'.join(supported_formats))
         # print(selected)
