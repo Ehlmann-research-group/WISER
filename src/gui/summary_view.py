@@ -4,7 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .rasterview import RasterView
+from .rasterview import RasterView, ZoomToFitMode
 
 
 class SummaryViewWidget(QWidget):
@@ -121,17 +121,9 @@ class SummaryViewWidget(QWidget):
         if dataset is None:
             return
 
-        imgsize = QSize(dataset.get_width(), dataset.get_height())
-        viewsize = self._rasterview.size()
-
-        scale_x = viewsize.width() / imgsize.width()
-        scale_y = viewsize.height() / imgsize.height()
-
         if self._act_fit_to_window.isChecked():
             # The entire image needs to fit in the summary view.
-            scale = min(scale_x, scale_y)
+            self._rasterview.zoom_to_fit(mode=ZoomToFitMode.FIT_BOTH_DIMENSIONS)
         else:
-            # Choose the largest scale that still allows one dimension to fit
-            scale = max(scale_x, scale_y)
-
-        self._rasterview.scale_image(scale)
+            # Just zoom such that one of the dimensions fits.
+            self._rasterview.zoom_to_fit(mode=ZoomToFitMode.FIT_ONE_DIMENSION)

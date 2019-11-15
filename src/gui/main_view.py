@@ -14,7 +14,7 @@ class MainViewWidget(QWidget):
     '''
 
     # Signal:  the displayed region has changed
-    display_region_changed = Signal( (int, int, int, int) )
+    display_area_changed = Signal( (int, int, int, int) )
 
 
     def __init__(self, model, parent=None):
