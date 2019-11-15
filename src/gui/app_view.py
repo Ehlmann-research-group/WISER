@@ -38,6 +38,7 @@ class DataVisualizerApp(QMainWindow):
         # Summary raster-view
 
         self.summary_view = SummaryViewWidget(self._model)
+        self.summary_view.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         dockable = QDockWidget(self.tr('Summary'), parent=self)
         dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
@@ -49,6 +50,7 @@ class DataVisualizerApp(QMainWindow):
         # Detail raster-view
 
         self.detail_view = DetailViewWidget(self._model)
+        self.detail_view.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         dockable = QDockWidget(self.tr('Detail'), parent=self)
         dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)

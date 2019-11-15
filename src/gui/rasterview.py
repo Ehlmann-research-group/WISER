@@ -1,4 +1,5 @@
 import sys
+from enum import Enum
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -14,15 +15,31 @@ from raster.dataset import RasterDataSet
 from raster.units import find_band_near_wavelength, RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 
 
-class RasterImage(QLabel):
+class ZoomToFitMode(Enum):
     '''
-    A simple subclass of QLabel used for displaying a raster image.  The main
-    reason we subclass QLabel is simply to forward mouse-click events from the
-    image to the RasterView, which then can scale and interpret them properly.
+    The "zoom to fit" operation can be customized in several ways, depending on
+    how the image needs to fit.  This enumeration specifies exactly how the zoom
+    operation is to be done.
     '''
 
-    # Signal for when pixels are clicked in the raster image data.
-    pixel_clicked = Signal(QMouseEvent)
+    FIT_HORIZONTAL      = 1
+    FIT_VERTICAL        = 2
+    FIT_ONE_DIMENSION   = 3
+    FIT_BOTH_DIMENSIONS = 4
+
+
+class ImageWidget(QLabel):
+    '''
+    A simple subclass of QLabel used for displaying an image.  The main reason
+    we subclass QLabel is simply to forward mouse-click events from the image
+    to the RasterView, which then can scale and interpret them properly.
+    '''
+
+    # Signal for when the mouse is clicked in the image widget.
+    mouse_click = Signal(QMouseEvent)
+
+    # Signal for when the mouse is moved in the image widget.
+    mouse_move = Signal(QMouseEvent)
 
     def __init__(self, text, parent=None):
         '''
@@ -33,10 +50,13 @@ class RasterImage(QLabel):
     def mouseReleaseEvent(self, mouse_event):
         '''
         When a mouse-button is released within the widget, this method emits a
-        "pixel clicked" signal.  It is up to the recipient to scale this event's
+        "mouse click" signal.  It is up to the recipient to scale this event's
         coordinates appropriately.
         '''
-        self.pixel_clicked.emit(mouse_event)
+        self.mouse_click.emit(mouse_event)
+
+    def mouseMoveEvent(self, mouse_event):
+        self.mouse_move.emit(mouse_event)
 
 
 class RasterView(QWidget):
@@ -46,17 +66,36 @@ class RasterView(QWidget):
     regions of interest, etc.
     '''
 
+    # Signal for when a mouse click occurs.  The coordinates of the pixel in
+    # the raster image are included in the arguments.
+    raster_mouse_click = Signal( (int, int), QMouseEvent)
+
+    # Signal for when the mouse moves.  The coordinates of the pixel in
+    # the raster image are included in the arguments.  Note that
+    # enable_mouse_move must be set to True when this object is initialized, for
+    # mouse-move events to be generated.
+    raster_mouse_move = Signal( (int, int), QMouseEvent)
+
+    # Signal for when the raster display-area changes.  The rectangle of the new
+    # display area is reported to the signal handler, using raster dataset
+    # coordinates:  (x, y, width, height).
+    raster_viewport_change = Signal(QRect)
+
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
         # The image that the raster view uses to display its data
-        self._lbl_image = RasterImage('(no data)')
+
+        self._lbl_image = ImageWidget('(no data)')
         self._lbl_image.setBackgroundRole(QPalette.Base)
         self._lbl_image.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self._lbl_image.setScaledContents(False)
-        self._lbl_image.pixel_clicked.connect(self.raster_pixel_clicked)
+        self._lbl_image.mouse_click.connect(self._mouse_click)
+        self._lbl_image.mouse_move.connect(self._mouse_move)
 
         # The scroll area used to handle images larger than the widget size
+
         self._scroll_area = QScrollArea()
         self._scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._scroll_area.setBackgroundRole(QPalette.Dark)
@@ -75,10 +114,15 @@ class RasterView(QWidget):
         self.setLayout(layout)
 
         # Initialize fields in the object
-        self.clear_members()
+        self._clear_members()
 
 
-    def clear_members(self):
+    def _clear_members(self):
+        '''
+        A helper function to clear all raster dataset members when the dataset
+        changes.  This way we don't accidentally leave anything out.
+        '''
+
         self._raster_data = None
         self._scale_factor = 1.0
 
@@ -136,7 +180,7 @@ class RasterView(QWidget):
         if raster_data is not None and not isinstance(raster_data, RasterDataSet):
             raise ValueError('raster_data must be a RasterDataSet object')
 
-        self.clear_members()
+        self._clear_members()
 
         self._raster_data = raster_data
         self._scale_factor = 1.0
@@ -231,23 +275,41 @@ class RasterView(QWidget):
 
 
     def resizeEvent(self, event):
-        # TODO:  Fire an event that the visible region of the raster-view has
-        #        changed.
-        self.get_visible_region()
+        '''
+        Fire an event that the visible region of the raster-view has changed.
+        '''
+        self.raster_viewport_change.emit(self.get_visible_region())
 
 
     def get_visible_region(self):
-        h_scroll = self._scroll_area.horizontalScrollBar()
-        v_scroll = self._scroll_area.verticalScrollBar()
+        if self._raster_data is None:
+            return (0, 0, 0, 0)
 
-        # print('horz value=%d, min=%d, max=%d' % (h_scroll.value(), h_scroll.minimum(), h_scroll.maximum()))
-        # print('vert value=%d, min=%d, max=%d' % (v_scroll.value(), v_scroll.minimum(), v_scroll.maximum()))
+        h_start = int(self._scroll_area.horizontalScrollBar().value() / self._scale_factor)
+        v_start = int(self._scroll_area.verticalScrollBar().value() / self._scale_factor)
 
-        return (0, 0, 0, 0)
+        h_size = int(self._scroll_area.viewport().width() / self._scale_factor)
+        v_size = int(self._scroll_area.viewport().height() / self._scale_factor)
+
+        h_size = min(h_size, self._raster_data.get_width())
+        v_size = min(v_size, self._raster_data.get_height())
+
+        # print(f'Raster data is {self._raster_data.get_width()} x {self._raster_data.get_height()} pixels')
+
+        visible_region = QRect(h_start, v_start, h_size, v_size)
+
+        # print(f'Visible region = {visible_region}')
+
+        return visible_region
 
 
     @Slot()
     def zoom_in(self, evt):
+        '''
+        If the raster-view widget has image data, the view is zoomed in by 20%.
+
+        If there is no image data, this is a no-op.
+        '''
         if self._raster_data is None:
             return
 
@@ -256,6 +318,11 @@ class RasterView(QWidget):
 
     @Slot()
     def zoom_out(self, evt):
+        '''
+        If the raster-view widget has image data, the view is zoomed out by 20%.
+
+        If there is no image data, this is a no-op.
+        '''
         if self._raster_data is None:
             return
 
@@ -264,22 +331,68 @@ class RasterView(QWidget):
 
     @Slot()
     def zoom_to_actual(self, evt):
+        '''
+        If the raster-view widget has image data, the view is zoomed to the
+        actual size of the data; that is, each screen pixel corresponds to one
+        pixel in the raster data.
+
+        If there is no image data, this is a no-op.
+        '''
         if self._raster_data is None:
             return
 
         self.scale_image(1.0)
 
     @Slot()
-    def zoom_to_fit(self, evt):
+    def zoom_to_fit(self, mode=ZoomToFitMode.FIT_BOTH_DIMENSIONS):
+
+        '''
+        If the raster-view widget has image data, the view is zoomed such that
+        the entire raster image data is visible within the view.  No scroll bars
+        are visible after this operation.
+
+        If there is no image data, this is a no-op.
+        '''
         if self._raster_data is None:
             return
 
-        # Figure out the appropriate scale factor, then do it
-        new_factor = min(
-            self._scroll_area.width() / self._raster_data.get_width(),
-            self._scroll_area.height() / self._raster_data.get_height()
-        )
+        # Figure out the appropriate scale factor for if no scrollbars were
+        # needed, then apply that scale.
+        area_size = self._scroll_area.maximumViewportSize()
+
+        # TODO(donnie):  All options other than "fit both dimensions" are buggy!
+        #     When fitting in one dimension, need to determine whether the
+        #     other dimension's scrollbar is actually needed or not.  Then, zoom
+        #     appropriately.
+
+        if mode == ZoomToFitMode.FIT_HORIZONTAL:
+            new_factor = area_size.width() / self._raster_data.get_width()
+
+        elif mode == ZoomToFitMode.FIT_VERTICAL:
+            new_factor = area_size.height() / self._raster_data.get_height()
+
+        elif mode == ZoomToFitMode.FIT_ONE_DIMENSION:
+            new_factor = max(
+                area_size.width() / self._raster_data.get_width(),
+                area_size.height() / self._raster_data.get_height()
+            )
+
+        elif mode == ZoomToFitMode.FIT_BOTH_DIMENSIONS:
+            new_factor = min(
+                area_size.width() / self._raster_data.get_width(),
+                area_size.height() / self._raster_data.get_height()
+            )
+
+        else:
+            raise ValueError(f'Unrecognized mode value {mode}')
+
         self.scale_image(new_factor)
+
+        # print('ZOOM TO FIT:')
+        # print(f'Max viewport size = {area_size.width()} x {area_size.height()}')
+        # print(f'Scale factor = {new_factor}')
+        # print(f'Scaled image size = {self._scaled_image.width()} x {self._scaled_image.height()}')
+
 
     # @Slot()
     # def choose_colors(self, evt):
@@ -314,30 +427,37 @@ class RasterView(QWidget):
 
         self.update_display_image(colors=color)
 
-    # TODO(donnie):  Change the name of this to e.g. view_pixel_clicked()
-    @Slot(QMouseEvent)
-    def raster_pixel_clicked(self, mouse_event):
-        # Map the coordinate of the mouse-event to the actual raster-image
-        # pixel that was clicked.
-        # TODO(donnie):  I could move this calculation inside the if statement,
-        #     but I have a feeling we may want to do other things when raster
-        #     pixels are clicked.
-        raster_point = (mouse_event.localPos() / self._scale_factor).toPoint()
+
+    def _image_coord_to_raster_coord(self, position):
+        '''
+        Takes a position in screen space as a QPointF object, and translates it
+        into a 2-tuple containing the (X, Y) coordinates of the position within
+        the raster data set.
+        '''
+        raster_point = (position / self._scale_factor).toPoint()
         (raster_x, raster_y) = raster_point.toTuple()
-        # print(f'Raster pixel clicked:  {raster_point}')
-
-        # if self.spectrum_plot.isVisible():
-        #     # TODO(donnie):  Extract the spectrum at the specified pixel, then
-        #     #     display it in the spectrum plot.
-        #     spectrum = self.raster_data.get_all_bands_at(raster_x, raster_y)
-        #     self.spectrum_plot.add_spectrum(spectrum)
 
 
-    # @Slot()
-    # def show_spectrum(self, evt):
-    #     if not self.spectrum_plot.isVisible():
-    #         self.spectrum_plot.clear()
-    #         self.spectrum_plot.setVisible(True)
-    #
-    #     else:
-    #         self.rgb_selector.setVisible(False)
+    @Slot(QMouseEvent)
+    def _mouse_click(self, mouse_event):
+        '''
+        When the display image is clicked on, this method gets invoked, and it
+        translates the click event's coordinates into the location on the
+        raster data set.
+        '''
+        # Map the coordinate of the mouse-event to the actual raster-image
+        # pixel that was clicked, then emit a signal.
+        r_coord = self._image_coord_to_raster_coord(mouse_event.localPos())
+        self.raster_mouse_click.emit(r_coord, mouse_event)
+
+    @Slot(QMouseEvent)
+    def _mouse_move(self, mouse_event):
+        '''
+        When the mouse is moved on the display image, this method gets invoked,
+        and it translates the move event's coordinates into the location on the
+        raster data set.
+        '''
+        # Map the coordinate of the mouse-event to the actual raster-image
+        # pixel that was clicked, then emit a signal.
+        r_coord = self._image_coord_to_raster_coord(mouse_event.localPos())
+        self.raster_mouse_move.emit(r_coord, mouse_event)
