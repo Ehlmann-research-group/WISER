@@ -44,22 +44,22 @@ class MainViewWidget(QWidget):
         # Zoom In
         self._act_zoom_in = add_toolbar_action(toolbar,
             'resources/zoom-in.svg', self.tr('Zoom in'), self, QKeySequence.ZoomIn)
-        self._act_zoom_in.triggered.connect(self._rasterview.zoom_in)
+        self._act_zoom_in.triggered.connect(self.zoom_in)
 
         # Zoom Out
         self._act_zoom_out = add_toolbar_action(toolbar,
             'resources/zoom-out.svg', self.tr('Zoom out'), self, QKeySequence.ZoomOut)
-        self._act_zoom_out.triggered.connect(self._rasterview.zoom_out)
+        self._act_zoom_out.triggered.connect(self.zoom_out)
 
         # Zoom to Actual Size
         self._act_zoom_to_actual = add_toolbar_action(toolbar,
             'resources/zoom-to-actual.svg', self.tr('Zoom to actual size'), self, None)
-        self._act_zoom_to_actual.triggered.connect(self._rasterview.zoom_to_actual)
+        self._act_zoom_to_actual.triggered.connect(self.zoom_to_actual)
 
         # Zoom to Fit
         self._act_zoom_to_fit = add_toolbar_action(toolbar,
             'resources/zoom-to-fit.svg', self.tr('Zoom to fit'), self, None)
-        self._act_zoom_to_fit.triggered.connect(self._rasterview.zoom_to_fit)
+        self._act_zoom_to_fit.triggered.connect(self.zoom_to_fit)
 
         # self.image_toolbar.addSeparator()
 
@@ -97,8 +97,6 @@ class MainViewWidget(QWidget):
     #                view to indicate the region that is displayed.
     def resizeEvent(self, event):
         pass
-
-
 
 
     def add_dataset(self, index):
@@ -139,3 +137,32 @@ class MainViewWidget(QWidget):
         # TODO(donnie):  Only do this when the raster dataset actually changes,
         #     or the displayed bands change, etc.
         self._rasterview.set_raster_data(dataset)
+
+    @Slot()
+    def zoom_in(self, evt):
+        ''' Zoom in the view by 20%. '''
+
+        scale = self._rasterview.get_scale()
+        self._rasterview.scale_image(scale * 1.25)
+
+        # TODO:  Disable zoom-in if too zoomed
+
+    @Slot()
+    def zoom_out(self, evt):
+        ''' Zoom out the view by 20%. '''
+
+        scale = self._rasterview.get_scale()
+        self._rasterview.scale_image(scale * 0.8)
+
+        # TODO:  Disable zoom-out if too zoomed out
+
+    @Slot()
+    def zoom_to_actual(self, evt):
+        ''' Zoom the view to 100% scale. '''
+
+        self._rasterview.scale_image(1.0)
+
+    @Slot()
+    def zoom_to_fit(self):
+        ''' Zoom the view such that the entire image fits in the view. '''
+        self._rasterview.scale_image_to_fit()
