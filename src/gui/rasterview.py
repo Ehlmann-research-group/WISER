@@ -15,11 +15,11 @@ from raster.dataset import RasterDataSet
 from raster.units import find_band_near_wavelength, RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 
 
-class ZoomToFitMode(Enum):
+class ScaleToFitMode(Enum):
     '''
-    The "zoom to fit" operation can be customized in several ways, depending on
-    how the image needs to fit.  This enumeration specifies exactly how the zoom
-    operation is to be done.
+    The "scale to fit" operation can be customized in several ways, depending
+    on how the image needs to fit.  This enumeration specifies exactly how the
+    image scaling operation is to be done.
     '''
 
     FIT_HORIZONTAL      = 1
@@ -59,6 +59,24 @@ class ImageWidget(QLabel):
         self.mouse_move.emit(mouse_event)
 
 
+class ImageScrollArea(QScrollArea):
+    '''
+    A simple subclass of QScrollArea used for displaying an image that is
+    potentially larger than the available display-area.  The main reason we
+    subclass QScrollArea is simply to forward viewport-scroll events from the
+    scroll-area to the RasterView, which can then act accordingly.
+    '''
+
+    viewport_change = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def scrollContentsBy(self, dx, dy):
+        super().scrollContentsBy(dx, dy)
+        self.viewport_change.emit()
+
+
 class RasterView(QWidget):
     '''
     A general-purpose widget for viewing raster data at varying zoom levels,
@@ -96,11 +114,12 @@ class RasterView(QWidget):
 
         # The scroll area used to handle images larger than the widget size
 
-        self._scroll_area = QScrollArea()
+        self._scroll_area = ImageScrollArea()
         self._scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._scroll_area.setBackgroundRole(QPalette.Dark)
         self._scroll_area.setWidget(self._lbl_image)
         self._scroll_area.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+        self._scroll_area.viewport_change.connect(self._viewport_change)
 
         # Set up the layout
 
@@ -268,84 +287,32 @@ class RasterView(QWidget):
         self._scroll_area.setVisible(True)
         # print("Done.")
 
+    def get_scale(self):
+        ''' Returns the current scale factor for the raster image. '''
+        return self._scale_factor
 
     def scale_image(self, factor):
-        self._scale_factor = factor
-        self.update_scaled_image()
-
-
-    def resizeEvent(self, event):
         '''
-        Fire an event that the visible region of the raster-view has changed.
-        '''
-        self.raster_viewport_change.emit(self.get_visible_region())
-
-
-    def get_visible_region(self):
-        if self._raster_data is None:
-            return (0, 0, 0, 0)
-
-        h_start = int(self._scroll_area.horizontalScrollBar().value() / self._scale_factor)
-        v_start = int(self._scroll_area.verticalScrollBar().value() / self._scale_factor)
-
-        h_size = int(self._scroll_area.viewport().width() / self._scale_factor)
-        v_size = int(self._scroll_area.viewport().height() / self._scale_factor)
-
-        h_size = min(h_size, self._raster_data.get_width())
-        v_size = min(v_size, self._raster_data.get_height())
-
-        # print(f'Raster data is {self._raster_data.get_width()} x {self._raster_data.get_height()} pixels')
-
-        visible_region = QRect(h_start, v_start, h_size, v_size)
-
-        # print(f'Visible region = {visible_region}')
-
-        return visible_region
-
-
-    @Slot()
-    def zoom_in(self, evt):
-        '''
-        If the raster-view widget has image data, the view is zoomed in by 20%.
+        Scales the raster image by the specified factor.  Note that this is an
+        absolute operation, not an incremental operation; repeatedly calling
+        this function with a factor of 0.5 will not halve the size of the image
+        each call.  Rather, the image will simply be set to 0.5 of its original
+        size.
 
         If there is no image data, this is a no-op.
         '''
+
         if self._raster_data is None:
             return
 
-        self.scale_image(self._scale_factor * 1.25)
-        # TODO:  Disable zoom-in if too zoomed
+        # Only scale the image if the scale-factor is changing.
+        if factor != self._scale_factor:
+            self._scale_factor = factor
+            self.update_scaled_image()
+            self.raster_viewport_change.emit(self.get_visible_region())
 
-    @Slot()
-    def zoom_out(self, evt):
-        '''
-        If the raster-view widget has image data, the view is zoomed out by 20%.
 
-        If there is no image data, this is a no-op.
-        '''
-        if self._raster_data is None:
-            return
-
-        self.scale_image(self._scale_factor * 0.8)
-        # TODO:  Disable zoom-out if too un-zoomed
-
-    @Slot()
-    def zoom_to_actual(self, evt):
-        '''
-        If the raster-view widget has image data, the view is zoomed to the
-        actual size of the data; that is, each screen pixel corresponds to one
-        pixel in the raster data.
-
-        If there is no image data, this is a no-op.
-        '''
-        if self._raster_data is None:
-            return
-
-        self.scale_image(1.0)
-
-    @Slot()
-    def zoom_to_fit(self, mode=ZoomToFitMode.FIT_BOTH_DIMENSIONS):
-
+    def scale_image_to_fit(self, mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS):
         '''
         If the raster-view widget has image data, the view is zoomed such that
         the entire raster image data is visible within the view.  No scroll bars
@@ -365,19 +332,19 @@ class RasterView(QWidget):
         #     other dimension's scrollbar is actually needed or not.  Then, zoom
         #     appropriately.
 
-        if mode == ZoomToFitMode.FIT_HORIZONTAL:
+        if mode == ScaleToFitMode.FIT_HORIZONTAL:
             new_factor = area_size.width() / self._raster_data.get_width()
 
-        elif mode == ZoomToFitMode.FIT_VERTICAL:
+        elif mode == ScaleToFitMode.FIT_VERTICAL:
             new_factor = area_size.height() / self._raster_data.get_height()
 
-        elif mode == ZoomToFitMode.FIT_ONE_DIMENSION:
+        elif mode == ScaleToFitMode.FIT_ONE_DIMENSION:
             new_factor = max(
                 area_size.width() / self._raster_data.get_width(),
                 area_size.height() / self._raster_data.get_height()
             )
 
-        elif mode == ZoomToFitMode.FIT_BOTH_DIMENSIONS:
+        elif mode == ScaleToFitMode.FIT_BOTH_DIMENSIONS:
             new_factor = min(
                 area_size.width() / self._raster_data.get_width(),
                 area_size.height() / self._raster_data.get_height()
@@ -392,6 +359,43 @@ class RasterView(QWidget):
         # print(f'Max viewport size = {area_size.width()} x {area_size.height()}')
         # print(f'Scale factor = {new_factor}')
         # print(f'Scaled image size = {self._scaled_image.width()} x {self._scaled_image.height()}')
+
+
+    def resizeEvent(self, event):
+        '''
+        Fire an event that the visible region of the raster-view has changed.
+        '''
+        self.raster_viewport_change.emit(self.get_visible_region())
+
+
+    def get_visible_region(self):
+        '''
+        This method reports the visible region of the raster data-set, in raster
+        data-set coordinates.  The returned value is a Qt QRect, with the
+        integer (x, y, width, height) values indicating the visible region.
+
+        If the raster-view has no data set then None is returned.
+        '''
+
+        if self._raster_data is None:
+            return None
+
+        h_start = int(self._scroll_area.horizontalScrollBar().value() / self._scale_factor)
+        v_start = int(self._scroll_area.verticalScrollBar().value() / self._scale_factor)
+
+        h_size = int(self._scroll_area.viewport().width() / self._scale_factor)
+        v_size = int(self._scroll_area.viewport().height() / self._scale_factor)
+
+        h_size = min(h_size, self._raster_data.get_width())
+        v_size = min(v_size, self._raster_data.get_height())
+
+        # print(f'Raster data is {self._raster_data.get_width()} x {self._raster_data.get_height()} pixels')
+
+        visible_region = QRect(h_start, v_start, h_size, v_size)
+
+        print(f'Visible region = {visible_region}')
+
+        return visible_region
 
 
     # @Slot()
@@ -461,3 +465,7 @@ class RasterView(QWidget):
         # pixel that was clicked, then emit a signal.
         r_coord = self._image_coord_to_raster_coord(mouse_event.localPos())
         self.raster_mouse_move.emit(r_coord, mouse_event)
+
+    @Slot()
+    def _viewport_change(self):
+        self.raster_viewport_change.emit(self.get_visible_region())
