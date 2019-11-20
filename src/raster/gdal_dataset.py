@@ -135,8 +135,48 @@ class GDALRasterDataSet(RasterDataSet):
 
         If the raster data specifies no default bands, the return value is None.
         '''
-        # TODO(donnie):  Implement
+        md = self.gdal_dataset.GetMetadata('ENVI')
+        if 'default_bands' in md:
+            s = md['default_bands'].strip()
+            if s[0] != '{' or s[-1] != '}':
+                raise ValueError(f'ENVI file has unrecognized format for '
+                                  'default bands:  {s}')
+
+            # Convert all numbers in the band-list to integers, and return it.
+            b = [int(v) for v in s[1:-1].split(',')]
+            return b
+
         return None
+
+    def get_data_ignore_value(self):
+        '''
+        Returns the number that indicates a value to be ignored in the dataset.
+        If this value is unknown or unspecified in the data, None is returned.
+        '''
+        md = self.gdal_dataset.GetMetadata('ENVI')
+        if 'data_ignore_value' in md:
+            # Make sure all values are integers.
+            return float(md['data_ignore_value'])
+
+        return None
+
+    def get_bad_bands(self):
+        '''
+        Returns a "bad band list" as a list of 0 or 1 integer values, with the
+        same number of elements as the total number of bands in the dataset.
+        A value of 0 means the band is "bad," and a value of 1 means the band is
+        "good."
+        '''
+        md = self.gdal_dataset.GetMetadata('ENVI')
+        if 'bbl' in md:
+            # Make sure all values are integers.
+            bad_bands = [int(v) for v in md['bbl']]
+        else:
+            # We don't have a bad-band list, so just make one up with all 1s.
+            bad_bands = [1] * self.num_bands()
+
+        return bad_bands
+
 
     def get_band_data(self, band_index):
         '''

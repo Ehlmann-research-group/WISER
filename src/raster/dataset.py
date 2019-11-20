@@ -1,5 +1,8 @@
 import numpy
 
+from .units import find_band_near_wavelength, \
+    RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
+
 
 class RasterDataSet:
     '''
@@ -73,6 +76,22 @@ class RasterDataSet:
         '''
         pass
 
+    def get_data_ignore_value(self):
+        '''
+        Returns the number that indicates a value to be ignored in the dataset.
+        If this value is unknown or unspecified in the data, None is returned.
+        '''
+        pass
+
+    def get_bad_bands(self):
+        '''
+        Returns a "bad band list" as a list of 0 or 1 integer values, with the
+        same number of elements as the total number of bands in the dataset.
+        A value of 0 means the band is "bad," and a value of 1 means the band is
+        "good."
+        '''
+        pass
+
     def get_band_data(self, band_index):
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
@@ -105,3 +124,24 @@ class RasterDataLoader:
         RasterDataSet object.
         '''
         pass
+
+
+def find_display_bands(dataset):
+    # See if the raster data-set specifies display bands, and if so, use them.
+    bands = dataset.default_display_bands()
+    if bands is not None:
+        return bands
+
+    # Try to find bands based on what is close to visible spectral bands
+    bands = dataset.band_list()
+    red_band   = find_band_near_wavelength(bands, RED_WAVELENGTH)
+    green_band = find_band_near_wavelength(bands, GREEN_WAVELENGTH)
+    blue_band  = find_band_near_wavelength(bands, BLUE_WAVELENGTH)
+
+    # If that didn't work, just choose first, middle and last bands
+    if red_band is None or green_band is None or blue_band is None:
+        red_band   = 0
+        green_band = max(0, raster_data.num_bands() // 2 - 1)
+        blue_band  = max(0, raster_data.num_bands() - 1)
+
+    return (red_band, green_band, blue_band)

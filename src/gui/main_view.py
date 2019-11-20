@@ -5,7 +5,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from .rasterview import RasterView
-from .toolbars import add_toolbar_action
+from .util import add_toolbar_action
 
 
 class MainViewWidget(QWidget):
@@ -86,19 +86,6 @@ class MainViewWidget(QWidget):
         self.setLayout(layout)
 
 
-    # TODO(donnie):  No sizeHint() for this class?  We always want to take up
-    #                all the available space.
-    # def sizeHint(self):
-    #     ''' The default size of the summary-view widget is 200x200. '''
-    #     return QSize(200, 200)
-
-
-    # TODO(donnie):  Need to implement this so that we can update the summary
-    #                view to indicate the region that is displayed.
-    def resizeEvent(self, event):
-        pass
-
-
     def add_dataset(self, index):
         dataset = self._model.get_dataset(index)
         file_path = dataset.get_filepath()
@@ -122,6 +109,10 @@ class MainViewWidget(QWidget):
                 self._dataset_index = None
 
             self.update_image()
+
+
+    def rasterview(self):
+        return self._rasterview
 
 
     def update_image(self):

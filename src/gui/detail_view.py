@@ -58,6 +58,10 @@ class DetailViewWidget(QWidget):
         self.update_image()
 
 
+    def rasterview(self):
+        return self._rasterview
+
+
     def add_dataset(self, index):
         dataset = self._model.get_dataset(index)
         file_path = dataset.get_filepath()

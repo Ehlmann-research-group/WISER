@@ -7,6 +7,33 @@ from PySide2.QtWidgets import *
 from .rasterview import RasterView, ScaleToFitMode
 
 
+class SummaryRasterView(RasterView):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self._visible_area = None
+
+    def set_visible_area(self, visible_area):
+        self._visible_area = visible_area
+        # TODO(donnie):  Try to be more specific about the region that needs
+        #     updating.  Don't forget about the old visible area and the new
+        #     visible area.
+        self._lbl_image.update()
+
+    def _afterRasterPaint(self, widget, paint_event):
+        # Draw the visible area on the summary view.
+        painter = QPainter(widget)
+        painter.setPen(QPen(Qt.yellow))
+
+        scaled = QRect(self._visible_area.x() * self._scale_factor,
+                       self._visible_area.y() * self._scale_factor,
+                       self._visible_area.width() * self._scale_factor,
+                       self._visible_area.height() * self._scale_factor)
+
+        painter.drawRect(scaled)
+
+        painter.end()
+
+
 class SummaryViewWidget(QWidget):
     '''
     This widget provides the summary view in the user interface.  The summary
@@ -19,6 +46,8 @@ class SummaryViewWidget(QWidget):
 
         self._model = model
         self._dataset_index = None
+
+        self._main_visible_area = None
 
         self._model.dataset_added.connect(self.add_dataset)
         self._model.dataset_removed.connect(self.remove_dataset)
@@ -44,7 +73,7 @@ class SummaryViewWidget(QWidget):
 
         # Raster image view widget
 
-        self._rasterview = RasterView(parent=self)
+        self._rasterview = SummaryRasterView(parent=self)
 
         # Widget layout
 
@@ -65,6 +94,10 @@ class SummaryViewWidget(QWidget):
     def resizeEvent(self, event):
         ''' Update the raster-view image when this widget is resized. '''
         self.update_image()
+
+
+    def rasterview(self):
+        return self._rasterview
 
 
     def toggle_fit_to_window(self):
@@ -120,6 +153,12 @@ class SummaryViewWidget(QWidget):
 
         if dataset is None:
             return
+
+        if self._main_visible_area is not None:
+            image = self._rasterview.get_image()
+            painter = QPainter(image)
+            painter.setBrush(QBrush(Qt.yellow))
+            painter.drawRect(self._main_visible_area)
 
         if self._act_fit_to_window.isChecked():
             # The entire image needs to fit in the summary view.

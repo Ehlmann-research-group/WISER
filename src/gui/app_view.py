@@ -26,6 +26,7 @@ class DataVisualizerApp(QMainWindow):
         # Internal state
 
         self._model = AppModel()
+
         self.current_dir = os.getcwd()
 
         # TODO(donnie):  This class shouldn't know about the GDAL data loader
@@ -38,31 +39,35 @@ class DataVisualizerApp(QMainWindow):
         # Summary raster-view
 
         self.summary_view = SummaryViewWidget(self._model)
-        self.summary_view.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        # self.summary_view.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        dockable = QDockWidget(self.tr('Summary'), parent=self)
+        dockable = make_dockable(self.summary_view, self.tr('Summary'), self)
         dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        dockable.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
-        dockable.setWidget(self.summary_view)
-
+        # dockable.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
         self.addDockWidget(Qt.LeftDockWidgetArea, dockable)
+
+        self.summary_view.rasterview().mouse_click.connect(self.summaryview_mouse_click)
 
         # Detail raster-view
 
         self.detail_view = DetailViewWidget(self._model)
-        self.detail_view.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        # self.detail_view.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-        dockable = QDockWidget(self.tr('Detail'), parent=self)
+        dockable = make_dockable(self.detail_view, self.tr('Detail'), self)
         dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        dockable.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
-        dockable.setWidget(self.detail_view)
-
+        # dockable.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
         self.addDockWidget(Qt.RightDockWidgetArea, dockable)
+
+        # self.detail_view.rasterview().viewport_change.connect(self.detailview_viewport_change)
+        # self.detail_view.rasterview().mouse_click.connect(self.detailview_mouse_click)
 
         # Main raster-view
 
         self.main_view = MainViewWidget(self._model)
         self.setCentralWidget(self.main_view)
+
+        self.main_view.rasterview().viewport_change.connect(self.mainview_viewport_change)
+        self.main_view.rasterview().mouse_click.connect(self.mainview_mouse_click)
 
 
     def init_menus(self):
@@ -122,3 +127,24 @@ class DataVisualizerApp(QMainWindow):
 
         raster_data = self.loader.load(file_path)
         self._model.add_dataset(raster_data)
+
+
+    def summaryview_mouse_click(self, ds_point, mouse_event):
+        self.main_view.rasterview().make_point_visible(ds_point.x(), ds_point.y())
+
+
+    def mainview_viewport_change(self, visible_area):
+        # print(f'Viewport changed:  {visible_area}')
+        self.summary_view.rasterview().set_visible_area(visible_area)
+
+    def mainview_mouse_click(self, ds_point, mouse_event):
+        # TODO:  If spectrum view is showing, update its data
+        pass
+
+
+    # def detailview_viewport_change(self, visible_area):
+    #     self.main_view.set_detail_area(visible_area)
+
+    # def detailview_mouse_click(self, ds_point, mouse_event):
+    #     # TODO:  If spectrum view is showing, update its data
+    #     pass
