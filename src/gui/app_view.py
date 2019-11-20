@@ -128,6 +128,9 @@ class DataVisualizerApp(QMainWindow):
         raster_data = self.loader.load(file_path)
         self._model.add_dataset(raster_data)
 
+        # Force an update in the UI
+        self.main_view.rasterview()._emit_viewport_change()
+
 
     def summaryview_mouse_click(self, ds_point, mouse_event):
         self.main_view.rasterview().make_point_visible(ds_point.x(), ds_point.y())
