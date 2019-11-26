@@ -274,9 +274,15 @@ class GDALRasterDataSet(RasterDataSet):
 
         if filter_bad_values:
             ignore_val = self.get_data_ignore_value()
+
             np_array = np_array.copy()
             for i, v in enumerate(self.get_bad_bands()):
-                if v == 0 or (ignore_val is not None and math.isclose(v, ignore_val)) :
+                if v == 0:
+                    # Band is marked "bad"
+                    np_array[i] = np.nan
+
+                elif ignore_val is not None and math.isclose(np_array[i], ignore_val):
+                    # Band has the "data ignore" value
                     np_array[i] = np.nan
 
         return np_array
