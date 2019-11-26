@@ -1,16 +1,54 @@
-import sys
+import argparse, importlib, os, sys
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from gui.app_view import DataVisualizerApp
+from gui.app import DataVisualizerApp
+
+
+CONFIG_FILE = 'iswb.json'
+
+
+def init_config():
+    '''
+    Initializes the configuration for the Imaging Spectroscopy Workbench.  This
+    configuration is loaded from the default file 'iswb.json', if that file is
+    found in the local working directory.
+    '''
+    config = {}
+
+    if os.path.isfile(CONFIG_FILE):
+        with open(CONFIG_FILE) as f:
+            config = json.load(f)
+
+    return config
+
+
+def init_loader(config):
+    '''
+    This function initializes the raster dataset loader to use within the
+    workbench application.
+    '''
+    fq_name = config.get('loader.class', 'raster.gdal_dataset.GDALRasterDataLoader')
+    parts = fq_name.split('.')
+    module_name = '.'.join(parts[:-1])
+    class_name = parts[-1]
+
+    module = importlib.import_module(module_name)
+    class_type = getattr(module, class_name)
+    loader = class_type(config=config)
+
+    return loader
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    ui = DataVisualizerApp()
+    config = init_config()
+    loader = init_loader(config)
+
+    ui = DataVisualizerApp(loader=loader)
     ui.init_menus()
 
     # Set the initial window size to be 70% of the screen size.

@@ -8,6 +8,36 @@ from .rasterview import RasterView
 from .util import add_toolbar_action
 
 
+class MainRasterView(RasterView):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self._visible_area = None
+
+    def set_visible_area(self, visible_area):
+        self._visible_area = visible_area
+        # TODO(donnie):  Try to be more specific about the region that needs
+        #     updating.  Don't forget about the old visible area and the new
+        #     visible area.
+        self._lbl_image.update()
+
+    def _afterRasterPaint(self, widget, paint_event):
+        if self._visible_area is None:
+            return
+
+        # Draw the visible area on the summary view.
+        painter = QPainter(widget)
+        painter.setPen(QPen(Qt.green))
+
+        scaled = QRect(self._visible_area.x() * self._scale_factor,
+                       self._visible_area.y() * self._scale_factor,
+                       self._visible_area.width() * self._scale_factor,
+                       self._visible_area.height() * self._scale_factor)
+
+        painter.drawRect(scaled)
+
+        painter.end()
+
+
 class MainViewWidget(QWidget):
     '''
     This widget provides the main raster-data view in the user interface.
@@ -28,7 +58,7 @@ class MainViewWidget(QWidget):
 
         # Raster image view widget
 
-        self._rasterview = RasterView(parent=self)
+        self._rasterview = MainRasterView(parent=self)
 
         # Toolbar
 
@@ -109,6 +139,10 @@ class MainViewWidget(QWidget):
                 self._dataset_index = None
 
             self.update_image()
+
+
+    def get_current_dataset(self):
+        return self._model.get_dataset(self._dataset_index)
 
 
     def rasterview(self):

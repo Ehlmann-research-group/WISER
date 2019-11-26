@@ -92,20 +92,29 @@ class RasterDataSet:
         '''
         pass
 
-    def get_band_data(self, band_index):
+    def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
         is at index 0.
 
         The numpy array is configured such that the pixel (x, y) values are at
         element array[x][y].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
         '''
         pass
 
-    def get_all_bands_at(self, x, y):
+    def get_all_bands_at(self, x, y, filter_bad_values=True):
         '''
         Returns a numpy 1D array of the values of all bands at the specified
         (x, y) coordinate in the raster data.
+
+        If filter_bad_values is set to True, bands that are marked as "bad" in
+        the metadata will be set to NaN, and bands with the "data ignore value"
+        will also be set to NaN.
         '''
         pass
 

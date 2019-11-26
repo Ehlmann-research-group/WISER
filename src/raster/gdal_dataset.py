@@ -1,9 +1,10 @@
-import os
+import math, os
 from urllib.parse import urlparse
 
 from .dataset import RasterDataSet, RasterDataLoader
 from .units import make_spectral_value, convert_spectral
 
+import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst
 
@@ -170,7 +171,14 @@ class GDALRasterDataSet(RasterDataSet):
         md = self.gdal_dataset.GetMetadata('ENVI')
         if 'bbl' in md:
             # Make sure all values are integers.
-            bad_bands = [int(v) for v in md['bbl']]
+
+            s = md['bbl'].strip()
+            if s[0] != '{' and s[-1] != '}':
+                raise ValueError('Unrecognized format for ENVI bad bands:  "{s}"')
+
+            s = s[1:-1]
+            parts = s.split(',')
+            bad_bands = [int(v.strip()) for v in parts]
         else:
             # We don't have a bad-band list, so just make one up with all 1s.
             bad_bands = [1] * self.num_bands()
@@ -178,13 +186,18 @@ class GDALRasterDataSet(RasterDataSet):
         return bad_bands
 
 
-    def get_band_data(self, band_index):
+    def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
         is at index 0.
 
         The numpy array is configured such that the pixel (x, y) values are at
         element array[x][y].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
         '''
 
         # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
@@ -194,12 +207,21 @@ class GDALRasterDataSet(RasterDataSet):
         band = self.gdal_dataset.GetRasterBand(band_index + 1)
         np_array = band.GetVirtualMemAutoArray()
 
+        if filter_data_ignore_value:
+            ignore_val = self.get_data_ignore_value()
+            if ignore_val is not None:
+                np_array = np.ma.masked_values(np_array, ignore_val)
+
         return np_array
 
-    def get_all_bands_at(self, x, y):
+    def get_all_bands_at(self, x, y, filter_bad_values=True):
         '''
         Returns a numpy 1D array of the values of all bands at the specified
         (x, y) coordinate in the raster data.
+
+        If filter_bad_values is set to True, bands that are marked as "bad" in
+        the metadata will be set to NaN, and bands with the "data ignore value"
+        will also be set to NaN.
         '''
 
         # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
@@ -215,6 +237,13 @@ class GDALRasterDataSet(RasterDataSet):
         # so reshape into a 1D array with shape (bands).
         np_array = np_array.reshape(np_array.shape[0])
 
+        if filter_bad_values:
+            ignore_val = self.get_data_ignore_value()
+            np_array = np_array.copy()
+            for i, v in enumerate(self.get_bad_bands()):
+                if v == 0 or (ignore_val is not None and math.isclose(v, ignore_val)) :
+                    np_array[i] = np.nan
+
         return np_array
 
 
@@ -223,6 +252,11 @@ class GDALRasterDataLoader(RasterDataLoader):
     A loader for loading 2D raster data-sets from the local filesystem, using
     GDAL (Geospatial Data Abstraction Library) for reading the data.
     '''
+
+    def __init__(self, config=None):
+        # No configuration at this point.
+        pass
+
 
     def load(self, path_or_url):
         '''

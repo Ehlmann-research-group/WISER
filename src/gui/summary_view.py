@@ -20,6 +20,9 @@ class SummaryRasterView(RasterView):
         self._lbl_image.update()
 
     def _afterRasterPaint(self, widget, paint_event):
+        if self._visible_area is None:
+            return
+
         # Draw the visible area on the summary view.
         painter = QPainter(widget)
         painter.setPen(QPen(Qt.yellow))

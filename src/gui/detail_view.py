@@ -87,6 +87,10 @@ class DetailViewWidget(QWidget):
             self.update_image()
 
 
+    def get_current_dataset(self):
+        return self._model.get_dataset(self._dataset_index)
+
+
     def change_dataset(self, index):
         self._dataset_index = index
         self.update_image()
