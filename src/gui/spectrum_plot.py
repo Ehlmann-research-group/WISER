@@ -89,6 +89,7 @@ class SpectrumPlot(QWidget):
         self.axes.plot(spectrum, linewidth=0.5, scalex=True, scaley=False)
         self.figure_canvas.draw()
 
+
     def set_spectrum(self, spectrum, band_info=None):
         self.clear()
         self.add_spectrum(spectrum)
