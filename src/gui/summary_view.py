@@ -112,7 +112,7 @@ class SummaryViewWidget(QWidget):
 
     def add_dataset(self, index):
         dataset = self._model.get_dataset(index)
-        file_path = dataset.get_filepath()
+        file_path = dataset.get_filepaths()[0]
 
         self._cbox_dataset.insertItem(index, os.path.basename(file_path))
 

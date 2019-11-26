@@ -1,8 +1,10 @@
-import argparse, importlib, os, sys
+import argparse, importlib, json, os, sys
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+
+import matplotlib
 
 from gui.app import DataVisualizerApp
 
@@ -42,11 +44,16 @@ def init_loader(config):
     return loader
 
 
+def init_matplotlib():
+    matplotlib.rcParams['font.size'] = 9
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     config = init_config()
     loader = init_loader(config)
+    init_matplotlib()
 
     ui = DataVisualizerApp(loader=loader)
     ui.init_menus()

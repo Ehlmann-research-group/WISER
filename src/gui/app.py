@@ -10,6 +10,7 @@ from .summary_view import SummaryViewWidget
 from .main_view import MainViewWidget
 from .detail_view import DetailViewWidget
 from .spectrum_plot import SpectrumPlot
+from .infoview import DatasetInfoView
 
 from .util import *
 
@@ -86,6 +87,18 @@ class DataVisualizerApp(QMainWindow):
         dockable = make_dockable(self.spectrum_plot, self.tr('Spectral Plot'), self)
         dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.addDockWidget(Qt.RightDockWidgetArea, dockable)
+
+        # Dataset Information Window
+
+        # TODO(donnie):  Why do we need a scroll area here?  The QTreeWidget is
+        #     a scroll-area too!!
+        self.info_view = DatasetInfoView(self._model)
+        scroll_area = QScrollArea()
+        scroll_area.setWidget(self.info_view)
+        scroll_area.setWidgetResizable(True)
+        dockable = make_dockable(scroll_area, self.tr('Dataset Information'), self)
+        dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.addDockWidget(Qt.LeftDockWidgetArea, dockable)
 
 
     def init_menus(self):
@@ -189,7 +202,7 @@ class DataVisualizerApp(QMainWindow):
         # Show spectrum at selected pixel
         dataset = self.main_view.get_current_dataset()
         spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y(), filter_bad_values=True)
-        self.spectrum_plot.set_spectrum(spectrum)
+        self.spectrum_plot.set_spectrum(spectrum, dataset)
 
 
     def detailview_viewport_change(self, visible_area):
@@ -199,4 +212,4 @@ class DataVisualizerApp(QMainWindow):
         # Show spectrum at selected pixel
         dataset = self.detail_view.get_current_dataset()
         spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y(), filter_bad_values=True)
-        self.spectrum_plot.set_spectrum(spectrum)
+        self.spectrum_plot.set_spectrum(spectrum, dataset)

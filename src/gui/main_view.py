@@ -68,8 +68,7 @@ class MainViewWidget(QWidget):
         self._cbox_dataset.setEditable(False)
         toolbar.addWidget(self._cbox_dataset)
 
-        # TODO(donnie):
-        # self._cbox_dataset.activated.connect(self.change_dataset)
+        self._cbox_dataset.activated.connect(self.change_dataset)
 
         # Zoom In
         self._act_zoom_in = add_toolbar_action(toolbar,
@@ -118,7 +117,7 @@ class MainViewWidget(QWidget):
 
     def add_dataset(self, index):
         dataset = self._model.get_dataset(index)
-        file_path = dataset.get_filepath()
+        file_path = dataset.get_filepaths()[0]
 
         self._cbox_dataset.insertItem(index, os.path.basename(file_path))
 
@@ -143,6 +142,11 @@ class MainViewWidget(QWidget):
 
     def get_current_dataset(self):
         return self._model.get_dataset(self._dataset_index)
+
+
+    def change_dataset(self, index):
+        self._dataset_index = index
+        self.update_image()
 
 
     def rasterview(self):

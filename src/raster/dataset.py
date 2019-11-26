@@ -25,10 +25,26 @@ class RasterDataSet:
         employ various performance-improvement techniques.
     '''
 
-    def get_filepath(self):
+    def get_description(self):
         '''
-        Returns the path and filename of the file that the raster data was
-        loaded from.  This may be None if the data is in-memory only.
+        Returns a description of the dataset that might be specified in the
+        raster file's metadata.  A missing description is indicated by the empty
+        string "".
+        '''
+        pass
+
+    def get_filetype(self):
+        '''
+        Returns a string describing the type of raster data file that backs this
+        dataset.  The file-type string will be specific to the kind of loader
+        used to load the dataset.
+        '''
+        pass
+
+    def get_filepaths(self):
+        '''
+        Returns the paths and filenames of all files associated with this raster
+        dataset.  This may be None if the data is in-memory only.
         '''
         pass
 
@@ -48,10 +64,13 @@ class RasterDataSet:
         '''
         Returns a description of all bands in the data set.  The description is
         formulated as a list of dictionaries, where each dictionary provides
-        details about the band.  Dictionaries may (but are not required to)
-        contain these keys:
+        details about the band.  The list of dictionaries is in the same order
+        as the bands in the raster dataset, so that the dictionary at index i in
+        the list describes band i.
 
-        *   'index' - the integer index of the band
+        Dictionaries may (but are not required to) contain these keys:
+
+        *   'index' - the integer index of the band (always present)
         *   'description' - the string description of the band
         *   'wavelength' - a value-with-units for the spectral wavelength of
             the band.  astropy.units is used to represent the values-with-units.
@@ -150,7 +169,7 @@ def find_display_bands(dataset):
     # If that didn't work, just choose first, middle and last bands
     if red_band is None or green_band is None or blue_band is None:
         red_band   = 0
-        green_band = max(0, raster_data.num_bands() // 2 - 1)
-        blue_band  = max(0, raster_data.num_bands() - 1)
+        green_band = max(0, dataset.num_bands() // 2 - 1)
+        blue_band  = max(0, dataset.num_bands() - 1)
 
     return (red_band, green_band, blue_band)
