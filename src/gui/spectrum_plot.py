@@ -12,6 +12,18 @@ import numpy as np
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
+matplotlib.rcParams['font.size'] = 6
+
+
+def has_wavelengths(band_list):
+    '''
+    Returns True if all bands specify a wavelength; otherwise, returns False.
+    '''
+    for b in band_list:
+        if 'wavelength' not in b:
+            return False
+
+    return True
 
 
 class SpectrumPlot(QWidget):
@@ -26,8 +38,15 @@ class SpectrumPlot(QWidget):
 
         # plt.ion()   # Turn on interactive plotting
 
-        self.figure, self.axes = plt.subplots()
+        self.figure, self.axes = plt.subplots(tight_layout=True)
+
+        self.axes.tick_params(direction='in', labelsize=4, pad=2, width=0.5,
+            bottom=True, left=True, top=False, right=False)
+
         self.figure_canvas = FigureCanvas(self.figure)
+
+        self.font_props = matplotlib.font_manager.FontProperties(size=4)
+
 
         # self.axes.set_autoscalex_on(True)
         # self.axes.set_autoscaley_on(False)
@@ -38,58 +57,58 @@ class SpectrumPlot(QWidget):
         layout.addWidget(self.figure_canvas)
         self.setLayout(layout)
 
-        self.spectral_series = []
+        self.spectra = []
 
 
     def sizeHint(self):
-        ''' The default size of the spectrum-plot widget is 200x200. '''
-        return QSize(200, 200)
-
-
-    ''' # TODO(donnie):  What do we need to have for these operations?
-    def add_dataset(self, index):
-        dataset = self._model.get_dataset(index)
-        file_path = dataset.get_filepath()
-
-        self._cbox_dataset.insertItem(index, os.path.basename(file_path))
-
-        if self._model.num_datasets() == 1:
-            # We finally have a dataset!
-            self._dataset_index = 0
-            self.update_image()
-
-
-    def remove_dataset(self, index):
-        self._cbox_dataset.removeItem(index)
-
-        num = self._model.num_datasets()
-
-        if num == 0 or self._dataset_index == index:
-            self._dataset_index = min(self._dataset_index, num - 1)
-            if self._dataset_index == -1:
-                self._dataset_index = None
-
-            self.update_image()
-    '''
+        ''' The default size of the spectrum-plot widget is 400x200. '''
+        return QSize(400, 200)
 
 
     def clear(self):
-        self.spectral_series.clear()
+        self.spectra.clear()
+        self._draw_spectra()
+
+
+    def _draw_spectra(self):
         self.axes.clear()
+
+        # Should we use wavelengths for plots, or no?
+        use_wavelengths = True
+        for (spectrum, dataset) in self.spectra:
+            band_list = dataset.band_list()
+            if not has_wavelengths(band_list):
+                use_wavelengths = False
+                break
+
+        if use_wavelengths:
+            self.axes.set_xlabel('Wavelength (nm)', labelpad=0, fontproperties=self.font_props)
+            self.axes.set_ylabel('Value', labelpad=0, fontproperties=self.font_props)
+
+            # Plot each spectrum against its corresponding wavelength values
+            for (spectrum, dataset) in self.spectra:
+                wavelengths = [b['wavelength'].value for b in dataset.band_list()]
+                self.axes.plot(wavelengths, spectrum, linewidth=0.5)
+        else:
+            self.axes.set_xlabel('Band Index', labelpad=0, fontproperties=self.font_props)
+            self.axes.set_ylabel('Value', labelpad=0, fontproperties=self.font_props)
+
+            for (spectrum, dataset) in self.spectra:
+                self.axes.plot(spectrum, linewidth=0.5)
+
         self.figure_canvas.draw()
 
 
-    def add_spectrum(self, spectrum, band_info=None):
-        # TODO(donnie):  Assert that band_info and spectrum have the same sizes
+    def add_spectrum(self, spectrum, dataset=None):
+        # TODO(donnie):  Assert that band_list and spectrum have the same sizes
         # TODO(donnie):  How to handle missing wavelength info?
         # TODO(donnie):  How to handle bad band info?
+        # TODO(donnie):  How to handle multiple spectra with different band details?
 
-        self.spectral_series.append(spectrum)
-
-        self.axes.plot(spectrum, linewidth=0.5, scalex=True, scaley=False)
-        self.figure_canvas.draw()
+        self.spectra.append( (spectrum, dataset) )
+        self._draw_spectra()
 
 
-    def set_spectrum(self, spectrum, band_info=None):
-        self.clear()
-        self.add_spectrum(spectrum)
+    def set_spectrum(self, spectrum, dataset=None):
+        self.spectra.clear()
+        self.add_spectrum(spectrum, dataset)

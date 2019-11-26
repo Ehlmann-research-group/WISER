@@ -89,10 +89,43 @@ class GDALRasterDataSet(RasterDataSet):
 
             self.band_info.append(info)
 
-    def get_filepath(self):
-        # TODO(donnie):  Probably want to think about exactly how we implement
-        #     this...
-        return self.gdal_dataset.GetFileList()[0]
+    def get_description(self):
+        '''
+        Returns a description of the dataset that might be specified in the
+        raster file's metadata.  A missing description is indicated by the empty
+        string "".
+        '''
+
+        desc = ''
+
+        # TODO(donnie):  Also need to support other file formats and how they
+        #     specify this metadata.
+        md = self.gdal_dataset.GetMetadata('ENVI')
+        if 'description' in md:
+            desc = md['description'].strip()
+            if desc[0] == '{' and desc[-1] == '}':
+                desc = desc[1:-1].strip()
+
+        return desc
+
+    def get_filetype(self):
+        '''
+        Returns a string describing the type of raster data file that backs this
+        dataset.  The file-type string will be specific to the kind of loader
+        used to load the dataset.
+        '''
+        return self.gdal_dataset.GetDriver().ShortName
+
+    def get_filepaths(self):
+        '''
+        Returns the paths and filenames of all files associated with this raster
+        dataset.  This may be None if the data is in-memory only.
+        '''
+
+        # TODO(donnie):  Sort the list?  Or does the driver return the filenames
+        #     in a meaningful order?
+        # TODO(donnie):  What about in-memory data sets?
+        return self.gdal_dataset.GetFileList()
 
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
@@ -168,6 +201,8 @@ class GDALRasterDataSet(RasterDataSet):
         A value of 0 means the band is "bad," and a value of 1 means the band is
         "good."
         '''
+        # TODO(donnie):  Also need to support other file formats and how they
+        #     specify this metadata.
         md = self.gdal_dataset.GetMetadata('ENVI')
         if 'bbl' in md:
             # Make sure all values are integers.
@@ -178,7 +213,7 @@ class GDALRasterDataSet(RasterDataSet):
 
             s = s[1:-1]
             parts = s.split(',')
-            bad_bands = [int(v.strip()) for v in parts]
+            bad_bands = [int(float(v.strip())) for v in parts]
         else:
             # We don't have a bad-band list, so just make one up with all 1s.
             bad_bands = [1] * self.num_bands()

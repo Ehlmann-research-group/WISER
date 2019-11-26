@@ -1,0 +1,5 @@
+{
+  "loader" : {
+    "class" : "raster.gdal_dataset.GDALRasterDataLoader"
+  }
+}

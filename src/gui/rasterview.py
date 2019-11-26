@@ -188,7 +188,6 @@ class RasterView(QWidget):
         self._clear_members()
 
         self._raster_data = raster_data
-        self._scale_factor = 1.0
 
         if raster_data is not None:
             rgb_bands = find_display_bands(raster_data)
@@ -306,14 +305,20 @@ class RasterView(QWidget):
         # Figure out the appropriate scale factor for if no scrollbars were
         # needed, then apply that scale.
         area_size = self._scroll_area.maximumViewportSize()
+        # print(f'area_size = {area_size}')
 
-        # TODO(donnie):  All options other than "fit both dimensions" are buggy!
-        #     When fitting in one dimension, need to determine whether the
-        #     other dimension's scrollbar is actually needed or not.  Then, zoom
-        #     appropriately.
-
-        sb_height = self._scroll_area.horizontalScrollBar().size().height()
+        # TODO(donnie):  The first time fitting one dimension seems to be buggy,
+        #     since scrollbar sizes haven't been finalized.  Workaround is to
+        #     do this multiple times, but what a drag.
         sb_width = self._scroll_area.verticalScrollBar().size().width()
+        sb_height = self._scroll_area.horizontalScrollBar().size().height()
+        # print(f'sb_width = {sb_width}')
+        # print(f'sb_height = {sb_height}')
+
+        # TODO(donnie):  Still some buggy behavior when the widget size allows
+        #     the entire image to fit, but specific scale options are chosen.
+        #     We may want to have another "max_size=True" kind of keyword arg
+        #     for this function.
 
         if mode == ScaleToFitMode.FIT_HORIZONTAL:
             # Calculate new scale factor for fitting the image horizontally,
