@@ -249,14 +249,19 @@ class RasterView(QWidget):
 
         # print("Converting raw data to RGB color data")
 
+        img_data = (self._red_data << 16 | self._green_data << 8 | self._blue_data) | 0xff000000
+        if isinstance(img_data, np.ma.MaskedArray):
+            img_data.fill_value = 0xff000000
+
         # TODO(donnie):  I don't know why the tostring() is required here, but
         #     it seems to be required for making the QImage when we use GDAL.
-        img_data = (self._red_data << 16 | self._green_data << 8 | self._blue_data) | 0xff000000
         img_data = img_data.tostring()
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
         self._img_data = img_data
+        # print('stored:')
+        # print(self._img_data)
 
         # This is the 100% scale QImage of the data.
         self._image = QImage(img_data,
