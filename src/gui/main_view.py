@@ -4,6 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .dataset_chooser import DatasetChooser
 from .rasterview import RasterView
 from .util import add_toolbar_action
 
@@ -47,14 +48,14 @@ class MainViewWidget(QWidget):
     display_area_changed = Signal( (int, int, int, int) )
 
 
-    def __init__(self, model, parent=None):
+    def __init__(self, app_state, parent=None):
         super().__init__(parent=parent)
 
-        self._model = model
+        self._app_state = app_state
         self._dataset_index = None
 
-        self._model.dataset_added.connect(self.add_dataset)
-        self._model.dataset_removed.connect(self.remove_dataset)
+        self._app_state.dataset_added.connect(self._on_dataset_added)
+        self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
         # Raster image view widget
 
@@ -64,11 +65,9 @@ class MainViewWidget(QWidget):
 
         toolbar = QToolBar(self.tr('Toolbar'), parent=self)
 
-        self._cbox_dataset = QComboBox(parent=self)
-        self._cbox_dataset.setEditable(False)
-        toolbar.addWidget(self._cbox_dataset)
-
-        self._cbox_dataset.activated.connect(self.change_dataset)
+        self._dataset_chooser = DatasetChooser(self._app_state)
+        toolbar.addWidget(self._dataset_chooser)
+        self._dataset_chooser.triggered.connect(self._on_dataset_changed)
 
         # Zoom In
         self._act_zoom_in = add_toolbar_action(toolbar,
@@ -115,57 +114,50 @@ class MainViewWidget(QWidget):
         self.setLayout(layout)
 
 
-    def add_dataset(self, index):
-        dataset = self._model.get_dataset(index)
-        file_path = dataset.get_filepaths()[0]
-
-        self._cbox_dataset.insertItem(index, os.path.basename(file_path))
-
-        if self._model.num_datasets() == 1:
+    def _on_dataset_added(self, index):
+        if self._app_state.num_datasets() == 1:
             # We finally have a dataset!
             self._dataset_index = 0
-            self.update_image()
+            self._update_image()
 
 
-    def remove_dataset(self, index):
-        self._cbox_dataset.removeItem(index)
-
-        num = self._model.num_datasets()
-
+    def _on_dataset_removed(self, index):
+        num = self._app_state.num_datasets()
         if num == 0 or self._dataset_index == index:
             self._dataset_index = min(self._dataset_index, num - 1)
             if self._dataset_index == -1:
                 self._dataset_index = None
 
-            self.update_image()
+            self._update_image()
+
+
+    def _on_dataset_changed(self, act):
+        self._dataset_index = act.data()
+        self._update_image()
 
 
     def get_current_dataset(self):
-        return self._model.get_dataset(self._dataset_index)
-
-
-    def change_dataset(self, index):
-        self._dataset_index = index
-        self.update_image()
+        return self._app_state.get_dataset(self._dataset_index)
 
 
     def rasterview(self):
         return self._rasterview
 
 
-    def update_image(self):
+    def _update_image(self):
         '''
         Scale the raster-view image based on the image size, and the state of
         the "fit to window" button.
         '''
 
         dataset = None
-        if self._model.num_datasets() > 0:
-            dataset = self._model.get_dataset(self._dataset_index)
+        if self._app_state.num_datasets() > 0:
+            dataset = self._app_state.get_dataset(self._dataset_index)
 
         # TODO(donnie):  Only do this when the raster dataset actually changes,
         #     or the displayed bands change, etc.
         self._rasterview.set_raster_data(dataset)
+
 
     @Slot()
     def zoom_in(self, evt):
