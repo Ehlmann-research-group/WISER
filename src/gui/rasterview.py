@@ -387,6 +387,16 @@ class RasterView(QWidget):
         self.viewport_change.emit(self.get_visible_region())
 
 
+    def update(self):
+        '''
+        Override the QWidget update() function to make sure that the internal
+        widgets are updated.  This is necessary since the raster-view is
+        comprised of multiple widgets.
+        '''
+        super().update()
+        self._lbl_image.update()
+
+
     def resizeEvent(self, event):
         '''
         Override the QtWidget resizeEvent() virtual method to fire an event that
