@@ -4,8 +4,6 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .model import AppModel
-
 from .summary_view import SummaryViewWidget
 from .main_view import MainViewWidget
 from .detail_view import DetailViewWidget
@@ -14,9 +12,81 @@ from .infoview import DatasetInfoView
 
 from .util import *
 
-# TODO(donnie):  This class shouldn't know about the GDAL data loader
 from raster.dataset import *
-from raster.gdal_dataset import GDALRasterDataLoader
+
+
+class ApplicationState(QObject):
+    '''
+    This class holds all application state for the visualizer.  This includes
+    both model state and view state.  This is primarily so the controller can
+    access everything in one place, but it also allows the programmatic
+    interface to operate on both the models and the views.
+    '''
+
+    # Signal:  a data-set was added at the specified index
+    dataset_added = Signal(int)
+
+    # Signal:  the data-set at the specified index was removed
+    dataset_removed = Signal(int)
+
+    # Signal:  the currently selected pixel changed
+    current_pixel_changed = Signal(QPoint)
+
+
+    def __init__(self):
+        super().__init__()
+        self._datasets = []
+
+        self._current_pixel_coord = None
+
+
+    def add_dataset(self, dataset):
+        '''
+        Add a dataset to the application state.  The method will fire a signal
+        indicating that the dataset was added.
+        '''
+        if not isinstance(dataset, RasterDataSet):
+            raise TypeError('dataset must be a RasterDataSet')
+
+        index = len(self._datasets)
+        self._datasets.append(dataset)
+
+        self.dataset_added.emit(index)
+
+    def get_dataset(self, index):
+        '''
+        Return the dataset at the specified index.  Standard list-access options
+        are supported, such as -1 to return the last dataset.
+        '''
+        return self._datasets[index]
+
+    def num_datasets(self):
+        ''' Return the number of datasets in the application state. '''
+        return len(self._datasets)
+
+    def get_datasets(self):
+        ''' Return a copy of the list of datasets in the application state. '''
+        return list(self._datasets)
+
+    def remove_dataset(self, index):
+        '''
+        Remove the specified dataset from the application state.  The method
+        will fire a signal indicating that the dataset was removed.
+        '''
+        del self._datasets[index]
+        self.dataset_removed.emit(index)
+
+    def set_current_pixel(self, coord):
+        if not isinstance(dataset, QPoint):
+            raise TypeError('coord must be a QPoint')
+
+        self._current_pixel_coord = coord
+
+        self.current_pixel_changed.emit(coord)
+
+    def get_current_pixel(self):
+        return self._current_pixel_coord
+
 
 
 class DataVisualizerApp(QMainWindow):
@@ -36,7 +106,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Internal state
 
-        self._model = AppModel()
+        self._model = ApplicationState()
 
         self.current_dir = os.getcwd()
 
@@ -197,7 +267,12 @@ class DataVisualizerApp(QMainWindow):
         self.detail_view.rasterview().make_point_visible(center.x(), center.y())
 
     def mainview_mouse_click(self, ds_point, mouse_event):
+        if self._model.num_datasets() == 0:
+            return
+
+        # Update the detail view
         self.detail_view.rasterview().make_point_visible(ds_point.x(), ds_point.y())
+        self.detail_view.rasterview().set_current_pixel(ds_point)
 
         # Show spectrum at selected pixel
         dataset = self.main_view.get_current_dataset()
@@ -209,6 +284,12 @@ class DataVisualizerApp(QMainWindow):
         self.main_view.rasterview().set_visible_area(visible_area)
 
     def detailview_mouse_click(self, ds_point, mouse_event):
+        if self._model.num_datasets() == 0:
+            return
+
+        # Draw selected pixel in detail view
+        self.detail_view.rasterview().set_current_pixel(ds_point)
+
         # Show spectrum at selected pixel
         dataset = self.detail_view.get_current_dataset()
         spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y(), filter_bad_values=True)
