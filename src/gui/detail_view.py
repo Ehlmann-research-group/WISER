@@ -7,6 +7,38 @@ from PySide2.QtWidgets import *
 from .rasterview import RasterView
 
 
+class DetailRasterView(RasterView):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self._current_pixel = None
+
+    def set_current_pixel(self, current_pixel):
+        self._current_pixel = current_pixel
+        # TODO(donnie):  Try to be more specific about the region that needs
+        #     updating.  Don't forget about the old visible area and the new
+        #     visible area.
+        self._lbl_image.update()
+
+    def _afterRasterPaint(self, widget, paint_event):
+        if self._current_pixel is None:
+            return
+
+        # Draw the visible area on the summary view.
+        painter = QPainter(widget)
+        painter.setPen(QPen(Qt.red))
+
+        x = self._current_pixel.x()
+        y = self._current_pixel.y()
+
+        # Draw a box around the currently selected pixel
+        scaled = QRect(x * self._scale_factor, y * self._scale_factor,
+                       self._scale_factor, self._scale_factor)
+
+        painter.drawRect(scaled)
+
+        painter.end()
+
+
 class DetailViewWidget(QWidget):
     '''
     This widget provides the detail view in the user interface.  The detail
@@ -35,7 +67,7 @@ class DetailViewWidget(QWidget):
 
         # Raster image view widget
 
-        self._rasterview = RasterView(parent=self)
+        self._rasterview = DetailRasterView(parent=self)
 
         # Widget layout
 
