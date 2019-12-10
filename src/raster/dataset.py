@@ -154,12 +154,7 @@ class RasterDataLoader:
         pass
 
 
-def find_display_bands(dataset):
-    # See if the raster data-set specifies display bands, and if so, use them.
-    bands = dataset.default_display_bands()
-    if bands is not None:
-        return bands
-
+def find_truecolor_bands(dataset):
     # Try to find bands based on what is close to visible spectral bands
     bands = dataset.band_list()
     red_band   = find_band_near_wavelength(bands, RED_WAVELENGTH)
@@ -168,8 +163,25 @@ def find_display_bands(dataset):
 
     # If that didn't work, just choose first, middle and last bands
     if red_band is None or green_band is None or blue_band is None:
-        red_band   = 0
-        green_band = max(0, dataset.num_bands() // 2 - 1)
-        blue_band  = max(0, dataset.num_bands() - 1)
+        return None
+
+    return (red_band, green_band, blue_band)
+
+
+def find_display_bands(dataset):
+    # See if the raster data-set specifies display bands, and if so, use them
+    display_bands = dataset.default_display_bands()
+    if display_bands is not None:
+        return display_bands
+
+    # Try to find bands based on what is close to visible spectral bands
+    display_bands = find_truecolor_bands(dataset)
+    if display_bands is not None:
+        return display_bands
+
+    # If that didn't work, just choose first, middle and last bands
+    red_band   = 0
+    green_band = max(0, dataset.num_bands() // 2 - 1)
+    blue_band  = max(0, dataset.num_bands() - 1)
 
     return (red_band, green_band, blue_band)

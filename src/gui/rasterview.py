@@ -158,9 +158,7 @@ class RasterView(QWidget):
 
         # TODO(donnie):  This will likely need to migrate into the GUI's info
         #     for each raster data-set.
-        self._red_band = 0
-        self._green_band = 0
-        self._blue_band = 0
+        self._display_bands = None
 
         # These members are for storing the components of the raster data, so
         # that assembling the image is faster when only one color's band
@@ -190,18 +188,51 @@ class RasterView(QWidget):
         self._raster_data = raster_data
 
         if raster_data is not None:
-            rgb_bands = find_display_bands(raster_data)
-            if len(rgb_bands) == 1:
-                rgb_bands = rgb_bands * 3
-            elif len(rgb_bands) != 3:
-                raise ValueError(f'Raster data has an unexpected number of '
-                                  'display bands:  {rgb_bands}')
-
-            self._red_band   = rgb_bands[0]
-            self._green_band = rgb_bands[1]
-            self._blue_band  = rgb_bands[2]
+            self._display_bands = find_display_bands(raster_data)
+            assert len(self._display_bands) in [1, 3], \
+                f'Raster data has an unexpected number of display bands:  {rgb_bands}'
 
         self.update_display_image()
+
+
+    def get_display_bands(self):
+        '''
+        Returns a copy of the display-band list, which will have one element for
+        grayscale, or three elements for RGB.
+        '''
+        return list(self._display_bands)
+
+
+    def set_display_bands(self, display_bands):
+        if len(display_bands) not in [1, 3]:
+            raise ValueError('display_bands must be a list of 1 or 3 ints')
+
+        # Figure out what colors changed, so that we only have to update the
+        # parts of the image that are required.
+        changed = ImageColors.NONE
+
+        if len(self._display_bands) != len(display_bands):
+            # Assume all 3 colors changed
+            changed = ImageColors.RGB
+
+        elif len(self._display_bands) == 1:
+            if self._display_bands[0] != display_bands[0]:
+                changed = ImageColors.RGB
+
+        else:
+            assert len(self._display_bands) == 3
+
+            if self._display_bands[0] != display_bands[0]:
+                changed |= ImageColors.RED
+
+            if self._display_bands[1] != display_bands[1]:
+                changed |= ImageColors.GREEN
+
+            if self._display_bands[2] != display_bands[2]:
+                changed |= ImageColors.BLUE
+
+        self._display_bands = display_bands
+        self.update_display_image(colors=changed)
 
 
     def _extract_band_for_display(self, band_index):
@@ -235,17 +266,31 @@ class RasterView(QWidget):
         # Only generate (or regenerate) each color plane if we don't already
         # have data for it, and if we aren't told to explicitly regenerate it.
 
-        if self._red_data is None or ImageColors.RED in colors:
-            # print('Regenerating red data')
-            self._red_data = self._extract_band_for_display(self._red_band)
+        if len(self._display_bands) == 3:
+            if self._red_data is None or ImageColors.RED in colors:
+                self._red_data = self._extract_band_for_display(self._display_bands[0])
 
-        if self._green_data is None or ImageColors.GREEN in colors:
-            # print('Regenerating green data')
-            self._green_data = self._extract_band_for_display(self._green_band)
+            if self._green_data is None or ImageColors.GREEN in colors:
+                self._green_data = self._extract_band_for_display(self._display_bands[1])
 
-        if self._blue_data is None or ImageColors.BLUE in colors:
-            # print('Regenerating blue data')
-            self._blue_data = self._extract_band_for_display(self._blue_band)
+            if self._blue_data is None or ImageColors.BLUE in colors:
+                self._blue_data = self._extract_band_for_display(self._display_bands[2])
+
+        else:
+            assert len(self._display_bands) == 1
+
+            # Grayscale:  We can extract the band data once, and use it for all
+            # three colors.
+            data = self._extract_band_for_display(self._display_bands[0])
+
+            if self._red_data is None or ImageColors.RED in colors:
+                self._red_data = data
+
+            if self._green_data is None or ImageColors.GREEN in colors:
+                self._green_data = data
+
+            if self._blue_data is None or ImageColors.BLUE in colors:
+                self._blue_data = data
 
         # print("Converting raw data to RGB color data")
 
@@ -255,6 +300,7 @@ class RasterView(QWidget):
 
         # TODO(donnie):  I don't know why the tostring() is required here, but
         #     it seems to be required for making the QImage when we use GDAL.
+        #     Note - may be because of the numpy MaskedArray...
         img_data = img_data.tostring()
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
@@ -268,9 +314,20 @@ class RasterView(QWidget):
             self._raster_data.get_width(), self._raster_data.get_height(),
             QImage.Format_RGB32)
 
-        self._lbl_image.setPixmap(QPixmap.fromImage(self._image))
+        self.update_scaled_image()
+
+
+    def update_scaled_image(self):
+        pixmap = QPixmap.fromImage(self._image)
+        pixmap = pixmap.scaled(
+            self._raster_data.get_width() * self._scale_factor,
+            self._raster_data.get_height() * self._scale_factor,
+            Qt.IgnoreAspectRatio, Qt.FastTransformation)
+
+        self._lbl_image.setPixmap(pixmap)
         self._lbl_image.adjustSize()
         self._scroll_area.setVisible(True)
+
 
     def get_scale(self):
         ''' Returns the current scale factor for the raster image. '''
@@ -293,7 +350,7 @@ class RasterView(QWidget):
         # Only scale the image if the scale-factor is changing.
         if factor != self._scale_factor:
             self._scale_factor = factor
-            self._lbl_image.resize(self._image.size() * self._scale_factor)
+            self.update_scaled_image()
             self._emit_viewport_change()
 
     def scale_image_to_fit(self, mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS):

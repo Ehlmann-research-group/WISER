@@ -10,21 +10,21 @@ class OverviewRasterView(RasterView):
     def __init__(self, app_state, parent=None):
         super().__init__(parent=parent)
         self._app_state = app_state
-        self._visible_area = None
+
 
     def _afterRasterPaint(self, widget, paint_event):
-        img_visible_area = self._app_state.get_image_visible_area()
-        if img_visible_area is None:
+        visible_area = self._app_state.get_view_attribute('image.visible_area')
+        if visible_area is None:
             return
 
         # Draw the visible area on the summary view.
         painter = QPainter(widget)
         painter.setPen(QPen(Qt.yellow))
 
-        scaled = QRect(img_visible_area.x() * self._scale_factor,
-                       img_visible_area.y() * self._scale_factor,
-                       img_visible_area.width() * self._scale_factor,
-                       img_visible_area.height() * self._scale_factor)
+        scaled = QRect(visible_area.x() * self._scale_factor,
+                       visible_area.y() * self._scale_factor,
+                       visible_area.width() * self._scale_factor,
+                       visible_area.height() * self._scale_factor)
 
         if scaled.width() >= widget.width():
             scaled.setWidth(widget.width() - 1)
@@ -56,9 +56,6 @@ class OverviewPane(QDockWidget):
 
         self._init_ui()
 
-        # To make the widget fixed-size:
-        # self.summary_view.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-
         # Initialize docking details
 
         # TODO(donnie):  Overview pane always stays on top!  See if we can
@@ -71,7 +68,7 @@ class OverviewPane(QDockWidget):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
-        self._app_state.image_visible_area_changed.connect(self._on_image_visible_area_changed)
+        self._app_state.view_attr_changed.connect(self._on_view_attr_changed)
 
         # Register for events from the UI
 
@@ -79,9 +76,7 @@ class OverviewPane(QDockWidget):
 
 
     def _init_ui(self):
-        '''
-        Initialize the contents of this widget
-        '''
+        ''' Initialize the contents of this widget '''
 
         toolbar = QToolBar(self.tr('Toolbar'), parent=self)
         toolbar.setIconSize(QSize(20, 20))
@@ -117,6 +112,11 @@ class OverviewPane(QDockWidget):
 
 
     def toggleViewAction(self):
+        '''
+        Returns a QAction object that can be used to toggle the visibility of
+        this dockable pane.  This class overrides the QDockWidget implementation
+        to specify a nice icon and tooltip on the action.
+        '''
         act = super().toggleViewAction()
         act.setIcon(QIcon('resources/overview-pane.svg'))
         act.setToolTip(self.tr('Show/hide overview pane'))
@@ -134,6 +134,8 @@ class OverviewPane(QDockWidget):
 
 
     def _on_visibility_changed(self, visible):
+        self._app_state.set_view_attribute('overview.visible', visible)
+
         # Work around a known Qt bug:  if a dockable window is floating, and is
         # closed while floating, it can't be redocked unless we toggle its
         # floating state.
@@ -171,8 +173,9 @@ class OverviewPane(QDockWidget):
         self._update_image()
 
 
-    def _on_image_visible_area_changed(self, visible_area):
-        self._rasterview.update()
+    def _on_view_attr_changed(self, attr_name):
+        if attr_name == 'image.visible_area':
+            self._rasterview.update()
 
 
     def _update_image(self):

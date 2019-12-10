@@ -10,29 +10,28 @@ from .util import add_toolbar_action
 
 
 class MainRasterView(RasterView):
-    def __init__(self, parent=None):
+    def __init__(self, app_state, parent=None):
         super().__init__(parent=parent)
-        self._visible_area = None
+        self._app_state = app_state
 
-    def set_visible_area(self, visible_area):
-        self._visible_area = visible_area
-        # TODO(donnie):  Try to be more specific about the region that needs
-        #     updating.  Don't forget about the old visible area and the new
-        #     visible area.
-        self._lbl_image.update()
 
     def _afterRasterPaint(self, widget, paint_event):
-        if self._visible_area is None:
+        zoom_visible = self._app_state.get_view_attribute('zoom.visible')
+        if not zoom_visible:
+            return
+
+        visible_area = self._app_state.get_view_attribute('zoom.visible_area')
+        if visible_area is None:
             return
 
         # Draw the visible area on the summary view.
         painter = QPainter(widget)
         painter.setPen(QPen(Qt.green))
 
-        scaled = QRect(self._visible_area.x() * self._scale_factor,
-                       self._visible_area.y() * self._scale_factor,
-                       self._visible_area.width() * self._scale_factor,
-                       self._visible_area.height() * self._scale_factor)
+        scaled = QRect(visible_area.x() * self._scale_factor,
+                       visible_area.y() * self._scale_factor,
+                       visible_area.width() * self._scale_factor,
+                       visible_area.height() * self._scale_factor)
 
         painter.drawRect(scaled)
 
@@ -56,10 +55,13 @@ class MainViewWidget(QWidget):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+        self._app_state.view_attr_changed.connect(self._on_view_attr_changed)
 
         # Raster image view widget
 
-        self._rasterview = MainRasterView(parent=self)
+        self._rasterview = MainRasterView(self._app_state, parent=self)
+        self._rasterview.viewport_change.connect(self._on_raster_viewport_changed)
+        self._rasterview.mouse_click.connect(self._on_raster_mouse_clicked)
 
         # Toolbar
 
@@ -136,12 +138,18 @@ class MainViewWidget(QWidget):
         self._update_image()
 
 
-    def get_current_dataset(self):
-        return self._app_state.get_dataset(self._dataset_index)
+    def _on_raster_viewport_changed(self, visible_area):
+        self._app_state.set_view_attribute('image.visible_area', visible_area)
 
 
-    def rasterview(self):
-        return self._rasterview
+    def _on_raster_mouse_clicked(self, point, event):
+        self._app_state.set_view_attribute('image.current_pixel', point)
+
+
+    def _on_view_attr_changed(self, attr_name):
+        # print('Main:  view attr changed:  ' + attr_name)
+        if attr_name in ['zoom.visible_area', 'zoom.visible']:
+            self._rasterview.update()
 
 
     def _update_image(self):

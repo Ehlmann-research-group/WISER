@@ -5,8 +5,10 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from .overview_pane import OverviewPane
+from .zoom_pane import ZoomPane
+
 from .main_view import MainViewWidget
-from .detail_view import DetailViewWidget
+
 from .spectrum_plot import SpectrumPlot
 from .infoview import DatasetInfoView
 
@@ -29,24 +31,15 @@ class ApplicationState(QObject):
     # Signal:  the data-set at the specified index was removed
     dataset_removed = Signal(int)
 
-    # Signal:  the currently selected pixel changed
-    current_pixel_changed = Signal(QPoint)
+    # Signal:  the specified view attribute's value changed
+    view_attr_changed = Signal(str)
 
-    # Signal:  the main image window's visible area changed
-    image_visible_area_changed = Signal(QRect)
 
     def __init__(self):
         super().__init__()
         self._datasets = []
 
-        self._image_visible_area = None
-
-        self._current_pixel_coord = None
-
-
-    def get_model(self):
-        # TODO(donnie):  FIX THIS HIDEOUSNESS
-        return self
+        self._view_attributes = {}
 
 
     def add_dataset(self, dataset):
@@ -86,25 +79,12 @@ class ApplicationState(QObject):
         self.dataset_removed.emit(index)
 
 
-    def set_image_visible_area(self, visible_area):
-        self._image_visible_area = visible_area
-        self.image_visible_area_changed.emit(visible_area)
+    def set_view_attribute(self, attr_name, value):
+        self._view_attributes[attr_name] = value
+        self.view_attr_changed.emit(attr_name)
 
-    def get_image_visible_area(self):
-        return self._image_visible_area
-
-
-    def set_current_pixel(self, coord):
-        if not isinstance(dataset, QPoint):
-            raise TypeError('coord must be a QPoint')
-
-        self._current_pixel_coord = coord
-
-        self.current_pixel_changed.emit(coord)
-
-    def get_current_pixel(self):
-        return self._current_pixel_coord
-
+    def get_view_attribute(self, attr_name, default=None):
+        return self._view_attributes.get(attr_name, default)
 
 
 class DataVisualizerApp(QMainWindow):
@@ -125,7 +105,6 @@ class DataVisualizerApp(QMainWindow):
         # Internal state
 
         self._app_state = ApplicationState()
-        self._model = self._app_state
 
         self.current_dir = os.getcwd()
 
@@ -145,40 +124,35 @@ class DataVisualizerApp(QMainWindow):
         self.main_toolbar.addAction(act)
         self.view_menu.addAction(act)
 
-        # Detail raster-view
+        # Zoom pane
 
-        self.detail_view = DetailViewWidget(self._model)
-        # self.detail_view.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-
-        dockable = make_dockable(self.detail_view, self.tr('Detail'), self)
-        dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        # dockable.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
-        dockable.setWindowFlag(Qt.WindowStaysOnTopHint, False)
-        self.addDockWidget(Qt.RightDockWidgetArea, dockable)
-
-        self.detail_view.rasterview().viewport_change.connect(self.detailview_viewport_change)
-        self.detail_view.rasterview().mouse_click.connect(self.detailview_mouse_click)
+        self.zoom_pane = ZoomPane(self._app_state, parent=self)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.zoom_pane)
+        act = self.zoom_pane.toggleViewAction()
+        self.main_toolbar.addAction(act)
+        self.view_menu.addAction(act)
 
         # Main raster-view
 
-        self.main_view = MainViewWidget(self._model)
+        self.main_view = MainViewWidget(self._app_state)
         self.setCentralWidget(self.main_view)
 
-        self.main_view.rasterview().viewport_change.connect(self.mainview_viewport_change)
-        self.main_view.rasterview().mouse_click.connect(self.mainview_mouse_click)
+        # self.main_view.rasterview().viewport_change.connect(self.mainview_viewport_change)
+        # self.main_view.rasterview().mouse_click.connect(self.mainview_mouse_click)
 
         # Spectrum plot
 
-        self.spectrum_plot = SpectrumPlot()
-        dockable = make_dockable(self.spectrum_plot, self.tr('Spectral Plot'), self)
-        dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.addDockWidget(Qt.RightDockWidgetArea, dockable)
+        self.spectrum_plot = SpectrumPlot(self._app_state)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.spectrum_plot)
+        act = self.spectrum_plot.toggleViewAction()
+        self.main_toolbar.addAction(act)
+        self.view_menu.addAction(act)
 
         # Dataset Information Window
 
         # TODO(donnie):  Why do we need a scroll area here?  The QTreeWidget is
         #     a scroll-area too!!
-        self.info_view = DatasetInfoView(self._model)
+        self.info_view = DatasetInfoView(self._app_state)
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.info_view)
         scroll_area.setWidgetResizable(True)
@@ -207,26 +181,6 @@ class DataVisualizerApp(QMainWindow):
 
         # self.window_menu = self.menuBar().addMenu(self.tr('&Window'))
         # self.help_menu = self.menuBar().addMenu(self.tr('&Help'))
-
-    def init_toolbar(self):
-        # Main application toolbar
-        toolbar = QToolBar(self.tr('ISWB'), parent=self)
-
-        self._cbox_dataset = QComboBox(parent=self)
-        self._cbox_dataset.setEditable(False)
-        self._cbox_dataset.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-        toolbar.addWidget(self._cbox_dataset)
-
-        self._cbox_dataset.activated.connect(self.change_dataset)
-
-        self._act_fit_to_window = toolbar.addAction(
-            QIcon('resources/zoom-to-fit.svg'),
-            self.tr('Fit image to window'))
-        self._act_fit_to_window.setCheckable(True)
-        self._act_fit_to_window.setChecked(True)
-
-        self._act_fit_to_window.triggered.connect(self.toggle_fit_to_window)
-
 
 
     def show_open_file_dialog(self, evt):
@@ -272,11 +226,7 @@ class DataVisualizerApp(QMainWindow):
         # Try to open the specified data-set
 
         raster_data = self.loader.load(file_path)
-        self._model.add_dataset(raster_data)
-
-        # Force an update in the UI
-        # TODO(donnie):  This needs to migrate to the main-view class!
-        self.main_view.rasterview()._emit_viewport_change()
+        self._app_state.add_dataset(raster_data)
 
 
     def summaryview_mouse_click(self, ds_point, mouse_event):
@@ -285,10 +235,6 @@ class DataVisualizerApp(QMainWindow):
 
     def mainview_viewport_change(self, visible_area):
         self._app_state.set_image_visible_area(visible_area)
-
-        # TODO:  Need to figure out the appropriate zoom-pane behavior here.
-        # center = visible_area.center()
-        # self.detail_view.rasterview().make_point_visible(center.x(), center.y())
 
 
     def mainview_mouse_click(self, ds_point, mouse_event):
@@ -304,9 +250,6 @@ class DataVisualizerApp(QMainWindow):
         spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y(), filter_bad_values=True)
         self.spectrum_plot.set_spectrum(spectrum, dataset)
 
-
-    def detailview_viewport_change(self, visible_area):
-        self.main_view.rasterview().set_visible_area(visible_area)
 
     def detailview_mouse_click(self, ds_point, mouse_event):
         if self._model.num_datasets() == 0:
