@@ -17,6 +17,9 @@ class BandChooser(QWidget):
         self._rb_rgb_display = QRadioButton(self.tr('Red/Green/Blue Display'), self)
         self._rb_grayscale_display = QRadioButton(self.tr('Grayscale Display'), self)
 
+        self._rb_rgb_display.clicked.connect(self._on_radio_btn_clicked)
+        self._rb_grayscale_display.clicked.connect(self._on_radio_btn_clicked)
+
         self._lbl_band_red = QLabel(self.tr('Red'))
         self._lbl_band_grn = QLabel(self.tr('Green'))
         self._lbl_band_blu = QLabel(self.tr('Blue'))
@@ -77,8 +80,7 @@ class BandChooser(QWidget):
     def set_dataset(self, dataset):
         self._dataset = dataset
         self._populate_comboboxes()
-
-        # TODO:  ENABLE/DISABLE WIDGETS IF DATASET NOT PRESENT
+        self._update_enabled_state()
 
 
     def set_display_bands(self, display_bands):
@@ -101,6 +103,12 @@ class BandChooser(QWidget):
             assert len(self._display_bands) == 1
             self._rb_grayscale_display.setChecked(True)
             self._cbox_band_grayscale.setCurrentIndex(self._display_bands[0])
+
+        self._update_enabled_state()
+
+
+    def _on_radio_btn_clicked(self):
+        self._update_enabled_state()
 
 
     def _update_enabled_state(self):
