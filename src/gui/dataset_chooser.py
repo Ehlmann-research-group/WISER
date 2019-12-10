@@ -9,7 +9,7 @@ class DatasetChooser(QToolButton):
     '''
     This toolbar button allows the user to quickly select a dataset to display,
     by popping up a menu that shows the list of datasets.  The dataset-list menu
-    stays in sync with the current state of the model, and what datasets have
+    stays in sync with the current application state, and what datasets have
     been loaded.
     '''
 
@@ -51,8 +51,7 @@ class DatasetChooser(QToolButton):
         self._dataset_menu.clear()
 
         # Add an action for each dataset
-        model = self._app_state.get_model()
-        for (index, dataset) in enumerate(model.get_datasets()):
+        for (index, dataset) in enumerate(self._app_state.get_datasets()):
             act = self._make_dataset_action(index, dataset)
             self._dataset_menu.addAction(act)
             self._action_list.append(act)
@@ -68,8 +67,7 @@ class DatasetChooser(QToolButton):
 
 
     def _on_dataset_added(self, index):
-        model = self._app_state.get_model()
-        dataset = model.get_dataset(index)
+        dataset = self._app_state.get_dataset(index)
         act = self._make_dataset_action(index, dataset)
 
         if index < len(self._action_list):

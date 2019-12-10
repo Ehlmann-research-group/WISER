@@ -35,7 +35,7 @@ def make_spectral_value(value, unit_str):
 def convert_spectral(value, to_unit):
     return value.to(to_unit, equivalencies=u.spectral())
 
-def find_band_near_wavelength(bands, wavelength, max_distance=None):
+def find_band_near_wavelength(bands, wavelength, max_distance=20*u.nm):
     best_band = None
     best_distance = None
 
