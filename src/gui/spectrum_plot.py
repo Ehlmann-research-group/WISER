@@ -12,27 +12,14 @@ import numpy as np
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-matplotlib.rcParams['font.size'] = 6
 
-
-def has_wavelengths(band_list):
+class SpectrumPlot(QWidget):
     '''
-    Returns True if all bands specify a wavelength; otherwise, returns False.
-    '''
-    for b in band_list:
-        if 'wavelength' not in b:
-            return False
-
-    return True
-
-
-class SpectrumPlot(QDockWidget):
-    '''
-    This widget provides a dockable spectrum-plot window in the user interface.
+    This widget provides a spectrum-plot window in the user interface.
     '''
 
     def __init__(self, app_state, parent=None):
-        super().__init__('Spectrum Plot', parent=parent)
+        super().__init__(parent=parent)
 
         # Initialize widget's internal state
 
@@ -69,39 +56,12 @@ class SpectrumPlot(QDockWidget):
 
         layout.addWidget(self.figure_canvas)
 
-        widget = QWidget(parent=self)
-        widget.setLayout(layout)
-
-        self.setWidget(widget)
-
-
-    def toggleViewAction(self):
-        '''
-        Returns a QAction object that can be used to toggle the visibility of
-        this dockable pane.  This class overrides the QDockWidget implementation
-        to specify a nice icon and tooltip on the action.
-        '''
-        act = super().toggleViewAction()
-        act.setIcon(QIcon('resources/spectrum-pane.svg'))
-        act.setToolTip(self.tr('Show/hide spectrum plot'))
-        return act
+        self.setLayout(layout)
 
 
     def sizeHint(self):
         ''' The default size of the spectrum-plot widget is 400x200. '''
-        print('Spectrum plot size hint')
         return QSize(400, 200)
-
-
-    def _on_visibility_changed(self, visible):
-        self._app_state.set_view_attribute('spectrum.visible', visible)
-
-        # Work around a known Qt bug:  if a dockable window is floating, and is
-        # closed while floating, it can't be redocked unless we toggle its
-        # floating state.
-        if self.isFloating() and not visible:
-            self.setFloating(False)
-            self.setFloating(True)
 
 
     def clear(self):
@@ -112,11 +72,11 @@ class SpectrumPlot(QDockWidget):
     def _draw_spectra(self):
         self.axes.clear()
 
-        # Should we use wavelengths for plots, or no?
+        # If all datasets have wavelength data, we will set the X-axis title to
+        # indicate that these are wavelengths.
         use_wavelengths = True
         for (spectrum, dataset) in self._spectra:
-            band_list = dataset.band_list()
-            if not has_wavelengths(band_list):
+            if not dataset.has_wavelengths():
                 use_wavelengths = False
                 break
 

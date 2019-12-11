@@ -4,6 +4,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .dockable import DockablePane
+
 from .overview_pane import OverviewPane
 from .zoom_pane import ZoomPane
 
@@ -142,23 +144,26 @@ class DataVisualizerApp(QMainWindow):
 
         # Spectrum plot
 
-        self.spectrum_plot = SpectrumPlot(self._app_state)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.spectrum_plot)
-        act = self.spectrum_plot.toggleViewAction()
-        self.main_toolbar.addAction(act)
-        self.view_menu.addAction(act)
+        self._spectrum_plot = SpectrumPlot(self._app_state)
+        self._make_dockable_pane(self._spectrum_plot, name='spectrum_plot',
+            title=self.tr('Spectrum Plot'), icon='resources/spectrum-pane.svg',
+            tooltip=self.tr('Show/hide the spectrum pane'),
+            allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
+            area=Qt.RightDockWidgetArea)
 
         # Dataset Information Window
 
         # TODO(donnie):  Why do we need a scroll area here?  The QTreeWidget is
         #     a scroll-area too!!
-        self.info_view = DatasetInfoView(self._app_state)
-        scroll_area = QScrollArea()
-        scroll_area.setWidget(self.info_view)
-        scroll_area.setWidgetResizable(True)
-        dockable = make_dockable(scroll_area, self.tr('Dataset Information'), self)
-        dockable.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.addDockWidget(Qt.LeftDockWidgetArea, dockable)
+        self._dataset_info = DatasetInfoView(self._app_state)
+        # scroll_area = QScrollArea()
+        # scroll_area.setWidget(self.info_view)
+        # scroll_area.setWidgetResizable(True)
+        self._make_dockable_pane(self._dataset_info, name='dataset_info',
+            title=self.tr('Dataset Info'), icon='resources/dataset-info.svg',
+            tooltip=self.tr('Show/hide dataset information'),
+            allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
+            area=Qt.LeftDockWidgetArea)
 
 
     def init_menus(self):
@@ -181,6 +186,26 @@ class DataVisualizerApp(QMainWindow):
 
         # self.window_menu = self.menuBar().addMenu(self.tr('&Window'))
         # self.help_menu = self.menuBar().addMenu(self.tr('&Help'))
+
+
+    def _make_dockable_pane(self, widget, name, title, icon, tooltip,
+                            allowed_areas, area):
+
+        dockable = DockablePane(widget, name, title, self._app_state,
+                                icon=icon, tooltip=tooltip, parent=self)
+
+        dockable.setAllowedAreas(allowed_areas)
+        self.addDockWidget(area, dockable)
+
+        act = dockable.toggleViewAction()
+        self.view_menu.addAction(act)
+
+        act = dockable.toggleViewAction()
+        act.setIcon(dockable.get_icon())
+        act.setToolTip(dockable.get_tooltip())
+        self.main_toolbar.addAction(act)
+
+        return dockable
 
 
     def show_open_file_dialog(self, evt):
@@ -248,7 +273,7 @@ class DataVisualizerApp(QMainWindow):
         # Show spectrum at selected pixel
         dataset = self.main_view.get_current_dataset()
         spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y(), filter_bad_values=True)
-        self.spectrum_plot.set_spectrum(spectrum, dataset)
+        self._spectrum_plot.set_spectrum(spectrum, dataset)
 
 
     def detailview_mouse_click(self, ds_point, mouse_event):
@@ -261,4 +286,4 @@ class DataVisualizerApp(QMainWindow):
         # Show spectrum at selected pixel
         dataset = self.detail_view.get_current_dataset()
         spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y(), filter_bad_values=True)
-        self.spectrum_plot.set_spectrum(spectrum, dataset)
+        self._spectrum_plot.set_spectrum(spectrum, dataset)
