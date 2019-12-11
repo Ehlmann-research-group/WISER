@@ -84,6 +84,17 @@ class RasterDataSet:
         '''
         pass
 
+    def has_wavelengths(self):
+        '''
+        Returns True if all bands specify a wavelength (or some other unit that
+        can be converted to wavelength); otherwise, returns False.
+        '''
+        for b in self.band_list():
+            if 'wavelength' not in b:
+                return False
+
+        return True
+
     def default_display_bands(self):
         '''
         Returns a list of integer indexes, specifying the default bands for

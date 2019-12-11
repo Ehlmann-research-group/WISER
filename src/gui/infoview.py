@@ -7,8 +7,6 @@ from PySide2.QtWidgets import *
 
 import numpy as np
 
-from .constants import ImageColors
-
 from raster.dataset import RasterDataSet, find_display_bands
 
 
@@ -17,19 +15,18 @@ class DatasetInfoView(QTreeWidget):
         super().__init__(parent=parent)
 
         self._model = model
-        self._model.dataset_added.connect(self.add_dataset)
-        self._model.dataset_removed.connect(self.remove_dataset)
+        self._model.dataset_added.connect(self._on_dataset_added)
+        self._model.dataset_removed.connect(self._on_dataset_removed)
 
-        self.setColumnCount(3)
-        self.setHeaderLabels(
-            [self.tr('Description'), self.tr('Detail'), self.tr('Extra')])
+        self.setColumnCount(1)
+        self.setHeaderLabels([self.tr('Description')])
 
         top = QTreeWidgetItem(self)
         top.setText(0, self.tr('No datasets loaded'))
         self.addTopLevelItem(top)
 
 
-    def add_dataset(self, index):
+    def _on_dataset_added(self, index):
 
         if self._model.num_datasets() == 1:
             self.clear()
@@ -45,24 +42,16 @@ class DatasetInfoView(QTreeWidget):
         info.setText(0, self.tr('General'))
 
         item = QTreeWidgetItem(info)
-        item.setText(0, self.tr('Description'))
-        item.setText(1, f'{dataset.get_description()}')
+        item.setText(0, f'Description:  {dataset.get_description()}')
 
         item = QTreeWidgetItem(info)
-        item.setText(0, self.tr('File Type'))
-        item.setText(1, dataset.get_filetype())
+        item.setText(0, f'File Type:  {dataset.get_filetype()}')
 
         item = QTreeWidgetItem(info)
-        item.setText(0, self.tr('Width'))
-        item.setText(1, f'{dataset.get_width()}')
+        item.setText(0, f'Size:  {dataset.get_width()}x{dataset.get_height()}')
 
         item = QTreeWidgetItem(info)
-        item.setText(0, self.tr('Height'))
-        item.setText(1, f'{dataset.get_height()}')
-
-        item = QTreeWidgetItem(info)
-        item.setText(0, self.tr('Bands'))
-        item.setText(1, f'{dataset.num_bands()}')
+        item.setText(0, f'Bands:  {dataset.num_bands()}')
 
         # Files subsection
 
@@ -78,8 +67,7 @@ class DatasetInfoView(QTreeWidget):
         # Bands section
 
         bands = QTreeWidgetItem(top)
-        bands.setText(0, self.tr('Bands'))
-        bands.setText(1, f'({dataset.num_bands()})')
+        bands.setText(0, f'Bands ({dataset.num_bands()})')
 
         band_list = dataset.band_list()
         bad_bands = dataset.get_bad_bands()
@@ -94,17 +82,16 @@ class DatasetInfoView(QTreeWidget):
 
             band_item = QTreeWidgetItem(bands)
 
-            band_item.setText(0, band_info.get('description', self.tr('(no description)')))
+            s = []
 
-            s = ''
             if 'wavelength' in band_info:
                 v = band_info['wavelength']
-                s = '{0:0.02f}'.format(v)
-            band_item.setText(1, s)
+                s.append('{0:0.02f}'.format(v))
+            else:
+                s.append(band_info.get('description', '(no description)'))
 
-            s = []
             if bad == 0:
-                s.append(self.tr('(bad)'))
+                s.append('(bad)')
 
             if i in default_bands:
                 if len(default_bands) == 1:
@@ -120,14 +107,14 @@ class DatasetInfoView(QTreeWidget):
                     elif default_bands[2] == i:
                         s.append(self.tr('(default - blue)'))
 
-            band_item.setText(2, ' '.join(s))
+            band_item.setText(0, ' '.join(s))
 
         # All done!
 
         self.insertTopLevelItem(index, top)
 
 
-    def remove_dataset(self, index):
+    def _on_dataset_removed(self, index):
         # Remove the information for the dataset at the specified index
         self.takeTopLevelItem(index)
 

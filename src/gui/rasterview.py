@@ -1,5 +1,5 @@
 import sys
-from enum import Enum
+from enum import Enum, IntFlag
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -7,9 +7,17 @@ from PySide2.QtWidgets import *
 
 import numpy as np
 
-from .constants import ImageColors
-
 from raster.dataset import RasterDataSet, find_display_bands
+
+
+class ImageColors(IntFlag):
+    NONE = 0
+
+    RED = 1
+    GREEN = 2
+    BLUE = 4
+
+    RGB = 7
 
 
 class ScaleToFitMode(Enum):
