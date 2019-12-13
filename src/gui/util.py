@@ -3,7 +3,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 
-def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None):
+def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None, before=None):
     '''
     A helper function to set up a toolbar action using the common configuration
     used for these actions.
@@ -13,7 +13,11 @@ def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None):
     if shortcut is not None:
         act.setShortcuts(shortcut)
 
-    toolbar.addAction(act)
+    if before is None:
+        toolbar.addAction(act)
+    else:
+        toolbar.insertAction(before, act)
+
     return act
 
 
