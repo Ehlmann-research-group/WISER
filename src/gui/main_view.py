@@ -40,12 +40,14 @@ class MainViewWidget(RasterPane):
 
         # Zoom to Actual Size
         self._act_zoom_to_actual = add_toolbar_action(self._toolbar,
-            'resources/zoom-to-actual.svg', self.tr('Zoom to actual size'), self, None)
+            'resources/zoom-to-actual.svg', self.tr('Zoom to actual size'), self,
+            before=self._act_cbox_zoom)
         self._act_zoom_to_actual.triggered.connect(self._on_zoom_to_actual)
 
         # Zoom to Fit
         self._act_zoom_to_fit = add_toolbar_action(self._toolbar,
-            'resources/zoom-to-fit.svg', self.tr('Zoom to fit'), self, None)
+            'resources/zoom-to-fit.svg', self.tr('Zoom to fit'), self,
+            before=self._act_cbox_zoom)
         self._act_zoom_to_fit.triggered.connect(self._on_zoom_to_fit)
 
 

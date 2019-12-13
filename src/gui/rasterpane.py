@@ -131,7 +131,7 @@ class RasterPane(QWidget):
         self._cbox_zoom.activated.connect(self._on_zoom_cbox)
         self._cbox_zoom.lineEdit().editingFinished.connect(self._on_zoom_cbox_edit_text)
 
-        self._toolbar.addWidget(self._cbox_zoom)
+        self._act_cbox_zoom = self._toolbar.addWidget(self._cbox_zoom)
 
     def _on_zoom_cbox_activated(self, data):
         print(f'Zoom combo-box activated:  {data}')
