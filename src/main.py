@@ -56,7 +56,6 @@ if __name__ == '__main__':
     init_matplotlib()
 
     ui = DataVisualizerApp(loader=loader)
-    ui.init_menus()
 
     # Set the initial window size to be 70% of the screen size.
     screen_size = app.screens()[0].size()
