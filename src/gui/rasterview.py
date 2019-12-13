@@ -123,6 +123,8 @@ class RasterView(QWidget):
 
         # The QLabel widget used to display the image data
 
+        self._after_raster_paint_fn = None
+
         self._lbl_image = ImageWidget('(no data)',
             mouseReleaseEvent=self._onRasterMouseClick,
             paintEvent=self._afterRasterPaint)
@@ -201,6 +203,14 @@ class RasterView(QWidget):
                 f'Raster data has an unexpected number of display bands:  {rgb_bands}'
 
         self.update_display_image()
+
+
+    def get_raster_data(self):
+        '''
+        Returns the current raster dataset that is being displayed, or None if
+        no dataset is currently being displayed.
+        '''
+        return self._raster_data
 
 
     def get_display_bands(self):
@@ -572,5 +582,8 @@ class RasterView(QWidget):
 
 
     def _afterRasterPaint(self, widget, paint_event):
-        # For subclasses to override, if they wish.
-        pass
+        if self._after_raster_paint_fn is not None:
+            self._after_raster_paint_fn(widget, paint_event)
+
+    def set_after_raster_paint(self, after_raster_paint_fn):
+        self._after_raster_paint_fn = after_raster_paint_fn

@@ -6,7 +6,7 @@ from PySide2.QtWidgets import *
 
 from .dockable import DockablePane
 
-from .overview_pane import OverviewPane
+from .context_pane import ContextPane
 from .zoom_pane import ZoomPane
 
 from .main_view import MainViewWidget
@@ -116,28 +116,32 @@ class DataVisualizerApp(QMainWindow):
 
         self.init_menus()
 
-        self.main_toolbar = self.addToolBar(self.tr('Main'))
+        self._main_toolbar = self.addToolBar(self.tr('Main'))
 
-        # Overview pane
+        # Context pane
 
-        self.overview_pane = OverviewPane(self._app_state, parent=self)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.overview_pane)
-        act = self.overview_pane.toggleViewAction()
-        self.main_toolbar.addAction(act)
-        self.view_menu.addAction(act)
+        self._context_pane = ContextPane(self._app_state)
+        self._make_dockable_pane(self._context_pane, name='context_pane',
+            title=self.tr('Context'), icon='resources/context-pane.svg',
+            tooltip=self.tr('Show/hide the context pane'),
+            allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea,
+            area=Qt.LeftDockWidgetArea)
 
         # Zoom pane
 
-        self.zoom_pane = ZoomPane(self._app_state, parent=self)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.zoom_pane)
-        act = self.zoom_pane.toggleViewAction()
-        self.main_toolbar.addAction(act)
-        self.view_menu.addAction(act)
+        self._zoom_pane = ZoomPane(self._app_state)
+        dockable = self._make_dockable_pane(self._zoom_pane, name='zoom_pane',
+            title=self.tr('Zoom'), icon='resources/zoom-pane.svg',
+            tooltip=self.tr('Show/hide the zoom pane'),
+            allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
+            area=Qt.RightDockWidgetArea)
+        dockable.hide()
 
         # Main raster-view
 
-        self.main_view = MainViewWidget(self._app_state)
-        self.setCentralWidget(self.main_view)
+        self._main_view = MainViewWidget(self._app_state)
+        self.setCentralWidget(self._main_view)
+        self._image_toolbar = self.addToolBar(self._main_view.get_toolbar())
 
         # self.main_view.rasterview().viewport_change.connect(self.mainview_viewport_change)
         # self.main_view.rasterview().mouse_click.connect(self.mainview_mouse_click)
@@ -145,11 +149,12 @@ class DataVisualizerApp(QMainWindow):
         # Spectrum plot
 
         self._spectrum_plot = SpectrumPlot(self._app_state)
-        self._make_dockable_pane(self._spectrum_plot, name='spectrum_plot',
+        dockable = self._make_dockable_pane(self._spectrum_plot, name='spectrum_plot',
             title=self.tr('Spectrum Plot'), icon='resources/spectrum-pane.svg',
             tooltip=self.tr('Show/hide the spectrum pane'),
             allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
             area=Qt.RightDockWidgetArea)
+        dockable.hide()
 
         # Dataset Information Window
 
@@ -159,28 +164,27 @@ class DataVisualizerApp(QMainWindow):
         # scroll_area = QScrollArea()
         # scroll_area.setWidget(self.info_view)
         # scroll_area.setWidgetResizable(True)
-        self._make_dockable_pane(self._dataset_info, name='dataset_info',
+        dockable = self._make_dockable_pane(self._dataset_info, name='dataset_info',
             title=self.tr('Dataset Info'), icon='resources/dataset-info.svg',
             tooltip=self.tr('Show/hide dataset information'),
             allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
             area=Qt.LeftDockWidgetArea)
+        dockable.hide()
 
 
     def init_menus(self):
         # File menu
 
-        self.file_menu = self.menuBar().addMenu(self.tr('&File'))
+        self._file_menu = self.menuBar().addMenu(self.tr('&File'))
 
-        act = QAction(self.tr('&Open...'), self)
+        act = self._file_menu.addAction(self.tr('&Open...'))
         act.setShortcuts(QKeySequence.Open)
         act.setStatusTip(self.tr('Open an existing project or file'))
         act.triggered.connect(self.show_open_file_dialog)
 
-        self.file_menu.addAction(act)
-
         # View menu
 
-        self.view_menu = self.menuBar().addMenu(self.tr('&View'))
+        self._view_menu = self.menuBar().addMenu(self.tr('&View'))
 
         # Other menus?
 
@@ -197,13 +201,14 @@ class DataVisualizerApp(QMainWindow):
         dockable.setAllowedAreas(allowed_areas)
         self.addDockWidget(area, dockable)
 
-        act = dockable.toggleViewAction()
-        self.view_menu.addAction(act)
-
+        # TODO(donnie):  Technically we don't need to get the icon and tooltip
+        #     from the dockable, since we have it above.
         act = dockable.toggleViewAction()
         act.setIcon(dockable.get_icon())
         act.setToolTip(dockable.get_tooltip())
-        self.main_toolbar.addAction(act)
+
+        self._view_menu.addAction(act)
+        self._main_toolbar.addAction(act)
 
         return dockable
 
