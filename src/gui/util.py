@@ -25,3 +25,22 @@ def make_dockable(widget, title, parent):
     dockable = QDockWidget(title, parent=parent)
     dockable.setWidget(widget)
     return dockable
+
+
+class PainterWrapper:
+    def __init__(self, _painter):
+        self._painter = _painter
+
+    def __enter__(self):
+        return self._painter
+
+    def __exit__(self, type, value, traceback):
+        self._painter.end()
+
+        # If an exception occurred within the with block, reraise it by
+        # returning False.  Otherwise return True.
+        return traceback is None
+
+
+def get_painter(widget):
+    return PainterWrapper(QPainter(widget))
