@@ -566,7 +566,12 @@ class RasterView(QWidget):
         into a 2-tuple containing the (X, Y) coordinates of the position within
         the raster data set.
         '''
-        return (position / self._scale_factor).toPoint()
+        # Scale the screen position into the dataset's coordinate system.
+        scaled = position / self._scale_factor
+
+        # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
+        # it rounds to the nearest point, and we just want truncation/floor.
+        return QPoint(int(scaled.x()), int(scaled.y()))
 
 
     def _onRasterMouseClick(self, widget, mouse_event):

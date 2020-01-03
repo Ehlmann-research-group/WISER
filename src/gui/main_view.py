@@ -14,21 +14,11 @@ class MainViewWidget(RasterPane):
     This widget provides the main raster-data view in the user interface.
     '''
 
-    # Signal:  the displayed region has changed
-    display_area_changed = Signal( (int, int, int, int) )
-
 
     def __init__(self, app_state, parent=None):
         super().__init__(app_state=app_state, parent=parent, embed_toolbar=False,
             max_zoom_scale=16, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
             initial_zoom=1)
-
-        self._app_state.view_attr_changed.connect(self._on_view_attr_changed)
-
-        # Raster image view widget
-
-        # self._rasterview.viewport_change.connect(self._on_raster_viewport_changed)
-        # self._rasterview.mouse_click.connect(self._on_raster_mouse_clicked)
 
 
     def _init_zoom_tools(self):
@@ -98,26 +88,3 @@ class MainViewWidget(RasterPane):
         ''' Zoom the view such that the entire image fits in the view. '''
         self._rasterview.scale_image_to_fit()
         self._update_zoom_widgets()
-
-
-    def _afterRasterPaint(self, widget, paint_event):
-        zoom_visible = self._app_state.get_view_attribute('zoom.visible')
-        if not zoom_visible:
-            return
-
-        visible_area = self._app_state.get_view_attribute('zoom.visible_area')
-        if visible_area is None:
-            return
-
-        # Draw the visible area on the summary view.
-        painter = QPainter(widget)
-        painter.setPen(QPen(Qt.green))
-
-        scaled = QRect(visible_area.x() * self._scale_factor,
-                       visible_area.y() * self._scale_factor,
-                       visible_area.width() * self._scale_factor,
-                       visible_area.height() * self._scale_factor)
-
-        painter.drawRect(scaled)
-
-        painter.end()

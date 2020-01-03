@@ -18,14 +18,6 @@ class ContextPane(RasterPane):
         super().__init__(app_state=app_state, parent=parent,
             size_hint=QSize(200, 200))
 
-        # Register for events from the application state
-
-        self._app_state.view_attr_changed.connect(self._on_view_attr_changed)
-
-        # Register for events from the UI
-
-        # self.summary_view.rasterview().mouse_click.connect(self.summaryview_mouse_click)
-
 
     def _init_zoom_tools(self):
         '''
@@ -98,28 +90,3 @@ class ContextPane(RasterPane):
             # Just zoom such that one of the dimensions fits.
             self._rasterview.scale_image_to_fit(
                 mode=ScaleToFitMode.FIT_ONE_DIMENSION)
-
-
-    def _afterRasterPaint(self, widget, paint_event):
-        visible_area = self._app_state.get_view_attribute('image.visible_area')
-        if visible_area is None:
-            return
-
-        # Draw the visible area on the summary view.
-        painter = QPainter(widget)
-        painter.setPen(QPen(Qt.yellow))
-
-        scaled = QRect(visible_area.x() * self._scale_factor,
-                       visible_area.y() * self._scale_factor,
-                       visible_area.width() * self._scale_factor,
-                       visible_area.height() * self._scale_factor)
-
-        if scaled.width() >= widget.width():
-            scaled.setWidth(widget.width() - 1)
-
-        if scaled.height() >= widget.height():
-            scaled.setHeight(widget.height() - 1)
-
-        painter.drawRect(scaled)
-
-        painter.end()

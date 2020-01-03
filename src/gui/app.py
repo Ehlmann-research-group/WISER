@@ -4,12 +4,13 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .rasterpane import RecenterMode
+
 from .dockable import DockablePane
 
 from .context_pane import ContextPane
-from .zoom_pane import ZoomPane
-
 from .main_view import MainViewWidget
+from .zoom_pane import ZoomPane
 
 from .spectrum_plot import SpectrumPlot
 from .infoview import DatasetInfoView
@@ -33,13 +34,18 @@ class ApplicationState(QObject):
     # Signal:  the data-set at the specified index was removed
     dataset_removed = Signal(int)
 
-    # Signal:  the specified view attribute's value changed
-    view_attr_changed = Signal(str)
-
 
     def __init__(self):
         super().__init__()
+
+        # All datasets loaded in the application.
         self._datasets = []
+
+        # Colors used for various purposes.
+        self._colors = {
+            'viewport-highlight' : Qt.yellow,
+            'pixel-highlight' : Qt.red,
+        }
 
         self._view_attributes = {}
 
@@ -81,12 +87,17 @@ class ApplicationState(QObject):
         self.dataset_removed.emit(index)
 
 
-    def set_view_attribute(self, attr_name, value):
-        self._view_attributes[attr_name] = value
-        self.view_attr_changed.emit(attr_name)
+    def get_color_of(self, option):
+        '''
+        Returns the color of the specified config option.
+        '''
+        return self._colors[option]
 
-    def get_view_attribute(self, attr_name, default=None):
-        return self._view_attributes.get(attr_name, default)
+    def set_color_of(self, option, color):
+        '''
+        Sets the color of the specified config option.
+        '''
+        self._colors[option] = color
 
 
 class DataVisualizerApp(QMainWindow):
@@ -143,9 +154,6 @@ class DataVisualizerApp(QMainWindow):
         self.setCentralWidget(self._main_view)
         self._image_toolbar = self.addToolBar(self._main_view.get_toolbar())
 
-        # self.main_view.rasterview().viewport_change.connect(self.mainview_viewport_change)
-        # self.main_view.rasterview().mouse_click.connect(self.mainview_mouse_click)
-
         # Spectrum plot
 
         self._spectrum_plot = SpectrumPlot(self._app_state)
@@ -170,6 +178,17 @@ class DataVisualizerApp(QMainWindow):
             allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
             area=Qt.LeftDockWidgetArea)
         dockable.hide()
+
+        # Hook up widget events to their corresponding control functions.
+
+        self._context_pane.get_rasterview().mouse_click.connect(self._on_context_mouse_click)
+
+        self._main_view.get_rasterview().viewport_change.connect(self._on_mainview_viewport_change)
+        self._main_view.get_rasterview().mouse_click.connect(self._on_mainview_mouse_click)
+
+        self._zoom_pane.get_rasterview().viewport_change.connect(self._on_zoom_viewport_change)
+        self._zoom_pane.get_rasterview().mouse_click.connect(self._on_zoom_mouse_click)
+        # TODO(donnie):  Register for zoom-pane visibility-changed events
 
 
     def init_menus(self):
@@ -259,36 +278,76 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.add_dataset(raster_data)
 
 
-    def summaryview_mouse_click(self, ds_point, mouse_event):
-        self.main_view.rasterview().make_point_visible(ds_point.x(), ds_point.y())
+    def _on_context_mouse_click(self, ds_point, mouse_event):
+        '''
+        When the user clicks the mouse in the context pane, the main view is
+        updated to show that location in the center of the main window.
+        '''
+        self._main_view.make_point_visible(ds_point.x(), ds_point.y())
 
 
-    def mainview_viewport_change(self, visible_area):
-        self._app_state.set_image_visible_area(visible_area)
+    def _on_mainview_viewport_change(self, visible_area):
+        '''
+        When the user scrolls the viewport in the main view, the context pane
+        is updated to show the visible area.
+        '''
+        self._context_pane.set_viewport_highlight(visible_area)
 
 
-    def mainview_mouse_click(self, ds_point, mouse_event):
-        if self._model.num_datasets() == 0:
+    def _on_mainview_mouse_click(self, ds_point, mouse_event):
+        '''
+        When the user clicks in the main view, the following things happen:
+        *   The pixel is shown in the center of the zoom pane, and a selection
+            reticle is shown around the pixel.
+        *   The spectrum of the pixel is shown in the spectrum-plot view.
+
+        These operations occur whether the above panes are visible or not, so
+        that if they were hidden and are then shown, they will still contain the
+        relevant information.
+        '''
+        if self._app_state.num_datasets() == 0:
             return
 
-        # Update the detail view
-        self.detail_view.rasterview().make_point_visible(ds_point.x(), ds_point.y())
-        self.detail_view.rasterview().set_current_pixel(ds_point)
+        # Update the main view and zoom pane to show the selected pixel
+        self._main_view.set_pixel_highlight(ds_point, recenter=RecenterMode.NEVER)
+        self._zoom_pane.set_pixel_highlight(ds_point)
 
-        # Show spectrum at selected pixel
-        dataset = self.main_view.get_current_dataset()
-        spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y(), filter_bad_values=True)
+        # Show spectrum at selected pixel.  Note that we use the dataset
+        # selected in the main view, since the click originated from the main
+        # view.
+        dataset = self._main_view.get_current_dataset()
+        spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y())
         self._spectrum_plot.set_spectrum(spectrum, dataset)
 
 
-    def detailview_mouse_click(self, ds_point, mouse_event):
-        if self._model.num_datasets() == 0:
+    def _on_zoom_viewport_change(self, visible_area):
+        '''
+        When the user scrolls the viewport in the zoom pane, the main view
+        is updated to show the visible area.
+        '''
+        self._main_view.set_viewport_highlight(visible_area)
+
+
+    def _on_zoom_mouse_click(self, ds_point, mouse_event):
+        '''
+        When the user clicks in the zoom pane, the following things happen:
+        *   A selection reticle is shown around the pixel.
+        *   The spectrum of the pixel is shown in the spectrum-plot view.
+
+        These operations occur whether the above panes are visible or not, so
+        that if they were hidden and are then shown, they will still contain the
+        relevant information.
+        '''
+        if self._app_state.num_datasets() == 0:
             return
 
-        # Draw selected pixel in detail view
-        self.detail_view.rasterview().set_current_pixel(ds_point)
+        # Update the zoom pane to show the selected pixel
+        self._main_view.set_pixel_highlight(ds_point, recenter=RecenterMode.IF_NOT_VISIBLE)
+        self._zoom_pane.set_pixel_highlight(ds_point, recenter=RecenterMode.NEVER)
 
-        # Show spectrum at selected pixel
-        dataset = self.detail_view.get_current_dataset()
-        spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y(), filter_bad_values=True)
+        # Show spectrum at selected pixel.  Note that we use the dataset
+        # selected in the zoom pane, since the click originated from the zoom
+        # pane.
+        dataset = self._zoom_pane.get_current_dataset()
+        spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y())
         self._spectrum_plot.set_spectrum(spectrum, dataset)

@@ -36,8 +36,6 @@ class DockablePane(QDockWidget):
 
 
     def _on_visibility_changed(self, visible):
-        self._app_state.set_view_attribute(f'{self._name}.visible', visible)
-
         # Work around a known Qt bug:  if a dockable window is floating, and is
         # closed while floating, it can't be redocked unless we toggle its
         # floating state.
