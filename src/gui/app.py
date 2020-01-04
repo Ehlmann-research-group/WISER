@@ -188,7 +188,7 @@ class DataVisualizerApp(QMainWindow):
 
         self._zoom_pane.get_rasterview().viewport_change.connect(self._on_zoom_viewport_change)
         self._zoom_pane.get_rasterview().mouse_click.connect(self._on_zoom_mouse_click)
-        # TODO(donnie):  Register for zoom-pane visibility-changed events
+        self._zoom_pane.visibility_change.connect(self._on_zoom_visibility_changed)
 
 
     def init_menus(self):
@@ -320,11 +320,27 @@ class DataVisualizerApp(QMainWindow):
         self._spectrum_plot.set_spectrum(spectrum, dataset)
 
 
+    def _on_zoom_visibility_changed(self, visible):
+        if visible:
+            # Zoom pane is being shown.  Show the zoom-region highlight in the
+            # main view.
+            visible_region = self._zoom_pane.get_rasterview().get_visible_region()
+            self._main_view.set_viewport_highlight(visible_region)
+
+        else:
+            # Zoom pane is being hidden.  Remove the zoom-region highlight from
+            # the main view.
+            self._main_view.set_viewport_highlight(None)
+
+
     def _on_zoom_viewport_change(self, visible_area):
         '''
         When the user scrolls the viewport in the zoom pane, the main view
         is updated to show the visible area.
         '''
+        if not self._zoom_pane.isVisible():
+            visible_area = None
+
         self._main_view.set_viewport_highlight(visible_area)
 
 

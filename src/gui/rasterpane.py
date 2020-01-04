@@ -36,8 +36,8 @@ class RasterPane(QWidget):
     This widget provides a raster-view with an associated toolbar.
     '''
 
-    # Signal:  the displayed region has changed
-    display_area_changed = Signal( (int, int, int, int) )
+    # Signal:  the raster pane was shown or hidden
+    visibility_change = Signal(bool)
 
 
     def __init__(self, app_state, parent=None, size_hint=None,
@@ -181,6 +181,8 @@ class RasterPane(QWidget):
 
 
     def set_viewport_highlight(self, viewport):
+        # print(f'{self}:  Setting viewport highlight to {viewport}')
+
         self._viewport_highlight = viewport
 
         # If the specified viewport highlight region is not entirely within this
@@ -189,6 +191,7 @@ class RasterPane(QWidget):
 
         visible = self._rasterview.get_visible_region()
         if visible is None or viewport is None:
+            self._rasterview.update()
             return
 
         if not visible.contains(viewport):
@@ -203,6 +206,7 @@ class RasterPane(QWidget):
         self._pixel_highlight = pixel
         visible = self._rasterview.get_visible_region()
         if visible is None or pixel is None:
+            self._rasterview.update()
             return
 
         do_recenter = False
@@ -229,6 +233,16 @@ class RasterPane(QWidget):
             return super().sizeHint()
 
         return self._size_hint
+
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.visibility_change.emit(True)
+
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self.visibility_change.emit(False)
 
 
     def _on_dataset_added(self, index):
