@@ -155,6 +155,7 @@ class RasterView(QWidget):
 
         # Initialize fields in the object
         self._clear_members()
+        self._scale_factor = 1.0
 
 
     def _clear_members(self):
@@ -164,10 +165,6 @@ class RasterView(QWidget):
         '''
 
         self._raster_data = None
-        self._scale_factor = 1.0
-
-        # TODO(donnie):  This will likely need to migrate into the GUI's info
-        #     for each raster data-set.
         self._display_bands = None
 
         # These members are for storing the components of the raster data, so
@@ -336,15 +333,77 @@ class RasterView(QWidget):
 
 
     def update_scaled_image(self):
-        pixmap = QPixmap.fromImage(self._image)
-        pixmap = pixmap.scaled(
+
+        # old_visible = self.get_visible_region()
+        # old_center = old_visible.center()
+        # print(f'Old viewport = {old_visible}, center = {old_center}')
+
+        # print('BEFORE')
+        # self._print_scrollbar_state(self._scroll_area.horizontalScrollBar())
+        # self._print_scrollbar_state(self._scroll_area.verticalScrollBar())
+
+        # Update the scaled version of the image.
+        scaled_image = self._image.scaled(
             self._raster_data.get_width() * self._scale_factor,
             self._raster_data.get_height() * self._scale_factor,
             Qt.IgnoreAspectRatio, Qt.FastTransformation)
 
+        # Update the image that the label is displaying.
+        pixmap = QPixmap.fromImage(scaled_image)
         self._lbl_image.setPixmap(pixmap)
         self._lbl_image.adjustSize()
         self._scroll_area.setVisible(True)
+
+        QCoreApplication.processEvents()
+
+        # print('AFTER')
+        # self._print_scrollbar_state(self._scroll_area.horizontalScrollBar())
+        # self._print_scrollbar_state(self._scroll_area.verticalScrollBar())
+
+        # self.make_point_visible(old_center.x(), old_center.y())
+
+        # new_visible = self.get_visible_region()
+        # new_center = new_visible.center()
+        # print(f'New viewport = {new_visible}, center = {new_center}')
+
+        # Update the scrollbar positions so that the center of the image remains
+        # centered after the zoom in/out operation.
+        # self._update_scrollbar(self._scroll_area.horizontalScrollBar(), scaled_image.width())
+        # self._update_scrollbar(self._scroll_area.verticalScrollBar(), scaled_image.height())
+
+
+    def _print_scrollbar_state(self, scrollbar):
+        sb_min = scrollbar.minimum()
+        sb_max = scrollbar.maximum()
+        sb_val = scrollbar.value()
+        pg_step = scrollbar.pageStep()
+
+        print(f'SB:  [min={sb_min}, val={sb_val}, max={sb_max}], step = {pg_step}')
+
+
+    def _update_scrollbar(self, scrollbar, new_max):
+        # Get current values in the scrollbar
+        old_min = scrollbar.minimum()
+        old_max = scrollbar.maximum()
+        old_val = scrollbar.value()
+        # Can't trust page-step size because it doesn't necessarily correspond
+        # to the scroll-area's visible dimensions.
+        # TODO(donnie):  Incorporate scroll area's actual viewport dimension
+
+        old_span = old_max - old_min
+        old_center = (old_val - old_min) # + pg_step / 2
+
+        if old_span == 0:
+            return
+
+        # TODO(donnie):  This scales from one corner, not from the center
+        new_val = int(old_center * new_max / old_span)
+
+        print(f'Old values:  [{old_min} - {old_max}], value = {old_center}')
+        print(f'New values:  [0 - {new_max}], value = {new_val}')
+
+        # scrollbar.setRange(0, new_max - 1)
+        scrollbar.setValue(new_val)
 
 
     def get_scale(self):

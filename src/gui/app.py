@@ -125,9 +125,10 @@ class DataVisualizerApp(QMainWindow):
 
         # Application Toolbars
 
-        self.init_menus()
+        self._init_menus()
 
         self._main_toolbar = self.addToolBar(self.tr('Main'))
+        self._init_toolbars()
 
         # Context pane
 
@@ -191,7 +192,7 @@ class DataVisualizerApp(QMainWindow):
         self._zoom_pane.visibility_change.connect(self._on_zoom_visibility_changed)
 
 
-    def init_menus(self):
+    def _init_menus(self):
         # File menu
 
         self._file_menu = self.menuBar().addMenu(self.tr('&File'))
@@ -209,6 +210,14 @@ class DataVisualizerApp(QMainWindow):
 
         # self.window_menu = self.menuBar().addMenu(self.tr('&Window'))
         # self.help_menu = self.menuBar().addMenu(self.tr('&Help'))
+
+
+    def _init_toolbars(self):
+        act = add_toolbar_action(self._main_toolbar, 'resources/open-image.svg',
+            'Open image file', self)
+        act.triggered.connect(self.show_open_file_dialog)
+
+        self._main_toolbar.addSeparator()
 
 
     def _make_dockable_pane(self, widget, name, title, icon, tooltip,

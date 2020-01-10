@@ -25,6 +25,11 @@ class DatasetInfoView(QTreeWidget):
         top.setText(0, self.tr('No datasets loaded'))
         self.addTopLevelItem(top)
 
+        # Update the header info so that columns will resize based on their
+        # contents.  This is useful for filenames of data files, which are long.
+        self.header().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.header().setStretchLastSection(False)
+
 
     def _on_dataset_added(self, index):
 
