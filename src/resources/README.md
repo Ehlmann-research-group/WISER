@@ -11,6 +11,7 @@ from [Flaticon](https://www.flaticon.com/).
 
 *   stack.svg (was photo.svg)
 *   zoom-pane.svg (was image.svg)
+*   open-image.svg (was photo.svg)
 
 Icons made by [Payungkead](https://www.flaticon.com/authors/payungkead)
 from [Flaticon](https://www.flaticon.com/).
