@@ -329,19 +329,10 @@ class RasterView(QWidget):
             self._raster_data.get_width(), self._raster_data.get_height(),
             QImage.Format_RGB32)
 
-        self.update_scaled_image()
+        self._update_scaled_image()
 
 
-    def update_scaled_image(self):
-
-        # old_visible = self.get_visible_region()
-        # old_center = old_visible.center()
-        # print(f'Old viewport = {old_visible}, center = {old_center}')
-
-        # print('BEFORE')
-        # self._print_scrollbar_state(self._scroll_area.horizontalScrollBar())
-        # self._print_scrollbar_state(self._scroll_area.verticalScrollBar())
-
+    def _update_scaled_image(self, old_scale_factor=None):
         # Update the scaled version of the image.
         scaled_image = self._image.scaled(
             self._raster_data.get_width() * self._scale_factor,
@@ -354,56 +345,35 @@ class RasterView(QWidget):
         self._lbl_image.adjustSize()
         self._scroll_area.setVisible(True)
 
+        # Need to process queued events now, since the image-widget has changed
+        # size, and it needs to report a resize-event before the scrollbars will
+        # update to the new size.
         QCoreApplication.processEvents()
 
-        # print('AFTER')
-        # self._print_scrollbar_state(self._scroll_area.horizontalScrollBar())
-        # self._print_scrollbar_state(self._scroll_area.verticalScrollBar())
+        if old_scale_factor is not None and old_scale_factor != self._scale_factor:
+            # The scale is changing, so update the scrollbars to ensure that the
+            # image stays centered in the viewport area.
 
-        # self.make_point_visible(old_center.x(), old_center.y())
+            scale_change = self._scale_factor / old_scale_factor
 
-        # new_visible = self.get_visible_region()
-        # new_center = new_visible.center()
-        # print(f'New viewport = {new_visible}, center = {new_center}')
+            self._update_scrollbar(self._scroll_area.horizontalScrollBar(),
+                self._scroll_area.viewport().width(), scale_change)
 
-        # Update the scrollbar positions so that the center of the image remains
-        # centered after the zoom in/out operation.
-        # self._update_scrollbar(self._scroll_area.horizontalScrollBar(), scaled_image.width())
-        # self._update_scrollbar(self._scroll_area.verticalScrollBar(), scaled_image.height())
+            self._update_scrollbar(self._scroll_area.verticalScrollBar(),
+                self._scroll_area.viewport().height(), scale_change)
 
 
-    def _print_scrollbar_state(self, scrollbar):
-        sb_min = scrollbar.minimum()
-        sb_max = scrollbar.maximum()
-        sb_val = scrollbar.value()
-        pg_step = scrollbar.pageStep()
+    def _update_scrollbar(self, scrollbar, view_size, scale_change):
+        # The scrollbar's value will be scaled by the scale_change value.  For
+        # example, if the original scale was 100% and the new scale is 200%,
+        # the scale_change value will be 200%/100%, or 2.  To keep the same area
+        # within the scroll-area's viewport, the scrollbar's value needs to be
+        # multiplied by the scale_change.
 
-        print(f'SB:  [min={sb_min}, val={sb_val}, max={sb_max}], step = {pg_step}')
+        # That said, the
 
-
-    def _update_scrollbar(self, scrollbar, new_max):
-        # Get current values in the scrollbar
-        old_min = scrollbar.minimum()
-        old_max = scrollbar.maximum()
-        old_val = scrollbar.value()
-        # Can't trust page-step size because it doesn't necessarily correspond
-        # to the scroll-area's visible dimensions.
-        # TODO(donnie):  Incorporate scroll area's actual viewport dimension
-
-        old_span = old_max - old_min
-        old_center = (old_val - old_min) # + pg_step / 2
-
-        if old_span == 0:
-            return
-
-        # TODO(donnie):  This scales from one corner, not from the center
-        new_val = int(old_center * new_max / old_span)
-
-        print(f'Old values:  [{old_min} - {old_max}], value = {old_center}')
-        print(f'New values:  [0 - {new_max}], value = {new_val}')
-
-        # scrollbar.setRange(0, new_max - 1)
-        scrollbar.setValue(new_val)
+        view_diff = view_size * (scale_change - 1)
+        scrollbar.setValue(scrollbar.value() * scale_change + view_diff / 2)
 
 
     def get_scale(self):
@@ -426,8 +396,9 @@ class RasterView(QWidget):
 
         # Only scale the image if the scale-factor is changing.
         if factor != self._scale_factor:
+            old_factor = self._scale_factor
             self._scale_factor = factor
-            self.update_scaled_image()
+            self._update_scaled_image(old_scale_factor=old_factor)
             self._emit_viewport_change()
 
     def scale_image_to_fit(self, mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS):
