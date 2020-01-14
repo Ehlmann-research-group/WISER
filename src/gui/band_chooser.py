@@ -76,6 +76,9 @@ class BandChooser(QWidget):
         for box in boxes:
             box.addItems(items)
 
+            for i in range(len(items)):
+                box.setItemData(i, Qt.AlignRight, role=Qt.TextAlignmentRole)
+
 
     def set_dataset(self, dataset):
         self._dataset = dataset

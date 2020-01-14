@@ -89,11 +89,7 @@ class DatasetInfoView(QTreeWidget):
 
             s = []
 
-            if 'wavelength' in band_info:
-                v = band_info['wavelength']
-                s.append('{0:0.02f}'.format(v))
-            else:
-                s.append(band_info.get('description', '(no description)'))
+            s.append(band_info.get('description', '(no description)'))
 
             if bad == 0:
                 s.append('(bad)')

@@ -47,6 +47,10 @@ class GDALRasterDataSet(RasterDataSet):
 
         self.band_info = []
 
+        # TODO(donnie):  Support metadata from other file types
+        md = self.gdal_dataset.GetMetadata('ENVI')
+        has_band_names = ('band_names' in md)
+
         # Note:  GDAL indexes bands from 1, not 0.
         x_size = None
         y_size = None
@@ -60,10 +64,10 @@ class GDALRasterDataSet(RasterDataSet):
                 data_type = band.DataType
             else:
                 if x_size != band.XSize or y_size != band.YSize or data_type != band.DataType:
-                    raise ValueError(f'Cannot handle raster data with bands ' \
+                    raise ValueError('Cannot handle raster data with bands ' \
                         'of different dimensions or types!  Band-1 values:  ' \
-                        '{x_size} {y_size} {data_type}  Band-{band_index} '   \
-                        'values:  {band.XSize} {band.YSize} {band.DataType}')
+                        f'{x_size} {y_size} {data_type}  Band-{band_index} '   \
+                        f'values:  {band.XSize} {band.YSize} {band.DataType}')
 
             info = {'index':band_index - 1, 'description':band.GetDescription()}
 
@@ -86,6 +90,12 @@ class GDALRasterDataSet(RasterDataSet):
                     # TODO(donnie):  Probably want to store this error on the
                     #     data-set object for future debugging.
                     pass
+
+                # If the raw metadata doesn't actually have band names, generate
+                # a band name/description from the wavelength information, since
+                # the GDAL info is a bit ridiculously formatted.
+                if not has_band_names and 'wavelength' in info:
+                    info['description'] = '{0:0.02f}'.format(info['wavelength'])
 
             self.band_info.append(info)
 
@@ -173,8 +183,8 @@ class GDALRasterDataSet(RasterDataSet):
         if 'default_bands' in md:
             s = md['default_bands'].strip()
             if s[0] != '{' or s[-1] != '}':
-                raise ValueError(f'ENVI file has unrecognized format for '
-                                  'default bands:  {s}')
+                raise ValueError('ENVI file has unrecognized format for '
+                                 f'default bands:  {s}')
 
             # Convert all numbers in the band-list to integers, and return it.
             b = [int(v) for v in s[1:-1].split(',')]
