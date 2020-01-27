@@ -68,18 +68,7 @@ class ContextPane(RasterPane):
         Scale the raster-view image based on the image size, and the state of
         the "fit to window" button.
         '''
-
-        dataset = None
-        if self._app_state.num_datasets() > 0:
-            dataset = self._app_state.get_dataset(self._dataset_index)
-
-        # TODO(donnie):  Only do this when the raster dataset actually changes,
-        #     or the displayed bands change, etc.
-        if dataset != self._rasterview.get_raster_data():
-            self._rasterview.set_raster_data(dataset)
-
-        if dataset is None:
-            return
+        super()._update_image()
 
         # Handle window-scaling changes
         if self._act_fit_to_window.isChecked():

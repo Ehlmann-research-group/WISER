@@ -9,7 +9,7 @@ from .dataset_chooser import DatasetChooser
 from .rasterview import RasterView
 from .util import add_toolbar_action, get_painter
 
-from raster.dataset import find_truecolor_bands
+from raster.dataset import find_display_bands, find_truecolor_bands
 
 
 class RecenterMode(Enum):
@@ -52,7 +52,16 @@ class RasterPane(QWidget):
     '''
 
     # Signal:  the raster pane was shown or hidden
+    #   - The value is True for "visible", False for "invisible".
     visibility_change = Signal(bool)
+
+    # Signal:  the display bands in this view were changed
+    #   - The int is the 0-based index of the data set whose display bands are
+    #     changing
+    #   - The tuple is either a 1-tuple or 3-tuple specifying the display bands
+    #   - The Boolean argument is True for "global change," or False for "this
+    #     view only"
+    display_bands_change = Signal(int, tuple, bool)
 
 
     def __init__(self, app_state, parent=None, size_hint=None,
@@ -64,7 +73,13 @@ class RasterPane(QWidget):
         # Initialize widget's internal state
 
         self._app_state = app_state
+
+        # The index of the data-set being displayed
         self._dataset_index = None
+
+        # The bands to display for each dataset.  Each entry in the list is a
+        # tuple of the bands to display.
+        self._display_bands = []
 
         self._size_hint = size_hint
         self._embed_toolbar = embed_toolbar
@@ -137,10 +152,6 @@ class RasterPane(QWidget):
         # toolbar.addWidget(self._band_chooser)
         self._act_band_chooser.triggered.connect(self._on_band_chooser)
 
-        self._act_choose_true_colors = add_toolbar_action(self._toolbar,
-            'resources/choose-truecolor.svg', self.tr('Choose true colors'), self)
-        self._act_choose_true_colors.triggered.connect(self._on_choose_true_colors)
-
 
     def _init_zoom_tools(self):
         '''
@@ -173,7 +184,8 @@ class RasterPane(QWidget):
         self._act_cbox_zoom = self._toolbar.addWidget(self._cbox_zoom)
 
     def _on_zoom_cbox_activated(self, data):
-        print(f'Zoom combo-box activated:  {data}')
+        # print(f'Zoom combo-box activated:  {data}')
+        pass
 
 
     def get_rasterview(self):
@@ -189,6 +201,23 @@ class RasterPane(QWidget):
             return None
 
         return self._app_state.get_dataset(self._dataset_index)
+
+
+    def set_display_bands(self, index, bands):
+        if index < 0 or index >= self._app_state.num_datasets():
+            raise ValueError(f'index must be in the range [0, {self._app_state.num_datasets()}); got {index}')
+
+        if len(bands) not in [1, 3]:
+            raise ValueError(f'bands must be either a 1-tuple or 3-tuple; got {bands}')
+
+        # print(f'Display-band information:  {self._display_bands}')
+
+        self._display_bands[index] = bands
+
+        # If the specified data set is the one currently being displayed, update
+        # the UI display.
+        if index == self._dataset_index:
+            self._rasterview.set_display_bands(bands)
 
 
     def make_point_visible(self, x, y):
@@ -261,6 +290,13 @@ class RasterPane(QWidget):
 
 
     def _on_dataset_added(self, index):
+        new_dataset = self._app_state.get_dataset(index)
+
+        bands = find_display_bands(new_dataset)
+        self._display_bands.insert(index, bands)
+
+        # print(f'on_dataset_added:  band info:  {self._display_bands}')
+
         if self._app_state.num_datasets() == 1:
             # We finally have a dataset!
             self._dataset_index = 0
@@ -273,6 +309,10 @@ class RasterPane(QWidget):
 
 
     def _on_dataset_removed(self, index):
+        del self._display_bands[index]
+
+        # print(f'on_dataset_removed:  band info:  {self._display_bands}')
+
         num = self._app_state.num_datasets()
         if num == 0 or self._dataset_index == index:
             self._dataset_index = min(self._dataset_index, num - 1)
@@ -295,19 +335,16 @@ class RasterPane(QWidget):
         dialog.setModal(True)
 
         if dialog.exec_() == QDialog.Accepted:
-            self._rasterview.set_display_bands(dialog.get_display_bands())
+            bands = dialog.get_display_bands()
+            is_global = dialog.apply_globally()
 
+            self.display_bands_change.emit(self._dataset_index, bands, is_global)
 
-    def _on_choose_true_colors(self, act):
-        dataset = self.get_current_dataset()
-        display_bands = find_truecolor_bands(dataset)
-
-        if display_bands is not None:
-            self._rasterview.set_display_bands(display_bands)
-        else:
-            QMessageBox.warning(self, self.tr('No Visible Color Bands'),
-                self.tr('This raster data does not contain bands corresponding '
-                        'to visible color wavelengths.'))
+            # Only update our display bands if the change was not global, since
+            # if it was, the main application controller will change everybody's
+            # display bands.
+            if not is_global:
+                self.set_display_bands(self._dataset_index, bands)
 
 
     def _on_zoom_in(self, evt):
@@ -434,7 +471,8 @@ class RasterPane(QWidget):
         # Only do this when the raster dataset actually changes,
         # or the displayed bands change, etc.
         if dataset != self._rasterview.get_raster_data():
-            self._rasterview.set_raster_data(dataset)
+            bands = self._display_bands[self._dataset_index]
+            self._rasterview.set_raster_data(dataset, bands)
 
         if dataset is None:
             return

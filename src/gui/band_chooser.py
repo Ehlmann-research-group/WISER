@@ -2,6 +2,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from raster.dataset import find_truecolor_bands
+
 
 class BandChooser(QWidget):
     def __init__(self, parent=None):
@@ -13,6 +15,8 @@ class BandChooser(QWidget):
         self._display_bands = []
 
         # UI Widgets
+
+        # RGB color-band selection:
 
         self._rb_rgb_display = QRadioButton(self.tr('Red/Green/Blue Display'), self)
         self._rb_grayscale_display = QRadioButton(self.tr('Grayscale Display'), self)
@@ -28,8 +32,21 @@ class BandChooser(QWidget):
         self._cbox_band_grn = QComboBox()
         self._cbox_band_blu = QComboBox()
 
+        self._btn_choose_truecolor = QPushButton(self.tr('Choose visible-light color bands'))
+        self._btn_choose_truecolor.clicked.connect(self._on_choose_truecolors)
+
+        # Grayscale band selection:
+
         self._lbl_band_grayscale = QLabel(self.tr('Grayscale'))
         self._cbox_band_grayscale = QComboBox()
+
+        # Apply selection globally:
+
+        self._cb_apply_globally = QCheckBox(self.tr('Apply band selections in all views'))
+        self._cb_apply_globally.setChecked(True)
+
+        for cbox in [self._cbox_band_red, self._cbox_band_grn, self._cbox_band_blu, self._cbox_band_grayscale]:
+            cbox.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
         # Widget Layout
 
@@ -46,10 +63,14 @@ class BandChooser(QWidget):
         layout.addWidget(self._lbl_band_blu, 3, 0)
         layout.addWidget(self._cbox_band_blu, 3, 1)
 
-        layout.addWidget(self._rb_grayscale_display, 4, 0, columnSpan=2)
+        layout.addWidget(self._btn_choose_truecolor, 4, 1)
 
-        layout.addWidget(self._lbl_band_grayscale, 5, 0)
-        layout.addWidget(self._cbox_band_grayscale, 5, 1)
+        layout.addWidget(self._rb_grayscale_display, 5, 0, columnSpan=2)
+
+        layout.addWidget(self._lbl_band_grayscale, 6, 0)
+        layout.addWidget(self._cbox_band_grayscale, 6, 1)
+
+        layout.addWidget(self._cb_apply_globally, 8, 0, columnSpan=2)
 
         self.setLayout(layout)
 
@@ -114,7 +135,19 @@ class BandChooser(QWidget):
         self._update_enabled_state()
 
 
+    def _on_choose_truecolors(self):
+        tc_bands = find_truecolor_bands(self._dataset)
+        assert tc_bands is not None
+
+        self.set_display_bands(tc_bands)
+
+
     def _update_enabled_state(self):
+        '''
+        This helper method updates the enabled-state of the various widgets
+        in the band-chooser UI.
+        '''
+
         if self._dataset is not None:
             # Enable / disable widgets based on selection.
             if self._rb_rgb_display.isChecked():
@@ -123,11 +156,16 @@ class BandChooser(QWidget):
                 self._cbox_band_blu.setEnabled(True)
                 self._cbox_band_grayscale.setEnabled(False)
 
+                tc_bands = find_truecolor_bands(self._dataset)
+                self._btn_choose_truecolor.setEnabled(tc_bands is not None)
+
             else:
                 self._cbox_band_red.setEnabled(False)
                 self._cbox_band_grn.setEnabled(False)
                 self._cbox_band_blu.setEnabled(False)
                 self._cbox_band_grayscale.setEnabled(True)
+
+                self._btn_choose_truecolor.setEnabled(False)
         else:
             # No dataset.
             self._cbox_band_red.setEnabled(False)
@@ -135,19 +173,24 @@ class BandChooser(QWidget):
             self._cbox_band_blu.setEnabled(False)
             self._cbox_band_grayscale.setEnabled(False)
 
+            self._btn_choose_truecolor.setEnabled(False)
+
 
     def get_display_bands(self):
         if self._dataset is None:
             return None
 
         if self._rb_rgb_display.isChecked():
-            return [self._cbox_band_red.currentIndex(),
+            return (self._cbox_band_red.currentIndex(),
                     self._cbox_band_grn.currentIndex(),
-                    self._cbox_band_blu.currentIndex()]
+                    self._cbox_band_blu.currentIndex(), )
 
         else:
             assert self._rb_grayscale_display.isChecked()
-            return [self._cbox_band_grayscale.currentIndex()]
+            return (self._cbox_band_grayscale.currentIndex(), )
+
+    def apply_globally(self):
+        return self._cb_apply_globally.isChecked()
 
 
 class BandChooserDialog(QDialog):
@@ -173,6 +216,9 @@ class BandChooserDialog(QDialog):
 
     def get_display_bands(self):
         return self._band_chooser.get_display_bands()
+
+    def apply_globally(self):
+        return self._band_chooser.apply_globally()
 
 
 class BandChooserAction(QWidgetAction):
