@@ -31,6 +31,21 @@ class RecenterMode(Enum):
     IF_NOT_VISIBLE = 2
 
 
+class PixelReticleType(Enum):
+    '''
+    This enumeration specifies the different options for how a selected pixel
+    is highlighted in the user interface.
+    '''
+
+    # Draw a "small cross" - the horizontal and vertical lines will only have
+    # a relatively small extent.
+    SMALL_CROSS = 1
+
+    # Draw a "large cross" - the horizontal and vertical lines will extend to
+    # the edges of the view.
+    LARGE_CROSS = 2
+
+
 class RasterPane(QWidget):
     '''
     This widget provides a raster-view with an associated toolbar.
@@ -473,6 +488,12 @@ class RasterPane(QWidget):
 
 
     def _draw_pixel_highlight(self, widget, paint_event):
+        '''
+        This helper function draws a reticle that indicates the current "pixel
+        highlight" for the widget.  The magnification scale of the display will
+        affect how this is drawn
+        '''
+
         if self._pixel_highlight is None:
             return
 
@@ -480,34 +501,35 @@ class RasterPane(QWidget):
             color = self._app_state.get_color_of('pixel-highlight')
             painter.setPen(QPen(color))
 
+            # (ds_x, ds_y) is the coordinate within the data-set.
             ds_x = self._pixel_highlight.x()
             ds_y = self._pixel_highlight.y()
 
+            # This is the size of individual data-set pixels in the display
+            # coordinate system.
             scale = self._rasterview.get_scale()
 
-            screen_x = ds_x * scale
-            screen_y = ds_y * scale
+            # This is the center of the highlighted pixel.
+            screen_x = (ds_x + 0.5) * scale
+            screen_y = (ds_y + 0.5) * scale
 
 
             # Draw a reticle centered on the highlighted pixel.
 
-            lines = [
-                # Format:  (x1, y1, x2, y2, x_offset, y_offset)
-                (-15,   0, -5,  0, -0.5,  0),   # Left line
-                (  5,   0, 15,  0,  0.5,  0),   # Right line
-                (  0, -15,  0, -5,  0, -0.5),   # Above line
-                (  0,   5,  0, 15,  0,  0.5),   # Below line
-            ]
+            reticle_type = self._app_state.get_config('pixel-reticle-type', PixelReticleType.SMALL_CROSS)
+            if reticle_type == PixelReticleType.SMALL_CROSS:
+                painter.drawLine(screen_x - 15, screen_y, screen_x + 15, screen_y)
+                painter.drawLine(screen_x, screen_y - 15, screen_x, screen_y + 15)
 
-            for (x1, y1, x2, y2, x_offset, y_offset) in lines:
-                x1 += screen_x + scale / 2 + x_offset * scale
-                y1 += screen_y + scale / 2 + y_offset * scale
-                x2 += screen_x + scale / 2 + x_offset * scale
-                y2 += screen_y + scale / 2 + y_offset * scale
+            elif reticle_type == PixelReticleType.LARGE_CROSS:
+                painter.drawLine(0, screen_y, widget.width(), screen_y)
+                painter.drawLine(screen_x, 0, screen_x, widget.height())
 
-                line = QLine(x1, y1, x2, y2)
-                painter.drawLine(line)
+            else:
+                raise ValueError(f'Unrecognized reticle-type {reticle_type}')
 
+            # TODO(donnie):  Figure out how to incorporate this with the above.
+            '''
             # Draw a box around the highlighted pixel, but only if it's larger
             # than a certain scale.
             if scale >= 4:
@@ -516,3 +538,4 @@ class RasterPane(QWidget):
                 # from spilling into the neighboring pixel.
                 scaled = QRect(screen_x, screen_y, scale, scale)
                 painter.drawRect(scaled)
+            '''
