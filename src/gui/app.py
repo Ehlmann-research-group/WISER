@@ -4,7 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .rasterpane import RecenterMode
+from .rasterpane import RecenterMode, PixelReticleType
 
 from .dockable import DockablePane
 
@@ -34,12 +34,18 @@ class ApplicationState(QObject):
     # Signal:  the data-set at the specified index was removed
     dataset_removed = Signal(int)
 
+    # TODO(donnie):  Signals for config changes and color changes!
 
     def __init__(self):
         super().__init__()
 
         # All datasets loaded in the application.
         self._datasets = []
+
+        # Configuration options.
+        self._config = {
+            'pixel-reticle-type' : PixelReticleType.SMALL_CROSS,
+        }
 
         # Colors used for various purposes.
         self._colors = {
@@ -85,6 +91,21 @@ class ApplicationState(QObject):
         '''
         del self._datasets[index]
         self.dataset_removed.emit(index)
+
+
+    def get_config(self, option, default=None):
+        '''
+        Returns the value of the specified config option.  An optional default
+        value may be specified.
+        '''
+        return self._config.get(option, default)
+
+
+    def set_config(self, option, value):
+        '''
+        Sets the value of the specified config option.
+        '''
+        self._config[option] = value
 
 
     def get_color_of(self, option):

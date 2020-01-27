@@ -544,15 +544,39 @@ class RasterView(QWidget):
 
         return visible_region
 
-    def make_point_visible(self, x, y):
+
+    def make_point_visible(self, x, y, margin=0.5):
+        '''
+        Make the specified (x, y) coordinate of the raster dataset visible in
+        the view.
+
+        The optional margin argument controls where the pixel will appear in the
+        view after the operation, and may range between 0 and 0.5.  The default
+        value is 0.5.  The value corresponds to the percentage of the view's
+        size that will be used as a margin around the specified coordinate.  Of
+        course, the requested margin is not always achievable, for example, if
+        the pixel to display is on the edge of the raster image.  But, the view
+        widget will do the best that it can.
+
+        *   A value of 0.5 will cause the pixel to appear in the center of the
+            view, if possible; in other words, 50% of the view's size will be
+            used as a margin.
+
+        *   A value of 0 will allow the pixel to appear on the edge of the view,
+            because the requested margin size is 0% of the view's size.
+        '''
+
+        if margin < 0 or margin > 0.5:
+            raise ValueError(f'margin must be in the range [0, 0.5, got {margin}]')
+
         # Scroll the scroll-area to make the specified point visible.  The point
         # also needs scaled based on the current scale factor.  Finally, specify
         # a margin that's half the viewing area, so that the point will be in
         # the center of the area, if possible.
         self._scroll_area.ensureVisible(
             x * self._scale_factor, y * self._scale_factor,
-            self._scroll_area.viewport().width() / 2,
-            self._scroll_area.viewport().height() / 2
+            self._scroll_area.viewport().width() * margin,
+            self._scroll_area.viewport().height() * margin
         )
 
 
