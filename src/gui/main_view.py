@@ -41,42 +41,6 @@ class MainViewWidget(RasterPane):
         self._act_zoom_to_fit.triggered.connect(self._on_zoom_to_fit)
 
 
-    def _on_dataset_added(self, index):
-        if self._app_state.num_datasets() == 1:
-            # We finally have a dataset!
-            self._dataset_index = 0
-            self._update_image()
-
-
-    def _on_dataset_removed(self, index):
-        num = self._app_state.num_datasets()
-        if num == 0 or self._dataset_index == index:
-            self._dataset_index = min(self._dataset_index, num - 1)
-            if self._dataset_index == -1:
-                self._dataset_index = None
-
-            self._update_image()
-
-
-    def _on_dataset_changed(self, act):
-        self._dataset_index = act.data()
-        self._update_image()
-
-
-    def _on_raster_viewport_changed(self, visible_area):
-        self._app_state.set_view_attribute('image.visible_area', visible_area)
-
-
-    def _on_raster_mouse_clicked(self, point, event):
-        self._app_state.set_view_attribute('image.current_pixel', point)
-
-
-    def _on_view_attr_changed(self, attr_name):
-        # print('Main:  view attr changed:  ' + attr_name)
-        if attr_name in ['zoom.visible_area', 'zoom.visible']:
-            self._rasterview.update()
-
-
     def _on_zoom_to_actual(self, evt):
         ''' Zoom the view to 100% scale. '''
 

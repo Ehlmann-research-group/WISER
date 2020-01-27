@@ -204,13 +204,16 @@ class DataVisualizerApp(QMainWindow):
         # Hook up widget events to their corresponding control functions.
 
         self._context_pane.get_rasterview().mouse_click.connect(self._on_context_mouse_click)
+        self._context_pane.display_bands_change.connect(self._on_display_bands_change)
 
         self._main_view.get_rasterview().viewport_change.connect(self._on_mainview_viewport_change)
         self._main_view.get_rasterview().mouse_click.connect(self._on_mainview_mouse_click)
+        self._main_view.display_bands_change.connect(self._on_display_bands_change)
 
         self._zoom_pane.get_rasterview().viewport_change.connect(self._on_zoom_viewport_change)
         self._zoom_pane.get_rasterview().mouse_click.connect(self._on_zoom_mouse_click)
         self._zoom_pane.visibility_change.connect(self._on_zoom_visibility_changed)
+        self._zoom_pane.display_bands_change.connect(self._on_display_bands_change)
 
 
     def _init_menus(self):
@@ -306,6 +309,18 @@ class DataVisualizerApp(QMainWindow):
 
         raster_data = self.loader.load(file_path)
         self._app_state.add_dataset(raster_data)
+
+
+    def _on_display_bands_change(self, index, bands, is_global):
+        '''
+        When the user changes the display bands used in one of the raster panes,
+        the pane will fire an event that the application controller can receive,
+        if other raster panes also need to be updated.
+        '''
+        if is_global:
+            self._context_pane.set_display_bands(index, bands)
+            self._main_view.set_display_bands(index, bands)
+            self._zoom_pane.set_display_bands(index, bands)
 
 
     def _on_context_mouse_click(self, ds_point, mouse_event):

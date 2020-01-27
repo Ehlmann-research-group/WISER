@@ -172,7 +172,7 @@ def find_truecolor_bands(dataset):
     green_band = find_band_near_wavelength(bands, GREEN_WAVELENGTH)
     blue_band  = find_band_near_wavelength(bands, BLUE_WAVELENGTH)
 
-    # If that didn't work, just choose first, middle and last bands
+    # If that didn't work, report None
     if red_band is None or green_band is None or blue_band is None:
         return None
 
@@ -180,6 +180,16 @@ def find_truecolor_bands(dataset):
 
 
 def find_display_bands(dataset):
+    '''
+    This helper function figures out which bands to use for displaying the
+    specified raster data set.  The function operates as follows:
+
+    1)  If the data set specifies default display bands, these are returned.
+    2)  Otherwise, if the data set has frequency bands that correspond to the
+        frequencies/wavelengths perceived by the human eye, these are returned.
+    3)  Otherwise, the first, middle and last bands are used as display bands.
+    '''
+
     # See if the raster data-set specifies display bands, and if so, use them
     display_bands = dataset.default_display_bands()
     if display_bands is not None:

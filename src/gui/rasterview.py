@@ -180,7 +180,7 @@ class RasterView(QWidget):
         self._image = None
 
 
-    def set_raster_data(self, raster_data):
+    def set_raster_data(self, raster_data, display_bands):
         '''
         Specify a raster data-set to display in the raster-view widget.  A value
         of None causes the raster-view to display nothing.
@@ -193,11 +193,11 @@ class RasterView(QWidget):
         self._clear_members()
 
         self._raster_data = raster_data
+        self._display_bands = display_bands
 
         if raster_data is not None:
-            self._display_bands = find_display_bands(raster_data)
             assert len(self._display_bands) in [1, 3], \
-                f'Raster data has an unexpected number of display bands:  {rgb_bands}'
+                f'Raster data has an unsupported number of display bands:  {rgb_bands}'
 
         self.update_display_image()
 

@@ -36,6 +36,15 @@ def convert_spectral(value, to_unit):
     return value.to(to_unit, equivalencies=u.spectral())
 
 def find_band_near_wavelength(bands, wavelength, max_distance=20*u.nm):
+    '''
+    Given a collection of bands and a wavelength, this function will try to find
+    the band closest to the wavelength that is also within the maximum distance
+    specified to the function.
+
+    The index of the band in the list of bands is returned from the function.
+    If no suitable band is found, the function returns None.
+    '''
+
     best_band = None
     best_distance = None
 
