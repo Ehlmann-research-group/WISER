@@ -3,3 +3,7 @@
 venv/
 data/
 bigdata/
+
+# MacOSX py2app directories
+build/
+dist/
