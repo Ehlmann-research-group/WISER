@@ -70,11 +70,9 @@ class BandChooser(QWidget):
         layout.addWidget(self._lbl_band_grayscale, 6, 0)
         layout.addWidget(self._cbox_band_grayscale, 6, 1)
 
-        layout.addWidget(self._cb_apply_globally, 8, 0, columnSpan=2)
+        layout.addWidget(self._cb_apply_globally, 7, 0, columnSpan=2)
 
         self.setLayout(layout)
-
-        # TODO:  ENABLE/DISABLE WIDGETS IF DATASET NOT PRESENT
 
 
     def _populate_comboboxes(self):
