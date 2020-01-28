@@ -4,6 +4,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .about_dialog import AboutDialog
+
 from .rasterpane import RecenterMode, PixelReticleType
 
 from .dockable import DockablePane
@@ -217,6 +219,12 @@ class DataVisualizerApp(QMainWindow):
 
 
     def _init_menus(self):
+        # Application menu
+        self._app_menu = self.menuBar().addMenu(sys.argv[0])
+
+        act = self._app_menu.addAction(self.tr('About Imaging Spectroscopy Workbench'))
+        act.triggered.connect(self.show_about_dialog)
+
         # File menu
 
         self._file_menu = self.menuBar().addMenu(self.tr('&File'))
@@ -263,6 +271,15 @@ class DataVisualizerApp(QMainWindow):
         self._main_toolbar.addAction(act)
 
         return dockable
+
+
+    def show_about_dialog(self, evt):
+        '''
+        Shows the "About the Imaging Spectroscopy Workbench" dialog in the
+        user interface.
+        '''
+        about = AboutDialog(self)
+        about.exec()
 
 
     def show_open_file_dialog(self, evt):
