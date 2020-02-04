@@ -205,15 +205,15 @@ class DataVisualizerApp(QMainWindow):
 
         # Hook up widget events to their corresponding control functions.
 
-        self._context_pane.get_rasterview().mouse_click.connect(self._on_context_mouse_click)
+        self._context_pane.raster_pixel_select.connect(self._on_context_raster_pixel_select)
         self._context_pane.display_bands_change.connect(self._on_display_bands_change)
 
-        self._main_view.get_rasterview().viewport_change.connect(self._on_mainview_viewport_change)
-        self._main_view.get_rasterview().mouse_click.connect(self._on_mainview_mouse_click)
+        self._main_view.viewport_change.connect(self._on_mainview_viewport_change)
+        self._main_view.raster_pixel_select.connect(self._on_mainview_raster_pixel_select)
         self._main_view.display_bands_change.connect(self._on_display_bands_change)
 
-        self._zoom_pane.get_rasterview().viewport_change.connect(self._on_zoom_viewport_change)
-        self._zoom_pane.get_rasterview().mouse_click.connect(self._on_zoom_mouse_click)
+        self._zoom_pane.viewport_change.connect(self._on_zoom_viewport_change)
+        self._zoom_pane.raster_pixel_select.connect(self._on_zoom_raster_pixel_select)
         self._zoom_pane.visibility_change.connect(self._on_zoom_visibility_changed)
         self._zoom_pane.display_bands_change.connect(self._on_display_bands_change)
 
@@ -340,7 +340,7 @@ class DataVisualizerApp(QMainWindow):
             self._zoom_pane.set_display_bands(index, bands)
 
 
-    def _on_context_mouse_click(self, ds_point, mouse_event):
+    def _on_context_raster_pixel_select(self, ds_point):
         '''
         When the user clicks the mouse in the context pane, the main view is
         updated to show that location in the center of the main window.
@@ -356,7 +356,7 @@ class DataVisualizerApp(QMainWindow):
         self._context_pane.set_viewport_highlight(visible_area)
 
 
-    def _on_mainview_mouse_click(self, ds_point, mouse_event):
+    def _on_mainview_raster_pixel_select(self, ds_point):
         '''
         When the user clicks in the main view, the following things happen:
         *   The pixel is shown in the center of the zoom pane, and a selection
@@ -406,7 +406,7 @@ class DataVisualizerApp(QMainWindow):
         self._main_view.set_viewport_highlight(visible_area)
 
 
-    def _on_zoom_mouse_click(self, ds_point, mouse_event):
+    def _on_zoom_raster_pixel_select(self, ds_point):
         '''
         When the user clicks in the zoom pane, the following things happen:
         *   A selection reticle is shown around the pixel.

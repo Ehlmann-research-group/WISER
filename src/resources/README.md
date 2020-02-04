@@ -18,4 +18,8 @@ from [Flaticon](https://www.flaticon.com/).
 
 *   spectrum-pane-1.svg (was graphic.svg)
 
-<div>Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a></div>
+Icons made by [Pixelmeetup](https://www.flaticon.com/authors/pixelmeetup)
+from [Flaticon](https://www.flaticon.com/).
+
+*   select.svg (was area.svg)
+*   select-2.svg (was shape.svg)
