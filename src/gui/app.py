@@ -36,6 +36,10 @@ class ApplicationState(QObject):
     # Signal:  the data-set at the specified index was removed
     dataset_removed = Signal(int)
 
+    selection_added = Signal()
+
+    selection_removed = Signal()
+
     # TODO(donnie):  Signals for config changes and color changes!
 
     def __init__(self):
@@ -43,6 +47,9 @@ class ApplicationState(QObject):
 
         # All datasets loaded in the application.
         self._datasets = []
+
+        # Selections of multiple pixels from the input data sets.
+        self._selections = []
 
         # Configuration options.
         self._config = {
@@ -54,9 +61,6 @@ class ApplicationState(QObject):
             'viewport-highlight' : Qt.yellow,
             'pixel-highlight' : Qt.red,
         }
-
-        self._view_attributes = {}
-
 
     def add_dataset(self, dataset):
         '''
@@ -205,17 +209,19 @@ class DataVisualizerApp(QMainWindow):
 
         # Hook up widget events to their corresponding control functions.
 
-        self._context_pane.raster_pixel_select.connect(self._on_context_raster_pixel_select)
+        self._context_pane.click_pixel.connect(self._on_context_raster_pixel_select)
         self._context_pane.display_bands_change.connect(self._on_display_bands_change)
 
         self._main_view.viewport_change.connect(self._on_mainview_viewport_change)
-        self._main_view.raster_pixel_select.connect(self._on_mainview_raster_pixel_select)
+        self._main_view.click_pixel.connect(self._on_mainview_raster_pixel_select)
         self._main_view.display_bands_change.connect(self._on_display_bands_change)
+        self._main_view.create_selection.connect(self._on_create_selection)
 
         self._zoom_pane.viewport_change.connect(self._on_zoom_viewport_change)
-        self._zoom_pane.raster_pixel_select.connect(self._on_zoom_raster_pixel_select)
+        self._zoom_pane.click_pixel.connect(self._on_zoom_raster_pixel_select)
         self._zoom_pane.visibility_change.connect(self._on_zoom_visibility_changed)
         self._zoom_pane.display_bands_change.connect(self._on_display_bands_change)
+        self._zoom_pane.create_selection.connect(self._on_create_selection)
 
 
     def _init_menus(self):
@@ -338,6 +344,10 @@ class DataVisualizerApp(QMainWindow):
             self._context_pane.set_display_bands(index, bands)
             self._main_view.set_display_bands(index, bands)
             self._zoom_pane.set_display_bands(index, bands)
+
+
+    def _on_create_selection(self, selection):
+        self._app_state.add_selection(selection)
 
 
     def _on_context_raster_pixel_select(self, ds_point):

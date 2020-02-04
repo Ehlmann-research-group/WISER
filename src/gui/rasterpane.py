@@ -8,11 +8,12 @@ from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
 from .rasterview import RasterView
 from .util import add_toolbar_action, get_painter
-from .selection_creator import RectangleSelectionCreator, \
-    PolygonSelectionCreator, MultiPixelSelectionCreator
 
 from raster.dataset import find_display_bands, find_truecolor_bands
-from raster.selection import SelectionType
+
+from raster.selection import SelectionType, Selection
+from .selection_creator import RectangleSelectionCreator, \
+    PolygonSelectionCreator, MultiPixelSelectionCreator
 
 
 class RecenterMode(Enum):
@@ -72,9 +73,14 @@ class RasterPane(QWidget):
     display_bands_change = Signal(int, tuple, bool)
 
 
-    # Signal: for when the user selects a raster pixel.  The coordinates of the
+    # Signal:  for when the user selects a raster pixel.  The coordinates of the
     # pixel in the raster image are reported:  QPoint(x, y).
-    raster_pixel_select = Signal(QPoint)
+    click_pixel = Signal(QPoint)
+
+
+    # Signal:  the user created a selection in the pane.  The created selection
+    # is passed as an argument.
+    create_selection = Signal(Selection)
 
 
     # Signal:  the raster view's display area has changed.  The rectangle of the
@@ -282,7 +288,7 @@ class RasterPane(QWidget):
             # Map the coordinate of the mouse-event to the actual raster-image
             # pixel that was clicked, then emit a signal.
             r_coord = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-            self.raster_pixel_select.emit(r_coord)
+            self.click_pixel.emit(r_coord)
 
 
     def _onRasterKeyPress(self, widget, key_event):
