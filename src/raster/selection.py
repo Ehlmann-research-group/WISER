@@ -43,36 +43,20 @@ class SinglePixelSelection(Selection):
 
 
 class MultiPixelSelection(Selection):
-    def __init__(self):
-        self.pixels = set()
+    def __init__(self, pixels):
+        self.pixels = set(pixels)
 
     def get_type(self):
         return SelectionType.MULTI_PIXEL
-
-    def add_pixel(self, pixel):
-        if pixel not in self.pixels:
-            self.pixels.add(pixel)
-            return True
-        else:
-            return False
-
-    def remove_pixel(self, pixel):
-        if pixel in self.pixels:
-            self.pixels.discard(pixel)
-            return True
-        else:
-            return False
 
     def __str__(self):
         return f'MultiPixelSelection[{self.pixels}]'
 
 
 class RectangleSelection(Selection):
-    def __init__(self):
-        # TODO(donnie):  Should I use "pixel_1" and "pixel_2" instead, to match
-        #     the names in the other selection classes?
-        self.point_1 = None
-        self.point_2 = None
+    def __init__(self, point_1, point_2):
+        self.point_1 = point_1
+        self.point_2 = point_2
 
     def get_type(self):
         return SelectionType.RECTANGLE
@@ -82,31 +66,20 @@ class RectangleSelection(Selection):
 
 
 class PolygonSelection(Selection):
-    def __init__(self):
-        self.pixels = []
+    def __init__(self, points):
+        self.points = list(points)
 
     def get_type(self):
         return SelectionType.POLYGON
 
+    def num_points(self):
+        return len(self.points)
 
-    def add_pixel(self, pixel):
-        self.pixels.append(pixel)
-
-
-    def remove_last_pixel(self):
-        del self.pixels[-1]
-
-
-    def num_pixels(self):
-        return len(self.pixels)
-
-
-    def get_pixels(self):
-        return list(self.pixels)
-
+    def get_points(self):
+        return self.points
 
     def __str__(self):
-        return f'RectangleSelection[{self.pixels}]'
+        return f'RectangleSelection[{self.points}]'
 
 
 class PredicateSelection(Selection):

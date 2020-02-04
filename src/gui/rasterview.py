@@ -56,6 +56,11 @@ class ImageWidget(QLabel):
         '''
         super().__init__(text, parent=parent)
         self._forward = kwargs
+        self.setMouseTracking(True)
+
+    def mousePressEvent(self, mouse_event):
+        if 'mousePressEvent' in self._forward:
+            self._forward['mousePressEvent'](self, mouse_event)
 
     def mouseReleaseEvent(self, mouse_event):
         if 'mouseReleaseEvent' in self._forward:
@@ -64,6 +69,14 @@ class ImageWidget(QLabel):
     def mouseMoveEvent(self, mouse_event):
         if 'mouseMoveEvent' in self._forward:
             self._forward['mouseMoveEvent'](self, mouse_event)
+
+    def keyPressEvent(self, key_event):
+        if 'keyPressEvent' in self._forward:
+            self._forward['keyPressEvent'](self, key_event)
+
+    def keyReleaseEvent(self, key_event):
+        if 'keyReleaseEvent' in self._forward:
+            self._forward['keyReleaseEvent'](self, key_event)
 
     def paintEvent(self, paint_event):
         super().paintEvent(paint_event)
@@ -96,50 +109,28 @@ class RasterView(QWidget):
     A general-purpose widget for viewing raster datasets at varying zoom levels,
     possibly with overlay information drawn onto the image, such as annotations,
     regions of interest, etc.
-
-    TODO(donnie):  Probably want to provide a mouse-move event at some point in
-                   the future, so that we can have hover-over tooltip type
-                   displays of annotations, regions of interest, etc.
     '''
 
-    # Signal for when a mouse click occurs.  The coordinates of the pixel in
-    # the raster image are included in the arguments.
-    mouse_click = Signal(QPoint, QMouseEvent)
 
-    # Signal for when the mouse moves.  The coordinates of the pixel in
-    # the raster image are included in the arguments.  Note that
-    # enable_mouse_move must be set to True when this object is initialized, for
-    # mouse-move events to be generated.
-    mouse_move = Signal(QPoint, QMouseEvent)
-
-    # Signal for when the raster display-area changes.  The rectangle of the new
-    # display area is reported to the signal handler, using raster dataset
-    # coordinates:  (x, y, width, height).
-    viewport_change = Signal(QRect)
-
-
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, forward=None):
         super().__init__(parent=parent)
 
-        # The QLabel widget used to display the image data
+        if forward == None:
+            forward = {}
 
-        self._after_raster_paint_fn = None
+        # The widget used to display the image data
 
-        self._lbl_image = ImageWidget('(no data)',
-            mouseReleaseEvent=self._onRasterMouseClick,
-            paintEvent=self._afterRasterPaint)
-
-        self._lbl_image.setBackgroundRole(QPalette.Base)
-        self._lbl_image.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self._lbl_image.setScaledContents(True)
+        self._image_widget = ImageWidget('(no data)', **forward)
+        self._image_widget.setBackgroundRole(QPalette.Base)
+        self._image_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self._image_widget.setScaledContents(True)
 
         # The scroll area used to handle images larger than the widget size
 
-        self._scroll_area = ImageScrollArea(scrollContentsBy=self._afterRasterScroll)
-
+        self._scroll_area = ImageScrollArea(**forward)
         self._scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._scroll_area.setBackgroundRole(QPalette.Dark)
-        self._scroll_area.setWidget(self._lbl_image)
+        self._scroll_area.setWidget(self._image_widget)
         self._scroll_area.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
         # Set up the layout
@@ -184,8 +175,6 @@ class RasterView(QWidget):
         '''
         Specify a raster data-set to display in the raster-view widget.  A value
         of None causes the raster-view to display nothing.
-
-        The scale factor is reset to 1.0 when this method is called.
         '''
         if raster_data is not None and not isinstance(raster_data, RasterDataSet):
             raise ValueError('raster_data must be a RasterDataSet object')
@@ -271,8 +260,8 @@ class RasterView(QWidget):
     def update_display_image(self, colors=ImageColors.RGB):
         if self._raster_data is None:
             # No raster data to display - clear the view.
-            self._lbl_image.clear()
-            self._lbl_image.setText('(no data)')
+            self._image_widget.clear()
+            self._image_widget.setText('(no data)')
             # self.lbl_image.adjustSize()
             return
 
@@ -341,8 +330,8 @@ class RasterView(QWidget):
 
         # Update the image that the label is displaying.
         pixmap = QPixmap.fromImage(scaled_image)
-        self._lbl_image.setPixmap(pixmap)
-        self._lbl_image.adjustSize()
+        self._image_widget.setPixmap(pixmap)
+        self._image_widget.adjustSize()
         self._scroll_area.setVisible(True)
 
         # Need to process queued events now, since the image-widget has changed
@@ -399,7 +388,6 @@ class RasterView(QWidget):
             old_factor = self._scale_factor
             self._scale_factor = factor
             self._update_scaled_image(old_scale_factor=old_factor)
-            self._emit_viewport_change()
 
     def scale_image_to_fit(self, mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS):
         '''
@@ -487,11 +475,6 @@ class RasterView(QWidget):
         # print(f'Scaled image size = {self._scaled_image.width()} x {self._scaled_image.height()}')
 
 
-    def _emit_viewport_change(self):
-        ''' A helper that emits the viewport-changed event. '''
-        self.viewport_change.emit(self.get_visible_region())
-
-
     def update(self):
         '''
         Override the QWidget update() function to make sure that the internal
@@ -499,22 +482,8 @@ class RasterView(QWidget):
         comprised of multiple widgets.
         '''
         super().update()
-        self._lbl_image.update()
+        self._image_widget.update()
 
-
-    def resizeEvent(self, event):
-        '''
-        Override the QtWidget resizeEvent() virtual method to fire an event that
-        the visible region of the raster-view has changed.
-        '''
-        self._emit_viewport_change()
-
-    def _afterRasterScroll(self, widget, dx, dy):
-        '''
-        This function is called when the scroll-area moves around.  Fire an
-        event that the visible region of the raster-view has changed.
-        '''
-        self._emit_viewport_change()
 
     def get_visible_region(self):
         '''
@@ -614,7 +583,7 @@ class RasterView(QWidget):
         self.update_display_image(colors=color)
 
 
-    def _image_coord_to_raster_coord(self, position):
+    def image_coord_to_raster_coord(self, position):
         '''
         Takes a position in screen space as a QPointF object, and translates it
         into a 2-tuple containing the (X, Y) coordinates of the position within
@@ -626,23 +595,3 @@ class RasterView(QWidget):
         # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
         # it rounds to the nearest point, and we just want truncation/floor.
         return QPoint(int(scaled.x()), int(scaled.y()))
-
-
-    def _onRasterMouseClick(self, widget, mouse_event):
-        '''
-        When the display image is clicked on, this method gets invoked, and it
-        translates the click event's coordinates into the location on the
-        raster data set.
-        '''
-        # Map the coordinate of the mouse-event to the actual raster-image
-        # pixel that was clicked, then emit a signal.
-        r_coord = self._image_coord_to_raster_coord(mouse_event.localPos())
-        self.mouse_click.emit(r_coord, mouse_event)
-
-
-    def _afterRasterPaint(self, widget, paint_event):
-        if self._after_raster_paint_fn is not None:
-            self._after_raster_paint_fn(widget, paint_event)
-
-    def set_after_raster_paint(self, after_raster_paint_fn):
-        self._after_raster_paint_fn = after_raster_paint_fn

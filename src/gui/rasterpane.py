@@ -8,8 +8,11 @@ from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
 from .rasterview import RasterView
 from .util import add_toolbar_action, get_painter
+from .selection_creator import RectangleSelectionCreator, \
+    PolygonSelectionCreator, MultiPixelSelectionCreator
 
 from raster.dataset import find_display_bands, find_truecolor_bands
+from raster.selection import SelectionType
 
 
 class RecenterMode(Enum):
@@ -45,6 +48,11 @@ class PixelReticleType(Enum):
     # the edges of the view.
     LARGE_CROSS = 2
 
+    # Draw a "small cross" at low magnifications, but above a certain
+    # magnification level (e.g. 4x), start drawing a box around the selected
+    # pixel.
+    SMALL_CROSS_BOX = 3
+
 
 class RasterPane(QWidget):
     '''
@@ -64,8 +72,19 @@ class RasterPane(QWidget):
     display_bands_change = Signal(int, tuple, bool)
 
 
+    # Signal: for when the user selects a raster pixel.  The coordinates of the
+    # pixel in the raster image are reported:  QPoint(x, y).
+    raster_pixel_select = Signal(QPoint)
+
+
+    # Signal:  the raster view's display area has changed.  The rectangle of the
+    # new display area is reported to the signal handler, using raster dataset
+    # coordinates:  QRect(x, y, width, height).
+    viewport_change = Signal(QRect)
+
+
     def __init__(self, app_state, parent=None, size_hint=None,
-                 embed_toolbar=True,
+                 embed_toolbar=True, select_tools=True,
                  min_zoom_scale=None, max_zoom_scale=None, zoom_options=None,
                  initial_zoom=None):
         super().__init__(parent=parent)
@@ -92,9 +111,11 @@ class RasterPane(QWidget):
         self._viewport_highlight = None
         self._pixel_highlight = None
 
+        self._creator = None
+
         # Initialize contents of the widget
 
-        self._init_ui()
+        self._init_ui(select_tools=select_tools)
 
         # Register for events from the application state
 
@@ -102,8 +123,11 @@ class RasterPane(QWidget):
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
 
-    def _init_ui(self):
+    def _init_ui(self, select_tools=True):
         ''' Initialize the contents of this widget '''
+
+        # TOOLBAR
+        #=========
 
         self._toolbar = QToolBar(self.tr('Toolbar'), parent=self)
 
@@ -114,10 +138,22 @@ class RasterPane(QWidget):
         self._toolbar.addSeparator()
         self._init_zoom_tools()
 
+        if select_tools:
+            self._toolbar.addSeparator()
+            self._init_select_tools()
+
         # Raster image view widget
 
-        self._rasterview = RasterView(parent=self)
-        self._rasterview.set_after_raster_paint(self._after_raster_paint)
+        forward = {
+            'mousePressEvent'   : self._onRasterMousePress,
+            'mouseReleaseEvent' : self._onRasterMouseRelease,
+            'mouseMoveEvent'    : self._onRasterMouseMove,
+            'keyPressEvent'     : self._onRasterKeyPress,
+            'keyReleaseEvent'   : self._onRasterKeyRelease,
+            'paintEvent'        : self._afterRasterPaint,
+            'scrollContentsBy'  : self._afterRasterScroll,
+        }
+        self._rasterview = RasterView(parent=self, forward=forward)
 
         # Widget layout
 
@@ -182,6 +218,104 @@ class RasterPane(QWidget):
         self._cbox_zoom.lineEdit().editingFinished.connect(self._on_zoom_cbox_edit_text)
 
         self._act_cbox_zoom = self._toolbar.addWidget(self._cbox_zoom)
+
+    def _init_select_tools(self):
+        '''
+        Initialize the selection / region of interest tools
+        '''
+
+        # The selection-tools chooser is a drop down menu of selection tools.
+        # First, populate the menu of tools, then create the chooser button.
+
+        chooser = QToolButton()
+        chooser.setIcon(QIcon('resources/select.svg'))
+        chooser.setToolTip(self.tr('Selection tools'))
+
+        # Without the parent= argument, the chooser doesn't show the menu.
+        menu = QMenu(parent=chooser)
+        chooser.setMenu(menu)
+        chooser.setPopupMode(QToolButton.InstantPopup)
+
+        act = menu.addAction(self.tr('Rectangle selection'))
+        act.setData(SelectionType.RECTANGLE)
+
+        act = menu.addAction(self.tr('Polygon selection'))
+        act.setData(SelectionType.POLYGON)
+
+        act = menu.addAction(self.tr('Multi-pixel selection'))
+        act.setData(SelectionType.MULTI_PIXEL)
+
+        act = menu.addAction(self.tr('Predicate selection'))
+        act.setData(SelectionType.PREDICATE)
+
+        self._toolbar.addWidget(chooser)
+
+        chooser.triggered.connect(self._on_create_selection)
+
+
+    def resizeEvent(self, event):
+        '''
+        Override the QtWidget resizeEvent() virtual method to fire an event that
+        the visible region of the raster-view has changed.
+        '''
+        self._emit_viewport_change()
+
+
+    def _onRasterMousePress(self, widget, mouse_event):
+        if self._creator is not None:
+            self._update_creator(self._creator.onMousePress(widget, mouse_event))
+
+    def _onRasterMouseMove(self, widget, mouse_event):
+        if self._creator is not None:
+            self._update_creator(self._creator.onMouseMove(widget, mouse_event))
+
+    def _onRasterMouseRelease(self, widget, mouse_event):
+        '''
+        When the display image is clicked on, this method gets invoked, and it
+        translates the click event's coordinates into the location on the
+        raster data set.
+        '''
+        if self._creator is not None:
+            self._update_creator(self._creator.onMouseRelease(widget, mouse_event))
+
+        else:
+            # Map the coordinate of the mouse-event to the actual raster-image
+            # pixel that was clicked, then emit a signal.
+            r_coord = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+            self.raster_pixel_select.emit(r_coord)
+
+
+    def _onRasterKeyPress(self, widget, key_event):
+        if self._creator is not None:
+            self._update_creator(self._creator.onKeyPress(widget, key_event))
+
+    def _onRasterKeyRelease(self, widget, key_event):
+        if self._creator is not None:
+            self._update_creator(self._creator.onKeyRelease(widget, key_event))
+
+
+    def _afterRasterScroll(self, widget, dx, dy):
+        '''
+        This function is called when the scroll-area moves around.  Fire an
+        event that the visible region of the raster-view has changed.
+        '''
+        self._emit_viewport_change()
+
+
+    def _update_creator(self, create_done):
+        if create_done:
+            selection = self._creator.get_selection()
+            print(f'TODO:  Store selection {selection} on application state')
+            self._creator = None
+
+        self._rasterview.update()
+
+
+    def _emit_viewport_change(self):
+        ''' A helper that emits the viewport-changed event. '''
+        self.viewport_change.emit(self._rasterview.get_visible_region())
+
+
 
     def _on_zoom_cbox_activated(self, data):
         # print(f'Zoom combo-box activated:  {data}')
@@ -463,6 +597,37 @@ class RasterPane(QWidget):
             self._cbox_zoom.lineEdit().setText(scale_str)
 
 
+    def _on_create_selection(self, act):
+        selection_type = act.data()
+
+        if selection_type == SelectionType.RECTANGLE:
+            self._creator = RectangleSelectionCreator(self)
+            # TODO:  Update status bar to indicate the creation of the rectangle
+            #        selection.
+
+        elif selection_type == SelectionType.POLYGON:
+            self._creator = PolygonSelectionCreator(self)
+            # TODO:  Update status bar to indicate the creation of the polygon
+            #        selection.
+
+        elif selection_type == SelectionType.MULTI_PIXEL:
+            self._creator = MultiPixelSelectionCreator(self)
+            # TODO:  Update status bar to indicate the creation of the
+            #        multi-pixel selection.
+
+        elif selection_type == SelectionType.PREDICATE:
+            ok, pred_text = QInputDialog.getText(self,
+                self.tr('Create predicate selection'),
+                self.tr('Enter a predicate specifying what pixels to select.'))
+
+            if ok and pred_text:
+                print(f'TODO:  Create selection from predicate {pred_text}')
+
+        else:
+            QMessageBox.warning(self, self.tr('Unsupported Feature'),
+                f'ISWB does not yet support selections of type {selection_type}')
+
+
     def _update_image(self):
         dataset = None
         if self._app_state.num_datasets() > 0:
@@ -480,7 +645,7 @@ class RasterPane(QWidget):
 
     # TODO(donnie):  Make this function take a QPainter argument???
     # TODO(donnie):  Only pass in the bounding rectangle from the paint event???
-    def _after_raster_paint(self, widget, paint_event):
+    def _afterRasterPaint(self, widget, paint_event):
         '''
         This method may be implemented by subclasses to draw additional
         information on top of the raster data.  The widget argument is the
@@ -500,8 +665,19 @@ class RasterPane(QWidget):
         # Draw the pixel highlight, if there is one
         self._draw_pixel_highlight(widget, paint_event)
 
+        if self._creator is not None:
+            with get_painter(widget) as painter:
+                self._creator.draw_state(painter)
+
 
     def _draw_viewport_highlight(self, widget, paint_event):
+        '''
+        This helper function draws the viewport highlight in this raster-pane.
+        The color to draw with is taken from the application state's config.
+
+        If there is no viewport highlight, this is a no-op.
+        '''
+
         if self._viewport_highlight is None:
             return
 
@@ -527,9 +703,11 @@ class RasterPane(QWidget):
 
     def _draw_pixel_highlight(self, widget, paint_event):
         '''
-        This helper function draws a reticle that indicates the current "pixel
-        highlight" for the widget.  The magnification scale of the display will
-        affect how this is drawn
+        This helper function draws the "currently selected pixel" highlight in
+        this raster-pane.  The color to draw with is taken from the application
+        state's config.
+
+        If there is no "currently selected pixel" highlight, this is a no-op.
         '''
 
         if self._pixel_highlight is None:
