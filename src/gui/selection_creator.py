@@ -4,6 +4,8 @@ from PySide2.QtWidgets import *
 
 from enum import Enum
 
+from .geom import *
+
 from raster.selection import RectangleSelection, PolygonSelection
 
 
@@ -84,21 +86,6 @@ class RectangleSelectionCreator:
         return False
 
 
-    def get_rectangle(self, p1, p2):
-        x1 = p1.x()
-        y1 = p1.y()
-        x2 = p2.x()
-        y2 = p2.y()
-
-        if x2 < x1:
-            x2, x1 = x1, x2
-
-        if y2 < y1:
-            y2, y1 = y1, y2
-
-        return QRect(x1, y1, x2 - x1, y2 - y1)
-
-
     def draw_state(self, painter):
 
         # The only state that we really draw anything in, is when we have
@@ -114,13 +101,15 @@ class RectangleSelectionCreator:
                 # Draw the box between point 1 and the current mouse position, in a
                 # dotted rectangle.
 
-                color = Qt.blue # self._app_state.get_color_of('create-selection')
-                painter.setPen(QPen(color))
+                color = Qt.white # self._app_state.get_color_of('create-selection')
+                pen = QPen(color)
+                pen.setStyle(Qt.DashLine)
+                painter.setPen(pen)
 
                 p1_scaled = self.point1 * scale
                 p2_scaled = self.cursor_position * scale
 
-                rect = self.get_rectangle(p1_scaled, p2_scaled)
+                rect = get_rectangle(p1_scaled, p2_scaled)
                 painter.drawRect(rect)
 
             # Draw boxes on the two points themselves.
@@ -142,30 +131,42 @@ class RectangleSelectionCreator:
 
 
 class PolygonSelectionCreator:
-    class State(Enum):
-        GET_POINT = 1
-        DONE = 3
-        CANCEL = -1
 
+    # This variable tunes the sensitivity of closing the polygon.  Lower values
+    # require the start and end points to be closer together to close a polygon.
+    SENSITIVITY = 3
 
     def __init__(self, raster_pane):
         self._raster_pane = raster_pane
 
-        self.state = PolygonSelectionCreator.State.GET_POINT
         self.points = []
         self.cursor_position = None
 
+        self.done = False
+
+    def _close_enough(self, p1, p2):
+        '''
+        Returns True when two points in raster coordinates are "close enough" to
+        consider the polygon to be closed.  The measure depends on the scale of
+        the display, since it's easy to be accurate when zoomed in, but very
+        difficult to be accurate when zoomed out.
+        '''
+        rasterview = self._raster_pane.get_rasterview()
+        scale = rasterview.get_scale()
+        d = distance(p1, p2)
+        return (d < PolygonSelectionCreator.SENSITIVITY / scale)
+
     def onMousePress(self, widget, mouse_event):
-        return False
+        return self.done
 
     def onMouseRelease(self, widget, mouse_event):
         rasterview = self._raster_pane.get_rasterview()
         point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
-        if len(self.points) > 0 and point == self.points[0]:
-            # User clicked on the first point in the polygon, closing it.
-            # Therefore we are done.
-            self.state = PolygonSelectionCreator.State.DONE
+        if len(self.points) > 0 and self._close_enough(point, self.points[0]):
+            # User clicked on the first point in the polygon (or they clicked
+            # close enough to it), closing it.  Therefore we are done.
+            self.done = True
 
         else:
             # User is attempting to add another point to the polygon.
@@ -173,8 +174,7 @@ class PolygonSelectionCreator:
             #     weird mangled polygon.
             self.points.append(point)
 
-        return self.state == PolygonSelectionCreator.State.DONE
-
+        return self.done
 
     def onMouseMove(self, widget, mouse_event):
         # Store the current mouse location in raster coordinates,
@@ -182,9 +182,7 @@ class PolygonSelectionCreator:
 
         rasterview = self._raster_pane.get_rasterview()
         point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-
         self.cursor_position = point
-
         return False
 
     def onKeyPress(self, widget, key_event):
@@ -212,14 +210,42 @@ class PolygonSelectionCreator:
         rasterview = self._raster_pane.get_rasterview()
         scale = rasterview.get_scale()
 
+        bad_point = False
+        closed_loop = False
+
         points_scaled = [p * scale for p in self.points]
         if self.cursor_position is not None:
-            points_scaled.append(self.cursor_position * scale)
+            cp_scaled = self.cursor_position * scale
 
-        color = Qt.blue # self._app_state.get_color_of('create-selection')
-        painter.setPen(QPen(color))
+            # Does the last line cross any earlier lines?
+            last_line = QLine(points_scaled[-1], cp_scaled)
+            for i in range(len(points_scaled) - 1):
+                line = QLine(points_scaled[i], points_scaled[i + 1])
+                if lines_cross(last_line, line):
+                    bad_point = True
+
+            if not bad_point and len(points_scaled) >= 3:
+                closed_loop = self._close_enough(cp_scaled, points_scaled[0])
+
+            points_scaled.append(cp_scaled)
+
+        # print(f'PS:  bad_point = {bad_point}\tclosed_loop = {closed_loop}')
+
+        color = Qt.white # self._app_state.get_color_of('create-selection')
+        pen = QPen(color)
+
+        if not closed_loop:
+            pen.setStyle(Qt.DashLine)
+
+        painter.setPen(pen)
 
         for i in range(len(points_scaled) - 1):
+            # print(f'i = {i}\tlen(self.points) = {len(self.points)}')
+            if bad_point and (i == len(self.points) - 1):
+                pen = QPen(Qt.red)
+                pen.setStyle(Qt.DashLine)
+                painter.setPen(pen)
+
             painter.drawLine(points_scaled[i], points_scaled[i + 1])
 
         # Draw boxes on the points themselves.
@@ -288,11 +314,14 @@ class MultiPixelSelectionCreator:
 
         points_scaled = [p * scale for p in self.points]
 
-        color = Qt.blue # self._app_state.get_color_of('create-selection')
+        color = Qt.white # self._app_state.get_color_of('create-selection')
         painter.setPen(QPen(color))
 
         for p in points_scaled:
-            painter.drawRect(p.x() + 1, p.y() + 1, scale - 2, scale - 2)
+            if scale >= 6:
+                painter.drawRect(p.x() + 1, p.y() + 1, scale - 2, scale - 2)
+            else:
+                painter.drawRect(p.x(), p.y(), scale, scale)
 
 
     def get_selection(self):
