@@ -124,6 +124,7 @@ class RasterView(QWidget):
         self._image_widget.setBackgroundRole(QPalette.Base)
         self._image_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self._image_widget.setScaledContents(True)
+        self._image_widget.setFocusPolicy(Qt.ClickFocus)
 
         # The scroll area used to handle images larger than the widget size
 

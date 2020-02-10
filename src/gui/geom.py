@@ -66,7 +66,7 @@ def lines_cross(line1, line2, epsilon = 0.01):
 
     if denom == 0:
         # TODO(donnie):  Lines are parallel or coincident.
-        print('TODO:  Lines are parallel or coincident')
+        # print('TODO:  Lines are parallel or coincident')
         return False
 
     else:
