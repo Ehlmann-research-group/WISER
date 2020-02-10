@@ -77,7 +77,7 @@ class PolygonSelection(Selection):
         return self.points
 
     def __str__(self):
-        return f'RectangleSelection[{self.points}]'
+        return f'PolygonSelection[{self.points}]'
 
 
 class PredicateSelection(Selection):

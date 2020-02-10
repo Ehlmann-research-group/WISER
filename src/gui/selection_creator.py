@@ -6,7 +6,7 @@ from enum import Enum
 
 from .geom import *
 
-from raster.selection import RectangleSelection, PolygonSelection
+from raster.selection import RectangleSelection, PolygonSelection, MultiPixelSelection
 
 
 class SelectionCreator:
@@ -76,7 +76,7 @@ class RectangleSelectionCreator:
         cancel the points that have been entered, in the order they were
         entered.
         '''
-        if key_evt != Qt.Key_Escape:
+        if key_event.key() != Qt.Key_Escape:
             return False
 
         if self.state == RectangleSelectionCreator.State.GET_POINT_2:
@@ -194,7 +194,7 @@ class PolygonSelectionCreator:
         cancel the points that have been entered, in the order they were
         entered.
         '''
-        if key_evt != Qt.Key_Escape:
+        if key_event.key() != Qt.Key_Escape:
             return False
 
         if len(self.points) > 0:
@@ -302,7 +302,7 @@ class MultiPixelSelectionCreator:
         cancel the points that have been entered, in the order they were
         entered.
         '''
-        return key_event == Qt.Key_Escape
+        return key_event.key() == Qt.Key_Escape
 
 
     def draw_state(self, painter):
@@ -325,4 +325,4 @@ class MultiPixelSelectionCreator:
 
 
     def get_selection(self):
-        return MultiPointSelection(self.points)
+        return MultiPixelSelection(self.points)
