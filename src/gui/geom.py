@@ -5,11 +5,20 @@ import math
 
 def distance(p1, p2):
     '''
-    Given two QPoint or QPointF objects, this function returns the distance
-    between the two points.
+    Given two QPoint or QPointF objects, this function returns the Euclidean
+    distance (L2 distance) between the two points.
     '''
     diff = p2 - p1
     return math.sqrt(diff.x() * diff.x() + diff.y() * diff.y())
+
+
+def manhattan_distance(p1, p2):
+    '''
+    Given two QPoint or QPointF objects, this function returns the Manhattan
+    distance (L1 distance) between the two points.
+    '''
+    diff = p2 - p1
+    return abs(diff.x()) + abs(diff.y())
 
 
 def get_rectangle(p1, p2):
