@@ -253,7 +253,24 @@ class RasterView(QWidget):
 
         # TODO(donnie):  Almost certainly, we will need a much more
         #     sophisticated way of specifying how the band data is transformed.
-        band_data = (band_data * 255 + 30).clip(0, 255).astype(np.uint32)
+        #     But for now, handle all but complex data linearly
+        if band_data.dtype == np.float32 or band_data.dtype == np.float64:
+            band_data = (band_data * 255 + 30).clip(0, 255).astype(np.uint32)
+
+        elif band_data.dtype == np.uint32 or band_data.dtype == np.int32:
+            # fake a linear stretch by simply ignoring the low bytes
+            band_data = (band_data >> 24)
+
+        elif band_data.dtype == np.uint16 or band_data.dtype == np.int16:
+            # fake a linear stretch by simply ignoring the low byte
+            band_data = (band_data >> 8).astype(np.uint32)
+
+        elif band_data.dtype == np.uint8 or band_data.dtype == np.int8:
+            band_data = band_data.astype(np.uint32)
+            
+        else:
+            print("Data type {} not currently supported".format(band_data.dtype))
+            raise NotImplementedError
 
         return band_data
 
