@@ -10,9 +10,15 @@ Usage (Mac OS X):
 Usage (Windows):
     python setup.py py2exe
 """
-# TODO(donnie):  What to do about ez_setup?????
-# import ez_setup
-# ez_setup.use_setuptools()
+
+# TODO(donnie):  It isn't really a good idea to use ez_setup directly, see
+#     https://pypi.org/project/ez_setup/
+try:
+    import ez_setup
+    ez_setup.use_setuptools()
+except ImportError:
+    pass
+
 
 import sys
 from setuptools import setup
