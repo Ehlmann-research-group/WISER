@@ -9,6 +9,10 @@ import numpy as np
 
 from raster.dataset import RasterDataSet, find_display_bands
 
+from stretch import StretchBase, StretchLinear
+from gui.stretch_builder import StretchBuilder
+from gui.stretch_builder_ui import Ui_Dialog_stretchBuilder
+
 
 class ImageColors(IntFlag):
     NONE = 0
@@ -111,12 +115,19 @@ class RasterView(QWidget):
     regions of interest, etc.
     '''
 
+    _stretchBuilderButton = None
+    _stretchBuilder = None
+    _stretch = StretchBase()
 
     def __init__(self, parent=None, forward=None):
         super().__init__(parent=parent)
 
         if forward == None:
             forward = {}
+
+        # Initialize fields in the object
+        self._clear_members()
+        self._scale_factor = 1.0
 
         # The widget used to display the image data
 
@@ -143,12 +154,30 @@ class RasterView(QWidget):
         # layout.setMenuBar(self.image_toolbar)
         layout.addWidget(self._scroll_area)
 
+        # Hack in a button to launch a StretchBuilder
+        self._stretchBuilderButton = QPushButton("Stretch Builder")
+        self._stretchBuilderButton.clicked.connect(self._show_stretchBuilder)
+        layout.addWidget(self._stretchBuilderButton)
         self.setLayout(layout)
 
-        # Initialize fields in the object
-        self._clear_members()
-        self._scale_factor = 1.0
+        self._stretchBuilder = StretchBuilder(self)
+        self._stretchBuilder.stretchChanged.connect(self.set_stretch)
 
+    @Slot()
+    def _show_stretchBuilder(self):
+        self._stretchBuilder.show()
+
+    @Slot()
+    def _hide_stretchBuilder(self):
+        self._stretchBuilder.hide()
+
+    def get_stretch(self):
+        return self._stretch
+    
+    @Slot(StretchBase)
+    def set_stretch(self, stretch: StretchBase):
+        self._stretch = stretch
+        self.update_display_image()
 
     def _clear_members(self):
         '''
@@ -240,14 +269,15 @@ class RasterView(QWidget):
         self.update_display_image(colors=changed)
 
 
-    def _extract_band_for_display(self, band_index):
+    def extract_band_for_display(self, band_index):
         '''
         Extracts the specified band of raster data for display in an RGB image
         in the user interface.  This operation is done with numpy so that it can
         be completed as efficiently as possible.
 
-        The function returns a numpy array with np.uint32 elements in the range
-        of 0..255.
+        The function returns a numpy array with np.float32 elements in the range
+        of 0.0 .. 1.0, unless the input is already np.float64, in which case the
+        type is left as np.float64.
         '''
         band_data = self._raster_data.get_band_data(band_index)
 
@@ -255,18 +285,18 @@ class RasterView(QWidget):
         #     sophisticated way of specifying how the band data is transformed.
         #     But for now, handle all but complex data linearly
         if band_data.dtype == np.float32 or band_data.dtype == np.float64:
-            band_data = (band_data * 255 + 30).clip(0, 255).astype(np.uint32)
+            np.clip(band_data, 0., 1., out=band_data)
 
         elif band_data.dtype == np.uint32 or band_data.dtype == np.int32:
             # fake a linear stretch by simply ignoring the low bytes
-            band_data = (band_data >> 24)
+            band_data = (band_data >> 24).astype(np.float32) / 255.
 
         elif band_data.dtype == np.uint16 or band_data.dtype == np.int16:
             # fake a linear stretch by simply ignoring the low byte
-            band_data = (band_data >> 8).astype(np.uint32)
+            band_data = (band_data >> 8).astype(np.uint32) / 255.
 
         elif band_data.dtype == np.uint8 or band_data.dtype == np.int8:
-            band_data = band_data.astype(np.uint32)
+            band_data = band_data.astype(np.uint32) / 255.
             
         else:
             print("Data type {} not currently supported".format(band_data.dtype))
@@ -290,20 +320,55 @@ class RasterView(QWidget):
 
         if len(self._display_bands) == 3:
             if self._red_data is None or ImageColors.RED in colors:
-                self._red_data = self._extract_band_for_display(self._display_bands[0])
+                self._red_data = self.extract_band_for_display(self._display_bands[0])
+                """
+                if isinstance(self._stretch, StretchLinear):
+                    self._stretch.calculate(self._red_data, 0.05)
+                    self._update_stretch_lower(self._stretch.lower)
+                    self._update_stretch_upper(self._stretch.upper)
+                    self._red_data = self._stretch.apply(self._red_data)
+                """
+                self._red_data = self._stretch.apply(self._red_data)
+                self._red_data = (self._red_data * 255.).astype(np.uint32)
 
             if self._green_data is None or ImageColors.GREEN in colors:
-                self._green_data = self._extract_band_for_display(self._display_bands[1])
+                self._green_data = self.extract_band_for_display(self._display_bands[1])
+                """
+                if isinstance(self._stretch, StretchLinear):
+                    self._stretch.calculate(self._green_data, 0.05)
+                    self._update_stretch_lower(self._stretch.lower)
+                    self._update_stretch_upper(self._stretch.upper)
+                    self._green_data = self._stretch.apply(self._green_data)
+                """
+                self._green_data = self._stretch.apply(self._green_data)
+                self._green_data = (self._green_data * 255.).astype(np.uint32)
 
             if self._blue_data is None or ImageColors.BLUE in colors:
-                self._blue_data = self._extract_band_for_display(self._display_bands[2])
+                self._blue_data = self.extract_band_for_display(self._display_bands[2])
+                """
+                if isinstance(self._stretch, StretchLinear):
+                    self._stretch.calculate(self._blue_data, 0.05)
+                    self._update_stretch_lower(self._stretch.lower)
+                    self._update_stretch_upper(self._stretch.upper)
+                    self._blue_data = self._stretch.apply(self._blue_data)
+                """
+                self._blue_data = self._stretch.apply(self._blue_data)
+                self._blue_data = (self._blue_data * 255.).astype(np.uint32)
 
         else:
             assert len(self._display_bands) == 1
 
             # Grayscale:  We can extract the band data once, and use it for all
             # three colors.
-            data = self._extract_band_for_display(self._display_bands[0])
+            data = self.extract_band_for_display(self._display_bands[0])
+            """
+            if isinstance(self._stretch, StretchLinear):
+                self._stretch.calculate(data, 0.05)
+                self._update_stretch_lower(self._stretch.lower)
+                self._update_stretch_upper(self._stretch.upper)
+            """
+            data = self._stretch.apply(data)
+            data = (data * 255.).astype(np.uint32)
 
             if self._red_data is None or ImageColors.RED in colors:
                 self._red_data = data
