@@ -7,8 +7,7 @@ class StretchBase(QObject):
     # Base class for stretch objects
 
     def apply(self, input):
-        out = input.copy() # placeholder to show the ins and outs
-        return out
+        return input
 
 class StretchLinear(StretchBase):
     """ Linear stretches """
@@ -26,11 +25,10 @@ class StretchLinear(StretchBase):
     upperChanged = Signal(int)
     
     def apply(self, a):
-        out = a.copy()
-        out *= self._slope
-        out += self._offset
-        np.clip(out, 0., 1., out=out)
-        return out
+        a *= self._slope
+        a += self._offset
+        np.clip(a, 0., 1., out=a)
+        return a
     
     def find_limit(self, targetCount: int, bins, doLower: bool) -> int:
         if doLower:
@@ -70,23 +68,25 @@ class StretchLinear(StretchBase):
 class StretchHistEqualize(StretchBase):
     """ Histogram Equalization Stretches """
     _cdf = None
-    _histo_bins = None
+    _histo_edges = None
 
     # Constructor
     def __init__(self):
         StretchBase.__init__(self)
         self._cdf = None
-        self._histo_bins = None
+        self._histo_edges = None
 
     def apply(self, a: np.array):
-        print("In StretchHistEqualize.apply")
-        out = a.copy()
-        out = np.interp(out, self._histo_bins[:-1], self._cdf)
-        return out
+        a = np.interp(a, self._histo_edges[:-1], self._cdf)
+        return a
     
-    def calculate(self, in_image: np.array):
-        print("In StretchHistEqualize.calculate")
-        histo, self._histo_bins = np.histogram(in_image, 512, density=True)
-        self._cdf = histo.cumsum()  # cumulative distribution function
-        self._cdf /= self._cdf[-1]  # normalize
+    def calculate(self, bins: np.array, edges: np.array):
+        self._histo_edges = edges
+        # First, calculate a density probability histogram from the counts version
+        # (mimics the handling of density in numpy's histogram() implementation)
+        db = np.array(np.diff(edges), float)
+        density_bins = bins/db/bins.sum()
+        # Now calculate a cumulative distribution function and normalize it
+        self._cdf = density_bins.cumsum()
+        self._cdf /= self._cdf[-1]
         
