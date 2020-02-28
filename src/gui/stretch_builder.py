@@ -3,7 +3,7 @@
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QDialog, QDialogButtonBox
 import numpy as np
-from stretch import StretchBase, StretchLinear
+from stretch import StretchBase, StretchLinear, StretchHistEqualize
 from gui.stretch_builder_ui import *
 
 class StretchBuilder(QDialog):
@@ -27,8 +27,9 @@ class StretchBuilder(QDialog):
         self._ui.setupUi(self)
         self._ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self.ok)
         self._ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.cancel)
-        self._ui.radioButton_stretchTypeLinear.clicked.connect(self._set_stretch_linear)
         self._ui.radioButton_stretchTypeNone.clicked.connect(self._set_stretch_none)
+        self._ui.radioButton_stretchTypeEqualize.clicked.connect(self._set_stretch_histo_equalize)
+        self._ui.radioButton_stretchTypeLinear.clicked.connect(self._set_stretch_linear)
         self._ui.pushButton_stretch2pt5Pct.clicked.connect(self._set_2pt5_pct_linear)
         self._ui.pushButton_stretch5Pct.clicked.connect(self._set_5_pct_linear)
         self._ui.horizontalSlider_lower.valueChanged.connect(self._on_horizontalSlider_change)
@@ -68,7 +69,19 @@ class StretchBuilder(QDialog):
     def ok(self):
         self._saved_stretch = None
         self.hide()
-    
+
+    def _disable_sliders(self):
+        self._update_stretch_lower_slider(0.)
+        self._ui.horizontalSlider_lower.setEnabled(False)
+        self._update_stretch_upper_slider(1.)
+        self._ui.horizontalSlider_upper.setEnabled(False)
+
+    def _enable_sliders(self):
+        self._stretch.lowerChanged.connect(self._ui.horizontalSlider_lower.setValue)
+        self._ui.horizontalSlider_lower.setEnabled(True)
+        self._stretch.upperChanged.connect(self._ui.horizontalSlider_upper.setValue)
+        self._ui.horizontalSlider_upper.setEnabled(True)
+
     @Slot(int)
     def _update_stretch_upper_slider(self, upper):
         print("updateStretchUpper called with parameter {}".format(upper))
@@ -83,21 +96,31 @@ class StretchBuilder(QDialog):
     def _set_stretch_linear(self):
         print("Stretch set to Linear for band {}".format(0))
         self._stretch = StretchLinear()
-        self._stretch.lowerChanged.connect(self._ui.horizontalSlider_lower.setValue)
-        self._ui.horizontalSlider_lower.setEnabled(True)
-        self._stretch.upperChanged.connect(self._ui.horizontalSlider_upper.setValue)
-        self._ui.horizontalSlider_upper.setEnabled(True)
+        self._enable_sliders()
         self.stretchChanged.emit(self._stretch)
 
     @Slot()
     def _set_stretch_none(self):
         print("Stretch set to None")
         self._stretch = StretchBase()
-        self._update_stretch_lower_slider(0.)
-        self._ui.horizontalSlider_lower.setEnabled(False)
-        self._update_stretch_upper_slider(1.)
-        self._ui.horizontalSlider_upper.setEnabled(False)
+        self._disable_sliders()
         self.stretchChanged.emit(self._stretch)
+
+    @Slot()
+    def _set_stretch_histo_equalize(self):
+        print("Stretch set to Histogram Equalization")
+        self._disable_sliders()
+        self._stretch = StretchHistEqualize()
+        data = self._parent.extract_band_for_display(self._parent._display_bands[0])
+        self._stretch.calculate(data)
+        self.stretchChanged.emit(self._stretch)
+        # TODO(Dave): only deal with one color for now
+        """
+        if not self._monochrome:
+            for band in range(1, len(self._parent._display_bands)):
+                self._histo_bins[band], self._histo_limits[band] = np.histogram(
+                    self._parent.extract_band_for_display(self._parent._display_bands[band]), 512)
+        """
 
     @Slot()
     def _set_2pt5_pct_linear(self):

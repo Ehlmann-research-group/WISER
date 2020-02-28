@@ -66,3 +66,27 @@ class StretchLinear(StretchBase):
         upper = self.find_limit(targetCount, bins, False)
         self.calculate_from_limits(lower, upper, len(bins))
         print("Pixels: {}, Lower: {}, Upper: {}, slope: {}, offset: {}".format(pixels, lower, upper, self._slope, self._offset))
+
+class StretchHistEqualize(StretchBase):
+    """ Histogram Equalization Stretches """
+    _cdf = None
+    _histo_bins = None
+
+    # Constructor
+    def __init__(self):
+        StretchBase.__init__(self)
+        self._cdf = None
+        self._histo_bins = None
+
+    def apply(self, a: np.array):
+        print("In StretchHistEqualize.apply")
+        out = a.copy()
+        out = np.interp(out, self._histo_bins[:-1], self._cdf)
+        return out
+    
+    def calculate(self, in_image: np.array):
+        print("In StretchHistEqualize.calculate")
+        histo, self._histo_bins = np.histogram(in_image, 512, density=True)
+        self._cdf = histo.cumsum()  # cumulative distribution function
+        self._cdf /= self._cdf[-1]  # normalize
+        
