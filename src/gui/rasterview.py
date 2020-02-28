@@ -117,7 +117,7 @@ class RasterView(QWidget):
 
     _stretchBuilderButton = None
     _stretchBuilder = None
-    _stretch = StretchBase()
+    _stretches = [None, None, None]
 
     def __init__(self, parent=None, forward=None):
         super().__init__(parent=parent)
@@ -161,7 +161,7 @@ class RasterView(QWidget):
         self.setLayout(layout)
 
         self._stretchBuilder = StretchBuilder(self)
-        self._stretchBuilder.stretchChanged.connect(self.set_stretch)
+        self._stretchBuilder.stretchChanged.connect(self.set_stretches)
 
     @Slot()
     def _show_stretchBuilder(self):
@@ -171,12 +171,12 @@ class RasterView(QWidget):
     def _hide_stretchBuilder(self):
         self._stretchBuilder.hide()
 
-    def get_stretch(self):
-        return self._stretch
+    def get_stretches(self):
+        return self._stretches
     
     @Slot(StretchBase)
-    def set_stretch(self, stretch: StretchBase):
-        self._stretch = stretch
+    def set_stretches(self, stretches: list):
+        self._stretches = stretches
         self.update_display_image()
 
     def _clear_members(self):
@@ -321,38 +321,23 @@ class RasterView(QWidget):
         if len(self._display_bands) == 3:
             if self._red_data is None or ImageColors.RED in colors:
                 self._red_data = self.extract_band_for_display(self._display_bands[0])
-                """
-                if isinstance(self._stretch, StretchLinear):
-                    self._stretch.calculate(self._red_data, 0.05)
-                    self._update_stretch_lower(self._stretch.lower)
-                    self._update_stretch_upper(self._stretch.upper)
-                    self._red_data = self._stretch.apply(self._red_data)
-                """
-                self._red_data = self._stretch.apply(self._red_data)
+                if self._stretches[0]:
+                    self._red_data = self._red_data.copy()
+                    self._red_data = self._stretches[0].apply(self._red_data)
                 self._red_data = (self._red_data * 255.).astype(np.uint32)
 
             if self._green_data is None or ImageColors.GREEN in colors:
                 self._green_data = self.extract_band_for_display(self._display_bands[1])
-                """
-                if isinstance(self._stretch, StretchLinear):
-                    self._stretch.calculate(self._green_data, 0.05)
-                    self._update_stretch_lower(self._stretch.lower)
-                    self._update_stretch_upper(self._stretch.upper)
-                    self._green_data = self._stretch.apply(self._green_data)
-                """
-                self._green_data = self._stretch.apply(self._green_data)
+                if self._stretches[1]:
+                    self._green_data = self._green_data.copy()
+                    self._green_data = self._stretches[1].apply(self._green_data)
                 self._green_data = (self._green_data * 255.).astype(np.uint32)
 
             if self._blue_data is None or ImageColors.BLUE in colors:
                 self._blue_data = self.extract_band_for_display(self._display_bands[2])
-                """
-                if isinstance(self._stretch, StretchLinear):
-                    self._stretch.calculate(self._blue_data, 0.05)
-                    self._update_stretch_lower(self._stretch.lower)
-                    self._update_stretch_upper(self._stretch.upper)
-                    self._blue_data = self._stretch.apply(self._blue_data)
-                """
-                self._blue_data = self._stretch.apply(self._blue_data)
+                if self._stretches[2]:
+                    self._blue_data = self._blue_data.copy()
+                    self._blue_data = self._stretches[2].apply(self._blue_data)
                 self._blue_data = (self._blue_data * 255.).astype(np.uint32)
 
         else:
@@ -361,13 +346,9 @@ class RasterView(QWidget):
             # Grayscale:  We can extract the band data once, and use it for all
             # three colors.
             data = self.extract_band_for_display(self._display_bands[0])
-            """
-            if isinstance(self._stretch, StretchLinear):
-                self._stretch.calculate(data, 0.05)
-                self._update_stretch_lower(self._stretch.lower)
-                self._update_stretch_upper(self._stretch.upper)
-            """
-            data = self._stretch.apply(data)
+            if self._stretches[0]:
+                data = data.copy()
+                data = self._stretch.apply(data)
             data = (data * 255.).astype(np.uint32)
 
             if self._red_data is None or ImageColors.RED in colors:
