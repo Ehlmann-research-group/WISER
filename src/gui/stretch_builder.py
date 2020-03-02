@@ -190,8 +190,25 @@ class StretchBuilder(QDialog):
         self.stretchChanged.emit(self._stretches)
     
     @Slot(int)
-    def _on_affected_band_change(self, int):
+    def _on_affected_band_change(self, idx):
+        print("in _on_affected_band_changed, arg type is {}".format(type(idx)))
         self._affected_band = self._ui.comboBox_affected_band.currentIndex()
         self._all_bands = (self._affected_band == 3)
         if self._all_bands or self._monochrome:
             self._affected_band = 0
+        if not self._stretches[self._affected_band]:
+            self._ui.radioButton_stretchTypeNone.click()
+        elif self._stretches[self._affected_band].name == "Equalize":
+            self._ui.radioButton_stretchTypeEqualize.click()
+        elif self._stretches[self._affected_band].name == "Linear":
+            self._ui.radioButton_stretchTypeLinear.setChecked(True) # avoid side effects from using click()
+            print("Set UI to Linear")
+            # calculate both lower and upper positions before side-effects of setting
+            # the slider position overwrites the current data
+            lower_pos = int(self._stretches[self._affected_band].lower() * 100.)
+            upper_pos = int(self._stretches[self._affected_band].upper() * 100.)
+            self._ui.horizontalSlider_lower.setSliderPosition(lower_pos)
+            self._ui.horizontalSlider_upper.setSliderPosition(upper_pos)
+            self._enable_sliders()
+        else:
+            self._ui.radioButton_stretchTypeNone.click()
