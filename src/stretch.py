@@ -106,3 +106,48 @@ class StretchHistEqualize(StretchBase):
         self._cdf = density_bins.cumsum()
         self._cdf /= self._cdf[-1]
         
+class StretchSquareRoot(StretchBase):
+    """ Square Root Conditioner Stretch """
+
+    # Constructor
+    def __init__(self):
+        StretchBase.__init__(self)
+        self.name = "Conditioner_SquareRoot"
+    
+    def apply(self, a: np.array):
+        np.sqrt(a, out=a)
+        return a
+    
+    def modify_histogram(self, a: np.array) -> np.array:
+        return a # for now
+
+class StretchComposite(StretchBase):
+    """ Stretches composed from other stretches """
+
+    _primary = None
+    _conditioner = None
+
+    # Constructor
+    def __init__(self, primary, conditioner):
+        StretchBase.__init__(self)
+        self.name = "Composite"
+        self._primary = primary
+        self._conditioner = conditioner
+    
+    def apply(self, a: np.array):
+        self._conditioner.apply(a)
+        self._primary.apply(a)
+        return a
+
+    def primary(self):
+        return self._primary
+
+    def set_primary(self, primary):
+        self._primary = primary
+    
+    def conditioner(self):
+        return self._conditioner
+
+    def set_conditioner(self, conditioner):
+        self._conditioner = conditioner
+

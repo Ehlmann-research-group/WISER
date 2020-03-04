@@ -259,7 +259,7 @@
      </widget>
     </item>
     <item>
-     <widget class="QRadioButton" name="radioButton_log10">
+     <widget class="QRadioButton" name="radioButton_conditionerLog10">
       <property name="text">
        <string>Log10</string>
       </property>
@@ -326,7 +326,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_stretchType"/>
   <buttongroup name="buttonGroup_conditioner"/>
+  <buttongroup name="buttonGroup_stretchType"/>
  </buttongroups>
 </ui>
