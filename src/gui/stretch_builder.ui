@@ -223,8 +223,8 @@
     <rect>
      <x>20</x>
      <y>230</y>
-     <width>96</width>
-     <height>101</height>
+     <width>108</width>
+     <height>81</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout_conditioner">
@@ -249,19 +249,9 @@
      </widget>
     </item>
     <item>
-     <widget class="QRadioButton" name="radioButton_conditionerLn">
+     <widget class="QRadioButton" name="radioButton_conditionerLog2">
       <property name="text">
-       <string>Ln</string>
-      </property>
-      <attribute name="buttonGroup">
-       <string notr="true">buttonGroup_conditioner</string>
-      </attribute>
-     </widget>
-    </item>
-    <item>
-     <widget class="QRadioButton" name="radioButton_conditionerLog10">
-      <property name="text">
-       <string>Log10</string>
+       <string>Log2(pix+1.0)</string>
       </property>
       <attribute name="buttonGroup">
        <string notr="true">buttonGroup_conditioner</string>
@@ -323,10 +313,25 @@
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>radioButton_stretchTypeNone</tabstop>
+  <tabstop>radioButton_stretchTypeEqualize</tabstop>
+  <tabstop>radioButton_stretchTypeLinear</tabstop>
+  <tabstop>pushButton_stretch2pt5Pct</tabstop>
+  <tabstop>pushButton_stretch5Pct</tabstop>
+  <tabstop>radioButton_conditionerNone</tabstop>
+  <tabstop>radioButton_conditionerSqrRt</tabstop>
+  <tabstop>radioButton_conditionerLog2</tabstop>
+  <tabstop>horizontalSlider_lower</tabstop>
+  <tabstop>horizontalSlider_upper</tabstop>
+  <tabstop>lineEdit_lower</tabstop>
+  <tabstop>lineEdit_upper</tabstop>
+  <tabstop>comboBox_affected_band</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_conditioner"/>
   <buttongroup name="buttonGroup_stretchType"/>
+  <buttongroup name="buttonGroup_conditioner"/>
  </buttongroups>
 </ui>

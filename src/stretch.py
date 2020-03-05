@@ -93,6 +93,7 @@ class StretchHistEqualize(StretchBase):
         self.name = "Equalize"
 
     def apply(self, a: np.array):
+        print("In HistEqualize.apply()")
         a = np.interp(a, self._histo_edges[:-1], self._cdf)
         return a
     
@@ -121,33 +122,53 @@ class StretchSquareRoot(StretchBase):
     def modify_histogram(self, a: np.array) -> np.array:
         return a # for now
 
+class StretchLog2(StretchBase):
+    """
+    Log2 Conditioner Stretch
+    In order to result in a range 0.0 - 1.0, the
+    formula is log2(val+1.0)
+    """
+
+    # Constructor
+    def __init__(self):
+        StretchBase.__init__(self)
+        self.name = "Conditioner_Log2"
+    
+    def apply(self, a: np.array):
+        a += 1.
+        np.log2(a, out=a)
+        return a
+    
+    def modify_histogram(self, a: np.array) -> np.array:
+        return a # for now
+
 class StretchComposite(StretchBase):
     """ Stretches composed from other stretches """
 
-    _primary = None
-    _conditioner = None
+    _first = None
+    _second = None
 
     # Constructor
-    def __init__(self, primary, conditioner):
+    def __init__(self, first, second):
         StretchBase.__init__(self)
         self.name = "Composite"
-        self._primary = primary
-        self._conditioner = conditioner
+        self._first = first
+        self._second = second
     
     def apply(self, a: np.array):
-        self._conditioner.apply(a)
-        self._primary.apply(a)
+        a = self._first.apply(a)
+        a = self._second.apply(a)
         return a
 
-    def primary(self):
-        return self._primary
+    def first(self):
+        return self._first
 
-    def set_primary(self, primary):
-        self._primary = primary
+    def set_first(self, first):
+        self._first = first
     
-    def conditioner(self):
-        return self._conditioner
+    def second(self):
+        return self._second
 
-    def set_conditioner(self, conditioner):
-        self._conditioner = conditioner
+    def set_second(self, second):
+        self._second = second
 
