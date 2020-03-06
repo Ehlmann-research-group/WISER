@@ -93,7 +93,6 @@ class StretchHistEqualize(StretchBase):
         self.name = "Equalize"
 
     def apply(self, a: np.array):
-        print("In HistEqualize.apply()")
         a = np.interp(a, self._histo_edges[:-1], self._cdf)
         return a
     
