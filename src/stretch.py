@@ -6,17 +6,14 @@ from PySide2.QtCore import QObject, Signal
 class StretchBase(QObject):
     # Base class for stretch objects
 
-    name = "Base"
+    def __init__(self):
+        self.name = "Base"
 
     def apply(self, input):
         return input
 
 class StretchLinear(StretchBase):
     """ Linear stretches """
-    _slope = 1.
-    _offset = 0.
-    _lower = 0.
-    _upper = 1.
 
     # Constructor
     def __init__(self):
@@ -55,7 +52,7 @@ class StretchLinear(StretchBase):
         sum = 0
         for bin in range(range_lower, range_upper, step):
             sum += bins[bin]
-            if sum > targetCount:
+            if sum >= targetCount:
                 if doLower:
                     self.lowerChanged.emit(bin * 100 / len(bins))
                 else:
@@ -71,19 +68,17 @@ class StretchLinear(StretchBase):
         else:
             self._slope = 1. / (self._upper - self._lower)
 
-        self._offset = -lower * self._slope
+        self._offset = -self._lower * self._slope
 
     def calculate_from_pct(self, pixels, bins, pct):
         targetCount = (pct / 2.) * pixels
         lower = self.find_limit(targetCount, bins, True)
         upper = self.find_limit(targetCount, bins, False)
         self.calculate_from_limits(lower, upper, len(bins))
-        print("Pixels: {}, Lower: {}, Upper: {}, slope: {}, offset: {}".format(pixels, lower, upper, self._slope, self._offset))
+        # print("Pixels: {}, Lower: {}, Upper: {}, slope: {}, offset: {}".format(pixels, lower, upper, self._slope, self._offset))
 
 class StretchHistEqualize(StretchBase):
     """ Histogram Equalization Stretches """
-    _cdf = None
-    _histo_edges = None
 
     # Constructor
     def __init__(self):
@@ -143,9 +138,6 @@ class StretchLog2(StretchBase):
 
 class StretchComposite(StretchBase):
     """ Stretches composed from other stretches """
-
-    _first = None
-    _second = None
 
     # Constructor
     def __init__(self, first, second):

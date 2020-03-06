@@ -227,14 +227,6 @@ class StretchBuilder(QDialog):
         self._ui.horizontalSlider_lower.setEnabled(True)
         self._ui.horizontalSlider_upper.setEnabled(True)
 
-    @Slot(int)
-    def _update_stretch_upper_slider(self, upper):
-        self._ui.horizontalSlider_upper.setSliderPosition(int(upper * 100))
-    
-    @Slot(int)
-    def _update_stretch_lower_slider(self, lower):
-        self._ui.horizontalSlider_lower.setSliderPosition(int(lower * 100))
-
     def _get_primary(self, band: int) -> StretchBase:
         """
         Utility to get the primary stretch for a given band, or all bands.
@@ -317,68 +309,6 @@ class StretchBuilder(QDialog):
                 else:
                     self._stretches[band].first().set_first(conditioner)
 
-    @Slot()
-    def _set_stretch_linear(self):
-        self._set_primary(self._affected_band, StretchLinear())
-        self._enable_sliders()
-        self.stretchChanged.emit(self._stretches)
-
-    @Slot()
-    def _set_stretch_none(self):
-        """
-        Disable the primary stretch
-        """
-        self._disable_sliders()
-        self._set_primary(self._affected_band, StretchBase())
-        self.stretchChanged.emit(self._stretches)
-
-    @Slot()
-    def _set_stretch_histo_equalize(self):
-        self._disable_sliders()
-        band = self._affected_band
-        histo_band = band
-        if self._all_bands:
-            histo_band = 3
-        self._set_primary(band, StretchHistEqualize()) # could be _all_stretch's primary
-        self._get_primary(band).calculate(self._histo_bins[histo_band], self._histo_edges[histo_band])
-        self.stretchChanged.emit(self._stretches)
-
-    def _set_n_pct_linear(self, pct: float):
-        self._set_stretch_linear()
-        self._ui.radioButton_stretchTypeLinear.setChecked(True) # no side effects
-        band = self._affected_band
-        stretch = self._get_primary(band) # could be all_bands primary
-        if self._all_bands:
-            # use combined histograms for all display bands
-            assert(stretch == self._all_stretch.second())
-            stretch.calculate_from_pct(self._pixels * 3, self._histo_bins[3], pct)
-        else:
-            print("In _set_n_pct_linear: doing band {}".format(self._affected_band))
-            stretch.calculate_from_pct(self._pixels, self._histo_bins[band], pct)
-        self.stretchChanged.emit(self._stretches)
-
-    @Slot()
-    def _set_2pt5_pct_linear(self):
-        self._set_n_pct_linear(0.025)
-
-    @Slot()
-    def _set_5_pct_linear(self):
-        self._set_n_pct_linear(0.05)
-
-    @Slot()
-    def _on_horizontalSlider_change(self):
-        band = self._affected_band
-        if not isinstance(self._get_primary(band), StretchLinear):
-            # Handle the case where we're moving the sliders back to their
-            # original positions after changing the stretch type from Linear
-            return
-        stretch = self._get_primary(band)
-        stretch.calculate_from_limits(
-                lower=self._ui.horizontalSlider_lower.value(),
-                upper=self._ui.horizontalSlider_upper.value(),
-                range_max=100)
-        self.stretchChanged.emit(self._stretches)
-    
     def _initialize_conditioner_widgets_from_stretch(self, stretch):
         """
         Utility function to initialize the UI portions dealing with
@@ -439,6 +369,80 @@ class StretchBuilder(QDialog):
         self._initialize_primary_widgets_from_stretch(self._get_primary(self._affected_band))
         self._display_current_histogram()
 
+    def _set_n_pct_linear(self, pct: float):
+        self._set_stretch_linear()
+        self._ui.radioButton_stretchTypeLinear.setChecked(True) # no side effects
+        band = self._affected_band
+        stretch = self._get_primary(band) # could be all_bands primary
+        if self._all_bands:
+            # use combined histograms for all display bands
+            assert(stretch == self._all_stretch.second())
+            stretch.calculate_from_pct(self._pixels * 3, self._histo_bins[3], pct)
+        else:
+            print("In _set_n_pct_linear: doing band {}".format(self._affected_band))
+            stretch.calculate_from_pct(self._pixels, self._histo_bins[band], pct)
+        self.stretchChanged.emit(self._stretches)
+
+    #
+    # Slots
+    #
+
+    @Slot()
+    def _set_stretch_linear(self):
+        self._set_primary(self._affected_band, StretchLinear())
+        self._enable_sliders()
+        self.stretchChanged.emit(self._stretches)
+
+    @Slot()
+    def _set_stretch_none(self):
+        """
+        Disable the primary stretch
+        """
+        self._disable_sliders()
+        self._set_primary(self._affected_band, StretchBase())
+        self.stretchChanged.emit(self._stretches)
+
+    @Slot()
+    def _set_stretch_histo_equalize(self):
+        self._disable_sliders()
+        band = self._affected_band
+        histo_band = band
+        if self._all_bands:
+            histo_band = 3
+        self._set_primary(band, StretchHistEqualize()) # could be _all_stretch's primary
+        self._get_primary(band).calculate(self._histo_bins[histo_band], self._histo_edges[histo_band])
+        self.stretchChanged.emit(self._stretches)
+
+    @Slot(int)
+    def _update_stretch_upper_slider(self, upper):
+        self._ui.horizontalSlider_upper.setSliderPosition(int(upper * 100))
+    
+    @Slot(int)
+    def _update_stretch_lower_slider(self, lower):
+        self._ui.horizontalSlider_lower.setSliderPosition(int(lower * 100))
+
+    @Slot()
+    def _set_2pt5_pct_linear(self):
+        self._set_n_pct_linear(0.025)
+
+    @Slot()
+    def _set_5_pct_linear(self):
+        self._set_n_pct_linear(0.05)
+
+    @Slot()
+    def _on_horizontalSlider_change(self):
+        band = self._affected_band
+        if not isinstance(self._get_primary(band), StretchLinear):
+            # Handle the case where we're moving the sliders back to their
+            # original positions after changing the stretch type from Linear
+            return
+        stretch = self._get_primary(band)
+        stretch.calculate_from_limits(
+                lower=self._ui.horizontalSlider_lower.value(),
+                upper=self._ui.horizontalSlider_upper.value(),
+                range_max=100)
+        self.stretchChanged.emit(self._stretches)
+    
     @Slot(int)
     def _on_affected_band_change(self, idx):
         self._affected_band = self._ui.comboBox_affected_band.currentIndex()
