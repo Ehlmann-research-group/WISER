@@ -70,6 +70,8 @@ class StretchBuilder(QDialog):
         self._ui.setupUi(self)
         # self._ui.horizontalSlider_lower = QReverseSlider(self._ui.horizontalSlider_lower)
         self._ui.comboBox_affected_band.addItems(["Red", "Green", "Blue", "All"])
+        self._ui.lineEdit_lower.setAlignment(Qt.AlignRight)
+        self._ui.lineEdit_upper.setAlignment(Qt.AlignRight)
 
         self._all_stretch = StretchComposite(StretchBase(), StretchBase())
         self._stretches = [None, None, None]
@@ -105,6 +107,8 @@ class StretchBuilder(QDialog):
         self._ui.pushButton_stretch5Pct.clicked.connect(self._set_5_pct_linear)
         self._ui.horizontalSlider_lower.valueChanged.connect(self._on_horizontalSlider_change)
         self._ui.horizontalSlider_upper.valueChanged.connect(self._on_horizontalSlider_change)
+        self._ui.horizontalSlider_lower.valueChanged.connect(self._update_lower_slider_label)
+        self._ui.horizontalSlider_upper.valueChanged.connect(self._update_upper_slider_label)
         self._ui.comboBox_affected_band.currentIndexChanged.connect(self._on_affected_band_change)
         self._ui.radioButton_stretchTypeNone.click()
         self._ui.radioButton_conditionerNone.click()
@@ -420,6 +424,14 @@ class StretchBuilder(QDialog):
     @Slot(int)
     def _update_stretch_lower_slider(self, lower):
         self._ui.horizontalSlider_lower.setSliderPosition(int(lower * 100))
+
+    @Slot(int)
+    def _update_upper_slider_label(self, upper):
+        self._ui.lineEdit_upper.setText(str(upper)+"%")
+
+    @Slot(int)
+    def _update_lower_slider_label(self, lower):
+        self._ui.lineEdit_lower.setText(str(lower)+"%")
 
     @Slot()
     def _set_2pt5_pct_linear(self):

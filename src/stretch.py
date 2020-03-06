@@ -7,6 +7,7 @@ class StretchBase(QObject):
     # Base class for stretch objects
 
     def __init__(self):
+        QObject.__init__(self)
         self.name = "Base"
 
     def apply(self, input):
