@@ -176,28 +176,6 @@
     <bool>false</bool>
    </property>
   </widget>
-  <widget class="QLabel" name="label_histogram">
-   <property name="geometry">
-    <rect>
-     <x>150</x>
-     <y>30</y>
-     <width>341</width>
-     <height>301</height>
-    </rect>
-   </property>
-   <property name="autoFillBackground">
-    <bool>true</bool>
-   </property>
-   <property name="frameShape">
-    <enum>QFrame::Box</enum>
-   </property>
-   <property name="text">
-    <string>Histogram</string>
-   </property>
-   <property name="alignment">
-    <set>Qt::AlignCenter</set>
-   </property>
-  </widget>
   <widget class="QLineEdit" name="lineEdit_lower">
    <property name="geometry">
     <rect>
@@ -311,6 +289,17 @@
      <height>32</height>
     </rect>
    </property>
+  </widget>
+  <widget class="QWidget" name="horizontalLayoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>150</x>
+     <y>30</y>
+     <width>341</width>
+     <height>301</height>
+    </rect>
+   </property>
+   <layout class="QHBoxLayout" name="hLayout_histogram"/>
   </widget>
  </widget>
  <tabstops>

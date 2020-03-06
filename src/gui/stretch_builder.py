@@ -1,11 +1,20 @@
 # StretchBuilder.py
 
+import numpy as np
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QDialog, QDialogButtonBox
-import numpy as np
-from gui.reverse_slider import QReverseSlider
-from stretch import StretchBase, StretchComposite, StretchHistEqualize
-from stretch import StretchLinear, StretchLog2, StretchSquareRoot
+
+"""
+from matplotlib.figure import Axes, Figure
+"""
+import matplotlib
+matplotlib.use('Qt5Agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvas
+import matplotlib.pyplot as plt
+
+# from gui.reverse_slider import QReverseSlider
+from stretch import (StretchBase, StretchComposite, StretchHistEqualize,
+                    StretchLinear, StretchLog2, StretchSquareRoot)
 from gui.stretch_builder_ui import *
 
 class StretchBuilder(QDialog):
@@ -32,6 +41,8 @@ class StretchBuilder(QDialog):
     actually applied to image data. In this way, the user can see the impact of
     their manipulation of the StretchBuilder UI in real time.
     """
+
+    """
     _ui = None
     _saved_stretches = []
     _parent = None
@@ -45,6 +56,9 @@ class StretchBuilder(QDialog):
     _monochrome = False
     _all_bands = True
     _affected_band = 0
+    _histo_fig = None
+    _histo_canvas = None
+    """
 
     def __init__(self, object):
         super().__init__(object)
@@ -56,7 +70,9 @@ class StretchBuilder(QDialog):
         self._ui.setupUi(self)
         # self._ui.horizontalSlider_lower = QReverseSlider(self._ui.horizontalSlider_lower)
         self._ui.comboBox_affected_band.addItems(["Red", "Green", "Blue", "All"])
+
         self._all_stretch = StretchComposite(StretchBase(), StretchBase())
+        self._stretches = [None, None, None]
         for band in range(0, 3):
             self._stretches[band] = StretchComposite(
                 StretchComposite(StretchBase(), StretchBase()), # band specific stretch
@@ -64,6 +80,19 @@ class StretchBuilder(QDialog):
         self._saved_stretches = [None, None, None]
         self._monochrome = False
         self._all_bands = True
+        self._histo_bins_raw = [None, None, None, None]
+        self._histo_edges_raw = [None, None, None, None]
+        self._histo_bins = [None, None, None, None]
+        self._histo_edges = [None, None, None, None]
+        self._pixels = 0
+        self._affected_band = 0
+
+        self._histo_fig, self._histo_axes = plt.subplots(constrained_layout=True)
+        self._histo_fig.set_constrained_layout_pads(w_pad=0., h_pad=0., hspace=0., wsoace=0.)
+        self._histo_canvas = FigureCanvas(self._histo_fig)
+        self._ui.hLayout_histogram.addWidget(self._histo_canvas)
+
+        # connect signals to slots
         self._ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self.ok)
         self._ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.cancel)
         self._ui.radioButton_stretchTypeNone.clicked.connect(self._set_stretch_none)
@@ -92,11 +121,15 @@ class StretchBuilder(QDialog):
         self._monochrome = False
         if self._parent._display_bands:
             self._monochrome = len(self._parent._display_bands) <= 1
-        self._calculate_histograms()
         # Set the affectedBands comboBox to "All"
         # This emits a signal that updates the UI widgets
         # via _on_affected_band_change()
         self._ui.comboBox_affected_band.setCurrentIndex(3)
+
+        # Calculate and show a histogram
+        self._calculate_histograms()
+        self._display_current_histogram()
+
         super().show()
 
     def cancel(self):
@@ -117,6 +150,8 @@ class StretchBuilder(QDialog):
         This is the purpose of the _histo_bins and _histo_edges, which are initialized
         from the _raw equivalents here, assuming no conditioner is active initially.
         """
+        if self._parent._display_bands is None:
+            return
         data = self._parent.extract_band_for_display(self._parent._display_bands[0])
         self._histo_bins_raw[0], self._histo_edges_raw[0] = np.histogram(data, bins=512, range=(0., 1.))
         self._histo_bins[0] = self._histo_bins_raw[0]
@@ -141,8 +176,37 @@ class StretchBuilder(QDialog):
             self._histo_bins[3] = self._histo_bins_raw[3]
             self._histo_edges[3] = self._histo_edges_raw[3]
 
+    def _display_current_histogram(self):
+        """
+        Display the histogram appropriate for the currently selected band
+        """
+        self._histo_axes.clear()
+        self._histo_fig.patch.set_visible(False)
+        self._histo_axes.set_axis_off()
+        self._histo_axes.set_frame_on(False)
+        self._histo_axes.margins(0., 0.)
+        band = self._affected_band
+        colors = ['red', 'green', 'blue']
+        alphas = [1., .75, .5]
+        if self._all_bands:
+            for band in range(0, 3):
+                if self._histo_bins[band] is None or self._histo_edges[band] is None:
+                    continue
+                self._histo_axes.hist(self._histo_edges[band][:-1],
+                    self._histo_edges[band],
+                    weights=self._histo_bins[band],
+                    color=colors[band],
+                    alpha=alphas[band])
+        else:
+            if self._histo_bins[band] is None or self._histo_edges[band] is None:
+                return
+            self._histo_axes.hist(self._histo_edges[band][:-1],
+                self._histo_edges[band],
+                weights=self._histo_bins[band],
+                color=colors[band])
+        self._histo_canvas.draw()
+
     def _disable_sliders(self):
-        print("In _disable_sliders")
         for stretch in self._stretches:
             if isinstance(stretch, StretchLinear):
                 # disconnect slider signal receivers, if connected
@@ -255,7 +319,6 @@ class StretchBuilder(QDialog):
 
     @Slot()
     def _set_stretch_linear(self):
-        print("Stretches set to Linear")
         self._set_primary(self._affected_band, StretchLinear())
         self._enable_sliders()
         self.stretchChanged.emit(self._stretches)
@@ -265,14 +328,12 @@ class StretchBuilder(QDialog):
         """
         Disable the primary stretch
         """
-        print("Stretch set to None")
         self._disable_sliders()
         self._set_primary(self._affected_band, StretchBase())
         self.stretchChanged.emit(self._stretches)
 
     @Slot()
     def _set_stretch_histo_equalize(self):
-        print("Stretch set to Histogram Equalization")
         self._disable_sliders()
         band = self._affected_band
         histo_band = band
@@ -298,12 +359,10 @@ class StretchBuilder(QDialog):
 
     @Slot()
     def _set_2pt5_pct_linear(self):
-        print("Set 2.5 pct Linear")
         self._set_n_pct_linear(0.025)
 
     @Slot()
     def _set_5_pct_linear(self):
-        print("Set 5 pct Linear")
         self._set_n_pct_linear(0.05)
 
     @Slot()
@@ -375,11 +434,10 @@ class StretchBuilder(QDialog):
             self._ui.horizontalSlider_upper.setSliderPosition(upper_pos)
             self._enable_sliders()
 
-    def _initialize_widgets_from_current_stretch(self):
-        print("In _initialize_widgets_from_stretch")
+    def _initialize_widgets_for_current_band(self):
         self._initialize_conditioner_widgets_from_stretch(self._get_conditioner(self._affected_band))
         self._initialize_primary_widgets_from_stretch(self._get_primary(self._affected_band))
-        print("Exiting _initialize_widgets_from_stretch")
+        self._display_current_histogram()
 
     @Slot(int)
     def _on_affected_band_change(self, idx):
@@ -387,17 +445,15 @@ class StretchBuilder(QDialog):
         self._all_bands = (self._affected_band == 3)
         if self._all_bands or self._monochrome:
             self._affected_band = 0
-        self._initialize_widgets_from_current_stretch()
+        self._initialize_widgets_for_current_band()
 
     @Slot()
     def _set_conditioner_none(self):
-        print("Stretch conditioner set to None")
         self._set_conditioner(self._affected_band, StretchBase())
         self.stretchChanged.emit(self._stretches)
 
     @Slot()
     def _set_conditioner_square_root(self):
-        print("Setting stretch conditioner to Square Root")
         self._set_conditioner(self._affected_band, StretchSquareRoot())
         self.stretchChanged.emit(self._stretches)
 
