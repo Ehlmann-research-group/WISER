@@ -383,7 +383,6 @@ class StretchBuilder(QDialog):
             assert(stretch == self._all_stretch.second())
             stretch.calculate_from_pct(self._pixels * 3, self._histo_bins[3], pct)
         else:
-            print("In _set_n_pct_linear: doing band {}".format(self._affected_band))
             stretch.calculate_from_pct(self._pixels, self._histo_bins[band], pct)
         self.stretchChanged.emit(self._stretches)
 
