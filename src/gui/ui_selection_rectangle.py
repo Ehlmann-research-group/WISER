@@ -1,0 +1,212 @@
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
+
+from .task_delegate import TaskDelegate
+from raster.selection import RectangleSelection
+
+from .geom import get_rectangle
+
+
+def draw_rectangle_selection(rasterpane, painter, rect_sel, color, active=False):
+    rasterview = rasterpane.get_rasterview()
+    scale = rasterview.get_scale()
+
+    pen = QPen(color)
+    # Force pen to be 1-pixel cosmetic, so it isn't affected by scale transforms
+    pen.setWidth(0)
+    painter.setPen(pen)
+
+    rect = rect_sel.get_rect()
+    painter.drawRect(rect)
+
+    if active:
+        # Draw boxes on all control-points.
+        color = Qt.yellow
+        painter.setPen(QPen(color))
+        for cp in self._control_points:
+            cp_scaled = cp * scale
+            painter.fillRect(cp_scaled.x() - 2, cp_scaled.y() - 2, 4, 4, color)
+
+
+class RectangleSelectionCreator(TaskDelegate):
+    def __init__(self, app_state, raster_pane):
+        self._app_state = app_state
+        self._raster_pane = raster_pane
+        self._point1 = None
+        self._point2 = None
+
+    def on_mouse_press(self, widget, mouse_event):
+        rasterview = self._raster_pane.get_rasterview()
+        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        self._point1 = point
+        self._point2 = point
+        return False
+
+    def on_mouse_release(self, widget, mouse_event):
+        rasterview = self._raster_pane.get_rasterview()
+        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        self._point2 = point
+        return True
+
+    def on_mouse_move(self, widget, mouse_event):
+        rasterview = self._raster_pane.get_rasterview()
+        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        self._point2 = point
+        return False
+
+    def draw_state(self, painter):
+        if self._point1 is None or self._point2 is None:
+            return
+
+        rasterview = self._raster_pane.get_rasterview()
+        scale = rasterview.get_scale()
+        p1_scaled = self._point1 * scale
+        p2_scaled = self._point2 * scale
+
+        # Draw a box between the two points, using a dotted rectangle.
+
+        color = Qt.white # self._app_state.get_color_of('create-selection')
+        pen = QPen(color)
+        pen.setStyle(Qt.DashLine)
+        painter.setPen(pen)
+        rect = get_rectangle(p1_scaled, p2_scaled)
+        painter.drawRect(rect)
+
+        # Draw boxes on the two points themselves.
+
+        color = Qt.yellow
+        painter.setPen(QPen(color))
+        painter.fillRect(p1_scaled.x() - 2, p1_scaled.y() - 2, 4, 4, color)
+        painter.fillRect(p2_scaled.x() - 2, p2_scaled.y() - 2, 4, 4, color)
+
+    def finish(self):
+        if self._point1 is None or self._point2 is None:
+            return
+
+        sel = RectangleSelection(self._point1, self._point2)
+        self._app_state.make_and_add_roi(sel)
+
+
+class RectangleSelectionEditor(TaskDelegate):
+    def __init__(self, raster_pane, rect_sel):
+        self._raster_pane = raster_pane
+        self._rect_sel = rect_sel
+
+        self._control_points = []
+        self._editing_cp_index = None
+
+        self._init_control_points()
+
+    def _init_control_points(self):
+        '''
+        Initialize the control-points for adjusting the rectangle selection.
+        '''
+        x1, y1 = self._rect_sel.point_1.toTuple()
+        x2, y2 = self._rect_sel.point_2.toTuple()
+
+        self._control_points.append(self._rect_sel.point_1)
+        self._control_points.append(self._rect_sel.point_2)
+
+        self._control_points.append(QPoint(x1, y2))
+        self._control_points.append(QPoint(x2, y1))
+
+        # These lists specify how the control points are "connected together".
+        # The position in the array is the index of the "source" control point
+        # in self._control_points, and the value at that index specifies the
+        # index of the control point that is affected in either the X or Y
+        # dimension.  Since each control point only affects one other control
+        # point in the X or Y direction, this is an easy and efficient way to
+        # encode these relationships.
+        self._cp_affects_x = [2, 3, 0, 1]
+        self._cp_affects_y = [3, 2, 1, 0]
+
+    def _pick_control_point(self, p):
+        for idx, cp in enumerate(self._control_points):
+            # TODO(donnie):  May be too difficult to pick control-points if we
+            #     only check equality, not "is this point within a certain
+            #     distance".
+            if cp == p:
+                return idx
+
+        return None
+
+    def on_mouse_press(self, widget, mouse_event):
+        rasterview = self._raster_pane.get_rasterview()
+        p = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+
+        self._editing_cp_index = self._pick_control_point(p)
+
+        return False
+
+
+    def _adjust_control_points(self, p):
+        '''
+        This helper adjusts all affected control points based on the input point
+        p, which should be in the data-set coordinate system.
+
+        Note that this function assumes that self._editing_cp_index is set to
+        the index of the control-point that is being manipulated!
+        '''
+        assert self._editing_cp_index is not None
+
+
+        # Local variables for these values, since these names are long!
+        i = self._editing_cp_index
+        edit_cp = self._control_points[i]
+
+        # Adjust the specific control point being edited.  Use the mutators on
+        # the object, rather than replacing it with a new object.
+        edit_cp.setX(p.x())
+        edit_cp.setY(p.y())
+
+        # Also need to adjust the adjacent control points.  Use the
+        # _cp_affects_x/_cp_affects_y members to drive this interaction,
+        # to keep the code simple.
+        self._control_points[self._cp_affects_x[i]].setX(p.x())
+        self._control_points[self._cp_affects_y[i]].setY(p.y())
+
+
+    def on_mouse_release(self, widget, mouse_event):
+        if self._editing_cp_index is None:
+            return True
+
+        rasterview = self._raster_pane.get_rasterview()
+        p = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        self._adjust_control_points(p)
+        return True
+
+    def on_mouse_move(self, widget, mouse_event):
+        if self._editing_cp_index is None:
+            return False
+
+        rasterview = self._raster_pane.get_rasterview()
+        p = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        self._adjust_control_points(p)
+        return False
+
+    def draw_state(self, painter):
+        rasterview = self._raster_pane.get_rasterview()
+        scale = rasterview.get_scale()
+        p1_scaled = self._control_points[0] * scale
+        p2_scaled = self._control_points[1] * scale
+
+        # Draw a box between the two points, using a dotted rectangle.
+
+        color = Qt.white # self._app_state.get_color_of('create-selection')
+        pen = QPen(color)
+        pen.setStyle(Qt.DashLine)
+        painter.setPen(pen)
+        rect = get_rectangle(p1_scaled, p2_scaled)
+        painter.drawRect(rect)
+
+        # Draw boxes on all control-points.
+        color = Qt.yellow
+        painter.setPen(QPen(color))
+        for cp in self._control_points:
+            cp_scaled = cp * scale
+            painter.fillRect(cp_scaled.x() - 2, cp_scaled.y() - 2, 4, 4, color)
+
+
+    def get_selection(self):
+        return RectangleSelection(self._control_points[0], self._control_points[1])

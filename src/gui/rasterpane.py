@@ -12,8 +12,12 @@ from .util import add_toolbar_action, get_painter
 from raster.dataset import find_display_bands, find_truecolor_bands
 
 from raster.selection import SelectionType, Selection
-from .selection_creator import RectangleSelectionCreator, \
-    PolygonSelectionCreator, MultiPixelSelectionCreator
+
+from .roi import draw_roi
+
+from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
+from .ui_selection_polygon import PolygonSelectionCreator # , PolygonSelectionEditor
+from .ui_selection_multi_pixel import MultiPixelSelectionCreator # , MultiPixelSelectionEditor
 
 
 class RecenterMode(Enum):
@@ -117,7 +121,7 @@ class RasterPane(QWidget):
         self._viewport_highlight = None
         self._pixel_highlight = None
 
-        self._creator = None
+        self._task_delegate = None
 
         # Initialize contents of the widget
 
@@ -268,12 +272,14 @@ class RasterPane(QWidget):
 
 
     def _onRasterMousePress(self, widget, mouse_event):
-        if self._creator is not None:
-            self._update_creator(self._creator.onMousePress(widget, mouse_event))
+        if self._task_delegate is not None:
+            done = self._task_delegate.on_mouse_press(widget, mouse_event)
+            self._update_delegate(done)
 
     def _onRasterMouseMove(self, widget, mouse_event):
-        if self._creator is not None:
-            self._update_creator(self._creator.onMouseMove(widget, mouse_event))
+        if self._task_delegate is not None:
+            done = self._task_delegate.on_mouse_move(widget, mouse_event)
+            self._update_delegate(done)
 
     def _onRasterMouseRelease(self, widget, mouse_event):
         '''
@@ -281,8 +287,9 @@ class RasterPane(QWidget):
         translates the click event's coordinates into the location on the
         raster data set.
         '''
-        if self._creator is not None:
-            self._update_creator(self._creator.onMouseRelease(widget, mouse_event))
+        if self._task_delegate is not None:
+            done = self._task_delegate.on_mouse_release(widget, mouse_event)
+            self._update_delegate(done)
 
         else:
             # Map the coordinate of the mouse-event to the actual raster-image
@@ -292,13 +299,14 @@ class RasterPane(QWidget):
 
 
     def _onRasterKeyPress(self, widget, key_event):
-        if self._creator is not None:
-            self._update_creator(self._creator.onKeyPress(widget, key_event))
+        if self._task_delegate is not None:
+            done = self._task_delegate.on_key_press(widget, key_event)
+            self._update_delegate(done)
 
     def _onRasterKeyRelease(self, widget, key_event):
-        if self._creator is not None:
-            self._update_creator(self._creator.onKeyRelease(widget, key_event))
-
+        if self._task_delegate is not None:
+            done = self._task_delegate.on_key_release(widget, key_event)
+            self._update_delegate(done)
 
     def _afterRasterScroll(self, widget, dx, dy):
         '''
@@ -308,11 +316,13 @@ class RasterPane(QWidget):
         self._emit_viewport_change()
 
 
-    def _update_creator(self, create_done):
+    def _update_delegate(self, create_done):
         if create_done:
-            selection = self._creator.get_selection()
-            print(f'TODO:  Store selection {selection} on application state')
-            self._creator = None
+            # selection = self._creator.get_selection()
+            # print(f'TODO:  Store selection {selection} on application state')
+            # TODO(donnie):  How to handle completion of task delegates???
+            self._task_delegate.finish()
+            self._task_delegate = None
 
         self._rasterview.update()
 
@@ -607,17 +617,17 @@ class RasterPane(QWidget):
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
-            self._creator = RectangleSelectionCreator(self)
+            self._task_delegate = RectangleSelectionCreator(self._app_state, self)
             # TODO:  Update status bar to indicate the creation of the rectangle
             #        selection.
 
         elif selection_type == SelectionType.POLYGON:
-            self._creator = PolygonSelectionCreator(self)
+            self._task_delegate = PolygonSelectionCreator(self._app_state, self)
             # TODO:  Update status bar to indicate the creation of the polygon
             #        selection.
 
         elif selection_type == SelectionType.MULTI_PIXEL:
-            self._creator = MultiPixelSelectionCreator(self)
+            self._task_delegate = MultiPixelSelectionCreator(self._app_state, self)
             # TODO:  Update status bar to indicate the creation of the
             #        multi-pixel selection.
 
@@ -665,15 +675,29 @@ class RasterPane(QWidget):
         that data to draw may be clipped to the specified rectangle.
         '''
 
+        # Draw regions of interest
+        self._draw_regions_of_interest(widget, paint_event)
+
         # Draw the viewport highlight, if there is one
         self._draw_viewport_highlight(widget, paint_event)
 
         # Draw the pixel highlight, if there is one
         self._draw_pixel_highlight(widget, paint_event)
 
-        if self._creator is not None:
+        if self._task_delegate is not None:
             with get_painter(widget) as painter:
-                self._creator.draw_state(painter)
+                self._task_delegate.draw_state(painter)
+
+
+    def _draw_regions_of_interest(self, widget, paint_event):
+        # active_roi = self._app_state.get_active_roi()
+        with get_painter(widget) as painter:
+            scale = self._rasterview.get_scale()
+            painter.scale(scale, scale)
+
+            for (name, roi) in self._app_state.get_rois().items():
+                print(f'{name}: {roi}')
+                draw_roi(self, painter, roi)
 
 
     def _draw_viewport_highlight(self, widget, paint_event):

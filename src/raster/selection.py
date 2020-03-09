@@ -1,5 +1,7 @@
 from enum import Enum
 
+from gui.geom import get_rectangle
+
 
 class SelectionType(Enum):
     # A selection that is a single pixel
@@ -49,35 +51,40 @@ class SinglePixelSelection(Selection):
 class MultiPixelSelection(Selection):
     def __init__(self, pixels):
         super().__init__(SelectionType.MULTI_PIXEL)
-        self.pixels = set(pixels)
+        self._pixels = set(pixels)
+
+    def get_pixels(self):
+        return self._pixels
 
     def __str__(self):
-        return f'MultiPixelSelection[{self.pixels}]'
+        return f'MultiPixelSelection[{self._pixels}]'
 
 
 class RectangleSelection(Selection):
     def __init__(self, point_1, point_2):
         super().__init__(SelectionType.RECTANGLE)
-        self.point_1 = point_1
-        self.point_2 = point_2
+        self._rect = get_rectangle(point_1, point_2)
+
+    def get_rect(self):
+        return self._rect
 
     def __str__(self):
-        return f'RectangleSelection[{self.point_1}, {self.point_2}]'
+        return f'RectangleSelection[{self._rect}]'
 
 
 class PolygonSelection(Selection):
     def __init__(self, points):
         super().__init__(SelectionType.POLYGON)
-        self.points = list(points)
+        self._points = list(points)
 
     def num_points(self):
-        return len(self.points)
+        return len(self._points)
 
     def get_points(self):
-        return self.points
+        return self._points
 
     def __str__(self):
-        return f'PolygonSelection[{self.points}]'
+        return f'PolygonSelection[{self._points}]'
 
 
 class PredicateSelection(Selection):
