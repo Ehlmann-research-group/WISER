@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 # from gui.reverse_slider import QReverseSlider
 from stretch import (StretchBase, StretchComposite, StretchHistEqualize,
                     StretchLinear, StretchLog2, StretchSquareRoot)
-from gui.stretch_builder_ui import *
+from .stretch_builder_ui import *
 
 class StretchBuilder(QDialog):
     """
@@ -60,12 +60,12 @@ class StretchBuilder(QDialog):
     _histo_canvas = None
     """
 
-    def __init__(self, object):
-        super().__init__(object)
+    def __init__(self, rasterview, parent=None):
+        super().__init__(parent=parent)
         flags = ((self.windowFlags() | Qt.CustomizeWindowHint | Qt.WindowStaysOnTopHint)
             & ~Qt.WindowCloseButtonHint)
         self.setWindowFlags(flags) # don't know if close means ok or cancel, so hide entirely!
-        self._parent = object
+        self._rasterview = rasterview
         self._ui = Ui_Dialog_stretchBuilder()
         self._ui.setupUi(self)
         # self._ui.horizontalSlider_lower = QReverseSlider(self._ui.horizontalSlider_lower)
@@ -114,17 +114,17 @@ class StretchBuilder(QDialog):
         self._ui.radioButton_conditionerNone.click()
         self._ui.comboBox_affected_band.setCurrentIndex(3)
         self.hide()
-    
+
     # Signals
     stretchChanged = Signal(list)
-        
+
         # More StretchBuilder UI stuff here
 
     def show(self):
-        self._saved_stretches = self._parent.get_stretches()
+        self._saved_stretches = self._rasterview.get_stretches()
         self._monochrome = False
-        if self._parent._display_bands:
-            self._monochrome = len(self._parent._display_bands) <= 1
+        if self._rasterview._display_bands:
+            self._monochrome = len(self._rasterview._display_bands) <= 1
         # Set the affectedBands comboBox to "All"
         # This emits a signal that updates the UI widgets
         # via _on_affected_band_change()
@@ -154,9 +154,9 @@ class StretchBuilder(QDialog):
         This is the purpose of the _histo_bins and _histo_edges, which are initialized
         from the _raw equivalents here, assuming no conditioner is active initially.
         """
-        if self._parent._display_bands is None:
+        if self._rasterview._display_bands is None:
             return
-        data = self._parent.extract_band_for_display(self._parent._display_bands[0])
+        data = self._rasterview.extract_band_for_display(self._rasterview._display_bands[0])
         self._histo_bins_raw[0], self._histo_edges_raw[0] = np.histogram(data, bins=512, range=(0., 1.))
         self._histo_bins[0] = self._histo_bins_raw[0]
         self._histo_edges[0] = self._histo_edges_raw[0]
@@ -170,7 +170,7 @@ class StretchBuilder(QDialog):
             for band in range(1, 3):
                 # calculate a histogram for the current band
                 self._histo_bins_raw[band], self._histo_edges_raw[band] = np.histogram(
-                    self._parent.extract_band_for_display(self._parent._display_bands[band]),
+                    self._rasterview.extract_band_for_display(self._rasterview._display_bands[band]),
                     bins=512,
                     range=(0., 1.))
                 self._histo_bins[band] = self._histo_bins_raw[band]
@@ -249,7 +249,7 @@ class StretchBuilder(QDialog):
                 raise Exception("in _get_primary: expected StretchComposite")
             else:
                 return self._stretches[band].first().second()
-    
+
     def _set_primary(self, band: int, primary: StretchBase):
         """
         Utility to set the primary stretch for a given band, or for all bands.
@@ -290,7 +290,7 @@ class StretchBuilder(QDialog):
                 raise Exception("in _get_primary: expected StretchComposite")
             else:
                 return self._stretches[band].first().first()
-    
+
     def _set_conditioner(self, band: int, conditioner: StretchBase):
         """
         Utility to set the conditioner stretch for a given band, or all bands.
@@ -419,7 +419,7 @@ class StretchBuilder(QDialog):
     @Slot(int)
     def _update_stretch_upper_slider(self, upper):
         self._ui.horizontalSlider_upper.setSliderPosition(int(upper * 100))
-    
+
     @Slot(int)
     def _update_stretch_lower_slider(self, lower):
         self._ui.horizontalSlider_lower.setSliderPosition(int(lower * 100))
@@ -453,7 +453,7 @@ class StretchBuilder(QDialog):
                 upper=self._ui.horizontalSlider_upper.value(),
                 range_max=100)
         self.stretchChanged.emit(self._stretches)
-    
+
     @Slot(int)
     def _on_affected_band_change(self, idx):
         self._affected_band = self._ui.comboBox_affected_band.currentIndex()

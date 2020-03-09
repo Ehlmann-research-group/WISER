@@ -217,6 +217,8 @@ class DataVisualizerApp(QMainWindow):
         self._main_view.display_bands_change.connect(self._on_display_bands_change)
         self._main_view.create_selection.connect(self._on_create_selection)
 
+        self._main_view.get_stretch_builder().stretchChanged.connect(self._on_stretch_changed)
+
         self._zoom_pane.viewport_change.connect(self._on_zoom_viewport_change)
         self._zoom_pane.click_pixel.connect(self._on_zoom_raster_pixel_select)
         self._zoom_pane.visibility_change.connect(self._on_zoom_visibility_changed)
@@ -390,6 +392,19 @@ class DataVisualizerApp(QMainWindow):
         dataset = self._main_view.get_current_dataset()
         spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y())
         self._spectrum_plot.set_spectrum(spectrum, dataset)
+
+
+    def _on_stretch_changed(self, stretches: list):
+        '''
+        Receive stretch-change events from the Stretch Builder and propagate
+        them to all raster-views.
+        '''
+
+        # TODO(donnie):  This is a bit ugly.  Hook event-source directly to
+        #     these sinks?  Do something else?
+        self._context_pane.get_rasterview().set_stretches(stretches)
+        self._main_view.get_rasterview().set_stretches(stretches)
+        self._zoom_pane.get_rasterview().set_stretches(stretches)
 
 
     def _on_zoom_visibility_changed(self, visible):

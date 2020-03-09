@@ -10,8 +10,8 @@ import numpy as np
 from raster.dataset import RasterDataSet, find_display_bands
 
 from stretch import StretchBase, StretchLinear
-from gui.stretch_builder import StretchBuilder
-from gui.stretch_builder_ui import Ui_Dialog_stretchBuilder
+from .stretch_builder import StretchBuilder
+from .stretch_builder_ui import Ui_Dialog_stretchBuilder
 
 
 class ImageColors(IntFlag):
@@ -115,7 +115,6 @@ class RasterView(QWidget):
     regions of interest, etc.
     '''
 
-    _stretchBuilderButton = None
     _stretchBuilder = None
     _stretches = [None, None, None]
 
@@ -153,27 +152,11 @@ class RasterView(QWidget):
         # layout.addWidget(self.image_toolbar)
         # layout.setMenuBar(self.image_toolbar)
         layout.addWidget(self._scroll_area)
-
-        # Hack in a button to launch a StretchBuilder
-        self._stretchBuilderButton = QPushButton("Stretch Builder")
-        self._stretchBuilderButton.clicked.connect(self._show_stretchBuilder)
-        layout.addWidget(self._stretchBuilderButton)
         self.setLayout(layout)
-
-        self._stretchBuilder = StretchBuilder(self)
-        self._stretchBuilder.stretchChanged.connect(self.set_stretches)
-
-    @Slot()
-    def _show_stretchBuilder(self):
-        self._stretchBuilder.show()
-
-    @Slot()
-    def _hide_stretchBuilder(self):
-        self._stretchBuilder.hide()
 
     def get_stretches(self):
         return self._stretches
-    
+
     @Slot(StretchBase)
     def set_stretches(self, stretches: list):
         self._stretches = stretches
@@ -279,11 +262,14 @@ class RasterView(QWidget):
         of 0.0 .. 1.0, unless the input is already np.float64, in which case the
         type is left as np.float64.
         '''
+        # NOTE:  This method is public now, because the stretch builder needs to
+        #        get the data for the displayed band, in order to build a
+        #        histogram.
+
         band_data = self._raster_data.get_band_data(band_index)
 
-        # TODO(donnie):  Almost certainly, we will need a much more
-        #     sophisticated way of specifying how the band data is transformed.
-        #     But for now, handle all but complex data linearly
+        # TODO(donnie):  Is this fine for how we are mapping band data values to
+        #     displayable values?
         if band_data.dtype == np.float32 or band_data.dtype == np.float64:
             np.clip(band_data, 0., 1., out=band_data)
 
@@ -297,7 +283,7 @@ class RasterView(QWidget):
 
         elif band_data.dtype == np.uint8 or band_data.dtype == np.int8:
             band_data = band_data.astype(np.uint32) / 255.
-            
+
         else:
             print("Data type {} not currently supported".format(band_data.dtype))
             raise NotImplementedError
@@ -318,25 +304,29 @@ class RasterView(QWidget):
         # Only generate (or regenerate) each color plane if we don't already
         # have data for it, and if we aren't told to explicitly regenerate it.
 
+        # TODO(donnie):  Maybe combine more steps in these numpy operations for
+        #     future performance improvements?
+
+        # TODO(donnie):  Donnie doesn't think these copy() is necessary here.
         if len(self._display_bands) == 3:
             if self._red_data is None or ImageColors.RED in colors:
                 self._red_data = self.extract_band_for_display(self._display_bands[0])
                 if self._stretches[0]:
-                    self._red_data = self._red_data.copy()
+                    # self._red_data = self._red_data.copy()
                     self._red_data = self._stretches[0].apply(self._red_data)
                 self._red_data = (self._red_data * 255.).astype(np.uint32)
 
             if self._green_data is None or ImageColors.GREEN in colors:
                 self._green_data = self.extract_band_for_display(self._display_bands[1])
                 if self._stretches[1]:
-                    self._green_data = self._green_data.copy()
+                    # self._green_data = self._green_data.copy()
                     self._green_data = self._stretches[1].apply(self._green_data)
                 self._green_data = (self._green_data * 255.).astype(np.uint32)
 
             if self._blue_data is None or ImageColors.BLUE in colors:
                 self._blue_data = self.extract_band_for_display(self._display_bands[2])
                 if self._stretches[2]:
-                    self._blue_data = self._blue_data.copy()
+                    # self._blue_data = self._blue_data.copy()
                     self._blue_data = self._stretches[2].apply(self._blue_data)
                 self._blue_data = (self._blue_data * 255.).astype(np.uint32)
 
@@ -347,7 +337,7 @@ class RasterView(QWidget):
             # three colors.
             data = self.extract_band_for_display(self._display_bands[0])
             if self._stretches[0]:
-                data = data.copy()
+                # data = data.copy()
                 data = self._stretch.apply(data)
             data = (data * 255.).astype(np.uint32)
 
