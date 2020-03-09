@@ -692,9 +692,6 @@ class RasterPane(QWidget):
     def _draw_regions_of_interest(self, widget, paint_event):
         # active_roi = self._app_state.get_active_roi()
         with get_painter(widget) as painter:
-            scale = self._rasterview.get_scale()
-            painter.scale(scale, scale)
-
             for (name, roi) in self._app_state.get_rois().items():
                 print(f'{name}: {roi}')
                 draw_roi(self, painter, roi)

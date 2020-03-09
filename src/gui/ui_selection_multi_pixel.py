@@ -11,14 +11,9 @@ def draw_multi_pixel_selection(rasterpane, painter, mp_sel, color, active=False)
     scale = rasterview.get_scale()
 
     pen = QPen(color)
-    # Force pen to be 1-pixel cosmetic, so it isn't affected by scale transforms
-    pen.setWidth(0)
     painter.setPen(pen)
 
     points_scaled = [p * scale for p in mp_sel.get_pixels()]
-
-    color = Qt.white # self._app_state.get_color_of('create-selection')
-    painter.setPen(QPen(color))
 
     for p in points_scaled:
         if scale >= 6:
@@ -26,8 +21,24 @@ def draw_multi_pixel_selection(rasterpane, painter, mp_sel, color, active=False)
         else:
             painter.drawRect(p.x(), p.y(), scale, scale)
 
-    # TODO(donnie):  What does the selection look like when it's active?
-    # if active:
+    if len(points_scaled) > 1:
+        # Compute the rectangle that bounds the points, and draw it.
+        xs = [p.x() for p in points_scaled]
+        ys = [p.y() for p in points_scaled]
+
+        x_min = min(xs)
+        x_max = max(xs)
+        y_min = min(ys)
+        y_max = max(ys)
+
+        if not active:
+            pen.setStyle(Qt.DashLine)
+            painter.setPen(pen)
+
+        rect_scaled = QRect(x_min - 2, y_min - 2,
+            (x_max - x_min + scale) + 4, (y_max - y_min + scale) + 4)
+
+        painter.drawRect(rect_scaled)
 
 
 class MultiPixelSelectionCreator(TaskDelegate):
