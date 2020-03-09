@@ -13,19 +13,18 @@ def draw_polygon_selection(rasterpane, painter, poly_sel, color, active=False):
     scale = rasterview.get_scale()
 
     pen = QPen(color)
-    # Force pen to be 1-pixel cosmetic, so it isn't affected by scale transforms
-    pen.setWidth(0)
     painter.setPen(pen)
 
     points = poly_sel.get_points()
+    points_scaled = [p * scale for p in points]
     for i in range(len(points)):
-        painter.drawLine(points[i - 1], points[i])
+        painter.drawLine(points_scaled[i - 1], points_scaled[i])
 
     if active:
         # Draw boxes on all control-points.
         color = Qt.yellow
         painter.setPen(QPen(color))
-        for cp in self._control_points:
+        for cp in points_scaled:
             cp_scaled = cp * scale
             painter.fillRect(cp_scaled.x() - 2, cp_scaled.y() - 2, 4, 4, color)
 

@@ -13,12 +13,12 @@ def draw_rectangle_selection(rasterpane, painter, rect_sel, color, active=False)
     scale = rasterview.get_scale()
 
     pen = QPen(color)
-    # Force pen to be 1-pixel cosmetic, so it isn't affected by scale transforms
-    pen.setWidth(0)
     painter.setPen(pen)
 
     rect = rect_sel.get_rect()
-    painter.drawRect(rect)
+    rect_scaled = QRect(rect.x() * scale, rect.y() * scale,
+                        rect.width() * scale, rect.height() * scale)
+    painter.drawRect(rect_scaled)
 
     if active:
         # Draw boxes on all control-points.
