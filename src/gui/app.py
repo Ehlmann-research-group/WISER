@@ -17,6 +17,7 @@ from .zoom_pane import ZoomPane
 from .spectrum_plot import SpectrumPlot
 from .infoview import DatasetInfoView
 
+from .roi import RegionOfInterest
 from .util import *
 
 from raster.dataset import *
@@ -36,9 +37,9 @@ class ApplicationState(QObject):
     # Signal:  the data-set at the specified index was removed
     dataset_removed = Signal(int)
 
-    selection_added = Signal()
+    roi_added = Signal(RegionOfInterest)
 
-    selection_removed = Signal()
+    roi_removed = Signal(RegionOfInterest)
 
     # TODO(donnie):  Signals for config changes and color changes!
 
@@ -48,8 +49,9 @@ class ApplicationState(QObject):
         # All datasets loaded in the application.
         self._datasets = []
 
-        # Selections of multiple pixels from the input data sets.
-        self._selections = []
+        # Regions of interest in the input data sets.
+        self._regions_of_interest = {}
+        self._next_roi_id = 1
 
         # Configuration options.
         self._config = {
@@ -60,6 +62,7 @@ class ApplicationState(QObject):
         self._colors = {
             'viewport-highlight' : Qt.yellow,
             'pixel-highlight' : Qt.red,
+            'roi-default-color' : Qt.white,
         }
 
     def add_dataset(self, dataset):
@@ -126,6 +129,29 @@ class ApplicationState(QObject):
         '''
         self._colors[option] = color
 
+    def make_and_add_roi(self, selection):
+        # Find a unique name to assign to the region of interest
+        while True:
+            name = f'roi_{self._next_roi_id}'
+            if name not in self._regions_of_interest:
+                break
+
+            self._next_roi_id += 1
+
+        roi = RegionOfInterest(name, selection)
+        self._regions_of_interest[name] = roi
+
+        self.roi_added.emit(roi)
+
+    def remove_roi(self, name):
+        roi = self._regions_of_interest[name]
+        del self._regions_of_interest[name]
+
+        self.roi_removed.emit(roi)
+
+    def get_rois(self):
+        return self._regions_of_interest
+
 
 class DataVisualizerApp(QMainWindow):
 
@@ -156,6 +182,9 @@ class DataVisualizerApp(QMainWindow):
 
         self._main_toolbar = self.addToolBar(self.tr('Main'))
         self._init_toolbars()
+
+        # Status bar
+        self.statusBar().showMessage(self.tr('Welcome to the Imaging Spectroscopy Workbench'))
 
         # Context pane
 
