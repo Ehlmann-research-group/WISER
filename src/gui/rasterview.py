@@ -9,6 +9,10 @@ import numpy as np
 
 from raster.dataset import RasterDataSet, find_display_bands
 
+from stretch import StretchBase, StretchLinear
+from .stretch_builder import StretchBuilder
+from .stretch_builder_ui import Ui_Dialog_stretchBuilder
+
 
 class ImageColors(IntFlag):
     NONE = 0
@@ -111,12 +115,18 @@ class RasterView(QWidget):
     regions of interest, etc.
     '''
 
+    _stretchBuilder = None
+    _stretches = [None, None, None]
 
     def __init__(self, parent=None, forward=None):
         super().__init__(parent=parent)
 
         if forward == None:
             forward = {}
+
+        # Initialize fields in the object
+        self._clear_members()
+        self._scale_factor = 1.0
 
         # The widget used to display the image data
 
@@ -142,13 +152,15 @@ class RasterView(QWidget):
         # layout.addWidget(self.image_toolbar)
         # layout.setMenuBar(self.image_toolbar)
         layout.addWidget(self._scroll_area)
-
         self.setLayout(layout)
 
-        # Initialize fields in the object
-        self._clear_members()
-        self._scale_factor = 1.0
+    def get_stretches(self):
+        return self._stretches
 
+    @Slot(StretchBase)
+    def set_stretches(self, stretches: list):
+        self._stretches = stretches
+        self.update_display_image()
 
     def _clear_members(self):
         '''
@@ -240,34 +252,38 @@ class RasterView(QWidget):
         self.update_display_image(colors=changed)
 
 
-    def _extract_band_for_display(self, band_index):
+    def extract_band_for_display(self, band_index):
         '''
         Extracts the specified band of raster data for display in an RGB image
         in the user interface.  This operation is done with numpy so that it can
         be completed as efficiently as possible.
 
-        The function returns a numpy array with np.uint32 elements in the range
-        of 0..255.
+        The function returns a numpy array with np.float32 elements in the range
+        of 0.0 .. 1.0, unless the input is already np.float64, in which case the
+        type is left as np.float64.
         '''
+        # NOTE:  This method is public now, because the stretch builder needs to
+        #        get the data for the displayed band, in order to build a
+        #        histogram.
+
         band_data = self._raster_data.get_band_data(band_index)
 
-        # TODO(donnie):  Almost certainly, we will need a much more
-        #     sophisticated way of specifying how the band data is transformed.
-        #     But for now, handle all but complex data linearly
+        # TODO(donnie):  Is this fine for how we are mapping band data values to
+        #     displayable values?
         if band_data.dtype == np.float32 or band_data.dtype == np.float64:
-            band_data = (band_data * 255 + 30).clip(0, 255).astype(np.uint32)
+            np.clip(band_data, 0., 1., out=band_data)
 
         elif band_data.dtype == np.uint32 or band_data.dtype == np.int32:
             # fake a linear stretch by simply ignoring the low bytes
-            band_data = (band_data >> 24)
+            band_data = (band_data >> 24).astype(np.float32) / 255.
 
         elif band_data.dtype == np.uint16 or band_data.dtype == np.int16:
             # fake a linear stretch by simply ignoring the low byte
-            band_data = (band_data >> 8).astype(np.uint32)
+            band_data = (band_data >> 8).astype(np.uint32) / 255.
 
         elif band_data.dtype == np.uint8 or band_data.dtype == np.int8:
-            band_data = band_data.astype(np.uint32)
-            
+            band_data = band_data.astype(np.uint32) / 255.
+
         else:
             print("Data type {} not currently supported".format(band_data.dtype))
             raise NotImplementedError
@@ -288,22 +304,42 @@ class RasterView(QWidget):
         # Only generate (or regenerate) each color plane if we don't already
         # have data for it, and if we aren't told to explicitly regenerate it.
 
+        # TODO(donnie):  Maybe combine more steps in these numpy operations for
+        #     future performance improvements?
+
+        # TODO(donnie):  Donnie doesn't think these copy() is necessary here.
         if len(self._display_bands) == 3:
             if self._red_data is None or ImageColors.RED in colors:
-                self._red_data = self._extract_band_for_display(self._display_bands[0])
+                self._red_data = self.extract_band_for_display(self._display_bands[0])
+                if self._stretches[0]:
+                    # self._red_data = self._red_data.copy()
+                    self._red_data = self._stretches[0].apply(self._red_data)
+                self._red_data = (self._red_data * 255.).astype(np.uint32)
 
             if self._green_data is None or ImageColors.GREEN in colors:
-                self._green_data = self._extract_band_for_display(self._display_bands[1])
+                self._green_data = self.extract_band_for_display(self._display_bands[1])
+                if self._stretches[1]:
+                    # self._green_data = self._green_data.copy()
+                    self._green_data = self._stretches[1].apply(self._green_data)
+                self._green_data = (self._green_data * 255.).astype(np.uint32)
 
             if self._blue_data is None or ImageColors.BLUE in colors:
-                self._blue_data = self._extract_band_for_display(self._display_bands[2])
+                self._blue_data = self.extract_band_for_display(self._display_bands[2])
+                if self._stretches[2]:
+                    # self._blue_data = self._blue_data.copy()
+                    self._blue_data = self._stretches[2].apply(self._blue_data)
+                self._blue_data = (self._blue_data * 255.).astype(np.uint32)
 
         else:
             assert len(self._display_bands) == 1
 
             # Grayscale:  We can extract the band data once, and use it for all
             # three colors.
-            data = self._extract_band_for_display(self._display_bands[0])
+            data = self.extract_band_for_display(self._display_bands[0])
+            if self._stretches[0]:
+                # data = data.copy()
+                data = self._stretch.apply(data)
+            data = (data * 255.).astype(np.uint32)
 
             if self._red_data is None or ImageColors.RED in colors:
                 self._red_data = data
