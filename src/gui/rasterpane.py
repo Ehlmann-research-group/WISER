@@ -144,7 +144,7 @@ class RasterPane(QWidget):
         if self._embed_toolbar:
             self._toolbar.setIconSize(QSize(20, 20))
 
-        self._init_dataset_band_tools()
+        self._init_dataset_tools()
         self._toolbar.addSeparator()
         self._init_zoom_tools()
 
@@ -180,9 +180,9 @@ class RasterPane(QWidget):
         self._update_zoom_widgets()
 
 
-    def _init_dataset_band_tools(self):
+    def _init_dataset_tools(self):
         '''
-        Initialize dataset-selection and band-selection toolbar buttons.
+        Initialize dataset-management toolbar buttons.
         '''
 
         # Dataset / Band Tools
