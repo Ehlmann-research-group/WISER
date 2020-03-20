@@ -5,7 +5,11 @@ from PySide2.QtWidgets import *
 from .task_delegate import TaskDelegate
 from raster.selection import RectangleSelection
 
-from .geom import get_rectangle
+from .geom import get_rectangle, scale_rectangle
+
+
+def is_rect_sel_picked(rect_sel, p):
+    return rect_sel.get_rect().contains(p)
 
 
 def draw_rectangle_selection(rasterpane, painter, rect_sel, color, active=False):
@@ -13,11 +17,12 @@ def draw_rectangle_selection(rasterpane, painter, rect_sel, color, active=False)
     scale = rasterview.get_scale()
 
     pen = QPen(color)
+    if not active:
+        pen.setStyle(Qt.DashLine)
     painter.setPen(pen)
 
     rect = rect_sel.get_rect()
-    rect_scaled = QRect(rect.x() * scale, rect.y() * scale,
-                        rect.width() * scale, rect.height() * scale)
+    rect_scaled = scale_rectangle(rect, scale)
     painter.drawRect(rect_scaled)
 
     if active:
