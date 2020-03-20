@@ -292,10 +292,15 @@ class RasterPane(QWidget):
             self._update_delegate(done)
 
         else:
-            # Map the coordinate of the mouse-event to the actual raster-image
-            # pixel that was clicked, then emit a signal.
-            r_coord = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-            self.click_pixel.emit(r_coord)
+            if mouse_event.button() == Qt.RightButton:
+                # Show a context menu
+                pass
+
+            elif mouse_event.button() == Qt.LeftButton:
+                # Map the coordinate of the mouse-event to the actual raster-image
+                # pixel that was clicked, then emit a signal.
+                r_coord = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+                self.click_pixel.emit(r_coord)
 
 
     def _onRasterKeyPress(self, widget, key_event):
@@ -693,7 +698,7 @@ class RasterPane(QWidget):
         # active_roi = self._app_state.get_active_roi()
         with get_painter(widget) as painter:
             for (name, roi) in self._app_state.get_rois().items():
-                print(f'{name}: {roi}')
+                # print(f'{name}: {roi}')
                 draw_roi(self, painter, roi)
 
 

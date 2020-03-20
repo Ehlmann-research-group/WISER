@@ -13,6 +13,8 @@ def draw_polygon_selection(rasterpane, painter, poly_sel, color, active=False):
     scale = rasterview.get_scale()
 
     pen = QPen(color)
+    if not active:
+        pen.setStyle(Qt.DashLine)
     painter.setPen(pen)
 
     points = poly_sel.get_points()

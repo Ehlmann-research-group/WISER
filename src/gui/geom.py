@@ -43,6 +43,11 @@ def get_rectangle(p1, p2):
     return QRect(x1, y1, x2 - x1, y2 - y1)
 
 
+def scale_rectangle(rect, scale):
+    return QRect(rect.x() * scale, rect.y() * scale,
+                 rect.width() * scale, rect.height() * scale)
+
+
 def lines_cross(p1a, p1b, p2a, p2b):
     '''
     Given four QPoints specifying the endpoints of two lines, this function

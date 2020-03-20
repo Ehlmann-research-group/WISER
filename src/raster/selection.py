@@ -1,5 +1,7 @@
 from enum import Enum
 
+from PySide2.QtCore import *
+
 from gui.geom import get_rectangle
 
 
@@ -32,20 +34,37 @@ class Selection:
     def get_type(self):
         return self._selection_type
 
+    def to_pyrep(self):
+        ' Returns a "Python representation" of the selection. '
+        pass
+
 
 class SinglePixelSelection(Selection):
-    def __init__(self):
+    def __init__(self, pixel=None):
         super().__init__(SelectionType.SINGLE_PIXEL)
-        self.pixel = None
+        self._pixel = pixel
 
     def set_pixel(self, pixel):
-        self.pixel = pixel
+        self._pixel = pixel
 
     def get_pixel(self):
-        return self.pixel
+        return self._pixel
 
     def __str__(self):
         return f'SinglePixelSelection[{self.pixel}]'
+
+    def to_pyrep(self):
+        '''
+        Returns a "Python representation" of the selection.  For the
+        single-pixel selection, this is a single (x, y) 2-tuple that is the
+        pixel in the selection.
+        '''
+        return {'type':self._selection_type.name,
+                'pixel':(self._pixel.x(), self._pixel.y())}
+
+    def from_pyrep(data):
+        assert data['type'] == SelectionType.SINGLE_PIXEL.name
+        return SinglePixelSelection(pixel=data['pixel'])
 
 
 class MultiPixelSelection(Selection):
@@ -59,17 +78,50 @@ class MultiPixelSelection(Selection):
     def __str__(self):
         return f'MultiPixelSelection[{self._pixels}]'
 
+    def to_pyrep(self):
+        '''
+        Returns a "Python representation" of the selection.  For the multi-pixel
+        selection, this is a list of (x, y) 2-tuples that are the pixels in the
+        selection.
+        '''
+        return {'type':self._selection_type.name,
+                'pixels':[(p.x(), p.y()) for p in self._pixels]}
+
+    def from_pyrep(data):
+        assert data['type'] == SelectionType.MULTI_PIXEL.name
+        pixels = [QPoint(p[0], p[1]) for p in data['pixels']]
+        return MultiPixelSelection(pixels)
+
 
 class RectangleSelection(Selection):
-    def __init__(self, point_1, point_2):
+    def __init__(self, point1, point2):
         super().__init__(SelectionType.RECTANGLE)
-        self._rect = get_rectangle(point_1, point_2)
+        # TODO(donnie):  Update point1 and point2 such that self._point1
+        #     becomes the top-left corner, and self._point2 is the bottom-right
+        #     corner.
+        self._point1 = point1
+        self._point2 = point2
 
     def get_rect(self):
-        return self._rect
+        return get_rectangle(self._point1, self._point2)
 
     def __str__(self):
-        return f'RectangleSelection[{self._rect}]'
+        return f'RectangleSelection[tl={self._point1}, br={self._point2}]'
+
+    def to_pyrep(self):
+        '''
+        Returns a "Python representation" of the selection.  For the rectangle
+        selection, this is a (x, y, width, height) 4-tuple specifying the
+        selection's rectangle.
+        '''
+        return {'type':self._selection_type.name,
+                'point1':self._point1.toTuple(), 'point2':self._point2.toTuple()}
+
+    def from_pyrep(data):
+        assert data['type'] == SelectionType.RECTANGLE.name
+        p1 = QPoint(*data['point1'])
+        p2 = QPoint(*data['point2'])
+        return RectangleSelection(p1, p2)
 
 
 class PolygonSelection(Selection):
@@ -86,16 +138,64 @@ class PolygonSelection(Selection):
     def __str__(self):
         return f'PolygonSelection[{self._points}]'
 
+    def to_pyrep(self):
+        '''
+        Returns a "Python representation" of the selection.  For the polygon
+        selection, this is a list of (x, y) 2-tuples that are the corners of the
+        polygon.  The winding direction of the polygon is unspecified.
+        '''
+        return {'type':self._selection_type.name,
+                'points':[(p.x(), p.y()) for p in self._points]}
+
+    def from_pyrep(data):
+        assert data['type'] == SelectionType.POLYGON.name
+        points = [QPoint(p[0], p[1]) for p in data['points']]
+        return PolygonSelection(points)
 
 class PredicateSelection(Selection):
-    # TODO(donnie):  Should predicates be specified as lambdas?  Or text?  Need
-    #     to be able to save them to a file somehow...
-    def __init__(self, predicate):
+    '''
+    Predicate selections are Boolean conditions evaluated against all pixels in
+    a data-set.  If the predicate evaluates to True then the pixel is included
+    in the selection; otherwise, the pixel is not included in the selection.
+
+    The predicate is specified as a string value, which is converted into a
+    Python expression when evaluation is required.  The details of the
+    conversion are unspecified, so that the Workbench can leverage the most
+    optimized evaluation mechanism possible.
+    '''
+
+    def __init__(self, predicate: str):
         super().__init__(SelectionType.PREDICATE)
-        self.predicate = predicate
+        self._predicate = predicate
 
     def get_predicate(self):
-        return self.predicate
+        ''' Returns the string representation of the predicate. '''
+        return self._predicate
 
     def __str__(self):
-        return f'PredicateSelection[{self.predicate}]'
+        return f'PredicateSelection[{self._predicate}]'
+
+    def to_pyrep(self):
+        '''
+        Returns a "Python representation" of the selection.  For the predicate
+        selection, this is a string specifying the condition of the predicate.
+        '''
+        return {'type':self._selection_type.name,
+                'predicate':self._predicate}
+
+    def from_pyrep(data):
+        assert data['type'] == SelectionType.PREDICATE.name
+        return PredicateSelection(points=data['predicate'])
+
+
+def selection_from_pyrep(data):
+    type_parsers = {
+        SelectionType.SINGLE_PIXEL : SinglePixelSelection.from_pyrep,
+        SelectionType.MULTI_PIXEL : MultiPixelSelection.from_pyrep,
+        SelectionType.RECTANGLE : RectangleSelection.from_pyrep,
+        SelectionType.POLYGON : PolygonSelection.from_pyrep,
+        SelectionType.PREDICATE : PredicateSelection.from_pyrep,
+    }
+
+    sel_type = SelectionType[data['type']]
+    return type_parsers[sel_type](data)

@@ -12,6 +12,7 @@ class DockablePane(QDockWidget):
         self._widget = widget
         self._app_state = app_state
 
+        self.setObjectName(name)
         self.setWidget(widget)
 
         if isinstance(icon, str):
