@@ -17,6 +17,8 @@ from stretch import (StretchBase, StretchComposite, StretchHistEqualize,
                     StretchLinear, StretchLog2, StretchSquareRoot)
 from .stretch_builder_ui import *
 
+from raster.dataset import get_normalized_band
+
 class StretchBuilder(QDialog):
     """
     StretchBuilder sets up a GUI to build and manipulate contrast stretches.
@@ -156,7 +158,12 @@ class StretchBuilder(QDialog):
         """
         if self._rasterview._display_bands is None:
             return
-        data = self._rasterview.extract_band_for_display(self._rasterview._display_bands[0])
+
+        dataset = self._rasterview.get_raster_data()
+        bands = self._rasterview._display_bands
+
+        data = get_normalized_band(dataset, bands[0])
+
         self._histo_bins_raw[0], self._histo_edges_raw[0] = np.histogram(data, bins=512, range=(0., 1.))
         self._histo_bins[0] = self._histo_bins_raw[0]
         self._histo_edges[0] = self._histo_edges_raw[0]
@@ -164,13 +171,14 @@ class StretchBuilder(QDialog):
             self._pixels = data.shape[0]
         else:
             self._pixels = data.shape[0] * data.shape[1]
+
         if not self._monochrome:
             self._histo_bins_raw[3] = self._histo_bins_raw[0].copy()
             self._histo_edges_raw[3] = self._histo_edges_raw[0].copy()
             for band in range(1, 3):
                 # calculate a histogram for the current band
                 self._histo_bins_raw[band], self._histo_edges_raw[band] = np.histogram(
-                    self._rasterview.extract_band_for_display(self._rasterview._display_bands[band]),
+                    get_normalized_band(dataset, bands[band]),
                     bins=512,
                     range=(0., 1.))
                 self._histo_bins[band] = self._histo_bins_raw[band]

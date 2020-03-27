@@ -1,7 +1,30 @@
-import numpy
+import numpy as np
 
 from .units import find_band_near_wavelength, \
     RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
+
+
+class BandStats:
+    '''
+    Represents the statistics for a given band in a data set.
+    '''
+
+    def __init__(self, band_index, min_value, max_value):
+        self._band_index = band_index
+        self._min_value = min_value
+        self._max_value = max_value
+
+    def get_band_index(self):
+        return self._band_index
+
+    def get_min(self):
+        return self._min_value
+
+    def get_max(self):
+        return self._max_value
+
+    def __str__(self):
+        return f'BandStats[index={self._band_index}, min={self._min_value}, max={self._max_value}]'
 
 
 class RasterDataSet:
@@ -137,6 +160,13 @@ class RasterDataSet:
         '''
         pass
 
+    def get_band_stats(self, band_index):
+        '''
+        Returns statistics of the specified band's data, wrapped in a BandStats
+        object.
+        '''
+        pass
+
     def get_all_bands_at(self, x, y, filter_bad_values=True):
         '''
         Returns a numpy 1D array of the values of all bands at the specified
@@ -165,12 +195,19 @@ class RasterDataLoader:
         pass
 
 
-def find_truecolor_bands(dataset):
-    # Try to find bands based on what is close to visible spectral bands
+def find_truecolor_bands(dataset, red=RED_WAVELENGTH, green=GREEN_WAVELENGTH,
+                         blue=BLUE_WAVELENGTH):
+    '''
+    This function looks for bands in the dataset that are closest to the
+    visible-light spectral bands.  If a band cannot be found for red, green or
+    blue wavelengths, the function returns None.  Otherwise, if bands are found
+    for all of red, green and blue, then the function returns a
+    (red_band_index, grn_band_index, blu_band_index) triple.
+    '''
     bands = dataset.band_list()
-    red_band   = find_band_near_wavelength(bands, RED_WAVELENGTH)
-    green_band = find_band_near_wavelength(bands, GREEN_WAVELENGTH)
-    blue_band  = find_band_near_wavelength(bands, BLUE_WAVELENGTH)
+    red_band   = find_band_near_wavelength(bands, red)
+    green_band = find_band_near_wavelength(bands, green)
+    blue_band  = find_band_near_wavelength(bands, blue)
 
     # If that didn't work, report None
     if red_band is None or green_band is None or blue_band is None:
@@ -206,3 +243,38 @@ def find_display_bands(dataset):
     blue_band  = max(0, dataset.num_bands() - 1)
 
     return (red_band, green_band, blue_band)
+
+
+def get_clipped_band(dataset, band_index, low=0, high=1):
+    '''
+    Extracts the specified band of raster data, and clips the data to the range
+    [0.0, 1.0].  Elements will be of type np.float32, unless the input data is
+    already np.float64, in which case the elements are left as np.float64.
+    '''
+    if norm_data.dtype not in [np.float32, np.float64]:
+        raise
+
+    return np.clip(dataset.get_band_data(band_index), low, high)
+
+
+def get_normalized_band(dataset, band_index):
+    '''
+    Extracts the specified band of raster data, mapping all elements to the
+    range of [0.0, 1.0].  Elements will be of type np.float32, unless the input
+    data is already np.float64, in which case the elements are left as
+    np.float64.
+    '''
+    band_data = dataset.get_band_data(band_index)
+    stats = dataset.get_band_stats(band_index)
+
+    norm_data = (band_data - stats.get_min()) / (stats.get_max() - stats.get_min())
+
+    if norm_data.dtype not in [np.float32, np.float64]:
+        print(f'NOTE:  norm_data.dtype is {norm_data.dtype}, band_data.dtype is {band_data.dtype}')
+        norm_data = norm_data.astype(np.float32)
+
+    # print('-' * 78)
+    # print(f'Band {band_index}:  stats={stats}')
+    # print(f'Normalized:  min={np.nanmin(norm_data)}, max={np.nanmax(norm_data)}')
+
+    return norm_data

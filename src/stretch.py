@@ -3,6 +3,8 @@
 import numpy as np
 from PySide2.QtCore import QObject, Signal
 
+from raster.dataset import get_normalized_band
+
 class StretchBase(QObject):
     # Base class for stretch objects
 
@@ -24,23 +26,23 @@ class StretchLinear(StretchBase):
         self._lower = 0.
         self._upper = 1.
         self.name = "Linear"
-    
+
     # Signals
     lowerChanged = Signal(int)
     upperChanged = Signal(int)
-    
+
     def apply(self, a):
         a *= self._slope
         a += self._offset
         np.clip(a, 0., 1., out=a)
         return a
-    
+
     def lower(self):
         return self._lower
 
     def upper(self):
         return self._upper
-    
+
     def find_limit(self, targetCount: int, bins, doLower: bool) -> int:
         if doLower:
             range_lower = 0
@@ -60,7 +62,7 @@ class StretchLinear(StretchBase):
                     self.upperChanged.emit(bin * 100 / len(bins))
                 return bin
         return range_lower
-    
+
     def calculate_from_limits(self, lower: int, upper: int, range_max: int):
         self._lower = lower / float(range_max)
         self._upper = upper / float(range_max)
@@ -91,7 +93,7 @@ class StretchHistEqualize(StretchBase):
     def apply(self, a: np.array):
         a = np.interp(a, self._histo_edges[:-1], self._cdf)
         return a
-    
+
     def calculate(self, bins: np.array, edges: np.array):
         self._histo_edges = edges
         # First, calculate a density probability histogram from the counts version
@@ -101,7 +103,7 @@ class StretchHistEqualize(StretchBase):
         # Now calculate a cumulative distribution function and normalize it
         self._cdf = density_bins.cumsum()
         self._cdf /= self._cdf[-1]
-        
+
 class StretchSquareRoot(StretchBase):
     """ Square Root Conditioner Stretch """
 
@@ -109,11 +111,11 @@ class StretchSquareRoot(StretchBase):
     def __init__(self):
         StretchBase.__init__(self)
         self.name = "Conditioner_SquareRoot"
-    
+
     def apply(self, a: np.array):
         np.sqrt(a, out=a)
         return a
-    
+
     def modify_histogram(self, a: np.array) -> np.array:
         return a # for now
 
@@ -128,12 +130,12 @@ class StretchLog2(StretchBase):
     def __init__(self):
         StretchBase.__init__(self)
         self.name = "Conditioner_Log2"
-    
+
     def apply(self, a: np.array):
         a += 1.
         np.log2(a, out=a)
         return a
-    
+
     def modify_histogram(self, a: np.array) -> np.array:
         return a # for now
 
@@ -146,7 +148,7 @@ class StretchComposite(StretchBase):
         self.name = "Composite"
         self._first = first
         self._second = second
-    
+
     def apply(self, a: np.array):
         a = self._first.apply(a)
         a = self._second.apply(a)
@@ -157,10 +159,78 @@ class StretchComposite(StretchBase):
 
     def set_first(self, first):
         self._first = first
-    
+
     def second(self):
         return self._second
 
     def set_second(self, second):
         self._second = second
 
+
+def get_unstretched_band_data(dataset, band_index):
+    '''
+    Generates the "unstretched" version of the specified band in the data set.
+    The function returns a numpy array with np.float32 elements in the range
+    of [0.0, 1.0], unless the input is already np.float64, in which case the
+    type is left as np.float64.
+
+    **It is _not_ intended for a stretch to be applied to this data!**  The data
+    returned by this function is not suitable for applying a stretch.  If you
+    intend to apply a stretch, see the get_stretched_band_data() function, or
+    the dataset.get_normalized_band() function.
+
+    Since the ultimate purpose of this data is to be displayed, the operations
+    performed depend on the type of the input band data:
+
+    *   If the input band data is floating point, the data is simply clipped to
+        the range [0.0, 1.0].
+    *   If the input band data is a signed or unsigned integer data type, only
+        the high byte is retained, and the data is divided by 255.0 to produce
+        a result in the range [0.0, 1.0].
+    '''
+    band_data = dataset.get_band_data(band_index)
+
+    if band_data.dtype == np.float32 or band_data.dtype == np.float64:
+        band_data = np.clip(band_data, 0.0, 1.0)
+
+    elif band_data.dtype == np.uint32 or band_data.dtype == np.int32:
+        # fake a linear stretch by simply ignoring the low bytes
+        band_data = (band_data >> 24).astype(np.float32) / 255.0
+
+    elif band_data.dtype == np.uint16 or band_data.dtype == np.int16:
+        # fake a linear stretch by simply ignoring the low byte
+        band_data = (band_data >> 8).astype(np.uint32) / 255.0
+
+    elif band_data.dtype == np.uint8 or band_data.dtype == np.int8:
+        band_data = band_data.astype(np.uint32) / 255.0
+
+    else:
+        raise NotImplementedError(f'Data type {band_data.dtype} not currently supported')
+
+    return band_data
+
+
+def get_stretched_band_data(dataset, band_index, stretch):
+    '''
+    Retrieves the data for the specified band, and applies an optional stretch
+    to the data.  The function returns a numpy array with np.float32 elements in
+    the range of [0.0, 1.0], unless the input is already np.float64, in which
+    case the type is left as np.float64.
+
+    If the stretch parameter is None, the function uses
+    get_unstretched_band_data() to generate a result.
+
+    If the stretch parameter is not None, the function uses the
+    dataset.get_normalized_band() function to normalize the band data, and then
+    the stretch is applied to the normalized band data.
+    '''
+    if stretch is None:
+        # print('No stretch; getting unstretched band data')
+        band_data = get_unstretched_band_data(dataset, band_index)
+
+    else:
+        # print('Getting normalized band data, then stretching it')
+        band_data = get_normalized_band(dataset, band_index)
+        stretch.apply(band_data)
+
+    return band_data
