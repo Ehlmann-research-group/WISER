@@ -13,11 +13,13 @@ from matplotlib.backends.backend_qt5agg import FigureCanvas
 import matplotlib.pyplot as plt
 
 # from gui.reverse_slider import QReverseSlider
-from stretch import (StretchBase, StretchComposite, StretchHistEqualize,
-                    StretchLinear, StretchLog2, StretchSquareRoot)
+
 from .stretch_builder_ui import *
 
 from raster.dataset import get_normalized_band
+from raster.stretch import (StretchBase, StretchComposite, StretchHistEqualize,
+                            StretchLinear, StretchLog2, StretchSquareRoot)
+
 
 class StretchBuilder(QDialog):
     """

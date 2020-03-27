@@ -8,7 +8,7 @@ from PySide2.QtWidgets import *
 import numpy as np
 
 from raster.dataset import RasterDataSet, find_display_bands
-from stretch import StretchBase, get_stretched_band_data
+from raster.stretch import StretchBase, get_stretched_band_data
 
 
 class ImageColors(IntFlag):
