@@ -82,6 +82,10 @@ class ImageWidget(QLabel):
         if 'keyReleaseEvent' in self._forward:
             self._forward['keyReleaseEvent'](self, key_event)
 
+    def contextMenuEvent(self, context_menu_event):
+        if 'contextMenuEvent' in self._forward:
+            self._forward['contextMenuEvent'](self, context_menu_event)
+
     def paintEvent(self, paint_event):
         super().paintEvent(paint_event)
 

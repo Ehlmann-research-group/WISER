@@ -39,6 +39,10 @@ class RegionOfInterest:
     def get_metadata(self):
         return self._metadata
 
+    def is_picked_by(self, coord):
+        # TODO(donnie):  Support multiple selections in a ROI
+        return self._selection.is_picked_by(coord)
+
 
 def roi_to_pyrep(roi):
     data = {
