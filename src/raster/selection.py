@@ -34,6 +34,17 @@ class Selection:
     def get_type(self):
         return self._selection_type
 
+    def is_picked_by(self, coord):
+        '''
+        Returns true if this selection is "picked by" the specified coordinate.
+        Picking is a UI interaction where the user clicks on a selection.  Thus,
+        it may not correspond specifically to the selection's pixels, but rather
+        some generalized version of the selection.
+
+        The base-class implementation always returns False.
+        '''
+        return False
+
     def to_pyrep(self):
         ' Returns a "Python representation" of the selection. '
         pass
@@ -49,6 +60,11 @@ class SinglePixelSelection(Selection):
 
     def get_pixel(self):
         return self._pixel
+
+    def is_picked_by(self, coord):
+        # TODO(donnie):  Probably want to include a "fudge factor" here, based
+        #     on the zoom scale.
+        return self._pixel == coord
 
     def __str__(self):
         return f'SinglePixelSelection[{self.pixel}]'
@@ -74,6 +90,20 @@ class MultiPixelSelection(Selection):
 
     def get_pixels(self):
         return self._pixels
+
+    def get_bounding_box(self):
+        xs = [p.x() for p in self._pixels]
+        ys = [p.y() for p in self._pixels]
+
+        x_min = min(xs)
+        x_max = max(xs)
+        y_min = min(ys)
+        y_max = max(ys)
+
+        return QRect(x_min, y_min, x_max - x_min, y_max - y_min)
+
+    def is_picked_by(self, coord):
+        return self.get_bounding_box().contains(coord)
 
     def __str__(self):
         return f'MultiPixelSelection[{self._pixels}]'
@@ -105,6 +135,9 @@ class RectangleSelection(Selection):
     def get_rect(self):
         return get_rectangle(self._point1, self._point2)
 
+    def is_picked_by(self, coord):
+        return self.get_rect().contains(coord)
+
     def __str__(self):
         return f'RectangleSelection[tl={self._point1}, br={self._point2}]'
 
@@ -134,6 +167,21 @@ class PolygonSelection(Selection):
 
     def get_points(self):
         return self._points
+
+    def get_bounding_box(self):
+        xs = [p.x() for p in self._points]
+        ys = [p.y() for p in self._points]
+
+        x_min = min(xs)
+        x_max = max(xs)
+        y_min = min(ys)
+        y_max = max(ys)
+
+        return QRect(x_min, y_min, x_max - x_min, y_max - y_min)
+
+    def is_picked_by(self, coord):
+        # TODO(donnie):  Implement proper polygon picking
+        return self.get_bounding_box().contains(coord)
 
     def __str__(self):
         return f'PolygonSelection[{self._points}]'

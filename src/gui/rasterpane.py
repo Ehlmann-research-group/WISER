@@ -160,10 +160,12 @@ class RasterPane(QWidget):
             'mouseMoveEvent'    : self._onRasterMouseMove,
             'keyPressEvent'     : self._onRasterKeyPress,
             'keyReleaseEvent'   : self._onRasterKeyRelease,
+            'contextMenuEvent'  : self._onRasterContextMenu,
             'paintEvent'        : self._afterRasterPaint,
             'scrollContentsBy'  : self._afterRasterScroll,
         }
         self._rasterview = RasterView(parent=self, forward=forward)
+        self._rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
 
         # Widget layout
 
@@ -312,6 +314,39 @@ class RasterPane(QWidget):
         if self._task_delegate is not None:
             done = self._task_delegate.on_key_release(widget, key_event)
             self._update_delegate(done)
+
+    def _onRasterContextMenu(self, widget, context_menu_event):
+        menu = QMenu(self)
+
+        # TODO(donnie):  Set up handler for the action
+        act = menu.addAction(self.tr('Annotate location'))
+
+        # Calculate the coordinate of the click in dataset coordinates
+        ds_coord = self._rasterview.image_coord_to_raster_coord(context_menu_event.pos())
+
+        # Find Regions of Interest that include the click location.
+        picked_rois = []
+        for (name, roi) in self._app_state.get_rois().items():
+            if roi.is_picked_by(ds_coord):
+                picked_rois.append(roi)
+
+        if len(picked_rois) > 0:
+            # At least one region of interest was picked
+            menu.addSeparator()
+
+            for roi in picked_rois:
+                roi_menu = menu.addMenu(roi.get_name())
+
+                # TODO(donnie):  Set up handlers for the actions
+
+                roi_menu.addAction(self.tr('Show spectrum'))
+                roi_menu.addAction(self.tr('Edit geometry'))
+                roi_menu.addAction(self.tr('Edit metadata...'))
+                roi_menu.addAction(self.tr('Export spectrum...'))
+                roi_menu.addSeparator()
+                roi_menu.addAction(self.tr('Delete region...'))
+
+        menu.exec_(context_menu_event.globalPos())
 
     def _afterRasterScroll(self, widget, dx, dy):
         '''
