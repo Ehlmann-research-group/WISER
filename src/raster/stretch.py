@@ -5,8 +5,9 @@ from PySide2.QtCore import QObject, Signal
 
 from raster.dataset import get_normalized_band
 
-class StretchBase(QObject):
-    # Base class for stretch objects
+
+class StretchBase:
+    ''' Base class for stretch objects '''
 
     def __init__(self):
         QObject.__init__(self)
@@ -14,6 +15,7 @@ class StretchBase(QObject):
 
     def apply(self, input):
         return input
+
 
 class StretchLinear(StretchBase):
     """ Linear stretches """
@@ -26,10 +28,6 @@ class StretchLinear(StretchBase):
         self._lower = 0.
         self._upper = 1.
         self.name = "Linear"
-
-    # Signals
-    lowerChanged = Signal(int)
-    upperChanged = Signal(int)
 
     def apply(self, a):
         a *= self._slope
@@ -56,10 +54,6 @@ class StretchLinear(StretchBase):
         for bin in range(range_lower, range_upper, step):
             sum += bins[bin]
             if sum >= targetCount:
-                if doLower:
-                    self.lowerChanged.emit(bin * 100 / len(bins))
-                else:
-                    self.upperChanged.emit(bin * 100 / len(bins))
                 return bin
         return range_lower
 
