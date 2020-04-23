@@ -6,7 +6,7 @@ from PySide2.QtWidgets import *
 
 from .dataset_chooser import DatasetChooser
 from .rasterpane import RasterPane
-from .stretch_builder import StretchBuilder
+from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
 
 
@@ -21,7 +21,7 @@ class MainViewWidget(RasterPane):
             max_zoom_scale=16, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
             initial_zoom=1)
 
-        self._stretch_builder = StretchBuilder(parent=self)
+        self._stretch_builder = StretchBuilderDialog(parent=self)
 
 
     def _init_dataset_tools(self):
