@@ -2,6 +2,9 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .channel_stretch_widget_ui import Ui_ChannelStretchWidget
+from .stretch_config_widget_ui import Ui_StretchConfigWidget
+
 import numpy as np
 import numpy.ma as ma
 
@@ -16,82 +19,93 @@ from matplotlib.backends.backend_qt5agg import FigureCanvas
 
 # from gui.reverse_slider import QReverseSlider
 
-from .stretch_builder_ui import *
+# from .stretch_builder_ui import *
 
 from raster.dataset import get_normalized_band
 from raster.stretch import (StretchBase, StretchComposite, StretchHistEqualize,
                             StretchLinear, StretchLog2, StretchSquareRoot)
 
-
-class ChannelStretchWidget(QGroupBox):
+class ChannelStretchWidget(QWidget):
     '''
     This class implements a widget for managing the stretch of a single channel.
+
+    The "low bound" and "high bound" values are applied before computing the
+    histogram for the channel data; values outside these ranges are ignored.
+
+    The "histogram low" and "histogram high" values are in the range 0..1, with
+    low < high; these specify the stretch parameters that will be applied.
     '''
 
-    def __init__(self, title, parent=None, histogram_color=Qt.white):
-        super().__init__(title, parent)
-        # self.setCheckable(True)
+    def __init__(self, parent=None, histogram_color=Qt.black):
+        super().__init__(parent)
+        self._ui = Ui_ChannelStretchWidget()
+        self._ui.setupUi(self)
 
+        #============================================================
+        # Internal State:
+
+        # Color that the histogram is drawn in
         self._histogram_color = histogram_color
+
+        # Limits used to filter band data before histogram is computed
+        self._min_bound = 0
+        self._max_bound = 0
+
+        # Low and high endpoints for stretch calculations; these are always
+        # in the range 0..1 (i.e. 0% - 100%).
+        self._histogram_low = 0
+        self._histogram_high = 1
+
+        # The histogram itself
+        self._histogram_bins = None
+        self._histogram_edges = None
+
+        self._low_line = None
+        self._high_line = None
+
+        #============================================================
+        # User Interface Config:
 
         self._histogram_figure, self._histogram_axes = plt.subplots(constrained_layout=True)
         self._histogram_figure.set_constrained_layout_pads(w_pad=0, h_pad=0, wspace=0, hspace=0)
-        # self._histogram_axes.tick_params(direction='in', labelsize=4, pad=2, width=0.5,
-        #     bottom=True, left=True, top=False, right=False)
+        self._histogram_axes.tick_params(direction='in', labelsize=4, pad=2, width=0.5,
+            bottom=True, left=True, top=False, right=False)
 
         self._histogram_canvas = FigureCanvas(self._histogram_figure)
-        self._histogram_canvas.setMaximumSize(300, 200)
+        # self._histogram_canvas.setMaximumSize(300, 200)
 
-        self._label_low_bound = QLabel(self.tr('Low bound'))
-        self._lineedit_low_bound = QLineEdit()
-        self._slider_low_bound = QSlider(Qt.Horizontal)
+        # Put the matplotlib canvas into the histogram widget.
+        canvas_layout = QVBoxLayout()
+        canvas_layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        canvas_layout.addWidget(self._histogram_canvas)
+        self._ui.histogram_widget.setLayout(canvas_layout)
 
-        self._label_low_bound.setBuddy(self._lineedit_low_bound)
-        self._lineedit_low_bound.setAlignment(Qt.AlignRight)
-        self._lineedit_low_bound.setValidator(QDoubleValidator())
+        #============================================================
+        # Hook up events and their handlers
 
-        self._label_high_bound = QLabel(self.tr('High bound'))
-        self._lineedit_high_bound = QLineEdit()
-        self._slider_high_bound = QSlider(Qt.Horizontal)
+        self._ui.button_apply_bounds.clicked.connect(self._on_apply_bounds)
+        self._ui.button_reset_bounds.clicked.connect(self._on_reset_bounds)
 
-        self._label_high_bound.setBuddy(self._lineedit_high_bound)
-        self._lineedit_high_bound.setAlignment(Qt.AlignRight)
-        self._lineedit_high_bound.setValidator(QDoubleValidator())
+        self._ui.slider_stretch_low.setRange(0, 200)
+        self._ui.slider_stretch_low.valueChanged.connect(self._on_low_slider_changed)
 
-        self._btn_apply_bounds = QPushButton(self.tr('Apply Bounds'))
-        self._btn_reset_bounds = QPushButton(self.tr('Reset Bounds'))
-
-        bounds_widgets = QWidget()
-        bounds_layout = QGridLayout()
-        bounds_layout.addWidget(self._label_low_bound, 0, 0)
-        bounds_layout.addWidget(self._lineedit_low_bound, 0, 1)
-        bounds_layout.addWidget(self._label_high_bound, 1, 0)
-        bounds_layout.addWidget(self._lineedit_high_bound, 1, 1)
-        bounds_layout.addWidget(self._btn_apply_bounds, 2, 0, 2, 1)
-        bounds_layout.addWidget(self._btn_reset_bounds, 3, 0, 2, 1)
-        bounds_widgets.setLayout(bounds_layout)
-
-        hist_widgets = QWidget()
-        hist_layout = QVBoxLayout()
-        hist_layout.addWidget(self._histogram_canvas)
-        hist_layout.addWidget(self._slider_low_bound)
-        hist_layout.addWidget(self._slider_high_bound)
-        hist_widgets.setLayout(hist_layout)
-
-        layout = QHBoxLayout()
-        layout.addWidget(bounds_widgets)
-        layout.addWidget(hist_widgets)
-        self.setLayout(layout)
-
-        self._btn_apply_bounds.clicked.connect(self._on_apply_bounds)
-        self._btn_reset_bounds.clicked.connect(self._on_reset_bounds)
+        self._ui.slider_stretch_high.setRange(0, 200)
+        self._ui.slider_stretch_high.valueChanged.connect(self._on_high_slider_changed)
 
 
-    def sizeHint(self):
-        return QSize(500, 300)
+    def set_title(self, title):
+        self._ui.groupbox_channel.setTitle(title)
 
+    def set_histogram_color(self, color):
+        self._histogram_color = color
 
     def set_band(self, dataset, band_index):
+        '''
+        Sets the data set and index of the band data to be used in the channel
+        stretch UI.  The data set and band index are retained, so that
+        histograms can be recomputed as the stretch conditioner is changed, or
+        the endpoints over which to compute the histogram are modified.
+        '''
         self._dataset = dataset
         self._band_index = band_index
 
@@ -99,30 +113,45 @@ class ChannelStretchWidget(QGroupBox):
         self._raw_band_stats = dataset.get_band_stats(band_index)
         self._norm_band_data = get_normalized_band(dataset, band_index)
 
-        self._lineedit_low_bound.setText(f'{self._raw_band_stats.get_min():.5f}')
-        self._lineedit_high_bound.setText(f'{self._raw_band_stats.get_max():.5f}')
+        self._min_bound = self._raw_band_stats.get_min()
+        self._max_bound = self._raw_band_stats.get_max()
 
-        self._slider_low_bound.setValue(self._slider_low_bound.minimum())
-        self._slider_high_bound.setValue(self._slider_high_bound.maximum())
+        self._ui.lineedit_min_bound.setText(f'{self._min_bound:.5f}')
+        self._ui.lineedit_max_bound.setText(f'{self._max_bound:.5f}')
+
+        self._ui.slider_stretch_low.setValue(self._ui.slider_stretch_low.minimum())
+        self._ui.slider_stretch_high.setValue(self._ui.slider_stretch_high.maximum())
 
         self._update_histogram()
 
 
     def _on_reset_bounds(self):
+        '''
+        Reset the minimum and maximum bounds to the actual min/max values from
+        the band data.  In other words, all band data is included in the
+        histogram calculation.
+        '''
         self._norm_band_data = get_normalized_band(self._dataset, self._band_index)
 
-        self._lineedit_low_bound.setText(f'{self._raw_band_stats.get_min():.5f}')
-        self._lineedit_high_bound.setText(f'{self._raw_band_stats.get_max():.5f}')
+        self._ui.lineedit_min_bound.setText(f'{self._raw_band_stats.get_min():.6f}')
+        self._ui.lineedit_max_bound.setText(f'{self._raw_band_stats.get_max():.6f}')
 
         self._update_histogram()
 
 
     def _on_apply_bounds(self):
-        low_bound = float(self._lineedit_low_bound.text())
-        high_bound = float(self._lineedit_high_bound.text())
+        '''
+        Apply the user-specified min/max bounds to the band data, masking values
+        that are outside of this range, and recompute the histogram based on the
+        specified bounds.
+        '''
+        self._min_bound = float(self._ui.lineedit_min_bound.text())
+        self._max_bound = float(self._ui.lineedit_max_bound.text())
 
-        data = ma.masked_outside(self._raw_band_data, low_bound, high_bound)
-        self._norm_band_data = (data - low_bound) / (high_bound - low_bound)
+        # Mask all values that are outside of the min/max bounds, and then
+        # normalize the remaining values to the 0..1 range.
+        data = ma.masked_outside(self._raw_band_data, self._min_bound, self._max_bound)
+        self._norm_band_data = (data - self._min_bound) / (self._max_bound - self._min_bound)
 
         self._update_histogram()
 
@@ -144,30 +173,163 @@ class ChannelStretchWidget(QGroupBox):
         self._show_histogram()
 
 
-    def _show_histogram(self):
+    def _show_histogram(self, update_lines_only=False):
         # self._histo_axes.clear()
         # self._histo_fig.patch.set_visible(False)
         # self._histo_axes.set_axis_off()
         # self._histo_axes.set_frame_on(False)
         # self._histo_axes.margins(0., 0.)
 
-        self._histogram_axes.clear()
-        self._histogram_figure.patch.set_visible(False)
-        self._histogram_axes.set_axis_off()
-        self._histogram_axes.set_frame_on(False)
-        self._histogram_axes.margins(0, 0)
+        if not update_lines_only:
+            self._histogram_axes.clear()
+            self._histogram_figure.patch.set_visible(False)
+            self._histogram_axes.set_axis_off()
+            self._histogram_axes.set_frame_on(False)
+            self._histogram_axes.margins(0, 0)
 
-        if self._histogram_bins is None or self._histogram_edges is None:
-            return
+            if self._histogram_bins is None or self._histogram_edges is None:
+                return
 
-        self._histogram_axes.hist(self._histogram_edges[:-1],
-                                  self._histogram_edges,
-                                  weights=self._histogram_bins,
-                                  color=self._histogram_color.name())
+            self._histogram_axes.hist(self._histogram_edges[:-1],
+                                      self._histogram_edges,
+                                      weights=self._histogram_bins,
+                                      color=self._histogram_color.name())
+
+        if update_lines_only and self._low_line is not None:
+            self._low_line.remove()
+            self._high_line.remove()
+
+        self._low_line = self._histogram_axes.axvline(self._histogram_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
+        self._high_line = self._histogram_axes.axvline(self._histogram_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
         self._histogram_canvas.draw()
 
 
+    def _on_low_slider_changed(self, value):
+        # Compute the percentage from the slider positions
+        slider_min = self._ui.slider_stretch_low.minimum()
+        slider_max = self._ui.slider_stretch_low.maximum()
+        self._histogram_low = (value - slider_min) / (slider_max - slider_min)
+
+        # Update the displayed "low stretch" value
+        value = self._min_bound + self._histogram_low * (self._max_bound - self._min_bound)
+        self._ui.lineedit_stretch_low.setText(f'{value:.6f}')
+
+        # Update the histogram display
+        self._show_histogram(update_lines_only=True)
+
+    def _on_high_slider_changed(self, value):
+        slider_min = self._ui.slider_stretch_high.minimum()
+        slider_max = self._ui.slider_stretch_high.maximum()
+        self._histogram_high = (value - slider_min) / (slider_max - slider_min)
+
+        # Update the displayed "high stretch" value
+        value = self._min_bound + self._histogram_high * (self._max_bound - self._min_bound)
+        self._ui.lineedit_stretch_high.setText(f'{value:.6f}')
+
+        self._show_histogram(update_lines_only=True)
+
+
+class StretchConfigWidget(QWidget):
+    '''
+    This class implements a widget for managing the general stretch
+    configuration, which includes both the kind of stretch being applied, and
+    any conditioner that should also be applied.
+    '''
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._ui = Ui_StretchConfigWidget()
+        self._ui.setupUi(self)
+
+
+class StretchBuilderDialog(QDialog):
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+
+        self.setWindowTitle(self.tr('Stretch Builder'))
+
+        flags = ((self.windowFlags() | Qt.CustomizeWindowHint | Qt.WindowStaysOnTopHint)
+            & ~Qt.WindowCloseButtonHint)
+        self.setWindowFlags(flags)
+
+        layout = QGridLayout()
+        layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        layout.setSpacing(0)
+
+        # Widget for the general stretch configuration
+        self._stretch_config = StretchConfigWidget(parent=self)
+        layout.addWidget(self._stretch_config, 0, 0)
+
+        # Widgets for the channels themselves
+
+        self._channel_widgets = [ChannelStretchWidget(parent=self) for i in range(3)]
+
+        for i in range(3):
+            layout.addWidget(self._channel_widgets[i], i + 1, 0)
+
+        # Miscellaneous configuration options
+        self._cb_link_sliders = QCheckBox(self.tr('Link sliders across all channels'))
+        self._cb_link_min_max = QCheckBox(self.tr('Apply minimum/maximum values across all channels'))
+
+        layout.addWidget(self._cb_link_sliders)
+        layout.addWidget(self._cb_link_min_max)
+
+        # Dialog buttons - hook to built-in QDialog functions
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        layout.addWidget(buttons)
+
+        self.setLayout(layout)
+
+
+    def show(self, dataset, display_bands, stretches):
+        # print(f'Display bands = {display_bands}')
+
+        if len(display_bands) == 3:
+            # Initialize RGB stretch building
+            titles = [
+                self.tr('Red Channel'),
+                self.tr('Green Channel'),
+                self.tr('Blue Channel'),
+            ]
+            colors = [QColor('red'), QColor('green'), QColor('blue')]
+
+            for i in range(3):
+                self._channel_widgets[i].set_title(titles[i])
+                self._channel_widgets[i].set_histogram_color(colors[i])
+                self._channel_widgets[i].set_band(dataset, display_bands[i])
+                # TODO(donnie):  Set existing stretch details
+                self._channel_widgets[i].show()
+
+            self._cb_link_sliders.show()
+            self._cb_link_min_max.show()
+
+        elif len(display_bands) == 1:
+            # Initialize grayscale stretch building
+            self._channel_widgets[0].set_title(self.tr('Grayscale Channel'))
+            self._channel_widgets[0].set_histogram_color(QColor('black'))
+            self._channel_widgets[0].set_band(dataset, display_bands[0])
+            # TODO(donnie):  Set existing stretch details
+            self._channel_widgets[0].show()
+
+            self._channel_widgets[1].hide()
+            self._channel_widgets[2].hide()
+
+            self._cb_link_sliders.hide()
+            self._cb_link_min_max.hide()
+
+        else:
+            raise ValueError(f'display_bands must be 1 element or 3 elements; got {display_bands}')
+
+        self._saved_stretches = stretches
+
+        self.adjustSize()
+        super().show()
 
 
 class StretchBuilder(QDialog):
