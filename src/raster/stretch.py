@@ -1,9 +1,27 @@
 # stretch.py -- applying modifications to the display image
 
+from enum import Enum
+
 import numpy as np
 from PySide2.QtCore import QObject, Signal
 
 from raster.dataset import get_normalized_band
+
+
+class StretchType(Enum):
+    NO_STRETCH = 0
+
+    LINEAR_STRETCH = 1
+
+    EQUALIZE_STRETCH = 2
+
+
+class ConditionerType(Enum):
+    NO_CONDITIONER = 0
+
+    SQRT_CONDITIONER = 1
+
+    LOG_CONDITIONER = 2
 
 
 class StretchBase:
