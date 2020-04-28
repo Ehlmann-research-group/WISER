@@ -1,7 +1,7 @@
 import math, os
 from urllib.parse import urlparse
 
-from .dataset import RasterDataSet, RasterDataLoader
+from .dataset import RasterDataSet, RasterDataLoader, BandStats
 from .units import make_spectral_value, convert_spectral
 
 import numpy as np
@@ -30,6 +30,10 @@ class GDALRasterDataSet(RasterDataSet):
 
     def __init__(self, gdal_dataset):
         self.gdal_dataset = gdal_dataset
+
+        # A map of band index to BandStats objects, so that we can lazily
+        # compute these values and reuse them.
+        self._cached_band_stats = {}
 
         self.init_band_info()
 
@@ -258,6 +262,21 @@ class GDALRasterDataSet(RasterDataSet):
                 np_array = np.ma.masked_values(np_array, ignore_val)
 
         return np_array
+
+    def get_band_stats(self, band_index):
+        '''
+        Returns statistics of the specified band's data, wrapped in a BandStats
+        object.
+        '''
+
+        stats = self._cached_band_stats.get(band_index)
+        if stats is None:
+            band = self.get_band_data(band_index)
+            stats = BandStats(band_index, np.nanmin(band), np.nanmax(band))
+            self._cached_band_stats[band_index] = stats
+
+        return stats
+
 
     def get_all_bands_at(self, x, y, filter_bad_values=True):
         '''
