@@ -9,6 +9,17 @@ from raster.dataset import get_normalized_band
 
 
 def hist_limits_for_pct(hist_bins, hist_edges, percent, total_samples=None):
+    '''
+    This function uses a histogram (represented as bins and edges, per
+    numpy.histogram()) to determine how to filter out the N% extreme values,
+    where N/2% are taken from the bottom and N/2% are taken from the top.
+
+    The function indicates the low and high cutoffs by returning the
+    (low_index, high_index) indexes of the corresponding bins.
+
+    TODO(donnie):  Maybe this should just return the edge values.
+    '''
+
     # This helper function traverses the histogram bins until the total samples
     # is at least the target count.
     def find_limit(target_count: int, bins, start, end, step) -> int:
@@ -159,7 +170,7 @@ class StretchHistEqualize(StretchBase):
         super().__init__('Equalize')
         self._cdf = None
         self._histo_edges = None
-        
+
         self._calculate(histogram_bins, histogram_edges)
 
     def __str__(self):

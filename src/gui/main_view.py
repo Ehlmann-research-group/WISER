@@ -65,7 +65,7 @@ class MainViewWidget(RasterPane):
 
         self._stretch_builder.show(self.get_current_dataset(),
                                    self._rasterview.get_display_bands(),
-                                   None)
+                                   self._rasterview.get_stretches())
 
 
     def _on_zoom_to_actual(self, evt):

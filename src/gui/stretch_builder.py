@@ -65,10 +65,17 @@ class ChannelStretchWidget(QWidget):
         # Which channel this is
         self._channel_no = channel_no
 
+        self._dataset = None
+        self._band_index = None
+        self._raw_band_data = None
+        self._raw_band_stats = None
+        self._norm_band_data = None
+
         # Color that the histogram is drawn in
         self._histogram_color = histogram_color
 
-        self._stretch_type = StretchType.NO_STRETCH
+        # Sets:  self._stretch_type, self._draw_stretch_lines
+        self.set_stretch_type(StretchType.NO_STRETCH)
         self._conditioner_type = ConditionerType.NO_CONDITIONER
 
         # Limits used to filter band data before histogram is computed
@@ -150,6 +157,7 @@ class ChannelStretchWidget(QWidget):
 
     def set_stretch_type(self, stretch_type):
         self._stretch_type = stretch_type
+        self.enable_stretch_ui(stretch_type == StretchType.LINEAR_STRETCH)
         self._update_histogram()
 
     def set_conditioner_type(self, conditioner_type):
@@ -178,6 +186,13 @@ class ChannelStretchWidget(QWidget):
         self._norm_band_data = (data - self._min_bound) / (self._max_bound - self._min_bound)
 
         self._update_histogram()
+
+    def enable_stretch_ui(self, enabled):
+        for w in [self._ui.slider_stretch_low, self._ui.slider_stretch_high,
+                  self._ui.lineedit_stretch_low, self._ui.lineedit_stretch_high]:
+            w.setEnabled(enabled)
+
+        self._draw_stretch_lines = enabled
 
     def get_stretch_low(self):
         '''
@@ -260,6 +275,8 @@ class ChannelStretchWidget(QWidget):
 
 
     def set_linear_stretch_pct(self, percent):
+        self.set_stretch_type(StretchType.LINEAR_STRETCH)
+
         # Based on the current histogram, figure out where the
         (idx_low, idx_high) = hist_limits_for_pct(
             self._histogram_bins, self._histogram_edges, percent)
@@ -298,6 +315,9 @@ class ChannelStretchWidget(QWidget):
 
 
     def _update_histogram(self):
+        if self._norm_band_data is None:
+            return
+
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
         self._histogram_bins_raw, self._histogram_edges_raw = \
@@ -327,11 +347,8 @@ class ChannelStretchWidget(QWidget):
 
 
     def _show_histogram(self, update_lines_only=False):
-        # self._histo_axes.clear()
-        # self._histo_fig.patch.set_visible(False)
-        # self._histo_axes.set_axis_off()
-        # self._histo_axes.set_frame_on(False)
-        # self._histo_axes.margins(0., 0.)
+        if self._norm_band_data is None:
+            return
 
         if not update_lines_only:
             self._histogram_axes.clear()
@@ -353,8 +370,12 @@ class ChannelStretchWidget(QWidget):
             self._low_line.remove()
             self._high_line.remove()
 
-        self._low_line = self._histogram_axes.axvline(self._stretch_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
-        self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
+            self._low_line = None
+            self._high_line = None
+
+        if self._draw_stretch_lines:
+            self._low_line = self._histogram_axes.axvline(self._stretch_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
+            self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
         self._histogram_canvas.draw()
 
@@ -460,12 +481,12 @@ class StretchConfigWidget(QWidget):
 class StretchBuilderDialog(QDialog):
 
     # Signal:  When the stretch is changed in the Stretch Builder, the dialog
-    # will notify any listeners that the stretch has changed.
-    #  * The list contains a stretch object for each channel currently being
-    #    displayed/configured.
-    #  * The bool flag specifies whether this is a "final" notification (True)
-    #    or an "intermediate" notification (False).
-    stretch_changed = Signal(list, bool)
+    #          will notify any listeners that the stretch has changed.  The
+    #          signal value is a list of stretch objects, one for each channel
+    #          currently being displayed/configured.
+    # TODO(donnie):  Need to also indicate the data set / band #s that the
+    #     stretch is for.
+    stretch_changed = Signal(list)
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -607,7 +628,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[i].set_stretch_type(stretch_type)
 
         if self._enable_stretch_changed_events:
-            self.stretch_changed.emit(self.get_stretches(), False)
+            self.stretch_changed.emit(self.get_stretches())
 
 
     def _on_conditioner_type_changed(self): # , conditioner_type):
@@ -618,7 +639,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[i].set_conditioner_type(conditioner_type)
 
         if self._enable_stretch_changed_events:
-            self.stretch_changed.emit(self.get_stretches(), False)
+            self.stretch_changed.emit(self.get_stretches())
 
 
     def _on_link_sliders(self, checked):
@@ -642,7 +663,7 @@ class StretchBuilderDialog(QDialog):
             self._enable_stretch_changed_events = True
 
             if self._stretch_config.get_stretch_type() == StretchType.LINEAR_STRETCH:
-                self.stretch_changed.emit(self.get_stretches(), False)
+                self.stretch_changed.emit(self.get_stretches())
 
 
     def _on_link_min_max(self, checked):
@@ -682,7 +703,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[i].set_linear_stretch_pct(percent)
         self._enable_stretch_changed_events = True
 
-        self.stretch_changed.emit(self.get_stretches(), False)
+        self.stretch_changed.emit(self.get_stretches())
 
 
     def _on_channel_minmax_changed(self, channel_no, min_bound, max_bound):
@@ -708,7 +729,7 @@ class StretchBuilderDialog(QDialog):
 
         if self._stretch_config.get_stretch_type() == StretchType.LINEAR_STRETCH and \
            self._enable_stretch_changed_events:
-            self.stretch_changed.emit(self.get_stretches(), False)
+            self.stretch_changed.emit(self.get_stretches())
 
 
     def _on_channel_stretch_high_changed(self, channel_no, stretch_high):
@@ -722,7 +743,7 @@ class StretchBuilderDialog(QDialog):
 
         if self._stretch_config.get_stretch_type() == StretchType.LINEAR_STRETCH and \
            self._enable_stretch_changed_events:
-            self.stretch_changed.emit(self.get_stretches(), False)
+            self.stretch_changed.emit(self.get_stretches())
 
 
     def show(self, dataset, display_bands, stretches):
@@ -772,72 +793,10 @@ class StretchBuilderDialog(QDialog):
         super().show()
 
     def reject(self):
-        self.stretch_changed.emit(self._saved_stretches, True)
-
-    def accept(self):
-        self._saved_stretches = None
-        self.stretch_changed.emit(self.get_stretches(), True)
-
-
-
-class StretchBuilder(QDialog):
-
-
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
-
-        # Window flags:
-        #  - Make the window always stay on top, so the user doesn't lose it.
-        #  - We don't know whether closing the window means "OK" or "Cancel", so
-        #    we disable the close button.
-        flags = ((self.windowFlags() | Qt.CustomizeWindowHint | Qt.WindowStaysOnTopHint)
-            & ~Qt.WindowCloseButtonHint)
-        self.setWindowFlags(flags)
-
         '''
-        self._ui = Ui_Dialog_stretchBuilder()
-        self._ui.setupUi(self)
-        # self._ui.horizontalSlider_lower = QReverseSlider(self._ui.horizontalSlider_lower)
-        self._ui.comboBox_affected_band.addItems(["Red", "Green", "Blue", "All"])
-        self._ui.lineEdit_lower.setAlignment(Qt.AlignRight)
-        self._ui.lineEdit_upper.setAlignment(Qt.AlignRight)
-
-        self._all_stretch = StretchComposite(StretchBase(), StretchBase())
-        self._stretches = [None, None, None]
-        for band in range(0, 3):
-            self._stretches[band] = StretchComposite(
-                StretchComposite(StretchBase(), StretchBase()), # band specific stretch
-                self._all_stretch) # shared all-bands stretch
-
-        self._all_bands = True
-        self._histo_bins_raw = [None, None, None, None]
-        self._histo_edges_raw = [None, None, None, None]
-        self._histo_bins = [None, None, None, None]
-        self._histo_edges = [None, None, None, None]
-        self._pixels = 0
-        self._affected_band = 0
-
+        When the user cancels their changes in the stretch builder UI, we emit
+        the originally-saved stretches so that the UI reverts back to the way
+        it was.
         '''
-
-    #
-    # Slots
-    #
-
-    @Slot()
-    def _set_stretch_histo_equalize(self):
-        self._disable_sliders()
-        band = self._affected_band
-        histo_band = band
-        if self._all_bands:
-            histo_band = 3
-        self._set_primary(band, StretchHistEqualize()) # could be _all_stretch's primary
-        self._get_primary(band).calculate(self._histo_bins[histo_band], self._histo_edges[histo_band])
-        self.stretchChanged.emit(self._stretches)
-
-    @Slot(int)
-    def _on_affected_band_change(self, idx):
-        self._affected_band = self._ui.comboBox_affected_band.currentIndex()
-        self._all_bands = (self._affected_band == 3)
-        if self._all_bands or self._monochrome:
-            self._affected_band = 0
-        self._initialize_widgets_for_current_band()
+        self.stretch_changed.emit(self._saved_stretches)
+        super().reject()

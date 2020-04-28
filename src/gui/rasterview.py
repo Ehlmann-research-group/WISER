@@ -112,9 +112,6 @@ class RasterView(QWidget):
     regions of interest, etc.
     '''
 
-    _stretchBuilder = None
-    _stretches = [None, None, None]
-
     def __init__(self, parent=None, forward=None):
         super().__init__(parent=parent)
 
@@ -168,6 +165,8 @@ class RasterView(QWidget):
         self._raster_data = None
         self._display_bands = None
 
+        self._stretches = None
+
         # These members are for storing the components of the raster data, so
         # that assembling the image is faster when only one color's band
         # changes.
@@ -191,6 +190,7 @@ class RasterView(QWidget):
 
         self._raster_data = raster_data
         self._display_bands = display_bands
+        self._stretches = [StretchBase(), StretchBase(), StretchBase()]
 
         if raster_data is not None:
             assert len(self._display_bands) in [1, 3], \
