@@ -470,7 +470,7 @@ class StretchBuilderDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-        self.setWindowTitle(self.tr('Stretch Builder'))
+        self.setWindowTitle(self.tr('Contrast Stretch Configuration'))
 
         flags = ((self.windowFlags() | Qt.CustomizeWindowHint | Qt.WindowStaysOnTopHint)
             & ~Qt.WindowCloseButtonHint)
@@ -564,7 +564,8 @@ class StretchBuilderDialog(QDialog):
             stretch = StretchLinear(low, high)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
-            stretch = StretchHistEqualize()
+            bins, edges = channel.get_histogram()
+            stretch = StretchHistEqualize(bins, edges)
 
         else:
             # No stretch
@@ -770,12 +771,16 @@ class StretchBuilderDialog(QDialog):
         self.adjustSize()
         super().show()
 
+    def reject(self):
+        self.stretch_changed.emit(self._saved_stretches, True)
+
+    def accept(self):
+        self._saved_stretches = None
+        self.stretch_changed.emit(self.get_stretches(), True)
+
+
 
 class StretchBuilder(QDialog):
-
-
-    # Signals
-    stretchChanged = Signal(list, bool)
 
 
     def __init__(self, parent=None):
@@ -803,8 +808,7 @@ class StretchBuilder(QDialog):
             self._stretches[band] = StretchComposite(
                 StretchComposite(StretchBase(), StretchBase()), # band specific stretch
                 self._all_stretch) # shared all-bands stretch
-        self._saved_stretches = [None, None, None]
-        self._monochrome = False
+
         self._all_bands = True
         self._histo_bins_raw = [None, None, None, None]
         self._histo_edges_raw = [None, None, None, None]
@@ -813,231 +817,11 @@ class StretchBuilder(QDialog):
         self._pixels = 0
         self._affected_band = 0
 
-        self._histo_fig, self._histo_axes = plt.subplots(constrained_layout=True)
-        self._histo_fig.set_constrained_layout_pads(w_pad=0., h_pad=0., hspace=0., wsoace=0.)
-        self._histo_canvas = FigureCanvas(self._histo_fig)
-        self._ui.hLayout_histogram.addWidget(self._histo_canvas)
-
-        # connect signals to slots
-        self._ui.buttonBox.button(QDialogButtonBox.Ok).clicked.connect(self.ok)
-        self._ui.buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(self.cancel)
-        self._ui.radioButton_stretchTypeNone.clicked.connect(self._set_stretch_none)
-        self._ui.radioButton_stretchTypeEqualize.clicked.connect(self._set_stretch_histo_equalize)
-        self._ui.radioButton_stretchTypeLinear.clicked.connect(self._set_stretch_linear)
-        self._ui.radioButton_conditionerNone.clicked.connect(self._set_conditioner_none)
-        self._ui.radioButton_conditionerSqrRt.clicked.connect(self._set_conditioner_square_root)
-        self._ui.radioButton_conditionerLog2.clicked.connect(self._set_conditioner_log2)
-        self._ui.pushButton_stretch2pt5Pct.clicked.connect(self._set_2pt5_pct_linear)
-        self._ui.pushButton_stretch5Pct.clicked.connect(self._set_5_pct_linear)
-        self._ui.horizontalSlider_lower.valueChanged.connect(self._on_horizontalSlider_change)
-        self._ui.horizontalSlider_upper.valueChanged.connect(self._on_horizontalSlider_change)
-        self._ui.horizontalSlider_lower.valueChanged.connect(self._update_lower_slider_label)
-        self._ui.horizontalSlider_upper.valueChanged.connect(self._update_upper_slider_label)
-        self._ui.comboBox_affected_band.currentIndexChanged.connect(self._on_affected_band_change)
-        self._ui.radioButton_stretchTypeNone.click()
-        self._ui.radioButton_conditionerNone.click()
-        self._ui.comboBox_affected_band.setCurrentIndex(3)
         '''
-
-        self._red_channel = ChannelStretchWidget(self.tr('Red'), self, histogram_color=QColor(Qt.red))
-        self._grn_channel = ChannelStretchWidget(self.tr('Green'), self, histogram_color=QColor(Qt.green))
-        self._blu_channel = ChannelStretchWidget(self.tr('Blue'), self, histogram_color=QColor(Qt.blue))
-
-        # self._gray_channel = ChannelStretchWidget(self.tr('Grayscale'), self)
-
-        layout = QVBoxLayout()
-        layout.addWidget(self._red_channel)
-        layout.addWidget(self._grn_channel)
-        layout.addWidget(self._blu_channel)
-        self.setLayout(layout)
-
-        self.hide()
-
-        # More StretchBuilder UI stuff here
-
-
-    def cancel(self):
-        self.stretchChanged.emit(self._saved_stretches, True)
-        self.hide()
-
-    def ok(self):
-        # TODO(donnie):  Emit stretches once more, indicating that they are final.
-        self._saved_stretches = [None, None, None]
-        self.hide()
-
-    def _get_primary(self, band: int) -> StretchBase:
-        """
-        Utility to get the primary stretch for a given band, or all bands.
-        The "primary" stretch is the second one applied, after the
-        "conditioner" stretch, which may be a little confusing.
-        """
-        if self._all_bands:
-            if not self._all_stretch or not isinstance(self._all_stretch, StretchComposite):
-                raise Exception("in _get_primary: expected StretchComposite")
-            else:
-                return self._all_stretch.second()
-        else:
-            if (not self._stretches[band]
-                    or not isinstance(self._stretches[band], StretchComposite)
-                    or not isinstance(self._stretches[band].first(), StretchComposite)):
-                raise Exception("in _get_primary: expected StretchComposite")
-            else:
-                return self._stretches[band].first().second()
-
-    def _set_primary(self, band: int, primary: StretchBase):
-        """
-        Utility to set the primary stretch for a given band, or for all bands.
-        The "primary" stretch is the second one applied, after the
-        "conditioner" stretch, which may be a little confusing.
-        """
-        if not primary:
-            return # nothing to do.
-        else:
-            if self._all_bands:
-                if not self._all_stretch or not isinstance(self._all_stretch, StretchComposite):
-                    raise Exception("in _set_primary: expected _all_stretch to be StretchComposite:")
-                else:
-                    self._all_stretch.set_second(primary)
-            else:
-                if (not self._stretches[band]
-                        or not isinstance(self._stretches[band], StretchComposite)
-                        or not isinstance(self._stretches[band].first(), StretchComposite)):
-                    raise Exception("in _set_primary: expected stretch for band {} to be StretchComposite:".format(band))
-                else:
-                    self._stretches[band].first().set_second(primary)
-
-    def _get_conditioner(self, band: int) -> StretchBase:
-        """
-        Utility to get the conditioner stretch for a given band, or all bands.
-        The "conditioner" stretch is the first one applied, before the
-        "primary" stretch, which may be a little confusing.
-        """
-        if self._all_bands:
-            if not self._all_stretch or not isinstance(self._all_stretch, StretchComposite):
-                raise Exception("in _get_primary: expected StretchComposite")
-            else:
-                return self._all_stretch.first()
-        else:
-            if (not self._stretches[band]
-                    or not isinstance(self._stretches[band], StretchComposite)
-                    or not isinstance(self._stretches[band].first(), StretchComposite)):
-                raise Exception("in _get_primary: expected StretchComposite")
-            else:
-                return self._stretches[band].first().first()
-
-    def _set_conditioner(self, band: int, conditioner: StretchBase):
-        """
-        Utility to set the conditioner stretch for a given band, or all bands.
-        The "conditioner" stretch is the first one applied, before the
-        "primary" stretch, which may be a little confusing.
-        """
-        if not conditioner:
-            return # nothing to do.
-        else:
-            if self._all_bands:
-                if not self._all_stretch or not isinstance(self._all_stretch, StretchComposite):
-                    raise Exception("in _set_primary: expected _all_stretch to be StretchComposite:")
-                else:
-                    self._all_stretch.set_first(conditioner)
-            else:
-                if (not self._stretches[band]
-                        or not isinstance(self._stretches[band], StretchComposite)
-                        or not isinstance(self._stretches[band].first(), StretchComposite)):
-                    raise Exception("in _set_primary: expected stretch for band {} to be StretchComposite:".format(band))
-                else:
-                    self._stretches[band].first().set_first(conditioner)
-
-    def _initialize_conditioner_widgets_from_stretch(self, stretch):
-        """
-        Utility function to initialize the UI portions dealing with
-        the Conditioner Stretch.  If the stretch is not a Conditioner,
-        which can be the case, it does nothing.
-        """
-        if not stretch:
-            # nothing to do
-            pass
-        elif stretch.name == "Composite":
-            # shouldn't happen!
-            print("Error: Composite stretch in _initialize_conditioner_widgets_from_stretch")
-            raise NotImplementedError
-        elif stretch.name == "Base":
-            self._ui.radioButton_conditionerNone.click()
-        elif not stretch.name.startswith("Conditioner"):
-            # nothing to do
-            pass
-        elif stretch.name.endswith("SquareRoot"):
-            self._ui.radioButton_conditionerSqrRt.click()
-        elif stretch.name.endswith("Log2"):
-            self._ui.radioButton_conditionerLog2.click()
-        else:
-            print("Unrecognized Conditioner: {}".format(stretch.conditioner().name))
-            raise NotImplementedError
-
-    def _initialize_primary_widgets_from_stretch(self, stretch):
-        """
-        Utility function to initialize the UI portions dealing with
-        the primary stretch.  If the stretch is a Conditioner, which
-        can be the case, it does nothing.
-        """
-        if not stretch:
-            # nothing to do
-            pass
-        elif stretch.name == "Composite":
-            # shouldn't happen!
-            print("Error: Composite sttetch in _initialize_primary_widgets_from_stretch")
-        elif stretch.name.startswith("Conditioner"):
-            # only conditioner stretch: nothing to do
-            pass
-        elif stretch.name == "Base":
-            self._ui.radioButton_stretchTypeNone.click()
-        elif stretch.name == "Equalize":
-            self._ui.radioButton_stretchTypeEqualize.click()
-        elif stretch.name == "Linear":
-            self._ui.radioButton_stretchTypeLinear.setChecked(True) # avoid side effects from using click()
-            # extract both lower and upper positions before side-effects of setting
-            # the slider position overwrites the current data
-            lower_pos = int(stretch.lower() * 100.)
-            upper_pos = int(stretch.upper() * 100.)
-            self._ui.horizontalSlider_lower.setSliderPosition(lower_pos)
-            self._ui.horizontalSlider_upper.setSliderPosition(upper_pos)
-            self._enable_sliders()
-
-    def _initialize_widgets_for_current_band(self):
-        self._initialize_conditioner_widgets_from_stretch(self._get_conditioner(self._affected_band))
-        self._initialize_primary_widgets_from_stretch(self._get_primary(self._affected_band))
-        self._display_current_histogram()
-
-    def _set_n_pct_linear(self, pct: float):
-        self._set_stretch_linear()
-        self._ui.radioButton_stretchTypeLinear.setChecked(True) # no side effects
-        band = self._affected_band
-        stretch = self._get_primary(band) # could be all_bands primary
-        if self._all_bands:
-            # use combined histograms for all display bands
-            assert(stretch == self._all_stretch.second())
-            stretch.calculate_from_pct(self._pixels * 3, self._histo_bins[3], pct)
-        else:
-            stretch.calculate_from_pct(self._pixels, self._histo_bins[band], pct)
-        self.stretchChanged.emit(self._stretches)
 
     #
     # Slots
     #
-
-    @Slot()
-    def _set_stretch_linear(self):
-        self._set_primary(self._affected_band, StretchLinear())
-        self._enable_sliders()
-        self.stretchChanged.emit(self._stretches)
-
-    @Slot()
-    def _set_stretch_none(self):
-        """
-        Disable the primary stretch
-        """
-        self._disable_sliders()
-        self._set_primary(self._affected_band, StretchBase())
-        self.stretchChanged.emit(self._stretches)
 
     @Slot()
     def _set_stretch_histo_equalize(self):
@@ -1051,62 +835,9 @@ class StretchBuilder(QDialog):
         self.stretchChanged.emit(self._stretches)
 
     @Slot(int)
-    def _update_stretch_upper_slider(self, upper):
-        self._ui.horizontalSlider_upper.setSliderPosition(int(upper * 100))
-
-    @Slot(int)
-    def _update_stretch_lower_slider(self, lower):
-        self._ui.horizontalSlider_lower.setSliderPosition(int(lower * 100))
-
-    @Slot(int)
-    def _update_upper_slider_label(self, upper):
-        self._ui.lineEdit_upper.setText(str(upper)+"%")
-
-    @Slot(int)
-    def _update_lower_slider_label(self, lower):
-        self._ui.lineEdit_lower.setText(str(lower)+"%")
-
-    @Slot()
-    def _set_2pt5_pct_linear(self):
-        self._set_n_pct_linear(0.025)
-
-    @Slot()
-    def _set_5_pct_linear(self):
-        self._set_n_pct_linear(0.05)
-
-    @Slot()
-    def _on_horizontalSlider_change(self):
-        band = self._affected_band
-        if not isinstance(self._get_primary(band), StretchLinear):
-            # Handle the case where we're moving the sliders back to their
-            # original positions after changing the stretch type from Linear
-            return
-        stretch = self._get_primary(band)
-        stretch.calculate_from_limits(
-                lower=self._ui.horizontalSlider_lower.value(),
-                upper=self._ui.horizontalSlider_upper.value(),
-                range_max=100)
-        self.stretchChanged.emit(self._stretches)
-
-    @Slot(int)
     def _on_affected_band_change(self, idx):
         self._affected_band = self._ui.comboBox_affected_band.currentIndex()
         self._all_bands = (self._affected_band == 3)
         if self._all_bands or self._monochrome:
             self._affected_band = 0
         self._initialize_widgets_for_current_band()
-
-    @Slot()
-    def _set_conditioner_none(self):
-        self._set_conditioner(self._affected_band, StretchBase())
-        self.stretchChanged.emit(self._stretches)
-
-    @Slot()
-    def _set_conditioner_square_root(self):
-        self._set_conditioner(self._affected_band, StretchSquareRoot())
-        self.stretchChanged.emit(self._stretches)
-
-    @Slot()
-    def _set_conditioner_log2(self):
-        self._set_conditioner(self._affected_band, StretchLog2())
-        self.stretchChanged.emit(self._stretches)

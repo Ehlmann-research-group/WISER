@@ -155,26 +155,31 @@ class StretchHistEqualize(StretchBase):
     ''' Histogram Equalization Stretches '''
 
     # Constructor
-    def __init__(self):
-        super.__init__('Equalize')
+    def __init__(self, histogram_bins, histogram_edges):
+        super().__init__('Equalize')
         self._cdf = None
         self._histo_edges = None
+        
+        self._calculate(histogram_bins, histogram_edges)
+
+    def __str__(self):
+        return 'StretchHistEqualize'
+
+    def _calculate(self, bins: np.array, edges: np.array):
+        self._histo_edges = edges
+        # First, calculate a density probability histogram from the counts version
+        # (mimics the handling of density in numpy's histogram() implementation)
+        db = np.array(np.diff(edges), float)
+        density_bins = bins / db / bins.sum()
+
+        # Now calculate a cumulative distribution function and normalize it
+        self._cdf = density_bins.cumsum()
+        self._cdf /= self._cdf[-1]
 
     def apply(self, a: np.array):
         # TODO(donnie):  I think this makes a copy
         out = np.interp(a, self._histo_edges[:-1], self._cdf)
         np.copyto(a, out)
-
-
-    def calculate(self, bins: np.array, edges: np.array):
-        self._histo_edges = edges
-        # First, calculate a density probability histogram from the counts version
-        # (mimics the handling of density in numpy's histogram() implementation)
-        db = np.array(np.diff(edges), float)
-        density_bins = bins/db/bins.sum()
-        # Now calculate a cumulative distribution function and normalize it
-        self._cdf = density_bins.cumsum()
-        self._cdf /= self._cdf[-1]
 
 
 class StretchSquareRoot(StretchBase):
