@@ -217,7 +217,7 @@ class DataVisualizerApp(QMainWindow):
         self._main_view.display_bands_change.connect(self._on_display_bands_change)
         self._main_view.create_selection.connect(self._on_create_selection)
 
-        self._main_view.get_stretch_builder().stretchChanged.connect(self._on_stretch_changed)
+        self._main_view.get_stretch_builder().stretch_changed.connect(self._on_stretch_changed)
 
         self._zoom_pane.viewport_change.connect(self._on_zoom_viewport_change)
         self._zoom_pane.click_pixel.connect(self._on_zoom_raster_pixel_select)
@@ -399,6 +399,10 @@ class DataVisualizerApp(QMainWindow):
         Receive stretch-change events from the Stretch Builder and propagate
         them to all raster-views.
         '''
+
+        print(f'Contrast stretch changed to:')
+        for s in stretches:
+            print(f' * {s}')
 
         # TODO(donnie):  This is a bit ugly.  Hook event-source directly to
         #     these sinks?  Do something else?
