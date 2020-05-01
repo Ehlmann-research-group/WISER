@@ -625,8 +625,7 @@ class DataVisualizerApp(QMainWindow):
         # selected in the main view, since the click originated from the main
         # view.
         dataset = self._main_view.get_current_dataset()
-        spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y())
-        self._spectrum_plot.set_spectrum(spectrum, dataset)
+        self._spectrum_plot.set_active_spectrum(dataset, ds_point)
 
 
     def _on_stretch_changed(self, stretches: list):

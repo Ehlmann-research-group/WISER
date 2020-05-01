@@ -1,2 +1,4 @@
 channel_stretch_widget_ui.py
+spectrum_info_editor_ui.py
+spectrum_plot_config_ui.py
 stretch_config_widget_ui.py

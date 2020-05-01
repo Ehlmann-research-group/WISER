@@ -136,8 +136,8 @@ class RasterPane(QWidget):
     def _init_ui(self, select_tools=True):
         ''' Initialize the contents of this widget '''
 
-        # TOOLBAR
         #=========
+        # TOOLBAR
 
         self._toolbar = QToolBar(self.tr('Toolbar'), parent=self)
 
