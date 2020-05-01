@@ -3,7 +3,17 @@ from enum import Enum
 import numpy as np
 
 
-class SpectrumCalcMode(Enum):
+class SpectrumType(Enum):
+    SINGLE_PIXEL = 1
+
+    AREA_AVERAGE = 2
+
+    REGION_OF_INTEREST = 3
+
+    LIBRARY_SPECTRUM = 4
+
+
+class SpectrumAverageMode(Enum):
     '''
     This enumeration specifies the calculation mode when a spectrum is computed
     over multiple pixels of a raster data set.
@@ -16,7 +26,20 @@ class SpectrumCalcMode(Enum):
     MEDIAN = 2
 
 
-def calc_spectrum(dataset, points, mode=SpectrumCalcMode.MEAN):
+def calc_rect_spectrum(dataset, rect, mode=SpectrumAverageMode.MEAN):
+    '''
+    Calculate a spectrum over a rectangular area of the specified dataset.
+    The calculation mode can be specified with the mode argument.
+
+    The rect argument is expected to be a QRect object.
+    '''
+    points = [(rect.left() + dx, rect.top() + dy)
+              for dx, dy in np.ndindex(rect.width(), rect.height())]
+
+    return calc_spectrum(dataset, points, mode)
+
+
+def calc_spectrum(dataset, points, mode=SpectrumAverageMode.MEAN):
     '''
     Calculate a spectrum over a collection of points from the specified dataset.
     The calculation mode can be specified with the mode argument.
@@ -34,28 +57,13 @@ def calc_spectrum(dataset, points, mode=SpectrumCalcMode.MEAN):
         s = dataset.get_all_bands_at(p[0], p[1])
         spectra.append(s)
 
-    if mode == SpectrumCalcMode.MEAN:
+    if mode == SpectrumAverageMode.MEAN:
         spectrum = np.mean(spectra, axis=0)
 
-    elif mode == SpectrumCalcMode.MEDIAN:
+    elif mode == SpectrumAverageMode.MEDIAN:
         spectrum = np.median(spectra, axis=0)
 
     else:
-        raise ValueError(f'Unrecognized calculation mode {mode}')
+        raise ValueError(f'Unrecognized average type {mode}')
 
     return spectrum
-
-
-def calc_band_histogram(dataset, band_index):
-    '''
-    Calculate a histogram over all values in the specified band.
-
-    The calculation is done with the numpy.histogram() function.
-
-    The function returns a tuple (hist, bin_edges), specifying the histogram
-    values, and the edges of the bins calculated by the function.
-    '''
-
-    band_data = dataset.get_band_data(band_index)
-    hist, bin_edges = np.histogram(band_data, bins='auto')
-    return hist, bin_edges

@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SpectrumPlotConfig</class>
+ <widget class="QDialog" name="SpectrumPlotConfig">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>399</width>
+    <height>219</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Spectrum Plot Configuration</string>
+  </property>
+  <widget class="QDialogButtonBox" name="buttonBox">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>180</y>
+     <width>381</width>
+     <height>32</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+   </property>
+  </widget>
+  <widget class="QWidget" name="gridLayoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>9</x>
+     <y>9</y>
+     <width>381</width>
+     <height>161</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="grid_layout" columnstretch="1,0,1">
+    <item row="0" column="1" colspan="2">
+     <widget class="QComboBox" name="combobox_spectrum_type">
+      <property name="currentText">
+       <string/>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1">
+     <widget class="QLabel" name="label_area_avg_y">
+      <property name="text">
+       <string>Y</string>
+      </property>
+      <property name="buddy">
+       <cstring>lineedit_area_avg_y</cstring>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QLabel" name="label_area_avg">
+      <property name="text">
+       <string>Default area-average size</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QLabel" name="label_area_avg_x">
+      <property name="text">
+       <string>X</string>
+      </property>
+      <property name="buddy">
+       <cstring>lineedit_area_avg_x</cstring>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="2">
+     <widget class="QLineEdit" name="lineedit_area_avg_x"/>
+    </item>
+    <item row="3" column="2">
+     <widget class="QLineEdit" name="lineedit_area_avg_y"/>
+    </item>
+    <item row="0" column="0">
+     <widget class="QLabel" name="label_spectrum_type">
+      <property name="text">
+       <string>Default spectrum for clicks</string>
+      </property>
+      <property name="buddy">
+       <cstring>combobox_spectrum_type</cstring>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="0" colspan="3">
+     <widget class="QLabel" name="label_placeholder">
+      <property name="text">
+       <string>TODO:  Spectrum plot configuration (tick marks, etc.)</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QLabel" name="label_avg_mode">
+      <property name="text">
+       <string>Default average mode</string>
+      </property>
+      <property name="buddy">
+       <cstring>combobox_avg_mode</cstring>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1" colspan="2">
+     <widget class="QComboBox" name="combobox_avg_mode"/>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <tabstops>
+  <tabstop>combobox_spectrum_type</tabstop>
+  <tabstop>combobox_avg_mode</tabstop>
+  <tabstop>lineedit_area_avg_x</tabstop>
+  <tabstop>lineedit_area_avg_y</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>SpectrumPlotConfig</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>SpectrumPlotConfig</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

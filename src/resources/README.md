@@ -11,6 +11,8 @@ from [Flaticon](https://www.flaticon.com/).
 *   dataset-info.svg (was information.svg)
 *   stretch-builder.svg (was adjust.svg)
 *   stretch-builder-2.svg (was bright.svg)
+*   clear-all-plots.svg (was interface.svg)
+*   configure.svg (was cogwheels.svg)
 
 Icons made by [Pixel perfect](https://www.flaticon.com/authors/pixel-perfect)
 from [Flaticon](https://www.flaticon.com/).
@@ -29,3 +31,9 @@ from [Flaticon](https://www.flaticon.com/).
 
 *   select.svg (was area.svg)
 *   select-2.svg (was shape.svg)
+
+Icons made by [Those Icons](https://www.flaticon.com/authors/those-icons)
+from [Flaticon](https://www.flaticon.com/).
+
+*   collect-spectrum.svg (was interface.svg)
+*   load-spectra.svg (was interface.svg)
