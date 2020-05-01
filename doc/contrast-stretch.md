@@ -8,16 +8,19 @@ Before discussing how stretch may be applied, it is important to understand what
 the Workbench must do to display data.  The band data being displayed may be of
 many different data types; floating point or integer data, of various bit
 widths (e.g. 8, 16, 32 or 64 bits).  Therefore, the data itself may cover many
-different ranges of values.  The Workbench must somehow map each band's values
-to an integer color value in the range [0, 255].  If the Workbench is showing
-image data in RGB mode, this must occur for each color channel; if the Workbench
-is using grayscale then only one band is being used and it is mapped to a single
+different ranges of values.  The Workbench must map each band's values to an
+integer color value in the range [0, 255].  If the Workbench is showing image
+data in RGB mode, this must occur for each color channel; if the Workbench is
+using grayscale then only one band is being used and it is mapped to a single
 [0, 255] value.
 
 Note that raster data sets may specify "data ignore values" - values that should
 explicitly be ignored by tools working with the data.  The Workbench filters out
 such values before any of this processing occurs; they are represented as NaNs,
 and all stretch calculations are implemented to ignore NaN values throughout.
+
+Finally, note that the calculations for displaying raster data are not used
+when plotting spectra; spectrum calculations use the raster data directly.
 
 ## Specifying Minimum and Maximum Limits on Band Data
 
@@ -48,9 +51,8 @@ followed for each color channel being displayed.
     data sets with a very large range of input values, and a very small range of
     values the user wants to visualize?  Need to think about this!)
 
-    Normalized values will only be 64-bit floating point if the input data is
-    also 64-bit floating point.  Otherwise, the normalized data will be 32-bit
-    floating point.
+    Normalized values are usually 32-bit floating point; they will only be
+    64-bit floating point if the input data is also 64-bit floating point.
 
 *   Apply any user-specified conditioner to the data.  Conditioners are
     discussed below, but they are functions that consume normalized data and
@@ -59,7 +61,7 @@ followed for each color channel being displayed.
 *   Apply any user-specified stretch to the data.  Again, this mapping consumes
     normalized data and produces normalized data.
 
-*   The final floating point values  are in the range [0.0, 1.0], so they are
+*   The final floating point values are in the range [0.0, 1.0], so they are
     multiplied by 255.0 and then cast to an 8-bit unsigned integer to yield a
     color intensity.
 
@@ -84,8 +86,9 @@ simplistic mapping of band data to color values in the range [0, 255].  The
 specific mapping depends on the type of the input data.
 
 (Note that this is a difficult problem to solve generally, and it is expected
-that this will not be useful in many cases.  Fortunately, the other stretch
-configurations should produce much better results.)
+that this mapping will not be useful in many cases.  Fortunately, the other
+stretch configurations should produce much more useful results, if this mapping
+is not useful for a particular data set.)
 
 *   If the band data is 32-bit or 64-bit floating point, then all values are
     clipped to the range [0.0, 1.0] and then multiplied by 255 to generate a
@@ -113,10 +116,10 @@ These intermediate values are then mapped to a color value in the range
 
 The Workbench supports arbitrary values for the stretch_low and stretch_high
 values, and each color channel will specify its own values for stretch_low and
-stretch_high.  A histogram of the band data is displayed for each channel, to
-aid the user in selecting appropriate stretch_low / stretch_high values.  In
-addition, the UI provides the ability to apply a 2.5% or 5% linear stretch
-across all channels.
+stretch_high.  The Contrast Stretch UI calculates and displays a histogram of
+the band data for each channel, to aid the user in selecting appropriate
+stretch_low / stretch_high values.  In addition, the UI provides the ability to
+apply a 2.5% or 5% linear stretch across all channels.
 
 For an N% linear stretch, the Workbench will choose each channel's stretch_low
 and stretch_high such that (N/2)% of the low values will be excluded, and (N/2)%
@@ -148,7 +151,8 @@ case of "no conditioner," this can be thought of as the identity function, but
 the implementation simply does nothing.
 
 It may be noted that sqrt(x) for x in [0.0, 1.0] already produces values only
-in the range [0.0, 1.0].  This is what the Workbench does.
+in the range [0.0, 1.0].  This is what the Workbench does for square root
+conditioning.
 
 In the case of logarithmic conditioner, the Workbench uses the function
 log2(x + 1.0); when given values in the range [0.0, 1.0], this will only produce
