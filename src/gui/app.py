@@ -21,6 +21,10 @@ from .roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 from .util import *
 
 from raster.dataset import *
+from raster.spectral_library import SpectralLibrary
+
+from raster.gdal_dataset import GDALRasterDataLoader
+from raster.envi_spectral_library import ENVISpectralLibrary
 
 
 class ApplicationState(QObject):
@@ -37,6 +41,12 @@ class ApplicationState(QObject):
     # Signal:  the data-set at the specified index was removed
     dataset_removed = Signal(int)
 
+
+    spectral_library_added = Signal(int)
+
+    spectral_library_removed = Signal(int)
+
+
     roi_added = Signal(RegionOfInterest)
 
     roi_removed = Signal(RegionOfInterest)
@@ -46,8 +56,14 @@ class ApplicationState(QObject):
     def __init__(self):
         super().__init__()
 
+        self._current_dir = os.getcwd()
+        self._raster_data_loader = GDALRasterDataLoader()
+
         # All datasets loaded in the application.
         self._datasets = []
+
+        # All spectral libraries loaded in the application.
+        self._spectral_libraries = []
 
         # Regions of interest in the input data sets.
         self._regions_of_interest = {}
@@ -64,6 +80,51 @@ class ApplicationState(QObject):
             'pixel-highlight' : Qt.red,
             'roi-default-color' : Qt.white,
         }
+
+
+    def get_current_dir(self):
+        return self._current_dir
+
+
+    def open_file(self, file_path):
+        '''
+        Open a data or configuration file in the Imaging Spectroscopy Workbench.
+        '''
+
+        # Remember the directory of the selected file, for next file-open
+        self._current_dir = os.path.dirname(file_path)
+
+        # Is the file a project file?
+
+        if file_path.endswith('.iswb'):
+            self.load_project_file(file_path)
+            return
+
+        # Figure out if the user wants to open a raster data set or a
+        # spectral library.
+
+        if file_path.endswith('.sli') or file_path.endswith('.hdr'):
+            # ENVI file, possibly a spectral library.  Find out.
+            try:
+                # Will this work??
+                library = ENVISpectralLibrary(file_path)
+
+                # Wow it worked!  It must be a spectral library.
+                self.add_spectral_library(library)
+                return
+
+            except FileNotFoundError:
+                pass
+            except EnviFileFormatError:
+                pass
+
+        # Either the data doesn't look like a spectral library, or loading
+        # it as a spectral library didn't work.  Load it as a regular raster
+        # data file.
+
+        raster_data = self._raster_data_loader.load(file_path)
+        self.add_dataset(raster_data)
+
 
     def add_dataset(self, dataset):
         '''
@@ -100,6 +161,50 @@ class ApplicationState(QObject):
         '''
         del self._datasets[index]
         self.dataset_removed.emit(index)
+
+
+    def add_spectral_library(self, library):
+        '''
+        Add a spectral library to the application state.  The method will fire
+        a signal indicating that the spectral library was added.
+        '''
+        if not isinstance(library, SpectralLibrary):
+            raise TypeError('library must be a SpectralLibrary')
+
+        index = len(self._spectral_libraries)
+        self._spectral_libraries.append(library)
+
+        self.spectral_library_added.emit(index)
+
+    def get_spectral_library(self, index):
+        '''
+        Return the spectral library at the specified index.  Standard
+        list-access options are supported, such as -1 to return the last
+        library.
+        '''
+        return self._spectral_libraries[index]
+
+    def num_spectral_libraries(self):
+        '''
+        Return the number of spectral libraries in the application state.
+        '''
+        return len(self._spectral_libraries)
+
+    def get_spectral_libraries(self):
+        '''
+        Return a copy of the list of spectral libraries in the application
+        state.
+        '''
+        return list(self._spectral_libraries)
+
+    def remove_spectral_library(self, index):
+        '''
+        Remove the specified spectral library from the application state.
+        The method will fire a signal indicating that the spectral library
+        was removed.
+        '''
+        del self._spectral_libraries[index]
+        self.spectral_library_removed.emit(index)
 
 
     def get_config(self, option, default=None):
@@ -162,26 +267,17 @@ class ApplicationState(QObject):
 
 class DataVisualizerApp(QMainWindow):
 
-    def __init__(self, loader):
+    def __init__(self):
         '''
         Initialize the data-visualization app.  This method initializes the
         model, various views, and hooks them together with the controller code.
-
-        The raster data loader to use is passed in as an argument to this class.
         '''
         super().__init__(None)
         self.setWindowTitle(self.tr('Imaging Spectroscopy Workbench'))
 
-        if loader is None:
-            raise ValueError('data loader must be specified')
-
         # Internal state
 
         self._app_state = ApplicationState()
-
-        self.current_dir = os.getcwd()
-
-        self.loader = loader
 
         # Application Toolbars
 
@@ -192,7 +288,8 @@ class DataVisualizerApp(QMainWindow):
         self._init_toolbars()
 
         # Status bar
-        self.statusBar().showMessage(self.tr('Welcome to the Imaging Spectroscopy Workbench'))
+        self.statusBar().showMessage(
+            self.tr('Welcome to the Imaging Spectroscopy Workbench'), 30000)
 
         # Context pane
 
@@ -352,46 +449,35 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
-            self.tr('ISWB files (*.iswb)'),
-            self.tr('ENVI files (*.hdr *.img)'),
-            self.tr('TIFF files (*.tiff *.tif *.tfw)'),
-            self.tr('PDS files (*.PDS *.IMG)'),
+            self.tr('ISWB project files (*.iswb)'),
+            self.tr('ENVI raster files (*.img *.hdr)'),
+            self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
+            self.tr('PDS raster files (*.PDS *.IMG)'),
+            self.tr('ENVI spectral libraries (*.sli *.hdr)'),
             self.tr('All files (*)'),
         ]
 
         selected = QFileDialog.getOpenFileName(self,
             self.tr("Open Spectal Data File"),
-            self.current_dir, ';;'.join(supported_formats))
+            self._app_state.get_current_dir(), ';;'.join(supported_formats))
         # print(selected)
 
         if len(selected[0]) > 0:
             try:
-                self.open_file(selected[0])
+                # Open the file on the application state.
+                self._app_state.open_file(selected[0])
             except:
                 mbox = QMessageBox(QMessageBox.Critical,
-                    self.tr('Could not open file'), QMessageBox.Ok, self)
+                    self.tr('Could not open file'),
+                    self.tr('The file could not be opened.'),
+                    QMessageBox.Ok, parent=self)
 
-                mbox.setText(self.tr('The file could not be opened.'))
-                mbox.setInformativeText(file_path)
+                mbox.setInformativeText(selected[0])
 
                 # TODO(donnie):  Add exception-trace info here, using
                 #     mbox.setDetailedText()
 
                 mbox.exec()
-
-
-    def open_file(self, file_path):
-        # Remember the directory of the selected file, for next file-open
-        self.current_dir = os.path.dirname(file_path)
-
-        if file_path.endswith('.iswb'):
-            self.load_project_file(file_path)
-
-        else:
-            # Try to open the specified data-set
-
-            raster_data = self.loader.load(file_path)
-            self._app_state.add_dataset(raster_data)
 
 
     def show_save_project_dialog(self, evt):
@@ -409,7 +495,7 @@ class DataVisualizerApp(QMainWindow):
 
         selected = QFileDialog.getSaveFileName(self,
             self.tr("Open ISWB Project File"),
-            self.current_dir, ';;'.join(supported_formats))
+            self._app_state.get_current_dir(), ';;'.join(supported_formats))
         # print(selected)
 
         if len(selected[0]) > 0:
@@ -524,7 +610,7 @@ class DataVisualizerApp(QMainWindow):
         for ds_info in project_info['datasets']:
             # The first file in the list is usually the one that we load.
             filename = ds_info['files'][0]
-            self.open_file(filename)
+            self._app_state.open_file(filename)
 
             # TODO(donnie):  data-set stretch, current display bands
 
@@ -690,5 +776,4 @@ class DataVisualizerApp(QMainWindow):
         # selected in the zoom pane, since the click originated from the zoom
         # pane.
         dataset = self._zoom_pane.get_current_dataset()
-        spectrum = dataset.get_all_bands_at(ds_point.x(), ds_point.y())
-        self._spectrum_plot.set_spectrum(spectrum, dataset)
+        self._spectrum_plot.set_active_spectrum(dataset, ds_point)

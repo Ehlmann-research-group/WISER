@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 
@@ -82,7 +84,7 @@ def map_envi_type_to_numpy_type(envi_type, envi_endian):
     return np.dtype(numpy_type_str)
 
 
-def load_envi_header(f):
+def load_envi_header(filename):
     '''
     Loads the .hdr file for an ENVI format multispectral file.
 
@@ -90,9 +92,12 @@ def load_envi_header(f):
     exception.
     '''
 
+    with open(filename) as f:
+        lines = f.readlines()
+        lines = [line.strip() for line in lines]
+
     # First line should be "ENVI"
-    line = f.readline().strip()
-    if line != 'ENVI':
+    if len(lines) == 0 or lines[0] != 'ENVI':
         raise EnviFileFormatError('Line 1:  "ENVI" specifier is missing')
 
     #===========================================================================
@@ -101,16 +106,17 @@ def load_envi_header(f):
 
     metadata = {}
 
-    line_no = 1
+    # In the code, the first line of the file has line number 0.  We translate
+    # this to 1-based line numbers in error messages.
+    line_no = 0
     while True:
         line_no += 1
-        line = f.readline()
-        if len(line) == 0:  # Are we at EOF?
+        if line_no >= len(lines):        # Have we consumed all lines?
             break
 
-        # Remove leading and trailing whitespace.  If the line is empty,
-        # skip it.
-        line = line.strip()
+        line = lines[line_no]
+
+        # If the line is empty, skip it.
         if len(line) == 0:
             continue
 
@@ -119,7 +125,7 @@ def load_envi_header(f):
 
         parts = line.split('=', maxsplit=1)
         if len(parts) != 2:
-            raise EnviFileFormatError(f'Line {line_no}:  not of the form "name = value"')
+            raise EnviFileFormatError(f'Line {line_no+1}:  not of the form "name = value"')
 
         name = normalize_envi_name(parts[0])
 
@@ -131,11 +137,10 @@ def load_envi_header(f):
             value_start_line = line_no
             while True:
                 line_no += 1
-                line = f.readline()
-                if len(line) == 0:  # Are we at EOF?
-                    raise EnviFileFormatError(f'Line {value_start_line}:  EOF before reading entire value of "{name}"')
+                if line_no >= len(lines):  # Are we at EOF?
+                    raise EnviFileFormatError(f'Line {value_start_line+1}:  EOF before reading entire value of "{name}"')
 
-                line = line.strip()
+                line = lines[line_no]
                 value += line
                 if line[-1] == '}':
                     break
@@ -187,8 +192,8 @@ def load_envi_data(filename, header_filename=None, mmap=True):
         coercion applied to the data.
 
     *   data is a 3D NumPy array shaped to be accessed with [x][y][band]
-        coordinates.  This is done with the data's underlying interleaving taken
-        into account.
+        coordinates.  (In ENVI parlance, this is [samples][lines][bands].)
+        This is done with the data's underlying interleaving taken into account.
 
     Setting the mmap flag to True causes the data file to be memory-mapped;
     setting the flag to False causes it to be loaded entirely into memory.
@@ -201,8 +206,7 @@ def load_envi_data(filename, header_filename=None, mmap=True):
         header_filename = filename + '.hdr'
 
     # Load the metadata so that we know what we're in for.
-    with open(header_filename) as f:
-        metadata = load_envi_header(f)
+    metadata = load_envi_header(header_filename)
 
     # Figure out the numpy element type from the ENVI header
     numpy_type = map_envi_type_to_numpy_type(metadata['data type'], metadata['byte order'])
@@ -239,3 +243,88 @@ def load_envi_data(filename, header_filename=None, mmap=True):
         raise EnviFileFormatError(f'Unrecognized ENVI interleave "{interleave}"')
 
     return (metadata, data)
+
+
+def find_envi_filenames(filename):
+    # Make sure that whatever we were handed, is actually a file.  Otherwise,
+    # there's no point in going on.
+    if not os.path.isfile(filename):
+        raise FileNotFoundError(filename)
+
+    header_filename = None
+    data_filename = None
+
+    if filename.endswith('.hdr'):
+        # Looks like we were handed an ENVI header file.
+        header_filename = filename
+
+        # Try to determine the data filename from the header filename.
+
+        nohdr = filename[:-4]
+        candidates = [nohdr, nohdr + '.img', nohdr + '.sli']
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                data_filename = candidate
+                break
+
+        if data_filename is None:
+            raise FileNotFoundError('Couldn\'t determine ENVI data filename ' +
+                f'from header file {header_filename}')
+
+    else:
+        # Assume we were handed an ENVI data file.
+        data_filename = filename
+
+        # Try to determine the header filename from the data filename.
+
+        print(f'filename = "{filename}"')
+        candidates = [filename + '.hdr']
+        if filename.endswith('.img') or filename.endswith('.sli'):
+            candidates.append(filename[:-4] + '.hdr')
+
+        print(f'considering candidates:  {candidates}')
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                header_filename = candidate
+                break
+
+        if header_filename is None:
+            raise FileNotFoundError('Couldn\'t determine ENVI header filename ' +
+                f'from data file {data_filename}')
+
+    return (header_filename, data_filename)
+
+
+def load_envi_file(filename, mmap=True):
+    '''
+    Loads the specified ENVI file from disk.  The filename can be either the
+    header file or the binary data file; this function will determine whether
+    the argument is the header or the data file, and will look for other files
+    in the directory to try to identify the argument's peer file.
+
+    The function returns a 3-tuple of this form:  (file_list, metadata, data).
+
+    *   file_list is the list of files that the function found for this ENVI
+        file.  The header file is listed first, and the binary data file is
+        listed second.
+
+    *   metadata is a dictionary of the header file's metadata, with some type
+        coercion applied to the data.
+
+    *   data is a 3D NumPy array shaped to be accessed with [x][y][band]
+        coordinates.  (In ENVI parlance, this is [samples][lines][bands].)
+        This is done with the data's underlying interleaving taken into account.
+
+    Setting the mmap flag to True causes the data file to be memory-mapped;
+    setting the flag to False causes it to be loaded entirely into memory.
+    Memory-mapping the file will cause the function to return faster, because
+    the data will be loaded incrementally as it is accessed, rather than
+    needing to be loaded in its entirety up-front.
+    '''
+
+    (header_filename, data_filename) = find_envi_filenames(filename)
+    assert header_filename is not None and data_filename is not None
+
+    (metadata, data) = load_envi_data(data_filename, header_filename, mmap)
+
+    return ([header_filename, data_filename], metadata, data)

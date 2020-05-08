@@ -96,7 +96,7 @@
            <string>No contrast stretch will be applied</string>
           </property>
           <property name="text">
-           <string>No Stretch</string>
+           <string>Full Linear Stretch</string>
           </property>
          </widget>
         </item>

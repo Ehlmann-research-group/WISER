@@ -8,6 +8,7 @@ from PySide2.QtWidgets import *
 from .spectrum_plot_config import SpectrumPlotConfigDialog
 from .util import add_toolbar_action
 
+from raster.envi_spectral_library import ENVISpectralLibrary
 from raster.spectra import SpectrumType, SpectrumAverageMode, calc_rect_spectrum
 
 import matplotlib
@@ -124,6 +125,18 @@ class SpectrumPlotInfo:
     def get_dataset(self):
         return self._dataset
 
+    def get_point(self):
+        return self._point
+
+    def get_plot_type(self):
+        return self._plot_type
+
+    def get_area(self):
+        return self._area
+
+    def get_avg_mode(self):
+        return self._avg_mode
+
     def get_spectrum(self):
         return self._spectrum
 
@@ -153,6 +166,8 @@ class SpectrumPlot(QWidget):
 
         self._collected_spectra = []
 
+        self._spectral_libraries = []
+
         # Initialize contents of the widget
 
         self._init_ui()
@@ -173,6 +188,10 @@ class SpectrumPlot(QWidget):
         self._act_load_spectra = add_toolbar_action(self._toolbar,
             'resources/load-spectra.svg', self.tr('Load spectral library'), self)
         self._act_load_spectra.triggered.connect(self._on_load_spectra)
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._toolbar.addWidget(spacer)
 
         self._act_configure = add_toolbar_action(self._toolbar,
             'resources/configure.svg', self.tr('Configure'), self)
@@ -287,7 +306,6 @@ class SpectrumPlot(QWidget):
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
             self.tr('ENVI spectral libraries (*.hdr *.sli)'),
-            self.tr('CSV files (*.csv)'),
             self.tr('All files (*)'),
         ]
 
@@ -298,16 +316,31 @@ class SpectrumPlot(QWidget):
 
         if len(selected[0]) > 0:
             try:
-                self.open_file(selected[0])
+                filename = selected[0]
+                spectral_library = ENVISpectralLibrary(filename)
+                self._spectral_libraries.append(spectral_library)
+
+                treeitem_library = QTreeWidgetItem([os.path.basename(filename)])
+                self._spectra_tree.addTopLevelItem(treeitem_library)
+
+                for i in range(spectral_library.num_spectra()):
+                    name = spectral_library.get_spectrum_name(i)
+                    treeitem_spectrum = QTreeWidgetItem([name])
+
+                    treeitem_spectrum.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
+                    treeitem_spectrum.setCheckState(0, Qt.Checked)
+
+                    treeitem_library.addChild(treeitem_spectrum)
+
             except:
                 mbox = QMessageBox(QMessageBox.Critical,
-                    self.tr('Could not open file'), QMessageBox.Ok, self)
-
-                mbox.setText(self.tr('The file could not be opened.'))
-                mbox.setInformativeText(file_path)
+                    self.tr('Could not open file'),
+                    self.tr('The file could not be opened.'),
+                    QMessageBox.Ok, parent=self)
 
                 # TODO(donnie):  Add exception-trace info here, using
-                #     mbox.setDetailedText()
+                # mbox.setInformativeText(file_path)
+                # mbox.setDetailedText()
 
                 mbox.exec()
 

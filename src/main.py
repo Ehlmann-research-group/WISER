@@ -26,7 +26,7 @@ def init_config():
 
     return config
 
-
+"""
 def init_loader(config):
     '''
     This function initializes the raster dataset loader to use within the
@@ -42,7 +42,7 @@ def init_loader(config):
     loader = class_type(config=config)
 
     return loader
-
+"""
 
 def init_matplotlib():
     matplotlib.rcParams['font.size'] = 9
@@ -51,11 +51,11 @@ def init_matplotlib():
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    config = init_config()
-    loader = init_loader(config)
+    # config = init_config()
+    # loader = init_loader(config)
     init_matplotlib()
 
-    ui = DataVisualizerApp(loader=loader)
+    ui = DataVisualizerApp()
 
     # Set the initial window size to be 70% of the screen size.
     screen_size = app.screens()[0].size()
@@ -64,6 +64,6 @@ if __name__ == '__main__':
 
     # If any data files are specified on the command-line, open them now
     for file_path in sys.argv[1:]:
-        ui.open_file(file_path)
+        ui._app_state.open_file(file_path)
 
     sys.exit(app.exec_())

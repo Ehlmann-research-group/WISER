@@ -7,10 +7,18 @@ from astropy import units as u
 
 
 class ENVISpectralLibrary(SpectralLibrary):
+    '''
+    A spectral library stored in ENVI raster format, comprised of one or more
+    spectra of use in analyzing raster data files.
+
+    '''
     def __init__(self, filename):
+        self._file_paths = [filename]
+
         # Load the ENVI data and metadata.  It isn't necessary to memory-map
         # spectral libraries, as they tend to be small.
-        (self._metadata, self._data) = load_envi_data(filename, mmap=False)
+        (self._file_paths, self._metadata, self._data) = \
+            load_envi_file(filename, mmap=False)
 
         file_type = self._metadata['file type']
         if file_type != 'ENVI Spectral Library':
@@ -70,7 +78,7 @@ class ENVISpectralLibrary(SpectralLibrary):
         return 'ENVI'
 
     def get_filepaths(self):
-        return ['TODO!']
+        return self._file_paths
 
     def num_bands(self):
         return self._num_bands
