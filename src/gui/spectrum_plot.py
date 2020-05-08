@@ -55,7 +55,6 @@ def get_random_matplotlib_color(exclude_colors=[]):
             return name
 
 
-
 class SpectrumPlotInfo:
     def __init__(self, dataset, plot_type, **kwargs):
         if plot_type not in SpectrumType:
@@ -166,11 +165,12 @@ class SpectrumPlot(QWidget):
 
         self._collected_spectra = []
 
-        self._spectral_libraries = []
-
         # Initialize contents of the widget
 
         self._init_ui()
+
+        self._app_state.spectral_library_added.connect(self._on_spectral_library_added)
+        self._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
 
 
     def _init_ui(self):
@@ -185,9 +185,9 @@ class SpectrumPlot(QWidget):
             'resources/collect-spectrum.svg', self.tr('Collect spectrum'), self)
         self._act_collect_spectrum.triggered.connect(self._on_collect_spectrum)
 
-        self._act_load_spectra = add_toolbar_action(self._toolbar,
+        self._act_load_spectral_library = add_toolbar_action(self._toolbar,
             'resources/load-spectra.svg', self.tr('Load spectral library'), self)
-        self._act_load_spectra.triggered.connect(self._on_load_spectra)
+        self._act_load_spectral_library.triggered.connect(self._on_load_spectral_library)
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -298,7 +298,7 @@ class SpectrumPlot(QWidget):
             self._default_area_avg_y = cfg_dialog.get_default_area_avg_y()
 
 
-    def _on_load_spectra(self):
+    def _on_load_spectral_library(self):
         # TODO(donnie):  This should probably be on the main application.
         #     It can live here for now, but it will need to be migrated
         #     elsewhere in the future.
@@ -313,25 +313,10 @@ class SpectrumPlot(QWidget):
         selected = QFileDialog.getOpenFileName(self,
             self.tr("Open Spectal Library File"),
             os.getcwd(), ';;'.join(supported_formats))
-
         if len(selected[0]) > 0:
             try:
-                filename = selected[0]
-                spectral_library = ENVISpectralLibrary(filename)
-                self._spectral_libraries.append(spectral_library)
-
-                treeitem_library = QTreeWidgetItem([os.path.basename(filename)])
-                self._spectra_tree.addTopLevelItem(treeitem_library)
-
-                for i in range(spectral_library.num_spectra()):
-                    name = spectral_library.get_spectrum_name(i)
-                    treeitem_spectrum = QTreeWidgetItem([name])
-
-                    treeitem_spectrum.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
-                    treeitem_spectrum.setCheckState(0, Qt.Checked)
-
-                    treeitem_library.addChild(treeitem_spectrum)
-
+                # Load the spectral library into the application state
+                self._app_state.open_file(selected[0])
             except:
                 mbox = QMessageBox(QMessageBox.Critical,
                     self.tr('Could not open file'),
@@ -343,6 +328,29 @@ class SpectrumPlot(QWidget):
                 # mbox.setDetailedText()
 
                 mbox.exec()
+
+
+    def _on_spectral_library_added(self, index):
+        # TODO(donnie):  Put spectra / spectral library info onto each tree item
+        #     so we can implement context menus properly.
+
+        spectral_library = self._app_state.get_spectral_library(index)
+
+        treeitem_library = QTreeWidgetItem([spectral_library.get_name()])
+        self._spectra_tree.addTopLevelItem(treeitem_library)
+
+        for i in range(spectral_library.num_spectra()):
+            name = spectral_library.get_spectrum_name(i)
+            treeitem_spectrum = QTreeWidgetItem([name])
+
+            # treeitem_spectrum.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
+            # treeitem_spectrum.setCheckState(0, Qt.Checked)
+
+            treeitem_library.addChild(treeitem_spectrum)
+
+    def _on_spectral_library_removed(self, index):
+        # TODO(donnie):  Implement
+        pass
 
 
     def _on_collect_spectrum(self):
@@ -372,7 +380,8 @@ class SpectrumPlot(QWidget):
         menu = QMenu(self)
 
         if treeitem is self._treeitem_active:
-            # This is the Active spectrum
+            # This is the Active spectrum.  It is always visible, so there will
+            # be no show/hide option here.
             act = menu.addAction(self.tr('Collect'))
             act = menu.addAction(self.tr('Edit...'))
             menu.addSeparator()
@@ -388,10 +397,18 @@ class SpectrumPlot(QWidget):
         elif treeitem.parent() is None:
             # This is a spectral library
             # act = menu.addAction(self.tr('Save edits...'))
+
+            act = menu.addAction(self.tr('Show all spectra'))
+            act = menu.addAction(self.tr('Hide all spectra'))
+            menu.addSeparator()
             act = menu.addAction(self.tr('Unload library'))
 
         else:
-            # This is a specific spectrum plot (other than the active spectrum)
+            # This is a specific spectrum plot (other than the active spectrum),
+            # either in the collected spectra, or in a spectral library.
+
+            # TODO(donnie):  Show/hide option
+
             act = menu.addAction(self.tr('Edit...'))
             menu.addSeparator()
             act = menu.addAction(self.tr('Discard...'))
@@ -461,6 +478,11 @@ class SpectrumPlot(QWidget):
 
 
     def set_active_spectrum(self, dataset, coord):
+        '''
+        Sets the current "active spectrum" in the spectral plot window, and
+        updates the info in the spectrum tree.  If there is a previous "active
+        spectrum," it is discarded.
+        '''
         if self._active_spectrum_color is None:
             self._active_spectrum_color = get_random_matplotlib_color()
 

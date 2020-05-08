@@ -277,12 +277,12 @@ def find_envi_filenames(filename):
 
         # Try to determine the header filename from the data filename.
 
-        print(f'filename = "{filename}"')
+        # print(f'filename = "{filename}"')
         candidates = [filename + '.hdr']
         if filename.endswith('.img') or filename.endswith('.sli'):
             candidates.append(filename[:-4] + '.hdr')
 
-        print(f'considering candidates:  {candidates}')
+        # print(f'considering candidates:  {candidates}')
         for candidate in candidates:
             if os.path.isfile(candidate):
                 header_filename = candidate
