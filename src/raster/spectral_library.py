@@ -1,3 +1,5 @@
+import os
+
 from .dataset import RasterDataSet
 
 
@@ -9,6 +11,18 @@ class SpectralLibrary:
     If specific steps must be taken when a data-set is closed, the
     implementation should implement the __del__ function.
     '''
+
+    def get_name(self):
+        # TODO(donnie):  Temporary hack for spectral libraries that are unnamed.
+        #     Definitely want to support spectral libraries being constructed in
+        #     memory and then saving them to disk.
+        paths = self.get_filepaths()
+        if len(paths) == 0:
+            return 'unnamed'
+
+        name = os.path.basename(paths[0])
+        return name
+
 
     def get_description(self):
         '''
