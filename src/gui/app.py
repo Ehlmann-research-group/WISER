@@ -34,7 +34,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Internal state
 
-        self._app_state = ApplicationState()
+        self._app_state = ApplicationState(self)
 
         # Application Toolbars
 
