@@ -475,7 +475,7 @@ class SpectrumPlot(QWidget):
         spectral_library = self._app_state.get_spectral_library(index)
 
         treeitem_library = QTreeWidgetItem([spectral_library.get_name()])
-        treeitem_library.setData(0, Qt.UserRole, spectral_library)
+        treeitem_library.setData(0, Qt.UserRole, index)
         self._spectra_tree.addTopLevelItem(treeitem_library)
 
         info_list = []
@@ -555,12 +555,12 @@ class SpectrumPlot(QWidget):
             # that the user has collected.
 
             act = menu.addAction(self.tr('Show all spectra'))
-            act.setData(treeitem)
-            act.triggered.connect(lambda checked, action=act : self._on_show_all_spectra(checked, action))
+            # act.setData(treeitem)
+            act.triggered.connect(lambda *args, treeitem=treeitem : self._on_show_all_spectra(treeitem))
 
             act = menu.addAction(self.tr('Hide all spectra'))
-            act.setData(treeitem)
-            act.triggered.connect(lambda checked, action=act : self._on_hide_all_spectra(checked, action))
+            # act.setData(treeitem)
+            act.triggered.connect(lambda *args, treeitem=treeitem : self._on_hide_all_spectra(treeitem))
 
             act = menu.addAction(self.tr('Save to file...'))
             menu.addSeparator()
@@ -571,12 +571,12 @@ class SpectrumPlot(QWidget):
             # act = menu.addAction(self.tr('Save edits...'))
 
             act = menu.addAction(self.tr('Show all spectra'))
-            act.setData(treeitem)
-            act.triggered.connect(lambda checked, action=act : self._on_show_all_spectra(checked, action))
+            # act.setData(treeitem)
+            act.triggered.connect(lambda *args, treeitem=treeitem : self._on_show_all_spectra(treeitem))
 
             act = menu.addAction(self.tr('Hide all spectra'))
-            act.setData(treeitem)
-            act.triggered.connect(lambda checked, action=act : self._on_hide_all_spectra(checked, action))
+            # act.setData(treeitem)
+            act.triggered.connect(lambda *args, treeitem=treeitem : self._on_hide_all_spectra(treeitem))
 
             menu.addSeparator()
             act = menu.addAction(self.tr('Unload library'))
@@ -592,7 +592,7 @@ class SpectrumPlot(QWidget):
             act.setCheckable(True)
             act.setChecked(info.is_visible())
             act.setData(info)
-            act.triggered.connect(lambda checked, action=act : self._on_show_spectrum(checked, action))
+            act.triggered.connect(lambda *args, treeitem=treeitem : self._on_toggle_spectrum(treeitem))
 
             act = menu.addAction(self.tr('Edit...'))
             menu.addSeparator()
@@ -602,46 +602,58 @@ class SpectrumPlot(QWidget):
         menu.exec_(global_pos)
 
 
-    def _on_show_spectrum(self, checked, action):
-        print(f'action = {action}')
-        treeitem = action.data()
-
+    def _on_toggle_spectrum(self, treeitem):
         info = treeitem.data(0, Qt.UserRole)
-        info.set_visible(True)
+
+        # Toggle the visibility of the spectrum.
+        new_visible = not info.is_visible()
+        info.set_visible(new_visible)
+
+        icon = QIcon()
+        if new_visible:
+            icon = get_color_icon(info.get_color())
+
+        treeitem.setIcon(0, icon)
+
         self._draw_spectra()
 
 
-    def _on_show_all_spectra(self, checked, action):
-        print(f'action = {action}')
-        treeitem = action.data()
+    def _on_show_all_spectra(self, treeitem):
+        # print(f'action = {action}')
+        # treeitem = action.data()
 
         if treeitem is self._treeitem_collected:
-            for info in self._collected_spectra:
+            for index, info in enumerate(self._collected_spectra):
                 info.set_visible(True)
+                treeitem.child(index).setIcon(0, get_color_icon(info.get_color()))
 
         else:
             # The action is for a spectral library
             library_index = treeitem.data(0, Qt.UserRole)
 
-            for info in self._library_spectra[library_index]:
+            for index, info in enumerate(self._library_spectra[library_index]):
                 info.set_visible(True)
+                treeitem.child(index).setIcon(0, get_color_icon(info.get_color()))
 
         self._draw_spectra()
 
 
-    def _on_hide_all_spectra(self, checked, action):
-        treeitem = action.data()
+    def _on_hide_all_spectra(self, treeitem):
+        # treeitem = action.data()
 
+        icon = QIcon()
         if treeitem is self._treeitem_collected:
-            for info in self._collected_spectra:
+            for index, info in enumerate(self._collected_spectra):
                 info.set_visible(False)
+                treeitem.child(index).setIcon(0, icon)
 
         else:
             # The action is for a spectral library
             library_index = treeitem.data(0, Qt.UserRole)
 
-            for info in self._library_spectra[library_index]:
+            for index, info in enumerate(self._library_spectra[library_index]):
                 info.set_visible(False)
+                treeitem.child(index).setIcon(0, icon)
 
         self._draw_spectra()
 
