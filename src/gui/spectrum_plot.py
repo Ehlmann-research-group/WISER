@@ -23,6 +23,13 @@ from matplotlib.backends.backend_qt5agg import FigureCanvas
 
 
 def get_matplotlib_colors():
+    '''
+    Generates a list of all recognized matplotlib color names, which are
+    suitable for displaying graphical plots.
+
+    The definition of "suitable for displaying graphical plots" is currently
+    that the color be dark enough to show up on a white background.
+    '''
     names = matplotlib.colors.get_named_colors_mapping().keys()
     colors = []
     for name in names:
@@ -36,9 +43,9 @@ def get_matplotlib_colors():
         # background, so multiply all the components together and see if it's
         # "dark enough".
         # TODO(donnie):  May want to do this with HSV colorspace.
-        rgba = matplotlib.colors.to_rgba_array(name)
+        rgba = matplotlib.colors.to_rgba_array(name).flatten()
         prod = np.prod(rgba)
-        if prod >= 0.6:
+        if prod >= 0.4:
             continue
 
         # print(f'Color {name} = {rgba} (type is {type(rgba)})')
@@ -48,6 +55,10 @@ def get_matplotlib_colors():
 
 
 def get_random_matplotlib_color(exclude_colors=[]):
+    '''
+    Returns a random matplotlib color name from the available matplotlib colors
+    returned by the get_matplotlib_colors().
+    '''
     all_names = get_matplotlib_colors()
     while True:
         name = random.choice(all_names)
@@ -55,8 +66,91 @@ def get_random_matplotlib_color(exclude_colors=[]):
             return name
 
 
-class SpectrumPlotInfo:
+def get_color_icon(color_name, width=16, height=16):
+    '''
+    Generate a QIcon of the specified color and optional size.  If the size is
+    unspecified, a 24x24 icon is generated.
+
+    *   color_name is a string color name recognized by matplotlib, which
+        includes strings of the form "#RRGGBB" where R, G and B are hexadecimal
+        digits.
+
+    *   width is the icon's width in pixels, and defaults to 24.
+
+    *   height is the icon's height in pixels, and defaults to 24.
+    '''
+    rgba = matplotlib.colors.to_rgba_array(color_name).flatten()
+
+    img = QImage(width, height, QImage.Format_RGB32)
+    img.fill(QColor.fromRgbF(rgba[0], rgba[1], rgba[2]))
+
+    return QIcon(QPixmap.fromImage(img))
+
+
+'''
+class SpectrumTreeEntry(Enum):
+    ACTIVE_SPECTRUM = 1
+    COLLECTED_SPECTRA_GROUP = 2
+    COLLECTED_SPECTRUM = 3
+    SPECTRAL_LIBRARY_GROUP = 4
+    LIBRARY_SPECTRUM = 5
+
+
+class SpectrumTreeItemData:
+    def __init__(self, item_type):
+        self._plot_visible = False
+        self._plot_color = None
+
+    def is_plot_visible(self):
+        return self._plot_visible
+
+    def set_plot_visible(self, visible):
+        self._plot_visible = visible
+
+    def get_plot_color(self):
+        return self._plot_color
+
+    def set_plot_color(self, color):
+        self._plot_color = color
+'''
+
+class SpectrumInfo:
+    def __init__(self):
+        self._color = None
+        self._visible = False
+
+    def get_name(self):
+        pass
+
+    def has_wavelengths(self):
+        pass
+
+    def get_wavelengths(self):
+        pass
+
+    def get_spectrum(self):
+        pass
+
+    def is_visible(self):
+        return self._visible
+
+    def set_visible(self, visible):
+        self._visible = visible
+
+        if visible and self._color is None:
+            self.set_color(get_random_matplotlib_color())
+
+    def get_color(self):
+        return self._color
+
+    def set_color(self, color):
+        self._color = color
+
+
+class CollectedSpectrum(SpectrumInfo):
     def __init__(self, dataset, plot_type, **kwargs):
+        super().__init__()
+
         if plot_type not in SpectrumType:
             raise ValueError(f'Unrecognized plot_type {plot_type}')
 
@@ -73,19 +167,19 @@ class SpectrumPlotInfo:
             if self._area[0] % 2 != 1 or self._area[1] % 2 != 1:
                 raise ValueError(f'area values must be odd; got {self._area}')
 
-        self._description = kwargs.get('description')
-        if self._description is None:
-            self._description = self._generate_description()
+        self._name = kwargs.get('name')
+        if self._name is None:
+            self._name = self._generate_name()
 
-        self._color = kwargs.get('color', get_random_matplotlib_color())
+        self.set_color(kwargs.get('color', get_random_matplotlib_color()))
 
         # The calculated spectrum data.
         self._spectrum = None
         self._calculate_spectrum()
 
-    def _generate_description(self):
+    def _generate_name(self):
         '''
-        Generate and return a description of this spectrum plot, based on where
+        Generate and return a name for this spectrum plot, based on where
         it's from.
         '''
         if self._plot_type == SpectrumType.SINGLE_PIXEL:
@@ -118,8 +212,8 @@ class SpectrumPlotInfo:
         else:
             raise ValueError(f'Plot-type {self._plot_type} is currently unsupported')
 
-    def get_description(self):
-        return self._description
+    def get_name(self):
+        return self._name
 
     def get_dataset(self):
         return self._dataset
@@ -136,11 +230,35 @@ class SpectrumPlotInfo:
     def get_avg_mode(self):
         return self._avg_mode
 
+    def has_wavelengths(self):
+        return self._dataset.has_wavelengths()
+
+    def get_wavelengths(self):
+        return [b['wavelength'].value for b in self._dataset.band_list()]
+
     def get_spectrum(self):
         return self._spectrum
 
-    def get_color(self):
-        return self._color
+class LibrarySpectrum(SpectrumInfo):
+    def __init__(self, spectral_library, index):
+        super().__init__()
+
+        self._spectral_library = spectral_library
+        self._spectrum_index = index
+
+    def get_name(self):
+        return self._spectral_library.get_spectrum_name(self._spectrum_index)
+
+    def has_wavelengths(self):
+        return self._spectral_library.has_wavelengths()
+
+    def get_wavelengths(self):
+        return [b['wavelength'].value for b in self._spectral_library.band_list()]
+
+    def get_spectrum(self):
+        return self._spectral_library.get_spectrum(self._spectrum_index)
+
+
 
 
 class SpectrumPlot(QWidget):
@@ -155,19 +273,38 @@ class SpectrumPlot(QWidget):
 
         self._app_state = app_state
 
+        # For user mouse clicks, these are the parameters for generating spectra
+
         self._default_click_spectrum_type = SpectrumType.SINGLE_PIXEL
         self._default_area_avg_x = 3
         self._default_area_avg_y = 3
         self._default_average_mode = SpectrumAverageMode.MEAN
 
+        # State for the "active spectrum", i.e. spectra generated by user clicks
+
         self._active_spectrum = None
         self._active_spectrum_color = None
 
+        # These are the in-memory-only collected spectra
+
         self._collected_spectra = []
 
-        # Initialize contents of the widget
+        # These are the SpectrumInfo objects for all library spectra.  They are
+        # stored in a dictionary with the spectral library as the key, so that
+        # when a spectral library is unloaded, it's straightforward to remove
+        # the corresponding spectra.
+
+        self._library_spectra = {}
+
+        # This is the currently selected treeview item.  Initially, no item is
+        # selected, so we set this to None.
+        self._selected_treeview_item = None
+
+        # Initialize UI components of the widget
 
         self._init_ui()
+
+        # Set up event handlers
 
         self._app_state.spectral_library_added.connect(self._on_spectral_library_added)
         self._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
@@ -224,7 +361,7 @@ class SpectrumPlot(QWidget):
 
         self._spectra_tree = QTreeWidget()
         self._spectra_tree.setColumnCount(1)
-        self._spectra_tree.setHeaderLabels([self.tr('Spectra')])
+        self._spectra_tree.setHeaderLabels([self.tr('Spectra and Spectral Libraries')])
 
         self._treeitem_active = QTreeWidgetItem()
         self._spectra_tree.addTopLevelItem(self._treeitem_active)
@@ -236,6 +373,7 @@ class SpectrumPlot(QWidget):
 
         # Events from the spectral library widget
 
+        self._spectra_tree.currentItemChanged.connect(self._on_tree_selection_changed)
         self._spectra_tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self._spectra_tree.customContextMenuRequested.connect(self._on_tree_context_menu)
 
@@ -270,9 +408,9 @@ class SpectrumPlot(QWidget):
         return QSize(400, 200)
 
 
-    def clear_all_plots(self):
-        self._spectra.clear()
-        self._draw_spectra()
+    # def clear_all_plots(self):
+    #     self._spectra.clear()
+    #     self._draw_spectra()
 
 
     def _on_configure(self):
@@ -337,16 +475,23 @@ class SpectrumPlot(QWidget):
         spectral_library = self._app_state.get_spectral_library(index)
 
         treeitem_library = QTreeWidgetItem([spectral_library.get_name()])
+        treeitem_library.setData(0, Qt.UserRole, spectral_library)
         self._spectra_tree.addTopLevelItem(treeitem_library)
 
+        info_list = []
         for i in range(spectral_library.num_spectra()):
             name = spectral_library.get_spectrum_name(i)
-            treeitem_spectrum = QTreeWidgetItem([name])
 
-            # treeitem_spectrum.setFlags(Qt.ItemIsSelectable|Qt.ItemIsUserCheckable|Qt.ItemIsEnabled)
-            # treeitem_spectrum.setCheckState(0, Qt.Checked)
+            info = LibrarySpectrum(spectral_library, i)  # UI state
+            info_list.append(info)
+
+            treeitem_spectrum = QTreeWidgetItem([name])
+            treeitem_spectrum.setData(0, Qt.UserRole, info)
 
             treeitem_library.addChild(treeitem_spectrum)
+
+        self._library_spectra[index] = info_list
+
 
     def _on_spectral_library_removed(self, index):
         # TODO(donnie):  Implement
@@ -360,16 +505,34 @@ class SpectrumPlot(QWidget):
             print('TODO:  shouldn\'t be able to collect spectrum when no active spectrum!')
             return
 
-        self._collected_spectra.append(self._active_spectrum)
+        collected_spectrum = self._active_spectrum
+        self._collected_spectra.append(collected_spectrum)
         self._active_spectrum_color = None
 
-        treeitem_collected = QTreeWidgetItem([self._active_spectrum.get_description()])
+        treeitem_collected = QTreeWidgetItem([self._active_spectrum.get_name()])
+        treeitem_collected.setData(0, Qt.UserRole, collected_spectrum)
+        treeitem_collected.setIcon(0, get_color_icon(collected_spectrum.get_color()))
 
         self._treeitem_collected.setHidden(False)
         self._treeitem_collected.setExpanded(True)
+
         self._treeitem_collected.addChild(treeitem_collected)
 
+        # If the active spectrum is the currently selected one, disable the
+        # selection, since the active item is now hidden.
+        if self._selected_treeview_item is self._treeitem_active:
+            # self._treeitem_active.setSelected(False)
+            self._spectra_tree.setCurrentItem(self._treeitem_collected, 0, QItemSelectionModel.SelectCurrent)
+            self._selected_treeview_item = None
+
         self.clear_active_spectrum()
+
+
+    def _on_tree_selection_changed(self, current, previous):
+        # print(f'selection changed.  current.data = {current.data(0, Qt.UserRole)}')
+        self._selected_treeview_item = current
+        self._draw_spectra()
+
 
     def _on_tree_context_menu(self, pos):
         # Figure out which tree item was clicked on.
@@ -390,6 +553,15 @@ class SpectrumPlot(QWidget):
         elif treeitem is self._treeitem_collected:
             # This is the Collected Spectra group; these are unsaved spectra
             # that the user has collected.
+
+            act = menu.addAction(self.tr('Show all spectra'))
+            act.setData(treeitem)
+            act.triggered.connect(lambda checked, action=act : self._on_show_all_spectra(checked, action))
+
+            act = menu.addAction(self.tr('Hide all spectra'))
+            act.setData(treeitem)
+            act.triggered.connect(lambda checked, action=act : self._on_hide_all_spectra(checked, action))
+
             act = menu.addAction(self.tr('Save to file...'))
             menu.addSeparator()
             act = menu.addAction(self.tr('Discard all...'))
@@ -399,7 +571,13 @@ class SpectrumPlot(QWidget):
             # act = menu.addAction(self.tr('Save edits...'))
 
             act = menu.addAction(self.tr('Show all spectra'))
+            act.setData(treeitem)
+            act.triggered.connect(lambda checked, action=act : self._on_show_all_spectra(checked, action))
+
             act = menu.addAction(self.tr('Hide all spectra'))
+            act.setData(treeitem)
+            act.triggered.connect(lambda checked, action=act : self._on_hide_all_spectra(checked, action))
+
             menu.addSeparator()
             act = menu.addAction(self.tr('Unload library'))
 
@@ -407,7 +585,14 @@ class SpectrumPlot(QWidget):
             # This is a specific spectrum plot (other than the active spectrum),
             # either in the collected spectra, or in a spectral library.
 
+            info = treeitem.data(0, Qt.UserRole)
+
             # TODO(donnie):  Show/hide option
+            act = menu.addAction(self.tr('Show spectrum'))
+            act.setCheckable(True)
+            act.setChecked(info.is_visible())
+            act.setData(info)
+            act.triggered.connect(lambda checked, action=act : self._on_show_spectrum(checked, action))
 
             act = menu.addAction(self.tr('Edit...'))
             menu.addSeparator()
@@ -417,31 +602,79 @@ class SpectrumPlot(QWidget):
         menu.exec_(global_pos)
 
 
-    '''
-    def _on_clear_all_plots(self):
-        answer = QMessageBox.question(self, self.tr('Clear all plots?'),
-            self.tr('About to delete {} plots, are you sure?'),
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+    def _on_show_spectrum(self, checked, action):
+        print(f'action = {action}')
+        treeitem = action.data()
 
-        if answer == QMessageBox.Yes:
-            self.clear_all_plots()
-    '''
+        info = treeitem.data(0, Qt.UserRole)
+        info.set_visible(True)
+        self._draw_spectra()
+
+
+    def _on_show_all_spectra(self, checked, action):
+        print(f'action = {action}')
+        treeitem = action.data()
+
+        if treeitem is self._treeitem_collected:
+            for info in self._collected_spectra:
+                info.set_visible(True)
+
+        else:
+            # The action is for a spectral library
+            library_index = treeitem.data(0, Qt.UserRole)
+
+            for info in self._library_spectra[library_index]:
+                info.set_visible(True)
+
+        self._draw_spectra()
+
+
+    def _on_hide_all_spectra(self, checked, action):
+        treeitem = action.data()
+
+        if treeitem is self._treeitem_collected:
+            for info in self._collected_spectra:
+                info.set_visible(False)
+
+        else:
+            # The action is for a spectral library
+            library_index = treeitem.data(0, Qt.UserRole)
+
+            for info in self._library_spectra[library_index]:
+                info.set_visible(False)
+
+        self._draw_spectra()
+
 
     def _draw_spectra(self):
         self._axes.clear()
 
+        # Build up a list of all spectra that could be displayed.
+
         all_spectra = []
+
+        selected_spectrum = None
+        if self._selected_treeview_item is not None:
+            selected_spectrum = self._selected_treeview_item.data(0, Qt.UserRole)
 
         if self._active_spectrum is not None:
             all_spectra.append(self._active_spectrum)
 
+        # Always include all collected spectra.
         all_spectra.extend(self._collected_spectra)
+
+        # Include all library spectra.
+        for info_list in self._library_spectra.values():
+            all_spectra.extend(info_list)
+
+        # Filter down spectra to only the ones that are displayed
+        all_spectra = [s for s in all_spectra if s.is_visible()]
 
         # If all datasets have wavelength data, we will set the X-axis title to
         # indicate that these are wavelengths.
         use_wavelengths = True
         for info in all_spectra:
-            if not info.get_dataset().has_wavelengths():
+            if not info.has_wavelengths():
                 use_wavelengths = False
                 break
 
@@ -456,10 +689,13 @@ class SpectrumPlot(QWidget):
 
             # Plot each spectrum against its corresponding wavelength values
             for info in all_spectra:
-                dataset = info.get_dataset()
+                linewidth = 0.5
+                if info is selected_spectrum:
+                    linewidth = 1
+
+                wavelengths = info.get_wavelengths()
                 spectrum = info.get_spectrum()
-                wavelengths = [b['wavelength'].value for b in dataset.band_list()]
-                self._axes.plot(wavelengths, spectrum, color=info.get_color(), linewidth=0.5)
+                self._axes.plot(wavelengths, spectrum, color=info.get_color(), linewidth=linewidth)
         else:
             # If we don't have wavelengths, each spectrum is just a series of
             # values.  We can of course plot this, but we can't guarantee it
@@ -470,9 +706,13 @@ class SpectrumPlot(QWidget):
             self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
 
             for info in all_spectra:
+                linewidth = 0.5
+                if info is selected_spectrum:
+                    linewidth = 1
+
                 dataset = info.get_dataset()
                 spectrum = info.get_spectrum()
-                self._axes.plot(spectrum, linewidth=0.5)
+                self._axes.plot(spectrum, linewidth=linewidth)
 
         self._figure_canvas.draw()
 
@@ -487,12 +727,12 @@ class SpectrumPlot(QWidget):
             self._active_spectrum_color = get_random_matplotlib_color()
 
         if self._default_click_spectrum_type == SpectrumType.SINGLE_PIXEL:
-            info = SpectrumPlotInfo(dataset, SpectrumType.SINGLE_PIXEL,
+            info = CollectedSpectrum(dataset, SpectrumType.SINGLE_PIXEL,
                 point=coord, color=self._active_spectrum_color)
 
         elif self._default_click_spectrum_type == SpectrumType.AREA_AVERAGE:
 
-            info = SpectrumPlotInfo(dataset, SpectrumType.AREA_AVERAGE,
+            info = CollectedSpectrum(dataset, SpectrumType.AREA_AVERAGE,
                 point=coord, color=self._active_spectrum_color,
                 area=(self._default_area_avg_x, self._default_area_avg_y),
                 avg_mode=self._default_average_mode)
@@ -500,10 +740,13 @@ class SpectrumPlot(QWidget):
         else:
             raise ValueError(f'Unrecognized value for default click spectrum type:  {self._default_click_spectrum_type}')
 
+        info.set_visible(True)
         self._active_spectrum = info
 
-        self._treeitem_active.setText(0, info.get_description())
+        self._treeitem_active.setText(0, info.get_name())
         self._treeitem_active.setHidden(False)
+        self._treeitem_active.setData(0, Qt.UserRole, info)
+        self._treeitem_active.setIcon(0, get_color_icon(self._active_spectrum_color))
 
         self._act_collect_spectrum.setEnabled(True)
         self._draw_spectra()

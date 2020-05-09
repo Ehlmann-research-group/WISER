@@ -39,8 +39,11 @@ class ApplicationState(QObject):
 
     # TODO(donnie):  Signals for config changes and color changes!
 
-    def __init__(self):
+    def __init__(self, app):
         super().__init__()
+
+        # A reference to the overall UI
+        self._app = app
 
         self._current_dir = os.getcwd()
         self._raster_data_loader = GDALRasterDataLoader()
