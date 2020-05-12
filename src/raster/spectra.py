@@ -4,13 +4,14 @@ import numpy as np
 
 
 class SpectrumType(Enum):
-    SINGLE_PIXEL = 1
+    # Either a single pixel, or an area average around a pixel.
+    PIXEL = 1
 
-    AREA_AVERAGE = 2
+    # The spectrum from a region of interest
+    REGION_OF_INTEREST = 2
 
-    REGION_OF_INTEREST = 3
-
-    LIBRARY_SPECTRUM = 4
+    # A spectrum from a spectral library
+    LIBRARY_SPECTRUM = 3
 
 
 class SpectrumAverageMode(Enum):
@@ -35,6 +36,8 @@ def calc_rect_spectrum(dataset, rect, mode=SpectrumAverageMode.MEAN):
     '''
     points = [(rect.left() + dx, rect.top() + dy)
               for dx, dy in np.ndindex(rect.width(), rect.height())]
+
+    print(points)
 
     return calc_spectrum(dataset, points, mode)
 
