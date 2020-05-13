@@ -897,7 +897,7 @@ class SpectrumPlot(QWidget):
             for info in all_spectra:
                 linewidth = 0.5
                 if info is selected_spectrum:
-                    linewidth = 1
+                    linewidth = 1.5
 
                 wavelengths = info.get_wavelengths()
                 spectrum = info.get_spectrum()
@@ -914,7 +914,7 @@ class SpectrumPlot(QWidget):
             for info in all_spectra:
                 linewidth = 0.5
                 if info is selected_spectrum:
-                    linewidth = 1
+                    linewidth = 1.5
 
                 dataset = info.get_dataset()
                 spectrum = info.get_spectrum()
