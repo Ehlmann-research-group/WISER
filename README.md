@@ -48,6 +48,5 @@ the corresponding Python code, use these commands:
 
 ```
 cd src/gui
-pyside2-uic stretch_builder.ui > stretch_builder_ui.py
+make
 ```
-
