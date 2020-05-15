@@ -6,8 +6,12 @@ from .task_delegate import TaskDelegate
 from raster.selection import MultiPixelSelection
 
 
-def draw_multi_pixel_selection(rasterpane, painter, mp_sel, color, active=False):
-    rasterview = rasterpane.get_rasterview()
+def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False):
+    '''
+    This helper function draws a multi-pixel selection in a rasterview, with
+    various config options passed as arguments.
+    '''
+
     scale = rasterview.get_scale()
 
     pen = QPen(color)
@@ -43,14 +47,13 @@ def draw_multi_pixel_selection(rasterpane, painter, mp_sel, color, active=False)
 
 class MultiPixelSelectionCreator(TaskDelegate):
 
-    def __init__(self, app_state, raster_pane):
+    def __init__(self, app_state, rasterview):
         self._app_state = app_state
-        self._raster_pane = raster_pane
+        self._rasterview = rasterview
         self._points = set()
 
     def on_mouse_release(self, widget, mouse_event):
-        rasterview = self._raster_pane.get_rasterview()
-        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
         if point in self._points:
             self._points.remove(point)
@@ -72,8 +75,7 @@ class MultiPixelSelectionCreator(TaskDelegate):
         if len(self._points) == 0:
             return
 
-        rasterview = self._raster_pane.get_rasterview()
-        scale = rasterview.get_scale()
+        scale = self._rasterview.get_scale()
 
         points_scaled = [p * scale for p in self._points]
 

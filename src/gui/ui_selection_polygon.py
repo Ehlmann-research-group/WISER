@@ -8,8 +8,7 @@ from raster.selection import PolygonSelection
 from .geom import distance, lines_cross
 
 
-def draw_polygon_selection(rasterpane, painter, poly_sel, color, active=False):
-    rasterview = rasterpane.get_rasterview()
+def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
     scale = rasterview.get_scale()
 
     pen = QPen(color)
@@ -31,16 +30,15 @@ def draw_polygon_selection(rasterpane, painter, poly_sel, color, active=False):
             painter.fillRect(cp_scaled.x() - 2, cp_scaled.y() - 2, 4, 4, color)
 
 
-
 class PolygonSelectionCreator(TaskDelegate):
 
     # This variable tunes the sensitivity of closing the polygon.  Lower values
     # require the start and end points to be closer together to close a polygon.
     SENSITIVITY = 3
 
-    def __init__(self, app_state, raster_pane):
+    def __init__(self, app_state, rasterview):
         self._app_state = app_state
-        self._raster_pane = raster_pane
+        self._rasterview = rasterview
 
         self._points = []
         self._cursor_position = None
@@ -54,8 +52,7 @@ class PolygonSelectionCreator(TaskDelegate):
         the display, since it's easy to be accurate when zoomed in, but very
         difficult to be accurate when zoomed out.
         '''
-        rasterview = self._raster_pane.get_rasterview()
-        scale = rasterview.get_scale()
+        scale = self._rasterview.get_scale()
         d = distance(p1, p2)
         return (d < PolygonSelectionCreator.SENSITIVITY / scale)
 
@@ -63,8 +60,7 @@ class PolygonSelectionCreator(TaskDelegate):
         return self._done
 
     def on_mouse_release(self, widget, mouse_event):
-        rasterview = self._raster_pane.get_rasterview()
-        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
         if len(self._points) > 0 and self._close_enough(point, self._points[0]):
             # User clicked on the first point in the polygon (or they clicked
@@ -83,8 +79,7 @@ class PolygonSelectionCreator(TaskDelegate):
         # Store the current mouse location in raster coordinates,
         # for drawing the current state.
 
-        rasterview = self._raster_pane.get_rasterview()
-        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._cursor_position = point
         return False
 
@@ -110,8 +105,7 @@ class PolygonSelectionCreator(TaskDelegate):
         if len(self._points) == 0:
             return
 
-        rasterview = self._raster_pane.get_rasterview()
-        scale = rasterview.get_scale()
+        scale = self._rasterview.get_scale()
 
         bad_point = False
         closed_loop = False

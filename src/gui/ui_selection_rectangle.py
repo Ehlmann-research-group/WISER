@@ -12,8 +12,7 @@ def is_rect_sel_picked(rect_sel, p):
     return rect_sel.get_rect().contains(p)
 
 
-def draw_rectangle_selection(rasterpane, painter, rect_sel, color, active=False):
-    rasterview = rasterpane.get_rasterview()
+def draw_rectangle_selection(rasterview, painter, rect_sel, color, active=False):
     scale = rasterview.get_scale()
 
     pen = QPen(color)
@@ -35,28 +34,25 @@ def draw_rectangle_selection(rasterpane, painter, rect_sel, color, active=False)
 
 
 class RectangleSelectionCreator(TaskDelegate):
-    def __init__(self, app_state, raster_pane):
+    def __init__(self, app_state, rasterview):
         self._app_state = app_state
-        self._raster_pane = raster_pane
+        self._rasterview = rasterview
         self._point1 = None
         self._point2 = None
 
     def on_mouse_press(self, widget, mouse_event):
-        rasterview = self._raster_pane.get_rasterview()
-        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._point1 = point
         self._point2 = point
         return False
 
     def on_mouse_release(self, widget, mouse_event):
-        rasterview = self._raster_pane.get_rasterview()
-        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._point2 = point
         return True
 
     def on_mouse_move(self, widget, mouse_event):
-        rasterview = self._raster_pane.get_rasterview()
-        point = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._point2 = point
         return False
 
@@ -64,8 +60,7 @@ class RectangleSelectionCreator(TaskDelegate):
         if self._point1 is None or self._point2 is None:
             return
 
-        rasterview = self._raster_pane.get_rasterview()
-        scale = rasterview.get_scale()
+        scale = self._rasterview.get_scale()
         p1_scaled = self._point1 * scale
         p2_scaled = self._point2 * scale
 
@@ -94,8 +89,8 @@ class RectangleSelectionCreator(TaskDelegate):
 
 
 class RectangleSelectionEditor(TaskDelegate):
-    def __init__(self, raster_pane, rect_sel):
-        self._raster_pane = raster_pane
+    def __init__(self, rasterview, rect_sel):
+        self._rasterview = rasterview
         self._rect_sel = rect_sel
 
         self._control_points = []
@@ -137,8 +132,7 @@ class RectangleSelectionEditor(TaskDelegate):
         return None
 
     def on_mouse_press(self, widget, mouse_event):
-        rasterview = self._raster_pane.get_rasterview()
-        p = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
         self._editing_cp_index = self._pick_control_point(p)
 
@@ -176,8 +170,7 @@ class RectangleSelectionEditor(TaskDelegate):
         if self._editing_cp_index is None:
             return True
 
-        rasterview = self._raster_pane.get_rasterview()
-        p = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._adjust_control_points(p)
         return True
 
@@ -185,14 +178,12 @@ class RectangleSelectionEditor(TaskDelegate):
         if self._editing_cp_index is None:
             return False
 
-        rasterview = self._raster_pane.get_rasterview()
-        p = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._adjust_control_points(p)
         return False
 
     def draw_state(self, painter):
-        rasterview = self._raster_pane.get_rasterview()
-        scale = rasterview.get_scale()
+        scale = self._rasterview.get_scale()
         p1_scaled = self._control_points[0] * scale
         p2_scaled = self._control_points[1] * scale
 
