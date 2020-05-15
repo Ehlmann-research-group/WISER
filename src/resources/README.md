@@ -13,6 +13,7 @@ from [Flaticon](https://www.flaticon.com/).
 *   stretch-builder-2.svg (was bright.svg)
 *   clear-all-plots.svg (was interface.svg)
 *   configure.svg (was cogwheels.svg)
+*   split-view.svg (was writing.svg)
 
 Icons made by [Pixel perfect](https://www.flaticon.com/authors/pixel-perfect)
 from [Flaticon](https://www.flaticon.com/).

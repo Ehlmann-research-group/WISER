@@ -67,7 +67,7 @@ def roi_from_pyrep(data):
     return roi
 
 
-def draw_roi(rasterpane, painter, roi, active=False):
+def draw_roi(rasterview, painter, roi, active=False):
     draw_fns = {
         RectangleSelection: draw_rectangle_selection,
         PolygonSelection: draw_polygon_selection,
@@ -84,4 +84,4 @@ def draw_roi(rasterpane, painter, roi, active=False):
 
     sel = roi.get_selection()
     draw = draw_fns[type(sel)]
-    draw(rasterpane, painter, sel, color, active)
+    draw(rasterview, painter, sel, color, active)

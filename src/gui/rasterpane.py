@@ -294,11 +294,7 @@ class RasterPane(QWidget):
             self._update_delegate(done)
 
         else:
-            if mouse_event.button() == Qt.RightButton:
-                # Show a context menu
-                pass
-
-            elif mouse_event.button() == Qt.LeftButton:
+            if mouse_event.button() == Qt.LeftButton:
                 # Map the coordinate of the mouse-event to the actual raster-image
                 # pixel that was clicked, then emit a signal.
                 r_coord = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
@@ -657,17 +653,17 @@ class RasterPane(QWidget):
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
-            self._task_delegate = RectangleSelectionCreator(self._app_state, self)
+            self._task_delegate = RectangleSelectionCreator(self._app_state, self._rasterview)
             # TODO:  Update status bar to indicate the creation of the rectangle
             #        selection.
 
         elif selection_type == SelectionType.POLYGON:
-            self._task_delegate = PolygonSelectionCreator(self._app_state, self)
+            self._task_delegate = PolygonSelectionCreator(self._app_state, self._rasterview)
             # TODO:  Update status bar to indicate the creation of the polygon
             #        selection.
 
         elif selection_type == SelectionType.MULTI_PIXEL:
-            self._task_delegate = MultiPixelSelectionCreator(self._app_state, self)
+            self._task_delegate = MultiPixelSelectionCreator(self._app_state, self._rasterview)
             # TODO:  Update status bar to indicate the creation of the
             #        multi-pixel selection.
 
@@ -734,7 +730,7 @@ class RasterPane(QWidget):
         with get_painter(widget) as painter:
             for (name, roi) in self._app_state.get_rois().items():
                 # print(f'{name}: {roi}')
-                draw_roi(self, painter, roi)
+                draw_roi(self._rasterview, painter, roi)
 
 
     def _draw_viewport_highlight(self, widget, paint_event):
