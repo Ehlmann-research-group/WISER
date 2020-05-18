@@ -50,44 +50,45 @@ class ImageWidget(QLabel):
     important events to the enclosing widget.
     '''
 
-    def __init__(self, text, parent=None, **kwargs):
+    def __init__(self, rasterview, **kwargs):
         '''
         Initialize the image widget with the specified text and parent.  Store
         the object we are to forward relevant events to.
         '''
-        super().__init__(text, parent=parent)
+        super().__init__(parent=parent)
+        self._rasterview = rasterview
         self._forward = kwargs
         self.setMouseTracking(True)
 
     def mousePressEvent(self, mouse_event):
         if 'mousePressEvent' in self._forward:
-            self._forward['mousePressEvent'](self, mouse_event)
+            self._forward['mousePressEvent'](self._rasterview, mouse_event)
 
     def mouseReleaseEvent(self, mouse_event):
         if 'mouseReleaseEvent' in self._forward:
-            self._forward['mouseReleaseEvent'](self, mouse_event)
+            self._forward['mouseReleaseEvent'](self._rasterview, mouse_event)
 
     def mouseMoveEvent(self, mouse_event):
         if 'mouseMoveEvent' in self._forward:
-            self._forward['mouseMoveEvent'](self, mouse_event)
+            self._forward['mouseMoveEvent'](self._rasterview, mouse_event)
 
     def keyPressEvent(self, key_event):
         if 'keyPressEvent' in self._forward:
-            self._forward['keyPressEvent'](self, key_event)
+            self._forward['keyPressEvent'](self._rasterview, key_event)
 
     def keyReleaseEvent(self, key_event):
         if 'keyReleaseEvent' in self._forward:
-            self._forward['keyReleaseEvent'](self, key_event)
+            self._forward['keyReleaseEvent'](self._rasterview, key_event)
 
     def contextMenuEvent(self, context_menu_event):
         if 'contextMenuEvent' in self._forward:
-            self._forward['contextMenuEvent'](self, context_menu_event)
+            self._forward['contextMenuEvent'](self._rasterview, context_menu_event)
 
     def paintEvent(self, paint_event):
         super().paintEvent(paint_event)
 
         if 'paintEvent' in self._forward:
-            self._forward['paintEvent'](self, paint_event)
+            self._forward['paintEvent'](self._rasterview, paint_event)
 
 
 class ImageScrollArea(QScrollArea):
@@ -98,15 +99,16 @@ class ImageScrollArea(QScrollArea):
     scroll-area to the RasterView, which can then act accordingly.
     '''
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, rasterview, parent=None, **kwargs):
         super().__init__(parent)
+        self._rasterview = rasterview
         self._forward = kwargs
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
 
         if 'scrollContentsBy' in self._forward:
-            self._forward['scrollContentsBy'](self, dx, dy)
+            self._forward['scrollContentsBy'](self._rasterview, dx, dy)
 
 
 class RasterView(QWidget):
@@ -128,7 +130,7 @@ class RasterView(QWidget):
 
         # The widget used to display the image data
 
-        self._image_widget = ImageWidget('(no data)', **forward)
+        self._image_widget = ImageWidget(self, **forward)
         self._image_widget.setBackgroundRole(QPalette.Base)
         self._image_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self._image_widget.setScaledContents(True)
@@ -136,7 +138,7 @@ class RasterView(QWidget):
 
         # The scroll area used to handle images larger than the widget size
 
-        self._scroll_area = ImageScrollArea(**forward)
+        self._scroll_area = ImageScrollArea(self, **forward)
         self._scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._scroll_area.setBackgroundRole(QPalette.Dark)
         self._scroll_area.setWidget(self._image_widget)
