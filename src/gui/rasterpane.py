@@ -154,30 +154,18 @@ class RasterPane(QWidget):
 
         # Raster image view widget
 
-        forward = {
-            'mousePressEvent'   : self._onRasterMousePress,
-            'mouseReleaseEvent' : self._onRasterMouseRelease,
-            'mouseMoveEvent'    : self._onRasterMouseMove,
-            'keyPressEvent'     : self._onRasterKeyPress,
-            'keyReleaseEvent'   : self._onRasterKeyRelease,
-            'contextMenuEvent'  : self._onRasterContextMenu,
-            'paintEvent'        : self._afterRasterPaint,
-            'scrollContentsBy'  : self._afterRasterScroll,
-        }
-        self._rasterview = RasterView(parent=self, forward=forward)
-        self._rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
+        self._rasterviews = {}
+        self._init_rasterviews()
 
         # Widget layout
 
-        layout = QVBoxLayout()
-        layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        self._rasterview_layout = QGridLayout()
+        self._rasterview_layout.setContentsMargins(QMargins(0, 0, 0, 0))
 
         if self._embed_toolbar:
-            layout.setMenuBar(self._toolbar)
+            self._rasterview_layout.setMenuBar(self._toolbar)
 
-        layout.addWidget(self._rasterview)
-
-        self.setLayout(layout)
+        self.setLayout(self._rasterview_layout)
 
         self._update_zoom_widgets()
 
@@ -265,6 +253,46 @@ class RasterPane(QWidget):
         chooser.triggered.connect(self._on_create_selection)
 
 
+    def _init_rasterviews(self, rows=1, cols=1):
+        forward = {
+            'mousePressEvent'   : self._onRasterMousePress,
+            'mouseReleaseEvent' : self._onRasterMouseRelease,
+            'mouseMoveEvent'    : self._onRasterMouseMove,
+            'keyPressEvent'     : self._onRasterKeyPress,
+            'keyReleaseEvent'   : self._onRasterKeyRelease,
+            'contextMenuEvent'  : self._onRasterContextMenu,
+            'paintEvent'        : self._afterRasterPaint,
+            'scrollContentsBy'  : self._afterRasterScroll,
+        }
+
+        if len(self._rasterviews) != 0:
+            print('TODO(donnie):  clean up old raster-views!')
+
+        for row in range(rows):
+            for col in range(cols):
+                rasterview = RasterView(parent=self, forward=forward)
+                rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
+
+                position = (row, col)
+                self._rasterviews[position] = rasterview
+                self._rasterview_layout.addWidget(rasterview, row, col)
+
+
+    def _get_rasterview_position(self, rasterview):
+        '''
+        Returns the position of the rasterview in the raster-pane, as a
+        (row, col) tuple.
+
+        If the specified rasterview is not recognized in the pane, None is
+        returned.
+        '''
+        for pos, rv in self._rasterviews.items():
+            if rv is rasterview:
+                return pos
+
+        return None
+
+
     def resizeEvent(self, event):
         '''
         Override the QtWidget resizeEvent() virtual method to fire an event that
@@ -273,17 +301,17 @@ class RasterPane(QWidget):
         self._emit_viewport_change()
 
 
-    def _onRasterMousePress(self, widget, mouse_event):
+    def _onRasterMousePress(self, rasterview, mouse_event):
         if self._task_delegate is not None:
             done = self._task_delegate.on_mouse_press(widget, mouse_event)
             self._update_delegate(done)
 
-    def _onRasterMouseMove(self, widget, mouse_event):
+    def _onRasterMouseMove(self, rasterview, mouse_event):
         if self._task_delegate is not None:
             done = self._task_delegate.on_mouse_move(widget, mouse_event)
             self._update_delegate(done)
 
-    def _onRasterMouseRelease(self, widget, mouse_event):
+    def _onRasterMouseRelease(self, rasterview, mouse_event):
         '''
         When the display image is clicked on, this method gets invoked, and it
         translates the click event's coordinates into the location on the
@@ -297,28 +325,28 @@ class RasterPane(QWidget):
             if mouse_event.button() == Qt.LeftButton:
                 # Map the coordinate of the mouse-event to the actual raster-image
                 # pixel that was clicked, then emit a signal.
-                r_coord = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+                r_coord = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
                 self.click_pixel.emit(r_coord)
 
 
-    def _onRasterKeyPress(self, widget, key_event):
+    def _onRasterKeyPress(self, rasterview, key_event):
         if self._task_delegate is not None:
             done = self._task_delegate.on_key_press(widget, key_event)
             self._update_delegate(done)
 
-    def _onRasterKeyRelease(self, widget, key_event):
+    def _onRasterKeyRelease(self, rasterview, key_event):
         if self._task_delegate is not None:
             done = self._task_delegate.on_key_release(widget, key_event)
             self._update_delegate(done)
 
-    def _onRasterContextMenu(self, widget, context_menu_event):
+    def _onRasterContextMenu(self, rasterview, context_menu_event):
         menu = QMenu(self)
 
         # TODO(donnie):  Set up handler for the action
         act = menu.addAction(self.tr('Annotate location'))
 
         # Calculate the coordinate of the click in dataset coordinates
-        ds_coord = self._rasterview.image_coord_to_raster_coord(context_menu_event.pos())
+        ds_coord = rasterview.image_coord_to_raster_coord(context_menu_event.pos())
 
         # Find Regions of Interest that include the click location.
         picked_rois = []
@@ -344,7 +372,7 @@ class RasterPane(QWidget):
 
         menu.exec_(context_menu_event.globalPos())
 
-    def _afterRasterScroll(self, widget, dx, dy):
+    def _afterRasterScroll(self, rasterview, dx, dy):
         '''
         This function is called when the scroll-area moves around.  Fire an
         event that the visible region of the raster-view has changed.
