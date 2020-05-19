@@ -1,12 +1,15 @@
 import json, os, pathlib, sys
+from typing import Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .app_config import PixelReticleType
+
 from .about_dialog import AboutDialog
 
-from .rasterpane import RecenterMode, PixelReticleType
+from .rasterpane import RecenterMode
 
 from .dockable import DockablePane
 
@@ -414,16 +417,16 @@ class DataVisualizerApp(QMainWindow):
         self.restoreState(settings.value('window-state'))
 
 
-    def _on_display_bands_change(self, index, bands, is_global):
+    def _on_display_bands_change(self, ds_id: int, bands: Tuple, is_global: bool):
         '''
         When the user changes the display bands used in one of the raster panes,
         the pane will fire an event that the application controller can receive,
         if other raster panes also need to be updated.
         '''
         if is_global:
-            self._context_pane.set_display_bands(index, bands)
-            self._main_view.set_display_bands(index, bands)
-            self._zoom_pane.set_display_bands(index, bands)
+            self._context_pane.set_display_bands(ds_id, bands)
+            self._main_view.set_display_bands(ds_id, bands)
+            self._zoom_pane.set_display_bands(ds_id, bands)
 
 
     def _on_create_selection(self, selection):
