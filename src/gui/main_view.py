@@ -36,6 +36,18 @@ class MainViewWidget(RasterPane):
         self._act_stretch_builder.triggered.connect(self._on_stretch_builder)
 
 
+    def _init_view_tools(self):
+        '''
+        Initialize view management tools.  This subclass has the ability to show
+        multiple sub-views, all at the same zoom level, and possibly with linked
+        scrolling.
+        '''
+
+        self._act_split_views = add_toolbar_action(self._toolbar,
+            'resources/split-view.svg', self.tr('Split/Unsplit view'), self)
+        self._act_split_views.triggered.connect(self._on_split_views)
+
+
     def _init_zoom_tools(self):
         '''
         Initialize zoom toolbar buttons.  This subclass adds a few extra zoom
