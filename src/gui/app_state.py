@@ -1,7 +1,10 @@
 from enum import Enum
 import os
+from typing import List
 
 from PySide2.QtCore import *
+
+from .app_config import PixelReticleType
 
 from raster.dataset import *
 from raster.gdal_dataset import GDALRasterDataLoader
@@ -10,8 +13,6 @@ from raster.spectral_library import SpectralLibrary
 from raster.envi_spectral_library import ENVISpectralLibrary
 
 from .roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
-
-from .rasterpane import RecenterMode, PixelReticleType
 
 
 class ApplicationState(QObject):
@@ -48,13 +49,22 @@ class ApplicationState(QObject):
         self._current_dir = os.getcwd()
         self._raster_data_loader = GDALRasterDataLoader()
 
-        # All datasets loaded in the application.
-        self._datasets = []
+        # Source of numeric IDs for assigning to objects in the application
+        # state.  IDs are unique across all objects, not just for each type of
+        # object, just for the sake of simplicity.
+        self._next_id = 1
 
-        # All spectral libraries loaded in the application.
+        # All datasets loaded in the application.  The key is the numeric ID of
+        # the data set, and the value is the RasterDataSet object.
+        self._datasets = {}
+
+        # All spectral libraries loaded in the application.  The key is the
+        # numeric ID of the spectral library, and the value is the
+        # SpectralLibrary object.
         self._spectral_libraries = []
 
-        # Regions of interest in the input data sets.
+        # All regions of interest in the application.  The key is the numeric ID
+        # of the ROI, and the value is a RegionOfInterest object.
         self._regions_of_interest = {}
         self._next_roi_id = 1
 
@@ -71,8 +81,32 @@ class ApplicationState(QObject):
         }
 
 
+    def _take_next_id(self) -> int:
+        '''
+        Returns the next ID for use with an object, and also increments the
+        internal "next ID" value.
+        '''
+        id = self._next_id
+        self._next_id += 1
+        return id
+
+
     def get_current_dir(self):
+        '''
+        Returns the current directory of the application.  This is the last
+        directory that the user accessed in a load or save operation, so that
+        the next load or save can start at the same directory.
+        '''
         return self._current_dir
+
+
+    def set_current_dir(self, current_dir: str):
+        '''
+        Sets the current directory of the application.  This is the last
+        directory that the user accessed in a load or save operation, so that
+        the next load or save can start at the same directory.
+        '''
+        self._current_dir = current_dir
 
 
     def open_file(self, file_path):
@@ -115,41 +149,52 @@ class ApplicationState(QObject):
         self.add_dataset(raster_data)
 
 
-    def add_dataset(self, dataset):
+    def add_dataset(self, dataset: RasterDataSet):
         '''
-        Add a dataset to the application state.  The method will fire a signal
-        indicating that the dataset was added.
+        Add a dataset to the application state.  A unique numeric ID is assigned
+        to the dataset, which is also set on the dataset itself.
+
+        The method will fire a signal indicating that the dataset was added.
         '''
         if not isinstance(dataset, RasterDataSet):
             raise TypeError('dataset must be a RasterDataSet')
 
-        index = len(self._datasets)
-        self._datasets.append(dataset)
+        ds_id = self._take_next_id()
+        dataset.set_id(ds_id)
+        self._datasets[ds_id] = dataset
 
-        self.dataset_added.emit(index)
+        self.dataset_added.emit(ds_id)
+        # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
-    def get_dataset(self, index):
+    def get_dataset(self, ds_id: int) -> RasterDataSet:
         '''
-        Return the dataset at the specified index.  Standard list-access options
-        are supported, such as -1 to return the last dataset.
+        Return the dataset with the specified numeric ID.  If the ID is
+        unrecognized then a KeyError will be raised.
         '''
-        return self._datasets[index]
+        return self._datasets[ds_id]
 
     def num_datasets(self):
         ''' Return the number of datasets in the application state. '''
         return len(self._datasets)
 
-    def get_datasets(self):
-        ''' Return a copy of the list of datasets in the application state. '''
-        return list(self._datasets)
+    def get_datasets(self) -> List[RasterDataSet]:
+        '''
+        Return a list of datasets in the application state.  The returned list
+        is separate from the internal application-state data structures, and
+        therefore may be mutated by the caller without harm.
+        '''
+        return list(self._datasets.values())
 
-    def remove_dataset(self, index):
+    def remove_dataset(self, ds_id: int):
         '''
-        Remove the specified dataset from the application state.  The method
-        will fire a signal indicating that the dataset was removed.
+        Remove the dataset with the specified numeric ID from the application
+        state.  If the ID is unrecognized then a KeyError will be raised.
+
+        The method will fire a signal indicating that the dataset was removed.
         '''
-        del self._datasets[index]
-        self.dataset_removed.emit(index)
+        del self._datasets[ds_id]
+        self.dataset_removed.emit(ds_id)
+        # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.REMOVED, dataset))
 
 
     def add_spectral_library(self, library):

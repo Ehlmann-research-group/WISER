@@ -1,5 +1,6 @@
 import os, sys
 from enum import Enum
+from typing import Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -31,15 +32,20 @@ class DatasetInfoView(QTreeWidget):
         self.header().setStretchLastSection(False)
 
 
-    def _on_dataset_added(self, index):
+    def _on_dataset_added(self, ds_id):
+        '''
+        When a data set is added to the application state, this method populates
+        the data info view with information about the data set.
+        '''
 
         if self._model.num_datasets() == 1:
             self.clear()
 
-        dataset = self._model.get_dataset(index)
+        dataset = self._model.get_dataset(ds_id)
 
         top = QTreeWidgetItem(self)
-        top.setText(0, self.tr(f'Dataset {index+1}'))
+        top.setText(0, self.tr(f'Dataset {ds_id}'))
+        top.setData(0, Qt.UserRole, ds_id)
 
         # General info subsection
 
@@ -111,11 +117,37 @@ class DatasetInfoView(QTreeWidget):
             band_item.setText(0, ' '.join(s))
 
         # All done!
+        self.addTopLevelItem(top)
 
-        self.insertTopLevelItem(index, top)
+
+    def _find_dataset_entry(self, ds_id: int) -> Optional[Tuple[int, QTreeWidgetItem]]:
+        '''
+        This helper function finds the tree entry for the dataset with the
+        specified ID.  If found, the function returns the tuple
+        (index, QTreeWidgetItem) indicating both the top-level tree entry that
+        represents the dataset, as well as the index of the entry in the tree.
+
+        If it can't be found, the function returns None.
+        '''
+
+        for i in range(self.topLevelItemCount()):
+            entry = self.itemFromIndex(i)
+            if entry.data(0, Qt.UserRole) == ds_id:
+                return (i, entry)
+
+        return None
 
 
-    def _on_dataset_removed(self, index):
+    def _on_dataset_removed(self, ds_id: int):
+
+        result = self._find_dataset_entry(ds_id)
+        if result is None:
+            print(f'WARNING:  Info-view encountered unrecognized dataset {ds_id}')
+            return
+
+        # Unpack the result.
+        (index, entry) = result
+
         # Remove the information for the dataset at the specified index
         self.takeTopLevelItem(index)
 

@@ -48,6 +48,22 @@ class RasterDataSet:
         employ various performance-improvement techniques.
     '''
 
+    def get_id(self):
+        '''
+        Returns a numeric ID for referring to the data set within the
+        application.
+        '''
+        return self._id
+
+
+    def set_id(self, id):
+        '''
+        Sets a numeric ID for referring to the data set within the
+        application.
+        '''
+        self._id = id
+
+
     def get_description(self):
         '''
         Returns a description of the dataset that might be specified in the
