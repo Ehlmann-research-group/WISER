@@ -1,5 +1,5 @@
 import json, os, pathlib, sys
-from typing import Tuple
+from typing import List, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -474,21 +474,18 @@ class DataVisualizerApp(QMainWindow):
         self._spectrum_plot.set_active_spectrum(dataset, ds_point)
 
 
-    def _on_stretch_changed(self, stretches: list):
+    def _on_stretch_changed(self, ds_id: int, bands: Tuple, stretches: List):
         '''
-        Receive stretch-change events from the Stretch Builder and propagate
-        them to all raster-views.
+        Receive stretch-change events from the Stretch Builder and record them
+        in the application state.  Interested widgets can register for the
+        state-change events on the application state.
         '''
 
-        print(f'Contrast stretch changed to:')
-        for s in stretches:
-            print(f' * {s}')
+        # print(f'Contrast stretch changed to:')
+        # for s in stretches:
+        #     print(f' * {s}')
 
-        # TODO(donnie):  This is a bit ugly.  Hook event-source directly to
-        #     these sinks?  Do something else?
-        self._context_pane.get_rasterview().set_stretches(stretches)
-        self._main_view.get_rasterview().set_stretches(stretches)
-        self._zoom_pane.get_rasterview().set_stretches(stretches)
+        self._app_state.set_stretches(ds_id, bands, stretches)
 
 
     def _on_zoom_visibility_changed(self, visible):

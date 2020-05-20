@@ -313,25 +313,17 @@ def get_unstretched_band_data(dataset, band_index):
 
 def get_stretched_band_data(dataset, band_index, stretch):
     '''
-    Retrieves the data for the specified band, and applies an optional stretch
-    to the data.  The function returns a numpy array with np.float32 elements in
-    the range of [0.0, 1.0], unless the input is already np.float64, in which
-    case the type is left as np.float64.
+    Retrieves the normalized data for the specified band, and applies an
+    optional stretch to the data.  The function returns a numpy array with
+    np.float32 elements in the range of [0.0, 1.0], unless the input is already
+    np.float64, in which case the type is left as np.float64.
 
-    If the stretch parameter is None, the function uses
-    get_unstretched_band_data() to generate a result.
-
-    If the stretch parameter is not None, the function uses the
-    dataset.get_normalized_band() function to normalize the band data, and then
-    the stretch is applied to the normalized band data.
+    Note that if the stretch is either None, or a StretchBase object, then the
+    result is equivalent to linearly stretching the data from the min-value to
+    the max-value.
     '''
-    if stretch is None:
-        # print('No stretch; getting unstretched band data')
-        band_data = get_unstretched_band_data(dataset, band_index)
-
-    else:
-        # print('Getting normalized band data, then stretching it')
-        band_data = get_normalized_band(dataset, band_index)
+    band_data = get_normalized_band(dataset, band_index)
+    if stretch is not None:
         stretch.apply(band_data)
 
     return band_data

@@ -1,5 +1,6 @@
 import sys
 from enum import Enum, IntFlag
+from typing import List, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -156,7 +157,7 @@ class RasterView(QWidget):
         return self._stretches
 
     @Slot(StretchBase)
-    def set_stretches(self, stretches: list):
+    def set_stretches(self, stretches: List):
         self._stretches = stretches
         self.update_display_image()
 
@@ -182,7 +183,7 @@ class RasterView(QWidget):
         self._image = None
 
 
-    def set_raster_data(self, raster_data, display_bands):
+    def set_raster_data(self, raster_data, display_bands, stretches=None):
         '''
         Specify a raster data-set to display in the raster-view widget.  A value
         of None causes the raster-view to display nothing.
@@ -190,15 +191,22 @@ class RasterView(QWidget):
         if raster_data is not None and not isinstance(raster_data, RasterDataSet):
             raise ValueError('raster_data must be a RasterDataSet object')
 
+        if raster_data is not None and len(display_bands) not in [1, 3]:
+            raise ValueError(f'Unsupported number of display_bands:  {display_bands}')
+
+        if stretches is not None and len(display_bands) != len(stretches):
+            raise ValueError('display_bands and stretches must be the same length')
+
         self._clear_members()
 
         self._raster_data = raster_data
         self._display_bands = display_bands
-        self._stretches = [StretchBase(), StretchBase(), StretchBase()]
 
-        if raster_data is not None:
-            assert len(self._display_bands) in [1, 3], \
-                f'Raster data has an unsupported number of display bands:  {rgb_bands}'
+        if stretches is not None:
+            self._stretches = stretches
+        else:
+            # Default to no stretches.
+            self._stretches = [None] * len(self._display_bands)
 
         self.update_display_image()
 
@@ -219,9 +227,12 @@ class RasterView(QWidget):
         return list(self._display_bands)
 
 
-    def set_display_bands(self, display_bands):
+    def set_display_bands(self, display_bands: Tuple, stretches: List = None):
         if len(display_bands) not in [1, 3]:
             raise ValueError('display_bands must be a list of 1 or 3 ints')
+
+        if stretches is not None and len(display_bands) != len(stretches):
+            raise ValueError('display_bands and stretches must be same length')
 
         # Figure out what colors changed, so that we only have to update the
         # parts of the image that are required.

@@ -1,6 +1,6 @@
 from enum import Enum
 import os
-from typing import List
+from typing import List, Tuple
 
 from PySide2.QtCore import *
 
@@ -11,6 +11,8 @@ from raster.gdal_dataset import GDALRasterDataLoader
 
 from raster.spectral_library import SpectralLibrary
 from raster.envi_spectral_library import ENVISpectralLibrary
+
+from raster.stretch import StretchBase
 
 from .roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
@@ -38,6 +40,11 @@ class ApplicationState(QObject):
 
     roi_removed = Signal(RegionOfInterest)
 
+    # Signal:  the contrast stretch was changed for a specific dataset and set
+    #          of bands.  The first argument is the ID of the dataset, and the
+    #          second argument is a tuple of bands.
+    stretch_changed = Signal(int, tuple)
+
     # TODO(donnie):  Signals for config changes and color changes!
 
     def __init__(self, app):
@@ -57,6 +64,10 @@ class ApplicationState(QObject):
         # All datasets loaded in the application.  The key is the numeric ID of
         # the data set, and the value is the RasterDataSet object.
         self._datasets = {}
+
+        # Stretches for all data sets are stored here.  The key is a tuple of
+        # the (dataset ID, band #), and the value is a Stretch object.
+        self._stretches: Dict[Tuple[int, int], StretchBase] = {}
 
         # All spectral libraries loaded in the application.  The key is the
         # numeric ID of the spectral library, and the value is the
@@ -193,8 +204,36 @@ class ApplicationState(QObject):
         The method will fire a signal indicating that the dataset was removed.
         '''
         del self._datasets[ds_id]
+
+        # Remove all stretches that are associated with this data set
+        for key in list(self._stretches.keys()):
+            if key[0] == ds_id:
+                del self._stretches[key]
+
         self.dataset_removed.emit(ds_id)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.REMOVED, dataset))
+
+
+    def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):
+        if len(bands) != len(stretches):
+            raise ValueError('bands and stretches must both be the same ' +
+                f'length (got {len(bands)} bands, {len(stretches)} stretches)')
+
+        for i in range(len(bands)):
+            key = (ds_id, bands[i])
+            stretch = stretches[i]
+            self._stretches[key] = stretch
+
+        self.stretch_changed.emit(ds_id, bands)
+
+
+    def get_stretches(self, ds_id: int, bands: Tuple):
+        '''
+        Returns the current stretches for the specified dataset ID and bands.
+        If a band has no stretch specified, its corresponding value will be
+        None.
+        '''
+        return [self._stretches.get((ds_id, b), None) for b in bands]
 
 
     def add_spectral_library(self, library):
