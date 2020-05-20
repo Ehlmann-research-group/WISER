@@ -1,3 +1,5 @@
+from typing import List, Tuple
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -5,7 +7,7 @@ from PySide2.QtWidgets import *
 from .channel_stretch_widget_ui import Ui_ChannelStretchWidget
 from .stretch_config_widget_ui import Ui_StretchConfigWidget
 
-from raster.dataset import get_normalized_band
+from raster.dataset import RasterDataSet, get_normalized_band
 from raster.stretch import *
 
 import numpy as np
@@ -481,12 +483,13 @@ class StretchConfigWidget(QWidget):
 class StretchBuilderDialog(QDialog):
 
     # Signal:  When the stretch is changed in the Stretch Builder, the dialog
-    #          will notify any listeners that the stretch has changed.  The
-    #          signal value is a list of stretch objects, one for each channel
-    #          currently being displayed/configured.
-    # TODO(donnie):  Need to also indicate the data set / band #s that the
-    #     stretch is for.
-    stretch_changed = Signal(list)
+    # will notify any listeners that the stretch has changed.  The signal values
+    # are as follows:
+    # *   The ID of the dataset whose stretch is being manipulated
+    # *   A tuple specifying the display bands (length is either 1 or 3)
+    # *   A list of stretch objects for the display bands (length is same as the
+    #     display-band tuple length
+    stretch_changed = Signal(int, tuple, list)
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -620,6 +623,15 @@ class StretchBuilderDialog(QDialog):
                 for i in range(self._num_active_channels)]
 
 
+    def _emit_stretch_changed(self, stretches):
+        '''
+        Helper function to emit a stretch_changed event, along with the details
+        of what dataset and display bands are involved.
+        '''
+        self.stretch_changed.emit(self._dataset.get_id(), self._display_bands,
+                                  stretches)
+
+
     def _on_stretch_type_changed(self): # , stretch_type):
         stretch_type = self._stretch_config.get_stretch_type()
         # print(f'Stretch type changed to {stretch_type}')
@@ -628,7 +640,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[i].set_stretch_type(stretch_type)
 
         if self._enable_stretch_changed_events:
-            self.stretch_changed.emit(self.get_stretches())
+            self._emit_stretch_changed(self.get_stretches())
 
 
     def _on_conditioner_type_changed(self): # , conditioner_type):
@@ -639,7 +651,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[i].set_conditioner_type(conditioner_type)
 
         if self._enable_stretch_changed_events:
-            self.stretch_changed.emit(self.get_stretches())
+            self._emit_stretch_changed(self.get_stretches())
 
 
     def _on_link_sliders(self, checked):
@@ -663,7 +675,7 @@ class StretchBuilderDialog(QDialog):
             self._enable_stretch_changed_events = True
 
             if self._stretch_config.get_stretch_type() == StretchType.LINEAR_STRETCH:
-                self.stretch_changed.emit(self.get_stretches())
+                self._emit_stretch_changed(self.get_stretches())
 
 
     def _on_link_min_max(self, checked):
@@ -703,7 +715,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[i].set_linear_stretch_pct(percent)
         self._enable_stretch_changed_events = True
 
-        self.stretch_changed.emit(self.get_stretches())
+        self._emit_stretch_changed(self.get_stretches())
 
 
     def _on_channel_minmax_changed(self, channel_no, min_bound, max_bound):
@@ -729,7 +741,7 @@ class StretchBuilderDialog(QDialog):
 
         if self._stretch_config.get_stretch_type() == StretchType.LINEAR_STRETCH and \
            self._enable_stretch_changed_events:
-            self.stretch_changed.emit(self.get_stretches())
+            self._emit_stretch_changed(self.get_stretches())
 
 
     def _on_channel_stretch_high_changed(self, channel_no, stretch_high):
@@ -743,11 +755,14 @@ class StretchBuilderDialog(QDialog):
 
         if self._stretch_config.get_stretch_type() == StretchType.LINEAR_STRETCH and \
            self._enable_stretch_changed_events:
-            self.stretch_changed.emit(self.get_stretches())
+            self._emit_stretch_changed(self.get_stretches())
 
 
-    def show(self, dataset, display_bands, stretches):
+    def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
         # print(f'Display bands = {display_bands}')
+
+        self._dataset = dataset
+        self._display_bands = display_bands
 
         self._num_active_channels = len(display_bands)
 
@@ -798,5 +813,5 @@ class StretchBuilderDialog(QDialog):
         the originally-saved stretches so that the UI reverts back to the way
         it was.
         '''
-        self.stretch_changed.emit(self._saved_stretches)
+        self._emit_stretch_changed(self._saved_stretches)
         super().reject()

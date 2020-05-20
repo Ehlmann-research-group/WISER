@@ -114,6 +114,7 @@ class RasterPane(QWidget):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+        self._app_state.stretch_changed.connect(self._on_stretch_changed)
 
 
     def _init_ui(self, select_tools=True):
@@ -389,7 +390,10 @@ class RasterPane(QWidget):
         # If the specified data set is the one currently being displayed, update
         # the UI display.
         if ds_id == self._dataset_id:
-            self._rasterview.set_display_bands(bands)
+            # Get the stretches at the same time, so that we only update the
+            # raster-view once.
+            stretches = self._app_state.get_stretches(self._dataset_id, bands)
+            self._rasterview.set_display_bands(bands, stretches=stretches)
 
 
     def make_point_visible(self, x, y):
@@ -521,6 +525,17 @@ class RasterPane(QWidget):
             # display bands.
             if not is_global:
                 self.set_display_bands(self._dataset_id, bands)
+
+
+    def _on_stretch_changed(self, ds_id, bands):
+        # If we aren't displaying the dataset whose stretch was changed, ignore
+        # the event.
+        if ds_id != self._dataset_id:
+            return
+
+        bands = self._rasterview.get_display_bands()
+        stretches = self._app_state.get_stretches(self._dataset_id, bands)
+        self._rasterview.set_stretches(stretches)
 
 
     def _on_zoom_in(self, evt):
@@ -679,7 +694,8 @@ class RasterPane(QWidget):
         # or the displayed bands change, etc.
         if dataset != self._rasterview.get_raster_data():
             bands = self._display_bands[self._dataset_id]
-            self._rasterview.set_raster_data(dataset, bands)
+            stretches = self._app_state.get_stretches(self._dataset_id, bands)
+            self._rasterview.set_raster_data(dataset, bands, stretches)
 
         if dataset is None:
             return
