@@ -41,6 +41,19 @@ pip install GDAL
 pip install PySide2
 ```
 
+These are additional development tools used by the project:
+
+```
+pip install pylint
+pip install mypy
+```
+
+Finally, to build the Mac installer, you need the py2app library:
+
+```
+pip install py2app
+```
+
 ## Generated Sources
 
 Some of the Qt user interfaces are built with the Qt Designer.  To generate

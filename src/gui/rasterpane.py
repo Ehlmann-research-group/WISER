@@ -1,15 +1,17 @@
 from enum import Enum
+from typing import Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .app_config import PixelReticleType
 from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
 from .rasterview import RasterView
 from .util import add_toolbar_action, get_painter
 
-from raster.dataset import find_display_bands, find_truecolor_bands
+from raster.dataset import RasterDataSet, find_display_bands, find_truecolor_bands
 
 from raster.selection import SelectionType, Selection
 
@@ -39,26 +41,6 @@ class RecenterMode(Enum):
     IF_NOT_VISIBLE = 2
 
 
-class PixelReticleType(Enum):
-    '''
-    This enumeration specifies the different options for how a selected pixel
-    is highlighted in the user interface.
-    '''
-
-    # Draw a "small cross" - the horizontal and vertical lines will only have
-    # a relatively small extent.
-    SMALL_CROSS = 1
-
-    # Draw a "large cross" - the horizontal and vertical lines will extend to
-    # the edges of the view.
-    LARGE_CROSS = 2
-
-    # Draw a "small cross" at low magnifications, but above a certain
-    # magnification level (e.g. 4x), start drawing a box around the selected
-    # pixel.
-    SMALL_CROSS_BOX = 3
-
-
 class RasterPane(QWidget):
     '''
     This widget provides a raster-view with an associated toolbar.
@@ -69,7 +51,7 @@ class RasterPane(QWidget):
     visibility_change = Signal(bool)
 
     # Signal:  the display bands in this view were changed
-    #   - The int is the 0-based index of the data set whose display bands are
+    #   - The int is the numeric ID of the dataset whose display bands are
     #     changing
     #   - The tuple is either a 1-tuple or 3-tuple specifying the display bands
     #   - The Boolean argument is True for "global change," or False for "this
@@ -103,12 +85,13 @@ class RasterPane(QWidget):
 
         self._app_state = app_state
 
-        # The index of the data-set being displayed
-        self._dataset_index = None
+        # The numeric ID of the data-set being displayed
+        self._dataset_id: Optional[int] = None
 
-        # The bands to display for each dataset.  Each entry in the list is a
-        # tuple of the bands to display.
-        self._display_bands = []
+        # The bands to display for each dataset.  Keys are dataset IDs, and
+        # entries are the corresponding tuple of the bands to display for the
+        # dataset.
+        self._display_bands: Dict[int, Tuple] = {}
 
         self._size_hint = size_hint
         self._embed_toolbar = embed_toolbar
@@ -131,6 +114,7 @@ class RasterPane(QWidget):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+        self._app_state.stretch_changed.connect(self._on_stretch_changed)
 
 
     def _init_ui(self, select_tools=True):
@@ -410,28 +394,30 @@ class RasterPane(QWidget):
         return self._toolbar
 
 
-    def get_current_dataset(self):
-        if self._dataset_index is None:
+    def get_current_dataset(self) -> Optional[RasterDataSet]:
+        if self._dataset_id is None:
             return None
 
-        return self._app_state.get_dataset(self._dataset_index)
+        return self._app_state.get_dataset(self._dataset_id)
 
 
-    def set_display_bands(self, index, bands):
-        if index < 0 or index >= self._app_state.num_datasets():
-            raise ValueError(f'index must be in the range [0, {self._app_state.num_datasets()}); got {index}')
+    def set_display_bands(self, ds_id: int, bands: Tuple):
+        # TODO(donnie):  Verify the dataset ID?
 
         if len(bands) not in [1, 3]:
             raise ValueError(f'bands must be either a 1-tuple or 3-tuple; got {bands}')
 
         # print(f'Display-band information:  {self._display_bands}')
 
-        self._display_bands[index] = bands
+        self._display_bands[ds_id] = bands
 
         # If the specified data set is the one currently being displayed, update
         # the UI display.
-        if index == self._dataset_index:
-            self._rasterview.set_display_bands(bands)
+        if ds_id == self._dataset_id:
+            # Get the stretches at the same time, so that we only update the
+            # raster-view once.
+            stretches = self._app_state.get_stretches(self._dataset_id, bands)
+            self._rasterview.set_display_bands(bands, stretches=stretches)
 
 
     def make_point_visible(self, x, y):
@@ -503,17 +489,17 @@ class RasterPane(QWidget):
         self.visibility_change.emit(False)
 
 
-    def _on_dataset_added(self, index):
-        new_dataset = self._app_state.get_dataset(index)
+    def _on_dataset_added(self, ds_id):
+        new_dataset = self._app_state.get_dataset(ds_id)
 
         bands = find_display_bands(new_dataset)
-        self._display_bands.insert(index, bands)
+        self._display_bands[ds_id] = bands
 
         # print(f'on_dataset_added:  band info:  {self._display_bands}')
 
         if self._app_state.num_datasets() == 1:
             # We finally have a dataset!
-            self._dataset_index = 0
+            self._dataset_id = ds_id
             self._update_image()
 
             if self._initial_zoom is not None:
@@ -522,22 +508,26 @@ class RasterPane(QWidget):
             self._update_zoom_widgets()
 
 
-    def _on_dataset_removed(self, index):
-        del self._display_bands[index]
+    def _on_dataset_removed(self, ds_id):
+        del self._display_bands[ds_id]
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 
-        num = self._app_state.num_datasets()
-        if num == 0 or self._dataset_index == index:
-            self._dataset_index = min(self._dataset_index, num - 1)
-            if self._dataset_index == -1:
-                self._dataset_index = None
+        if self._dataset_id == ds_id:
+            # The dataset being displayed is the one that is being removed.
+            # Find a different dataset to display.
+            all_ds_ids = [ds.get_id() for ds in self._app_state.get_datasets()]
+            if len(all_ds_ids) > 0:
+                all_ds_ids.sort()
+                self._dataset_id = all_ds_ids[0]
+            else:
+                self._dataset_id = None
 
             self._update_image()
 
 
     def _on_dataset_changed(self, act):
-        self._dataset_index = act.data()
+        self._dataset_id = act.data()
         self._update_image()
 
 
@@ -552,13 +542,24 @@ class RasterPane(QWidget):
             bands = dialog.get_display_bands()
             is_global = dialog.apply_globally()
 
-            self.display_bands_change.emit(self._dataset_index, bands, is_global)
+            self.display_bands_change.emit(self._dataset_id, bands, is_global)
 
             # Only update our display bands if the change was not global, since
             # if it was, the main application controller will change everybody's
             # display bands.
             if not is_global:
-                self.set_display_bands(self._dataset_index, bands)
+                self.set_display_bands(self._dataset_id, bands)
+
+
+    def _on_stretch_changed(self, ds_id, bands):
+        # If we aren't displaying the dataset whose stretch was changed, ignore
+        # the event.
+        if ds_id != self._dataset_id:
+            return
+
+        bands = self._rasterview.get_display_bands()
+        stretches = self._app_state.get_stretches(self._dataset_id, bands)
+        self._rasterview.set_stretches(stretches)
 
 
     def _on_zoom_in(self, evt):
@@ -716,8 +717,9 @@ class RasterPane(QWidget):
         # Only do this when the raster dataset actually changes,
         # or the displayed bands change, etc.
         if dataset != self._rasterview.get_raster_data():
-            bands = self._display_bands[self._dataset_index]
-            self._rasterview.set_raster_data(dataset, bands)
+            bands = self._display_bands[self._dataset_id]
+            stretches = self._app_state.get_stretches(self._dataset_id, bands)
+            self._rasterview.set_raster_data(dataset, bands, stretches)
 
         if dataset is None:
             return
