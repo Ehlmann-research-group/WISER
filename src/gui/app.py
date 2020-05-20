@@ -1,12 +1,15 @@
 import json, os, pathlib, sys
+from typing import List, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .app_config import PixelReticleType
+
 from .about_dialog import AboutDialog
 
-from .rasterpane import RecenterMode, PixelReticleType
+from .rasterpane import RecenterMode
 
 from .dockable import DockablePane
 
@@ -414,16 +417,16 @@ class DataVisualizerApp(QMainWindow):
         self.restoreState(settings.value('window-state'))
 
 
-    def _on_display_bands_change(self, index, bands, is_global):
+    def _on_display_bands_change(self, ds_id: int, bands: Tuple, is_global: bool):
         '''
         When the user changes the display bands used in one of the raster panes,
         the pane will fire an event that the application controller can receive,
         if other raster panes also need to be updated.
         '''
         if is_global:
-            self._context_pane.set_display_bands(index, bands)
-            self._main_view.set_display_bands(index, bands)
-            self._zoom_pane.set_display_bands(index, bands)
+            self._context_pane.set_display_bands(ds_id, bands)
+            self._main_view.set_display_bands(ds_id, bands)
+            self._zoom_pane.set_display_bands(ds_id, bands)
 
 
     def _on_create_selection(self, selection):
@@ -471,21 +474,18 @@ class DataVisualizerApp(QMainWindow):
         self._spectrum_plot.set_active_spectrum(dataset, ds_point)
 
 
-    def _on_stretch_changed(self, stretches: list):
+    def _on_stretch_changed(self, ds_id: int, bands: Tuple, stretches: List):
         '''
-        Receive stretch-change events from the Stretch Builder and propagate
-        them to all raster-views.
+        Receive stretch-change events from the Stretch Builder and record them
+        in the application state.  Interested widgets can register for the
+        state-change events on the application state.
         '''
 
-        print(f'Contrast stretch changed to:')
-        for s in stretches:
-            print(f' * {s}')
+        # print(f'Contrast stretch changed to:')
+        # for s in stretches:
+        #     print(f' * {s}')
 
-        # TODO(donnie):  This is a bit ugly.  Hook event-source directly to
-        #     these sinks?  Do something else?
-        self._context_pane.get_rasterview().set_stretches(stretches)
-        self._main_view.get_rasterview().set_stretches(stretches)
-        self._zoom_pane.get_rasterview().set_stretches(stretches)
+        self._app_state.set_stretches(ds_id, bands, stretches)
 
 
     def _on_zoom_visibility_changed(self, visible):
