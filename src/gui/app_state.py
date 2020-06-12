@@ -11,6 +11,7 @@ from raster.gdal_dataset import GDALRasterDataLoader
 
 from raster.spectral_library import SpectralLibrary
 from raster.envi_spectral_library import ENVISpectralLibrary
+from raster.loaders.envi import EnviFileFormatError
 
 from raster.stretch import StretchBase
 

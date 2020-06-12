@@ -22,7 +22,7 @@ class ENVISpectralLibrary(SpectralLibrary):
 
         file_type = self._metadata['file type']
         if file_type != 'ENVI Spectral Library':
-            raise ValueError(f'Unrecognized spectral library file type {file_type}')
+            raise EnviFileFormatError(f'Unrecognized spectral library file type "{file_type}"')
 
         # ENVI stores the spectral libray files a little differently from their
         # raster data files.  Pull the dimensions out of the metadata, then
@@ -32,8 +32,8 @@ class ENVISpectralLibrary(SpectralLibrary):
         self._num_bands = self._metadata['samples']
         self._num_spectra = self._metadata['lines']
         if self._metadata['bands'] != 1:
-            raise ValueError('ENVI spectral library files expected to have' +
-                             f' 1 band; got {self._metadata["bands"]}')
+            raise EnviFileFormatError('ENVI spectral library files expected ' +
+                f'to have 1 band; got {self._metadata["bands"]}')
 
         # Update:  [samples, lines, bands] -> [lines, samples, bands]
         # Then, eliminate the last dimension, since it should always be 1.

@@ -83,11 +83,11 @@ class MainViewWidget(RasterPane):
     def _on_zoom_to_actual(self, evt):
         ''' Zoom the view to 100% scale. '''
 
-        self._rasterview.scale_image(1.0)
+        self.get_rasterview().scale_image(1.0)
         self._update_zoom_widgets()
 
 
     def _on_zoom_to_fit(self):
         ''' Zoom the view such that the entire image fits in the view. '''
-        self._rasterview.scale_image_to_fit()
+        self.get_rasterview().scale_image_to_fit()
         self._update_zoom_widgets()
