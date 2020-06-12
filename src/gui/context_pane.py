@@ -60,7 +60,7 @@ class ContextPane(RasterPane):
 
     def _on_view_attr_changed(self, attr_name):
         if attr_name == 'image.visible_area':
-            self._rasterview.update()
+            self.get_rasterview().update()
 
 
     def _update_image(self):
@@ -73,9 +73,9 @@ class ContextPane(RasterPane):
         # Handle window-scaling changes
         if self._act_fit_to_window.isChecked():
             # The entire image needs to fit in the summary view.
-            self._rasterview.scale_image_to_fit(
+            self.get_rasterview().scale_image_to_fit(
                 mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS)
         else:
             # Just zoom such that one of the dimensions fits.
-            self._rasterview.scale_image_to_fit(
+            self.get_rasterview().scale_image_to_fit(
                 mode=ScaleToFitMode.FIT_ONE_DIMENSION)

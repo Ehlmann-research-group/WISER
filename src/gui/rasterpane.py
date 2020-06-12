@@ -69,10 +69,11 @@ class RasterPane(QWidget):
     create_selection = Signal(Selection)
 
 
-    # Signal:  the raster view's display area has changed.  The rectangle of the
-    # new display area is reported to the signal handler, using raster dataset
-    # coordinates:  QRect(x, y, width, height).
-    viewport_change = Signal(QRect)
+    # Signal:  one or more raster-views changed their display viewport.  The
+    # signal reports one optional 2-tuple with the raster-view's position in the
+    # pane, or the argument will be None if all raster-views changed their
+    # display viewport.
+    viewport_change = Signal(tuple)
 
 
     def __init__(self, app_state, parent=None, size_hint=None,
@@ -136,15 +137,15 @@ class RasterPane(QWidget):
             self._toolbar.addSeparator()
             self._init_select_tools()
 
-        # Raster image view widget
+        # Raster-view widget(s) and layout
 
         self._rasterviews = {}
-        self._init_rasterviews()
-
-        # Widget layout
-
         self._rasterview_layout = QGridLayout()
         self._rasterview_layout.setContentsMargins(QMargins(0, 0, 0, 0))
+
+        self._init_rasterviews()
+
+        # Toolbar and other layout details
 
         if self._embed_toolbar:
             self._rasterview_layout.setMenuBar(self._toolbar)
@@ -277,6 +278,36 @@ class RasterPane(QWidget):
         return None
 
 
+    def get_rasterview(self, rasterview_pos=(0, 0)):
+        '''
+        Returns the raster-view at the specified (row, column) position in the
+        raster-pane.  The default (row, column) value is (0, 0), which can be
+        used by panes that will only ever have one raster-view.
+        '''
+        return self._rasterviews[rasterview_pos]
+
+
+    def get_scale(self):
+        '''
+        Returns the current zoom scale of this raster pane.  Even when a pane
+        contains multiple views, all views use the same scale, so this function
+        simply returns the scale of the top left view in the pane.
+        '''
+        return self._rasterviews[(0, 0)].get_scale()
+
+
+    def set_scale(self, scale):
+        '''
+        Sets the zoom scale of this raster pane.  When a pane contains multiple
+        raster views, the scale is set on all of the views.
+
+        As one would expect, this will generate a viewport-changed event.
+        '''
+        for rasterview in self._rasterviews.values():
+            rasterview.scale_image(scale)
+
+
+
     def resizeEvent(self, event):
         '''
         Override the QtWidget resizeEvent() virtual method to fire an event that
@@ -361,33 +392,29 @@ class RasterPane(QWidget):
         This function is called when the scroll-area moves around.  Fire an
         event that the visible region of the raster-view has changed.
         '''
-        self._emit_viewport_change()
+        self._emit_viewport_change(self._get_rasterview_position(rasterview))
 
 
-    def _update_delegate(self, create_done):
-        if create_done:
+    def _update_delegate(self, done):
+        if done:
             # selection = self._creator.get_selection()
             # print(f'TODO:  Store selection {selection} on application state')
             # TODO(donnie):  How to handle completion of task delegates???
             self._task_delegate.finish()
             self._task_delegate = None
 
-        self._rasterview.update()
+        # TODO:  This needs to be adjusted for multi-views
+        self.get_rasterview().update()
 
 
-    def _emit_viewport_change(self):
+    def _emit_viewport_change(self, rasterview_pos=None):
         ''' A helper that emits the viewport-changed event. '''
-        self.viewport_change.emit(self._rasterview.get_visible_region())
-
+        self.viewport_change.emit(rasterview_pos)
 
 
     def _on_zoom_cbox_activated(self, data):
         # print(f'Zoom combo-box activated:  {data}')
         pass
-
-
-    def get_rasterview(self):
-        return self._rasterview
 
 
     def get_toolbar(self):
@@ -417,14 +444,23 @@ class RasterPane(QWidget):
             # Get the stretches at the same time, so that we only update the
             # raster-view once.
             stretches = self._app_state.get_stretches(self._dataset_id, bands)
-            self._rasterview.set_display_bands(bands, stretches=stretches)
+            # TODO(donnie):  What to do for multi-views?
+            self.get_rasterview().set_display_bands(bands, stretches=stretches)
 
 
     def make_point_visible(self, x, y):
-        self._rasterview.make_point_visible(x, y)
+        self.get_rasterview().make_point_visible(x, y)
 
 
     def set_viewport_highlight(self, viewport):
+        '''
+        Sets the "viewport highlight" to be displayed in this raster-pane.  This
+        is used to allow the Context Pane to show the Main View viewport, and
+        the Main View can show the Zoom Pane viewport.
+
+        TODO(donnie):  This will need to be updated for multiple viewports and
+        linked windows.
+        '''
         # print(f'{self}:  Setting viewport highlight to {viewport}')
 
         self._viewport_highlight = viewport
@@ -433,24 +469,37 @@ class RasterPane(QWidget):
         # raster-view's visible area, scroll such that the viewport highlight is
         # in the middle of the raster-view's visible area.
 
-        visible = self._rasterview.get_visible_region()
+        # TODO(donnie):  Iterate through all rasterviews?
+        rasterview = self.get_rasterview()
+        visible = rasterview.get_visible_region()
         if visible is None or viewport is None:
-            self._rasterview.update()
+            rasterview.update()
             return
 
         if not visible.contains(viewport):
             center = viewport.center()
-            self._rasterview.make_point_visible(center.x(), center.y())
+            rasterview.make_point_visible(center.x(), center.y())
 
         # Repaint raster-view
-        self._rasterview.update()
+        rasterview.update()
 
 
     def set_pixel_highlight(self, pixel, recenter=RecenterMode.ALWAYS):
+        '''
+        Sets the "pixel highlight" to be displayed in this raster-pane.  This
+        is used to allow the Main View to show pixel selections from the Zoom
+        Pane.
+
+        TODO(donnie):  This will need to be updated for multiple viewports and
+        linked windows.
+        '''
         self._pixel_highlight = pixel
-        visible = self._rasterview.get_visible_region()
+
+        # TODO(donnie):  Iterate through all rasterviews?
+        rasterview = set.get_rasterview()
+        visible = rasterview.get_visible_region()
         if visible is None or pixel is None:
-            self._rasterview.update()
+            rasterview.update()
             return
 
         do_recenter = False
@@ -462,10 +511,10 @@ class RasterPane(QWidget):
         if do_recenter:
             # Scroll the raster-view such that the pixel is in the middle of the
             # raster-view's visible area.
-            self._rasterview.make_point_visible(pixel.x(), pixel.y())
+            rasterview.make_point_visible(pixel.x(), pixel.y())
 
         # Repaint raster-view
-        self._rasterview.update()
+        rasterview.update()
 
 
     def sizeHint(self):
@@ -503,7 +552,8 @@ class RasterPane(QWidget):
             self._update_image()
 
             if self._initial_zoom is not None:
-                self._rasterview.scale_image(self._initial_zoom)
+                # TODO(donnie):  What to do with multi-views?
+                self.get_rasterview().scale_image(self._initial_zoom)
 
             self._update_zoom_widgets()
 
@@ -533,7 +583,8 @@ class RasterPane(QWidget):
 
     def _on_band_chooser(self, act):
         dataset = self.get_current_dataset()
-        display_bands = self._rasterview.get_display_bands()
+        # TODO(donnie):  This needs to change with multi-views
+        display_bands = self.get_rasterview().get_display_bands()
 
         dialog = BandChooserDialog(dataset, display_bands, parent=self)
         dialog.setModal(True)
@@ -557,32 +608,31 @@ class RasterPane(QWidget):
         if ds_id != self._dataset_id:
             return
 
-        bands = self._rasterview.get_display_bands()
+        # TODO(donnie):  What to do with multi-views?
+        rasterview = self.get_rasterview()
+        bands = self.rasterview.get_display_bands()
         stretches = self._app_state.get_stretches(self._dataset_id, bands)
-        self._rasterview.set_stretches(stretches)
+        rasterview.set_stretches(stretches)
 
 
     def _on_zoom_in(self, evt):
         ''' Zoom in the zoom-view by one level. '''
-
-        scale = self._rasterview.get_scale()
-
+        scale = self.get_scale()
         new_scale = self._zoom_in_scale(scale)
 
         if self._max_zoom_scale is None or new_scale <= self._max_zoom_scale:
-            self._rasterview.scale_image(new_scale)
+            self.set_scale(new_scale)
 
         self._update_zoom_widgets()
 
 
     def _on_zoom_out(self, evt):
         ''' Zoom out the zoom-view by one level. '''
-        scale = self._rasterview.get_scale()
-
+        scale = self.get_scale()
         new_scale = self._zoom_out_scale(scale)
 
         if self._min_zoom_scale is None or new_scale >= self._min_zoom_scale:
-            self._rasterview.scale_image(new_scale)
+            self.set_scale(new_scale)
 
         self._update_zoom_widgets()
 
@@ -606,7 +656,7 @@ class RasterPane(QWidget):
     def _on_zoom_cbox(self, index):
         ''' Zoom the zoom-view to the specified option in the zoom combo-box. '''
         self._cbox_zoom.lineEdit().clearFocus()
-        self._rasterview.scale_image(self._cbox_zoom.currentData())
+        self.set_scale(self._cbox_zoom.currentData())
         self._update_zoom_widgets()
 
 
@@ -654,12 +704,12 @@ class RasterPane(QWidget):
 
         # If we got here, the zoom level is a valid number within range.
         # Apply it!
-        self._rasterview.scale_image(new_scale)
+        self.set_scale(new_scale)
         self._update_zoom_widgets()
 
 
     def _update_zoom_widgets(self):
-        scale = self._rasterview.get_scale()
+        scale = self.get_scale()
 
         # Enable / disable zoom buttons based on scale
         self._act_zoom_out.setEnabled(self._min_zoom_scale is None or scale >= self._min_zoom_scale)
@@ -709,17 +759,19 @@ class RasterPane(QWidget):
                 f'ISWB does not yet support selections of type {selection_type}')
 
 
-    def _update_image(self):
+    def _update_image(self, rasterview_pos=(0, 0)):
         dataset = None
         if self._app_state.num_datasets() > 0:
             dataset = self.get_current_dataset()
 
+        rasterview = self._rasterviews[rasterview_pos]
+
         # Only do this when the raster dataset actually changes,
         # or the displayed bands change, etc.
-        if dataset != self._rasterview.get_raster_data():
+        if dataset != rasterview.get_raster_data():
             bands = self._display_bands[self._dataset_id]
             stretches = self._app_state.get_stretches(self._dataset_id, bands)
-            self._rasterview.set_raster_data(dataset, bands, stretches)
+            rasterview.set_raster_data(dataset, bands, stretches)
 
         if dataset is None:
             return
@@ -727,11 +779,16 @@ class RasterPane(QWidget):
 
     # TODO(donnie):  Make this function take a QPainter argument???
     # TODO(donnie):  Only pass in the bounding rectangle from the paint event???
-    def _afterRasterPaint(self, widget, paint_event):
+    def _afterRasterPaint(self, rasterview, widget, paint_event):
         '''
         This method may be implemented by subclasses to draw additional
-        information on top of the raster data.  The widget argument is the
-        widget to draw into; a painter can be constructed like this:
+        information on top of the raster data.
+
+        The rasterview argument is the rasterview generating the after-paint
+        event.
+
+        The widget argument is the widget to draw into; a painter can be
+        constructed like this:
 
             painter = QPainter(widget)
             ... # Draw stuff
@@ -760,7 +817,8 @@ class RasterPane(QWidget):
         with get_painter(widget) as painter:
             for (name, roi) in self._app_state.get_rois().items():
                 # print(f'{name}: {roi}')
-                draw_roi(self._rasterview, painter, roi)
+                # TODO(donnie):  This needs to change for multi-views
+                draw_roi(self.get_rasterview(), painter, roi)
 
 
     def _draw_viewport_highlight(self, widget, paint_event):
@@ -780,7 +838,7 @@ class RasterPane(QWidget):
             painter.setPen(QPen(color))
 
             box = self._viewport_highlight
-            scale = self._rasterview.get_scale()
+            scale = self.get_scale()
 
             scaled = QRect(box.x() * scale, box.y() * scale,
                            box.width() * scale, box.height() * scale)
@@ -816,7 +874,7 @@ class RasterPane(QWidget):
 
             # This is the size of individual data-set pixels in the display
             # coordinate system.
-            scale = self._rasterview.get_scale()
+            scale = self.get_scale()
 
             # This is the center of the highlighted pixel.
             screen_x = (ds_x + 0.5) * scale

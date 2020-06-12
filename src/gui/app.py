@@ -1,4 +1,4 @@
-import json, os, pathlib, sys
+import json, os, pathlib, sys, traceback
 from typing import List, Tuple
 
 from PySide2.QtCore import *
@@ -226,16 +226,19 @@ class DataVisualizerApp(QMainWindow):
             try:
                 # Open the file on the application state.
                 self._app_state.open_file(selected[0])
-            except:
+            except Exception as e:
+                traceback.print_exc()
+                
                 mbox = QMessageBox(QMessageBox.Critical,
                     self.tr('Could not open file'),
                     self.tr('The file could not be opened.'),
                     QMessageBox.Ok, parent=self)
 
-                mbox.setInformativeText(selected[0])
+                # TODO(donnie):  I don't know what we might say for the
+                #     informative text.
+                # mbox.setInformativeText(traselected[0])
 
-                # TODO(donnie):  Add exception-trace info here, using
-                #     mbox.setDetailedText()
+                mbox.setDetailedText(traceback.format_exc())
 
                 mbox.exec()
 

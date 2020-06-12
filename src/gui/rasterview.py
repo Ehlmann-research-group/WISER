@@ -56,7 +56,7 @@ class ImageWidget(QLabel):
         Initialize the image widget with the specified text and parent.  Store
         the object we are to forward relevant events to.
         '''
-        super().__init__(parent=parent)
+        super().__init__(parent=rasterview)
         self._rasterview = rasterview
         self._forward = kwargs
         self.setMouseTracking(True)
@@ -89,7 +89,7 @@ class ImageWidget(QLabel):
         super().paintEvent(paint_event)
 
         if 'paintEvent' in self._forward:
-            self._forward['paintEvent'](self._rasterview, paint_event)
+            self._forward['paintEvent'](self._rasterview, self, paint_event)
 
 
 class ImageScrollArea(QScrollArea):
@@ -136,6 +136,7 @@ class RasterView(QWidget):
         self._image_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self._image_widget.setScaledContents(True)
         self._image_widget.setFocusPolicy(Qt.ClickFocus)
+        self._image_widget.setText(self.tr('(no data)'))
 
         # The scroll area used to handle images larger than the widget size
 
@@ -268,7 +269,7 @@ class RasterView(QWidget):
         if self._raster_data is None:
             # No raster data to display - clear the view.
             self._image_widget.clear()
-            self._image_widget.setText('(no data)')
+            self._image_widget.setText(self.tr('(no data)'))
             # self.lbl_image.adjustSize()
             return
 
