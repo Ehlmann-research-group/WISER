@@ -49,7 +49,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Status bar
         self.statusBar().showMessage(
-            self.tr('Welcome to the Imaging Spectroscopy Workbench'), 30000)
+            self.tr('Welcome to the Imaging Spectroscopy Workbench'), 10000)
 
         # Context pane
 
@@ -182,6 +182,10 @@ class DataVisualizerApp(QMainWindow):
         return dockable
 
 
+    def show_status_text(self, text: str, seconds: int=0):
+        self.statusBar().showMessage(text, seconds * 1000)
+
+
     def closeEvent(self, event):
         # TODO(donnie):  Ask user to save any unsaved state?  (This also means
         #     we must detect unsaved state.)
@@ -228,7 +232,7 @@ class DataVisualizerApp(QMainWindow):
                 self._app_state.open_file(selected[0])
             except Exception as e:
                 traceback.print_exc()
-                
+
                 mbox = QMessageBox(QMessageBox.Critical,
                     self.tr('Could not open file'),
                     self.tr('The file could not be opened.'),
@@ -296,7 +300,7 @@ class DataVisualizerApp(QMainWindow):
             json.dump(project_info, f, sort_keys=True, indent=4)
 
         msg = self.tr('Saved project to {}').format(file_path)
-        self.statusBar().showMessage(msg)
+        self.statusBar().showMessage(msg, 5000)
 
 
     def generate_project_info(self):

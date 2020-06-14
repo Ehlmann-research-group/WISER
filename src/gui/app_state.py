@@ -112,6 +112,10 @@ class ApplicationState(QObject):
         return self._current_dir
 
 
+    def show_status_text(self, text: str, seconds=0):
+        self._app.show_status_text(text, seconds)
+
+
     def set_current_dir(self, current_dir: str):
         '''
         Sets the current directory of the application.  This is the last

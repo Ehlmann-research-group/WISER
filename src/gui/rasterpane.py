@@ -133,11 +133,14 @@ class RasterPane(QWidget):
 
         # Raster-view widget(s) and layout
 
+        # Invalid value, ensures _init_rasterviews will initialize the views.
+        self._num_views = (0, 0)
+
         self._rasterviews = {}
         self._rasterview_layout = QGridLayout()
         self._rasterview_layout.setContentsMargins(QMargins(0, 0, 0, 0))
 
-        self._init_rasterviews()
+        self._init_rasterviews()  # Default dimension is (1, 1)
 
         # Toolbar and other layout details
 
@@ -240,7 +243,15 @@ class RasterPane(QWidget):
         chooser.triggered.connect(self._on_create_selection)
 
 
-    def _init_rasterviews(self, rows=1, cols=1):
+    def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1)):
+        if num_views[0] < 1 or num_views[1] < 1:
+            raise ValueError(f'Minimum number of raster-view rows/cols is 1, got {num_views}')
+
+        # If the current raster-view layout is the same as the requested
+        # raster-view layout, ignore.
+        if self._num_views == num_views:
+            return
+
         forward = {
             'mousePressEvent'   : self._onRasterMousePress,
             'mouseReleaseEvent' : self._onRasterMouseRelease,
@@ -252,9 +263,19 @@ class RasterPane(QWidget):
             'scrollContentsBy'  : self._afterRasterScroll,
         }
 
+        # There are existing raster-views; clean them all up.
         if len(self._rasterviews) != 0:
-            print('TODO(donnie):  clean up old raster-views!')
+            # Remove each raster-view from the grid layout
+            for (position, rasterview) in self._rasterviews.items():
+                # Remove the rasterview from the layout, and hide it.
+                self._rasterview_layout.removeWidget(rasterview)
+                rasterview.hide()
 
+            # Clear out the dictionary of raster-views
+            self._rasterviews.clear()
+
+        # Create new raster-views as specified by the arguments
+        (rows, cols) = num_views
         for row in range(rows):
             for col in range(cols):
                 rasterview = RasterView(parent=self, forward=forward)
@@ -263,6 +284,8 @@ class RasterPane(QWidget):
                 position = (row, col)
                 self._rasterviews[position] = rasterview
                 self._rasterview_layout.addWidget(rasterview, row, col)
+
+        self._num_views = num_views
 
 
     def _get_rasterview_position(self, rasterview):
