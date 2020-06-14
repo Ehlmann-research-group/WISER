@@ -117,6 +117,12 @@ class MainViewWidget(RasterPane):
         This function handles when the user requests a split-view layout of some
         structure.
         '''
+        new_dim = action.data()
+        if new_dim != self._num_views:
+            msg = self.tr('Switching main view to {rows}x{cols} display')
+            msg = msg.format(rows=new_dim[0], cols=new_dim[1])
+            self._app_state.show_status_text(msg, 5)
+
         self._init_rasterviews(action.data())
 
 
