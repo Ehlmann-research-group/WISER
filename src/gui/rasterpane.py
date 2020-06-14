@@ -139,6 +139,8 @@ class RasterPane(QWidget):
         self._rasterviews = {}
         self._rasterview_layout = QGridLayout()
         self._rasterview_layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        self._rasterview_layout.setHorizontalSpacing(0)
+        self._rasterview_layout.setVerticalSpacing(0)
 
         self._init_rasterviews()  # Default dimension is (1, 1)
 
