@@ -16,7 +16,16 @@ class ContextPane(RasterPane):
 
     def __init__(self, app_state, parent=None):
         super().__init__(app_state=app_state, parent=parent,
-            size_hint=QSize(200, 200), select_tools=False)
+            size_hint=QSize(200, 200))
+
+
+    def _init_toolbar(self):
+        '''
+        The Context Pane only initializes dataset tools and zoom tools.
+        '''
+        self._init_dataset_tools()
+        self._toolbar.addSeparator()
+        self._init_zoom_tools()
 
 
     def _init_zoom_tools(self):

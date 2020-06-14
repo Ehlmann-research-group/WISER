@@ -5,6 +5,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from .dataset_chooser import DatasetChooser
+from .toolbarmenu import ToolbarMenu
 from .rasterpane import RasterPane
 from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
@@ -22,6 +23,20 @@ class MainViewWidget(RasterPane):
             initial_zoom=1)
 
         self._stretch_builder = StretchBuilderDialog(parent=self)
+
+
+    def _init_toolbar(self):
+        '''
+        The main view initializes dataset tools, view tools, zoom tools, and
+        selection tools.
+        '''
+        self._init_dataset_tools()
+        self._toolbar.addSeparator()
+        self._init_view_tools()
+        self._toolbar.addSeparator()
+        self._init_zoom_tools()
+        self._toolbar.addSeparator()
+        self._init_select_tools()
 
 
     def _init_dataset_tools(self):
@@ -43,10 +58,24 @@ class MainViewWidget(RasterPane):
         scrolling.
         '''
 
-        self._act_split_views = add_toolbar_action(self._toolbar,
-            'resources/split-view.svg', self.tr('Split/Unsplit view'), self)
-        self._act_split_views.triggered.connect(self._on_split_views)
+        # The split-views chooser is a drop down menu of options the user can
+        # choose from.  First populate the menu, then create the chooser button.
 
+        chooser_items = [
+            (self.tr('1 row x 1 column'  ), (1, 1)),
+            (self.tr('1 row x 2 columns' ), (1, 2)),
+            (self.tr('2 rows x 1 column' ), (2, 1)),
+            (self.tr('2 rows x 2 columns'), (2, 2)),
+        ]
+        self._view_chooser = ToolbarMenu(icon=QIcon('resources/split-view.svg'),
+            items=chooser_items)
+        self._view_chooser.setToolTip(self.tr('Split/unsplit the main view'))
+        self._toolbar.addWidget(self._view_chooser)
+        self._view_chooser.triggered.connect(self._on_split_views)
+
+        self._act_link_view_scroll = add_toolbar_action(self._toolbar,
+            'resources/link-scroll.svg', self.tr('Link view scrolling'), self)
+        self._act_link_view_scroll.triggered.connect(self._on_link_view_scroll)
 
     def _init_zoom_tools(self):
         '''
@@ -78,6 +107,14 @@ class MainViewWidget(RasterPane):
         self._stretch_builder.show(self.get_current_dataset(),
                                    self._rasterview.get_display_bands(),
                                    self._rasterview.get_stretches())
+
+
+    def _on_split_views(self, evt):
+        print(f'TODO:  _on_split_views({evt})')
+
+
+    def _on_link_view_scroll(self, evt):
+        print(f'TODO:  _on_link_view_scroll({evt})')
 
 
     def _on_zoom_to_actual(self, evt):
