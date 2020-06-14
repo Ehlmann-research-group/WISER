@@ -38,3 +38,8 @@ from [Flaticon](https://www.flaticon.com/).
 
 *   collect-spectrum.svg (was interface.svg)
 *   load-spectra.svg (was interface.svg)
+
+Icons made by [Becris](https://www.flaticon.com/authors/becris)
+from [Flaticon](https://www.flaticon.com/).
+
+*   link-scroll.svg (was link.svg)

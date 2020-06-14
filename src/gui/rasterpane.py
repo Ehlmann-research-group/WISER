@@ -129,13 +129,7 @@ class RasterPane(QWidget):
         if self._embed_toolbar:
             self._toolbar.setIconSize(QSize(20, 20))
 
-        self._init_dataset_tools()
-        self._toolbar.addSeparator()
-        self._init_zoom_tools()
-
-        if select_tools:
-            self._toolbar.addSeparator()
-            self._init_select_tools()
+        self._init_toolbar()
 
         # Raster-view widget(s) and layout
 
@@ -153,6 +147,14 @@ class RasterPane(QWidget):
         self.setLayout(self._rasterview_layout)
 
         self._update_zoom_widgets()
+
+
+    def _init_toolbar(self):
+        self._init_dataset_tools()
+        self._toolbar.addSeparator()
+        self._init_zoom_tools()
+        self._toolbar.addSeparator()
+        self._init_select_tools()
 
 
     def _init_dataset_tools(self):
