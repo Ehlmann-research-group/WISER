@@ -23,6 +23,7 @@ class MainViewWidget(RasterPane):
             initial_zoom=1)
 
         self._stretch_builder = StretchBuilderDialog(parent=self)
+        self._link_view_scrolling = False
 
 
     def _init_toolbar(self):
@@ -75,7 +76,9 @@ class MainViewWidget(RasterPane):
 
         self._act_link_view_scroll = add_toolbar_action(self._toolbar,
             'resources/link-scroll.svg', self.tr('Link view scrolling'), self)
+        self._act_link_view_scroll.setCheckable(True)
         self._act_link_view_scroll.triggered.connect(self._on_link_view_scroll)
+
 
     def _init_zoom_tools(self):
         '''
@@ -109,12 +112,29 @@ class MainViewWidget(RasterPane):
                                    self._rasterview.get_stretches())
 
 
-    def _on_split_views(self, evt):
-        print(f'TODO:  _on_split_views({evt})')
+    def _on_split_views(self, action):
+        '''
+        This function handles when the user requests a split-view layout of some
+        structure.
+        '''
+        self._init_rasterviews(action.data())
 
 
-    def _on_link_view_scroll(self, evt):
-        print(f'TODO:  _on_link_view_scroll({evt})')
+    def _on_link_view_scroll(self, checked):
+        '''
+        This function handles when the user links or unlinks raster-view
+        scrolling.  When raster-view scrolling is linked, all raster views must
+        be updated to show the same coordinates as the top left raster view.
+        '''
+
+        self._link_view_scrolling = checked
+        if checked:
+            self._app_state.show_status_text(self.tr('Linked view scrolling is ON'), 5)
+
+            # TODO(donnie):  Update scroll state of all raster views
+        else:
+            self._app_state.show_status_text(self.tr('Linked view scrolling is OFF'), 5)
+
 
 
     def _on_zoom_to_actual(self, evt):
