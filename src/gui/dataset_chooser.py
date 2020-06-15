@@ -7,6 +7,10 @@ from PySide2.QtWidgets import *
 from .app_state import ApplicationState
 from raster.dataset import RasterDataSet
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .rasterpane import RasterPane
+
 
 class DatasetChooser(QToolButton):
     '''
@@ -16,9 +20,10 @@ class DatasetChooser(QToolButton):
     been loaded.
     '''
 
-    def __init__(self, app_state: ApplicationState):
+    def __init__(self, rasterpane: 'RasterPane', app_state: ApplicationState):
         super().__init__()
 
+        self._rasterpane = rasterpane
         self._app_state = app_state
 
         self._dataset_menu = QMenu()
@@ -33,25 +38,9 @@ class DatasetChooser(QToolButton):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+        self._rasterpane.views_changed.connect(self._on_views_changed)
 
         self._populate_dataset_menu()
-
-
-    def _make_dataset_action(self, dataset: RasterDataSet) -> QAction:
-        '''
-        This helper function generates a QAction for selecting the specified
-        dataset, suitable for adding to the Dataset Chooser's pop-up menu.
-        '''
-
-
-        file_path = dataset.get_filepaths()[0]
-        file_name = os.path.basename(file_path)
-
-        act = QAction(file_name)
-        act.setCheckable(True)
-        act.setData(dataset.get_id())
-
-        return act
 
 
     def _populate_dataset_menu(self):
@@ -64,14 +53,41 @@ class DatasetChooser(QToolButton):
         self._action_list = []
         self._dataset_menu.clear()
 
-        # Add an action for each dataset
-        for dataset in enumerate(self._app_state.get_datasets()):
-            act = self._make_dataset_action(dataset)
-            self._dataset_menu.addAction(act)
-            self._action_list.append(act)
+        num_views = self._rasterpane.get_num_views()
 
-        if len(self._action_list) > 0:
-            self._action_list[0].setChecked(True)
+        if num_views != (1, 1):
+            # We have multiple raster-views in the pane.  Generate a menu for
+            # each view.
+
+            (rows, cols) = num_views
+            for r in range(rows):
+                for c in range(cols):
+                    rv_menu = QMenu(self.tr('Row {r} column {c}').format(r=r, c=c))
+                    self._dataset_menu.addMenu(rv_menu)
+
+                    self._add_dataset_menu_items(rv_menu, (r, c))
+
+        else:
+            # We only have one raster-view in the pane.  Use the top level menu
+            # for the dataset list.
+            self._add_dataset_menu_items(self._dataset_menu)
+
+
+    def _add_dataset_menu_items(self, menu, rasterview_pos=(0, 0)):
+        # Add an action for each dataset
+        for dataset in self._app_state.get_datasets():
+            file_path = dataset.get_filepaths()[0]
+            file_name = os.path.basename(file_path)
+
+            act = QAction(file_name, parent=menu)
+            act.setCheckable(True)
+            act.setData( (rasterview_pos, dataset.get_id()) )
+
+            menu.addAction(act)
+            # self._action_list.append(act)
+
+        # if len(self._action_list) > 0:
+        #     self._action_list[0].setChecked(True)
 
 
     def _on_dataset_changed(self, act: QAction):
@@ -90,7 +106,7 @@ class DatasetChooser(QToolButton):
         '''
         This helper function updates the dataset-chooser when a new dataset is
         added to the application state.
-        '''
+        ''
 
         dataset = self._app_state.get_dataset(ds_id)
         act = self._make_dataset_action(dataset)
@@ -102,13 +118,14 @@ class DatasetChooser(QToolButton):
         if len(self._action_list) == 1:
             # We added an item to an empty list, so make sure to check it.
             self._action_list[0].setChecked(True)
-
+        '''
+        pass
 
     def _on_dataset_removed(self, ds_id: int):
         '''
         This helper function updates the dataset-chooser when a dataset is
         removed from the application state.
-        '''
+        ''
 
         # Find the QAction corresponding to the specified dataset ID.
         act = None
@@ -127,3 +144,9 @@ class DatasetChooser(QToolButton):
         if act.checked():
             # The action was checked.  Switch the check to a different entry.
             self._action_list[0].setChecked(True)
+        '''
+        pass
+
+    def _on_views_changed(self, shape):
+        # print(f'TODO:  _on_views_changed(shape={shape})')
+        self._populate_dataset_menu()
