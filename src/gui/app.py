@@ -448,11 +448,19 @@ class DataVisualizerApp(QMainWindow):
         self._main_view.make_point_visible(ds_point.x(), ds_point.y())
 
 
-    def _on_mainview_viewport_change(self, visible_area):
+    def _on_mainview_viewport_change(self, rasterview_position):
         '''
         When the user scrolls the viewport in the main view, the context pane
         is updated to show the visible area.
         '''
+        # TODO(donnie):  Handle this!!  Need to iterate through all raster-views
+        #     and draw their viewports in the context pane.  If the main view
+        #     has linked scrolling enabled, we only need to draw one box though.
+        if rasterview_position is None:
+            return
+
+        rasterview = self._main_view.get_rasterview(rasterview_position)
+        visible_area = rasterview.get_visible_region()
         self._context_pane.set_viewport_highlight(visible_area)
 
 
@@ -496,25 +504,21 @@ class DataVisualizerApp(QMainWindow):
 
 
     def _on_zoom_visibility_changed(self, visible):
-        if visible:
-            # Zoom pane is being shown.  Show the zoom-region highlight in the
-            # main view.
-            visible_region = self._zoom_pane.get_rasterview().get_visible_region()
-            self._main_view.set_viewport_highlight(visible_region)
+        self._update_zoom_viewport_highlight()
 
-        else:
-            # Zoom pane is being hidden.  Remove the zoom-region highlight from
-            # the main view.
-            self._main_view.set_viewport_highlight(None)
-
-
-    def _on_zoom_viewport_change(self, visible_area):
+    def _on_zoom_viewport_change(self, rasterview_position):
         '''
         When the user scrolls the viewport in the zoom pane, the main view
         is updated to show the visible area.
         '''
-        if not self._zoom_pane.isVisible():
-            visible_area = None
+        # We can ignore rasterview_position since the zoom pane always has only
+        # one raster-view.
+        self._update_zoom_viewport_highlight()
+
+    def _update_zoom_viewport_highlight(self):
+        visible_area = None
+        if self._zoom_pane.isVisible():
+            visible_area = self._zoom_pane.get_rasterview().get_visible_region()
 
         self._main_view.set_viewport_highlight(visible_area)
 

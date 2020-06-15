@@ -57,14 +57,14 @@ class ContextPane(RasterPane):
         the required part of the dataset stays in view when the window
         dimensions change.
         '''
-        self._update_image()
+        self._update_image_scale()
 
 
     def _on_toggle_fit_to_window(self):
         '''
         Update the raster-view image when the "fit to window" button is toggled.
         '''
-        self._update_image()
+        self._update_image_scale()
 
 
     def _on_view_attr_changed(self, attr_name):
@@ -72,13 +72,11 @@ class ContextPane(RasterPane):
             self.get_rasterview().update()
 
 
-    def _update_image(self):
+    def _update_image_scale(self):
         '''
         Scale the raster-view image based on the image size, and the state of
         the "fit to window" button.
         '''
-        super()._update_image()
-
         # Handle window-scaling changes
         if self._act_fit_to_window.isChecked():
             # The entire image needs to fit in the summary view.

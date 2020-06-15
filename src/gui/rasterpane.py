@@ -50,6 +50,8 @@ class RasterPane(QWidget):
     #   - The value is True for "visible", False for "invisible".
     visibility_change = Signal(bool)
 
+    views_changed = Signal(tuple)
+
     # Signal:  the display bands in this view were changed
     #   - The int is the numeric ID of the dataset whose display bands are
     #     changing
@@ -87,7 +89,9 @@ class RasterPane(QWidget):
         self._app_state = app_state
 
         # The numeric ID of the data-set being displayed
-        self._dataset_id: Optional[int] = None
+        # TODO(donnie):  Since panes can show multiple raster data sets at once,
+        #     this value is no longer useful.
+        # self._dataset_id: Optional[int] = None
 
         # The bands to display for each dataset.  Keys are dataset IDs, and
         # entries are the corresponding tuple of the bands to display for the
@@ -129,8 +133,6 @@ class RasterPane(QWidget):
         if self._embed_toolbar:
             self._toolbar.setIconSize(QSize(20, 20))
 
-        self._init_toolbar()
-
         # Raster-view widget(s) and layout
 
         # Invalid value, ensures _init_rasterviews will initialize the views.
@@ -145,6 +147,10 @@ class RasterPane(QWidget):
         self._init_rasterviews()  # Default dimension is (1, 1)
 
         # Toolbar and other layout details
+
+        # Initialize the toolbar after the raster-views, because the dataset
+        # chooser widget references the rasterviews.
+        self._init_toolbar()
 
         if self._embed_toolbar:
             self._rasterview_layout.setMenuBar(self._toolbar)
@@ -169,7 +175,7 @@ class RasterPane(QWidget):
 
         # Dataset / Band Tools
 
-        self._dataset_chooser = DatasetChooser(self._app_state)
+        self._dataset_chooser = DatasetChooser(self, self._app_state)
         self._toolbar.addWidget(self._dataset_chooser)
         self._dataset_chooser.triggered.connect(self._on_dataset_changed)
 
@@ -288,6 +294,7 @@ class RasterPane(QWidget):
                 self._rasterview_layout.addWidget(rasterview, row, col)
 
         self._num_views = num_views
+        self.views_changed.emit(self._num_views)
 
 
     def _get_rasterview_position(self, rasterview):
@@ -303,6 +310,10 @@ class RasterPane(QWidget):
                 return pos
 
         return None
+
+
+    def get_num_views(self) -> Tuple[int, int]:
+        return self._num_views
 
 
     def get_rasterview(self, rasterview_pos=(0, 0)):
@@ -448,11 +459,16 @@ class RasterPane(QWidget):
         return self._toolbar
 
 
-    def get_current_dataset(self) -> Optional[RasterDataSet]:
-        if self._dataset_id is None:
-            return None
+    def get_current_dataset(self, rasterview_pos=(0, 0)) -> Optional[RasterDataSet]:
+        '''
+        Returns the current dataset being displayed at the specified location
+        in the raster pane.
 
-        return self._app_state.get_dataset(self._dataset_id)
+        TODO(donnie):  Eventually this will become obsolete, when a raster-view
+            can display multiple images at a time.
+        '''
+        rasterview = self.get_rasterview(rasterview_pos)
+        return rasterview.get_raster_data()
 
 
     def set_display_bands(self, ds_id: int, bands: Tuple):
@@ -523,7 +539,7 @@ class RasterPane(QWidget):
         self._pixel_highlight = pixel
 
         # TODO(donnie):  Iterate through all rasterviews?
-        rasterview = set.get_rasterview()
+        rasterview = self.get_rasterview()
         visible = rasterview.get_visible_region()
         if visible is None or pixel is None:
             rasterview.update()
@@ -566,46 +582,65 @@ class RasterPane(QWidget):
 
 
     def _on_dataset_added(self, ds_id):
-        new_dataset = self._app_state.get_dataset(ds_id)
+        '''
+        This function handles "dataset added" events from the application state.
+        It records the initial display bands to use for the dataset.  Also, if
+        this is the first dataset loaded, the function shows it in all
+        rasterviews.
+        '''
 
-        bands = find_display_bands(new_dataset)
+        dataset = self._app_state.get_dataset(ds_id)
+        bands = find_display_bands(dataset)
         self._display_bands[ds_id] = bands
 
         # print(f'on_dataset_added:  band info:  {self._display_bands}')
 
         if self._app_state.num_datasets() == 1:
             # We finally have a dataset!
-            self._dataset_id = ds_id
-            self._update_image()
 
-            if self._initial_zoom is not None:
-                # TODO(donnie):  What to do with multi-views?
-                self.get_rasterview().scale_image(self._initial_zoom)
+            for rasterview in self._rasterviews.values():
+                # Only do this when the raster dataset actually changes,
+                # or the displayed bands change, etc.
+                if dataset != rasterview.get_raster_data():
+                    bands = self._display_bands[ds_id]
+                    stretches = self._app_state.get_stretches(ds_id, bands)
+                    rasterview.set_raster_data(dataset, bands, stretches)
+
+                if self._initial_zoom is not None:
+                    rasterview.scale_image(self._initial_zoom)
 
             self._update_zoom_widgets()
 
 
     def _on_dataset_removed(self, ds_id):
+        '''
+        This function handles "dataset removed" events from the application
+        state.  It cleans up the locally-recorded display band info for the
+        dataset.  Also, if any rasterviews are showing the dataset, the function
+        switches them to a different dataset (if more than one is loaded).
+        '''
         del self._display_bands[ds_id]
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 
-        if self._dataset_id == ds_id:
-            # The dataset being displayed is the one that is being removed.
-            # Find a different dataset to display.
-            all_ds_ids = [ds.get_id() for ds in self._app_state.get_datasets()]
-            if len(all_ds_ids) > 0:
-                all_ds_ids.sort()
-                self._dataset_id = all_ds_ids[0]
-            else:
-                self._dataset_id = None
-
-            self._update_image()
+        for rasterview in self._rasterviews.values():
+            rv_ds = rasterview.get_raster_data()
+            if rv_ds is not None and rv_ds.get_id() == ds_id:
+                rasterview.set_raster_data(None, None)
 
 
     def _on_dataset_changed(self, act):
-        self._dataset_id = act.data()
-        self._update_image()
+        (rasterview_pos, ds_id) = act.data()
+        # TODO(donnie):  This needs to be updated to forward to the specified
+        #     raster-view.
+
+        rasterview = self.get_rasterview(rasterview_pos)
+
+        dataset = self._app_state.get_dataset(ds_id)
+        bands = self._display_bands[ds_id]
+        stretches = self._app_state.get_stretches(ds_id, bands)
+
+        rasterview.set_raster_data(dataset, bands, stretches)
 
 
     def _on_band_chooser(self, act):
@@ -785,23 +820,6 @@ class RasterPane(QWidget):
             QMessageBox.warning(self, self.tr('Unsupported Feature'),
                 f'ISWB does not yet support selections of type {selection_type}')
 
-
-    def _update_image(self, rasterview_pos=(0, 0)):
-        dataset = None
-        if self._app_state.num_datasets() > 0:
-            dataset = self.get_current_dataset()
-
-        rasterview = self._rasterviews[rasterview_pos]
-
-        # Only do this when the raster dataset actually changes,
-        # or the displayed bands change, etc.
-        if dataset != rasterview.get_raster_data():
-            bands = self._display_bands[self._dataset_id]
-            stretches = self._app_state.get_stretches(self._dataset_id, bands)
-            rasterview.set_raster_data(dataset, bands, stretches)
-
-        if dataset is None:
-            return
 
 
     # TODO(donnie):  Make this function take a QPainter argument???
