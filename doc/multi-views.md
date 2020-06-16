@@ -35,3 +35,44 @@ followed:
     discarded).
 
 These behaviors are also followed when the user clicks in the zoom window.
+
+# TODO:  Confusing Scenarios
+
+Scenario:  different "unrelated" spectral data sets
+
+*   Main image window showing two views with different datasets (e.g. oman1 and
+    oman2 spectral data).  Linked scrolling is OFF.
+*   Context window showing one of these data sets.
+
+*   What should the context window viewport highlight indicate?  Should it
+    always be drawn?
+    *   Issue:  The viewport reported from the unrelated dataset doesn't really
+        mean anything.
+
+*   Click in main window; zoom pane should switch to the clicked-on data set,
+    and show the appropriate spectrum in the plot.
+
+*   Click in zoom pane.  What should happen in the main image window?
+    *   Show highlighted pixel in all views, even though they may be from
+        different data sets?
+    *   Only show highlighted pixel in views with the same data set?
+
+    *   Same questions for viewport highlight.  (This is the same issue as with
+        the main window and the context window.)
+
+Scenario:  different "related" data sets over the same spatial area
+
+*   Main image window showing two views with related datasets (e.g. oman1
+    spectral data and oman1 mineral map).  Linked scrolling is ON.
+*   Context window showing one of these data sets.
+
+*   Click in main window.
+
+    *   Context window viewport highlight is easy; all main window views are
+        showing the same area.
+
+    *   Should zoom pane switch to the clicked-on data set?
+
+*   Click in zoom pane.  What should happen in the main image window?
+    *   Show highlighted pixel in all views.
+    *   Show viewport highlight in all views.
