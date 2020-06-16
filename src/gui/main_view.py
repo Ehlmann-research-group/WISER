@@ -141,6 +141,29 @@ class MainViewWidget(RasterPane):
             self._app_state.show_status_text(self.tr('Linked view scrolling is OFF'), 5)
 
 
+    def _afterRasterScroll(self, rasterview, dx, dy):
+        '''
+        This function is called when the raster-view's scrollbars are moved.
+
+        It fires an event that the visible region of the raster-view has
+        changed.
+
+        If multiple raster-views are active, and scrolling is linked, this also
+        propagates the scroll changes to the other raster-views.
+        '''
+        # Invoke the superclass version of this operation to emit the
+        # viewport-changed event.
+        super()._afterRasterScroll(rasterview, dx, dy)
+
+        sb_state = rasterview.get_scrollbar_state()
+        if len(self._rasterviews) > 1 and self._link_view_scrolling:
+            for rv in self._rasterviews.values():
+                # Skip the rasterview that generated the scroll event
+                if rv is rasterview:
+                    continue
+
+                rv.set_scrollbar_state(sb_state)
+
 
     def _on_zoom_to_actual(self, evt):
         ''' Zoom the view to 100% scale. '''
