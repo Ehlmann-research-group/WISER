@@ -483,6 +483,27 @@ class RasterView(QWidget):
         self._image_widget.update()
 
 
+    def get_scrollbar_state(self) -> Tuple[int, int]:
+        '''
+        Returns the current state of the horizontal and vertical scrollbars.
+        The state is returned as a 2-tuple of (horizontal scrollbar value,
+        vertical scrollbar value).
+        '''
+        return (self._scroll_area.horizontalScrollBar().value(),
+                self._scroll_area.verticalScrollBar().value())
+
+
+    def set_scrollbar_state(self, state: Tuple[int, int]):
+        '''
+        Sets the state of the horizontal and vertical scrollbars to the
+        specified values.  The state value must be a 2-tuple of (horizontal
+        scrollbar value, vertical scrollbar value), as returned by
+        get_scrollbar_state().
+        '''
+        self._scroll_area.horizontalScrollBar().setValue(state[0])
+        self._scroll_area.verticalScrollBar().setValue(state[1])
+
+
     def get_visible_region(self):
         '''
         This method reports the visible region of the raster data-set, in raster

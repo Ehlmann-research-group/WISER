@@ -96,56 +96,16 @@ class DatasetChooser(QToolButton):
         has a check-mark by it; all other datasets will be (or become)
         deselected.
         '''
-
         for oact in self._action_list:
             if oact != act and oact.isChecked():
                 oact.setChecked(False)
 
 
     def _on_dataset_added(self, ds_id: int):
-        '''
-        This helper function updates the dataset-chooser when a new dataset is
-        added to the application state.
-        ''
-
-        dataset = self._app_state.get_dataset(ds_id)
-        act = self._make_dataset_action(dataset)
-
-        # Always append the new action to the end of the menu and list.
-        self._dataset_menu.addAction(act)
-        self._action_list.append(act)
-
-        if len(self._action_list) == 1:
-            # We added an item to an empty list, so make sure to check it.
-            self._action_list[0].setChecked(True)
-        '''
-        pass
+        self._populate_dataset_menu()
 
     def _on_dataset_removed(self, ds_id: int):
-        '''
-        This helper function updates the dataset-chooser when a dataset is
-        removed from the application state.
-        ''
-
-        # Find the QAction corresponding to the specified dataset ID.
-        act = None
-        for i in range(len(self._action_list)):
-            act = self._action_list[i]
-            if act.data() == ds_id:
-                break
-
-        if act is None:
-            print(f'WARNING:  Dataset Chooser encountered unrecognized dataset ID {ds_id}')
-            return
-
-        self._dataset_menu.removeAction(act)
-        del self._action_list[i]
-
-        if act.checked():
-            # The action was checked.  Switch the check to a different entry.
-            self._action_list[0].setChecked(True)
-        '''
-        pass
+        self._populate_dataset_menu()
 
     def _on_views_changed(self, shape):
         # print(f'TODO:  _on_views_changed(shape={shape})')

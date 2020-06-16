@@ -440,11 +440,13 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.add_selection(selection)
 
 
-    def _on_context_raster_pixel_select(self, ds_point):
+    def _on_context_raster_pixel_select(self, rasterview_position, ds_point):
         '''
         When the user clicks the mouse in the context pane, the main view is
         updated to show that location in the center of the main window.
         '''
+        # In the context pane, the rasterview position should always be (0, 0).
+        assert rasterview_position == (0, 0)
         self._main_view.make_point_visible(ds_point.x(), ds_point.y())
 
 
@@ -464,7 +466,7 @@ class DataVisualizerApp(QMainWindow):
         self._context_pane.set_viewport_highlight(visible_area)
 
 
-    def _on_mainview_raster_pixel_select(self, ds_point):
+    def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point):
         '''
         When the user clicks in the main view, the following things happen:
         *   The pixel is shown in the center of the zoom pane, and a selection
@@ -478,14 +480,16 @@ class DataVisualizerApp(QMainWindow):
         if self._app_state.num_datasets() == 0:
             return
 
+        dataset = self._main_view.get_current_dataset(rasterview_position)
+
         # Update the main view and zoom pane to show the selected pixel
         self._main_view.set_pixel_highlight(ds_point, recenter=RecenterMode.NEVER)
+        self._zoom_pane.show_dataset(dataset)
         self._zoom_pane.set_pixel_highlight(ds_point)
 
         # Show spectrum at selected pixel.  Note that we use the dataset
         # selected in the main view, since the click originated from the main
         # view.
-        dataset = self._main_view.get_current_dataset()
         self._spectrum_plot.set_active_spectrum(dataset, ds_point)
 
 
@@ -523,7 +527,7 @@ class DataVisualizerApp(QMainWindow):
         self._main_view.set_viewport_highlight(visible_area)
 
 
-    def _on_zoom_raster_pixel_select(self, ds_point):
+    def _on_zoom_raster_pixel_select(self, rasterview_position, ds_point):
         '''
         When the user clicks in the zoom pane, the following things happen:
         *   A selection reticle is shown around the pixel.
@@ -533,6 +537,9 @@ class DataVisualizerApp(QMainWindow):
         that if they were hidden and are then shown, they will still contain the
         relevant information.
         '''
+        # In the zoom pane, the rasterview position should always be (0, 0).
+        assert rasterview_position == (0, 0)
+
         if self._app_state.num_datasets() == 0:
             return
 

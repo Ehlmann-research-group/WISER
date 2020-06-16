@@ -61,9 +61,10 @@ class RasterPane(QWidget):
     display_bands_change = Signal(int, tuple, bool)
 
 
-    # Signal:  for when the user selects a raster pixel.  The coordinates of the
-    # pixel in the raster image are reported:  QPoint(x, y).
-    click_pixel = Signal(QPoint)
+    # Signal:  for when the user selects a raster pixel.  The signal reports the
+    # (row, col) coordinates of the raster-view that was clicked in, and also
+    # the coordinates of the pixel in the raster image.
+    click_pixel = Signal(tuple, QPoint)
 
 
     # Signal:  the user created a selection in the pane.  The created selection
@@ -297,7 +298,7 @@ class RasterPane(QWidget):
         self.views_changed.emit(self._num_views)
 
 
-    def _get_rasterview_position(self, rasterview):
+    def _get_rasterview_position(self, rasterview) -> Optional[Tuple[int, int]]:
         '''
         Returns the position of the rasterview in the raster-pane, as a
         (row, col) tuple.
@@ -379,7 +380,9 @@ class RasterPane(QWidget):
                 # Map the coordinate of the mouse-event to the actual raster-image
                 # pixel that was clicked, then emit a signal.
                 r_coord = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-                self.click_pixel.emit(r_coord)
+
+                rasterview_pos = self._get_rasterview_position(rasterview)
+                self.click_pixel.emit(rasterview_pos, r_coord)
 
 
     def _onRasterKeyPress(self, rasterview, key_event):
@@ -427,8 +430,13 @@ class RasterPane(QWidget):
 
     def _afterRasterScroll(self, rasterview, dx, dy):
         '''
-        This function is called when the scroll-area moves around.  Fire an
-        event that the visible region of the raster-view has changed.
+        This function is called when the raster-view's scrollbars are moved.
+
+        It fires an event that the visible region of the raster-view has
+        changed.
+
+        If multiple raster-views are active, and scrolling is linked, this also
+        propagates the scroll changes to the other raster-views.
         '''
         self._emit_viewport_change(self._get_rasterview_position(rasterview))
 
@@ -461,14 +469,28 @@ class RasterPane(QWidget):
 
     def get_current_dataset(self, rasterview_pos=(0, 0)) -> Optional[RasterDataSet]:
         '''
-        Returns the current dataset being displayed at the specified location
-        in the raster pane.
+        Returns the current dataset being displayed in the specified view of the
+        raster pane.
 
         TODO(donnie):  Eventually this will become obsolete, when a raster-view
             can display multiple images at a time.
         '''
         rasterview = self.get_rasterview(rasterview_pos)
         return rasterview.get_raster_data()
+
+
+    def show_dataset(self, dataset, rasterview_pos=(0, 0)):
+        '''
+        Sets the dataset being displayed in the specified view of the raster
+        pane.
+        '''
+        rasterview = self.get_rasterview(rasterview_pos)
+
+        ds_id = dataset.get_id()
+        bands = self._display_bands[ds_id]
+        stretches = self._app_state.get_stretches(ds_id, bands)
+
+        rasterview.set_raster_data(dataset, bands, stretches)
 
 
     def set_display_bands(self, ds_id: int, bands: Tuple):
@@ -512,19 +534,20 @@ class RasterPane(QWidget):
         # raster-view's visible area, scroll such that the viewport highlight is
         # in the middle of the raster-view's visible area.
 
-        # TODO(donnie):  Iterate through all rasterviews?
-        rasterview = self.get_rasterview()
-        visible = rasterview.get_visible_region()
-        if visible is None or viewport is None:
+        # TODO(donnie):  Do we want to force all raster-views to switch to
+        #     displaying the viewport?
+        for rasterview in self._rasterviews.values():
+            visible = rasterview.get_visible_region()
+            if visible is None or viewport is None:
+                rasterview.update()
+                return
+
+            if not visible.contains(viewport):
+                center = viewport.center()
+                rasterview.make_point_visible(center.x(), center.y())
+
+            # Repaint raster-view
             rasterview.update()
-            return
-
-        if not visible.contains(viewport):
-            center = viewport.center()
-            rasterview.make_point_visible(center.x(), center.y())
-
-        # Repaint raster-view
-        rasterview.update()
 
 
     def set_pixel_highlight(self, pixel, recenter=RecenterMode.ALWAYS):
@@ -538,26 +561,27 @@ class RasterPane(QWidget):
         '''
         self._pixel_highlight = pixel
 
-        # TODO(donnie):  Iterate through all rasterviews?
-        rasterview = self.get_rasterview()
-        visible = rasterview.get_visible_region()
-        if visible is None or pixel is None:
+        # TODO(donnie):  Do we want to force all raster-views to switch to
+        #     displaying the pixel highlight?
+        for rasterview in self._rasterviews.values():
+            visible = rasterview.get_visible_region()
+            if visible is None or pixel is None:
+                rasterview.update()
+                return
+
+            do_recenter = False
+            if recenter == RecenterMode.ALWAYS:
+                do_recenter = True
+            elif recenter == RecenterMode.IF_NOT_VISIBLE:
+                do_recenter = not visible.contains(pixel)
+
+            if do_recenter:
+                # Scroll the raster-view such that the pixel is in the middle of the
+                # raster-view's visible area.
+                rasterview.make_point_visible(pixel.x(), pixel.y())
+
+            # Repaint raster-view
             rasterview.update()
-            return
-
-        do_recenter = False
-        if recenter == RecenterMode.ALWAYS:
-            do_recenter = True
-        elif recenter == RecenterMode.IF_NOT_VISIBLE:
-            do_recenter = not visible.contains(pixel)
-
-        if do_recenter:
-            # Scroll the raster-view such that the pixel is in the middle of the
-            # raster-view's visible area.
-            rasterview.make_point_visible(pixel.x(), pixel.y())
-
-        # Repaint raster-view
-        rasterview.update()
 
 
     def sizeHint(self):
@@ -631,16 +655,8 @@ class RasterPane(QWidget):
 
     def _on_dataset_changed(self, act):
         (rasterview_pos, ds_id) = act.data()
-        # TODO(donnie):  This needs to be updated to forward to the specified
-        #     raster-view.
-
-        rasterview = self.get_rasterview(rasterview_pos)
-
         dataset = self._app_state.get_dataset(ds_id)
-        bands = self._display_bands[ds_id]
-        stretches = self._app_state.get_stretches(ds_id, bands)
-
-        rasterview.set_raster_data(dataset, bands, stretches)
+        self.show_dataset(dataset, rasterview_pos)
 
 
     def _on_band_chooser(self, act):
