@@ -12,8 +12,7 @@ from .rasterview import RasterView
 from .util import add_toolbar_action, get_painter
 
 from raster.dataset import RasterDataSet, find_display_bands, find_truecolor_bands
-
-from raster.selection import SelectionType, Selection
+from raster.selection import SelectionType, Selection, SinglePixelSelection
 
 from .roi import draw_roi
 
@@ -108,7 +107,7 @@ class RasterPane(QWidget):
         self._initial_zoom = initial_zoom
 
         self._viewport_highlight = None
-        self._pixel_highlight = None
+        self._pixel_highlight: SinglePixelSelection = None
 
         self._task_delegate = None
 
@@ -314,7 +313,19 @@ class RasterPane(QWidget):
 
 
     def get_num_views(self) -> Tuple[int, int]:
+        '''
+        Returns a 2-tuple of the form (rows, cols) specifying the number of
+        views currently showing in this raster pane.
+        '''
         return self._num_views
+
+
+    def is_multi_view(self) -> bool:
+        '''
+        Returns True if this raster pane is currently showing more than one
+        view, or False otherwise.
+        '''
+        return len(self._rasterviews) > 1
 
 
     def get_rasterview(self, rasterview_pos=(0, 0)):
@@ -550,35 +561,54 @@ class RasterPane(QWidget):
             rasterview.update()
 
 
-    def set_pixel_highlight(self, pixel, recenter=RecenterMode.ALWAYS):
+    def set_pixel_highlight(self, pixel_sel: Optional[SinglePixelSelection],
+                            recenter:RecenterMode=RecenterMode.ALWAYS):
         '''
-        Sets the "pixel highlight" to be displayed in this raster-pane.  This
-        is used to allow the Main View to show pixel selections from the Zoom
-        Pane.
-
-        TODO(donnie):  This will need to be updated for multiple viewports and
-        linked windows.
+        Sets the "pixel highlight" to be displayed in this raster-pane.  This is
+        used by both the main image window and the zoom window, to indicate the
+        pixel most recently selected by the user.
         '''
-        self._pixel_highlight = pixel
+        self._pixel_highlight = pixel_sel
 
-        # TODO(donnie):  Do we want to force all raster-views to switch to
-        #     displaying the pixel highlight?
+        coord = None
+        dataset = None
+        if pixel_sel is not None:
+            coord = pixel_sel.get_pixel()
+            dataset = pixel_sel.get_dataset()
+
         for rasterview in self._rasterviews.values():
+            # Get the current dataset and visible region of the rasterview
+            rv_dataset = rasterview.get_raster_data()
             visible = rasterview.get_visible_region()
-            if visible is None or pixel is None:
-                rasterview.update()
-                return
 
+            if rv_dataset is None or visible is None or pixel_sel is None:
+                # Don't worry about recentering things, or displaying things -
+                # we are missing something that is necessary to display a pixel
+                # selection anyway.  Just update the rasterview to remove any
+                # pixel selection, then move on.
+                rasterview.update()
+                continue
+
+            if dataset is not None and rv_dataset is not dataset:
+                # The selection's dataset was specified, and the rasterview is
+                # showing a different dataset.  Update the rasterview to remove
+                # any pixel selection, and move on.
+                rasterview.update()
+                continue
+
+            # If we got here, we want to show the selection in this rasterview.
+            # The only question is whether we need to recenter the rasterview to
+            # ensure that the pixel selection is visible.
             do_recenter = False
             if recenter == RecenterMode.ALWAYS:
                 do_recenter = True
             elif recenter == RecenterMode.IF_NOT_VISIBLE:
-                do_recenter = not visible.contains(pixel)
+                do_recenter = not visible.contains(coord)
 
             if do_recenter:
                 # Scroll the raster-view such that the pixel is in the middle of the
                 # raster-view's visible area.
-                rasterview.make_point_visible(pixel.x(), pixel.y())
+                rasterview.make_point_visible(coord.x(), coord.y())
 
             # Repaint raster-view
             rasterview.update()
@@ -732,13 +762,20 @@ class RasterPane(QWidget):
 
 
     def _on_zoom_cbox(self, index):
-        ''' Zoom the zoom-view to the specified option in the zoom combo-box. '''
+        ''' Zoom the display to the specified option in the zoom combo-box. '''
         self._cbox_zoom.lineEdit().clearFocus()
         self.set_scale(self._cbox_zoom.currentData())
         self._update_zoom_widgets()
 
 
     def _on_zoom_cbox_edit_text(self):
+        '''
+        Zoom the display to the amount that the user typed into the zoom
+        combo-box's line edit.  The user may specify this as a percentage
+        (e.g. "50.3%"), or they may specify it as a number (e.g. "50.3"); these
+        values are all normalized to a whole number with a percent sign
+        (e.g. "50%").
+        '''
         text = self._cbox_zoom.lineEdit().text()
         self._cbox_zoom.lineEdit().clearFocus()
 
@@ -790,8 +827,10 @@ class RasterPane(QWidget):
         scale = self.get_scale()
 
         # Enable / disable zoom buttons based on scale
-        self._act_zoom_out.setEnabled(self._min_zoom_scale is None or scale >= self._min_zoom_scale)
-        self._act_zoom_in.setEnabled(self._max_zoom_scale is None or scale <= self._max_zoom_scale)
+        self._act_zoom_out.setEnabled(self._min_zoom_scale is None or
+                                      scale >= self._min_zoom_scale)
+        self._act_zoom_in.setEnabled(self._max_zoom_scale is None or
+                                     scale <= self._max_zoom_scale)
 
         # Set the zoom-level value
         if scale in self._zoom_options:
@@ -860,20 +899,20 @@ class RasterPane(QWidget):
         '''
 
         # Draw regions of interest
-        self._draw_regions_of_interest(widget, paint_event)
+        self._draw_regions_of_interest(rasterview, widget, paint_event)
 
         # Draw the viewport highlight, if there is one
-        self._draw_viewport_highlight(widget, paint_event)
+        self._draw_viewport_highlight(rasterview, widget, paint_event)
 
         # Draw the pixel highlight, if there is one
-        self._draw_pixel_highlight(widget, paint_event)
+        self._draw_pixel_highlight(rasterview, widget, paint_event)
 
         if self._task_delegate is not None:
             with get_painter(widget) as painter:
                 self._task_delegate.draw_state(painter)
 
 
-    def _draw_regions_of_interest(self, widget, paint_event):
+    def _draw_regions_of_interest(self, rasterview, widget, paint_event):
         # active_roi = self._app_state.get_active_roi()
         with get_painter(widget) as painter:
             for (name, roi) in self._app_state.get_rois().items():
@@ -882,7 +921,7 @@ class RasterPane(QWidget):
                 draw_roi(self.get_rasterview(), painter, roi)
 
 
-    def _draw_viewport_highlight(self, widget, paint_event):
+    def _draw_viewport_highlight(self, rasterview, widget, paint_event):
         '''
         This helper function draws the viewport highlight in this raster-pane.
         The color to draw with is taken from the application state's config.
@@ -893,45 +932,60 @@ class RasterPane(QWidget):
         if self._viewport_highlight is None:
             return
 
+        # The viewport highlight will either be a box (QRect or QRectF), or it
+        # will be a list of boxes in some circumstances.
+        if not isinstance(self._viewport_highlight, list):
+            highlights = [self._viewport_highlight]
+        else:
+            highlights = self._viewport_highlight
+
         # Draw the viewport highlight.
         with get_painter(widget) as painter:
             color = self._app_state.get_color_of('viewport-highlight')
             painter.setPen(QPen(color))
 
-            box = self._viewport_highlight
-            scale = self.get_scale()
+            for box in highlights:
+                scale = self.get_scale()
 
-            scaled = QRect(box.x() * scale, box.y() * scale,
-                           box.width() * scale, box.height() * scale)
+                scaled = QRect(box.x() * scale, box.y() * scale,
+                               box.width() * scale, box.height() * scale)
 
-            if scaled.width() >= widget.width():
-                scaled.setWidth(widget.width() - 1)
+                if scaled.width() >= widget.width():
+                    scaled.setWidth(widget.width() - 1)
 
-            if scaled.height() >= widget.height():
-                scaled.setHeight(widget.height() - 1)
+                if scaled.height() >= widget.height():
+                    scaled.setHeight(widget.height() - 1)
 
-            painter.drawRect(scaled)
+                painter.drawRect(scaled)
 
 
-    def _draw_pixel_highlight(self, widget, paint_event):
+    def _draw_pixel_highlight(self, rasterview, widget, paint_event):
         '''
         This helper function draws the "currently selected pixel" highlight in
         this raster-pane.  The color to draw with is taken from the application
         state's config.
 
-        If there is no "currently selected pixel" highlight, this is a no-op.
+        If there is no "currently selected pixel" highlight, or if the highlight
+        specifies a different dataset than the rasterview is showing, this is a
+        no-op.
         '''
 
         if self._pixel_highlight is None:
             return
+
+        dataset = self._pixel_highlight.get_dataset()
+        if dataset is not None and rasterview.get_raster_data() is not dataset:
+            return
+
+        coord = self._pixel_highlight.get_pixel()
 
         with get_painter(widget) as painter:
             color = self._app_state.get_color_of('pixel-highlight')
             painter.setPen(QPen(color))
 
             # (ds_x, ds_y) is the coordinate within the data-set.
-            ds_x = self._pixel_highlight.x()
-            ds_y = self._pixel_highlight.y()
+            ds_x = coord.x()
+            ds_y = coord.y()
 
             # This is the size of individual data-set pixels in the display
             # coordinate system.
@@ -940,7 +994,6 @@ class RasterPane(QWidget):
             # This is the center of the highlighted pixel.
             screen_x = (ds_x + 0.5) * scale
             screen_y = (ds_y + 0.5) * scale
-
 
             # Draw a reticle centered on the highlighted pixel.
 
@@ -953,17 +1006,18 @@ class RasterPane(QWidget):
                 painter.drawLine(0, screen_y, widget.width(), screen_y)
                 painter.drawLine(screen_x, 0, screen_x, widget.height())
 
+            elif reticle_type == PixelReticleType.SMALL_CROSS_BOX:
+                painter.drawLine(screen_x - 15, screen_y, screen_x + 15, screen_y)
+                painter.drawLine(screen_x, screen_y - 15, screen_x, screen_y + 15)
+
+                # Draw a box around the highlighted pixel, but only if it's
+                # larger than a certain scale.
+                if scale >= 4:
+                    # Compute the rectangle that will border the specified
+                    # pixel.  Subtract 1 from the width and height to keep the
+                    # rectangle from spilling into the neighboring pixel.
+                    scaled = QRect(screen_x, screen_y, scale, scale)
+                    painter.drawRect(scaled)
+
             else:
                 raise ValueError(f'Unrecognized reticle-type {reticle_type}')
-
-            # TODO(donnie):  Figure out how to incorporate this with the above.
-            '''
-            # Draw a box around the highlighted pixel, but only if it's larger
-            # than a certain scale.
-            if scale >= 4:
-                # Compute the rectangle that will border the specified pixel.
-                # Subtract 1 from the width and height to keep the rectangle
-                # from spilling into the neighboring pixel.
-                scaled = QRect(screen_x, screen_y, scale, scale)
-                painter.drawRect(scaled)
-            '''

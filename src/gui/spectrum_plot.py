@@ -10,6 +10,7 @@ from .spectrum_info_editor import SpectrumInfoEditor
 from .util import add_toolbar_action
 
 from raster.envi_spectral_library import ENVISpectralLibrary
+from raster.selection import Selection, SinglePixelSelection
 from raster.spectra import SpectrumType, SpectrumAverageMode, calc_rect_spectrum
 
 import matplotlib
@@ -46,7 +47,7 @@ def get_matplotlib_colors():
         # TODO(donnie):  May want to do this with HSV colorspace.
         rgba = matplotlib.colors.to_rgba_array(name).flatten()
         prod = np.prod(rgba)
-        if prod >= 0.4:
+        if prod >= 0.3:
             continue
 
         # print(f'Color {name} = {rgba} (type is {type(rgba)})')
@@ -923,7 +924,7 @@ class SpectrumPlot(QWidget):
         self._figure_canvas.draw()
 
 
-    def set_active_spectrum(self, dataset, coord):
+    def set_active_spectrum(self, selection: Selection):
         '''
         Sets the current "active spectrum" in the spectral plot window, and
         updates the info in the spectrum tree.  If there is a previous "active
@@ -932,10 +933,17 @@ class SpectrumPlot(QWidget):
         if self._active_spectrum_color is None:
             self._active_spectrum_color = get_random_matplotlib_color()
 
-        info = CollectedSpectrum(dataset, SpectrumType.PIXEL,
-            point=coord, color=self._active_spectrum_color,
-            area=(self._default_area_avg_x, self._default_area_avg_y),
-            avg_mode=self._default_average_mode)
+        # TODO(donnie):  Figure out a better integration!  Support other kinds
+        #     of selections!
+        if isinstance(selection, SinglePixelSelection):
+            coord = selection.get_pixel()
+            dataset = selection.get_dataset()
+            info = CollectedSpectrum(dataset, SpectrumType.PIXEL,
+                point=coord, color=self._active_spectrum_color,
+                area=(self._default_area_avg_x, self._default_area_avg_y),
+                avg_mode=self._default_average_mode)
+        else:
+            raise ValueError(f'Unsupported selection type:  {type(selection)}')
 
         info.set_visible(True)
         self._active_spectrum = info

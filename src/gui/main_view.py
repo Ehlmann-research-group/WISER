@@ -126,6 +126,10 @@ class MainViewWidget(RasterPane):
         self._init_rasterviews(action.data())
 
 
+    def is_scrolling_linked(self):
+        return self._link_view_scrolling
+
+
     def _on_link_view_scroll(self, checked):
         '''
         This function handles when the user links or unlinks raster-view

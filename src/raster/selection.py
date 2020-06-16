@@ -1,7 +1,9 @@
 from enum import Enum
+from typing import Optional, Tuple
 
 from PySide2.QtCore import *
 
+from .dataset import RasterDataSet
 from gui.geom import get_rectangle
 
 
@@ -23,16 +25,32 @@ class SelectionType(Enum):
 
 
 class Selection:
-    # TODO(donnie):  Figure out what should go into this class' API.
+    '''
+    This is the base type of all selections that can be created.
 
-    def __init__(self, selection_type):
+    Selections can be associated with a specific dataset, so that it is clear
+    what data the selection draws from.
+    '''
+
+    def __init__(self, selection_type: SelectionType, dataset: Optional[RasterDataSet] = None):
         if selection_type not in SelectionType:
             raise ValueError('selection_type must be a valid SelectionType')
 
         self._selection_type = selection_type
+        self._dataset = dataset
 
-    def get_type(self):
+    def get_type(self) -> SelectionType:
+        '''
+        Returns the type of selection.
+        '''
         return self._selection_type
+
+    def get_dataset(self) -> Optional[RasterDataSet]:
+        '''
+        Returns the dataset for this selection, or None if this selection is
+        not associated with a specific dataset.
+        '''
+        return self._dataset
 
     def is_picked_by(self, coord):
         '''
@@ -43,6 +61,8 @@ class Selection:
 
         The base-class implementation always returns False.
         '''
+        # TODO(donnie):  Seriously consider migrating this responsibility into
+        #     a separate class or set of classes.
         return False
 
     def to_pyrep(self):
@@ -51,8 +71,12 @@ class Selection:
 
 
 class SinglePixelSelection(Selection):
-    def __init__(self, pixel=None):
-        super().__init__(SelectionType.SINGLE_PIXEL)
+    '''
+    A single-pixel selection.
+    '''
+
+    def __init__(self, pixel=None, dataset:Optional[RasterDataSet]=None):
+        super().__init__(SelectionType.SINGLE_PIXEL, dataset=dataset)
         self._pixel = pixel
 
     def set_pixel(self, pixel):
@@ -62,12 +86,12 @@ class SinglePixelSelection(Selection):
         return self._pixel
 
     def is_picked_by(self, coord):
-        # TODO(donnie):  Probably want to include a "fudge factor" here, based
-        #     on the zoom scale.
+        # TODO(donnie):  May want to include a "fudge factor" here, based on the
+        #     zoom scale.
         return self._pixel == coord
 
     def __str__(self):
-        return f'SinglePixelSelection[{self.pixel}]'
+        return f'SinglePixelSelection[pixel={self._pixel}, dataset={self._dataset}]'
 
     def to_pyrep(self):
         '''
@@ -84,8 +108,12 @@ class SinglePixelSelection(Selection):
 
 
 class MultiPixelSelection(Selection):
-    def __init__(self, pixels):
-        super().__init__(SelectionType.MULTI_PIXEL)
+    '''
+    A multi-pixel selection.
+    '''
+
+    def __init__(self, pixels, dataset:Optional[RasterDataSet]=None):
+        super().__init__(SelectionType.MULTI_PIXEL, dataset=dataset)
         self._pixels = set(pixels)
 
     def get_pixels(self):

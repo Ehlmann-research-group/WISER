@@ -24,6 +24,9 @@ from .util import *
 
 from .app_state import ApplicationState
 
+from raster.selection import SinglePixelSelection
+
+
 
 class DataVisualizerApp(QMainWindow):
 
@@ -480,17 +483,18 @@ class DataVisualizerApp(QMainWindow):
         if self._app_state.num_datasets() == 0:
             return
 
-        dataset = self._main_view.get_current_dataset(rasterview_position)
+        # Create a single-pixel selection with the dataset and coordinate of
+        # the selected pixel.
+        ds = self._zoom_pane.get_current_dataset()
+        sel = SinglePixelSelection(ds_point, ds)
 
-        # Update the main view and zoom pane to show the selected pixel
-        self._main_view.set_pixel_highlight(ds_point, recenter=RecenterMode.NEVER)
-        self._zoom_pane.show_dataset(dataset)
-        self._zoom_pane.set_pixel_highlight(ds_point)
+        # Update the main and zoom windows to show the selected dataset and pixel.
+        self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+        self._zoom_pane.show_dataset(ds)
+        self._zoom_pane.set_pixel_highlight(sel)
 
-        # Show spectrum at selected pixel.  Note that we use the dataset
-        # selected in the main view, since the click originated from the main
-        # view.
-        self._spectrum_plot.set_active_spectrum(dataset, ds_point)
+        # Show spectrum from the selected dataset and pixel.
+        self._spectrum_plot.set_active_spectrum(sel)
 
 
     def _on_stretch_changed(self, ds_id: int, bands: Tuple, stretches: List):
@@ -543,12 +547,14 @@ class DataVisualizerApp(QMainWindow):
         if self._app_state.num_datasets() == 0:
             return
 
-        # Update the zoom pane to show the selected pixel
-        self._main_view.set_pixel_highlight(ds_point, recenter=RecenterMode.IF_NOT_VISIBLE)
-        self._zoom_pane.set_pixel_highlight(ds_point, recenter=RecenterMode.NEVER)
+        # Create a single-pixel selection with the dataset and coordinate of
+        # the selected pixel.
+        ds = self._zoom_pane.get_current_dataset()
+        sel = SinglePixelSelection(ds_point, ds)
 
-        # Show spectrum at selected pixel.  Note that we use the dataset
-        # selected in the zoom pane, since the click originated from the zoom
-        # pane.
-        dataset = self._zoom_pane.get_current_dataset()
-        self._spectrum_plot.set_active_spectrum(dataset, ds_point)
+        # Update the main and zoom windows to show the selected dataset and pixel.
+        self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
+        self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+
+        # Show spectrum from the selected dataset and pixel.
+        self._spectrum_plot.set_active_spectrum(sel)
