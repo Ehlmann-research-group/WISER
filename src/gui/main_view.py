@@ -6,6 +6,7 @@ from PySide2.QtWidgets import *
 
 from .toolbarmenu import ToolbarMenu
 from .rasterpane import RasterPane
+from .rasterview import RasterView
 from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
 
@@ -136,7 +137,8 @@ class MainViewWidget(RasterPane):
         if checked:
             self._app_state.show_status_text(self.tr('Linked view scrolling is ON'), 5)
 
-            # TODO(donnie):  Update scroll state of all raster views
+            # Sync scroll state of all raster views to the one in the top left.
+            self._sync_scroll_state(self.get_rasterview())
         else:
             self._app_state.show_status_text(self.tr('Linked view scrolling is OFF'), 5)
 
@@ -154,7 +156,15 @@ class MainViewWidget(RasterPane):
         # Invoke the superclass version of this operation to emit the
         # viewport-changed event.
         super()._afterRasterScroll(rasterview, dx, dy)
+        self._sync_scroll_state(rasterview)
 
+
+    def _sync_scroll_state(self, rasterview: RasterView) -> None:
+        '''
+        This helper function synchronizes the scroll state of all raster views
+        in this pane.  The source rasterview to take the scroll state from is
+        specified as the argument.
+        '''
         sb_state = rasterview.get_scrollbar_state()
         if len(self._rasterviews) > 1 and self._link_view_scrolling:
             for rv in self._rasterviews.values():
