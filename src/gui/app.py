@@ -464,8 +464,17 @@ class DataVisualizerApp(QMainWindow):
         if rasterview_position is None:
             return
 
-        rasterview = self._main_view.get_rasterview(rasterview_position)
-        visible_area = rasterview.get_visible_region()
+        if self._main_view.is_multi_view() and not self._main_view.is_scrolling_linked():
+            visible_area = []
+            (rows, cols) = self._main_view.get_num_views()
+            for r in range(rows):
+                for c in range(cols):
+                    rv = self._main_view.get_rasterview((r, c))
+                    visible_area.append(rv.get_visible_region())
+        else:
+            rasterview = self._main_view.get_rasterview(rasterview_position)
+            visible_area = rasterview.get_visible_region()
+
         self._context_pane.set_viewport_highlight(visible_area)
 
 
@@ -485,7 +494,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Create a single-pixel selection with the dataset and coordinate of
         # the selected pixel.
-        ds = self._zoom_pane.get_current_dataset()
+        ds = self._main_view.get_current_dataset(rasterview_position)
         sel = SinglePixelSelection(ds_point, ds)
 
         # Update the main and zoom windows to show the selected dataset and pixel.

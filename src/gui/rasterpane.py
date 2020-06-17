@@ -549,9 +549,9 @@ class RasterPane(QWidget):
         #     displaying the viewport?
         for rasterview in self._rasterviews.values():
             visible = rasterview.get_visible_region()
-            if visible is None or viewport is None:
+            if visible is None or viewport is None or isinstance(viewport, list):
                 rasterview.update()
-                return
+                continue
 
             if not visible.contains(viewport):
                 center = viewport.center()
@@ -934,7 +934,8 @@ class RasterPane(QWidget):
 
         # The viewport highlight will either be a box (QRect or QRectF), or it
         # will be a list of boxes in some circumstances.
-        if not isinstance(self._viewport_highlight, list):
+        if self._viewport_highlight is not None and \
+           not isinstance(self._viewport_highlight, list):
             highlights = [self._viewport_highlight]
         else:
             highlights = self._viewport_highlight
