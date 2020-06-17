@@ -465,17 +465,13 @@ class DataVisualizerApp(QMainWindow):
             return
 
         if self._main_view.is_multi_view() and not self._main_view.is_scrolling_linked():
-            visible_area = []
-            (rows, cols) = self._main_view.get_num_views()
-            for r in range(rows):
-                for c in range(cols):
-                    rv = self._main_view.get_rasterview((r, c))
-                    visible_area.append(rv.get_visible_region())
+            # Get a list of all visible regions from all views
+            visible_region = self._main_view.get_all_visible_regions()
         else:
             rasterview = self._main_view.get_rasterview(rasterview_position)
-            visible_area = rasterview.get_visible_region()
+            visible_region = rasterview.get_visible_region()
 
-        self._context_pane.set_viewport_highlight(visible_area)
+        self._context_pane.set_viewport_highlight(visible_region)
 
 
     def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point):
