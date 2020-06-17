@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -335,6 +335,16 @@ class RasterPane(QWidget):
         used by panes that will only ever have one raster-view.
         '''
         return self._rasterviews[rasterview_pos]
+
+
+    def get_all_visible_regions(self) -> List:
+        '''
+        Returns a list of all visible regions
+        '''
+        # Get the list of visible regions, but filter out empty regions.
+        regions = [rv.get_visible_region() for rv in self._rasterviews.values()]
+        regions = [r for r in regions if r is not None]
+        return regions
 
 
     def get_scale(self):
