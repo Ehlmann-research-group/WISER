@@ -272,6 +272,8 @@ class RasterPane(QWidget):
         }
 
         # There are existing raster-views; clean them all up.
+        # TODO(donnie):  Just clean up the ones that are now "out of bounds" for
+        #     the new layout.
         if len(self._rasterviews) != 0:
             # Remove each raster-view from the grid layout
             for (position, rasterview) in self._rasterviews.items():
@@ -283,15 +285,46 @@ class RasterPane(QWidget):
             self._rasterviews.clear()
 
         # Create new raster-views as specified by the arguments
+        multiviews = (num_views != (1, 1))
         (rows, cols) = num_views
         for row in range(rows):
             for col in range(cols):
                 rasterview = RasterView(parent=self, forward=forward)
                 rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
 
+                rv_container = rasterview
+                if multiviews:
+                    # TODO(donnie):  All this malarkey is so we can add a toolbar to
+                    #     the individual rasterviews.
+                    rv_container = QWidget()
+                    rv_layout = QGridLayout()
+                    rv_layout.setContentsMargins(QMargins(0, 0, 0, 0))
+                    rv_container.setLayout(rv_layout)
+                    rv_layout.addWidget(rasterview)
+
+                    rv_toolbar = QToolBar(
+                        self.tr('RasterView [{row}, {col}] Toolbar').format(row=row, col=col),
+                        parent=rv_container)
+                    rv_toolbar.setIconSize(QSize(16, 16))
+
+                    # rv_ds_name = QComboBox()
+                    # rv_toolbar.addWidget(rv_ds_name)
+
+                    rv_dataset_chooser = DatasetChooser(None, self._app_state)
+                    rv_toolbar.addWidget(rv_dataset_chooser)
+                    # TODO:  rv_dataset_chooser.triggered.connect(self._on_dataset_changed)
+
+                    rv_act_band_chooser = add_toolbar_action(rv_toolbar,
+                        'resources/choose-bands.svg', self.tr('Band chooser'), rv_container)
+                    # TODO:  rv_act_band_chooser.triggered.connect(self._on_band_chooser)
+
+
                 position = (row, col)
+                # TODO(donnie):  THIS NEEDS TO CHANGE IF THIS CONTAINER STUFF WORKS
+                # self._rasterviews[position] = (rasterview, rv_container)
                 self._rasterviews[position] = rasterview
-                self._rasterview_layout.addWidget(rasterview, row, col)
+                # self._rasterview_layout.addWidget(rasterview, row, col)
+                self._rasterview_layout.addWidget(rv_container, row, col)
 
         self._num_views = num_views
         self.views_changed.emit(self._num_views)
@@ -506,6 +539,10 @@ class RasterPane(QWidget):
         pane.
         '''
         rasterview = self.get_rasterview(rasterview_pos)
+
+        # If the rasterview is already showing the specified dataset, skip!
+        if rasterview.get_raster_data() is dataset:
+            return
 
         ds_id = dataset.get_id()
         bands = self._display_bands[ds_id]

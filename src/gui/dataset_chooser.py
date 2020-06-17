@@ -21,6 +21,12 @@ class DatasetChooser(QToolButton):
     '''
 
     def __init__(self, rasterpane: 'RasterPane', app_state: ApplicationState):
+        '''
+        NOTE:  The RasterPane argument allows the dataset chooser to be informed
+               when the raster-pane switches to multiple views.  It may be set
+               to None, in which case the chooser will act like it is only
+               managing one view.
+        '''
         super().__init__()
 
         self._rasterpane = rasterpane
@@ -38,7 +44,9 @@ class DatasetChooser(QToolButton):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
-        self._rasterpane.views_changed.connect(self._on_views_changed)
+
+        if self._rasterpane is not None:
+            self._rasterpane.views_changed.connect(self._on_views_changed)
 
         self._populate_dataset_menu()
 
@@ -53,7 +61,10 @@ class DatasetChooser(QToolButton):
         self._action_list = []
         self._dataset_menu.clear()
 
-        num_views = self._rasterpane.get_num_views()
+        if self._rasterpane is not None:
+            num_views = self._rasterpane.get_num_views()
+        else:
+            num_views = (1, 1)
 
         if num_views != (1, 1):
             # We have multiple raster-views in the pane.  Generate a menu for
