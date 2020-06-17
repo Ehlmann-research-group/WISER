@@ -1,4 +1,4 @@
-import argparse, importlib, json, os, sys
+import argparse, faulthandler, importlib, json, os, sys
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -49,6 +49,8 @@ def init_matplotlib():
 
 
 if __name__ == '__main__':
+    faulthandler.enable()
+    
     # TODO(donnie):  This is supposed to be how you turn on high-DPI
     #     application scaling in Qt.  This does not seem to be required on
     #     MacOSX though.  Saving this code in case it is needed on Linux or
