@@ -60,13 +60,19 @@ def calc_spectrum(dataset, points, mode=SpectrumAverageMode.MEAN):
         s = dataset.get_all_bands_at(p[0], p[1])
         spectra.append(s)
 
-    if mode == SpectrumAverageMode.MEAN:
-        spectrum = np.mean(spectra, axis=0)
+    if len(spectra) > 1:
+        # Need to compute mean/median/... of the collection of spectra
+        if mode == SpectrumAverageMode.MEAN:
+            spectrum = np.mean(spectra, axis=0)
 
-    elif mode == SpectrumAverageMode.MEDIAN:
-        spectrum = np.median(spectra, axis=0)
+        elif mode == SpectrumAverageMode.MEDIAN:
+            spectrum = np.median(spectra, axis=0)
+
+        else:
+            raise ValueError(f'Unrecognized average type {mode}')
 
     else:
-        raise ValueError(f'Unrecognized average type {mode}')
+        # Only one spectrum, don't need to compute mean/median
+        spectrum = spectra[0]
 
     return spectrum
