@@ -182,11 +182,19 @@ class MainViewWidget(RasterPane):
     def _on_zoom_to_actual(self, evt):
         ''' Zoom the view to 100% scale. '''
 
-        self.get_rasterview().scale_image(1.0)
+        self.set_scale(1.0)
         self._update_zoom_widgets()
 
 
     def _on_zoom_to_fit(self):
         ''' Zoom the view such that the entire image fits in the view. '''
-        self.get_rasterview().scale_image_to_fit()
+
+        # Use the rasterview at (0, 0) to compute the scale for the image to fit
+        rasterview = self.get_rasterview()
+        rasterview.scale_image_to_fit()
+
+        # If we are in a multi-view mode, propagate that scale to all views
+        if self.is_multi_view():
+            self.set_scale(rasterview.get_scale())
+
         self._update_zoom_widgets()
