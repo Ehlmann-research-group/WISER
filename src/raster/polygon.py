@@ -134,7 +134,8 @@ def rasterize_polygon(polygon_points: List[Tuple[int, int]]) -> RasterizedPolygo
     y_res = int(y_max - y_min)
     # print(f'x_res={x_res}\ty_res={y_res}')
     target_ds = gdal.GetDriverByName('MEM').Create('', x_res, y_res, eType=gdal.GDT_Byte)
-    target_ds.SetGeoTransform((x_min, 1, 0, y_max, 0, -1))
+    # target_ds.SetGeoTransform((x_min, 1, 0, y_max, 0, -1))
+    target_ds.SetGeoTransform((x_min, 1, 0, y_min, 0, 1))
     band = target_ds.GetRasterBand(1)
     # band.SetNoDataValue(NoData_value)
 
