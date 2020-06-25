@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ExportImageDialog</class>
+ <widget class="QDialog" name="ExportImageDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>283</width>
+    <height>265</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Export Image</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,1">
+   <item row="4" column="0">
+    <widget class="QLabel" name="lbl_image_format">
+     <property name="text">
+      <string>Image format</string>
+     </property>
+     <property name="buddy">
+      <cstring>cbox_image_format</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QComboBox" name="cbox_image_format"/>
+   </item>
+   <item row="6" column="0" colspan="2">
+    <widget class="QStackedWidget" name="stack_image_config">
+     <property name="currentIndex">
+      <number>1</number>
+     </property>
+     <widget class="QWidget" name="page_png">
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="lbl_png">
+         <property name="text">
+          <string>No configuration required
+for the PNG image format</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="page_tiff">
+      <layout class="QVBoxLayout" name="verticalLayout_3">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QGroupBox" name="gbox_tiff">
+         <property name="title">
+          <string>TIFF Settings</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4" columnstretch="0,1">
+          <item row="1" column="0">
+           <widget class="QLabel" name="lbl_tiff_quality">
+            <property name="text">
+             <string>Image Quality</string>
+            </property>
+            <property name="buddy">
+             <cstring>sbox_tiff_quality</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="lbl_tiff_compression">
+            <property name="text">
+             <string>Compression</string>
+            </property>
+            <property name="buddy">
+             <cstring>cbox_tiff_compression</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="cbox_tiff_compression"/>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="sbox_tiff_quality">
+            <property name="maximum">
+             <number>95</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="page_jpeg">
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QGroupBox" name="gbox_jpeg">
+         <property name="title">
+          <string>JPEG Settings</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,1" columnminimumwidth="0,0">
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="sbox_jpeg_quality">
+            <property name="maximum">
+             <number>95</number>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="lbl_jpeg_quality">
+            <property name="text">
+             <string>Image Quality</string>
+            </property>
+            <property name="buddy">
+             <cstring>sbox_jpeg_quality</cstring>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item row="3" column="0" colspan="2">
+    <widget class="QWidget" name="widget" native="true">
+     <layout class="QGridLayout" name="gridLayout_5" columnstretch="1,0">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <item row="1" column="0">
+       <widget class="QLineEdit" name="ledit_filename"/>
+      </item>
+      <item row="1" column="1">
+       <widget class="QPushButton" name="btn_filename">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0" colspan="2">
+       <widget class="QLabel" name="lbl_filename">
+        <property name="text">
+         <string>Filename</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_filename</cstring>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="7" column="0" colspan="2">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>ledit_filename</tabstop>
+  <tabstop>btn_filename</tabstop>
+  <tabstop>cbox_image_format</tabstop>
+  <tabstop>cbox_tiff_compression</tabstop>
+  <tabstop>sbox_tiff_quality</tabstop>
+  <tabstop>sbox_jpeg_quality</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>ExportImageDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>ExportImageDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
