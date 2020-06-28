@@ -457,7 +457,7 @@ class RasterPane(QWidget):
     def _onRasterContextMenu(self, rasterview, context_menu_event):
         menu = QMenu(self)
 
-        self._build_context_menu(menu, widget, context_menu_event)
+        self._build_context_menu(menu, rasterview, context_menu_event)
 
         # Only show the context menu if we have stuff to show.
         if not menu.isEmpty():
@@ -472,18 +472,15 @@ class RasterPane(QWidget):
         self._emit_viewport_change()
 
 
-    def _build_context_menu(self, menu, widget, context_menu_event):
+    def _build_context_menu(self, menu, rasterview, context_menu_event):
         # Add any context-menu items that are independent of location
-        self._context_menu_add_global_items(menu)
-
-        # Calculate the coordinate of the click in dataset coordinates
-        ds_coord = rasterview.image_coord_to_raster_coord(context_menu_event.pos())
+        self._context_menu_add_global_items(menu, rasterview)
 
         # Add any context-menu items that are specific to this location
-        self._context_menu_add_local_items(menu, ds_coord)
+        self._context_menu_add_local_items(menu, rasterview, context_menu_event)
 
 
-    def _context_menu_add_global_items(self, menu):
+    def _context_menu_add_global_items(self, menu, rasterview):
         '''
         This helper function adds "global" items to the context menu, that is,
         items that aren't specific to the location clicked in the window.
@@ -494,7 +491,7 @@ class RasterPane(QWidget):
         pass
 
 
-    def _context_menu_add_local_items(self, menu, dataset_coord):
+    def _context_menu_add_local_items(self, menu, rasterview, context_menu_event):
         '''
         This helper function adds "local" items to the context menu, that is,
         items that are specific to the location clicked in the window.  The
@@ -504,6 +501,9 @@ class RasterPane(QWidget):
         various options for users to employ.
         '''
         # menu.addSeparator()
+
+        # Calculate the coordinate of the click in dataset coordinates
+        ds_coord = rasterview.image_coord_to_raster_coord(context_menu_event.pos())
 
         # TODO(donnie):  Set up handler for the action
         # act = menu.addAction(self.tr('Annotate location'))
