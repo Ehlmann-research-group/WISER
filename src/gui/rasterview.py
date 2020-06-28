@@ -9,10 +9,98 @@ from PySide2.QtWidgets import *
 import numpy as np
 
 from raster.dataset import RasterDataSet, find_display_bands
-from raster.stretch import StretchBase, get_stretched_band_data
+from raster.stretch import StretchBase
+from raster.nputil import normalize
+
+
+def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
+    '''
+    Given a raster data set, band index, and optional contrast stretch object,
+    this function generates color channel data into a NumPy array.  Elements in
+    the output array will be in the range [0, 255].
+    '''
+    # Extract the raw band data and associated statistics from the data set.
+    raw_data = dataset.get_band_data(band)
+    stats = dataset.get_band_stats(band)
+
+    # Normalize the raw band data.
+    band_data = normalize(raw_data,
+        minval=stats.get_min(), maxval=stats.get_max())
+
+    # If a stretch is specified for the channel, apply it to the
+    # normalized band data.
+    if stretch is not None:
+        stretch.apply(band_data)
+
+    # Clip the data to be in the range [0.0, 1.0].  This should not
+    # remove NaNs.
+    np.clip(band_data, 0.0, 1.0, out=band_data)
+
+    # Finally, convert the normalized (and possibly stretched) band
+    # data into a color channel with values in the range [0, 255].
+    # TODO(donnie):  Is it faster to use uint8 for large images?
+    channel_data = (band_data * 255.0).astype(np.uint32)
+
+    return channel_data
+
+
+def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
+    '''
+    Given a list of 1 or 3 color channels of the same dimensions, this function
+    combines them together into an RGB image.  If only one channel is provided,
+    the data is used for all three color channels, producing a grayscale image.
+    If three channels are provided, they are correspondingly used for the red,
+    green and blue channels of the resulting image.
+
+    An Exception is thrown if:
+    *   A number of channels is specified other than 1 or 3.
+    *   Any channel is not of type np.uint8, np.uint16, or np.uint32.
+    *   The channels do not all have the same dimensions (shape).
+
+    If optimizations are not enabled, the function also verifies that all
+    channel values are in the range [0, 255]; since this is an expensive check,
+    it is disabled if optimizations are turned on.
+    '''
+
+    # Make sure the correct number of channels were specified
+    if len(channels) not in [1, 3]:
+        raise ValueError(f'Must specify 1 or 3 channels; got {len(channels)}')
+
+    # Make sure that all color channels have unsigned integer data
+    for c in channels:
+        if c.dtype not in [np.uint8, np.uint16, np.uint32]:
+            raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {c.dtype}')
+
+    # Make sure that all color channels have the same dimensions
+    for i in range(1, len(channels)):
+        if channels[i].shape != channels[0].shape:
+            raise ValueError(f'All channels must have the same dimensions')
+
+    # Expensive sanity checks:
+    if __debug__:
+        assert (0 <= np.amin(c) <= 255) and (0 <= np.amax(c) <= 255), \
+            'Channel may only contain values in range 0..255, and no NaNs'
+
+    # If we are in grayscale mode, make the green and blue channels the same
+    # as the red channel.
+    if len(channels) == 1:
+        channels = channels * 3
+
+    rgb_data = (channels[0] << 16 |
+                channels[1] <<  8 |
+                channels[2]) | 0xff000000
+    if isinstance(rgb_data, np.ma.MaskedArray):
+        rgb_data.fill_value = 0xff000000
+
+    return rgb_data
 
 
 class ImageColors(IntFlag):
+    '''
+    This enumeration is used to specify one or more color band, that may need to
+    be regenerated within the rasterview.
+    '''
+
     NONE = 0
 
     RED = 1
@@ -278,29 +366,17 @@ class RasterView(QWidget):
         color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
         for i in range(len(self._display_bands)):
             if self._display_data[i] is None or color_indexes[i] in colors:
-                stretched = get_stretched_band_data(self._raster_data,
+                # Compute the contents of this color channel.
+                self._display_data[i] = make_channel_image(self._raster_data,
                     self._display_bands[i], self._stretches[i])
 
-                self._display_data[i] = (stretched * 255.0).astype(np.uint32)
-
-        # If we are in grayscale mode, make the green and blue channels the same
-        # as the red channel.
-        if len(self._display_bands) == 1:
-            self._display_data[1] = self._display_data[0]
-            self._display_data[2] = self._display_data[0]
-
-        # print("Converting raw data to RGB color data")
-
-        img_data = (self._display_data[0] << 16 |
-                    self._display_data[1] <<  8 |
-                    self._display_data[2]) | 0xff000000
-        if isinstance(img_data, np.ma.MaskedArray):
-            img_data.fill_value = 0xff000000
+        # Combine our individual color channel(s) into a single RGB image.
+        img_data = make_rgb_image(self._display_data)
 
         # TODO(donnie):  I don't know why the tostring() is required here, but
         #     it seems to be required for making the QImage when we use GDAL.
         #     Note - may be because of the numpy MaskedArray...
-        img_data = img_data.tostring()
+        # img_data = img_data.tostring()
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
@@ -345,6 +421,10 @@ class RasterView(QWidget):
 
             self._update_scrollbar(self._scroll_area.verticalScrollBar(),
                 self._scroll_area.viewport().height(), scale_change)
+
+
+    def get_display_image(self) -> np.ndarray:
+        return make_rgb_image(self._display_data)
 
 
     def _update_scrollbar(self, scrollbar, view_size, scale_change):

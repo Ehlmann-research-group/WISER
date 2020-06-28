@@ -3,9 +3,6 @@
 from enum import Enum
 
 import numpy as np
-from PySide2.QtCore import QObject, Signal
-
-from raster.dataset import get_normalized_band
 
 
 def hist_limits_for_pct(hist_bins, hist_edges, percent, total_samples=None):
@@ -266,64 +263,3 @@ class StretchComposite(StretchBase):
 
     def set_second(self, second):
         self._second = second
-
-
-def get_unstretched_band_data(dataset, band_index):
-    '''
-    Generates the "unstretched" version of the specified band in the data set.
-    The function returns a numpy array with np.float32 elements in the range
-    of [0.0, 1.0], unless the input is already np.float64, in which case the
-    type is left as np.float64.
-
-    **It is _not_ intended for a stretch to be applied to this data!**  The data
-    returned by this function is not suitable for applying a stretch.  If you
-    intend to apply a stretch, see the get_stretched_band_data() function, or
-    the dataset.get_normalized_band() function.
-
-    Since the ultimate purpose of this data is to be displayed, the operations
-    performed depend on the type of the input band data:
-
-    *   If the input band data is floating point, the data is simply clipped to
-        the range [0.0, 1.0].
-    *   If the input band data is a signed or unsigned integer data type, only
-        the high byte is retained, and the data is divided by 255.0 to produce
-        a result in the range [0.0, 1.0].
-    '''
-    band_data = dataset.get_band_data(band_index)
-
-    if band_data.dtype == np.float32 or band_data.dtype == np.float64:
-        band_data = np.clip(band_data, 0.0, 1.0)
-
-    elif band_data.dtype == np.uint32 or band_data.dtype == np.int32:
-        # fake a linear stretch by simply ignoring the low bytes
-        band_data = (band_data >> 24).astype(np.float32) / 255.0
-
-    elif band_data.dtype == np.uint16 or band_data.dtype == np.int16:
-        # fake a linear stretch by simply ignoring the low byte
-        band_data = (band_data >> 8).astype(np.uint32) / 255.0
-
-    elif band_data.dtype == np.uint8 or band_data.dtype == np.int8:
-        band_data = band_data.astype(np.uint32) / 255.0
-
-    else:
-        raise NotImplementedError(f'Data type {band_data.dtype} not currently supported')
-
-    return band_data
-
-
-def get_stretched_band_data(dataset, band_index, stretch):
-    '''
-    Retrieves the normalized data for the specified band, and applies an
-    optional stretch to the data.  The function returns a numpy array with
-    np.float32 elements in the range of [0.0, 1.0], unless the input is already
-    np.float64, in which case the type is left as np.float64.
-
-    Note that if the stretch is either None, or a StretchBase object, then the
-    result is equivalent to linearly stretching the data from the min-value to
-    the max-value.
-    '''
-    band_data = get_normalized_band(dataset, band_index)
-    if stretch is not None:
-        stretch.apply(band_data)
-
-    return band_data
