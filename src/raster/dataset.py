@@ -261,18 +261,6 @@ def find_display_bands(dataset):
     return (red_band, green_band, blue_band)
 
 
-def get_clipped_band(dataset, band_index, low=0, high=1):
-    '''
-    Extracts the specified band of raster data, and clips the data to the range
-    [0.0, 1.0].  Elements will be of type np.float32, unless the input data is
-    already np.float64, in which case the elements are left as np.float64.
-    '''
-    if norm_data.dtype not in [np.float32, np.float64]:
-        raise
-
-    return np.clip(dataset.get_band_data(band_index), low, high)
-
-
 def get_normalized_band(dataset, band_index):
     '''
     Extracts the specified band of raster data, mapping all elements to the
@@ -288,9 +276,5 @@ def get_normalized_band(dataset, band_index):
     if norm_data.dtype not in [np.float32, np.float64]:
         print(f'NOTE:  norm_data.dtype is {norm_data.dtype}, band_data.dtype is {band_data.dtype}')
         norm_data = norm_data.astype(np.float32)
-
-    # print('-' * 78)
-    # print(f'Band {band_index}:  stats={stats}')
-    # print(f'Normalized:  min={np.nanmin(norm_data)}, max={np.nanmax(norm_data)}')
 
     return norm_data
