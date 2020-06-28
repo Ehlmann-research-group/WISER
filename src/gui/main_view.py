@@ -56,6 +56,20 @@ class MainViewWidget(RasterPane):
         self._act_zoom_to_fit.triggered.connect(self._on_zoom_to_fit)
 
 
+    def _context_menu_add_global_items(self, menu):
+        '''
+        This helper function adds "global" items to the context menu, that is,
+        items that aren't specific to the location clicked in the window.
+        '''
+        act = menu.addAction(self.tr('Export to image file...'))
+        act.triggered.connect(self._on_export_image)
+
+
+    def _on_export_image(self):
+        # TODO:  IMPLEMENT
+        pass
+
+
     def get_stretch_builder(self):
         return self._stretch_builder
 
