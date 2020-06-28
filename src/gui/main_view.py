@@ -100,16 +100,18 @@ class MainViewWidget(RasterPane):
         self._act_zoom_to_fit.triggered.connect(self._on_zoom_to_fit)
 
 
-    def _context_menu_add_global_items(self, menu):
+    def _context_menu_add_global_items(self, menu, rasterview):
         '''
         This helper function adds "global" items to the context menu, that is,
         items that aren't specific to the location clicked in the window.
         '''
         act = menu.addAction(self.tr('Export to image file...'))
-        act.triggered.connect(self._on_export_image)
+        # When hooking up the action, use a lambda to pass through the
+        # rasterview that generated the event.
+        act.triggered.connect(lambda checked, rv=rasterview : self._on_export_image(rv))
 
 
-    def _on_export_image(self):
+    def _on_export_image(self, rasterview):
         # TODO:  IMPLEMENT
         pass
 
@@ -122,8 +124,8 @@ class MainViewWidget(RasterPane):
         ''' Show the Stretch Builder. '''
 
         self._stretch_builder.show(self.get_current_dataset(),
-                                   self._rasterview.get_display_bands(),
-                                   self._rasterview.get_stretches())
+                                   self.get_rasterview().get_display_bands(),
+                                   self.get_rasterview().get_stretches())
 
 
     def _on_split_views(self, action):
