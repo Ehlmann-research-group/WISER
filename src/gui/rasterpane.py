@@ -425,11 +425,16 @@ class RasterPane(QWidget):
         translates the click event's coordinates into the location on the
         raster data set.
         '''
+        if not isinstance(mouse_event, QMouseEvent):
+            return
+
         if self._task_delegate is not None:
             done = self._task_delegate.on_mouse_release(widget, mouse_event)
             self._update_delegate(done)
 
         else:
+            # Only handle left mouse buttons; right mouse clicks will result in
+            # a context menu being generated.
             if mouse_event.button() == Qt.LeftButton:
                 # Map the coordinate of the mouse-event to the actual raster-image
                 # pixel that was clicked, then emit a signal.
@@ -452,21 +457,67 @@ class RasterPane(QWidget):
     def _onRasterContextMenu(self, rasterview, context_menu_event):
         menu = QMenu(self)
 
-        # TODO(donnie):  Set up handler for the action
-        act = menu.addAction(self.tr('Annotate location'))
+        self._build_context_menu(menu, widget, context_menu_event)
+
+        # Only show the context menu if we have stuff to show.
+        if not menu.isEmpty():
+            menu.exec_(context_menu_event.globalPos())
+
+
+    def _afterRasterScroll(self, widget, dx, dy):
+        '''
+        This function is called when the scroll-area moves around.  Fire an
+        event that the visible region of the raster-view has changed.
+        '''
+        self._emit_viewport_change()
+
+
+    def _build_context_menu(self, menu, widget, context_menu_event):
+        # Add any context-menu items that are independent of location
+        self._context_menu_add_global_items(menu)
 
         # Calculate the coordinate of the click in dataset coordinates
         ds_coord = rasterview.image_coord_to_raster_coord(context_menu_event.pos())
 
+        # Add any context-menu items that are specific to this location
+        self._context_menu_add_local_items(menu, ds_coord)
+
+
+    def _context_menu_add_global_items(self, menu):
+        '''
+        This helper function adds "global" items to the context menu, that is,
+        items that aren't specific to the location clicked in the window.
+
+        The base implementation does nothing.
+        '''
+        # Let subclasses do things if they want.
+        pass
+
+
+    def _context_menu_add_local_items(self, menu, dataset_coord):
+        '''
+        This helper function adds "local" items to the context menu, that is,
+        items that are specific to the location clicked in the window.  The
+        data-set coordinate of the click is passed into the function.
+
+        The base implementation picks against regions of interest, to add
+        various options for users to employ.
+        '''
+        # menu.addSeparator()
+
+        # TODO(donnie):  Set up handler for the action
+        # act = menu.addAction(self.tr('Annotate location'))
+
         # Find Regions of Interest that include the click location.
         picked_rois = []
         for (name, roi) in self._app_state.get_rois().items():
-            if roi.is_picked_by(ds_coord):
+            if roi.is_picked_by(dataset_coord):
                 picked_rois.append(roi)
 
         if len(picked_rois) > 0:
             # At least one region of interest was picked
-            menu.addSeparator()
+            if not menu.isEmpty():
+                menu.addSeparator()
 
             for roi in picked_rois:
                 roi_menu = menu.addMenu(roi.get_name())
@@ -480,7 +531,6 @@ class RasterPane(QWidget):
                 roi_menu.addSeparator()
                 roi_menu.addAction(self.tr('Delete region...'))
 
-        menu.exec_(context_menu_event.globalPos())
 
     def _afterRasterScroll(self, rasterview, dx, dy):
         '''
