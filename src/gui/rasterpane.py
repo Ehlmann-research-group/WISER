@@ -274,6 +274,11 @@ class RasterPane(QWidget):
         # There are existing raster-views; clean them all up.
         # TODO(donnie):  Just clean up the ones that are now "out of bounds" for
         #     the new layout.
+        # TODO(donnie):  This is not a good approach, since a rasterview may be
+        #     given a toolbar, or have its toolbar taken away.  Probably better
+        #     to record the config of the rasterviews that are in-bounds, and
+        #     re-apply the config to the newly created rasterviews.  The config
+        #     would be:  dataset-ID, display bands, stretches.
         if len(self._rasterviews) != 0:
             # Remove each raster-view from the grid layout
             for (position, rasterview) in self._rasterviews.items():
@@ -305,13 +310,17 @@ class RasterPane(QWidget):
                     rv_toolbar = QToolBar(
                         self.tr('RasterView [{row}, {col}] Toolbar').format(row=row, col=col),
                         parent=rv_container)
+                    rv_layout.setMenuBar(rv_toolbar)
+
                     rv_toolbar.setIconSize(QSize(16, 16))
+                    # rv_toolbar.setFloatable(False)
+                    # rv_toolbar.setMovable(False)
 
-                    # rv_ds_name = QComboBox()
-                    # rv_toolbar.addWidget(rv_ds_name)
+                    rv_ds_name = QComboBox()
+                    rv_toolbar.addWidget(rv_ds_name)
 
-                    rv_dataset_chooser = DatasetChooser(None, self._app_state)
-                    rv_toolbar.addWidget(rv_dataset_chooser)
+                    # rv_dataset_chooser = DatasetChooser(None, self._app_state)
+                    # rv_toolbar.addWidget(rv_dataset_chooser)
                     # TODO:  rv_dataset_chooser.triggered.connect(self._on_dataset_changed)
 
                     rv_act_band_chooser = add_toolbar_action(rv_toolbar,
@@ -813,16 +822,13 @@ class RasterPane(QWidget):
 
 
     def _on_stretch_changed(self, ds_id, bands):
-        # If we aren't displaying the dataset whose stretch was changed, ignore
-        # the event.
-        if ds_id != self._dataset_id:
-            return
-
-        # TODO(donnie):  What to do with multi-views?
-        rasterview = self.get_rasterview()
-        bands = self.rasterview.get_display_bands()
-        stretches = self._app_state.get_stretches(self._dataset_id, bands)
-        rasterview.set_stretches(stretches)
+        # Iterate through all rasterviews.  If any is displaying the dataset
+        # that changed stretch, update its stretches.
+        for rasterview in self._rasterviews.values():
+            if rasterview.get_raster_data().get_id() == ds_id:
+                bands = rasterview.get_display_bands()
+                stretches = self._app_state.get_stretches(ds_id, bands)
+                rasterview.set_stretches(stretches)
 
 
     def _on_zoom_in(self, evt):
