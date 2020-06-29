@@ -2,13 +2,21 @@
 
 UIC=pyside2-uic
 
-TARGETS=channel_stretch_widget_ui.py stretch_config_widget_ui.py \
-	spectrum_plot_config_ui.py spectrum_info_editor_ui.py \
-	export_image_ui.py system_info_ui.py
+# The .ui files are stored in this subdirectory.
+UI_SRC_DIR = ./ui_files
+
+TARGETS=about_dialog_ui.py \
+	band_chooser_ui.py \
+	channel_stretch_widget_ui.py \
+	export_image_ui.py \
+	spectrum_info_editor_ui.py \
+	spectrum_plot_config_ui.py \
+	stretch_config_widget_ui.py \
+	system_info_ui.py
 
 all: $(TARGETS)
 
-%_ui.py : %.ui
+%_ui.py : $(UI_SRC_DIR)/%.ui
 	$(UIC) $< > $@
 
 clean:
