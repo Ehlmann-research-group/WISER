@@ -131,6 +131,7 @@ class DataVisualizerApp(QMainWindow):
         self._app_menu = self.menuBar().addMenu(sys.argv[0])
 
         act = self._app_menu.addAction(self.tr('About Imaging Spectroscopy Workbench'))
+        act.setMenuRole(QAction.AboutRole)
         act.triggered.connect(self.show_about_dialog)
 
         # File menu

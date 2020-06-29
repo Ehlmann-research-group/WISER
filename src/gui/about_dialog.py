@@ -2,20 +2,25 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from .about_dialog_ui import Ui_AboutDialog
+from .system_info import SystemInfoDialog
+
 from version import VERSION
 
 class AboutDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.setWindowTitle(self.tr('About the Imaging Spectroscopy Workbench'))
 
-        layout = QVBoxLayout(self)
+        # Set up the UI state
+        self._ui = Ui_AboutDialog()
+        self._ui.setupUi(self)
 
-        layout.addWidget(QLabel(self.tr('Version:  ' + VERSION)))
+        self._ui.label_version.setText(self.tr('Version:  {0}').format(VERSION))
 
-        # Dialog buttons - hook to built-in QDialog functions
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok, Qt.Horizontal, self)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+        self._ui.btn_system_info.clicked.connect(self._on_system_info)
 
-        layout.addWidget(buttons)
+
+    def _on_system_info(self, checked):
+        dialog = SystemInfoDialog(self)
+        dialog.setModal(True)
+        dialog.show()
