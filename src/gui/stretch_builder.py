@@ -277,8 +277,6 @@ class ChannelStretchWidget(QWidget):
 
 
     def set_linear_stretch_pct(self, percent):
-        self.set_stretch_type(StretchType.LINEAR_STRETCH)
-
         # Based on the current histogram, figure out where the
         (idx_low, idx_high) = hist_limits_for_pct(
             self._histogram_bins, self._histogram_edges, percent)
@@ -288,6 +286,11 @@ class ChannelStretchWidget(QWidget):
         # print(f'  edges = {self._histogram_edges}')
         # print(f'  (idx_low, idx_high) = ({idx_low}, {idx_high})')
 
+        if idx_low is None or idx_high is None or idx_high <= idx_low:
+            # The data distribution won't allow for this linear percent stretch.
+            raise DataDistributionError(f'Can\'t apply a {percent}% linear stretch')
+
+        self.set_stretch_type(StretchType.LINEAR_STRETCH)
         self.set_stretch_low(self._histogram_edges[idx_low])
         self.set_stretch_high(self._histogram_edges[idx_high + 1])
 
@@ -322,8 +325,9 @@ class ChannelStretchWidget(QWidget):
 
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
+        nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
         self._histogram_bins_raw, self._histogram_edges_raw = \
-            np.histogram(self._norm_band_data, bins=512, range=(0.0, 1.0))
+            np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
 
         # self._num_pixels = np.prod(self._band_data.shape)
 
@@ -473,11 +477,11 @@ class StretchConfigWidget(QWidget):
 
     def _on_linear_2_5(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
-        self.linear_stretch_pct.emit(2.5 / 100)
+        self.linear_stretch_pct.emit(2.5)
 
     def _on_linear_5_0(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
-        self.linear_stretch_pct.emit(5.0 / 100)
+        self.linear_stretch_pct.emit(5.0)
 
 
 class StretchBuilderDialog(QDialog):
@@ -695,12 +699,14 @@ class StretchBuilderDialog(QDialog):
                 self._channel_widgets[i].set_min_max_bounds(min_val, max_val)
         '''
 
-    def _on_linear_stretch_pct(self, percent):
+    def _on_linear_stretch_pct(self, percent: float):
         '''
         This signal handler is called when the user presses a "N% linear
         stretch" button in the stretch configuration pane.  It is simple - just
         unlinks the sliders (if linked), and tells each channel to apply the
         specified N% linear stretch.
+
+        The percent value is a floating point number in the range (0, 100].
         '''
 
         # Make sure to unlink sliders, becasue they will all likely end up in
@@ -711,8 +717,17 @@ class StretchBuilderDialog(QDialog):
         # Go through all channels and set the histogram bounds
         # based on the requested percentage.
         self._enable_stretch_changed_events = False
-        for i in range(self._num_active_channels):
-            self._channel_widgets[i].set_linear_stretch_pct(percent)
+
+        try:
+            for i in range(self._num_active_channels):
+                self._channel_widgets[i].set_linear_stretch_pct(percent / 100.0)
+        except DataDistributionError:
+            QMessageBox.critical(self,
+                self.tr('Cannot set {0}% linear stretch').format(percent),
+                self.tr('The data distribution will not allow for a {0}% linear stretch').format(percent))
+
+            # TODO(donnie):  Switch to a different stretch somehow.
+
         self._enable_stretch_changed_events = True
 
         self._emit_stretch_changed(self.get_stretches())
@@ -761,6 +776,8 @@ class StretchBuilderDialog(QDialog):
     def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
         # print(f'Display bands = {display_bands}')
 
+        self._enable_stretch_changed_events = False
+
         self._dataset = dataset
         self._display_bands = display_bands
 
@@ -803,6 +820,8 @@ class StretchBuilderDialog(QDialog):
             raise ValueError(f'display_bands must be 1 element or 3 elements; got {display_bands}')
 
         self._saved_stretches = stretches
+
+        self._enable_stretch_changed_events = True
 
         self.adjustSize()
         super().show()

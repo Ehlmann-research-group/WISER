@@ -1,228 +1,156 @@
+from typing import List
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from raster.dataset import find_truecolor_bands
+from .band_chooser_ui import Ui_BandChooserDialog
+
+from raster.dataset import RasterDataSet, find_truecolor_bands
 
 
-class BandChooser(QWidget):
-    def __init__(self, parent=None):
+class BandChooserDialog(QDialog):
+    '''
+    A dialog that shows various important system details in a plain text box,
+    so that the user can see what libraries and versions the app is using.
+    There is also a "copy to clipboard" button to simplify bug reporting.
+    '''
+
+    def __init__(self, dataset: RasterDataSet, display_bands: List[int], parent=None):
         super().__init__(parent=parent)
 
-        # Internal State
+        if len(display_bands) not in [1, 3]:
+            raise ValueError('display_bands must be either 1 element or 3 elements')
 
-        self._dataset = None
-        self._display_bands = []
+        self._dataset = dataset
+        self._display_bands = display_bands
 
-        # UI Widgets
+        # Set up the UI state
+        self._ui = Ui_BandChooserDialog()
+        self._ui.setupUi(self)
 
-        # RGB color-band selection:
+        # Configure UI components based on incoming data set and display bands
 
-        self._rb_rgb_display = QRadioButton(self.tr('Red/Green/Blue Display'), self)
-        self._rb_grayscale_display = QRadioButton(self.tr('Grayscale Display'), self)
+        for combobox in [self._ui.cbox_red_band, self._ui.cbox_green_band,
+                         self._ui.cbox_blue_band, self._ui.cbox_gray_band]:
+            self._populate_combobox(combobox)
 
-        self._rb_rgb_display.clicked.connect(self._on_radio_btn_clicked)
-        self._rb_grayscale_display.clicked.connect(self._on_radio_btn_clicked)
+        if len(display_bands) == 3:
+            self._ui.rbtn_rgb.setChecked(True)
+            self._set_rgb_bands(display_bands)
+            self._ui.config_stack.setCurrentWidget(self._ui.config_rgb)
 
-        self._lbl_band_red = QLabel(self.tr('Red'))
-        self._lbl_band_grn = QLabel(self.tr('Green'))
-        self._lbl_band_blu = QLabel(self.tr('Blue'))
+        elif len(display_bands) == 1:
+            self._ui.rbtn_grayscale.setChecked(True)
+            self._set_grayscale_bands(display_bands)
+            self._ui.config_stack.setCurrentWidget(self._ui.config_grayscale)
 
-        self._cbox_band_red = QComboBox()
-        self._cbox_band_grn = QComboBox()
-        self._cbox_band_blu = QComboBox()
+        self._configure_buttons()
 
-        self._btn_choose_truecolor = QPushButton(self.tr('Choose visible-light color bands'))
-        self._btn_choose_truecolor.clicked.connect(self._on_choose_truecolors)
+        self._ui.chk_apply_globally.setChecked(True)
 
-        # Grayscale band selection:
+        # Hook up event handlers
 
-        self._lbl_band_grayscale = QLabel(self.tr('Grayscale'))
-        self._cbox_band_grayscale = QComboBox()
+        self._ui.rbtn_rgb.toggled.connect(self._on_rgb_toggled)
+        self._ui.rbtn_grayscale.toggled.connect(self._on_grayscale_toggled)
 
-        # Apply selection globally:
+        self._ui.btn_rgb_choose_defaults.clicked.connect(self._on_rgb_choose_default_bands)
+        self._ui.btn_rgb_choose_visible.clicked.connect(self._on_rgb_choose_visible_bands)
 
-        self._cb_apply_globally = QCheckBox(self.tr('Apply band selections in all views'))
-        self._cb_apply_globally.setChecked(True)
-
-        for cbox in [self._cbox_band_red, self._cbox_band_grn, self._cbox_band_blu, self._cbox_band_grayscale]:
-            cbox.view().setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-        # Widget Layout
-
-        layout = QGridLayout(self)
-
-        layout.addWidget(self._rb_rgb_display, 0, 0, columnSpan=2)
-
-        layout.addWidget(self._lbl_band_red, 1, 0)
-        layout.addWidget(self._cbox_band_red, 1, 1)
-
-        layout.addWidget(self._lbl_band_grn, 2, 0)
-        layout.addWidget(self._cbox_band_grn, 2, 1)
-
-        layout.addWidget(self._lbl_band_blu, 3, 0)
-        layout.addWidget(self._cbox_band_blu, 3, 1)
-
-        layout.addWidget(self._btn_choose_truecolor, 4, 1)
-
-        layout.addWidget(self._rb_grayscale_display, 5, 0, columnSpan=2)
-
-        layout.addWidget(self._lbl_band_grayscale, 6, 0)
-        layout.addWidget(self._cbox_band_grayscale, 6, 1)
-
-        layout.addWidget(self._cb_apply_globally, 7, 0, columnSpan=2)
-
-        self.setLayout(layout)
+        self._ui.btn_gray_choose_defaults.clicked.connect(self._on_grayscale_choose_default_bands)
 
 
-    def _populate_comboboxes(self):
-        boxes = [
-            self._cbox_band_red, self._cbox_band_grn, self._cbox_band_blu,
-            self._cbox_band_grayscale
-        ]
-
-        # Clear all combo-boxes
-        for box in boxes:
-            box.clear()
+    def _populate_combobox(self, combobox):
+        '''
+        Populate the specified combo-box with the band information from the
+        data set.
+        '''
+        combobox.clear()
 
         if self._dataset is None:
             return
 
-        # Populate all of the combo-boxes with the band list
+        # Get the band list from the dataset, and get a string description for
+        # each band
         bands = self._dataset.band_list()
-
         items = [b['description'] for b in bands]
-        for box in boxes:
-            box.addItems(items)
 
+        # Add all the band descriptions to the combobox.
+        combobox.addItems(items)
+
+        if self._dataset.has_wavelengths():
+            # Since the dataset has wavelengths, set the combobox's alignment
+            # to right-aligned to make it prettier.
             for i in range(len(items)):
-                box.setItemData(i, Qt.AlignRight, role=Qt.TextAlignmentRole)
+                combobox.setItemData(i, Qt.AlignRight, role=Qt.TextAlignmentRole)
 
 
-    def set_dataset(self, dataset):
-        self._dataset = dataset
-        self._populate_comboboxes()
-        self._update_enabled_state()
+    def _set_rgb_bands(self, display_bands: List[int]):
+        assert(len(display_bands) == 3)
+        self._ui.cbox_red_band.setCurrentIndex(display_bands[0])
+        self._ui.cbox_green_band.setCurrentIndex(display_bands[1])
+        self._ui.cbox_blue_band.setCurrentIndex(display_bands[2])
 
 
-    def set_display_bands(self, display_bands):
-        if len(display_bands) not in [1, 3]:
-            raise ValueError(f'Invalid number of display bands specified:  {display_bands}')
-
-        self._display_bands = display_bands
-
-        # Choose the display bands in the corresponding combo-boxes
-
-        if len(self._display_bands) == 3:
-            # RGB display
-
-            self._rb_rgb_display.setChecked(True)
-            self._cbox_band_red.setCurrentIndex(self._display_bands[0])
-            self._cbox_band_grn.setCurrentIndex(self._display_bands[1])
-            self._cbox_band_blu.setCurrentIndex(self._display_bands[2])
-
-        else:
-            assert len(self._display_bands) == 1
-            self._rb_grayscale_display.setChecked(True)
-            self._cbox_band_grayscale.setCurrentIndex(self._display_bands[0])
-
-        self._update_enabled_state()
+    def _set_grayscale_bands(self, display_bands: List[int]):
+        assert(len(display_bands) == 1)
+        self._ui.cbox_gray_band.setCurrentIndex(display_bands[0])
 
 
-    def _on_radio_btn_clicked(self):
-        self._update_enabled_state()
-
-
-    def _on_choose_truecolors(self):
-        tc_bands = find_truecolor_bands(self._dataset)
-        assert tc_bands is not None
-
-        self.set_display_bands(tc_bands)
-
-
-    def _update_enabled_state(self):
+    def _configure_buttons(self):
         '''
-        This helper method updates the enabled-state of the various widgets
-        in the band-chooser UI.
+        Configure whether the "choose visible-light bands" and "choose default
+        bands" buttons are enabled or not, based on whether the data set has
+        visible-light bands and/or default bands.
         '''
 
-        if self._dataset is not None:
-            # Enable / disable widgets based on selection.
-            if self._rb_rgb_display.isChecked():
-                self._cbox_band_red.setEnabled(True)
-                self._cbox_band_grn.setEnabled(True)
-                self._cbox_band_blu.setEnabled(True)
-                self._cbox_band_grayscale.setEnabled(False)
+        default_bands = self._dataset.default_display_bands()
 
-                tc_bands = find_truecolor_bands(self._dataset)
-                self._btn_choose_truecolor.setEnabled(tc_bands is not None)
+        self._ui.btn_rgb_choose_defaults.setEnabled(
+            default_bands is not None and len(default_bands) == 3)
 
-            else:
-                self._cbox_band_red.setEnabled(False)
-                self._cbox_band_grn.setEnabled(False)
-                self._cbox_band_blu.setEnabled(False)
-                self._cbox_band_grayscale.setEnabled(True)
+        self._ui.btn_gray_choose_defaults.setEnabled(
+            default_bands is not None and len(default_bands) == 1)
 
-                self._btn_choose_truecolor.setEnabled(False)
-        else:
-            # No dataset.
-            self._cbox_band_red.setEnabled(False)
-            self._cbox_band_grn.setEnabled(False)
-            self._cbox_band_blu.setEnabled(False)
-            self._cbox_band_grayscale.setEnabled(False)
+        truecolor_bands = find_truecolor_bands(self._dataset)
+        self._ui.btn_rgb_choose_visible.setEnabled(truecolor_bands is not None)
 
-            self._btn_choose_truecolor.setEnabled(False)
+
+
+    def _on_rgb_toggled(self, checked):
+        if checked:
+            self._ui.config_stack.setCurrentWidget(self._ui.config_rgb)
+
+
+    def _on_grayscale_toggled(self, checked):
+        if checked:
+            self._ui.config_stack.setCurrentWidget(self._ui.config_grayscale)
+
+
+    def _on_rgb_choose_visible_bands(self, checked):
+        pass
+
+
+    def _on_rgb_choose_default_bands(self, checked):
+        self._set_rgb_bands(self._dataset.default_display_bands())
+
+
+    def _on_grayscale_choose_default_bands(self, checked):
+        self._set_grayscale_bands(self._dataset.default_display_bands())
 
 
     def get_display_bands(self):
         if self._dataset is None:
             return None
 
-        if self._rb_rgb_display.isChecked():
-            return (self._cbox_band_red.currentIndex(),
-                    self._cbox_band_grn.currentIndex(),
-                    self._cbox_band_blu.currentIndex(), )
-
+        if self._ui.rbtn_rgb.isChecked():
+            return [self._ui.cbox_red_band.currentIndex(),
+                    self._ui.cbox_green_band.currentIndex(),
+                    self._ui.cbox_blue_band.currentIndex()]
         else:
-            assert self._rb_grayscale_display.isChecked()
-            return (self._cbox_band_grayscale.currentIndex(), )
+            assert self._ui.rbtn_grayscale.isChecked()
+            return [self._ui.cbox_gray_band.currentIndex()]
+
 
     def apply_globally(self):
-        return self._cb_apply_globally.isChecked()
-
-
-class BandChooserDialog(QDialog):
-    def __init__(self, dataset, display_bands, parent=None):
-        super().__init__(parent=parent)
-        self.setWindowTitle(self.tr('Choose Bands to Display'))
-
-        layout = QVBoxLayout(self)
-
-        self._band_chooser = BandChooser(self)
-        self._band_chooser.set_dataset(dataset)
-        self._band_chooser.set_display_bands(display_bands)
-
-        layout.addWidget(self._band_chooser)
-
-        # Dialog buttons - hook to built-in QDialog functions
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
-            Qt.Horizontal, self)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-
-        layout.addWidget(buttons)
-
-    def get_display_bands(self):
-        return self._band_chooser.get_display_bands()
-
-    def apply_globally(self):
-        return self._band_chooser.apply_globally()
-
-
-class BandChooserAction(QWidgetAction):
-    '''
-    This class is used to pop up the Band Chooser widget from a toolbar button.
-    '''
-
-    def createWidget(self, parent):
-        return BandChooser(parent=parent)
+        return self._ui.chk_apply_globally.isChecked()

@@ -30,17 +30,17 @@ class Ui_BandChooserDialog(object):
 
         self.gridLayout.addWidget(self.buttonBox, 3, 1, 1, 1)
 
-        self.chk_apply_to_all_views = QCheckBox(BandChooserDialog)
-        self.chk_apply_to_all_views.setObjectName(u"chk_apply_to_all_views")
+        self.chk_apply_globally = QCheckBox(BandChooserDialog)
+        self.chk_apply_globally.setObjectName(u"chk_apply_globally")
 
-        self.gridLayout.addWidget(self.chk_apply_to_all_views, 3, 0, 1, 1)
+        self.gridLayout.addWidget(self.chk_apply_globally, 3, 0, 1, 1)
 
         self.gbox_detail = QGroupBox(BandChooserDialog)
         self.gbox_detail.setObjectName(u"gbox_detail")
         self.verticalLayout_2 = QVBoxLayout(self.gbox_detail)
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
-        self.stackedWidget = QStackedWidget(self.gbox_detail)
-        self.stackedWidget.setObjectName(u"stackedWidget")
+        self.config_stack = QStackedWidget(self.gbox_detail)
+        self.config_stack.setObjectName(u"config_stack")
         self.config_rgb = QWidget()
         self.config_rgb.setObjectName(u"config_rgb")
         self.gridLayout_2 = QGridLayout(self.config_rgb)
@@ -75,27 +75,22 @@ class Ui_BandChooserDialog(object):
 
         self.gridLayout_2.addWidget(self.lbl_green_band, 1, 0, 1, 1)
 
-        self.btn_choose_defaults = QPushButton(self.config_rgb)
-        self.btn_choose_defaults.setObjectName(u"btn_choose_defaults")
+        self.btn_rgb_choose_defaults = QPushButton(self.config_rgb)
+        self.btn_rgb_choose_defaults.setObjectName(u"btn_rgb_choose_defaults")
 
-        self.gridLayout_2.addWidget(self.btn_choose_defaults, 3, 0, 1, 2)
+        self.gridLayout_2.addWidget(self.btn_rgb_choose_defaults, 3, 0, 1, 2)
 
-        self.btn_choose_visible = QPushButton(self.config_rgb)
-        self.btn_choose_visible.setObjectName(u"btn_choose_visible")
+        self.btn_rgb_choose_visible = QPushButton(self.config_rgb)
+        self.btn_rgb_choose_visible.setObjectName(u"btn_rgb_choose_visible")
 
-        self.gridLayout_2.addWidget(self.btn_choose_visible, 4, 0, 1, 2)
+        self.gridLayout_2.addWidget(self.btn_rgb_choose_visible, 4, 0, 1, 2)
 
         self.gridLayout_2.setColumnStretch(1, 1)
-        self.stackedWidget.addWidget(self.config_rgb)
+        self.config_stack.addWidget(self.config_rgb)
         self.config_grayscale = QWidget()
         self.config_grayscale.setObjectName(u"config_grayscale")
         self.gridLayout_3 = QGridLayout(self.config_grayscale)
         self.gridLayout_3.setObjectName(u"gridLayout_3")
-        self.cbox_gray_band = QComboBox(self.config_grayscale)
-        self.cbox_gray_band.setObjectName(u"cbox_gray_band")
-
-        self.gridLayout_3.addWidget(self.cbox_gray_band, 0, 1, 1, 1)
-
         self.lbl_gray_band = QLabel(self.config_grayscale)
         self.lbl_gray_band.setObjectName(u"lbl_gray_band")
 
@@ -103,12 +98,22 @@ class Ui_BandChooserDialog(object):
 
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
-        self.gridLayout_3.addItem(self.verticalSpacer, 1, 0, 1, 1)
+        self.gridLayout_3.addItem(self.verticalSpacer, 2, 0, 1, 1)
+
+        self.cbox_gray_band = QComboBox(self.config_grayscale)
+        self.cbox_gray_band.setObjectName(u"cbox_gray_band")
+
+        self.gridLayout_3.addWidget(self.cbox_gray_band, 0, 1, 1, 1)
+
+        self.btn_gray_choose_defaults = QPushButton(self.config_grayscale)
+        self.btn_gray_choose_defaults.setObjectName(u"btn_gray_choose_defaults")
+
+        self.gridLayout_3.addWidget(self.btn_gray_choose_defaults, 1, 0, 1, 2)
 
         self.gridLayout_3.setColumnStretch(1, 1)
-        self.stackedWidget.addWidget(self.config_grayscale)
+        self.config_stack.addWidget(self.config_grayscale)
 
-        self.verticalLayout_2.addWidget(self.stackedWidget)
+        self.verticalLayout_2.addWidget(self.config_stack)
 
 
         self.gridLayout.addWidget(self.gbox_detail, 1, 0, 1, 2)
@@ -131,12 +136,27 @@ class Ui_BandChooserDialog(object):
         self.gridLayout.addWidget(self.gbox_general, 0, 0, 1, 2)
 
         self.gridLayout.setColumnStretch(0, 1)
+#if QT_CONFIG(shortcut)
+        self.lbl_blue_band.setBuddy(self.cbox_blue_band)
+        self.lbl_red_band.setBuddy(self.cbox_red_band)
+        self.lbl_green_band.setBuddy(self.cbox_green_band)
+        self.lbl_gray_band.setBuddy(self.cbox_gray_band)
+#endif // QT_CONFIG(shortcut)
+        QWidget.setTabOrder(self.rbtn_rgb, self.rbtn_grayscale)
+        QWidget.setTabOrder(self.rbtn_grayscale, self.cbox_red_band)
+        QWidget.setTabOrder(self.cbox_red_band, self.cbox_green_band)
+        QWidget.setTabOrder(self.cbox_green_band, self.cbox_blue_band)
+        QWidget.setTabOrder(self.cbox_blue_band, self.btn_rgb_choose_defaults)
+        QWidget.setTabOrder(self.btn_rgb_choose_defaults, self.btn_rgb_choose_visible)
+        QWidget.setTabOrder(self.btn_rgb_choose_visible, self.cbox_gray_band)
+        QWidget.setTabOrder(self.cbox_gray_band, self.btn_gray_choose_defaults)
+        QWidget.setTabOrder(self.btn_gray_choose_defaults, self.chk_apply_globally)
 
         self.retranslateUi(BandChooserDialog)
         self.buttonBox.accepted.connect(BandChooserDialog.accept)
         self.buttonBox.rejected.connect(BandChooserDialog.reject)
 
-        self.stackedWidget.setCurrentIndex(1)
+        self.config_stack.setCurrentIndex(1)
 
 
         QMetaObject.connectSlotsByName(BandChooserDialog)
@@ -144,16 +164,17 @@ class Ui_BandChooserDialog(object):
 
     def retranslateUi(self, BandChooserDialog):
         BandChooserDialog.setWindowTitle(QCoreApplication.translate("BandChooserDialog", u"Band Chooser", None))
-        self.chk_apply_to_all_views.setText(QCoreApplication.translate("BandChooserDialog", u"Apply to all views", None))
+        self.chk_apply_globally.setText(QCoreApplication.translate("BandChooserDialog", u"&Apply to all views", None))
         self.gbox_detail.setTitle(QCoreApplication.translate("BandChooserDialog", u"Detail", None))
         self.lbl_blue_band.setText(QCoreApplication.translate("BandChooserDialog", u"Blue Band", None))
         self.lbl_red_band.setText(QCoreApplication.translate("BandChooserDialog", u"Red Band", None))
         self.lbl_green_band.setText(QCoreApplication.translate("BandChooserDialog", u"Green Band", None))
-        self.btn_choose_defaults.setText(QCoreApplication.translate("BandChooserDialog", u"Choose Default Bands", None))
-        self.btn_choose_visible.setText(QCoreApplication.translate("BandChooserDialog", u"Choose Visible-Light Bands", None))
+        self.btn_rgb_choose_defaults.setText(QCoreApplication.translate("BandChooserDialog", u"Choose &Default Bands", None))
+        self.btn_rgb_choose_visible.setText(QCoreApplication.translate("BandChooserDialog", u"Choose &Visible-Light Bands", None))
         self.lbl_gray_band.setText(QCoreApplication.translate("BandChooserDialog", u"Grayscale Band", None))
+        self.btn_gray_choose_defaults.setText(QCoreApplication.translate("BandChooserDialog", u"Choose &Default Band", None))
         self.gbox_general.setTitle(QCoreApplication.translate("BandChooserDialog", u"General", None))
-        self.rbtn_rgb.setText(QCoreApplication.translate("BandChooserDialog", u"RGB", None))
-        self.rbtn_grayscale.setText(QCoreApplication.translate("BandChooserDialog", u"Grayscale", None))
+        self.rbtn_rgb.setText(QCoreApplication.translate("BandChooserDialog", u"&RGB", None))
+        self.rbtn_grayscale.setText(QCoreApplication.translate("BandChooserDialog", u"&Grayscale", None))
     # retranslateUi
 
