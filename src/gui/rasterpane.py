@@ -622,12 +622,13 @@ class RasterPane(QWidget):
 
         # If the specified data set is the one currently being displayed, update
         # the UI display.
-        if ds_id == self._dataset_id:
-            # Get the stretches at the same time, so that we only update the
-            # raster-view once.
-            stretches = self._app_state.get_stretches(self._dataset_id, bands)
-            # TODO(donnie):  What to do for multi-views?
-            self.get_rasterview().set_display_bands(bands, stretches=stretches)
+        for rasterview in self._rasterviews.values():
+            rv_dataset = rasterview.get_raster_data()
+            if rv_dataset is not None and ds_id == rv_dataset.get_id():
+                # Get the stretches at the same time, so that we only update the
+                # raster-view once.
+                stretches = self._app_state.get_stretches(ds_id, bands)
+                rasterview.set_display_bands(bands, stretches=stretches)
 
 
     def make_point_visible(self, x, y, rasterview_pos=(0, 0)):
@@ -812,13 +813,13 @@ class RasterPane(QWidget):
             bands = dialog.get_display_bands()
             is_global = dialog.apply_globally()
 
-            self.display_bands_change.emit(self._dataset_id, bands, is_global)
+            self.display_bands_change.emit(dataset.get_id(), bands, is_global)
 
             # Only update our display bands if the change was not global, since
             # if it was, the main application controller will change everybody's
             # display bands.
             if not is_global:
-                self.set_display_bands(self._dataset_id, bands)
+                self.set_display_bands(dataset.get_id(), bands)
 
 
     def _on_stretch_changed(self, ds_id, bands):

@@ -25,9 +25,9 @@
     </widget>
    </item>
    <item row="3" column="0">
-    <widget class="QCheckBox" name="chk_apply_to_all_views">
+    <widget class="QCheckBox" name="chk_apply_globally">
      <property name="text">
-      <string>Apply to all views</string>
+      <string>&amp;Apply to all views</string>
      </property>
     </widget>
    </item>
@@ -38,7 +38,7 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
-       <widget class="QStackedWidget" name="stackedWidget">
+       <widget class="QStackedWidget" name="config_stack">
         <property name="currentIndex">
          <number>1</number>
         </property>
@@ -51,6 +51,9 @@
            <widget class="QLabel" name="lbl_blue_band">
             <property name="text">
              <string>Blue Band</string>
+            </property>
+            <property name="buddy">
+             <cstring>cbox_blue_band</cstring>
             </property>
            </widget>
           </item>
@@ -65,6 +68,9 @@
             <property name="text">
              <string>Red Band</string>
             </property>
+            <property name="buddy">
+             <cstring>cbox_red_band</cstring>
+            </property>
            </widget>
           </item>
           <item row="1" column="0">
@@ -72,19 +78,22 @@
             <property name="text">
              <string>Green Band</string>
             </property>
+            <property name="buddy">
+             <cstring>cbox_green_band</cstring>
+            </property>
            </widget>
           </item>
           <item row="3" column="0" colspan="2">
-           <widget class="QPushButton" name="btn_choose_defaults">
+           <widget class="QPushButton" name="btn_rgb_choose_defaults">
             <property name="text">
-             <string>Choose Default Bands</string>
+             <string>Choose &amp;Default Bands</string>
             </property>
            </widget>
           </item>
           <item row="4" column="0" colspan="2">
-           <widget class="QPushButton" name="btn_choose_visible">
+           <widget class="QPushButton" name="btn_rgb_choose_visible">
             <property name="text">
-             <string>Choose Visible-Light Bands</string>
+             <string>Choose &amp;Visible-Light Bands</string>
             </property>
            </widget>
           </item>
@@ -92,17 +101,17 @@
         </widget>
         <widget class="QWidget" name="config_grayscale">
          <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,1">
-          <item row="0" column="1">
-           <widget class="QComboBox" name="cbox_gray_band"/>
-          </item>
           <item row="0" column="0">
            <widget class="QLabel" name="lbl_gray_band">
             <property name="text">
              <string>Grayscale Band</string>
             </property>
+            <property name="buddy">
+             <cstring>cbox_gray_band</cstring>
+            </property>
            </widget>
           </item>
-          <item row="1" column="0">
+          <item row="2" column="0">
            <spacer name="verticalSpacer">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
@@ -114,6 +123,16 @@
              </size>
             </property>
            </spacer>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="cbox_gray_band"/>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QPushButton" name="btn_gray_choose_defaults">
+            <property name="text">
+             <string>Choose &amp;Default Band</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -131,14 +150,14 @@
       <item>
        <widget class="QRadioButton" name="rbtn_rgb">
         <property name="text">
-         <string>RGB</string>
+         <string>&amp;RGB</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QRadioButton" name="rbtn_grayscale">
         <property name="text">
-         <string>Grayscale</string>
+         <string>&amp;Grayscale</string>
         </property>
        </widget>
       </item>
@@ -147,6 +166,18 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>rbtn_rgb</tabstop>
+  <tabstop>rbtn_grayscale</tabstop>
+  <tabstop>cbox_red_band</tabstop>
+  <tabstop>cbox_green_band</tabstop>
+  <tabstop>cbox_blue_band</tabstop>
+  <tabstop>btn_rgb_choose_defaults</tabstop>
+  <tabstop>btn_rgb_choose_visible</tabstop>
+  <tabstop>cbox_gray_band</tabstop>
+  <tabstop>btn_gray_choose_defaults</tabstop>
+  <tabstop>chk_apply_globally</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

@@ -5,6 +5,14 @@ from enum import Enum
 import numpy as np
 
 
+class DataDistributionError(Exception):
+    '''
+    This exception is thrown when the data distribution for a dataset will not
+    support a certain kind of stretch.
+    '''
+    pass
+
+
 def hist_limits_for_pct(hist_bins, hist_edges, percent, total_samples=None):
     '''
     This function uses a histogram (represented as bins and edges, per
@@ -20,13 +28,17 @@ def hist_limits_for_pct(hist_bins, hist_edges, percent, total_samples=None):
     # This helper function traverses the histogram bins until the total samples
     # is at least the target count.
     def find_limit(target_count: int, bins, start, end, step) -> int:
+        # print(f'find_limit(target_count={target_count}, bins, start={start}, end={end}, step={step})')
         sum = 0
         for index in range(start, end, step):
             sum += bins[index]
+            # print(f'find_limit:  index={index}, bins[index]={bins[index]}, sum={sum}')
             if sum >= target_count:
                 return index
 
         return None
+
+    # print(f'hist_limits_for_pct:  total_samples={total_samples}')
 
     # Compute the total samples if we don't know it.
     if total_samples is None:
@@ -34,8 +46,12 @@ def hist_limits_for_pct(hist_bins, hist_edges, percent, total_samples=None):
 
     target_samples = total_samples * percent / 2
 
+    # print(f'hist_limits_for_pct:  total_samples={total_samples}\ttarget_samples={target_samples}')
+
     idx_low  = find_limit(target_samples, hist_bins, 0, len(hist_bins),  1)
-    idx_high = find_limit(target_samples, hist_bins, len(hist_bins) - 1, 0, -1)
+    idx_high = find_limit(target_samples, hist_bins, len(hist_bins) - 1, -1, -1)
+
+    # print(f'hist_limits_for_pct:  idx_low={idx_low}\tidx_high={idx_high}')
 
     return (idx_low, idx_high)
 
