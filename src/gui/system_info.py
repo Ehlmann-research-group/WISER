@@ -4,6 +4,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from version import VERSION
+
 from .system_info_ui import Ui_SystemInfoDialog
 
 
@@ -32,8 +34,8 @@ class SystemInfoDialog(QDialog):
         # Application info
 
         info  = 'Imaging Spectroscopy Workbench\n'
-        info += 'Version:  TODO\n'
-        info += 'Release Date:  TODO\n'
+        info += 'Version:  {0}\n'.format(VERSION)
+        info += 'Release Date:  Real Soon Now...\n'
         info += '\n'
 
         # OS platform and Python platform info
@@ -73,4 +75,3 @@ if __name__ == '__main__':
     dlg = SystemInfoDialog()
     dlg.show()
     sys.exit(app.exec_())
-
