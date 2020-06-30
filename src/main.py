@@ -4,6 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import bugsnag
 import matplotlib
 
 from gui.app import DataVisualizerApp
@@ -49,8 +50,13 @@ def init_matplotlib():
 
 
 if __name__ == '__main__':
+    # Logging details
     faulthandler.enable()
-    
+
+    # TODO(donnie):  Disable if user has online reporting off.
+    bugsnag.configure(api_key='29bf39226c3071461f3d0630c9ced4b6')
+
+
     # TODO(donnie):  This is supposed to be how you turn on high-DPI
     #     application scaling in Qt.  This does not seem to be required on
     #     MacOSX though.  Saving this code in case it is needed on Linux or
