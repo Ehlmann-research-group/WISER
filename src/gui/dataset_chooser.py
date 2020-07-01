@@ -4,6 +4,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import gui.resources
+
 from .app_state import ApplicationState
 from raster.dataset import RasterDataSet
 
@@ -35,7 +37,7 @@ class DatasetChooser(QToolButton):
         self._dataset_menu = QMenu()
         self._action_list = []
 
-        self.setIcon(QIcon('resources/stack.svg'))
+        self.setIcon(QIcon(':/icons/stack.svg'))
         self.setToolTip(self.tr('Select dataset to view'))
         self.setPopupMode(QToolButton.InstantPopup)
         self.setMenu(self._dataset_menu)

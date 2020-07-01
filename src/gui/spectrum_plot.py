@@ -5,6 +5,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import gui.resources
+
 from .spectrum_plot_config import SpectrumPlotConfigDialog
 from .spectrum_info_editor import SpectrumInfoEditor
 from .util import add_toolbar_action
@@ -358,11 +360,11 @@ class SpectrumPlot(QWidget):
         self._toolbar.setIconSize(QSize(20, 20))
 
         self._act_collect_spectrum = add_toolbar_action(self._toolbar,
-            'resources/collect-spectrum.svg', self.tr('Collect spectrum'), self)
+            ':/icons/collect-spectrum.svg', self.tr('Collect spectrum'), self)
         self._act_collect_spectrum.triggered.connect(self._on_collect_spectrum)
 
         self._act_load_spectral_library = add_toolbar_action(self._toolbar,
-            'resources/load-spectra.svg', self.tr('Load spectral library'), self)
+            ':/icons/load-spectra.svg', self.tr('Load spectral library'), self)
         self._act_load_spectral_library.triggered.connect(self._on_load_spectral_library)
 
         spacer = QWidget()
@@ -370,13 +372,13 @@ class SpectrumPlot(QWidget):
         self._toolbar.addWidget(spacer)
 
         self._act_configure = add_toolbar_action(self._toolbar,
-            'resources/configure.svg', self.tr('Configure'), self)
+            ':/icons/configure.svg', self.tr('Configure'), self)
         self._act_configure.triggered.connect(self._on_configure)
 
         # TODO(donnie):  Get rid of this eventually.  Similar functionality will
         #     be exposed in the spectral library tree.
         # self._act_clear_all_plots = add_toolbar_action(self._toolbar,
-        #     'resources/clear-all-plots.svg', self.tr('Clear all plots'), self)
+        #     ':/icons/clear-all-plots.svg', self.tr('Clear all plots'), self)
         # self._act_clear_all_plots.triggered.connect(self._on_clear_all_plots)
 
         #==================================================

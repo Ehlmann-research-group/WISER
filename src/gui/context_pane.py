@@ -2,6 +2,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import gui.resources
+
 from .rasterview import ScaleToFitMode
 from .rasterpane import RasterPane
 
@@ -35,7 +37,7 @@ class ContextPane(RasterPane):
         '''
 
         self._act_fit_to_window = self._toolbar.addAction(
-            QIcon('resources/zoom-to-fit.svg'),
+            QIcon(':/icons/zoom-to-fit.svg'),
             self.tr('Fit image to window'))
         self._act_fit_to_window.setCheckable(True)
         self._act_fit_to_window.setChecked(True)

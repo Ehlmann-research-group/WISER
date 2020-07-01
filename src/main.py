@@ -49,7 +49,7 @@ def init_matplotlib():
     matplotlib.rcParams['font.size'] = 9
 
 
-if __name__ == '__main__':
+def main():
     # Logging details
     faulthandler.enable()
 
@@ -82,3 +82,7 @@ if __name__ == '__main__':
         ui._app_state.open_file(file_path)
 
     sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()

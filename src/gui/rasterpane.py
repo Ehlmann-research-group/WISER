@@ -5,6 +5,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import gui.resources
+
 from .app_config import PixelReticleType
 from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
@@ -180,7 +182,7 @@ class RasterPane(QWidget):
         self._dataset_chooser.triggered.connect(self._on_dataset_changed)
 
         self._act_band_chooser = add_toolbar_action(self._toolbar,
-            'resources/choose-bands.svg', self.tr('Band chooser'), self)
+            ':/icons/choose-bands.svg', self.tr('Band chooser'), self)
         # TODO(donnie):  If we just pop up a widget...
         # self._band_chooser = BandChooser(self._app_state)
         # toolbar.addWidget(self._band_chooser)
@@ -194,12 +196,12 @@ class RasterPane(QWidget):
 
         # Zoom In
         self._act_zoom_in = add_toolbar_action(self._toolbar,
-            'resources/zoom-in.svg', self.tr('Zoom in'), self, QKeySequence.ZoomIn)
+            ':/icons/zoom-in.svg', self.tr('Zoom in'), self, QKeySequence.ZoomIn)
         self._act_zoom_in.triggered.connect(self._on_zoom_in)
 
         # Zoom Out
         self._act_zoom_out = add_toolbar_action(self._toolbar,
-            'resources/zoom-out.svg', self.tr('Zoom out'), self, QKeySequence.ZoomOut)
+            ':/icons/zoom-out.svg', self.tr('Zoom out'), self, QKeySequence.ZoomOut)
         self._act_zoom_out.triggered.connect(self._on_zoom_out)
 
         # Zoom Level
@@ -226,7 +228,7 @@ class RasterPane(QWidget):
         # First, populate the menu of tools, then create the chooser button.
 
         chooser = QToolButton()
-        chooser.setIcon(QIcon('resources/select.svg'))
+        chooser.setIcon(QIcon(':/icons/select.svg'))
         chooser.setToolTip(self.tr('Selection tools'))
 
         # Without the parent= argument, the chooser doesn't show the menu.
@@ -324,7 +326,7 @@ class RasterPane(QWidget):
                     # TODO:  rv_dataset_chooser.triggered.connect(self._on_dataset_changed)
 
                     rv_act_band_chooser = add_toolbar_action(rv_toolbar,
-                        'resources/choose-bands.svg', self.tr('Band chooser'), rv_container)
+                        ':/icons/choose-bands.svg', self.tr('Band chooser'), rv_container)
                     # TODO:  rv_act_band_chooser.triggered.connect(self._on_band_chooser)
 
 

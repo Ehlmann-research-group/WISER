@@ -4,6 +4,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import gui.resources
+
 from .toolbarmenu import ToolbarMenu
 from .rasterpane import RasterPane
 from .rasterview import RasterView
@@ -48,7 +50,7 @@ class MainViewWidget(RasterPane):
         super()._init_dataset_tools()
 
         self._act_stretch_builder = add_toolbar_action(self._toolbar,
-            'resources/stretch-builder.svg', self.tr('Stretch builder'), self)
+            ':/icons/stretch-builder.svg', self.tr('Stretch builder'), self)
         self._act_stretch_builder.triggered.connect(self._on_stretch_builder)
 
 
@@ -68,14 +70,14 @@ class MainViewWidget(RasterPane):
             (self.tr('2 rows x 1 column' ), (2, 1)),
             (self.tr('2 rows x 2 columns'), (2, 2)),
         ]
-        self._view_chooser = ToolbarMenu(icon=QIcon('resources/split-view.svg'),
+        self._view_chooser = ToolbarMenu(icon=QIcon(':/icons/split-view.svg'),
             items=chooser_items)
         self._view_chooser.setToolTip(self.tr('Split/unsplit the main view'))
         self._toolbar.addWidget(self._view_chooser)
         self._view_chooser.triggered.connect(self._on_split_views)
 
         self._act_link_view_scroll = add_toolbar_action(self._toolbar,
-            'resources/link-scroll.svg', self.tr('Link view scrolling'), self)
+            ':/icons/link-scroll.svg', self.tr('Link view scrolling'), self)
         self._act_link_view_scroll.setCheckable(True)
         self._act_link_view_scroll.triggered.connect(self._on_link_view_scroll)
 
@@ -89,13 +91,13 @@ class MainViewWidget(RasterPane):
 
         # Zoom to Actual Size
         self._act_zoom_to_actual = add_toolbar_action(self._toolbar,
-            'resources/zoom-to-actual.svg', self.tr('Zoom to actual size'), self,
+            ':/icons/zoom-to-actual.svg', self.tr('Zoom to actual size'), self,
             before=self._act_cbox_zoom)
         self._act_zoom_to_actual.triggered.connect(self._on_zoom_to_actual)
 
         # Zoom to Fit
         self._act_zoom_to_fit = add_toolbar_action(self._toolbar,
-            'resources/zoom-to-fit.svg', self.tr('Zoom to fit'), self,
+            ':/icons/zoom-to-fit.svg', self.tr('Zoom to fit'), self,
             before=self._act_cbox_zoom)
         self._act_zoom_to_fit.triggered.connect(self._on_zoom_to_fit)
 
