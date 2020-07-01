@@ -16,7 +16,6 @@ typecheck:
 
 build-mac:
 	pyinstaller --name $(APP_NAME) --windowed --noconfirm \
-		--add-data "src/resources:resources" \
 		--osx-bundle-identifier $(OSX_BUNDLE_ID) \
 		src/main.py
 

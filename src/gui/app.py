@@ -58,7 +58,7 @@ class DataVisualizerApp(QMainWindow):
 
         self._context_pane = ContextPane(self._app_state)
         self._make_dockable_pane(self._context_pane, name='context_pane',
-            title=self.tr('Context'), icon='resources/context-pane.svg',
+            title=self.tr('Context'), icon=':/icons/context-pane.svg',
             tooltip=self.tr('Show/hide the context pane'),
             allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea,
             area=Qt.LeftDockWidgetArea)
@@ -67,7 +67,7 @@ class DataVisualizerApp(QMainWindow):
 
         self._zoom_pane = ZoomPane(self._app_state)
         dockable = self._make_dockable_pane(self._zoom_pane, name='zoom_pane',
-            title=self.tr('Zoom'), icon='resources/zoom-pane.svg',
+            title=self.tr('Zoom'), icon=':/icons/zoom-pane.svg',
             tooltip=self.tr('Show/hide the zoom pane'),
             allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
             area=Qt.RightDockWidgetArea)
@@ -86,7 +86,7 @@ class DataVisualizerApp(QMainWindow):
 
         self._spectrum_plot = SpectrumPlot(self._app_state)
         dockable = self._make_dockable_pane(self._spectrum_plot, name='spectrum_plot',
-            title=self.tr('Spectrum Plot'), icon='resources/spectrum-pane.svg',
+            title=self.tr('Spectrum Plot'), icon=':/icons/spectrum-pane.svg',
             tooltip=self.tr('Show/hide the spectrum pane'),
             allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
             area=Qt.RightDockWidgetArea)
@@ -101,7 +101,7 @@ class DataVisualizerApp(QMainWindow):
         # scroll_area.setWidget(self.info_view)
         # scroll_area.setWidgetResizable(True)
         dockable = self._make_dockable_pane(self._dataset_info, name='dataset_info',
-            title=self.tr('Dataset Info'), icon='resources/dataset-info.svg',
+            title=self.tr('Dataset Info'), icon=':/icons/dataset-info.svg',
             tooltip=self.tr('Show/hide dataset information'),
             allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea,
             area=Qt.LeftDockWidgetArea)
@@ -158,7 +158,7 @@ class DataVisualizerApp(QMainWindow):
 
 
     def _init_toolbars(self):
-        act = add_toolbar_action(self._main_toolbar, 'resources/open-image.svg',
+        act = add_toolbar_action(self._main_toolbar, ':/icons/open-image.svg',
             'Open image file', self)
         act.triggered.connect(self.show_open_file_dialog)
 
