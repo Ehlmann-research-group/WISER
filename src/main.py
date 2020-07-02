@@ -5,6 +5,13 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 import bugsnag
+
+# TODO(donnie):  Do this before importing matplotlib, to get rid of the
+#     annoying warnings generated from the PyInstaller-frozen version.
+#     See https://stackoverflow.com/a/60470942 for details.
+import warnings
+warnings.filterwarnings('ignore', '(?s).*MATPLOTLIBDATA.*', category=UserWarning)
+
 import matplotlib
 
 from gui.app import DataVisualizerApp
