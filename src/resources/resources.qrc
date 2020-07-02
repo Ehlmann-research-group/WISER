@@ -3,7 +3,6 @@
   <qresource prefix="icons">
     <file>choose-bands.svg</file>
     <file>choose-truecolor.svg</file>
-    <file>clear-all-plots.svg</file>
     <file>collect-spectrum.svg</file>
     <file>configure.svg</file>
     <file>context-pane.svg</file>
