@@ -1,12 +1,16 @@
+APP_NAME=ISWorkbench
+APP_VERSION=0.0.1
+OSX_BUNDLE_ID=edu.caltech.gps.ISWB
+
+
 PYLINT=pylint
 PYLINT_OPTS=
 
 MYPY=mypy
 MYPY_OPTS=
 
-APP_NAME=ISWorkbench
-APP_VERSION=0.0.1
-OSX_BUNDLE_ID=edu.caltech.gps.ISWB
+NSIS="C:\Program Files (x86)\NSIS\makensis.exe"
+
 
 lint:
 	find src -name "*.py" | xargs $(PYLINT) $(PYLINT_OPTS)
@@ -41,11 +45,9 @@ build-win:
 	# To debug PyInstaller issues:
 	#   - drop the "--windowed" option
 	#   - add a "--debug [bootloader|imports|noarchive|all]" option
-	pyinstaller --name $(APP_NAME) --windowed --noconfirm \
-		--exclude-module
-		src/main.py
 
-	# CAN'T GET --windowed TO WORK - FROZEN APP DOESN'T START :-(
+	# TODO(donnie):  CAN'T GET --windowed TO WORK - FROZEN APP DOESN'T START :-(
+
 	# Extra "--add-binary" arguments because PyInstaller won't properly
 	# include all the necessary Qt DLLs.  The worst one is the SVG icon
 	# resources, which require a few steps just to get the icons to even
@@ -56,8 +58,7 @@ build-win:
     	--hidden-import PySide2.QtSvg \
     	src\main.py
 
-	# TODO:  Installer
-
+	$(NSIS) /NOCD install-win\win-install.nsi
 
 clean:
 	$(RM) -r build dist
