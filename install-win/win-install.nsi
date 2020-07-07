@@ -2,6 +2,7 @@
 ; Headers
 
 !include "MUI2.nsh"
+!include "FileFunc.nsh"
 
 ;--------------------------------
 ; Project Settings
@@ -15,13 +16,15 @@ ManifestDPIAware True
 ; TODO(donnie):  Currently we build a 64-bit Python frozen app.
 InstallDir "$PROGRAMFILES64\Imaging Spectroscopy Workbench"
 
+!define REGKEY_UNINSTALL "Software\Microsoft\Windows\CurrentVersion\Uninstall\ISWB"
+
 ;--------------------------------
 ; Modern UI 2 Specification
 
 ; Installer
 
 !define MUI_LICENSEPAGE_CHECKBOX
-!insertmacro MUI_PAGE_LICENSE "license.rtf"
+!insertmacro MUI_PAGE_LICENSE "install-win\license.rtf"
 !insertmacro MUI_PAGE_INSTFILES
 
 ; Uninstaller
@@ -38,7 +41,7 @@ InstallDir "$PROGRAMFILES64\Imaging Spectroscopy Workbench"
 
 Section "Install"
 
-  SetOutPath $INSTDIR
+  SetOutPath "$INSTDIR"
 
   File /r dist\ISWorkbench\*.*
 
@@ -52,10 +55,14 @@ Section "Install"
 
   ; Write registry keys to uninstall app through Windows system console
 
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\ISWB" \
-                   "DisplayName" "Imaging Spectroscopy Workbench"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\ISWB" \
-                   "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
+  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayName" "Imaging Spectroscopy Workbench"
+  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
+
+  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\Uninstall.exe$\" /S"
+
+  ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+  IntFmt $0 "0x%08X" $0
+  WriteRegDWORD HKLM "${REGKEY_UNINSTALL}" "EstimatedSize" "$0"
 
 SectionEnd
 
@@ -67,7 +74,7 @@ Section "Uninstall"
   ; Clean up the installed files.
 
   ; NOT NECESSARY? Delete "$INSTDIR\Uninstall.exe"
-  RMDir /r $INSTDIR
+  RMDir /r "$INSTDIR"
 
   ; Clean up start-menu entries
 
@@ -77,6 +84,6 @@ Section "Uninstall"
 
   ; Clean up registry keys
 
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\ISWB"
+  DeleteRegKey HKLM "${REGKEY_UNINSTALL}"
 
 SectionEnd
