@@ -51,6 +51,11 @@ class RasterPane(QWidget):
     #   - The value is True for "visible", False for "invisible".
     visibility_change = Signal(bool)
 
+    # Signal:  the number of views being shown in the rasterpane was updated
+    #   - The value is a 2-tuple specifying the number of rows and columns in
+    #     the raster pane's view layout.
+    # TODO(donnie):  Maybe rename to view_layout_change ?  A bit confusing name
+    #     with viewport_change signal below.
     views_changed = Signal(tuple)
 
     # Signal:  the display bands in this view were changed
@@ -77,6 +82,8 @@ class RasterPane(QWidget):
     # signal reports one optional 2-tuple with the raster-view's position in the
     # pane, or the argument will be None if all raster-views changed their
     # display viewport.
+    # TODO(donnie):  Maybe rename to raster_viewport_change ?  A bit confusing
+    #     name with viewport_change signal below.
     viewport_change = Signal(tuple)
 
 
