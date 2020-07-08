@@ -219,6 +219,25 @@ class ApplicationState(QObject):
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.REMOVED, dataset))
 
 
+    def multiple_datasets_same_size(self):
+        '''
+        This function returns True if there are multiple datasets, and they are
+        all the same size.  If either of these cases is not true then False is
+        returned.
+        '''
+        if len(self._datasets) < 2:
+            return False
+
+        datasets = list(self._datasets.values())
+        ds0_dim = (datasets[0].get_width(), datasets[0].get_height())
+        for ds in datasets[1:]:
+            ds_dim = (ds.get_width(), ds.get_height())
+            if ds_dim != ds0_dim:
+                return False
+
+        return True
+
+
     def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):
         if len(bands) != len(stretches):
             raise ValueError('bands and stretches must both be the same ' +

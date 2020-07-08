@@ -27,6 +27,9 @@ class MainViewWidget(RasterPane):
         self._stretch_builder = StretchBuilderDialog(parent=self)
         self._link_view_scrolling = False
 
+        self._set_link_views_button_state()
+        self._set_stretch_builder_button_state()
+
 
     def _init_toolbar(self):
         '''
@@ -113,6 +116,27 @@ class MainViewWidget(RasterPane):
         act.triggered.connect(lambda checked, rv=rasterview : self._on_export_image(rv))
 
 
+    def _set_link_views_button_state(self):
+        '''
+        Sets the enabled/disabled state of the "link view scrolling" button.
+        '''
+        self._act_link_view_scroll.setEnabled(self._num_views != (1, 1))
+
+    def _set_stretch_builder_button_state(self):
+        '''
+        Sets the enabled/disabled state of the "stretch builder" button.
+        '''
+        self._act_stretch_builder.setEnabled(self._app_state.num_datasets() > 0)
+
+    def _on_dataset_added(self, ds_id):
+        '''
+        Override the base-class implementation so we can also update the
+        stretch-builder button state.
+        '''
+        super()._on_dataset_added(ds_id)
+        self._set_stretch_builder_button_state()
+
+
     def _on_export_image(self, rasterview):
         # TODO:  IMPLEMENT
         pass
@@ -142,6 +166,7 @@ class MainViewWidget(RasterPane):
             self._app_state.show_status_text(msg, 5)
 
         self._init_rasterviews(action.data())
+        self._set_link_views_button_state()
 
 
     def is_scrolling_linked(self):
@@ -155,6 +180,18 @@ class MainViewWidget(RasterPane):
         be updated to show the same coordinates as the top left raster view.
         '''
 
+        if checked and not self._app_state.multiple_datasets_same_size():
+            # TODO(donnie):  Not sure if it's better to tell the user why the
+            #     view scrolling can't be linked, or to disable it.  For now,
+            #     we tell the user why it isn't possible.
+            QMessageBox.information(self, self.tr('Cannot Link Views'),
+                self.tr('Cannot link views unless multiple datasets\n' +
+                        'are loaded, and are all the same dimensions.'))
+
+            self._act_link_view_scroll.setChecked(False)
+            return
+
+        # If we got here, we can link or unlink view scrolling.
         self._link_view_scrolling = checked
         if checked:
             self._app_state.show_status_text(self.tr('Linked view scrolling is ON'), 5)
