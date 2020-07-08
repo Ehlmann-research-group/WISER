@@ -16,6 +16,8 @@ import matplotlib
 
 from gui.app import DataVisualizerApp
 
+import version
+
 
 CONFIG_FILE = 'iswb.json'
 
@@ -60,9 +62,12 @@ def main():
     # Logging details
     faulthandler.enable()
 
-    # TODO(donnie):  Disable if user has online reporting off.
-    bugsnag.configure(api_key='29bf39226c3071461f3d0630c9ced4b6')
-
+    # Configure BugSnag
+    bugsnag.configure(
+        api_key='29bf39226c3071461f3d0630c9ced4b6',
+        app_version=version.VERSION,
+        auto_notify=False,
+    )
 
     # TODO(donnie):  This is supposed to be how you turn on high-DPI
     #     application scaling in Qt.  This does not seem to be required on
