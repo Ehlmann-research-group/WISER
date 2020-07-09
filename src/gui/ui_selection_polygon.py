@@ -9,6 +9,11 @@ from .geom import distance, lines_cross
 
 
 def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
+    '''
+    Draw a polygon selection, with various options such as whether it is
+    active (user-selected), etc.
+    '''
+
     scale = rasterview.get_scale()
 
     pen = QPen(color)
@@ -36,10 +41,10 @@ class PolygonSelectionCreator(TaskDelegate):
     # require the start and end points to be closer together to close a polygon.
     SENSITIVITY = 3
 
-    def __init__(self, app_state, rasterview):
-        self._app_state = app_state
-        self._rasterview = rasterview
+    def __init__(self, app_state, rasterview=None):
+        super().__init__(rasterview)
 
+        self._app_state = app_state
         self._points = []
         self._cursor_position = None
 
@@ -56,10 +61,10 @@ class PolygonSelectionCreator(TaskDelegate):
         d = distance(p1, p2)
         return (d < PolygonSelectionCreator.SENSITIVITY / scale)
 
-    def on_mouse_press(self, widget, mouse_event):
+    def on_mouse_press(self, mouse_event):
         return self._done
 
-    def on_mouse_release(self, widget, mouse_event):
+    def on_mouse_release(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
         if len(self._points) > 0 and self._close_enough(point, self._points[0]):
@@ -75,7 +80,7 @@ class PolygonSelectionCreator(TaskDelegate):
 
         return self._done
 
-    def on_mouse_move(self, widget, mouse_event):
+    def on_mouse_move(self, mouse_event):
         # Store the current mouse location in raster coordinates,
         # for drawing the current state.
 
@@ -83,10 +88,10 @@ class PolygonSelectionCreator(TaskDelegate):
         self._cursor_position = point
         return False
 
-    def on_key_press(self, widget, key_event):
+    def on_key_press(self, key_event):
         return False
 
-    def on_key_release(self, widget, key_event):
+    def on_key_release(self, key_event):
         '''
         In the rectangle selection creator, the Esc key allows the user to
         cancel the points that have been entered, in the order they were

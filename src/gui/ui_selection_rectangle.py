@@ -9,10 +9,18 @@ from .geom import get_rectangle, scale_rectangle
 
 
 def is_rect_sel_picked(rect_sel, p):
+    '''
+    Returns True if the specified point (in dataset coordinates) falls within
+    the rectangle selection.
+    '''
     return rect_sel.get_rect().contains(p)
 
 
 def draw_rectangle_selection(rasterview, painter, rect_sel, color, active=False):
+    '''
+    Draw a rectangle selection, with various options such as whether it is
+    active (user-selected), etc.
+    '''
     scale = rasterview.get_scale()
 
     pen = QPen(color)
@@ -34,24 +42,24 @@ def draw_rectangle_selection(rasterview, painter, rect_sel, color, active=False)
 
 
 class RectangleSelectionCreator(TaskDelegate):
-    def __init__(self, app_state, rasterview):
+    def __init__(self, app_state, rasterview=None):
+        super().__init__(rasterview)
         self._app_state = app_state
-        self._rasterview = rasterview
         self._point1 = None
         self._point2 = None
 
-    def on_mouse_press(self, widget, mouse_event):
+    def on_mouse_press(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._point1 = point
         self._point2 = point
         return False
 
-    def on_mouse_release(self, widget, mouse_event):
+    def on_mouse_release(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._point2 = point
         return True
 
-    def on_mouse_move(self, widget, mouse_event):
+    def on_mouse_move(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._point2 = point
         return False
@@ -89,10 +97,9 @@ class RectangleSelectionCreator(TaskDelegate):
 
 
 class RectangleSelectionEditor(TaskDelegate):
-    def __init__(self, rasterview, rect_sel):
-        self._rasterview = rasterview
+    def __init__(self, rect_sel, rasterview=None):
+        super().__init__(rasterview)
         self._rect_sel = rect_sel
-
         self._control_points = []
         self._editing_cp_index = None
 
@@ -131,7 +138,7 @@ class RectangleSelectionEditor(TaskDelegate):
 
         return None
 
-    def on_mouse_press(self, widget, mouse_event):
+    def on_mouse_press(self, mouse_event):
         p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
         self._editing_cp_index = self._pick_control_point(p)
@@ -166,7 +173,7 @@ class RectangleSelectionEditor(TaskDelegate):
         self._control_points[self._cp_affects_y[i]].setY(p.y())
 
 
-    def on_mouse_release(self, widget, mouse_event):
+    def on_mouse_release(self, mouse_event):
         if self._editing_cp_index is None:
             return True
 
@@ -174,7 +181,7 @@ class RectangleSelectionEditor(TaskDelegate):
         self._adjust_control_points(p)
         return True
 
-    def on_mouse_move(self, widget, mouse_event):
+    def on_mouse_move(self, mouse_event):
         if self._editing_cp_index is None:
             return False
 
