@@ -428,13 +428,13 @@ class RasterPane(QWidget):
 
 
     def _onRasterMousePress(self, rasterview, mouse_event):
-        if self._task_delegate is not None:
-            done = self._task_delegate.on_mouse_press(widget, mouse_event)
+        if self._is_delegate_for_rasterview(rasterview):
+            done = self._task_delegate.on_mouse_press(mouse_event)
             self._update_delegate(done)
 
     def _onRasterMouseMove(self, rasterview, mouse_event):
-        if self._task_delegate is not None:
-            done = self._task_delegate.on_mouse_move(widget, mouse_event)
+        if self._is_delegate_for_rasterview(rasterview):
+            done = self._task_delegate.on_mouse_move(mouse_event)
             self._update_delegate(done)
 
     def _onRasterMouseRelease(self, rasterview, mouse_event):
@@ -446,8 +446,8 @@ class RasterPane(QWidget):
         if not isinstance(mouse_event, QMouseEvent):
             return
 
-        if self._task_delegate is not None:
-            done = self._task_delegate.on_mouse_release(widget, mouse_event)
+        if self._is_delegate_for_rasterview(rasterview):
+            done = self._task_delegate.on_mouse_release(mouse_event)
             self._update_delegate(done)
 
         else:
@@ -463,13 +463,13 @@ class RasterPane(QWidget):
 
 
     def _onRasterKeyPress(self, rasterview, key_event):
-        if self._task_delegate is not None:
-            done = self._task_delegate.on_key_press(widget, key_event)
+        if self._is_delegate_for_rasterview(rasterview):
+            done = self._task_delegate.on_key_press(key_event)
             self._update_delegate(done)
 
     def _onRasterKeyRelease(self, rasterview, key_event):
-        if self._task_delegate is not None:
-            done = self._task_delegate.on_key_release(widget, key_event)
+        if self._is_delegate_for_rasterview(rasterview):
+            done = self._task_delegate.on_key_release(key_event)
             self._update_delegate(done)
 
     def _onRasterContextMenu(self, rasterview, context_menu_event):
@@ -563,7 +563,48 @@ class RasterPane(QWidget):
         self._emit_viewport_change(self._get_rasterview_position(rasterview))
 
 
-    def _update_delegate(self, done):
+    def _is_delegate_for_rasterview(self, rasterview: RasterView) -> bool:
+        '''
+        This helper function encapsulates the logic for checking whether a
+        raster-view's events can be handled by the current task delegate (if a
+        delegate is even active).  Task delegates record the raster-view they
+        are handling events from, so it is straightforward to check if the
+        delegate's raster-view matches the passed-in raster-view.
+        '''
+        # If we don't even have a task delegate, return False.
+        if self._task_delegate is None:
+            return False
+
+        td_rasterview = self._task_delegate.get_rasterview()
+
+        # If the task-delegate is taking input from a different raster-view
+        # then don't forward this event.
+        if td_rasterview is not None and td_rasterview is not rasterview:
+            return False
+
+        # If we got here, either the raster-views match, or the raster-view is
+        # not yet set.  Handle that case.
+        if td_rasterview is None:
+            self._task_delegate.set_rasterview(rasterview)
+
+        return True
+
+
+    def _update_delegate(self, done: bool) -> None:
+        '''
+        This helper function handles common post-event operations with the task
+        delegate and its associated raster-view.
+
+        If the task delegate reported that it's done, the delegate's finish()
+        function is called, and the delegate is cleared.
+
+        The delegate's raster-view UI is always updated to reflect any info the
+        delegate has to draw, or the fact that the delegate is going away.
+        '''
+        # Get out the raster-view first, since the delegate may be finished and
+        # about to go away.
+        td_rasterview = self._task_delegate.get_rasterview()
+
         if done:
             # selection = self._creator.get_selection()
             # print(f'TODO:  Store selection {selection} on application state')
@@ -571,8 +612,8 @@ class RasterPane(QWidget):
             self._task_delegate.finish()
             self._task_delegate = None
 
-        # TODO:  This needs to be adjusted for multi-views
-        self.get_rasterview().update()
+        # TODO(donnie):  Is it possible the rasterview is None here?
+        td_rasterview.update()
 
 
     def _emit_viewport_change(self, rasterview_pos=None):
@@ -964,20 +1005,24 @@ class RasterPane(QWidget):
 
 
     def _on_create_selection(self, act):
+        '''
+        This helper function initiates the creation of a selection, which is
+        then added to a Region of Interest.
+        '''
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
-            self._task_delegate = RectangleSelectionCreator(self._app_state, self._rasterview)
+            self._task_delegate = RectangleSelectionCreator(self._app_state)
             # TODO:  Update status bar to indicate the creation of the rectangle
             #        selection.
 
         elif selection_type == SelectionType.POLYGON:
-            self._task_delegate = PolygonSelectionCreator(self._app_state, self._rasterview)
+            self._task_delegate = PolygonSelectionCreator(self._app_state)
             # TODO:  Update status bar to indicate the creation of the polygon
             #        selection.
 
         elif selection_type == SelectionType.MULTI_PIXEL:
-            self._task_delegate = MultiPixelSelectionCreator(self._app_state, self._rasterview)
+            self._task_delegate = MultiPixelSelectionCreator(self._app_state)
             # TODO:  Update status bar to indicate the creation of the
             #        multi-pixel selection.
 
@@ -1025,7 +1070,9 @@ class RasterPane(QWidget):
         # Draw the pixel highlight, if there is one
         self._draw_pixel_highlight(rasterview, widget, paint_event)
 
-        if self._task_delegate is not None:
+        if self._task_delegate is not None and \
+           self._is_delegate_for_rasterview(rasterview):
+            # Let the task-delegate draw any state it needs to draw.
             with get_painter(widget) as painter:
                 self._task_delegate.draw_state(painter)
 

@@ -47,12 +47,12 @@ def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False)
 
 class MultiPixelSelectionCreator(TaskDelegate):
 
-    def __init__(self, app_state, rasterview):
+    def __init__(self, app_state, rasterview=None):
+        super().__init__(rasterview)
         self._app_state = app_state
-        self._rasterview = rasterview
         self._points = set()
 
-    def on_mouse_release(self, widget, mouse_event):
+    def on_mouse_release(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
         if point in self._points:
@@ -63,7 +63,7 @@ class MultiPixelSelectionCreator(TaskDelegate):
 
         return False
 
-    def on_key_release(self, widget, key_event):
+    def on_key_release(self, key_event):
         '''
         In the multi-pixel selection creator, the Esc key ends the create
         operation.

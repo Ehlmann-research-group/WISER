@@ -1,3 +1,8 @@
+from typing import Optional
+
+from .rasterview import RasterView
+
+
 class TaskDelegate:
     '''
     This interface specifies the operations that task-delegates of the raster
@@ -18,23 +23,45 @@ class TaskDelegate:
     with the task.
     '''
 
-    def on_mouse_press(self, widget, mouse_event):
+    def __init__(self, rasterview: Optional[RasterView] = None):
+        '''
+        Initialize the task delegate.  An optional raster-view may be specified,
+        but in multi-view contexts, the set_rasterview() function will be the
+        preferred option.
+        '''
+        self._rasterview: Optional[RasterView] = rasterview
+
+    def set_rasterview(self, rasterview: RasterView):
+        '''
+        Specify the raster-view that this task delegate is operating on behalf
+        of.
+        '''
+        self._rasterview = rasterview
+
+    def get_rasterview(self) -> RasterView:
+        '''
+        Returns the raster-view for this task delegate, or None if a raster-view
+        hasn't yet been assigned.
+        '''
+        return self._rasterview
+
+    def on_mouse_press(self, mouse_event) -> bool:
         return False
 
-    def on_mouse_release(self, widget, mouse_event):
+    def on_mouse_release(self, mouse_event) -> bool:
         return False
 
-    def on_mouse_move(self, widget, mouse_event):
+    def on_mouse_move(self, mouse_event) -> bool:
         return False
 
-    def on_key_press(self, widget, key_event):
+    def on_key_press(self, key_event) -> bool:
         return False
 
-    def on_key_release(self, widget, key_event):
+    def on_key_release(self, key_event) -> bool:
         return False
 
-    def draw_state(self, painter):
+    def draw_state(self, painter) -> bool:
         pass
 
-    def finish(self):
+    def finish(self) -> None:
         pass
