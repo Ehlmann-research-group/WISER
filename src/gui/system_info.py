@@ -6,7 +6,7 @@ from PySide2.QtWidgets import *
 
 from version import VERSION
 
-from .system_info_ui import Ui_SystemInfoDialog
+from .generated.system_info_ui import Ui_SystemInfoDialog
 
 
 class SystemInfoDialog(QDialog):

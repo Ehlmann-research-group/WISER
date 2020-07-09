@@ -4,7 +4,7 @@ from PySide2.QtWidgets import *
 
 import matplotlib
 
-from .spectrum_info_editor_ui import Ui_SpectrumInfoEditor
+from .generated.spectrum_info_editor_ui import Ui_SpectrumInfoEditor
 from raster.spectra import SpectrumType, SpectrumAverageMode
 
 

@@ -5,7 +5,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import gui.resources
+import gui.generated.resources
 
 from .spectrum_plot_config import SpectrumPlotConfigDialog
 from .spectrum_info_editor import SpectrumInfoEditor

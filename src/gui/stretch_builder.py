@@ -4,8 +4,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .channel_stretch_widget_ui import Ui_ChannelStretchWidget
-from .stretch_config_widget_ui import Ui_StretchConfigWidget
+from .generated.channel_stretch_widget_ui import Ui_ChannelStretchWidget
+from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 
 from raster.dataset import RasterDataSet, get_normalized_band
 from raster.stretch import *

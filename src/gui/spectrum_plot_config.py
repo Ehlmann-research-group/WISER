@@ -2,7 +2,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .spectrum_plot_config_ui import Ui_SpectrumPlotConfig
+from .generated.spectrum_plot_config_ui import Ui_SpectrumPlotConfig
 from raster.spectra import SpectrumAverageMode
 
 
