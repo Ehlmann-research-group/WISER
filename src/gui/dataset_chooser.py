@@ -4,7 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import gui.resources
+import gui.generated.resources
 
 from .app_state import ApplicationState
 from raster.dataset import RasterDataSet

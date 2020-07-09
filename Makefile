@@ -12,15 +12,23 @@ MYPY_OPTS=
 NSIS="C:\Program Files (x86)\NSIS\makensis.exe"
 
 
+all : generated
+
+
+generated :
+	# Generate the various files that Qt will need for the UI.
+	$(MAKE) -C src generated
+	$(MAKE) -C src/gui generated
+
+
 lint:
 	find src -name "*.py" | xargs $(PYLINT) $(PYLINT_OPTS)
 
 typecheck:
 	$(MYPY) $(MYPY_OPTS) src
 
-build-mac:
-	# TODO:  Need to re-generate resources.py file for the platform!
 
+build-mac : generated
 	pyinstaller --name $(APP_NAME) --windowed --noconfirm \
 		--osx-bundle-identifier $(OSX_BUNDLE_ID) \
 		src/main.py
@@ -39,9 +47,7 @@ build-mac:
 	rm dist/tmp.dmg
 
 
-build-win:
-	# TODO:  Need to re-generate resources.py file for the platform!
-
+build-win : generated
 	# To debug PyInstaller issues:
 	#   - drop the "--windowed" option
 	#   - add a "--debug [bootloader|imports|noarchive|all]" option
@@ -61,7 +67,10 @@ build-win:
 	$(NSIS) /NOCD install-win\win-install.nsi
 
 clean:
+	$(MAKE) -C src clean
+	$(MAKE) -C src/gui clean
+
 	$(RM) -r build dist
 
 
-.PHONY: lint typecheck build-mac build-win clean
+.PHONY: generated lint typecheck build-mac build-win clean

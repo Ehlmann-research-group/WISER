@@ -4,7 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import gui.resources
+import gui.generated.resources
 
 from .toolbarmenu import ToolbarMenu
 from .rasterpane import RasterPane

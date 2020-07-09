@@ -2,7 +2,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import gui.resources
+import gui.generated.resources
 
 
 def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None, before=None):

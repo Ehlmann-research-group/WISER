@@ -2,7 +2,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .about_dialog_ui import Ui_AboutDialog
+from .generated.about_dialog_ui import Ui_AboutDialog
 from .system_info import SystemInfoDialog
 
 from version import VERSION

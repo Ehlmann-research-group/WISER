@@ -5,7 +5,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import gui.resources
+import gui.generated.resources
 
 from .app_config import PixelReticleType
 from .band_chooser import BandChooserDialog
