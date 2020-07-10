@@ -1,12 +1,14 @@
 import sys
 from enum import Enum, IntFlag
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 import numpy as np
+
+from .util import get_painter
 
 from raster.dataset import RasterDataSet, find_display_bands
 from raster.stretch import StretchBase
@@ -132,22 +134,56 @@ class ScaleToFitMode(Enum):
     FIT_BOTH_DIMENSIONS = 4
 
 
-class ImageWidget(QLabel):
+class ImageWidget(QWidget):
     '''
     A subclass of QLabel used for displaying an image.  Since Qt provides events
     via virtual functions to be overloaded, this class forwards a number of
     important events to the enclosing widget.
     '''
 
-    def __init__(self, rasterview, **kwargs):
+    def __init__(self, rasterview: 'RasterView', forward: Dict):
         '''
         Initialize the image widget with the specified text and parent.  Store
         the object we are to forward relevant events to.
         '''
         super().__init__(parent=rasterview)
         self._rasterview = rasterview
-        self._forward = kwargs
+        self._forward: Dict = forward
+
+        self._scaled_size: Optional[QSize] = None
+
         self.setMouseTracking(True)
+
+    def set_dataset_info(self, dataset, scale):
+        # TODO(donnie):  Do something
+        if dataset is not None:
+            width = dataset.get_width()
+            height = dataset.get_height()
+            self._scaled_size = QSize(int(width * scale), int(height * scale))
+
+        else:
+            self._scaled_size = None
+
+        # Inform the parent widget/layout that the geometry may have changed.
+        self.setFixedSize(self._get_size_of_contents())
+
+        # Request a repaint, since this function is called when any details
+        # about the dataset are modified (including stretch adjustments, etc.)
+        self.update()
+
+
+    def _get_size_of_contents(self):
+        '''
+        This helper function returns the size of the widget's scaled dataset,
+        or a fixed size if the widget has no dataset.
+        '''
+        if self._scaled_size is not None:
+            return self._scaled_size
+
+        else:
+            # TODO(donnie):  Do something more intelligent about this.
+            return QSize(100, 100)
+
 
     def mousePressEvent(self, mouse_event):
         if 'mousePressEvent' in self._forward:
@@ -174,10 +210,26 @@ class ImageWidget(QLabel):
             self._forward['contextMenuEvent'](self._rasterview, context_menu_event)
 
     def paintEvent(self, paint_event):
-        super().paintEvent(paint_event)
+        with get_painter(self) as painter:
+            if self._scaled_size is not None:
+                # We have an image, so draw it, then forward on the repaint to
+                # other code that cares.
 
-        if 'paintEvent' in self._forward:
-            self._forward['paintEvent'](self._rasterview, self, paint_event)
+                # Get the unscaled version of the pixmap.
+                pixmap = self._rasterview.get_unscaled_pixmap()
+
+                # Draw the scaled version of the pixmap.
+                painter.drawPixmap(0, 0,
+                    self._scaled_size.width(), self._scaled_size.height(), pixmap,
+                    0, 0, 0, 0)
+
+                if 'paintEvent' in self._forward:
+                    self._forward['paintEvent'](self._rasterview, self, paint_event)
+
+            else:
+                # Draw a note that there is no data to display.
+                painter.setPen(Qt.black)
+                painter.drawText(self.rect(), Qt.AlignCenter, '(no data)')
 
 
 class ImageScrollArea(QScrollArea):
@@ -188,10 +240,10 @@ class ImageScrollArea(QScrollArea):
     scroll-area to the RasterView, which can then act accordingly.
     '''
 
-    def __init__(self, rasterview, parent=None, **kwargs):
+    def __init__(self, rasterview, forward, parent=None):
         super().__init__(parent)
         self._rasterview = rasterview
-        self._forward = kwargs
+        self._forward = forward
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
@@ -219,19 +271,17 @@ class RasterView(QWidget):
 
         # The widget used to display the image data
 
-        self._image_widget = ImageWidget(self, **forward)
-        self._image_widget.setBackgroundRole(QPalette.Base)
+        self._image_widget = ImageWidget(self, forward)
         self._image_widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self._image_widget.setScaledContents(True)
         self._image_widget.setFocusPolicy(Qt.ClickFocus)
-        self._image_widget.setText(self.tr('(no data)'))
 
         # The scroll area used to handle images larger than the widget size
 
-        self._scroll_area = ImageScrollArea(self, **forward)
+        self._scroll_area = ImageScrollArea(self, forward)
         self._scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._scroll_area.setBackgroundRole(QPalette.Dark)
         self._scroll_area.setWidget(self._image_widget)
+        self._scroll_area.setWidgetResizable(True)
         self._scroll_area.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
         # Set up the layout
@@ -272,6 +322,7 @@ class RasterView(QWidget):
 
         # The image generated from the raw raster data.
         self._image = None
+        self._image_pixmap = None
 
 
     def set_raster_data(self, raster_data, display_bands, stretches=None):
@@ -355,10 +406,8 @@ class RasterView(QWidget):
 
     def update_display_image(self, colors=ImageColors.RGB):
         if self._raster_data is None:
-            # No raster data to display - clear the view.
-            self._image_widget.clear()
-            self._image_widget.setText(self.tr('(no data)'))
-            # self.lbl_image.adjustSize()
+            # No raster data to display
+            self._image_widget.set_dataset_info(None, self._scale_factor)
             return
 
         # print("Extracting raw band data")
@@ -392,26 +441,24 @@ class RasterView(QWidget):
             self._raster_data.get_width(), self._raster_data.get_height(),
             QImage.Format_RGB32)
 
+        self._image_pixmap = QPixmap.fromImage(self._image)
+
         self._update_scaled_image()
 
 
-    def _update_scaled_image(self, old_scale_factor=None):
-        # Update the scaled version of the image.
-        scaled_image = self._image.scaled(
-            self._raster_data.get_width() * self._scale_factor,
-            self._raster_data.get_height() * self._scale_factor,
-            Qt.IgnoreAspectRatio, Qt.FastTransformation)
+    def get_unscaled_pixmap(self) -> QPixmap:
+        return self._image_pixmap
 
-        # Update the image that the label is displaying.
-        pixmap = QPixmap.fromImage(scaled_image)
-        self._image_widget.setPixmap(pixmap)
-        self._image_widget.adjustSize()
-        self._scroll_area.setVisible(True)
+
+
+    def _update_scaled_image(self, old_scale_factor=None):
+        self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
+        # self._scroll_area.setVisible(True)
 
         # Need to process queued events now, since the image-widget has changed
         # size, and it needs to report a resize-event before the scrollbars will
         # update to the new size.
-        QCoreApplication.processEvents()
+        # QCoreApplication.processEvents()
 
         if old_scale_factor is not None and old_scale_factor != self._scale_factor:
             # The scale is changing, so update the scrollbars to ensure that the
