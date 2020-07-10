@@ -50,6 +50,10 @@ class PolygonSelectionCreator(TaskDelegate):
 
         self._done = False
 
+        self._app_state.show_status_text(
+            'Left-click to add points to polygon.  Esc key discards last ' +
+            'point added.  Close polygon to finish entry.')
+
     def _close_enough(self, p1, p2):
         '''
         Returns True when two points in raster coordinates are "close enough" to
@@ -100,8 +104,8 @@ class PolygonSelectionCreator(TaskDelegate):
         if key_event.key() != Qt.Key_Escape:
             return False
 
-        if len(self.points) > 0:
-            del self.points[-1]
+        if len(self._points) > 0:
+            del self._points[-1]
 
         return False
 
@@ -162,3 +166,4 @@ class PolygonSelectionCreator(TaskDelegate):
     def finish(self):
         sel = PolygonSelection(self._points)
         self._app_state.make_and_add_roi(sel)
+        self._app_state.clear_status_text()

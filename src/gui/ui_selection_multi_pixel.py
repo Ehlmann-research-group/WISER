@@ -52,6 +52,10 @@ class MultiPixelSelectionCreator(TaskDelegate):
         self._app_state = app_state
         self._points = set()
 
+        self._app_state.show_status_text(
+            'Left-click on pixels to toggle their inclusion in the selection.' +
+            '  Press Esc key to finish entry.')
+
     def on_mouse_release(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
@@ -94,3 +98,4 @@ class MultiPixelSelectionCreator(TaskDelegate):
 
         sel = MultiPixelSelection(self._points)
         self._app_state.make_and_add_roi(sel)
+        self._app_state.clear_status_text()

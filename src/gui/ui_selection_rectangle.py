@@ -48,6 +48,9 @@ class RectangleSelectionCreator(TaskDelegate):
         self._point1 = None
         self._point2 = None
 
+        self._app_state.show_status_text(
+            'Left-click and drag to create a rectangle selection.')
+
     def on_mouse_press(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._point1 = point
@@ -94,6 +97,7 @@ class RectangleSelectionCreator(TaskDelegate):
 
         sel = RectangleSelection(self._point1, self._point2)
         self._app_state.make_and_add_roi(sel)
+        self._app_state.clear_status_text()
 
 
 class RectangleSelectionEditor(TaskDelegate):

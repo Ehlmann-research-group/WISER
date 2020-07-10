@@ -16,8 +16,7 @@ from .util import add_toolbar_action, get_painter
 from raster.dataset import RasterDataSet, find_display_bands, find_truecolor_bands
 from raster.selection import SelectionType, Selection, SinglePixelSelection
 
-from .roi import draw_roi
-
+from .ui_roi import draw_roi, is_roi_picked_by
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
 from .ui_selection_polygon import PolygonSelectionCreator # , PolygonSelectionEditor
 from .ui_selection_multi_pixel import MultiPixelSelectionCreator # , MultiPixelSelectionEditor
@@ -529,7 +528,7 @@ class RasterPane(QWidget):
         # Find Regions of Interest that include the click location.
         picked_rois = []
         for (name, roi) in self._app_state.get_rois().items():
-            if roi.is_picked_by(ds_coord):
+            if is_roi_picked_by(roi, ds_coord):
                 picked_rois.append(roi)
 
         if len(picked_rois) > 0:

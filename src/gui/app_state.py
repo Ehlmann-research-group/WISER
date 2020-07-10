@@ -15,7 +15,7 @@ from raster.loaders.envi import EnviFileFormatError
 
 from raster.stretch import StretchBase
 
-from .roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
+from raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 
 class ApplicationState(QObject):
@@ -114,6 +114,10 @@ class ApplicationState(QObject):
 
     def show_status_text(self, text: str, seconds=0):
         self._app.show_status_text(text, seconds)
+
+
+    def clear_status_text(self):
+        self._app.show_status_text('')
 
 
     def set_current_dir(self, current_dir: str):
@@ -340,7 +344,8 @@ class ApplicationState(QObject):
 
             self._next_roi_id += 1
 
-        roi = RegionOfInterest(name, selection)
+        roi = RegionOfInterest(name)
+        roi.add_selection(selection)
         self.add_roi(roi)
 
     def add_roi(self, roi):
