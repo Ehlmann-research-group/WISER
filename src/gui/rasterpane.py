@@ -529,7 +529,7 @@ class RasterPane(QWidget):
         # Find Regions of Interest that include the click location.
         picked_rois = []
         for (name, roi) in self._app_state.get_rois().items():
-            if roi.is_picked_by(dataset_coord):
+            if roi.is_picked_by(ds_coord):
                 picked_rois.append(roi)
 
         if len(picked_rois) > 0:
@@ -1058,6 +1058,11 @@ class RasterPane(QWidget):
             painter = QPainter(widget)
             ... # Draw stuff
             painter.end()
+
+        Or, to leverage automatic resource management, do this:
+
+            with get_painter(widget) as painter:
+                ... # Draw stuff
 
         The paint-event that prompted the call to this method is provided, so
         that data to draw may be clipped to the specified rectangle.
