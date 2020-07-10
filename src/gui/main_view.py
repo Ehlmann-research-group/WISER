@@ -110,7 +110,9 @@ class MainViewWidget(RasterPane):
         This helper function adds "global" items to the context menu, that is,
         items that aren't specific to the location clicked in the window.
         '''
-        act = menu.addAction(self.tr('Export to image file...'))
+        act = menu.addAction(self.tr('Export visible area to image file...'))
+
+        act = menu.addAction(self.tr('Export entire dataset to image file...'))
         # When hooking up the action, use a lambda to pass through the
         # rasterview that generated the event.
         act.triggered.connect(lambda checked, rv=rasterview : self._on_export_image(rv))
