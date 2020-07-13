@@ -5,7 +5,7 @@ from PySide2.QtWidgets import *
 from .task_delegate import TaskDelegate
 from raster.selection import PolygonSelection
 
-from .geom import distance, lines_cross
+from .geom import distance, lines_cross, manhattan_distance
 
 from .ui_selection import CONTROL_POINT_SIZE
 
@@ -197,7 +197,7 @@ class PolygonSelectionEditor(TaskDelegate):
             #     only check equality, not "is this point within a certain
             #     distance".  Note that this picking occurs within data-set
             #     coordinate space.
-            if cp == p:
+            if manhattan_distance(p, cp) <= 2:
                 return idx
 
         return None

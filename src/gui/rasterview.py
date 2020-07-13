@@ -1,6 +1,6 @@
 import sys
 from enum import Enum, IntFlag
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -729,12 +729,18 @@ class RasterView(QWidget):
         self.update_display_image(colors=color)
 
 
-    def image_coord_to_raster_coord(self, position):
+    def image_coord_to_raster_coord(self, position: Union[QPoint, QPointF]) -> QPointF:
         '''
         Takes a position in screen space as a QPointF object, and translates it
         into a 2-tuple containing the (X, Y) coordinates of the position within
         the raster data set.
         '''
+        if isinstance(position, QPoint):
+            position = QPointF(position)
+        elif not isinstance(position, QPointF):
+            raise TypeError('This function requires a QPoint or QPointF ' +
+                            f'argument; got {type(position)}')
+
         # Scale the screen position into the dataset's coordinate system.
         scaled = position / self._scale_factor
 
