@@ -128,7 +128,7 @@ class MultiPixelSelection(Selection):
         y_min = min(ys)
         y_max = max(ys)
 
-        return QRect(x_min, y_min, x_max - x_min, y_max - y_min)
+        return QRect(x_min, y_min, x_max - x_min + 1, y_max - y_min + 1)
 
     def is_picked_by(self, coord):
         return self.get_bounding_box().contains(coord)

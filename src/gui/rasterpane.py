@@ -452,6 +452,8 @@ class RasterPane(QWidget):
         if not isinstance(mouse_event, QMouseEvent):
             return
 
+        # print(f'MouseEvent at pos={mouse_event.pos()}, localPos={mouse_event.localPos()}')
+
         if self._has_delegate_for_rasterview(rasterview):
             done = self._task_delegate.on_mouse_release(mouse_event)
             self._update_delegate(done)
@@ -479,6 +481,7 @@ class RasterPane(QWidget):
             self._update_delegate(done)
 
     def _onRasterContextMenu(self, rasterview, context_menu_event):
+        # print(f'ContextMenuEvent at {context_menu_event.pos()}')
         menu = QMenu(self)
 
         self._build_context_menu(menu, rasterview, context_menu_event)

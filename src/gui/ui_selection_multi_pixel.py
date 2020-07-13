@@ -6,6 +6,15 @@ from .task_delegate import TaskDelegate
 from raster.selection import MultiPixelSelection
 
 
+# This is the offset for how the bounding rectangle is drawn around the pixels
+# in a multi-pixel selection.
+MULTIPIXEL_BOUNDS_OFFSET = 2
+
+# This is the offset for how individual pixels are drawn in a multi-pixel
+# selection.
+MULTIPIXEL_PIXEL_OFFSET = 1
+
+
 def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False):
     '''
     This helper function draws a multi-pixel selection in a rasterview, with
@@ -21,7 +30,10 @@ def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False)
 
     for p in points_scaled:
         if scale >= 6:
-            painter.drawRect(p.x() + 1, p.y() + 1, scale - 2, scale - 2)
+            painter.drawRect(p.x() + MULTIPIXEL_PIXEL_OFFSET,
+                             p.y() + MULTIPIXEL_PIXEL_OFFSET,
+                             scale - 2 * MULTIPIXEL_PIXEL_OFFSET,
+                             scale - 2 * MULTIPIXEL_PIXEL_OFFSET)
         else:
             painter.drawRect(p.x(), p.y(), scale, scale)
 
@@ -39,8 +51,10 @@ def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False)
             pen.setStyle(Qt.DashLine)
             painter.setPen(pen)
 
-        rect_scaled = QRect(x_min - 2, y_min - 2,
-            (x_max - x_min + scale) + 4, (y_max - y_min + scale) + 4)
+        rect_scaled = QRect(x_min - MULTIPIXEL_BOUNDS_OFFSET,
+                            y_min - MULTIPIXEL_BOUNDS_OFFSET,
+                            (x_max - x_min + scale) + 2 * MULTIPIXEL_BOUNDS_OFFSET,
+                            (y_max - y_min + scale) + 2 * MULTIPIXEL_BOUNDS_OFFSET)
 
         painter.drawRect(rect_scaled)
 
@@ -89,7 +103,10 @@ class MultiPixelSelectionManipulator(TaskDelegate):
 
         for p in points_scaled:
             if scale >= 6:
-                painter.drawRect(p.x() + 1, p.y() + 1, scale - 2, scale - 2)
+                painter.drawRect(p.x() + MULTIPIXEL_PIXEL_OFFSET,
+                                 p.y() + MULTIPIXEL_PIXEL_OFFSET,
+                                 scale - 2 * MULTIPIXEL_PIXEL_OFFSET,
+                                 scale - 2 * MULTIPIXEL_PIXEL_OFFSET)
             else:
                 painter.drawRect(p.x(), p.y(), scale, scale)
 
