@@ -18,7 +18,7 @@ from raster.selection import SelectionType, Selection, SinglePixelSelection
 
 from .ui_roi import draw_roi, is_roi_picked_by
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
-from .ui_selection_polygon import PolygonSelectionCreator # , PolygonSelectionEditor
+from .ui_selection_polygon import PolygonSelectionCreator, PolygonSelectionEditor
 from .ui_selection_multi_pixel import MultiPixelSelectionCreator # , MultiPixelSelectionEditor
 
 
@@ -387,6 +387,14 @@ class RasterPane(QWidget):
         return self._rasterviews[rasterview_pos]
 
 
+    def update_all_rasterviews(self):
+        '''
+        Cause all rasterviews in this pane to repaint themselves.
+        '''
+        for rv in self._rasterviews.values():
+            rv.update()
+
+
     def get_all_visible_regions(self) -> List:
         '''
         Returns a list of all visible regions
@@ -415,7 +423,6 @@ class RasterPane(QWidget):
         '''
         for rasterview in self._rasterviews.values():
             rasterview.scale_image(scale)
-
 
 
     def resizeEvent(self, event):
@@ -541,12 +548,21 @@ class RasterPane(QWidget):
 
                 # TODO(donnie):  Set up handlers for the actions
 
-                roi_menu.addAction(self.tr('Show spectrum'))
-                roi_menu.addAction(self.tr('Edit geometry'))
-                roi_menu.addAction(self.tr('Edit metadata...'))
+                act = roi_menu.addAction(self.tr('Show spectrum'))
+
+                act = roi_menu.addAction(self.tr('Edit geometry'))
+                act.triggered.connect(
+                    lambda checked : self._on_edit_roi_geometry(
+                        roi=roi, rasterview=rasterview))
+
+                act = roi_menu.addAction(self.tr('Edit metadata...'))
+
                 roi_menu.addAction(self.tr('Export spectrum...'))
+
                 roi_menu.addSeparator()
-                roi_menu.addAction(self.tr('Delete region...'))
+
+                act = roi_menu.addAction(self.tr('Delete region...'))
+                act.triggered.connect(lambda checked : self._on_delete_roi(roi=roi))
 
 
     def _afterRasterScroll(self, rasterview, dx, dy):
@@ -620,7 +636,8 @@ class RasterPane(QWidget):
             self._task_delegate = None
 
         # TODO(donnie):  Is it possible the rasterview is None here?
-        td_rasterview.update()
+        # td_rasterview.update()
+        self.update_all_rasterviews()
 
 
     def _emit_viewport_change(self, rasterview_pos=None):
@@ -1016,6 +1033,9 @@ class RasterPane(QWidget):
         This helper function initiates the creation of a selection, which is
         then added to a Region of Interest.
         '''
+
+        # TODO(donnie):  What to do if the task-delegate already exists?!
+
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
@@ -1039,6 +1059,25 @@ class RasterPane(QWidget):
             QMessageBox.warning(self, self.tr('Unsupported Feature'),
                 f'ISWB does not yet support selections of type {selection_type}')
 
+
+    def _on_edit_roi_geometry(self, rasterview, roi):
+        sel = roi.get_selections()[0]
+
+        if sel.get_type() == SelectionType.RECTANGLE:
+            self._task_delegate = \
+                RectangleSelectionEditor(sel, self._app_state, rasterview)
+
+        elif sel.get_type() == SelectionType.POLYGON:
+            self._task_delegate = \
+                PolygonSelectionEditor(sel, self._app_state, rasterview)
+
+        else:
+            QMessageBox.warning(self, self.tr('Unsupported Feature'),
+                f'ISWB does not yet support editing selections of type {selection_type}')
+
+
+    def _on_delete_roi(self, roi):
+        pass
 
 
     # TODO(donnie):  Make this function take a QPainter argument???
