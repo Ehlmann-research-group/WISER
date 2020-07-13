@@ -45,23 +45,24 @@ def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False)
         painter.drawRect(rect_scaled)
 
 
-class MultiPixelSelectionCreator(TaskDelegate):
+class MultiPixelSelectionManipulator(TaskDelegate):
+    '''
+    Since both creation and editing of multi-pixel selections is so similar,
+    this base class implements the common functionality of both, and then
+    subclasses customize it as needed.
+    '''
 
-    def __init__(self, app_state, rasterview=None):
+    def __init__(self, point_set, app_state, rasterview=None):
         super().__init__(rasterview)
         self._app_state = app_state
-        self._points = set()
-
-        self._app_state.show_status_text(
-            'Left-click on pixels to toggle their inclusion in the selection.' +
-            '  Press Esc key to finish entry.')
+        self._points = point_set
 
     def on_mouse_release(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
 
+        # Toggle the point's inclusion in the set of pixels.
         if point in self._points:
             self._points.remove(point)
-
         else:
             self._points.add(point)
 
@@ -69,7 +70,7 @@ class MultiPixelSelectionCreator(TaskDelegate):
 
     def on_key_release(self, key_event):
         '''
-        In the multi-pixel selection creator, the Esc key ends the create
+        In the multi-pixel selection manipulator, the Esc key ends the
         operation.
         '''
         return key_event.key() == Qt.Key_Escape
@@ -92,10 +93,39 @@ class MultiPixelSelectionCreator(TaskDelegate):
             else:
                 painter.drawRect(p.x(), p.y(), scale, scale)
 
+
+class MultiPixelSelectionCreator(MultiPixelSelectionManipulator):
+
+    def __init__(self, app_state, rasterview=None):
+        super().__init__(set(), app_state, rasterview)
+        self._app_state.show_status_text(
+            'Left-click on pixels to toggle their inclusion in the selection.' +
+            '  Press Esc key to finish entry.')
+
     def finish(self):
         if len(self._points) == 0:
+            self._app_state.show_status_text(
+                'No pixels selected; not creating ROI.', 5)
             return
 
         sel = MultiPixelSelection(self._points)
         self._app_state.make_and_add_roi(sel)
+        self._app_state.clear_status_text()
+
+
+class MultiPixelSelectionEditor(MultiPixelSelectionManipulator):
+
+    def __init__(self, mp_sel, app_state, rasterview=None):
+        super().__init__(mp_sel.get_pixels(), app_state, rasterview)
+        self._mp_sel = mp_sel
+        self._app_state.show_status_text(
+            'Left-click on pixels to toggle their inclusion in the selection.' +
+            '  Press Esc key to finish edits.')
+
+    def finish(self):
+        if len(self._points) == 0:
+            # TODO(donnie):  In this case, we are ending up with an empty
+            #     multi-pixel selection, which is no good!
+            pass
+
         self._app_state.clear_status_text()
