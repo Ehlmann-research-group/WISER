@@ -157,8 +157,14 @@ class RectangleSelection(Selection):
         # TODO(donnie):  Update point1 and point2 such that self._point1
         #     becomes the top-left corner, and self._point2 is the bottom-right
         #     corner.
-        self._point1 = point1
-        self._point2 = point2
+        self._point1 = QPoint(min(point1.x(), point2.x()), min(point1.y(), point2.y()))
+        self._point2 = QPoint(max(point1.x(), point2.x()), max(point1.y(), point2.y()))
+
+    def get_top_left(self):
+        return self._point1
+
+    def get_bottom_right(self):
+        return self._point2
 
     def get_rect(self):
         return get_rectangle(self._point1, self._point2)

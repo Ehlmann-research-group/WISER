@@ -7,6 +7,8 @@ from raster.selection import PolygonSelection
 
 from .geom import distance, lines_cross
 
+from .ui_selection import CONTROL_POINT_SIZE
+
 
 def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
     '''
@@ -32,7 +34,9 @@ def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
         painter.setPen(QPen(color))
         for cp in points_scaled:
             cp_scaled = cp * scale
-            painter.fillRect(cp_scaled.x() - 2, cp_scaled.y() - 2, 4, 4, color)
+            painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
+                             cp_scaled.y() - CONTROL_POINT_SIZE / 2,
+                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
 
 class PolygonSelectionCreator(TaskDelegate):
@@ -160,10 +164,129 @@ class PolygonSelectionCreator(TaskDelegate):
         painter.setPen(QPen(color))
 
         for p_scaled in points_scaled:
-            painter.fillRect(p_scaled.x() - 2, p_scaled.y() - 2, 4, 4, color)
+            painter.fillRect(p_scaled.x() - CONTROL_POINT_SIZE / 2,
+                             p_scaled.y() - CONTROL_POINT_SIZE / 2,
+                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
 
     def finish(self):
         sel = PolygonSelection(self._points)
         self._app_state.make_and_add_roi(sel)
         self._app_state.clear_status_text()
+
+
+class PolygonSelectionEditor(TaskDelegate):
+    def __init__(self, poly_sel, app_state, rasterview=None):
+        super().__init__(rasterview)
+        self._poly_sel = poly_sel
+        self._app_state = app_state
+        self._control_points = []
+        self._editing_cp_index = None
+
+        self._init_control_points()
+
+    def _init_control_points(self):
+        '''
+        Initialize the control-points for adjusting the polygon selection.
+        '''
+        for p in self._poly_sel.get_points():
+            self._control_points.append(p)
+
+        # Give the user some directions.
+        self._app_state.show_status_text(
+            'Left-click and drag control points to adjust the polygon.' +
+            '  Press Esc key to finish edits.')
+
+
+    def _pick_control_point(self, p):
+        for idx, cp in enumerate(self._control_points):
+            # TODO(donnie):  May be too difficult to pick control-points if we
+            #     only check equality, not "is this point within a certain
+            #     distance".
+            if cp == p:
+                return idx
+
+        return None
+
+    def on_mouse_press(self, mouse_event):
+        # Figure out which control-point was chosen, if any.
+        p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        self._editing_cp_index = self._pick_control_point(p)
+        return False
+
+    def on_mouse_move(self, mouse_event):
+        self._handle_mouse_update(mouse_event)
+        return False
+
+    def on_mouse_release(self, mouse_event):
+        self._handle_mouse_update(mouse_event)
+        self._editing_cp_index = None
+        return False
+
+    def _handle_mouse_update(self, mouse_event):
+        if self._editing_cp_index is None:
+            # Not editing a control-point, so don't do anything.
+            return False
+
+        # Update the control-points based on the mouse operation.
+        p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        self._adjust_control_points(p)
+
+
+    def _adjust_control_points(self, p):
+        '''
+        This helper adjusts all affected control points based on the input point
+        p, which should be in the data-set coordinate system.
+
+        Note that this function assumes that self._editing_cp_index is set to
+        the index of the control-point that is being manipulated!
+        '''
+        assert self._editing_cp_index is not None
+
+        # Local variables for these values, since these names are long!
+        i = self._editing_cp_index
+        edit_cp = self._control_points[i]
+
+        # Adjust the specific control point being edited.  Use the mutators on
+        # the object, rather than replacing it with a new object.
+        edit_cp.setX(p.x())
+        edit_cp.setY(p.y())
+
+
+    def on_key_release(self, key_event):
+        '''
+        In the rectangle selection editor, the Esc key ends the edit operation.
+        '''
+        return key_event.key() == Qt.Key_Escape
+
+    def draw_state(self, painter):
+        scale = self._rasterview.get_scale()
+        points_scaled = [p * scale for p in self._control_points]
+
+        # Draw the polygon specified by all the points, using a dotted line.
+
+        color = Qt.white # self._app_state.get_color_of('create-selection')
+        pen = QPen(color)
+        pen.setStyle(Qt.DashLine)
+        painter.setPen(pen)
+
+        for i in range(len(points_scaled)):
+            painter.drawLine(points_scaled[i - 1], points_scaled[i])
+
+        # Draw boxes on all control-points.
+        # TODO(donnie):  This code could reuse points_scaled, but if we keep it
+        #     this way, it matches the rectangle selection code, and we may be
+        #     able to refactor it out into a helper function
+        color = Qt.yellow
+        painter.setPen(QPen(color))
+        for cp in self._control_points:
+            cp_scaled = cp * scale
+            painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
+                             cp_scaled.y() - CONTROL_POINT_SIZE / 2,
+                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
+
+    def finish(self):
+        self._app_state.clear_status_text()
+
+    def get_selection(self):
+        return PolygonSelection(self._control_points)

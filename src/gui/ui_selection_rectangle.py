@@ -7,6 +7,7 @@ from raster.selection import RectangleSelection
 
 from .geom import get_rectangle, scale_rectangle
 
+from .ui_selection import CONTROL_POINT_SIZE
 
 def is_rect_sel_picked(rect_sel, p):
     '''
@@ -38,7 +39,9 @@ def draw_rectangle_selection(rasterview, painter, rect_sel, color, active=False)
         painter.setPen(QPen(color))
         for cp in self._control_points:
             cp_scaled = cp * scale
-            painter.fillRect(cp_scaled.x() - 2, cp_scaled.y() - 2, 4, 4, color)
+            painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
+                             cp_scaled.y() - CONTROL_POINT_SIZE / 2,
+                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
 
 class RectangleSelectionCreator(TaskDelegate):
@@ -88,8 +91,12 @@ class RectangleSelectionCreator(TaskDelegate):
 
         color = Qt.yellow
         painter.setPen(QPen(color))
-        painter.fillRect(p1_scaled.x() - 2, p1_scaled.y() - 2, 4, 4, color)
-        painter.fillRect(p2_scaled.x() - 2, p2_scaled.y() - 2, 4, 4, color)
+        painter.fillRect(p1_scaled.x() - CONTROL_POINT_SIZE / 2,
+                         p1_scaled.y() - CONTROL_POINT_SIZE / 2,
+                         CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
+        painter.fillRect(p2_scaled.x() - CONTROL_POINT_SIZE / 2,
+                         p2_scaled.y() - CONTROL_POINT_SIZE / 2,
+                         CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
     def finish(self):
         if self._point1 is None or self._point2 is None:
@@ -101,9 +108,10 @@ class RectangleSelectionCreator(TaskDelegate):
 
 
 class RectangleSelectionEditor(TaskDelegate):
-    def __init__(self, rect_sel, rasterview=None):
+    def __init__(self, rect_sel, app_state, rasterview=None):
         super().__init__(rasterview)
         self._rect_sel = rect_sel
+        self._app_state = app_state
         self._control_points = []
         self._editing_cp_index = None
 
@@ -113,14 +121,14 @@ class RectangleSelectionEditor(TaskDelegate):
         '''
         Initialize the control-points for adjusting the rectangle selection.
         '''
-        x1, y1 = self._rect_sel.point_1.toTuple()
-        x2, y2 = self._rect_sel.point_2.toTuple()
+        top_left     = self._rect_sel.get_top_left()
+        bottom_right = self._rect_sel.get_bottom_right()
 
-        self._control_points.append(self._rect_sel.point_1)
-        self._control_points.append(self._rect_sel.point_2)
+        self._control_points.append(top_left)
+        self._control_points.append(bottom_right)
 
-        self._control_points.append(QPoint(x1, y2))
-        self._control_points.append(QPoint(x2, y1))
+        self._control_points.append(QPoint(top_left.x(), bottom_right.y()))
+        self._control_points.append(QPoint(bottom_right.x(), top_left.y()))
 
         # These lists specify how the control points are "connected together".
         # The position in the array is the index of the "source" control point
@@ -131,6 +139,12 @@ class RectangleSelectionEditor(TaskDelegate):
         # encode these relationships.
         self._cp_affects_x = [2, 3, 0, 1]
         self._cp_affects_y = [3, 2, 1, 0]
+
+        # Give the user some directions.
+        self._app_state.show_status_text(
+            'Left-click and drag control points to adjust the rectangle.' +
+            '  Press Esc key to finish edits.')
+
 
     def _pick_control_point(self, p):
         for idx, cp in enumerate(self._control_points):
@@ -143,11 +157,31 @@ class RectangleSelectionEditor(TaskDelegate):
         return None
 
     def on_mouse_press(self, mouse_event):
+        # Figure out which control-point was chosen, if any.
         p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-
         self._editing_cp_index = self._pick_control_point(p)
-
         return False
+
+
+    def on_mouse_move(self, mouse_event):
+        self._handle_mouse_update(mouse_event)
+        return False
+
+
+    def on_mouse_release(self, mouse_event):
+        self._handle_mouse_update(mouse_event)
+        self._editing_cp_index = None
+        return False
+
+
+    def _handle_mouse_update(self, mouse_event):
+        if self._editing_cp_index is None:
+            # Not editing a control-point, so don't do anything.
+            return False
+
+        # Update the control-points based on the mouse operation.
+        p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
+        self._adjust_control_points(p)
 
 
     def _adjust_control_points(self, p):
@@ -159,7 +193,6 @@ class RectangleSelectionEditor(TaskDelegate):
         the index of the control-point that is being manipulated!
         '''
         assert self._editing_cp_index is not None
-
 
         # Local variables for these values, since these names are long!
         i = self._editing_cp_index
@@ -177,21 +210,11 @@ class RectangleSelectionEditor(TaskDelegate):
         self._control_points[self._cp_affects_y[i]].setY(p.y())
 
 
-    def on_mouse_release(self, mouse_event):
-        if self._editing_cp_index is None:
-            return True
-
-        p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-        self._adjust_control_points(p)
-        return True
-
-    def on_mouse_move(self, mouse_event):
-        if self._editing_cp_index is None:
-            return False
-
-        p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-        self._adjust_control_points(p)
-        return False
+    def on_key_release(self, key_event):
+        '''
+        In the rectangle selection editor, the Esc key ends the edit operation.
+        '''
+        return key_event.key() == Qt.Key_Escape
 
     def draw_state(self, painter):
         scale = self._rasterview.get_scale()
@@ -212,8 +235,12 @@ class RectangleSelectionEditor(TaskDelegate):
         painter.setPen(QPen(color))
         for cp in self._control_points:
             cp_scaled = cp * scale
-            painter.fillRect(cp_scaled.x() - 2, cp_scaled.y() - 2, 4, 4, color)
+            painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
+                             cp_scaled.y() - CONTROL_POINT_SIZE / 2,
+                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
+    def finish(self):
+        self._app_state.clear_status_text()
 
     def get_selection(self):
         return RectangleSelection(self._control_points[0], self._control_points[1])
