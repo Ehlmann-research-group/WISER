@@ -150,7 +150,8 @@ class RectangleSelectionEditor(TaskDelegate):
         for idx, cp in enumerate(self._control_points):
             # TODO(donnie):  May be too difficult to pick control-points if we
             #     only check equality, not "is this point within a certain
-            #     distance".
+            #     distance".  Note that this picking occurs within data-set
+            #     coordinate space.
             if cp == p:
                 return idx
 

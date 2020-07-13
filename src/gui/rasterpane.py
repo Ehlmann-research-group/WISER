@@ -19,7 +19,7 @@ from raster.selection import SelectionType, Selection, SinglePixelSelection
 from .ui_roi import draw_roi, is_roi_picked_by
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
 from .ui_selection_polygon import PolygonSelectionCreator, PolygonSelectionEditor
-from .ui_selection_multi_pixel import MultiPixelSelectionCreator # , MultiPixelSelectionEditor
+from .ui_selection_multi_pixel import MultiPixelSelectionCreator, MultiPixelSelectionEditor
 
 
 class RecenterMode(Enum):
@@ -1062,14 +1062,19 @@ class RasterPane(QWidget):
 
     def _on_edit_roi_geometry(self, rasterview, roi):
         sel = roi.get_selections()[0]
+        selection_type = sel.get_type()
 
-        if sel.get_type() == SelectionType.RECTANGLE:
+        if selection_type == SelectionType.RECTANGLE:
             self._task_delegate = \
                 RectangleSelectionEditor(sel, self._app_state, rasterview)
 
-        elif sel.get_type() == SelectionType.POLYGON:
+        elif selection_type == SelectionType.POLYGON:
             self._task_delegate = \
                 PolygonSelectionEditor(sel, self._app_state, rasterview)
+
+        elif selection_type == SelectionType.MULTI_PIXEL:
+            self._task_delegate = \
+                MultiPixelSelectionEditor(sel, self._app_state, rasterview)
 
         else:
             QMessageBox.warning(self, self.tr('Unsupported Feature'),

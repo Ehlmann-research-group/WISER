@@ -180,17 +180,10 @@ class PolygonSelectionEditor(TaskDelegate):
         super().__init__(rasterview)
         self._poly_sel = poly_sel
         self._app_state = app_state
-        self._control_points = []
         self._editing_cp_index = None
 
-        self._init_control_points()
-
-    def _init_control_points(self):
-        '''
-        Initialize the control-points for adjusting the polygon selection.
-        '''
-        for p in self._poly_sel.get_points():
-            self._control_points.append(p)
+        # Initialize the control-points for adjusting the polygon selection.
+        self._control_points = list(self._poly_sel.get_points())
 
         # Give the user some directions.
         self._app_state.show_status_text(
@@ -202,7 +195,8 @@ class PolygonSelectionEditor(TaskDelegate):
         for idx, cp in enumerate(self._control_points):
             # TODO(donnie):  May be too difficult to pick control-points if we
             #     only check equality, not "is this point within a certain
-            #     distance".
+            #     distance".  Note that this picking occurs within data-set
+            #     coordinate space.
             if cp == p:
                 return idx
 
@@ -274,15 +268,11 @@ class PolygonSelectionEditor(TaskDelegate):
             painter.drawLine(points_scaled[i - 1], points_scaled[i])
 
         # Draw boxes on all control-points.
-        # TODO(donnie):  This code could reuse points_scaled, but if we keep it
-        #     this way, it matches the rectangle selection code, and we may be
-        #     able to refactor it out into a helper function
         color = Qt.yellow
         painter.setPen(QPen(color))
-        for cp in self._control_points:
-            cp_scaled = cp * scale
-            painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
-                             cp_scaled.y() - CONTROL_POINT_SIZE / 2,
+        for cp in points_scaled:
+            painter.fillRect(cp.x() - CONTROL_POINT_SIZE / 2,
+                             cp.y() - CONTROL_POINT_SIZE / 2,
                              CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
     def finish(self):
