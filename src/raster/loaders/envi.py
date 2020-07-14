@@ -1,4 +1,5 @@
 import os
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
@@ -9,17 +10,17 @@ class EnviFileFormatError(Exception):
     associated with the data file.
     '''
 
-    def __init__(self, message):
+    def __init__(self, message: str):
         self.message = message
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.message
 
 
-def normalize_envi_name(name):
+def normalize_envi_header_property_name(name: str) -> str:
     '''
-    Normalize a name from an ENVI file by removing leading and trailing
-    whitespace, and ensuring that all words in the name are separated by a
+    Normalize a property name from an ENVI header file by removing leading and
+    trailing whitespace, and ensuring that words in the name are separated by a
     single space.
     '''
     name = name.strip()
@@ -27,7 +28,7 @@ def normalize_envi_name(name):
     return ' '.join(parts)
 
 
-def envi_multivalue_to_list(value, elemtype=float):
+def envi_multivalue_to_list(value: str, elemtype=float) -> List:
     '''
     Convert a string of the form "{value, value, ...}" to a list of actual
     values.  The values are parsed using the function specified with the
@@ -44,14 +45,14 @@ def envi_multivalue_to_list(value, elemtype=float):
     return [elemtype(p.strip()) for p in parts]
 
 
-def map_envi_type_to_numpy_type(envi_type, envi_endian):
+def map_envi_type_to_numpy_type(envi_type: int, envi_endian: int) -> np.dtype:
     '''
     Given an ENVI type number and endian value (0 = little-endian;
     1 = big-endian), this function returns the corresponding numpy.dtype
     value for reading the ENVI data.
 
-    If the type number is unrecognized then a KeyError will be raised.
-    If the endian value is unrecognized then a ValueError will be raised.
+    If the type number or the endian value is unrecognized then a ValueError
+    with a suitable message will be raised.
     '''
 
     type_map = {
@@ -71,6 +72,9 @@ def map_envi_type_to_numpy_type(envi_type, envi_endian):
         15: 'u8',   # 64-bit unsigned integer
     }
 
+    if envi_type not in type_map:
+        raise ValueError(f'Unrecognized ENVI type number {envi_type}')
+
     numpy_type_str = type_map[envi_type]
 
     if envi_type != 1:  # Bytes don't have an endianness
@@ -79,14 +83,20 @@ def map_envi_type_to_numpy_type(envi_type, envi_endian):
         elif envi_endian == 1:
             numpy_type_str = '>' + numpy_type_str
         else:
-            raise ValueError('Unrecognized ENVI endian value {envi_endian}')
+            raise ValueError(f'Unrecognized ENVI endian value {envi_endian}')
 
     return np.dtype(numpy_type_str)
 
 
-def load_envi_header(filename):
+def load_envi_header(filename: str) -> Dict[str, Any]:
     '''
-    Loads the .hdr file for an ENVI format multispectral file.
+    Loads the .hdr file for an ENVI format spectral file, and returns the
+    metadata as a Python dictionary.  Keys in the dictionary are normalized ENVI
+    header property names.
+
+    The filename argument is expected to be the path and filename to the actual
+    ENVI header file.  If the file cannot be opened then the error will be
+    reported by an exception raised by the Python built-in open() function.
 
     File format errors are indicated by raising an EnviFileFormatError
     exception.
@@ -127,7 +137,7 @@ def load_envi_header(filename):
         if len(parts) != 2:
             raise EnviFileFormatError(f'Line {line_no+1}:  not of the form "name = value"')
 
-        name = normalize_envi_name(parts[0])
+        name = normalize_envi_header_property_name(parts[0])
 
         value = parts[1].strip()
         if value[-1] == '{':
@@ -180,7 +190,7 @@ def load_envi_header(filename):
     return metadata
 
 
-def load_envi_data(filename, header_filename=None, mmap=True):
+def load_envi_data(filename, header_filename=None, metadata=None, mmap=True):
     '''
     Loads the specified ENVI data file from disk.  The filename is the path
     to the binary data file; the header file is assumed to be at the path
@@ -205,8 +215,9 @@ def load_envi_data(filename, header_filename=None, mmap=True):
     if header_filename is None:
         header_filename = filename + '.hdr'
 
-    # Load the metadata so that we know what we're in for.
-    metadata = load_envi_header(header_filename)
+    if metadata is None:
+        # Load the metadata so that we know what we're in for.
+        metadata = load_envi_header(header_filename)
 
     # Figure out the numpy element type from the ENVI header
     numpy_type = map_envi_type_to_numpy_type(metadata['data type'], metadata['byte order'])
@@ -245,7 +256,11 @@ def load_envi_data(filename, header_filename=None, mmap=True):
     return (metadata, data)
 
 
-def find_envi_filenames(filename):
+def find_envi_filenames(filename: str) -> Tuple[str, str]:
+    '''
+    Given a filename that may be either the header file or the data file, this
+    function attempts to figure out
+    '''
     # Make sure that whatever we were handed, is actually a file.  Otherwise,
     # there's no point in going on.
     if not os.path.isfile(filename):
@@ -322,6 +337,8 @@ def load_envi_file(filename, mmap=True):
     needing to be loaded in its entirety up-front.
     '''
 
+    # This function should throw if the header and data filenames cannot be
+    # determined for some reason.
     (header_filename, data_filename) = find_envi_filenames(filename)
     assert header_filename is not None and data_filename is not None
 
