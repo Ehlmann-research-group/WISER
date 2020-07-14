@@ -34,11 +34,3 @@ class ZoomPane(RasterPane):
         Zoom out the display by 1x less than the previous scale.
         '''
         return scale - 1
-
-
-    def _on_view_attr_changed(self, attr_name):
-        if attr_name == 'image.current_pixel':
-            pixel = self._app_state.get_view_attribute('image.current_pixel')
-            self._rasterview.make_point_visible(pixel.x(), pixel.y())
-
-            self._rasterview.update()
