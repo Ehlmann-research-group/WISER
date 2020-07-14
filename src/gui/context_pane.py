@@ -69,16 +69,12 @@ class ContextPane(RasterPane):
         self._update_image_scale()
 
 
-    def _on_view_attr_changed(self, attr_name):
-        if attr_name == 'image.visible_area':
-            self.get_rasterview().update()
-
-
     def _update_image_scale(self):
         '''
         Scale the raster-view image based on the image size, and the state of
         the "fit to window" button.
         '''
+
         # Handle window-scaling changes
         if self._act_fit_to_window.isChecked():
             # The entire image needs to fit in the summary view.
