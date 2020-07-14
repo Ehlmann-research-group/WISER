@@ -1,9 +1,15 @@
+import os, warnings
+
 from .spectral_library import SpectralLibrary
 from .loaders.envi import *
 from .units import make_spectral_value, convert_spectral
 
 import numpy as np
 from astropy import units as u
+
+
+# Log a warning if an ENVI Spectral Library file is larger than this value.
+WARN_LARGE_SLI = 10 * 1024 * 1024
 
 
 class ENVISpectralLibrary(SpectralLibrary):
@@ -13,16 +19,39 @@ class ENVISpectralLibrary(SpectralLibrary):
 
     '''
     def __init__(self, filename):
-        self._file_paths = [filename]
+        # Try to determine the header and data filenames.  This will raise an
+        # exception if the filenames cannot be determined; let that error
+        # propagate out.
+        (header_filename, data_filename) = find_envi_filenames(filename)
+        self._file_paths = [header_filename, data_filename]
 
-        # Load the ENVI data and metadata.  It isn't necessary to memory-map
-        # spectral libraries, as they tend to be small.
-        (self._file_paths, self._metadata, self._data) = \
-            load_envi_file(filename, mmap=False)
+        # Load the ENVI metadata.
+        self._metadata = load_envi_header(header_filename)
+
+        # If the file type doesn't properly indicate that the file is a spectral
+        # library, don't go on!!!
 
         file_type = self._metadata['file type']
         if file_type != 'ENVI Spectral Library':
             raise EnviFileFormatError(f'Unrecognized spectral library file type "{file_type}"')
+
+        # In ENVI spectral library files, each line (row) is a complete
+        # spectrum, and there is only one band.
+        if self._metadata['bands'] != 1:
+            raise EnviFileFormatError('ENVI spectral library files expected ' +
+                f'to have 1 band; got {self._metadata["bands"]}')
+
+        # We don't expect spectral libraries to be large files, so if one ends
+        # up being large, log a warning about it.
+        datafile_size = os.path.getsize(data_filename)
+        if datafile_size > WARN_LARGE_SLI:
+            warnings.warn(f'ENVI spectral library {data_filename} is large ' +
+                          f'({datafile_size} bytes)')
+
+        # Load the ENVI data file.  It generally shouldn't be necessary to
+        # memory-map spectral libraries, as they tend to be small.
+        result = load_envi_data(filename, metadata=self._metadata, mmap=False)
+        self._data = result[1]
 
         # ENVI stores the spectral libray files a little differently from their
         # raster data files.  Pull the dimensions out of the metadata, then
@@ -31,9 +60,6 @@ class ENVISpectralLibrary(SpectralLibrary):
 
         self._num_bands = self._metadata['samples']
         self._num_spectra = self._metadata['lines']
-        if self._metadata['bands'] != 1:
-            raise EnviFileFormatError('ENVI spectral library files expected ' +
-                f'to have 1 band; got {self._metadata["bands"]}')
 
         # Update:  [samples, lines, bands] -> [lines, samples, bands]
         # Then, eliminate the last dimension, since it should always be 1.
