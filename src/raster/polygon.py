@@ -140,7 +140,8 @@ def rasterize_polygon(polygon_points: List[Tuple[int, int]]) -> RasterizedPolygo
     # band.SetNoDataValue(NoData_value)
 
     # Rasterize the polygon into the target layer
-    gdal.RasterizeLayer(target_ds, [1], source_layer, burn_values=[1])
+    gdal.RasterizeLayer(target_ds, [1], source_layer, burn_values=[1],
+        options=['ALL_TOUCHED=TRUE'])
 
     # Read the result as a NumPy array
     array = band.ReadAsArray()
