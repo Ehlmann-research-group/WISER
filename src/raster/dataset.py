@@ -1,3 +1,5 @@
+from typing import Optional, Union
+
 import numpy as np
 
 from .units import find_band_near_wavelength, \
@@ -145,7 +147,7 @@ class RasterDataSet:
         '''
         pass
 
-    def get_data_ignore_value(self):
+    def get_data_ignore_value(self) -> Optional[Union[int, float]]:
         '''
         Returns the number that indicates a value to be ignored in the dataset.
         If this value is unknown or unspecified in the data, None is returned.
