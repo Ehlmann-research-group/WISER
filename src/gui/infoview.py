@@ -49,31 +49,42 @@ class DatasetInfoView(QTreeWidget):
 
         # General info subsection
 
-        info = QTreeWidgetItem(top)
-        info.setText(0, self.tr('General'))
+        # info = QTreeWidgetItem(top)
+        # info.setText(0, self.tr('General'))
 
-        item = QTreeWidgetItem(info)
+        item = QTreeWidgetItem(top)
         item.setText(0, f'Description:  {dataset.get_description()}')
 
-        item = QTreeWidgetItem(info)
+        item = QTreeWidgetItem(top)
         item.setText(0, f'File Type:  {dataset.get_filetype()}')
 
-        item = QTreeWidgetItem(info)
+        item = QTreeWidgetItem(top)
         item.setText(0, f'Size:  {dataset.get_width()}x{dataset.get_height()}')
 
-        item = QTreeWidgetItem(info)
-        item.setText(0, f'Bands:  {dataset.num_bands()}')
+        # TODO(donnie):  Number of bands is specified in the "bands" group item,
+        #     so we probably don't need this.
+        # item = QTreeWidgetItem(info)
+        # item.setText(0, f'Bands:  {dataset.num_bands()}')
+
+        data_ignore = dataset.get_data_ignore_value()
+        item = QTreeWidgetItem(top)
+        if data_ignore is not None:
+            item.setText(0, f'Data-ignore value:  {data_ignore}')
+        else:
+            item.setText(0, 'No data-ignore value specified')
 
         # Files subsection
 
-        files = QTreeWidgetItem(top)
-        files.setText(0, self.tr('Files'))
+        filepaths = [os.path.basename(fp) for fp in dataset.get_filepaths()]
+        filepaths.sort()
 
-        filepaths = sorted(dataset.get_filepaths())
+        files = QTreeWidgetItem(top)
+        files.setText(0, self.tr(f'Files ({len(filepaths)})'))
+
         for fp in filepaths:
             file_item = QTreeWidgetItem(files)
-            file_item.setFirstColumnSpanned(True)
-            file_item.setText(0, os.path.basename(fp))
+            # file_item.setFirstColumnSpanned(True)
+            file_item.setText(0, fp)
 
         # Bands section
 
