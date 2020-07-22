@@ -1,10 +1,10 @@
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Optional, Set, Tuple
 
 from PySide2.QtCore import *
 
 from .dataset import RasterDataSet
-from gui.geom import get_rectangle
+from gui.geom import get_rectangle, manhattan_distance
 
 
 class SelectionType(Enum):
@@ -65,6 +65,13 @@ class Selection:
         #     a separate class or set of classes.
         return False
 
+    def get_all_pixels(self) -> Set[Tuple[int, int]]:
+        '''
+        Return a Python set containing the coordinates of all pixels that are a
+        part of this selection.
+        '''
+        return set()
+
     def to_pyrep(self):
         ' Returns a "Python representation" of the selection. '
         pass
@@ -75,20 +82,23 @@ class SinglePixelSelection(Selection):
     A single-pixel selection.
     '''
 
-    def __init__(self, pixel=None, dataset:Optional[RasterDataSet]=None):
+    def __init__(self, pixel: Optional[QPoint] = None, dataset: Optional[RasterDataSet] = None):
         super().__init__(SelectionType.SINGLE_PIXEL, dataset=dataset)
         self._pixel = pixel
 
     def set_pixel(self, pixel):
         self._pixel = pixel
 
-    def get_pixel(self):
+    def get_pixel(self) -> QPoint:
         return self._pixel
 
-    def is_picked_by(self, coord):
-        # TODO(donnie):  May want to include a "fudge factor" here, based on the
-        #     zoom scale.
-        return self._pixel == coord
+    def is_picked_by(self, coord: QPoint):
+        return manhattan_distance(self._pixel, coord) <= 2
+
+    def get_all_pixels(self) -> Set[Tuple[int, int]]:
+        s = set()
+        s.add(self._pixel.toTuple())
+        return s
 
     def __str__(self):
         return f'SinglePixelSelection[pixel={self._pixel}, dataset={self._dataset}]'
@@ -133,6 +143,9 @@ class MultiPixelSelection(Selection):
     def is_picked_by(self, coord):
         return self.get_bounding_box().contains(coord)
 
+    def get_all_pixels(self) -> Set[Tuple[int, int]]:
+        return set([p.toTuple() for p in self._pixels])
+
     def __str__(self):
         return f'MultiPixelSelection[{self._pixels}]'
 
@@ -171,6 +184,13 @@ class RectangleSelection(Selection):
 
     def is_picked_by(self, coord):
         return self.get_rect().contains(coord)
+
+    def get_all_pixels(self) -> Set[Tuple[int, int]]:
+        s = set()
+        for y in range(self._point1.y(), self._point2.y()):
+            for x in range(self._point1.x(), self._point2.x()):
+                s.add( (x, y) )
+        return s
 
     def __str__(self):
         return f'RectangleSelection[tl={self._point1}, br={self._point2}]'
@@ -216,6 +236,10 @@ class PolygonSelection(Selection):
     def is_picked_by(self, coord):
         # TODO(donnie):  Implement proper polygon picking
         return self.get_bounding_box().contains(coord)
+
+    def get_all_pixels(self) -> Set[Tuple[int, int]]:
+        rasterized = rasterize_polygon([p.toTuple() for p in self._points])
+        return rasterized.get_set()
 
     def __str__(self):
         return f'PolygonSelection[{self._points}]'

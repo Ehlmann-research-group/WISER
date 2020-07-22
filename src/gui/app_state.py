@@ -1,6 +1,6 @@
 from enum import Enum
 import os
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from PySide2.QtCore import *
 
@@ -73,12 +73,11 @@ class ApplicationState(QObject):
         # All spectral libraries loaded in the application.  The key is the
         # numeric ID of the spectral library, and the value is the
         # SpectralLibrary object.
-        self._spectral_libraries = []
+        self._spectral_libraries: List[SpectralLibrary] = []
 
         # All regions of interest in the application.  The key is the numeric ID
         # of the ROI, and the value is a RegionOfInterest object.
-        self._regions_of_interest = {}
-        self._next_roi_id = 1
+        self._regions_of_interest: Dict[int, RegionOfInterest] = {}
 
         # Configuration options.
         self._config = {
@@ -112,14 +111,6 @@ class ApplicationState(QObject):
         return self._current_dir
 
 
-    def show_status_text(self, text: str, seconds=0):
-        self._app.show_status_text(text, seconds)
-
-
-    def clear_status_text(self):
-        self._app.show_status_text('')
-
-
     def set_current_dir(self, current_dir: str):
         '''
         Sets the current directory of the application.  This is the last
@@ -127,6 +118,14 @@ class ApplicationState(QObject):
         the next load or save can start at the same directory.
         '''
         self._current_dir = current_dir
+
+
+    def show_status_text(self, text: str, seconds=0):
+        self._app.show_status_text(text, seconds)
+
+
+    def clear_status_text(self):
+        self._app.show_status_text('')
 
 
     def open_file(self, file_path):
@@ -335,33 +334,36 @@ class ApplicationState(QObject):
         '''
         self._colors[option] = color
 
-    def make_and_add_roi(self, selection):
-        # Find a unique name to assign to the region of interest
-        while True:
-            name = f'roi_{self._next_roi_id}'
-            if name not in self._regions_of_interest:
-                break
-
-            self._next_roi_id += 1
-
-        roi = RegionOfInterest(name)
-        roi.add_selection(selection)
-        self.add_roi(roi)
-
-    def add_roi(self, roi):
+    def add_roi(self, roi: RegionOfInterest) -> None:
+        # Verify that the ROI's name is unique.
         name = roi.get_name()
-        if name in self._regions_of_interest:
-            raise ValueError(
-                f'A region of interest named "{name}" already exists.')
+        for existing_roi in self._regions_of_interest.values():
+            if name == existing_roi.get_name():
+                raise ValueError(
+                    f'A region of interest named "{name}" already exists.')
 
-        self._regions_of_interest[name] = roi
+        roi_id = self._take_next_id()
+        roi.set_id(roi_id)
+        self._regions_of_interest[roi_id] = roi
         self.roi_added.emit(roi)
 
-    def remove_roi(self, name):
-        roi = self._regions_of_interest[name]
-        del self._regions_of_interest[name]
-
+    def remove_roi(self, roi_id: int) -> None:
+        roi = self._regions_of_interest[roi_id]
+        del self._regions_of_interest[roi_id]
         self.roi_removed.emit(roi)
 
+    def get_roi(self, **kwargs) -> Optional[RegionOfInterest]:
+        if 'id' in kwargs:
+            return self._regions_of_interest.get(kwargs['id'])
+
+        elif 'name' in kwargs:
+            for roi in self._regions_of_interest.values():
+                if roi.get_name() == kwargs['name']:
+                    return roi
+            return None
+
+        else:
+            raise KeyError('Must specify either "id" or "name" keyword argument')
+
     def get_rois(self):
-        return self._regions_of_interest
+        return self._regions_of_interest.values()

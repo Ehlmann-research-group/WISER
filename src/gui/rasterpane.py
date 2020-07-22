@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 from typing import List, Optional, Tuple
 
@@ -10,13 +11,16 @@ import gui.generated.resources
 from .app_config import PixelReticleType
 from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
+from .roi_info_editor import ROIInfoEditor
 from .rasterview import RasterView
-from .util import add_toolbar_action, get_painter
+from .util import add_toolbar_action, get_painter, make_filename
 
 from raster.dataset import RasterDataSet, find_display_bands, find_truecolor_bands
+from raster.roi import RegionOfInterest
 from raster.selection import SelectionType, Selection, SinglePixelSelection
+from raster.spectra import export_roi_spectra
 
-from .ui_roi import draw_roi, is_roi_picked_by
+from .ui_roi import draw_roi, get_picked_roi_selections
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
 from .ui_selection_polygon import PolygonSelectionCreator, PolygonSelectionEditor
 from .ui_selection_multi_pixel import MultiPixelSelectionCreator, MultiPixelSelectionEditor
@@ -227,15 +231,30 @@ class RasterPane(QWidget):
 
     def _init_select_tools(self):
         '''
-        Initialize the selection / region of interest tools
+        Initialize the Region of Interest / Selection tools
         '''
+
+        # Button to add new Regions of Interest.  This will pop up a dialog for
+        # the user to enter a name and some metadata for the ROI.
+        self._act_create_roi = add_toolbar_action(self._toolbar,
+            ':/icons/add-roi.svg', self.tr('Add new Region of Interest'), self,
+            QKeySequence.ZoomIn)
+        self._act_create_roi.triggered.connect(self._on_create_roi)
+
+        # Drop-down combobox for ROIs, so that new selections will go into the
+        # currently highlighted ROI.
+        self._cbox_current_roi = QComboBox()
+        self._cbox_current_roi.setEditable(False)
+        self._cbox_current_roi.setInsertPolicy(QComboBox.NoInsert)
+
+        self._act_cbox_current_roi = self._toolbar.addWidget(self._cbox_current_roi)
 
         # The selection-tools chooser is a drop down menu of selection tools.
         # First, populate the menu of tools, then create the chooser button.
 
         chooser = QToolButton()
         chooser.setIcon(QIcon(':/icons/select.svg'))
-        chooser.setToolTip(self.tr('Selection tools'))
+        chooser.setToolTip(self.tr('Add selection to current ROI'))
 
         # Without the parent= argument, the chooser doesn't show the menu.
         menu = QMenu(parent=chooser)
@@ -251,12 +270,14 @@ class RasterPane(QWidget):
         act = menu.addAction(self.tr('Multi-pixel selection'))
         act.setData(SelectionType.MULTI_PIXEL)
 
-        act = menu.addAction(self.tr('Predicate selection'))
-        act.setData(SelectionType.PREDICATE)
+        # act = menu.addAction(self.tr('Predicate selection'))
+        # act.setData(SelectionType.PREDICATE)
 
         self._toolbar.addWidget(chooser)
 
-        chooser.triggered.connect(self._on_create_selection)
+        chooser.triggered.connect(self._on_add_selection_to_roi)
+
+        self._populate_roi_combobox()
 
 
     def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1)):
@@ -269,6 +290,7 @@ class RasterPane(QWidget):
             return
 
         forward = {
+            # 'resizeEvent'       : self._onRasterResize,
             'mousePressEvent'   : self._onRasterMousePress,
             'mouseReleaseEvent' : self._onRasterMouseRelease,
             'mouseMoveEvent'    : self._onRasterMouseMove,
@@ -405,6 +427,10 @@ class RasterPane(QWidget):
         return regions
 
 
+    def get_app_state(self):
+        return self._app_state
+
+
     def get_scale(self):
         '''
         Returns the current zoom scale of this raster pane.  Even when a pane
@@ -431,6 +457,10 @@ class RasterPane(QWidget):
         the visible region of the raster-view has changed.
         '''
         self._emit_viewport_change()
+
+
+    # def _onRasterResize(self, rasterview, resize_event):
+    #     self._emit_viewport_change()
 
 
     def _onRasterMousePress(self, rasterview, mouse_event):
@@ -535,36 +565,53 @@ class RasterPane(QWidget):
         # TODO(donnie):  Set up handler for the action
         # act = menu.addAction(self.tr('Annotate location'))
 
-        # Find Regions of Interest that include the click location.
+        # Find Regions of Interest that include the click location.  This is a
+        # complicated thing to do, since a ROI can consist of multiple
+        # selections.  So, this variable is a list of 2-tuples, where each pair
+        # is (the picked ROI, a list of the indexes of selections picked in the
+        # ROI).  Clear as mud.
         picked_rois = []
-        for (name, roi) in self._app_state.get_rois().items():
-            if is_roi_picked_by(roi, ds_coord):
-                picked_rois.append(roi)
+        for roi in self._app_state.get_rois():
+            picked_sels = get_picked_roi_selections(roi, ds_coord)
+            if len(picked_sels) > 0:
+                picked_rois.append( (roi, picked_sels) )
 
         if len(picked_rois) > 0:
             # At least one region of interest was picked
             if not menu.isEmpty():
                 menu.addSeparator()
 
-            for roi in picked_rois:
+            for (roi, picked_sels) in picked_rois:
                 roi_menu = menu.addMenu(roi.get_name())
 
                 # TODO(donnie):  Set up handlers for the actions
 
-                act = roi_menu.addAction(self.tr('Show spectrum'))
+                act = roi_menu.addAction(self.tr('Edit ROI information...'))
+                act.triggered.connect(lambda checked : self._on_edit_roi_info(roi=roi))
 
-                act = roi_menu.addAction(self.tr('Edit geometry'))
+                act = roi_menu.addAction(self.tr('Show ROI average spectrum'))
                 act.triggered.connect(
-                    lambda checked : self._on_edit_roi_geometry(
-                        roi=roi, rasterview=rasterview))
+                    lambda checked : self._on_show_roi_avg_spectrum(roi=roi, rasterview=rasterview))
 
-                act = roi_menu.addAction(self.tr('Edit metadata...'))
+                act = roi_menu.addAction(self.tr('Export all spectra in ROI...'))
+                act.triggered.connect(
+                    lambda checked : self._on_export_roi_spectra(roi=roi, rasterview=rasterview))
 
-                roi_menu.addAction(self.tr('Export spectrum...'))
+                for sel_index in picked_sels:
+                    roi_menu.addSeparator()
+                    act = roi_menu.addAction(self.tr(f'Edit selection {sel_index} geometry'))
+                    act.triggered.connect(
+                        lambda checked : self._on_edit_roi_selection_geometry(
+                            roi=roi, sel_index=sel_index, rasterview=rasterview))
+
+                    act = roi_menu.addAction(self.tr(f'Delete selection {sel_index} from ROI...'))
+                    act.triggered.connect(
+                        lambda checked : self._on_delete_roi_selection_geometry(
+                            roi=roi, sel_index=sel_index))
 
                 roi_menu.addSeparator()
 
-                act = roi_menu.addAction(self.tr('Delete region...'))
+                act = roi_menu.addAction(self.tr('Delete Region of Interest...'))
                 act.triggered.connect(lambda checked : self._on_delete_roi(roi=roi))
 
 
@@ -1031,7 +1078,64 @@ class RasterPane(QWidget):
             self._cbox_zoom.lineEdit().setText(scale_str)
 
 
-    def _on_create_selection(self, act):
+    def _on_create_roi(self, act):
+        '''
+        Pop up a dialog allowing the user to create a new Region of Interest,
+        then make that ROI the current ROI in the combo-box.
+        '''
+        dialog = ROIInfoEditor(self._app_state, parent=self)
+        result = dialog.exec()
+        if result == QDialog.Accepted:
+            roi = RegionOfInterest()
+            dialog.store_values(roi)
+            self._app_state.add_roi(roi)
+
+            self._populate_roi_combobox()
+
+    def _populate_roi_combobox(self):
+        current_roi_id = self._cbox_current_roi.currentData()
+        self._cbox_current_roi.clear()
+
+        rois = self._app_state.get_rois()
+        if len(rois) > 0:
+            for roi in self._app_state.get_rois():
+                self._cbox_current_roi.addItem(roi.get_name(), roi.get_id())
+
+        else:
+            self._cbox_current_roi.addItem(self.tr('(no ROIs)'), None)
+
+        # Figure out which item was previously selected.  If it is no longer
+        # present, just select the first item.
+        i = self._cbox_current_roi.findData(current_roi_id)
+        if i == -1:
+            i = 0
+        self._cbox_current_roi.setCurrentIndex(i)
+
+    def get_current_roi(self) -> Optional[RegionOfInterest]:
+        roi_id = self._cbox_current_roi.currentData()
+        roi = None
+        if roi_id is not None:
+            roi = self._app_state.get_roi(id=roi_id)
+
+        return roi
+
+
+    def _on_edit_roi_info(self, roi):
+        '''
+        Pop up a dialog allowing the user to create a new Region of Interest,
+        then make that ROI the current ROI in the combo-box.
+        '''
+        dialog = ROIInfoEditor(self._app_state, parent=self)
+        dialog.configure_ui(roi)
+        result = dialog.exec()
+        if result == QDialog.Accepted:
+            dialog.store_values(roi)
+            # TODO(donnie):  Need to notify everyone that the ROI has been edited
+
+            self._populate_roi_combobox()
+
+
+    def _on_add_selection_to_roi(self, act):
         '''
         This helper function initiates the creation of a selection, which is
         then added to a Region of Interest.
@@ -1042,13 +1146,13 @@ class RasterPane(QWidget):
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
-            self._task_delegate = RectangleSelectionCreator(self._app_state)
+            self._task_delegate = RectangleSelectionCreator(self)
 
         elif selection_type == SelectionType.POLYGON:
-            self._task_delegate = PolygonSelectionCreator(self._app_state)
+            self._task_delegate = PolygonSelectionCreator(self)
 
         elif selection_type == SelectionType.MULTI_PIXEL:
-            self._task_delegate = MultiPixelSelectionCreator(self._app_state)
+            self._task_delegate = MultiPixelSelectionCreator(self)
 
         elif selection_type == SelectionType.PREDICATE:
             ok, pred_text = QInputDialog.getText(self,
@@ -1063,29 +1167,87 @@ class RasterPane(QWidget):
                 f'ISWB does not yet support selections of type {selection_type}')
 
 
-    def _on_edit_roi_geometry(self, rasterview, roi):
-        sel = roi.get_selections()[0]
+    def _on_edit_roi_selection_geometry(self, roi, sel_index, rasterview) -> None:
+        sel = roi.get_selections()[sel_index]
         selection_type = sel.get_type()
 
         if selection_type == SelectionType.RECTANGLE:
             self._task_delegate = \
-                RectangleSelectionEditor(sel, self._app_state, rasterview)
+                RectangleSelectionEditor(sel, self, rasterview)
 
         elif selection_type == SelectionType.POLYGON:
             self._task_delegate = \
-                PolygonSelectionEditor(sel, self._app_state, rasterview)
+                PolygonSelectionEditor(sel, self, rasterview)
 
         elif selection_type == SelectionType.MULTI_PIXEL:
             self._task_delegate = \
-                MultiPixelSelectionEditor(sel, self._app_state, rasterview)
+                MultiPixelSelectionEditor(sel, self, rasterview)
 
         else:
             QMessageBox.warning(self, self.tr('Unsupported Feature'),
                 f'ISWB does not yet support editing selections of type {selection_type}')
 
 
-    def _on_delete_roi(self, roi):
+    def _on_delete_roi_selection_geometry(self, roi, sel_index) -> None:
+        name = roi.get_name()
+        sel = roi.get_selections()[sel_index]
+
+        result = QMessageBox.question(self,
+            self.tr('Delete selection {0} from ROI "{1}"').format(sel_index, name),
+            self.tr('Are you sure you wish to delete selection {0}\n' +
+                    'from the ROI "{1}"?  This cannot be undone.').format(sel_index, name))
+
+        if result == QMessageBox.Yes:
+            roi.del_selection(sel_index)
+
+            # TODO(donnie):  Somehow the app-state needs to notify everyone that
+            #     the ROI was edited.
+
+            # Report to the user that the ROI was deleted.
+            self._app_state.show_status_text(
+                self.tr('Deleted selection {0} from Region of Interest "{1}"')
+                    .format(sel_index, name), 5)
+
+
+    def _on_show_roi_avg_spectrum(self, roi: RegionOfInterest, rasterview: RasterView):
+        # TODO(donnie):  Request the display of the spectrum
         pass
+
+
+    def _on_export_roi_spectra(self, roi: RegionOfInterest, rasterview: RasterView) -> None:
+        # Build up a candidate filename.
+        filename = f'{make_filename(roi.get_name())}.txt'
+        filename = os.path.join(self._app_state.get_current_dir(), filename)
+
+        # Ask the user for a save filename.
+        (filename, type) = QFileDialog.getSaveFileName(self,
+            self.tr('Save all spectra from ROI {0}').format(roi.get_name()),
+            filename,
+            self.tr('Text files (*.txt);;All files (*)'))
+
+        if len(filename) == 0:
+            # User canceled out of the operation.
+            return
+
+        # TODO(donnie):  Update app-state's current directory
+
+        # Export the spectra of all pixels in the ROI
+        export_roi_spectra(filename, rasterview.get_raster_data(), roi)
+
+
+    def _on_delete_roi(self, roi: RegionOfInterest) -> None:
+        name = roi.get_name()
+        result = QMessageBox.question(self,
+            self.tr('Delete ROI "{0}"').format(name),
+            self.tr('Are you sure you wish to delete the ROI\n' +
+                    '"{0}"?  This cannot be undone.').format(name))
+
+        if result == QMessageBox.Yes:
+            self._app_state.remove_roi(roi.get_id())
+
+            # Report to the user that the ROI was deleted.
+            self._app_state.show_status_text(
+                self.tr('Deleted Region of Interest "{0}"').format(name), 5)
 
 
     # TODO(donnie):  Make this function take a QPainter argument???
@@ -1132,8 +1294,7 @@ class RasterPane(QWidget):
     def _draw_regions_of_interest(self, rasterview, widget, paint_event):
         # active_roi = self._app_state.get_active_roi()
         with get_painter(widget) as painter:
-            for (name, roi) in self._app_state.get_rois().items():
-                # print(f'{name}: {roi}')
+            for roi in self._app_state.get_rois():
                 # TODO(donnie):  This needs to change for multi-views
                 draw_roi(self.get_rasterview(), painter, roi)
 

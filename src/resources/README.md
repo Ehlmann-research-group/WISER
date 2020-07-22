@@ -43,3 +43,8 @@ Icons made by [Becris](https://www.flaticon.com/authors/becris)
 from [Flaticon](https://www.flaticon.com/).
 
 *   link-scroll.svg (was link.svg)
+
+Icons made by [bqlqn](https://www.flaticon.com/authors/bqlqn)
+from [Flaticon](https://www.flaticon.com/).
+
+*   add-roi.svg (was location.svg)

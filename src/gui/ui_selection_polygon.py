@@ -45,10 +45,9 @@ class PolygonSelectionCreator(TaskDelegate):
     # require the start and end points to be closer together to close a polygon.
     SENSITIVITY = 3
 
-    def __init__(self, app_state, rasterview=None):
-        super().__init__(rasterview)
+    def __init__(self, rasterpane, rasterview=None):
+        super().__init__(rasterpane, rasterview)
 
-        self._app_state = app_state
         self._points = []
         self._cursor_position = None
 
@@ -171,15 +170,20 @@ class PolygonSelectionCreator(TaskDelegate):
 
     def finish(self):
         sel = PolygonSelection(self._points)
-        self._app_state.make_and_add_roi(sel)
+        roi = self._rasterpane.get_current_roi()
+        roi.add_selection(sel)
+
+        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
+        #     everyone can be notified.
+
         self._app_state.clear_status_text()
 
 
+
 class PolygonSelectionEditor(TaskDelegate):
-    def __init__(self, poly_sel, app_state, rasterview=None):
-        super().__init__(rasterview)
+    def __init__(self, poly_sel, rasterpane, rasterview=None):
+        super().__init__(rasterpane, rasterview)
         self._poly_sel = poly_sel
-        self._app_state = app_state
         self._editing_cp_index = None
 
         # Initialize the control-points for adjusting the polygon selection.
@@ -276,6 +280,9 @@ class PolygonSelectionEditor(TaskDelegate):
                              CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
     def finish(self):
+        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
+        #     everyone can be notified.
+
         self._app_state.clear_status_text()
 
     def get_selection(self):

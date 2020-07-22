@@ -66,9 +66,8 @@ class MultiPixelSelectionManipulator(TaskDelegate):
     subclasses customize it as needed.
     '''
 
-    def __init__(self, point_set, app_state, rasterview=None):
-        super().__init__(rasterview)
-        self._app_state = app_state
+    def __init__(self, point_set, rasterpane, rasterview=None):
+        super().__init__(rasterpane, rasterview)
         self._points = point_set
 
     def on_mouse_release(self, mouse_event):
@@ -113,8 +112,8 @@ class MultiPixelSelectionManipulator(TaskDelegate):
 
 class MultiPixelSelectionCreator(MultiPixelSelectionManipulator):
 
-    def __init__(self, app_state, rasterview=None):
-        super().__init__(set(), app_state, rasterview)
+    def __init__(self, rasterpane, rasterview=None):
+        super().__init__(set(), rasterpane, rasterview)
         self._app_state.show_status_text(
             'Left-click on pixels to toggle their inclusion in the selection.' +
             '  Press Esc key to finish entry.')
@@ -126,14 +125,19 @@ class MultiPixelSelectionCreator(MultiPixelSelectionManipulator):
             return
 
         sel = MultiPixelSelection(self._points)
-        self._app_state.make_and_add_roi(sel)
+        roi = self._rasterpane.get_current_roi()
+        roi.add_selection(sel)
+
+        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
+        #     everyone can be notified.
+
         self._app_state.clear_status_text()
 
 
 class MultiPixelSelectionEditor(MultiPixelSelectionManipulator):
 
-    def __init__(self, mp_sel, app_state, rasterview=None):
-        super().__init__(mp_sel.get_pixels(), app_state, rasterview)
+    def __init__(self, mp_sel, rasterpane, rasterview=None):
+        super().__init__(mp_sel.get_pixels(), rasterpane, rasterview)
         self._mp_sel = mp_sel
         self._app_state.show_status_text(
             'Left-click on pixels to toggle their inclusion in the selection.' +
@@ -144,5 +148,8 @@ class MultiPixelSelectionEditor(MultiPixelSelectionManipulator):
             # TODO(donnie):  In this case, we are ending up with an empty
             #     multi-pixel selection, which is no good!
             pass
+
+        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
+        #     everyone can be notified.
 
         self._app_state.clear_status_text()
