@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .selection import (
     Selection, RectangleSelection, PolygonSelection, MultiPixelSelection,
@@ -14,12 +14,12 @@ class RegionOfInterest:
     attributes may be specified as well, such as the color that the ROI is drawn
     in.
     '''
-    def __init__(self, name, color='yellow', **kwargs):
-        self._name = name
+    def __init__(self, name: Optional[str] = None, color: str = 'yellow'):
+        self._name: Optional[str] = name
+        self._color: str = color
+        self._description: Optional[str] = None
         self._selections: List[Selection] = []
-        self._metadata = kwargs
-
-        self._color = color
+        self._metadata: Dict[str, Any] = {}
 
 
     def get_id(self) -> int:
@@ -30,22 +30,13 @@ class RegionOfInterest:
 
 
     def __str__(self):
-        return f'ROI[{self._name}, {self._selection}]'
+        return f'ROI[{self._name}, {self._selections}]'
 
     def get_name(self):
         return self._name
 
     def set_name(self, name):
         self._name = name
-
-    def get_selections(self) -> List[Selection]:
-        return list(self._selections)
-
-    def add_selection(self, selection: Selection) -> None:
-        if selection is None:
-            raise ValueError('selection cannot be None')
-
-        self._selections.append(selection)
 
     def get_color(self) -> str:
         '''
@@ -56,8 +47,38 @@ class RegionOfInterest:
     def set_color(self, color: str) -> None:
         self._color = color
 
+    def get_description(self) -> Optional[str]:
+        return self._description
+
+    def set_description(self, description: Optional[str]) -> None:
+        self._description = description
+
+    def get_selections(self) -> List[Selection]:
+        return list(self._selections)
+
+    def add_selection(self, selection: Selection) -> None:
+        if selection is None:
+            raise ValueError('selection cannot be None')
+
+        self._selections.append(selection)
+
+    def del_selection(self, sel_index: int) -> None:
+        del self._selections[sel_index]
+
     def get_metadata(self):
         return self._metadata
+
+    def get_all_pixels(self) -> Set[Tuple[int, int]]:
+        '''
+        Return a Python set containing the coordinates of all pixels that are a
+        part of this Region of Interest.  Each pixel coordinate will only appear
+        once, even if the pixel appears within multiple selections in the ROI.
+        '''
+        all_pixels = set()
+        for sel in self._selections:
+            all_pixels.update(sel.get_all_pixels())
+
+        return all_pixels
 
 
 def roi_to_pyrep(roi):

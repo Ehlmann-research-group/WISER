@@ -1,6 +1,9 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from .rasterview import RasterView
+
+if TYPE_CHECKING:
+    from .rasterpane import RasterPane
 
 
 class TaskDelegate:
@@ -23,12 +26,17 @@ class TaskDelegate:
     with the task.
     '''
 
-    def __init__(self, rasterview: Optional[RasterView] = None):
+    def __init__(self, rasterpane: 'RasterPane', rasterview: Optional[RasterView] = None):
         '''
         Initialize the task delegate.  An optional raster-view may be specified,
         but in multi-view contexts, the set_rasterview() function will be the
         preferred option.
         '''
+        if rasterpane is None:
+            raise ValueError('rasterpane cannot be None')
+
+        self._rasterpane: 'RasterPane' = rasterpane
+        self._app_state = rasterpane.get_app_state()
         self._rasterview: Optional[RasterView] = rasterview
 
     def set_rasterview(self, rasterview: RasterView):

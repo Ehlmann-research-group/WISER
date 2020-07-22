@@ -45,9 +45,8 @@ def draw_rectangle_selection(rasterview, painter, rect_sel, color, active=False)
 
 
 class RectangleSelectionCreator(TaskDelegate):
-    def __init__(self, app_state, rasterview=None):
-        super().__init__(rasterview)
-        self._app_state = app_state
+    def __init__(self, rasterpane, rasterview=None):
+        super().__init__(rasterpane, rasterview)
         self._point1 = None
         self._point2 = None
 
@@ -103,15 +102,19 @@ class RectangleSelectionCreator(TaskDelegate):
             return
 
         sel = RectangleSelection(self._point1, self._point2)
-        self._app_state.make_and_add_roi(sel)
+        roi = self._rasterpane.get_current_roi()
+        roi.add_selection(sel)
+
+        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
+        #     everyone can be notified.
+
         self._app_state.clear_status_text()
 
 
 class RectangleSelectionEditor(TaskDelegate):
-    def __init__(self, rect_sel, app_state, rasterview=None):
-        super().__init__(rasterview)
+    def __init__(self, rect_sel, rasterpane, rasterview=None):
+        super().__init__(rasterpane, rasterview)
         self._rect_sel = rect_sel
-        self._app_state = app_state
         self._control_points = []
         self._editing_cp_index = None
 
@@ -241,6 +244,9 @@ class RectangleSelectionEditor(TaskDelegate):
                              CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
     def finish(self):
+        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
+        #     everyone can be notified.
+
         self._app_state.clear_status_text()
 
     def get_selection(self):

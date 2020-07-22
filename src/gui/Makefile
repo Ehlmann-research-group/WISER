@@ -12,6 +12,7 @@ FILENAMES=about_dialog_ui.py \
 	band_chooser_ui.py \
 	channel_stretch_widget_ui.py \
 	export_image_ui.py \
+	roi_info_editor_ui.py \
 	spectrum_info_editor_ui.py \
 	spectrum_plot_config_ui.py \
 	stretch_config_widget_ui.py \

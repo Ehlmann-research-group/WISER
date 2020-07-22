@@ -1,6 +1,7 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
   <qresource prefix="icons">
+    <file>add-roi.svg</file>
     <file>choose-bands.svg</file>
     <file>choose-truecolor.svg</file>
     <file>collect-spectrum.svg</file>
