@@ -1,27 +1,30 @@
 from PySide2.QtCore import *
 
 import math
+from typing import Union
 
 
-def distance(p1, p2):
+def distance(p1: Union[QPoint, QPointF], p2: Union[QPoint, QPointF]) -> Union[int, float]:
     '''
     Given two QPoint or QPointF objects, this function returns the Euclidean
     distance (L2 distance) between the two points.
     '''
-    diff = p2 - p1
-    return math.sqrt(diff.x() * diff.x() + diff.y() * diff.y())
+    dx = p2.x() - p1.x()
+    dy = p2.y() - p1.y()
+    return math.sqrt(dx * dx + dy * dy)
 
 
-def manhattan_distance(p1, p2):
+def manhattan_distance(p1: Union[QPoint, QPointF], p2: Union[QPoint, QPointF]) -> Union[int, float]:
     '''
     Given two QPoint or QPointF objects, this function returns the Manhattan
     distance (L1 distance) between the two points.
     '''
-    diff = p2 - p1
-    return abs(diff.x()) + abs(diff.y())
+    dx = p2.x() - p1.x()
+    dy = p2.y() - p1.y()
+    return abs(dx) + abs(dy)
 
 
-def get_rectangle(p1, p2):
+def get_rectangle(p1: Union[QPoint, QPointF], p2: Union[QPoint, QPointF]) -> QRect:
     '''
     Given two QPoints, this function returns the QRect that has the two points
     as corners.  The QRect is constructed so that its top-left point is less
@@ -43,7 +46,7 @@ def get_rectangle(p1, p2):
     return QRect(x1, y1, x2 - x1, y2 - y1)
 
 
-def scale_rectangle(rect, scale):
+def scale_rectangle(rect: QRect, scale):
     return QRect(rect.x() * scale, rect.y() * scale,
                  rect.width() * scale, rect.height() * scale)
 

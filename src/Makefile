@@ -5,6 +5,9 @@ TARGET_DIR=gui/generated
 
 TARGETS=$(TARGET_DIR)/resources.py
 
+PYTHON=python
+TEST_MODULES=tests.test_gui_util tests.test_gui_geom
+
 
 all : generated
 
@@ -14,6 +17,9 @@ generated : $(TARGETS)
 
 $(TARGET_DIR)/%.py : $(RESOURCE_DIR)/%.qrc
 	$(RCC) $< -o $@
+
+test :
+	$(PYTHON) -m unittest $(TEST_MODULES)
 
 clean :
 	rm $(TARGETS)
