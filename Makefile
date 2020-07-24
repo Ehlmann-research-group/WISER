@@ -21,6 +21,9 @@ generated :
 	$(MAKE) -C src/gui generated
 
 
+test:
+	$(MAKE) -C src test
+
 lint:
 	find src -name "*.py" | xargs $(PYLINT) $(PYLINT_OPTS)
 
