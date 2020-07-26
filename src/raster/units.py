@@ -1,4 +1,5 @@
 from astropy import units as u
+from typing import Dict, List, Optional, Tuple, Union
 
 
 # Red:  700-635nm
@@ -11,29 +12,60 @@ GREEN_WAVELENGTH = 530 * u.nm
 BLUE_WAVELENGTH = 470 * u.nm
 
 
-known_spectral_units = {
-    "Centimeters"   : u.cm,
-    "Meters"        : u.m,
-    "Micrometers"   : u.micrometer,
-    "Millimeters"   : u.millimeter,
-    "Microns"       : u.micron,
-    "Nanometers"    : u.nanometer,
+# These are the string unit names used for band values by ENVI files, and their
+# corresponding astropy.units representations.  All names are lowercase, so that
+# it's easy to find the unit by converting the input text to lower case.
+KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
+    "centimeters"   : u.cm,
+    "meters"        : u.m,
+    "micrometers"   : u.micrometer,
+    "millimeters"   : u.millimeter,
+    "microns"       : u.micron,
+    "nanometers"    : u.nanometer,
     "cm"            : u.centimeter,
     "m"             : u.meter,
     "mm"            : u.millimeter,
     "nm"            : u.nanometer,
     "um"            : u.micrometer,
-    "Wavenumber"    : u.cm ** -1,
-    "Angstroms"     : u.angstrom,
-    "GHz"           : u.GHz,
-    "MHz"           : u.MHz,
+    "wavenumber"    : u.cm ** -1,
+    "angstroms"     : u.angstrom,
+    "ghz"           : u.GHz,
+    "mhz"           : u.MHz,
 }
 
-def make_spectral_value(value, unit_str):
-    return value * known_spectral_units[unit_str]
 
-def convert_spectral(value, to_unit):
+def make_spectral_value(value: Union[int, float], unit_str: str) -> u.Quantity:
+    '''
+    Given a numeric value and a string representation of the units, this
+    function returns an astropy.units.Quantity object to represent the value
+    with units.
+    '''
+    return value * KNOWN_SPECTRAL_UNITS[unit_str.lower()]
+
+
+def convert_spectral(value: u.Quantity, to_unit: u.Unit) -> u.Quantity:
+    '''
+    Convert a spectral value with units (e.g. a frequency or wavelength),
+    to the specified units.
+    '''
     return value.to(to_unit, equivalencies=u.spectral())
+
+
+def get_band_values(input_bands: List[u.Quantity], to_unit: Optional[u.Unit] = None) -> List[float]:
+    '''
+    Given a list of band values represented as astropy.units.Quantity (values
+    with units), this function will convert all quantities to a single unit, and
+    then return a list of just the numeric values.
+
+    The caller may specify what unit to convert all values to, using the to_unit
+    argument.  If this is left as None, the unit of the first quantity in the
+    list is used.
+    '''
+    if to_unit is None:
+        to_unit = input_bands[0].unit
+
+    return [convert_spectral(v, to_unit).value for v in input_bands]
+
 
 def find_band_near_wavelength(bands, wavelength, max_distance=20*u.nm):
     '''
