@@ -219,22 +219,26 @@ def load_envi_data(filename, header_filename=None, metadata=None, mmap=True):
         # Load the metadata so that we know what we're in for.
         metadata = load_envi_header(header_filename)
 
+    # Figure out how many elements to expect in the data
+
+    bands = metadata['bands']
+    samples = metadata['samples']
+    lines = metadata['lines']
+    num_values = bands * samples * lines
+
     # Figure out the numpy element type from the ENVI header
     numpy_type = map_envi_type_to_numpy_type(metadata['data type'], metadata['byte order'])
 
     # Load the binary data itself.
     header_offset = metadata['header offset']
-    with open(filename) as f:
+    with open(filename, 'rb') as f:
         if mmap:
             data = np.memmap(f, numpy_type, 'r', offset=header_offset)
         else:
-            data = np.fromfile(f, numpy_type, offset=header_offset)
+            data = np.fromfile(f, dtype=numpy_type, count=num_values,
+                               offset=header_offset)
 
     # Figure out the shape of the 3D array, based on the interleaving.
-
-    bands = metadata['bands']
-    samples = metadata['samples']
-    lines = metadata['lines']
 
     interleave = metadata['interleave']
 
