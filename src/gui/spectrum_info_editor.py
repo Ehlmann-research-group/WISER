@@ -5,6 +5,10 @@ from PySide2.QtWidgets import *
 import matplotlib
 
 from .generated.spectrum_info_editor_ui import Ui_SpectrumInfoEditor
+
+from .spectrum_info import (AVG_MODE_NAMES, SpectrumInfo, LibrarySpectrum,
+    RasterDataSetSpectrum, SpectrumAtPoint, ROIAverageSpectrum)
+
 from raster.spectra import SpectrumType, SpectrumAverageMode
 
 
@@ -33,12 +37,6 @@ class SpectrumInfoEditor(QDialog):
         #========================================
         # Constants:
 
-        spectrum_types = {
-            SpectrumType.PIXEL              : self.tr('Spectrum at pixel'),
-            SpectrumType.REGION_OF_INTEREST : self.tr('Region of interest'),
-            SpectrumType.LIBRARY_SPECTRUM   : self.tr('Library spectrum'),
-        }
-
         avg_modes = {
             SpectrumAverageMode.MEAN   : self.tr('Mean'),
             SpectrumAverageMode.MEDIAN : self.tr('Median'),
@@ -47,33 +45,34 @@ class SpectrumInfoEditor(QDialog):
         # Name, Spectrum type, Data set
 
         self._ui.lineedit_name.setText(self._spectrum_info.get_name())
-
-        spectrum_type = self._spectrum_info.get_plot_type()
-        self._ui.lineedit_spectrum_type.setText(spectrum_types[spectrum_type])
-
         self._ui.lineedit_dataset.setText(self._spectrum_info.get_source_name())
 
         # Location
 
-        if spectrum_type == SpectrumType.PIXEL:
+        if isinstance(spectrum_info, SpectrumAtPoint):
+            self._ui.lineedit_spectrum_type.setText(self.tr('Spectrum at pixel'))
+
             p = self._spectrum_info.get_point()
-            self._ui.lineedit_location.setText(f'({p.x()}, {p.y()})')
+            self._ui.lineedit_location.setText(f'({p[0]}, {p[1]})')
             self._ui.lineedit_location.setEnabled(True)
 
-        elif spectrum_type == SpectrumType.REGION_OF_INTEREST:
+        elif isinstance(spectrum_info, ROIAverageSpectrum):
+            self._ui.lineedit_spectrum_type.setText(self.tr('Region of interest'))
+
             roi_name = self._spectrum_info.get_roi().get_name()
-            self._ui.lineedit_location.setText(self, f'Region of Interest:  {roi_name}')
+            self._ui.lineedit_location.setText(f'Region of Interest:  {roi_name}')
             self._ui.lineedit_location.setEnabled(True)
 
-        else:
-            assert spectrum_type == SpectrumType.LIBRARY_SPECTRUM
+        elif isinstance(spectrum_info, LibrarySpectrum):
+            self._ui.lineedit_spectrum_type.setText(self.tr('Library spectrum'))
+
             self._ui.lineedit_location.clear()
             self._ui.lineedit_location.setEnabled(False)
 
         # Average Mode
 
         self._ui.combobox_avg_mode.clear()
-        if spectrum_type in [SpectrumType.PIXEL, SpectrumType.REGION_OF_INTEREST]:
+        if isinstance(spectrum_info, RasterDataSetSpectrum):
             for (key, value) in avg_modes.items():
                 self._ui.combobox_avg_mode.addItem(value, key)
 
@@ -84,12 +83,12 @@ class SpectrumInfoEditor(QDialog):
             self._ui.combobox_avg_mode.setEnabled(True)
 
         else:
-            assert spectrum_type == SpectrumType.LIBRARY_SPECTRUM
+            # This spectrum type doesn't have the ability to do an area average
             self._ui.combobox_avg_mode.setEnabled(False)
 
         # Area-average size
 
-        if spectrum_type == SpectrumType.PIXEL:
+        if isinstance(spectrum_info, SpectrumAtPoint):
             (area_avg_x, area_avg_y) = self._spectrum_info.get_area()
 
             self._ui.lineedit_area_avg_x.setText(str(area_avg_x))
@@ -99,7 +98,6 @@ class SpectrumInfoEditor(QDialog):
             for le in [self._ui.lineedit_area_avg_x, self._ui.lineedit_area_avg_y]:
                 le.setEnabled(True)
         else:
-            assert spectrum_type in [SpectrumType.REGION_OF_INTEREST, SpectrumType.LIBRARY_SPECTRUM]
             # Clear and disable the area-average line edit widgets.
             for le in [self._ui.lineedit_area_avg_x, self._ui.lineedit_area_avg_y]:
                 le.clear()
@@ -119,9 +117,6 @@ class SpectrumInfoEditor(QDialog):
 
 
     def accept(self):
-        # The type of the spectrum dictates what config options are relevant.
-        spectrum_type = self._spectrum_info.get_plot_type()
-
         #=======================================================================
         # Verify UI values before making any changes.
 
@@ -134,15 +129,16 @@ class SpectrumInfoEditor(QDialog):
                 self.tr('Spectrum name must be specified.'), QMessageBox.Ok)
             return
 
-        # Area-average size
+        # Area-average size (if spectrum at point)
 
-        area_avg_x = int(self._ui.lineedit_area_avg_x.text())
-        area_avg_y = int(self._ui.lineedit_area_avg_y.text())
+        if isinstance(self._spectrum_info, SpectrumAtPoint):
+            area_avg_x = int(self._ui.lineedit_area_avg_x.text())
+            area_avg_y = int(self._ui.lineedit_area_avg_y.text())
 
-        if area_avg_x % 2 != 1 or area_avg_y % 2 != 1:
-            QMessageBox.critical(self, self.tr('Missing or invalid values'),
-                self.tr('Area-average values must be odd.'), QMessageBox.Ok)
-            return
+            if area_avg_x % 2 != 1 or area_avg_y % 2 != 1:
+                QMessageBox.critical(self, self.tr('Missing or invalid values'),
+                    self.tr('Area-average values must be odd.'), QMessageBox.Ok)
+                return
 
         # Plot Color
 
@@ -164,12 +160,12 @@ class SpectrumInfoEditor(QDialog):
 
         # Average Mode
 
-        if spectrum_type in [SpectrumType.PIXEL, SpectrumType.REGION_OF_INTEREST]:
+        if isinstance(self._spectrum_info, RasterDataSetSpectrum):
             self._spectrum_info.set_avg_mode(self._ui.combobox_avg_mode.currentData())
 
         # Area-average size
 
-        if spectrum_type == SpectrumType.PIXEL:
+        if isinstance(self._spectrum_info, SpectrumAtPoint):
             self._spectrum_info.set_area( (area_avg_x, area_avg_y) )
 
         # Plot color

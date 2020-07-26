@@ -24,6 +24,7 @@ from .util import *
 
 from .app_state import ApplicationState
 
+from .spectrum_info import SpectrumAtPoint
 from raster.selection import SinglePixelSelection
 
 
@@ -502,8 +503,10 @@ class DataVisualizerApp(QMainWindow):
         self._zoom_pane.show_dataset(ds)
         self._zoom_pane.set_pixel_highlight(sel)
 
-        # Show spectrum from the selected dataset and pixel.
-        self._spectrum_plot.set_active_spectrum(sel)
+        # Set the active spectrum to be from the selected dataset and pixel.
+        # TODO(donnie):  Need to include the default area and average mode too!
+        spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
+        self._app_state.set_active_spectrum(spectrum)
 
 
     def _on_stretch_changed(self, ds_id: int, bands: Tuple, stretches: List):
@@ -558,12 +561,14 @@ class DataVisualizerApp(QMainWindow):
 
         # Create a single-pixel selection with the dataset and coordinate of
         # the selected pixel.
-        ds = self._zoom_pane.get_current_dataset()
+        ds = self._main_view.get_current_dataset(rasterview_position)
         sel = SinglePixelSelection(ds_point, ds)
 
         # Update the main and zoom windows to show the selected dataset and pixel.
         self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
         self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
-        # Show spectrum from the selected dataset and pixel.
-        self._spectrum_plot.set_active_spectrum(sel)
+        # Set the active spectrum to be from the selected dataset and pixel.
+        # TODO(donnie):  Need to include the default area and average mode too!
+        spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
+        self._app_state.set_active_spectrum(spectrum)

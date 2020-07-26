@@ -13,6 +13,7 @@ from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
 from .roi_info_editor import ROIInfoEditor
 from .rasterview import RasterView
+from .spectrum_info import ROIAverageSpectrum
 from .util import add_toolbar_action, get_painter, make_filename
 
 from raster.dataset import RasterDataSet, find_display_bands, find_truecolor_bands
@@ -1210,8 +1211,9 @@ class RasterPane(QWidget):
 
 
     def _on_show_roi_avg_spectrum(self, roi: RegionOfInterest, rasterview: RasterView):
-        # TODO(donnie):  Request the display of the spectrum
-        pass
+        # TODO(donnie):  Need to get the default average mode from somewhere
+        spectrum = ROIAverageSpectrum(rasterview.get_raster_data(), roi)
+        self._app_state.set_active_spectrum(spectrum)
 
 
     def _on_export_roi_spectra(self, roi: RegionOfInterest, rasterview: RasterView) -> None:
@@ -1229,7 +1231,8 @@ class RasterPane(QWidget):
             # User canceled out of the operation.
             return
 
-        # TODO(donnie):  Update app-state's current directory
+        # Update app-state's current directory from the user-selected path
+        self._app_state.update_cwd_from_path(filename)
 
         # Export the spectra of all pixels in the ROI
         export_roi_spectra(filename, rasterview.get_raster_data(), roi)

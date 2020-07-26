@@ -4,6 +4,8 @@ from typing import Optional, Set, Tuple
 from PySide2.QtCore import *
 
 from .dataset import RasterDataSet
+from .polygon import rasterize_polygon
+
 from gui.geom import get_rectangle, manhattan_distance
 
 
