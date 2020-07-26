@@ -6,6 +6,8 @@ from PySide2.QtCore import *
 
 from .app_config import PixelReticleType
 
+from .spectrum_info import SpectrumInfo
+
 from raster.dataset import *
 from raster.gdal_dataset import GDALRasterDataLoader
 
@@ -46,6 +48,11 @@ class ApplicationState(QObject):
     #          second argument is a tuple of bands.
     stretch_changed = Signal(int, tuple)
 
+    # Signal:  the active spectrum changed
+    active_spectrum_changed = Signal()
+
+    collected_spectra_changed = Signal(int)
+
     # TODO(donnie):  Signals for config changes and color changes!
 
     def __init__(self, app):
@@ -78,6 +85,15 @@ class ApplicationState(QObject):
         # All regions of interest in the application.  The key is the numeric ID
         # of the ROI, and the value is a RegionOfInterest object.
         self._regions_of_interest: Dict[int, RegionOfInterest] = {}
+
+        # The "currently active" spectrum, which is set when the user clicks on
+        # pixels, or wants to view an ROI average spectrum, etc.
+        self._active_spectrum: Optional[SpectrumInfo] = None
+
+        # The spectra collected by the user, possibly for export, or conversion
+        # into a spectral library.
+        self._collected_spectra: List[SpectrumInfo] = []
+
 
         # Configuration options.
         self._config = {
@@ -118,6 +134,33 @@ class ApplicationState(QObject):
         the next load or save can start at the same directory.
         '''
         self._current_dir = current_dir
+
+
+    def update_cwd_from_path(self, path: str):
+        '''
+        This helper function makes it easier to update the current working
+        directory (CWD) at the end of a file-load or file-save operation.  The
+        specified path is assumed to be either a directory or a file:
+
+        *   If it is a directory then the current directory is set to that path.
+        *   If it is a file then the directory portion of the path is taken and
+            used for the current directory.
+
+        The function only updates the current directory if the filesystem
+        actually reports it as a valid directory.  If the directory can't be
+        identified from the specified path (e.g. the OS doesn't report the path
+        as a valid directory), this function simply logs a warning, since this
+        isn't really a fatal issue, but we may want to look into it if it
+        happens a lot.
+        '''
+        dir = path
+        if not os.path.isdir(dir):
+            dir = os.path.dirname(dir)
+
+        if os.path.isdir(dir):
+            self._current_dir = dir
+        else:
+            warnings.warn(f'Couldn\'t update CWD from path "{path}"')
 
 
     def show_status_text(self, text: str, seconds=0):
@@ -367,3 +410,31 @@ class ApplicationState(QObject):
 
     def get_rois(self):
         return self._regions_of_interest.values()
+
+    def get_active_spectrum(self):
+        return self._active_spectrum
+
+    def set_active_spectrum(self, spectrum: SpectrumInfo):
+        self._active_spectrum = spectrum
+        self.active_spectrum_changed.emit()
+
+    def collect_spectrum(self, spectrum: SpectrumInfo):
+        index = len(self._collected_spectra)
+        self._collected_spectra.append(self._active_spectrum)
+        self.collected_spectra_changed.emit(index)
+
+    def collect_active_spectrum(self):
+        if self._active_spectrum is None:
+            raise RuntimeError('There is no active spectrum to collect.')
+
+        spectrum = self._active_spectrum
+
+        # Causes "active spectrum changed" signal to be emitted
+        self.set_active_spectrum(None)
+
+        # Causes "collected spectrum changed" signal to be emitted
+        self.collect_spectrum(spectrum)
+
+
+    def get_collected_spectra(self):
+        return list(self._collected_spectra)
