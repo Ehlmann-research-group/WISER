@@ -7,8 +7,9 @@ TARGETS=$(TARGET_DIR)/resources.py
 
 PYTHON=python
 TEST_MODULES=\
-	tests.test_gui_util     \
-	tests.test_gui_geom     \
+	tests.test_gui_util      \
+	tests.test_gui_geom      \
+	tests.test_raster_nputil \
 	tests.test_raster_units
 
 
