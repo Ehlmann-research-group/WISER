@@ -88,7 +88,7 @@ class ApplicationState(QObject):
         # All spectral libraries loaded in the application.  The key is the
         # numeric ID of the spectral library, and the value is the
         # SpectralLibrary object.
-        self._spectral_libraries: List[SpectralLibrary] = []
+        self._spectral_libraries: Dict[int, SpectralLibrary] = {}
 
         # All regions of interest in the application.  The key is the numeric ID
         # of the ROI, and the value is a RegionOfInterest object.
