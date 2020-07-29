@@ -20,7 +20,7 @@ class ENVISpectralLibrary(SpectralLibrary):
     '''
     def __init__(self, filename):
         super().__init__()
-        
+
         # Try to determine the header and data filenames.  This will raise an
         # exception if the filenames cannot be determined; let that error
         # propagate out.
@@ -52,7 +52,7 @@ class ENVISpectralLibrary(SpectralLibrary):
 
         # Load the ENVI data file.  It generally shouldn't be necessary to
         # memory-map spectral libraries, as they tend to be small.
-        result = load_envi_data(filename, metadata=self._metadata, mmap=False)
+        result = load_envi_data(data_filename, metadata=self._metadata, mmap=False)
         self._data = result[1]
 
         # ENVI stores the spectral libray files a little differently from their
