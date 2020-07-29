@@ -40,6 +40,9 @@ class SpectrumDisplayInfo:
         '''
         self._spectrum = spectrum
 
+        if self._spectrum.get_color() is None:
+            self._spectrum.set_color(get_random_matplotlib_color())
+
         self._icon: Optional[QIcon] = None
         self._line2d = None
 
@@ -122,12 +125,6 @@ class SpectrumPlot(QWidget):
 
         # Display state for the "active spectrum"
         self._active_spectrum_color = None
-
-        # These are the SpectrumInfo objects for all library spectra.  They are
-        # stored in a dictionary with the spectral library as the key, so that
-        # when a spectral library is unloaded, it's straightforward to remove
-        # the corresponding spectra.
-        self._library_spectra = {}
 
         # This is the currently selected treeview item.  Initially, no item is
         # selected, so we set this to None.
@@ -254,7 +251,6 @@ class SpectrumPlot(QWidget):
 
 
     def _add_spectrum_to_plot(self, spectrum, treeitem):
-
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
 
@@ -383,28 +379,11 @@ class SpectrumPlot(QWidget):
         self._spectra_tree.addTopLevelItem(treeitem_library)
         self._library_treeitems[lib_id] = treeitem_library
 
-        '''
-        info_list = []
+        # Create a tree-item for every spectrum in the library.
         for i in range(spectral_library.num_spectra()):
-            name = spectral_library.get_spectrum_name(i)
-
-            info = LibrarySpectrum(spectral_library, i)  # UI state
-            info_list.append(info)
-
-            treeitem_spectrum = QTreeWidgetItem([name])
-            treeitem_spectrum.setData(0, Qt.UserRole, info)
-
-            treeitem_library.addChild(treeitem_spectrum)
-
-        self._library_spectra[lib_id] = info_list
-        '''
-
-        # Create a tree-item for every spectrum in the library
-        for i in range(spectral_library.num_spectra()):
-            name = spectral_library.get_spectrum_name(i)
-
-            treeitem_spectrum = QTreeWidgetItem([name])
-            treeitem_spectrum.setData(0, Qt.UserRole, i)
+            spectrum = LibrarySpectrum(spectral_library, i)
+            treeitem_spectrum = QTreeWidgetItem([spectrum.get_name()])
+            treeitem_spectrum.setData(0, Qt.UserRole, spectrum)
 
             treeitem_library.addChild(treeitem_spectrum)
 
@@ -418,12 +397,26 @@ class SpectrumPlot(QWidget):
         The argument to the function is the ID assigned to the spectral library
         in the application state.
         '''
-        # Look up the library's tree-item so we can remove it from the tree.
-        # Also remove it from our internal library-spectra dictionary.
-        treeitem_library = self._library_treeitems[lib_id]
-        index = self._spectra_tree.indexOfTopLevelItem()
+        # Look up the library's tree-item so we can clean up all state
+        # associated with the library.
+
+        treeitem = self._library_treeitems[lib_id]
+
+        # First step:  delete the widget entry from the library-spectra mapping.
+        del self._library_treeitems[lib_id]
+
+        # Remove all visible spectra in the library from the spectrum-plot
+        for i in range(treeitem.childCount()):
+            child_treeitem = treeitem.child(i)
+            spectrum = child_treeitem.data(0, Qt.UserRole)
+            display_info = self._spectrum_display_info.get(spectrum.get_id())
+            if display_info is not None:
+                # Make invisible
+                self._remove_spectrum_from_plot(spectrum, child_treeitem)
+
+        # Remove the tree-item for the library from the tree widget.
+        index = self._spectra_tree.indexOfTopLevelItem(treeitem)
         self._spectra_tree.takeTopLevelItem(index)
-        del self._library_spectra[lib_id]
 
         # If any of the library's spectra were drawn, update the plot state.
         self._draw_spectra()
@@ -509,7 +502,9 @@ class SpectrumPlot(QWidget):
 
             else:
                 # All collected items are discarded.
-                for i in range(self._treeitem_collected.childCount()):
+                print('discarding all collected spectra')
+
+                while self._treeitem_collected.childCount() > 0:
                     treeitem = self._treeitem_collected.takeChild(0)
                     spectrum = treeitem.data(0, Qt.UserRole)
                     self._remove_spectrum_from_plot(spectrum, treeitem)
@@ -743,31 +738,15 @@ class SpectrumPlot(QWidget):
         menu operation.  It is available on the "collected spectra" group, and
         the loaded spectral library groups.
         '''
+        for i in range(treeitem.childCount()):
+            child_treeitem = treeitem.child(i)
+            spectrum = child_treeitem.data(0, Qt.UserRole)
+            display_info = self._spectrum_display_info.get(spectrum.get_id())
 
-        if treeitem is self._treeitem_collected:
-            # This is the "collected spectra" group.  The data associated with
-            # the tree nodes are the SpectrumInfo objects.
-            for i in range(self._treeitem_collected.childCount()):
-
-                child_treeitem = treeitem.child(i)
-                spectrum = child_treeitem.data(0, Qt.UserRole)
-
-                display_info = self._spectrum_display_info.get(spectrum.get_id())
-
-                # Toggle the visibility of the spectrum.
-                if display_info is None:
-                    # Make visible
-                    self._add_spectrum_to_plot(spectrum, child_treeitem)
-
-        else:
-            # The action is for a spectral library
-
-            # TODO(donnie):  Implement this!
-            library_index = treeitem.data(0, Qt.UserRole)
-
-            for index, info in enumerate(self._library_spectra[library_index]):
-                info.set_visible(True)
-                treeitem.child(index).setIcon(0, info.get_icon())
+            # Toggle the visibility of the spectrum.
+            if display_info is None:
+                # Make visible
+                self._add_spectrum_to_plot(spectrum, child_treeitem)
 
         self._draw_spectra()
 
@@ -779,30 +758,15 @@ class SpectrumPlot(QWidget):
         the loaded spectral library groups.
         '''
 
-        if treeitem is self._treeitem_collected:
-            # This is the "collected spectra" group.  The data associated with
-            # the tree nodes are the SpectrumInfo objects.
-            for i in range(self._treeitem_collected.childCount()):
+        for i in range(treeitem.childCount()):
+            child_treeitem = treeitem.child(i)
+            spectrum = child_treeitem.data(0, Qt.UserRole)
+            display_info = self._spectrum_display_info.get(spectrum.get_id())
 
-                child_treeitem = treeitem.child(i)
-                spectrum = child_treeitem.data(0, Qt.UserRole)
-
-                display_info = self._spectrum_display_info.get(spectrum.get_id())
-
-                # Toggle the visibility of the spectrum.
-                if display_info is not None:
-                    # Make invisible
-                    self._remove_spectrum_from_plot(spectrum, child_treeitem)
-
-        else:
-            # The action is for a spectral library
-
-            # TODO(donnie):  Implement this!
-            library_index = treeitem.data(0, Qt.UserRole)
-
-            for index, info in enumerate(self._library_spectra[library_index]):
-                info.set_visible(False)
-                treeitem.child(index).setIcon(0, icon)
+            # Toggle the visibility of the spectrum.
+            if display_info is not None:
+                # Make invisible
+                self._remove_spectrum_from_plot(spectrum, child_treeitem)
 
         self._draw_spectra()
 
@@ -812,9 +776,8 @@ class SpectrumPlot(QWidget):
         # state to remove it.  This will cause a signal to be emitted,
         # indicating that the library was removed.  This widget will receive
         # that signal and update the UI appropriately.
-        library_index = treeitem.data(0, Qt.UserRole)
-        print(f'Unloading spectral library at index {library_index}')
-        self._app_state.remove_spectral_library(library_index)
+        lib_id = treeitem.data(0, Qt.UserRole)
+        self._app_state.remove_spectral_library(lib_id)
 
 
     def _draw_spectra(self):
