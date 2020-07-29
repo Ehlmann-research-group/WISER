@@ -45,8 +45,6 @@ def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverage
     points = [(rect.left() + dx, rect.top() + dy)
               for dx, dy in np.ndindex(rect.width(), rect.height())]
 
-    print(points)
-
     return calc_spectrum(dataset, points, mode)
 
 

@@ -15,6 +15,7 @@ class RegionOfInterest:
     in.
     '''
     def __init__(self, name: Optional[str] = None, color: str = 'yellow'):
+        self._id: Optional[int] = None
         self._name: Optional[str] = name
         self._color: str = color
         self._description: Optional[str] = None
@@ -22,7 +23,7 @@ class RegionOfInterest:
         self._metadata: Dict[str, Any] = {}
 
 
-    def get_id(self) -> int:
+    def get_id(self) -> Optional[int]:
         return self._id
 
     def set_id(self, id: int) -> None:
