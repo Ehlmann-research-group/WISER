@@ -236,17 +236,12 @@ class DataVisualizerApp(QMainWindow):
                 # Open the file on the application state.
                 self._app_state.open_file(selected[0])
             except Exception as e:
-                traceback.print_exc()
-
                 mbox = QMessageBox(QMessageBox.Critical,
                     self.tr('Could not open file'),
-                    self.tr('The file could not be opened.'),
+                    self.tr('The file {0} could not be opened.').format(selected[0]),
                     QMessageBox.Ok, parent=self)
 
-                # TODO(donnie):  I don't know what we might say for the
-                #     informative text.
-                # mbox.setInformativeText(traselected[0])
-
+                mbox.setInformativeText(str(e))
                 mbox.setDetailedText(traceback.format_exc())
 
                 mbox.exec()
