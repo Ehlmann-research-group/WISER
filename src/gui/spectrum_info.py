@@ -97,6 +97,8 @@ class LibrarySpectrum(SpectrumInfo):
         self._spectral_library = spectral_library
         self._spectrum_index = index
 
+        self.set_id( (spectral_library.get_id(), index) )
+
     def __str__(self) -> str:
         return (f'LibrarySpectrum[{self.get_source_name()}, ' +
                 f'name={self.get_name()}, index={self._spectrum_index}]')
