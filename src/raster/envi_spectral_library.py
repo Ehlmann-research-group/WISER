@@ -19,6 +19,8 @@ class ENVISpectralLibrary(SpectralLibrary):
 
     '''
     def __init__(self, filename):
+        super().__init__()
+        
         # Try to determine the header and data filenames.  This will raise an
         # exception if the filenames cannot be determined; let that error
         # propagate out.

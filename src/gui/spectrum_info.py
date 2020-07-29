@@ -27,7 +27,8 @@ class SpectrumInfo:
     application.
     '''
     def __init__(self):
-        self._name = None
+        self._id: Optional[int] = None
+        self._name: Optional[str] = None
         self._use_generated_name = True
 
         self._color = None
@@ -35,6 +36,12 @@ class SpectrumInfo:
         # TODO(donnie):  Should these be in this class, or in display code?
         self._icon = None
         self._visible = True
+
+    def get_id(self) -> Optional[int]:
+        return self._id
+
+    def set_id(self, id: int) -> None:
+        self._id = id
 
     def get_name(self) -> str:
         raise NotImplementedError('Must be implemented in subclass')
@@ -68,27 +75,12 @@ class SpectrumInfo:
         '''
         raise NotImplementedError('Must be implemented in subclass')
 
-    def is_visible(self) -> bool:
-        return self._visible
-
-    def set_visible(self, visible: bool) -> None:
-        self._visible = visible
-
-        if visible and self._color is None:
-            self.set_color(get_random_matplotlib_color())
-
-    def get_color(self) -> str:
+    def get_color(self) -> Optional[str]:
         return self._color
 
     def set_color(self, color: str) -> None:
         self._color = color
         self._icon = None
-
-    def get_icon(self) -> QIcon:
-        if self._icon is None:
-            self._icon = get_color_icon(self._color)
-
-        return self._icon
 
 #===============================================================================
 # LIBRARY SPECTRA
@@ -298,7 +290,9 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
 
         else:
             (width, height) = self._area
-            rect = QRect(x - width / 2, y - height / 2, width, height)
+            left = x - (width - 1) / 2
+            top = y - (height - 1) / 2
+            rect = QRect(left, top, width, height)
             self._spectrum = calc_rect_spectrum(self._dataset, rect,
                                                 mode=self._avg_mode)
 

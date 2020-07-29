@@ -247,6 +247,7 @@ class RasterPane(QWidget):
         self._cbox_current_roi = QComboBox()
         self._cbox_current_roi.setEditable(False)
         self._cbox_current_roi.setInsertPolicy(QComboBox.NoInsert)
+        self._cbox_current_roi.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
         self._act_cbox_current_roi = self._toolbar.addWidget(self._cbox_current_roi)
 
@@ -279,6 +280,11 @@ class RasterPane(QWidget):
         chooser.triggered.connect(self._on_add_selection_to_roi)
 
         self._populate_roi_combobox()
+
+        # Register for some ROI-specific events
+        self._app_state.roi_added.connect(self._on_roi_added)
+        self._app_state.roi_removed.connect(self._on_roi_removed)
+
 
 
     def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1)):
@@ -1091,10 +1097,16 @@ class RasterPane(QWidget):
             dialog.store_values(roi)
             self._app_state.add_roi(roi)
 
-            self._populate_roi_combobox()
 
-    def _populate_roi_combobox(self):
-        current_roi_id = self._cbox_current_roi.currentData()
+    def _on_roi_added(self, roi):
+        self._populate_roi_combobox(choose_roi_id=roi.get_id())
+
+    def _on_roi_removed(self, roi):
+        self._populate_roi_combobox()
+
+    def _populate_roi_combobox(self, choose_roi_id=None):
+        if choose_roi_id is None:
+            choose_roi_id = self._cbox_current_roi.currentData()
         self._cbox_current_roi.clear()
 
         rois = self._app_state.get_rois()
@@ -1107,7 +1119,7 @@ class RasterPane(QWidget):
 
         # Figure out which item was previously selected.  If it is no longer
         # present, just select the first item.
-        i = self._cbox_current_roi.findData(current_roi_id)
+        i = self._cbox_current_roi.findData(choose_roi_id)
         if i == -1:
             i = 0
         self._cbox_current_roi.setCurrentIndex(i)
