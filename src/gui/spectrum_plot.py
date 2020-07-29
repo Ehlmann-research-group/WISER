@@ -772,6 +772,9 @@ class SpectrumPlot(QWidget):
 
 
     def _on_unload_library(self, treeitem):
+        '''
+        This function implements the "unload spectral library" functionality.
+        '''
         # Figure out which library needs to be removed, then ask the application
         # state to remove it.  This will cause a signal to be emitted,
         # indicating that the library was removed.  This widget will receive
@@ -781,5 +784,9 @@ class SpectrumPlot(QWidget):
 
 
     def _draw_spectra(self):
+        '''
+        This helper function refreshes the matplotlib drawing canvas to reflect
+        any changes that have been made to the plot.
+        '''
         self._axes.relim(visible_only=True)
         self._figure_canvas.draw()
