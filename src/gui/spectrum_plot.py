@@ -1,5 +1,5 @@
 from enum import Enum
-import os
+import os, traceback
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -7,14 +7,14 @@ from PySide2.QtWidgets import *
 
 import gui.generated.resources
 
-from .spectrum_info import SpectrumInfo
+from .app_state import ApplicationState, StateChange
+from .spectrum_info import SpectrumInfo, LibrarySpectrum
 from .spectrum_plot_config import SpectrumPlotConfigDialog
 from .spectrum_info_editor import SpectrumInfoEditor
 
-from .util import add_toolbar_action, get_random_matplotlib_color
+from .util import add_toolbar_action, get_random_matplotlib_color, get_color_icon
 
 from raster.envi_spectral_library import ENVISpectralLibrary
-from raster.selection import Selection, SinglePixelSelection
 from raster.spectra import SpectrumType, SpectrumAverageMode, calc_rect_spectrum
 from raster.units import get_band_values
 
@@ -30,6 +30,79 @@ from astropy import units as u
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
 
+
+class SpectrumDisplayInfo:
+
+    def __init__(self, spectrum: SpectrumInfo):
+        '''
+        *   id is the numeric ID assigned to the spectrum
+        *   line2d is the matplotlib line for the spectrum's data
+        '''
+        self._spectrum = spectrum
+
+        self._icon: Optional[QIcon] = None
+        self._line2d = None
+
+    def reset(self) -> None:
+        self._icon = None
+        self.remove_plot()
+
+
+    def get_icon(self) -> QIcon:
+        if self._icon is None:
+            self._icon = get_color_icon(self._spectrum.get_color())
+
+        return self._icon
+
+
+    def generate_plot(self, axes, use_wavelengths, wavelength_units=u.nm):
+        # If we already have a plot, remove it.
+        self.remove_plot()
+
+        values = self._spectrum.get_spectrum()
+        color = self._spectrum.get_color()
+        linewidth = 0.5
+
+        if use_wavelengths:
+            # We should only be told to use wavelengths if all displayed spectra
+            # have wavelengths for the bands.
+            assert(self._spectrum.has_wavelengths())
+
+            # If we can use wavelengths, each spectrum is a series of
+            # (wavelength, value) coordinates, which we can plot.  This allows
+            # the graphs to look correct, even in the face of bad bands, plots
+            # from different datasets with different wavelengths, etc.
+
+            wavelengths = get_band_values(self._spectrum.get_wavelengths(),
+                                          wavelength_units)
+
+            lines = axes.plot(wavelengths, values, color=color, linewidth=linewidth)
+            assert(len(lines) == 1)
+            self._line2d = lines[0]
+        else:
+            # If we don't have wavelengths, each spectrum is just a series of
+            # values.  We can of course plot this, but we can't guarantee it
+            # will be meaningful if there are multiple plots from different
+            # datasets to display.
+
+            lines = axes.plot(values, color=color, linewidth=linewidth)
+            assert(len(lines) == 1)
+            self._line2d = lines[0]
+
+
+    def remove_plot(self):
+        if self._line2d is not None:
+            self._line2d.remove()
+            self._line2d = None
+
+
+    # def is_visible(self) -> bool:
+    #     return self._line2d.visible
+    #
+    # def set_visible(self, visible: bool) -> None:
+    #     self._line2d.set_visible(visible)
+
+
 class SpectrumPlot(QWidget):
     '''
     This widget provides a spectrum-plot window in the user interface.
@@ -42,11 +115,10 @@ class SpectrumPlot(QWidget):
 
         self._app_state = app_state
 
-        # For user mouse clicks, these are the parameters for generating spectra
-
-        self._default_area_avg_x = 1
-        self._default_area_avg_y = 1
-        self._default_average_mode = SpectrumAverageMode.MEAN
+        # Display information for all spectra being plotted
+        self._spectrum_display_info: Dict[int, SpectrumDisplayInfo] = {}
+        self._plot_uses_wavelengths: bool = False
+        self._displayed_spectra_with_wavelengths = 0
 
         # Display state for the "active spectrum"
         self._active_spectrum_color = None
@@ -68,6 +140,7 @@ class SpectrumPlot(QWidget):
         # Set up event handlers
 
         self._app_state.active_spectrum_changed.connect(self._on_active_spectrum_changed)
+        self._app_state.collected_spectra_changed.connect(self._on_collected_spectra_changed)
 
         self._app_state.spectral_library_added.connect(self._on_spectral_library_added)
         self._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
@@ -120,19 +193,24 @@ class SpectrumPlot(QWidget):
         # self.axes.set_ylim((0, 1))
 
         #==================================================
-        # Widget for managing spectral library
+        # Tree-widget for managing spectral library
 
         self._spectra_tree = QTreeWidget()
         self._spectra_tree.setColumnCount(1)
         self._spectra_tree.setHeaderLabels([self.tr('Spectra and Spectral Libraries')])
 
+        # The first item always represents the active spectrum.
         self._treeitem_active = QTreeWidgetItem()
         self._spectra_tree.addTopLevelItem(self._treeitem_active)
         self._treeitem_active.setHidden(True)
 
+        # The second item always represents the collected spectra.
         self._treeitem_collected = QTreeWidgetItem([self.tr('Collected Spectra (unsaved)')])
         self._spectra_tree.addTopLevelItem(self._treeitem_collected)
         self._treeitem_collected.setHidden(True)
+
+        # Subsequent top-level tree items represent spectral libraries.
+        self._library_treeitems: Dict[int, QTreeWidgetItem] = {}
 
         # Events from the spectral library widget
 
@@ -175,6 +253,58 @@ class SpectrumPlot(QWidget):
         return QSize(400, 200)
 
 
+    def _add_spectrum_to_plot(self, spectrum, treeitem):
+
+        display_info = SpectrumDisplayInfo(spectrum)
+        self._spectrum_display_info[spectrum.get_id()] = display_info
+
+        # Figure out whether we should use wavelengths or not in the plot.
+        use_wavelengths = False
+        if spectrum.has_wavelengths():
+            self._displayed_spectra_with_wavelengths += 1
+            if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
+                use_wavelengths = True
+
+        if use_wavelengths == self._plot_uses_wavelengths:
+            # Nothing has changed, so just generate a plot for the new spectrum
+            display_info.generate_plot(self._axes, use_wavelengths)
+
+        else:
+            # Need to regenerate all plots with the new "use wavelengths" value
+
+            if use_wavelengths:
+                self._axes.set_xlabel('Wavelength (nm)', labelpad=0, fontproperties=self._font_props)
+                self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
+            else:
+                self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=self._font_props)
+                self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
+
+            for other_info in self._spectrum_display_info.values():
+                other_info.generate_plot(self._axes, use_wavelengths)
+
+            self._plot_uses_wavelengths = use_wavelengths
+
+        # Show the plot's color in the tree widget
+        treeitem.setIcon(0, display_info.get_icon())
+
+        return display_info
+
+
+    def _remove_spectrum_from_plot(self, spectrum, treeitem):
+        id = spectrum.get_id()
+        display_info = self._spectrum_display_info[id]
+        del self._spectrum_display_info[id]
+
+        # Figure out whether we should use wavelengths or not in the plot.
+        if spectrum.has_wavelengths():
+            self._displayed_spectra_with_wavelengths -= 1
+
+        display_info.remove_plot()
+
+        # Hide the plot's color in the tree widget
+        treeitem.setIcon(0, QIcon())
+
+
     def _on_configure(self):
         '''
         This event-handler gets called when the user invokes the spectrum
@@ -194,6 +324,14 @@ class SpectrumPlot(QWidget):
 
 
     def _on_load_spectral_library(self):
+        '''
+        This function handles the "load spectral library" button on the spectrum
+        display widget.  It gets the filename of a spectrum file from the user,
+        then asks the application-state to load it.  If the app-state succeeds,
+        it will fire an event that this widget receives, which will cause it to
+        show the list of spectra in the library.
+        '''
+
         # TODO(donnie):  This should probably be on the main application.
         #     It can live here for now, but it will need to be migrated
         #     elsewhere in the future.
@@ -204,37 +342,48 @@ class SpectrumPlot(QWidget):
             self.tr('All files (*)'),
         ]
 
-        # TODO(donnie):  Get current directory from application state
         selected = QFileDialog.getOpenFileName(self,
             self.tr("Open Spectal Library File"),
-            os.getcwd(), ';;'.join(supported_formats))
+            self._app_state.get_current_dir(), ';;'.join(supported_formats))
+
         if len(selected[0]) > 0:
             try:
                 # Load the spectral library into the application state
                 self._app_state.open_file(selected[0])
-            except:
+            except Exception as e:
                 mbox = QMessageBox(QMessageBox.Critical,
                     self.tr('Could not open file'),
-                    self.tr('The file could not be opened.'),
+                    self.tr('The file {0} could not be opened.').format(selected[0]),
                     QMessageBox.Ok, parent=self)
 
-                # TODO(donnie):  Add exception-trace info here, using
-                # mbox.setInformativeText(file_path)
-                # mbox.setDetailedText()
+                mbox.setInformativeText(str(e))
+                mbox.setDetailedText(traceback.format_exc())
 
                 mbox.exec()
 
 
-    def _on_spectral_library_added(self, index):
+    def _on_spectral_library_added(self, lib_id: int):
+        '''
+        This function handles the signal that a spectral library was added to
+        the application state.  It updates the user interface to show every
+        spectrum in the library.
+
+        The argument to the function is the ID assigned to the spectral library
+        in the application state.
+        '''
         # TODO(donnie):  Put spectra / spectral library info onto each tree item
         #     so we can implement context menus properly.
 
-        spectral_library = self._app_state.get_spectral_library(index)
+        spectral_library = self._app_state.get_spectral_library(lib_id)
 
+        # Add a new top-level tree item for the spectral library.  Set the tree
+        # item's user data value to the library's ID
         treeitem_library = QTreeWidgetItem([spectral_library.get_name()])
-        treeitem_library.setData(0, Qt.UserRole, index)
+        treeitem_library.setData(0, Qt.UserRole, lib_id)
         self._spectra_tree.addTopLevelItem(treeitem_library)
+        self._library_treeitems[lib_id] = treeitem_library
 
+        '''
         info_list = []
         for i in range(spectral_library.num_spectra()):
             name = spectral_library.get_spectrum_name(i)
@@ -247,38 +396,56 @@ class SpectrumPlot(QWidget):
 
             treeitem_library.addChild(treeitem_spectrum)
 
-        self._library_spectra[index] = info_list
+        self._library_spectra[lib_id] = info_list
+        '''
+
+        # Create a tree-item for every spectrum in the library
+        for i in range(spectral_library.num_spectra()):
+            name = spectral_library.get_spectrum_name(i)
+
+            treeitem_spectrum = QTreeWidgetItem([name])
+            treeitem_spectrum.setData(0, Qt.UserRole, i)
+
+            treeitem_library.addChild(treeitem_spectrum)
 
 
-    def _on_spectral_library_removed(self, index):
-        # Look at all the tree-widget items for the spectral libraries
-        for index_ti in range(2, self._spectra_tree.topLevelItemCount()):
-            treeitem = self._spectra_tree.topLevelItem(index_ti)
-            data = treeitem.data(0, Qt.UserRole)
-            if data == index:
-                # Found the library.  Remove the tree-item for it, and also
-                # clean up the internal state.
-                self._spectra_tree.takeTopLevelItem(index_ti)
-                del self._library_spectra[index]
-                break
+    def _on_spectral_library_removed(self, lib_id: int):
+        '''
+        This function handles the signal that a spectral library was removed
+        from the application state.  It updates the user interface to remove the
+        library's spectra from the UI.
 
-        # Indexes larger than the library indexes need to be adjusted to match
-        # the application state.
-        for index_ti in range(2, self._spectra_tree.topLevelItemCount()):
-            treeitem = self._spectra_tree.topLevelItem(index_ti)
-            data = treeitem.data(0, Qt.UserRole)
-            if data > index:
-                # Indexes larger than the library indexes need to be adjusted
-                # to match the application state.
-                infos = self._library_spectra.pop(data)
-                data -= 1
-                treeitem.setData(0, Qt.UserRole, data)
-                self._library_spectra[data] = infos
+        The argument to the function is the ID assigned to the spectral library
+        in the application state.
+        '''
+        # Look up the library's tree-item so we can remove it from the tree.
+        # Also remove it from our internal library-spectra dictionary.
+        treeitem_library = self._library_treeitems[lib_id]
+        index = self._spectra_tree.indexOfTopLevelItem()
+        self._spectra_tree.takeTopLevelItem(index)
+        del self._library_spectra[lib_id]
 
+        # If any of the library's spectra were drawn, update the plot state.
         self._draw_spectra()
 
 
     def _on_active_spectrum_changed(self):
+        '''
+        This function handles the signal that the application's active spectrum
+        value was changed (possibly to None).  It synchronizes the UI with the
+        new value.
+
+        Active spectrum values will only be RasterDataSetSpectrum objects.
+        '''
+
+        # Do we have an old spectrum to remove from the UI?
+
+        old_spectrum = self._treeitem_active.data(0, Qt.UserRole)
+        if old_spectrum is not None:
+            self._remove_spectrum_from_plot(old_spectrum, self._treeitem_active)
+
+        # Update the UI to match the new state.
+
         spectrum = self._app_state.get_active_spectrum()
         if spectrum is not None:
             # There is a (possibly new) active spectrum.  Set up to display it.
@@ -288,18 +455,21 @@ class SpectrumPlot(QWidget):
             # if necessary).
             spectrum_color = spectrum.get_color()
             if spectrum_color is not None:
-                self._active_spectrum_color = spectrum_color
+                self._active_spectrum_color = None
 
             else:
                 if self._active_spectrum_color is None:
                     self._active_spectrum_color = get_random_matplotlib_color()
 
-                spectrum.set_color(self._active_spectrum_color)
+                spectrum_color = self._active_spectrum_color
+                spectrum.set_color(spectrum_color)
+
+            display_info = self._add_spectrum_to_plot(spectrum, self._treeitem_active)
 
             # Update the tree-item for the active spectrum
             self._treeitem_active.setText(0, spectrum.get_name())
-            self._treeitem_active.setIcon(0, spectrum.get_icon())
 
+        # Update the state of the "active spectrum" tree item based on the value
         self._treeitem_active.setHidden(spectrum is None)
         self._treeitem_active.setData(0, Qt.UserRole, spectrum)
         self._act_collect_spectrum.setEnabled(spectrum is not None)
@@ -307,42 +477,47 @@ class SpectrumPlot(QWidget):
 
 
     def _on_collect_spectrum(self):
-        '''
-        active_spectrum = self._app_state.get_active_spectrum()
-
-        if active_spectrum is None:
+        if self._app_state.get_active_spectrum() is None:
             # The "collect spectrum" button shouldn't be enabled if there is no
             # active spectrum!
             warning.warn('Shouldn\'t be able to collect spectrum when no active spectrum!')
             return
 
-        # If the active spectrum is the currently selected one, disable the
-        # selection and clear our internal state.
-        if self._selected_treeview_item is self._treeitem_active:
-            self._treeitem_active.setSelected(False)
-            self._selected_treeview_item = None
-
-        # Create a new tree-entry for the new spectrum we are collecting
-
+        # This will cause the app-state to emit both an "active spectrum
+        # changed" event, and a "collected spectra changed" event.
         self._app_state.collect_active_spectrum()
         self._active_spectrum_color = None
 
-        treeitem_collected = QTreeWidgetItem([self._active_spectrum.get_name()])
-        treeitem_collected.setData(0, Qt.UserRole, collected_spectrum)
-        treeitem_collected.setIcon(0, collected_spectrum.get_icon())
 
-        self._treeitem_collected.setHidden(False)
-        self._treeitem_collected.setExpanded(True)
+    def _on_collected_spectra_changed(self, change, index):
+        if change == StateChange.ITEM_ADDED:
+            spectrum = self._app_state.get_collected_spectra()[index]
+            treeitem = QTreeWidgetItem([spectrum.get_name()])
+            treeitem.setData(0, Qt.UserRole, spectrum)
 
-        self._treeitem_collected.addChild(treeitem_collected)
+            self._treeitem_collected.insertChild(index, treeitem)
+            self._treeitem_collected.setHidden(False)
+            self._treeitem_collected.setExpanded(True)
 
-        # Select the newly collected spectrum
-        self._spectra_tree.setCurrentItem(treeitem_collected, 0, QItemSelectionModel.SelectCurrent)
+            self._add_spectrum_to_plot(spectrum, treeitem)
 
-        self.clear_active_spectrum()
-        '''
-        self._app_state.collect_active_spectrum()
-        self._active_spectrum_color = None
+        elif change == StateChange.ITEM_REMOVED:
+            if index is not None:
+                treeitem = self._treeitem_collected.takeChild(index)
+                spectrum = treeitem.data(0, Qt.UserRole)
+                self._remove_spectrum_from_plot(spectrum, treeitem)
+
+            else:
+                # All collected items are discarded.
+                for i in range(self._treeitem_collected.childCount()):
+                    treeitem = self._treeitem_collected.takeChild(0)
+                    spectrum = treeitem.data(0, Qt.UserRole)
+                    self._remove_spectrum_from_plot(spectrum, treeitem)
+
+            if self._treeitem_collected.childCount() == 0:
+                self._treeitem_collected.setHidden(True)
+
+        self._draw_spectra()
 
 
     def _on_tree_selection_changed(self, current, previous):
@@ -352,6 +527,11 @@ class SpectrumPlot(QWidget):
 
 
     def _on_tree_context_menu(self, pos):
+        '''
+        This function handles the context-menu event when the user requests a
+        context menu on the tree widget.  Depending on the item chosen, the
+        context menu will be populated with appropriate options.
+        '''
         # Figure out which tree item was clicked on.
         treeitem = self._spectra_tree.itemAt(pos)
         if treeitem is None:
@@ -376,8 +556,8 @@ class SpectrumPlot(QWidget):
                                   self._on_discard_spectrum(treeitem))
 
         elif treeitem is self._treeitem_collected:
-            # This is the Collected Spectra group; these are unsaved spectra
-            # that the user has collected.
+            # This is the whole "Collected Spectra" group; these are unsaved
+            # spectra that the user has collected.
 
             act = menu.addAction(self.tr('Show all spectra'))
             # act.setData(treeitem)
@@ -406,12 +586,10 @@ class SpectrumPlot(QWidget):
             # act = menu.addAction(self.tr('Save edits...'))
 
             act = menu.addAction(self.tr('Show all spectra'))
-            # act.setData(treeitem)
             act.triggered.connect(lambda *args, treeitem=treeitem :
                                   self._on_show_all_spectra(treeitem))
 
             act = menu.addAction(self.tr('Hide all spectra'))
-            # act.setData(treeitem)
             act.triggered.connect(lambda *args, treeitem=treeitem :
                                   self._on_hide_all_spectra(treeitem))
 
@@ -425,17 +603,18 @@ class SpectrumPlot(QWidget):
             # This is a specific spectrum plot (other than the active spectrum),
             # either in the collected spectra, or in a spectral library.
 
-            info = treeitem.data(0, Qt.UserRole)
+            spectrum = treeitem.data(0, Qt.UserRole)
+            display_info = self._spectrum_display_info.get(spectrum.get_id())
 
             # TODO(donnie):  Show/hide option
             act = menu.addAction(self.tr('Show spectrum'))
             act.setCheckable(True)
-            act.setChecked(info.is_visible())
-            act.setData(info)
+            act.setChecked(display_info is not None)
+            act.setData(spectrum)
             act.triggered.connect(lambda *args, treeitem=treeitem :
                                   self._on_toggle_spectrum_visible(treeitem))
 
-            if isinstance(info, CollectedSpectrum):
+            if not isinstance(spectrum, LibrarySpectrum):
                 act = menu.addAction(self.tr('Edit...'))
                 act.triggered.connect(lambda *args, treeitem=treeitem :
                                       self._on_edit_spectrum(treeitem))
@@ -451,35 +630,48 @@ class SpectrumPlot(QWidget):
 
 
     def _on_toggle_spectrum_visible(self, treeitem):
-        info = treeitem.data(0, Qt.UserRole)
+        '''
+        This function handles the context-menu option for toggling the
+        visibility of a spectrum plot.
+        '''
+        spectrum = treeitem.data(0, Qt.UserRole)
+        display_info = self._spectrum_display_info.get(spectrum.get_id())
 
         # Toggle the visibility of the spectrum.
-        new_visible = not info.is_visible()
-        info.set_visible(new_visible)
+        if display_info is None:
+            # Make visible
+            self._add_spectrum_to_plot(spectrum, treeitem)
 
-        icon = QIcon()
-        if new_visible:
-            icon = info.get_icon()
-
-        treeitem.setIcon(0, icon)
+        else:
+            # Make invisibile
+            self._remove_spectrum_from_plot(spectrum, treeitem)
 
         self._draw_spectra()
 
 
     def _on_edit_spectrum(self, treeitem):
-        info = treeitem.data(0, Qt.UserRole)
+        '''
+        This function handles the "Edit spectrum info" context-menu option.
+        This should only show up on raster data-set spectra, never on library
+        spectra, since they are not currently editable.
+        '''
+        spectrum = treeitem.data(0, Qt.UserRole)
 
-        self._spectrum_edit_dialog.configure_ui(info)
+        self._spectrum_edit_dialog.configure_ui(spectrum)
         if self._spectrum_edit_dialog.exec() != QDialog.Accepted:
             # User canceled out of the edit.
             return
 
         # If we got here, update the tree-view item with the spectrum's info.
 
-        treeitem.setText(0, info.get_name())
+        treeitem.setText(0, spectrum.get_name())
 
-        if info.is_visible():
-            treeitem.setIcon(0, info.get_icon())
+        # Is the spectrum currently being displayed?
+        display_info = self._spectrum_display_info.get(spectrum.get_id())
+        if display_info is not None:
+            display_info.reset()
+            display_info.generate_plot(self._axes, True)
+            treeitem.setIcon(0, display_info.get_icon())
 
         self._draw_spectra()
 
@@ -508,7 +700,7 @@ class SpectrumPlot(QWidget):
                 self._treeitem_collected.setHidden(True)
         else:
             # The spectrum is the active spectrum.
-            self.clear_active_spectrum()
+            self._app_state.set_active_spectrum(None)
 
 
     def _on_save_collected_spectra(self):
@@ -527,6 +719,10 @@ class SpectrumPlot(QWidget):
 
 
     def _on_discard_collected_spectra(self):
+        '''
+        This function implements the "discard all collected spectra" context
+        menu operation.
+        '''
         # Get confirmation from the user.
         confirm = QMessageBox.question(self, self.tr('Discard Collected Spectra?'),
             self.tr('Are you sure you want to discard all collected spectra?'))
@@ -535,26 +731,38 @@ class SpectrumPlot(QWidget):
             # User canceled the discard operation.
             return
 
-        # If we got here, we are discarding the collected spectra.
-
-        self._treeitem_collected.takeChildren()
-        self._treeitem_collected.setHidden(True)
-        self._collected_spectra.clear()
-
-        self._draw_spectra()
+        # If we got here, we are discarding all collected spectra.  Do the
+        # operation on the app-state; it will fire the appropriate event to
+        # cause the UI to update properly.
+        self._app_state.remove_all_collected_spectra()
 
 
     def _on_show_all_spectra(self, treeitem):
-        # print(f'action = {action}')
-        # treeitem = action.data()
+        '''
+        This function implements the "show all spectra [in the group]" context
+        menu operation.  It is available on the "collected spectra" group, and
+        the loaded spectral library groups.
+        '''
 
         if treeitem is self._treeitem_collected:
-            for index, info in enumerate(self._collected_spectra):
-                info.set_visible(True)
-                treeitem.child(index).setIcon(0, info.get_icon())
+            # This is the "collected spectra" group.  The data associated with
+            # the tree nodes are the SpectrumInfo objects.
+            for i in range(self._treeitem_collected.childCount()):
+
+                child_treeitem = treeitem.child(i)
+                spectrum = child_treeitem.data(0, Qt.UserRole)
+
+                display_info = self._spectrum_display_info.get(spectrum.get_id())
+
+                # Toggle the visibility of the spectrum.
+                if display_info is None:
+                    # Make visible
+                    self._add_spectrum_to_plot(spectrum, child_treeitem)
 
         else:
             # The action is for a spectral library
+
+            # TODO(donnie):  Implement this!
             library_index = treeitem.data(0, Qt.UserRole)
 
             for index, info in enumerate(self._library_spectra[library_index]):
@@ -565,16 +773,31 @@ class SpectrumPlot(QWidget):
 
 
     def _on_hide_all_spectra(self, treeitem):
-        # treeitem = action.data()
+        '''
+        This function implements the "hide all spectra [in the group]" context
+        menu operation.  It is available on the "collected spectra" group, and
+        the loaded spectral library groups.
+        '''
 
-        icon = QIcon()
         if treeitem is self._treeitem_collected:
-            for index, info in enumerate(self._collected_spectra):
-                info.set_visible(False)
-                treeitem.child(index).setIcon(0, icon)
+            # This is the "collected spectra" group.  The data associated with
+            # the tree nodes are the SpectrumInfo objects.
+            for i in range(self._treeitem_collected.childCount()):
+
+                child_treeitem = treeitem.child(i)
+                spectrum = child_treeitem.data(0, Qt.UserRole)
+
+                display_info = self._spectrum_display_info.get(spectrum.get_id())
+
+                # Toggle the visibility of the spectrum.
+                if display_info is not None:
+                    # Make invisible
+                    self._remove_spectrum_from_plot(spectrum, child_treeitem)
 
         else:
             # The action is for a spectral library
+
+            # TODO(donnie):  Implement this!
             library_index = treeitem.data(0, Qt.UserRole)
 
             for index, info in enumerate(self._library_spectra[library_index]):
@@ -595,84 +818,5 @@ class SpectrumPlot(QWidget):
 
 
     def _draw_spectra(self):
-        self._axes.clear()
-
-        # Build up a list of all spectra that could be displayed.  The order of
-        # spectra in the list is also the order they are drawn, so add library
-        # spectra first, then collected spectra, then the active spectrum, and
-        # finally any highlighted spectrum.
-
-        all_spectra = []
-
-        # Library spectra
-        for info_list in self._library_spectra.values():
-            all_spectra.extend(info_list)
-
-        # Collected spectra
-
-        # import pprint
-        # pprint.pprint(self._collected_spectra)
-
-        all_spectra.extend(self._app_state.get_collected_spectra())
-
-        # Active spectrum
-        active_spectrum = self._app_state.get_active_spectrum()
-        if active_spectrum is not None:
-            all_spectra.append(active_spectrum)
-
-        # Selected spectrum - don't forget that groups can also be selected
-        selected_spectrum = None
-        if self._selected_treeview_item is not None:
-            data = self._selected_treeview_item.data(0, Qt.UserRole)
-            if isinstance(data, SpectrumInfo):
-                all_spectra.append(data)
-
-        # Filter down spectra to only the ones that are being displayed
-        all_spectra = [s for s in all_spectra if s.is_visible()]
-
-        # If all datasets have wavelength data, we will set the X-axis title to
-        # indicate that these are wavelengths.
-        use_wavelengths = True
-        for info in all_spectra:
-            if not info.has_wavelengths():
-                use_wavelengths = False
-                break
-
-        if use_wavelengths:
-            # If we can use wavelengths, each spectrum is a series of
-            # (wavelength, value) coordinates, which we can plot.  This allows
-            # the graphs to look correct, even in the face of bad bands, plots
-            # from different datasets with different wavelengths, etc.
-
-            self._axes.set_xlabel('Wavelength (nm)', labelpad=0, fontproperties=self._font_props)
-            self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
-
-            # Plot each spectrum against its corresponding wavelength values
-            for info in all_spectra:
-                linewidth = 0.5
-                if info is selected_spectrum:
-                    linewidth = 1.5
-
-                # TODO(donnie):  Support configurable default wavelength units
-                wavelengths = get_band_values(info.get_wavelengths(), u.nm)
-                spectrum = info.get_spectrum()
-                self._axes.plot(wavelengths, spectrum, color=info.get_color(), linewidth=linewidth)
-        else:
-            # If we don't have wavelengths, each spectrum is just a series of
-            # values.  We can of course plot this, but we can't guarantee it
-            # will be meaningful if there are multiple plots from different
-            # datasets to display.
-
-            self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=self._font_props)
-            self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
-
-            for info in all_spectra:
-                linewidth = 0.5
-                if info is selected_spectrum:
-                    linewidth = 1.5
-
-                dataset = info.get_dataset()
-                spectrum = info.get_spectrum()
-                self._axes.plot(spectrum, linewidth=linewidth)
-
+        self._axes.relim(visible_only=True)
         self._figure_canvas.draw()

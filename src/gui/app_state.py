@@ -20,6 +20,13 @@ from raster.stretch import StretchBase
 from raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 
+class StateChange(Enum):
+    ITEM_ADDED = 1
+    ITEM_EDITED = 2
+    ITEM_REMOVED = 3
+
+
+
 class ApplicationState(QObject):
     '''
     This class holds all application state for the visualizer.  This includes
@@ -28,16 +35,17 @@ class ApplicationState(QObject):
     interface to operate on both the models and the views.
     '''
 
-    # Signal:  a data-set was added at the specified index
+    # Signal:  a data-set with the specified ID was added
     dataset_added = Signal(int)
 
-    # Signal:  the data-set at the specified index was removed
+    # Signal:  the data-set with the specified ID was removed
     dataset_removed = Signal(int)
 
+    # Signal:  a spectral library with the specified ID was added
     spectral_library_added = Signal(int)
 
+    # Signal:  the spectral library with the specified ID was removed
     spectral_library_removed = Signal(int)
-
 
     roi_added = Signal(RegionOfInterest)
 
@@ -51,7 +59,7 @@ class ApplicationState(QObject):
     # Signal:  the active spectrum changed
     active_spectrum_changed = Signal()
 
-    collected_spectra_changed = Signal(int)
+    collected_spectra_changed = Signal(StateChange, int)
 
     # TODO(donnie):  Signals for config changes and color changes!
 
@@ -98,6 +106,10 @@ class ApplicationState(QObject):
         # Configuration options.
         self._config = {
             'pixel-reticle-type' : PixelReticleType.SMALL_CROSS,
+
+            'default-area-average-x' : 1,
+            'default-area-average-y' : 1,
+            'default-area-average-mode' : 'MEAN',
         }
 
         # Colors used for various purposes.
@@ -118,7 +130,7 @@ class ApplicationState(QObject):
         return id
 
 
-    def get_current_dir(self):
+    def get_current_dir(self) -> str:
         '''
         Returns the current directory of the application.  This is the last
         directory that the user accessed in a load or save operation, so that
@@ -127,7 +139,7 @@ class ApplicationState(QObject):
         return self._current_dir
 
 
-    def set_current_dir(self, current_dir: str):
+    def set_current_dir(self, current_dir: str) -> None:
         '''
         Sets the current directory of the application.  This is the last
         directory that the user accessed in a load or save operation, so that
@@ -136,7 +148,7 @@ class ApplicationState(QObject):
         self._current_dir = current_dir
 
 
-    def update_cwd_from_path(self, path: str):
+    def update_cwd_from_path(self, path: str) -> None:
         '''
         This helper function makes it easier to update the current working
         directory (CWD) at the end of a file-load or file-save operation.  The
@@ -177,7 +189,7 @@ class ApplicationState(QObject):
         '''
 
         # Remember the directory of the selected file, for next file-open
-        self._current_dir = os.path.dirname(file_path)
+        self.update_cwd_from_path(file_path)
 
         # Is the file a project file?
 
@@ -308,24 +320,26 @@ class ApplicationState(QObject):
 
     def add_spectral_library(self, library):
         '''
-        Add a spectral library to the application state.  The method will fire
-        a signal indicating that the spectral library was added.
+        Add a spectral library to the application state, assigning a new ID to
+        the library.  The method will fire a signal indicating that the spectral
+        library was added, including the ID assigned to the library.
         '''
         if not isinstance(library, SpectralLibrary):
             raise TypeError('library must be a SpectralLibrary')
 
-        index = len(self._spectral_libraries)
-        self._spectral_libraries.append(library)
+        lib_id = self._take_next_id()
+        library.set_id(lib_id)
+        self._spectral_libraries[lib_id] = library
 
-        self.spectral_library_added.emit(index)
+        self.spectral_library_added.emit(lib_id)
 
-    def get_spectral_library(self, index):
+
+    def get_spectral_library(self, lib_id):
         '''
-        Return the spectral library at the specified index.  Standard
-        list-access options are supported, such as -1 to return the last
-        library.
+        Return the spectral library with the specified ID.  If the ID is
+        unrecognized, a KeyError will be raised.
         '''
-        return self._spectral_libraries[index]
+        return self._spectral_libraries[lib_id]
 
     def num_spectral_libraries(self):
         '''
@@ -335,19 +349,18 @@ class ApplicationState(QObject):
 
     def get_spectral_libraries(self):
         '''
-        Return a copy of the list of spectral libraries in the application
-        state.
+        Return a list of all the spectral libraries in the application state.
         '''
-        return list(self._spectral_libraries)
+        return self._spectral_libraries.values()
 
-    def remove_spectral_library(self, index):
+    def remove_spectral_library(self, lib_id):
         '''
         Remove the specified spectral library from the application state.
         The method will fire a signal indicating that the spectral library
         was removed.
         '''
-        del self._spectral_libraries[index]
-        self.spectral_library_removed.emit(index)
+        del self._spectral_libraries[lib_id]
+        self.spectral_library_removed.emit(lib_id)
 
 
     def get_config(self, option, default=None):
@@ -415,13 +428,19 @@ class ApplicationState(QObject):
         return self._active_spectrum
 
     def set_active_spectrum(self, spectrum: SpectrumInfo):
+        if spectrum is not None and spectrum.get_id() is None:
+            spectrum.set_id(self._take_next_id())
+
         self._active_spectrum = spectrum
         self.active_spectrum_changed.emit()
 
     def collect_spectrum(self, spectrum: SpectrumInfo):
+        if spectrum.get_id() is None:
+            spectrum.set_id(self._take_next_id())
+
         index = len(self._collected_spectra)
-        self._collected_spectra.append(self._active_spectrum)
-        self.collected_spectra_changed.emit(index)
+        self._collected_spectra.append(spectrum)
+        self.collected_spectra_changed.emit(StateChange.ITEM_ADDED, index)
 
     def collect_active_spectrum(self):
         if self._active_spectrum is None:
@@ -435,6 +454,13 @@ class ApplicationState(QObject):
         # Causes "collected spectrum changed" signal to be emitted
         self.collect_spectrum(spectrum)
 
-
     def get_collected_spectra(self):
         return list(self._collected_spectra)
+
+    def remove_collected_spectrum(self, index):
+        del self._collected_spectra[index]
+        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, index)
+
+    def remove_all_collected_spectra(self):
+        self._collected_spectra.clear()
+        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, None)

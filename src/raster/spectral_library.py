@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from .dataset import RasterDataSet
 
@@ -11,6 +12,16 @@ class SpectralLibrary:
     If specific steps must be taken when a data-set is closed, the
     implementation should implement the __del__ function.
     '''
+
+    def __init__(self):
+        self._id = None
+
+    def get_id(self) -> Optional[int]:
+        return self._id
+
+    def set_id(self, id: int) -> None:
+        self._id = id
+
 
     def get_name(self):
         # TODO(donnie):  Temporary hack for spectral libraries that are unnamed.
