@@ -148,7 +148,7 @@ def get_random_matplotlib_color(exclude_colors: List[str] = []) -> str:
             return name
 
 
-def get_color_icon(color_name, width=16, height=16):
+def get_color_icon(color_name: str, width: int = 16, height: int = 16) -> QIcon:
     '''
     Generate a QIcon of the specified color and optional size.  If the size is
     unspecified, a 16x16 icon is generated.
