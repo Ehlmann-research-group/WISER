@@ -24,7 +24,7 @@ from .util import *
 
 from .app_state import ApplicationState
 
-from .spectrum_info import SpectrumAtPoint
+from raster.spectrum_info import SpectrumAtPoint
 from raster.selection import SinglePixelSelection
 
 

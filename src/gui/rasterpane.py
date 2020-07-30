@@ -13,13 +13,13 @@ from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
 from .roi_info_editor import ROIInfoEditor
 from .rasterview import RasterView
-from .spectrum_info import ROIAverageSpectrum
 from .util import add_toolbar_action, get_painter, make_filename
 
 from raster.dataset import RasterDataSet, find_display_bands, find_truecolor_bands
 from raster.roi import RegionOfInterest
 from raster.selection import SelectionType, Selection, SinglePixelSelection
-from raster.spectra import export_roi_spectra
+from raster.spectra_export import export_roi_pixel_spectra
+from raster.spectrum_info import ROIAverageSpectrum
 
 from .ui_roi import draw_roi, get_picked_roi_selections
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
@@ -602,7 +602,7 @@ class RasterPane(QWidget):
 
                 act = roi_menu.addAction(self.tr('Export all spectra in ROI...'))
                 act.triggered.connect(
-                    lambda checked : self._on_export_roi_spectra(roi=roi, rasterview=rasterview))
+                    lambda checked : self._on_export_roi_pixel_spectra(roi=roi, rasterview=rasterview))
 
                 for sel_index in picked_sels:
                     roi_menu.addSeparator()
@@ -1228,7 +1228,19 @@ class RasterPane(QWidget):
         self._app_state.set_active_spectrum(spectrum)
 
 
-    def _on_export_roi_spectra(self, roi: RegionOfInterest, rasterview: RasterView) -> None:
+    def _on_export_roi_pixel_spectra(self, roi: RegionOfInterest, rasterview: RasterView) -> None:
+
+        # If the ROI has a lot of pixels, confirm with the user.
+        pixels = roi.get_all_pixels()
+        if len(pixels) > 200:
+            result = QMessageBox.question(self,
+                self.tr('Export ROI Pixel Spectra'),
+                self.tr('This ROI has {0} pixels.  Are you sure you wish to\n' +
+                        'output the spectra of all pixels?').format(len(pixels)))
+
+            if result == QMessageBox.No:
+                return
+
         # Build up a candidate filename.
         filename = f'{make_filename(roi.get_name())}.txt'
         filename = os.path.join(self._app_state.get_current_dir(), filename)
@@ -1247,7 +1259,7 @@ class RasterPane(QWidget):
         self._app_state.update_cwd_from_path(filename)
 
         # Export the spectra of all pixels in the ROI
-        export_roi_spectra(filename, rasterview.get_raster_data(), roi)
+        export_roi_pixel_spectra(filename, rasterview.get_raster_data(), roi)
 
 
     def _on_delete_roi(self, roi: RegionOfInterest) -> None:

@@ -4,7 +4,6 @@ from typing import List, Optional, Tuple
 from PySide2.QtCore import *
 
 import numpy as np
-from astropy import units as u
 
 from .dataset import RasterDataSet
 from .roi import RegionOfInterest
@@ -113,65 +112,3 @@ def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spectr
     The calculation mode can be specified with the mode argument.
     '''
     return calc_spectrum(dataset, roi.get_all_pixels(), mode)
-
-
-def export_roi_spectra(filename: str, dataset: RasterDataSet,
-                       roi: RegionOfInterest, unit: Optional[u.Unit]=None):
-    has_wavelengths = dataset.has_wavelengths()
-    num_bands = dataset.num_bands()
-    dataset_bands = dataset.band_list()
-    if has_wavelengths:
-        # If the caller didn't specify units, just use the first band's units.
-        # This will also handle any situations where different bands have
-        # different units, which is possible with the ENVI format.
-        if unit is None and num_bands > 0:
-            unit = dataset_bands[0]['wavelength'].unit
-
-        # Extract the values-with-units for the band wavelengths
-        output_bands = [info['wavelength'] for info in dataset_bands]
-
-        # Convert the band wavelengths to the requested units for output
-        output_bands = [convert_spectral(b, unit) for b in output_bands]
-
-        # Finally, convert the band wavelengths to values, since we want it to
-        # be simple to output them
-        output_bands = [b.value for b in output_bands]
-
-    else:
-        # We don't have wavelength info, so just use band index
-        output_bands = range(num_bands)
-
-    all_spectra = get_all_spectra_in_roi(dataset, roi)
-    points = [s[0] for s in all_spectra]
-    spectra = [s[1] for s in all_spectra]
-
-    # Output the tab-delimited file now
-    with open(filename, 'w') as f:
-        # Output header row
-
-        if has_wavelengths:
-            f.write(f'Wavelength ({unit.name})')
-        else:
-            f.write('Band')
-
-        for p in points:
-            f.write(f'\t({p[0]},{p[1]})')
-
-        f.write('\n')
-
-        # Output a data row for each band in the data
-
-        for i in range(num_bands):
-            # Band wavelength or index
-            f.write(f'{output_bands[i]}')
-
-            # Each pixel's value for the band
-            for s in spectra:
-                # If the value is NaN, just output nothing
-                v = ''
-                if not np.isnan(s[i]):
-                    v = f'{s[i]}'
-
-                f.write(f'\t{v}')
-
-            f.write('\n')
