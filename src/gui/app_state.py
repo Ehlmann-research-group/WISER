@@ -6,11 +6,10 @@ from PySide2.QtCore import *
 
 from .app_config import PixelReticleType
 
-from .spectrum_info import SpectrumInfo
-
 from raster.dataset import *
 from raster.gdal_dataset import GDALRasterDataLoader
 
+from raster.spectrum_info import SpectrumInfo
 from raster.spectral_library import SpectralLibrary
 from raster.envi_spectral_library import ENVISpectralLibrary
 from raster.loaders.envi import EnviFileFormatError

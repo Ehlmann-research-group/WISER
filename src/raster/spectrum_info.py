@@ -2,13 +2,12 @@ import os
 from typing import List, Optional, Tuple
 
 from PySide2.QtCore import *
-from PySide2.QtGui import *
 
 import numpy as np
 from astropy import units as u
 
 
-from .util import get_random_matplotlib_color, get_color_icon
+from gui.util import get_random_matplotlib_color, get_color_icon
 
 from raster.dataset import RasterDataSet
 from raster.roi import RegionOfInterest

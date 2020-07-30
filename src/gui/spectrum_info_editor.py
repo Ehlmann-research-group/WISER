@@ -6,7 +6,7 @@ import matplotlib
 
 from .generated.spectrum_info_editor_ui import Ui_SpectrumInfoEditor
 
-from .spectrum_info import (AVG_MODE_NAMES, SpectrumInfo, LibrarySpectrum,
+from raster.spectrum_info import (AVG_MODE_NAMES, SpectrumInfo, LibrarySpectrum,
     RasterDataSetSpectrum, SpectrumAtPoint, ROIAverageSpectrum)
 
 from raster.spectra import SpectrumType, SpectrumAverageMode

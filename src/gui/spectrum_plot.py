@@ -8,7 +8,6 @@ from PySide2.QtWidgets import *
 import gui.generated.resources
 
 from .app_state import ApplicationState, StateChange
-from .spectrum_info import SpectrumInfo, LibrarySpectrum
 from .spectrum_plot_config import SpectrumPlotConfigDialog
 from .spectrum_info_editor import SpectrumInfoEditor
 
@@ -16,6 +15,8 @@ from .util import add_toolbar_action, get_random_matplotlib_color, get_color_ico
 
 from raster.envi_spectral_library import ENVISpectralLibrary
 from raster.spectra import SpectrumType, SpectrumAverageMode, calc_rect_spectrum
+from raster.spectra_export import export_spectrum_list
+from raster.spectrum_info import SpectrumInfo, LibrarySpectrum
 from raster.units import get_band_values
 
 import matplotlib
@@ -202,7 +203,7 @@ class SpectrumPlot(QWidget):
         self._treeitem_active.setHidden(True)
 
         # The second item always represents the collected spectra.
-        self._treeitem_collected = QTreeWidgetItem([self.tr('Collected Spectra (unsaved)')])
+        self._treeitem_collected = QTreeWidgetItem([self.tr('Collected Spectra')])
         self._spectra_tree.addTopLevelItem(self._treeitem_collected)
         self._treeitem_collected.setHidden(True)
 
@@ -502,7 +503,6 @@ class SpectrumPlot(QWidget):
 
             else:
                 # All collected items are discarded.
-                print('discarding all collected spectra')
 
                 while self._treeitem_collected.childCount() > 0:
                     treeitem = self._treeitem_collected.takeChild(0)
@@ -700,7 +700,7 @@ class SpectrumPlot(QWidget):
 
     def _on_save_collected_spectra(self):
         supported_formats = [
-            self.tr('CSV files (*.csv)'),
+            self.tr('Text files (*.txt)'),
             self.tr('All files (*)'),
         ]
 
@@ -710,7 +710,13 @@ class SpectrumPlot(QWidget):
             ';;'.join(supported_formats))
 
         if len(selected[0]) > 0:
-            print(f'TODO(donnie) - save spectra to {selected[0]}!')
+            # Make a list of spectra to be saved.
+            spectra = []
+            for i in range(self._treeitem_collected.childCount()):
+                treeitem = self._treeitem_collected.child(i)
+                spectra.append(treeitem.data(0, Qt.UserRole))
+
+            export_spectrum_list(selected[0], spectra)
 
 
     def _on_discard_collected_spectra(self):
