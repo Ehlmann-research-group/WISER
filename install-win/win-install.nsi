@@ -7,16 +7,16 @@
 ;--------------------------------
 ; Project Settings
 
-Name "Imaging Spectroscopy Workbench"
+Name "Workbench for Imaging Spectroscopy Exploration and Research"
 ; TODO(donnie):  Get version from external file.
-OutFile "Install-ISWB-0.0.1.exe"
+OutFile "Install-WISER-0.0.2.exe"
 Unicode True
 ManifestDPIAware True
 
 ; TODO(donnie):  Currently we build a 64-bit Python frozen app.
-InstallDir "$PROGRAMFILES64\Imaging Spectroscopy Workbench"
+InstallDir "$PROGRAMFILES64\WISER"
 
-!define REGKEY_UNINSTALL "Software\Microsoft\Windows\CurrentVersion\Uninstall\ISWB"
+!define REGKEY_UNINSTALL "Software\Microsoft\Windows\CurrentVersion\Uninstall\WISER"
 
 ;--------------------------------
 ; Modern UI 2 Specification
@@ -49,13 +49,13 @@ Section "Install"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   ; Create shortcuts to run and uninstall application
-  CreateDirectory "$SMPROGRAMS\ISWB"
-  CreateShortcut "$SMPROGRAMS\ISWB\ISWorkbench.lnk" "$INSTDIR\ISWorkbench.exe"
-  CreateShortcut "$SMPROGRAMS\ISWB\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  CreateDirectory "$SMPROGRAMS\WISER"
+  CreateShortcut "$SMPROGRAMS\WISER\WISER.lnk" "$INSTDIR\WISER.exe"
+  CreateShortcut "$SMPROGRAMS\WISER\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
 
   ; Write registry keys to uninstall app through Windows system console
 
-  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayName" "Imaging Spectroscopy Workbench"
+  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayName" "WISER"
   WriteRegStr HKLM "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
 
   WriteRegStr HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\Uninstall.exe$\" /S"
@@ -78,9 +78,9 @@ Section "Uninstall"
 
   ; Clean up start-menu entries
 
-  Delete "$SMPROGRAMS\ISWB\ISWorkbench.lnk"
-  Delete "$SMPROGRAMS\ISWB\Uninstall.lnk"
-  RMDir /r "$SMPROGRAMS\ISWB"
+  Delete "$SMPROGRAMS\WISER\ISWorkbench.lnk"
+  Delete "$SMPROGRAMS\WISER\Uninstall.lnk"
+  RMDir /r "$SMPROGRAMS\WISER"
 
   ; Clean up registry keys
 
