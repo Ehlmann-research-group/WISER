@@ -184,7 +184,8 @@ class ApplicationState(QObject):
 
     def open_file(self, file_path):
         '''
-        Open a data or configuration file in the Imaging Spectroscopy Workbench.
+        Open a data or configuration file in the Workbench for Imaging
+        Spectroscopy Exploration and Research (WISER).
         '''
 
         # Remember the directory of the selected file, for next file-open
@@ -192,7 +193,7 @@ class ApplicationState(QObject):
 
         # Is the file a project file?
 
-        if file_path.endswith('.iswb'):
+        if file_path.endswith('.wiser'):
             self.load_project_file(file_path)
             return
 

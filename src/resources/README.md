@@ -1,6 +1,6 @@
-Icons used in the toolbars of the Imaging Spectroscopy Workbench were downloaded
-from [Flaticon](https://www.flaticon.com/).  Per the usage policy on this
-website, these are the authors of the icons used.
+Icons used in the toolbars of the Workbench for Imaging Spectroscopy Exploration
+and Research (WISER) were downloaded from [Flaticon](https://www.flaticon.com/).
+Per the usage policy on this website, these are the authors of the icons used.
 
 Icons made by [Freepik](https://www.flaticon.com/authors/freepik)
 from [Flaticon](https://www.flaticon.com/).

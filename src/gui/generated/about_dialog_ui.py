@@ -20,7 +20,7 @@ class Ui_AboutDialog(object):
     def setupUi(self, AboutDialog):
         if not AboutDialog.objectName():
             AboutDialog.setObjectName(u"AboutDialog")
-        AboutDialog.resize(531, 387)
+        AboutDialog.resize(611, 387)
         self.gridLayout = QGridLayout(AboutDialog)
         self.gridLayout.setObjectName(u"gridLayout")
         self.textEdit = QTextEdit(AboutDialog)
@@ -69,7 +69,7 @@ class Ui_AboutDialog(object):
     # setupUi
 
     def retranslateUi(self, AboutDialog):
-        AboutDialog.setWindowTitle(QCoreApplication.translate("AboutDialog", u"About Imaging Spectroscopy Workbench", None))
+        AboutDialog.setWindowTitle(QCoreApplication.translate("AboutDialog", u"About WISER", None))
         self.textEdit.setHtml(QCoreApplication.translate("AboutDialog", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
@@ -78,7 +78,7 @@ class Ui_AboutDialog(object):
 "<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:600;\">Bug reports are welcome!</span>  When submitting a bug report, please include the information reported by the &quot;System Info&quot; dialog below.  This will help us identify issues that may be related to platform and library versions.  Thanks!</p></body></html>", None))
         self.label_version.setText(QCoreApplication.translate("AboutDialog", u"TODO:  Version!", None))
         self.btn_system_info.setText(QCoreApplication.translate("AboutDialog", u"System Info", None))
-        self.label.setText(QCoreApplication.translate("AboutDialog", u"Imaging Spectroscopy Workbench", None))
+        self.label.setText(QCoreApplication.translate("AboutDialog", u"WISER:  The Workbench for Imaging Spectroscopy Exploration and Research", None))
         self.label_copyright.setText(QCoreApplication.translate("AboutDialog", u"TODO:  Copyright!", None))
     # retranslateUi
 

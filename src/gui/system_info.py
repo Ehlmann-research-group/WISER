@@ -33,7 +33,7 @@ class SystemInfoDialog(QDialog):
     def _generate_sysinfo(self):
         # Application info
 
-        info  = 'Imaging Spectroscopy Workbench\n'
+        info  = 'WISER:  Workbench for Imaging Spectroscopy Exploration and Research\n'
         info += 'Version:  {0}\n'.format(VERSION)
         info += 'Release Date:  Real Soon Now...\n'
         info += '\n'

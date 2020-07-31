@@ -19,14 +19,14 @@ from gui.app import DataVisualizerApp
 import version
 
 
-CONFIG_FILE = 'iswb.json'
+CONFIG_FILE = 'wiserconf.json'
 
 
 def init_config():
     '''
-    Initializes the configuration for the Imaging Spectroscopy Workbench.  This
-    configuration is loaded from the default file 'iswb.json', if that file is
-    found in the local working directory.
+    Initializes the configuration for the Workbench.  This configuration is
+    loaded from the default file 'wiserconf.json', if that file is found in the
+    local working directory.
     '''
     config = {}
 

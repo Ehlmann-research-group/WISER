@@ -1,4 +1,4 @@
-# Imaging Spectroscopy Workbench
+# WISER:  The Workbench for Imaging Spectroscopy Exploration and Research
 
 Tools for visualizing and working with imaging spectroscopy data.
 
@@ -98,4 +98,4 @@ to work though, and simply requires a bit more setup.
 
 7.  `conda install astropy`
 
-This should be sufficient to get ISWB running on Windows.
+This should be sufficient to get WISER running on Windows.
