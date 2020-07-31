@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>531</width>
+    <width>611</width>
     <height>387</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>About Imaging Spectroscopy Workbench</string>
+   <string>About WISER</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="3" column="0" colspan="2">
@@ -61,7 +61,7 @@ p, li { white-space: pre-wrap; }
       </font>
      </property>
      <property name="text">
-      <string>Imaging Spectroscopy Workbench</string>
+      <string>WISER:  The Workbench for Imaging Spectroscopy Exploration and Research</string>
      </property>
      <property name="textFormat">
       <enum>Qt::AutoText</enum>

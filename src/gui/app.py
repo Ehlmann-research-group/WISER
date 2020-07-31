@@ -37,7 +37,7 @@ class DataVisualizerApp(QMainWindow):
         model, various views, and hooks them together with the controller code.
         '''
         super().__init__(None)
-        self.setWindowTitle(self.tr('Imaging Spectroscopy Workbench'))
+        self.setWindowTitle(self.tr('Workbench for Imaging Spectroscopy Exploration and Research'))
 
         # Internal state
 
@@ -53,7 +53,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Status bar
         self.statusBar().showMessage(
-            self.tr('Welcome to the Imaging Spectroscopy Workbench'), 10000)
+            self.tr('Welcome to WISER - the Workbench for Imaging Spectroscopy Exploration and Research'), 10000)
 
         # Context pane
 
@@ -131,7 +131,7 @@ class DataVisualizerApp(QMainWindow):
         # Application menu
         self._app_menu = self.menuBar().addMenu(sys.argv[0])
 
-        act = self._app_menu.addAction(self.tr('About Imaging Spectroscopy Workbench'))
+        act = self._app_menu.addAction(self.tr('About WISER'))
         act.setMenuRole(QAction.AboutRole)
         act.triggered.connect(self.show_about_dialog)
 
@@ -202,7 +202,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_about_dialog(self, evt):
         '''
-        Shows the "About the Imaging Spectroscopy Workbench" dialog in the
+        Shows the "About WISER" dialog in the
         user interface.
         '''
         about = AboutDialog(self)
@@ -218,11 +218,11 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
-            self.tr('ISWB project files (*.iswb)'),
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
             self.tr('PDS raster files (*.PDS *.IMG)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
+            self.tr('WISER project files (*.wiser)'),
             self.tr('All files (*)'),
         ]
 
@@ -256,12 +256,12 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
-            self.tr('ISWB files (*.iswb)'),
+            self.tr('WISER project files (*.wiser)'),
             self.tr('All files (*)'),
         ]
 
         selected = QFileDialog.getSaveFileName(self,
-            self.tr("Open ISWB Project File"),
+            self.tr("Open WISER Project File"),
             self._app_state.get_current_dir(), ';;'.join(supported_formats))
         # print(selected)
 
@@ -407,7 +407,7 @@ class DataVisualizerApp(QMainWindow):
         file to save and load settings.
         '''
         # TODO(donnie):  Store company/app name in some central constants file
-        settings = QSettings('Caltech', 'Imaging Spectroscopy Workbench')
+        settings = QSettings('Caltech', 'WISER')
         settings.setValue('geometry', self.saveGeometry())
         settings.setValue('window-state', self.saveState())
 
@@ -419,7 +419,7 @@ class DataVisualizerApp(QMainWindow):
         file to save and load settings.
         '''
         # TODO(donnie):  Store company/app name in some central constants file
-        settings = QSettings('Caltech', 'Imaging Spectroscopy Workbench')
+        settings = QSettings('Caltech', 'WISER')
         self.restoreGeometry(settings.value('geometry'))
         self.restoreState(settings.value('window-state'))
 

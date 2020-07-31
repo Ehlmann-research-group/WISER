@@ -1,6 +1,5 @@
-This directory contains `.ui` files created using the
-[Qt Creator](https://doc.qt.io/qtcreator/index.html) tool, for the Imaging
-Spectroscopy Workbench.
+This directory contains `.ui` files created for WISER using the
+[Qt Creator](https://doc.qt.io/qtcreator/index.html) tool.
 
 The `.ui` files are processed by the `pyside2-uic` tool to generate Python UI
 code for inclusion into the application.  Since the corresponding Python code

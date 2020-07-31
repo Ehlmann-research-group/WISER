@@ -1177,7 +1177,7 @@ class RasterPane(QWidget):
 
         else:
             QMessageBox.warning(self, self.tr('Unsupported Feature'),
-                f'ISWB does not yet support selections of type {selection_type}')
+                f'WISER does not yet support selections of type {selection_type}')
 
 
     def _on_edit_roi_selection_geometry(self, roi, sel_index, rasterview) -> None:
@@ -1198,7 +1198,7 @@ class RasterPane(QWidget):
 
         else:
             QMessageBox.warning(self, self.tr('Unsupported Feature'),
-                f'ISWB does not yet support editing selections of type {selection_type}')
+                f'WISER does not yet support editing selections of type {selection_type}')
 
 
     def _on_delete_roi_selection_geometry(self, roi, sel_index) -> None:

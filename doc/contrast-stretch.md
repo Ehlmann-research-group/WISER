@@ -1,8 +1,7 @@
 # Contrast Stretch
 
-The Imaging Spectroscopy Workbench supports manipulating the contrast stretch of
-data sets being displayed.  This is often very helpful to bring out important
-details in the data.
+WISER supports manipulating the contrast stretch of data sets being displayed.
+This is often very helpful to bring out important details in the data.
 
 Before discussing how stretch may be applied, it is important to understand what
 the Workbench must do to display data.  The band data being displayed may be of

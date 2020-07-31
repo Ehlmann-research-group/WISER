@@ -1,6 +1,6 @@
-APP_NAME=ISWorkbench
-APP_VERSION=0.0.1
-OSX_BUNDLE_ID=edu.caltech.gps.ISWB
+APP_NAME=WISER
+APP_VERSION=0.0.2
+OSX_BUNDLE_ID=edu.caltech.gps.WISER
 
 
 PYLINT=pylint
