@@ -26,12 +26,12 @@ If you are working on a Mac, you are strongly encouraged to set up a virtual
 environment using the `virtualenv` tool:
 
 ```
-# From inside the ISWorkbench directory
+# From inside the WISER directory
 virtualenv venv
 source venv/bin/activate
 ```
 
-Then, you can easily install all required dependencies:
+Then, you can easily install all required dependencies **in this order**:
 
 ```
 pip install numpy
@@ -40,6 +40,16 @@ pip install matplotlib
 pip install GDAL
 pip install PySide2
 ```
+
+>   Note:  If you get an error like "no module \_gdal_array" after setting up
+>   WISER, a common cause is that the GDAL Python library was installed _before_
+>   NumPy was installed.  To further complicate the matter, `pip` may have
+>   cached the GDAL library without the `\_gdal_array` module.  Thus, to fix the
+>   issue, you can do this:
+>
+>       pip uninstall GDAL
+>       pip install numpy                  (if not already installed)
+>       pip install --no-cache-dir GDAL
 
 These are additional development tools used by the project:
 
