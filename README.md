@@ -44,7 +44,7 @@ pip install PySide2
 >   Note:  If you get an error like "no module \_gdal_array" after setting up
 >   WISER, a common cause is that the GDAL Python library was installed _before_
 >   NumPy was installed.  To further complicate the matter, `pip` may have
->   cached the GDAL library without the `\_gdal_array` module.  Thus, to fix the
+>   cached the GDAL library without the `_gdal_array` module.  Thus, to fix the
 >   issue, you can do this:
 >
 >       pip uninstall GDAL
