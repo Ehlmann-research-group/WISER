@@ -1,7 +1,5 @@
 APP_NAME=WISER
 APP_VERSION=1.0a3
-OSX_BUNDLE_ID=edu.caltech.gps.WISER
-
 
 PYLINT=pylint
 PYLINT_OPTS=
@@ -9,8 +7,21 @@ PYLINT_OPTS=
 MYPY=mypy
 MYPY_OPTS=
 
+
+#======================================================
+# MACOSX SETTINGS
+
+OSX_BUNDLE_ID=edu.caltech.gps.WISER
+
+
+#======================================================
+# WINDOWS SETTINGS
+
 NSIS="C:\Program Files (x86)\NSIS\makensis.exe"
 
+
+#======================================================
+# BUILD RULES
 
 all : generated
 
@@ -31,10 +42,8 @@ typecheck:
 	$(MYPY) $(MYPY_OPTS) src
 
 
-build-mac : generated
-	pyinstaller --name $(APP_NAME) --windowed --noconfirm \
-		--osx-bundle-identifier $(OSX_BUNDLE_ID) \
-		src/main.py
+dist-mac : generated
+	pyinstaller WISER-MacOSX.spec
 
 	# Patch the package with the correct version of libpng, since pyinstaller
 	# finds the wrong one.  (Note:  Can't use the --add-binary option because
@@ -50,7 +59,7 @@ build-mac : generated
 	rm dist/tmp.dmg
 
 
-build-win : generated
+dist-win : generated
 	# To debug PyInstaller issues:
 	#   - drop the "--windowed" option
 	#   - add a "--debug [bootloader|imports|noarchive|all]" option

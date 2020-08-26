@@ -69,12 +69,9 @@ def main():
         auto_notify=False,
     )
 
-    # TODO(donnie):  This is supposed to be how you turn on high-DPI
-    #     application scaling in Qt.  This does not seem to be required on
-    #     MacOSX though.  Saving this code in case it is needed on Linux or
-    #     Windows 10.
-    # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    # QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+    # Turn on high-DPI application scaling in Qt.
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
     app = QApplication(sys.argv)
 
