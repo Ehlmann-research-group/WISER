@@ -14,14 +14,14 @@ The software is distributed as a frozen Python application (using
 these forms:
 
 *   A MacOSX disk image (DMG) is available here:
-    [WISER-0.0.2.dmg](./WISER-0.0.2.dmg)
+    [WISER-1.0a3.dmg](./WISER-1.0a3.dmg)
 
     The application can be run directly out of the disk image if you just want
     to try it out, or you can drag the application into your Applications folder
     for faster startup times.
 
 *   A Windows installer is available here:
-    [Install-WISER-0.0.2.exe](./Install-WISER-0.0.2.exe)
+    [Install-WISER-1.0a3.exe](./Install-WISER-1.0a3.exe)
 
     The Windows installer will install the software into your system's
     applications, along with an uninstaller for removing the software.  You can
