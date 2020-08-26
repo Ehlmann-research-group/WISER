@@ -1,4 +1,4 @@
-import random, string
+import os, random, string
 from typing import List, Optional
 
 from PySide2.QtCore import *
@@ -185,3 +185,29 @@ def clear_treewidget_selections(tree_widget: QTreeWidget) -> None:
     for i in range(tree_widget.topLevelItemCount()):
         item = tree_widget.topLevelItem(i)
         clear_treewidget_item_selections(item)
+
+
+def generate_unused_filename(basename: str, extension: str) -> str:
+    '''
+    Generates a filename that is currently unused on the filesystem.  The
+    base name (including path) and extension to use are both specified as
+    arguments to this function.
+
+    If "basename.extension" is available as a filename, the function will
+    return that string.
+
+    If it is already used, the function will generate a filename of the form
+    "basename_i.extension", where i starts at 1, and is incremented until
+    the filename is unused.
+    '''
+    filename = f'{basename}.{extension}'
+    if os.path.exists(filename):
+        i = 1
+        while True:
+            filename = f'{basename}_{i}.{extension}'
+            if not os.path.exists(filename):
+                break
+
+            i += 1
+
+    return filename
