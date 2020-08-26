@@ -111,6 +111,7 @@ class ExportImageDialog(QDialog):
             self.tr('JPEG'),
         ])
         self._ui.cbox_image_format.setCurrentIndex(0)
+        self._ui.stack_image_config.setCurrentIndex(0)
 
         # DPI combobox
         self._ui.cbox_image_dpi.addItems(['72', '100', '300'])
