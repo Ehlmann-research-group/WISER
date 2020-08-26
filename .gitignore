@@ -2,8 +2,11 @@
 **/__pycache__/
 **/.mypy_cache/
 venv/
+
+# These are local directories that hold data for experimentation
 data/
 bigdata/
+sli/
 
 # MacOSX py2app directories
 build/
