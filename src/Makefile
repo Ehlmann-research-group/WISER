@@ -26,6 +26,6 @@ test :
 	$(PYTHON) -m unittest $(TEST_MODULES)
 
 clean :
-	rm $(TARGETS)
+	$(RM) $(TARGETS)
 
 .PHONY : all generated clean
