@@ -6,6 +6,7 @@ from PySide2.QtWidgets import *
 
 import gui.generated.resources
 
+from .export_image import ExportImageDialog
 from .toolbarmenu import ToolbarMenu
 from .rasterpane import RasterPane
 from .rasterview import RasterView
@@ -25,6 +26,7 @@ class MainViewWidget(RasterPane):
             initial_zoom=1)
 
         self._stretch_builder = StretchBuilderDialog(parent=self)
+        self._export_image = ExportImageDialog(parent=self)
         self._link_view_scrolling = False
 
         self._set_link_views_button_state()
@@ -110,12 +112,17 @@ class MainViewWidget(RasterPane):
         This helper function adds "global" items to the context menu, that is,
         items that aren't specific to the location clicked in the window.
         '''
-        act = menu.addAction(self.tr('Export visible area to image file...'))
 
-        act = menu.addAction(self.tr('Export entire dataset to image file...'))
-        # When hooking up the action, use a lambda to pass through the
-        # rasterview that generated the event.
-        act.triggered.connect(lambda checked, rv=rasterview : self._on_export_image(rv))
+        # When listening for these actions, pass in the rasterview that
+        # generated the event.
+
+        act = menu.addAction(self.tr('Export visible image area to RGB image file...'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._on_export_image_visible_area(rv))
+
+        act = menu.addAction(self.tr('Export full image extent to RGB image file...'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._on_export_image_full(rv))
 
 
     def _set_link_views_button_state(self):
@@ -139,9 +146,22 @@ class MainViewWidget(RasterPane):
         self._set_stretch_builder_button_state()
 
 
-    def _on_export_image(self, rasterview):
-        # TODO:  IMPLEMENT
-        pass
+    def _on_export_image_visible_area(self, rasterview):
+        visible = rasterview.get_visible_region()
+        self._export_image.configure(rasterview, visible.x(), visible.y(),
+            visible.width(), visible.height(), rasterview.get_scale())
+
+        # The dialog will save the image to disk, if the user completes the
+        # operation.
+        self._export_image.exec()
+
+
+    def _on_export_image_full(self, rasterview):
+        dataset = rasterview.get_raster_data()
+        self._export_image.configure(rasterview, 0, 0,
+            dataset.get_width(), dataset.get_height(), 1.0)
+
+        self._export_image.exec()
 
 
     def get_stretch_builder(self):

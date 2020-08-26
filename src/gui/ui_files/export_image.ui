@@ -6,31 +6,69 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>283</width>
-    <height>265</height>
+    <width>439</width>
+    <height>454</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Export Image</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" columnstretch="0,1">
-   <item row="4" column="0">
-    <widget class="QLabel" name="lbl_image_format">
-     <property name="text">
-      <string>Image format</string>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,0">
+   <item row="3" column="0" colspan="2">
+    <widget class="QWidget" name="widget" native="true">
+     <layout class="QGridLayout" name="gridLayout_5" columnstretch="1,0">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <item row="1" column="0" colspan="2">
+       <widget class="QLabel" name="lbl_filename">
+        <property name="text">
+         <string>Filename</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_filename</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QPushButton" name="btn_filename">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLineEdit" name="ledit_filename"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="10" column="0" colspan="2">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
      </property>
-     <property name="buddy">
-      <cstring>cbox_image_format</cstring>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
      </property>
     </widget>
    </item>
-   <item row="4" column="1">
-    <widget class="QComboBox" name="cbox_image_format"/>
-   </item>
-   <item row="6" column="0" colspan="2">
+   <item row="9" column="0" colspan="2">
     <widget class="QStackedWidget" name="stack_image_config">
      <property name="currentIndex">
-      <number>1</number>
+      <number>2</number>
      </property>
      <widget class="QWidget" name="page_png">
       <layout class="QVBoxLayout" name="verticalLayout">
@@ -47,14 +85,23 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="QLabel" name="lbl_png">
-         <property name="text">
-          <string>No configuration required
+        <widget class="QGroupBox" name="gbox_png">
+         <property name="title">
+          <string>PNG Settings</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0">
+           <widget class="QLabel" name="lbl_png">
+            <property name="text">
+             <string>No configuration required
 for the PNG image format</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
       </layout>
@@ -78,7 +125,7 @@ for the PNG image format</string>
          <property name="title">
           <string>TIFF Settings</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout_4" columnstretch="0,1">
+         <layout class="QGridLayout" name="gridLayout_4" columnstretch="0,1,0">
           <item row="1" column="0">
            <widget class="QLabel" name="lbl_tiff_quality">
             <property name="text">
@@ -88,6 +135,22 @@ for the PNG image format</string>
              <cstring>sbox_tiff_quality</cstring>
             </property>
            </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="sbox_tiff_quality">
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+            <property name="maximum">
+             <number>95</number>
+            </property>
+            <property name="value">
+             <number>70</number>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="cbox_tiff_compression"/>
           </item>
           <item row="0" column="0">
            <widget class="QLabel" name="lbl_tiff_compression">
@@ -99,15 +162,31 @@ for the PNG image format</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
-           <widget class="QComboBox" name="cbox_tiff_compression"/>
-          </item>
-          <item row="1" column="1">
-           <widget class="QSpinBox" name="sbox_tiff_quality">
-            <property name="maximum">
-             <number>95</number>
+          <item row="0" column="2">
+           <spacer name="horizontalSpacer_3">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
             </property>
-           </widget>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="2" column="1">
+           <spacer name="verticalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
           </item>
          </layout>
         </widget>
@@ -133,11 +212,30 @@ for the PNG image format</string>
          <property name="title">
           <string>JPEG Settings</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,1" columnminimumwidth="0,0">
+         <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,1,0" columnminimumwidth="0,0,0">
+          <item row="0" column="2">
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
           <item row="0" column="1">
            <widget class="QSpinBox" name="sbox_jpeg_quality">
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
             <property name="maximum">
              <number>95</number>
+            </property>
+            <property name="value">
+             <number>70</number>
             </property>
            </widget>
           </item>
@@ -151,6 +249,19 @@ for the PNG image format</string>
             </property>
            </widget>
           </item>
+          <item row="1" column="0" colspan="3">
+           <spacer name="verticalSpacer">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
          </layout>
         </widget>
        </item>
@@ -158,55 +269,157 @@ for the PNG image format</string>
      </widget>
     </widget>
    </item>
-   <item row="3" column="0" colspan="2">
-    <widget class="QWidget" name="widget" native="true">
-     <layout class="QGridLayout" name="gridLayout_5" columnstretch="1,0">
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
-      <property name="spacing">
-       <number>0</number>
-      </property>
-      <item row="1" column="0">
-       <widget class="QLineEdit" name="ledit_filename"/>
-      </item>
-      <item row="1" column="1">
-       <widget class="QPushButton" name="btn_filename">
-        <property name="text">
-         <string>...</string>
+   <item row="5" column="0" colspan="2">
+    <widget class="QGroupBox" name="gbox_image_format">
+     <property name="title">
+      <string>Image Format</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_6">
+      <item row="0" column="4">
+       <widget class="QComboBox" name="cbox_image_dpi">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+        <property name="insertPolicy">
+         <enum>QComboBox::NoInsert</enum>
         </property>
        </widget>
       </item>
-      <item row="0" column="0" colspan="2">
-       <widget class="QLabel" name="lbl_filename">
+      <item row="0" column="3">
+       <widget class="QLabel" name="lbl_image_dpi">
         <property name="text">
-         <string>Filename</string>
+         <string>DPI</string>
         </property>
         <property name="buddy">
-         <cstring>ledit_filename</cstring>
+         <cstring>cbox_image_dpi</cstring>
         </property>
        </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="lbl_image_format">
+        <property name="text">
+         <string>Format</string>
+        </property>
+        <property name="buddy">
+         <cstring>cbox_image_format</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="cbox_image_format">
+        <property name="currentText">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
       </item>
      </layout>
     </widget>
    </item>
-   <item row="7" column="0" colspan="2">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+   <item row="4" column="0" colspan="2">
+    <widget class="QGroupBox" name="gbox_export_area">
+     <property name="title">
+      <string>Area to Export</string>
      </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
-     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0">
+       <widget class="QLabel" name="lbl_x">
+        <property name="text">
+         <string>Left (X)</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_x</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="3">
+       <widget class="QLineEdit" name="ledit_y">
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="ledit_x">
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="ledit_width">
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="ledit_scale">
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QLabel" name="lbl_y">
+        <property name="text">
+         <string>Top (Y)</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_y</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="3">
+       <widget class="QLineEdit" name="ledit_height">
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="lbl_width">
+        <property name="text">
+         <string>Width</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_width</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="QLabel" name="lbl_height">
+        <property name="text">
+         <string>Height</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_height</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="lbl_scale">
+        <property name="text">
+         <string>Scale (%)</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_scale</cstring>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
   </layout>
@@ -214,7 +427,13 @@ for the PNG image format</string>
  <tabstops>
   <tabstop>ledit_filename</tabstop>
   <tabstop>btn_filename</tabstop>
+  <tabstop>ledit_x</tabstop>
+  <tabstop>ledit_y</tabstop>
+  <tabstop>ledit_width</tabstop>
+  <tabstop>ledit_height</tabstop>
+  <tabstop>ledit_scale</tabstop>
   <tabstop>cbox_image_format</tabstop>
+  <tabstop>cbox_image_dpi</tabstop>
   <tabstop>cbox_tiff_compression</tabstop>
   <tabstop>sbox_tiff_quality</tabstop>
   <tabstop>sbox_jpeg_quality</tabstop>
