@@ -537,6 +537,9 @@ class RasterPane(QWidget):
 
 
     def _build_context_menu(self, menu, rasterview, context_menu_event):
+        if rasterview.get_raster_data() is None:
+            return
+            
         # Add any context-menu items that are independent of location
         self._context_menu_add_global_items(menu, rasterview)
 
