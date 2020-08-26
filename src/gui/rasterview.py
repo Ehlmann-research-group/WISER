@@ -1,6 +1,6 @@
 import sys
 from enum import Enum, IntFlag
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -353,7 +353,7 @@ class RasterView(QWidget):
         self.update_display_image()
 
 
-    def get_raster_data(self):
+    def get_raster_data(self) -> Optional[RasterDataSet]:
         '''
         Returns the current raster dataset that is being displayed, or None if
         no dataset is currently being displayed.
@@ -433,6 +433,7 @@ class RasterView(QWidget):
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
         self._img_data = img_data
+        self._img_data.flags.writeable = False
         # print('stored:')
         # print(self._img_data)
 
@@ -447,8 +448,22 @@ class RasterView(QWidget):
 
 
     def get_unscaled_pixmap(self) -> QPixmap:
+        '''
+        Returns the unscaled QPixmap being displayed by this raster-view, along
+        with contrast-stretch applied.
+        '''
         return self._image_pixmap
 
+
+    def get_image_data(self) -> Optional[np.ndarray]:
+        '''
+        Returns the raw image data being displayed by this raster-view, along
+        with contrast-stretch applied.
+
+        The result is a read-only NumPy array, where each pixel is a 32-bit
+        unsigned integer stored in ARGB format, with 8 bits per color channel.
+        '''
+        return self._img_data
 
 
     def _update_scaled_image(self, old_scale_factor=None):
@@ -471,10 +486,6 @@ class RasterView(QWidget):
 
             self._update_scrollbar(self._scroll_area.verticalScrollBar(),
                 self._scroll_area.viewport().height(), scale_change)
-
-
-    def get_display_image(self) -> np.ndarray:
-        return make_rgb_image(self._display_data)
 
 
     def _update_scrollbar(self, scrollbar, view_size, scale_change):
@@ -631,7 +642,7 @@ class RasterView(QWidget):
         self._scroll_area.verticalScrollBar().setValue(state[1])
 
 
-    def get_visible_region(self):
+    def get_visible_region(self) -> Optional[QRect]:
         '''
         This method reports the visible region of the raster data-set, in raster
         data-set coordinates.  The returned value is a Qt QRect, with the
