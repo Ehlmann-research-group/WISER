@@ -106,6 +106,12 @@ WISER project, and build this `make` target:
 make dist-mac
 ```
 
+You can easily test the Mac application like this:
+
+```
+open dist/WISER.app
+```
+
 To clean up all generated files and distributable directories, do this from the
 top level directory of the WISER project:
 
