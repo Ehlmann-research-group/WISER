@@ -9,7 +9,7 @@
 
 Name "Workbench for Imaging Spectroscopy Exploration and Research"
 ; TODO(donnie):  Get version from external file.
-OutFile "Install-WISER-0.0.2.exe"
+OutFile "Install-WISER-1.0a3.exe"
 Unicode True
 ManifestDPIAware True
 
@@ -43,7 +43,7 @@ Section "Install"
 
   SetOutPath "$INSTDIR"
 
-  File /r dist\ISWorkbench\*.*
+  File /r dist\WISER\*.*
 
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -78,7 +78,7 @@ Section "Uninstall"
 
   ; Clean up start-menu entries
 
-  Delete "$SMPROGRAMS\WISER\ISWorkbench.lnk"
+  Delete "$SMPROGRAMS\WISER\WISER.lnk"
   Delete "$SMPROGRAMS\WISER\Uninstall.lnk"
   RMDir /r "$SMPROGRAMS\WISER"
 
