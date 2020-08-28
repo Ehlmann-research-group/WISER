@@ -1,4 +1,6 @@
 import argparse, faulthandler, importlib, json, os, sys
+# Do this as early as possible so we can catch crashes at load time.
+faulthandler.enable()
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -59,9 +61,6 @@ def init_matplotlib():
 
 
 def main():
-    # Logging details
-    faulthandler.enable()
-
     # Configure BugSnag
     bugsnag.configure(
         api_key='29bf39226c3071461f3d0630c9ced4b6',
