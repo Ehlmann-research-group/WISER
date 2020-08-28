@@ -254,7 +254,12 @@ class GDALRasterDataSet(RasterDataSet):
         #     etc.  Should probably do some sanity checking in the initializer.
         # Note that GDAL indexes bands from 1, not 0.
         band = self.gdal_dataset.GetRasterBand(band_index + 1)
-        np_array = band.GetVirtualMemAutoArray()
+        try:
+            np_array = band.GetVirtualMemAutoArray()
+        except RuntimeError:
+            # TODO(donnie):  Windows Conda GDAL doesn't support virtual memory?!
+            print('Couldn\'t read with virtual memory.  Falling back to standard mechanism.')
+            np_array = band.ReadAsArray()
 
         if filter_data_ignore_value:
             ignore_val = self.get_data_ignore_value()
