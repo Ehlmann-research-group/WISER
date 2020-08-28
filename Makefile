@@ -26,8 +26,8 @@ NSIS="C:\Program Files (x86)\NSIS\makensis.exe"
 all : generated
 
 
+# Generate the various files that Qt will need for the UI.
 generated :
-	# Generate the various files that Qt will need for the UI.
 	$(MAKE) -C src generated
 	$(MAKE) -C src/gui generated
 
@@ -59,22 +59,21 @@ dist-mac : generated
 	rm dist/tmp.dmg
 
 
+# To debug PyInstaller issues:
+#   - drop the "--windowed" option
+#   - add a "--debug [bootloader|imports|noarchive|all]" option
+# TODO(donnie):  CAN'T GET --windowed TO WORK - FROZEN APP DOESN'T START :-(
+# Extra "--add-binary" arguments because PyInstaller won't properly
+# include all the necessary Qt DLLs.  The worst one is the SVG icon
+# resources, which require a few steps just to get the icons to even
+# show up in the frozen UI.
 dist-win : generated
-	# To debug PyInstaller issues:
-	#   - drop the "--windowed" option
-	#   - add a "--debug [bootloader|imports|noarchive|all]" option
-
-	# TODO(donnie):  CAN'T GET --windowed TO WORK - FROZEN APP DOESN'T START :-(
-
-	# Extra "--add-binary" arguments because PyInstaller won't properly
-	# include all the necessary Qt DLLs.  The worst one is the SVG icon
-	# resources, which require a few steps just to get the icons to even
-	# show up in the frozen UI.
-    pyinstaller --name $(APP_NAME) --noconfirm \
-    	--add-binary C:\ProgramData\Miniconda3\Library\plugins\platforms;platforms \
-    	--add-binary C:\ProgramData\Miniconda3\Library\plugins\iconengines;iconengines \
-    	--hidden-import PySide2.QtSvg \
-    	src\main.py
+	pyinstaller --name $(APP_NAME) --noconfirm \
+		--add-binary C:\ProgramData\Miniconda3\Library\plugins\platforms;platforms \
+		--add-binary C:\ProgramData\Miniconda3\Library\plugins\iconengines;iconengines \
+		--add-data C:\ProgramData\Miniconda3\Library\bin\libiomp5md.dll;. \
+		--hidden-import PySide2.QtSvg \
+		src\main.py
 
 	$(NSIS) /NOCD install-win\win-install.nsi
 
