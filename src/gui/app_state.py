@@ -58,7 +58,8 @@ class ApplicationState(QObject):
     # Signal:  the active spectrum changed
     active_spectrum_changed = Signal()
 
-    collected_spectra_changed = Signal(StateChange, int)
+    # TODO(donnie):  collected_spectra_changed = Signal(StateChange, int)
+    collected_spectra_changed = Signal(object, int)
 
     # TODO(donnie):  Signals for config changes and color changes!
 
