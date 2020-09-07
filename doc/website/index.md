@@ -20,6 +20,12 @@ these forms:
     to try it out, or you can drag the application into your Applications folder
     for faster startup times.
 
+    **Known Issues:**  On MacOS Catalina, the Gatekeeper security system really
+    interferes with running software that is not from the App Store, or that is
+    not signed with a key from Apple ($99/yr).  [This documentation about
+    Gatekeeper](https://blog.macsales.com/57866-how-to-work-with-and-around-gatekeeper/)
+    may be of some help in working around these issues.
+
 *   A Windows installer is available here:
     [Install-WISER-1.0a3.exe](./Install-WISER-1.0a3.exe)
 
