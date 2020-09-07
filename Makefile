@@ -12,7 +12,7 @@ MYPY_OPTS=
 # MACOSX SETTINGS
 
 OSX_BUNDLE_ID=edu.caltech.gps.WISER
-
+OSX_KEY_NAME="WISER Project"
 
 #======================================================
 # WINDOWS SETTINGS
@@ -52,6 +52,9 @@ dist-mac : generated
 	install_name_tool -id @loader_path/libpng16.16.dylib dist/$(APP_NAME)/libpng16.16.dylib
 	install_name_tool -change /opt/local/lib/libz.1.dylib @loader_path/libz.1.dylib dist/$(APP_NAME)/libpng16.16.dylib
 	cp dist/$(APP_NAME)/libpng16.16.dylib dist/$(APP_NAME).app/Contents/MacOS/
+
+	# Codesign the application
+	# codesign -s $(OSX_KEY_NAME) --deep dist/$(APP_NAME).app
 
 	# Generate a .dmg file containing the Mac application.
 	hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ -srcfolder dist/$(APP_NAME).app
