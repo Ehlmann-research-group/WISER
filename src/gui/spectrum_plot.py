@@ -8,6 +8,7 @@ from PySide2.QtWidgets import *
 import gui.generated.resources
 
 from .app_state import ApplicationState, StateChange
+from .export_plot_image import ExportPlotImageDialog
 from .spectrum_plot_config import SpectrumPlotConfigDialog
 from .spectrum_info_editor import SpectrumInfoEditor
 
@@ -32,7 +33,38 @@ from matplotlib.backends.backend_qt5agg import FigureCanvas
 
 
 
+class SpectrumPlotCanvas(FigureCanvas):
+    '''
+    This is a simple subclass of the matplotlib FigureCanvas that adds in
+    support for responding to context-menu events from Qt.  All other matplotlib
+    FigureCanvas functionality is supported.
+    '''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._on_context_menu = None
+
+    def set_context_menu_fn(self, on_context_menu):
+        '''
+        Set the on-context-menu function to the specified function.
+        The function must have the same signature as
+        QWidget.contextMenuEvent(event).
+        '''
+        self._on_context_menu = on_context_menu
+
+    def contextMenuEvent(self, event):
+        '''
+        This function is called by Qt when the user requests a context menu.
+        '''
+        if self._on_context_menu is not None:
+            self._on_context_menu(event)
+
+
 class SpectrumDisplayInfo:
+    '''
+    This class is used within the spectrum-plot window to record display
+    information for a specific spectrum being displayed.
+    '''
 
     def __init__(self, spectrum: SpectrumInfo):
         '''
@@ -182,7 +214,7 @@ class SpectrumPlot(QWidget):
         self._axes.tick_params(direction='in', labelsize=4, pad=2, width=0.5,
             bottom=True, left=True, top=False, right=False)
 
-        self._figure_canvas = FigureCanvas(self._figure)
+        self._figure_canvas = SpectrumPlotCanvas(self._figure)
 
         self._font_props = matplotlib.font_manager.FontProperties(size=4)
 
@@ -245,6 +277,18 @@ class SpectrumPlot(QWidget):
         layout.addWidget(splitter)
         self.setLayout(layout)
 
+        #==================================================
+        # Events
+
+        # TODO(donnie):  Will this work for context menus?
+        #     Probably have to create a subclass of the figure canvas.
+        self._figure_canvas.setContextMenuPolicy(Qt.DefaultContextMenu)
+        self._figure_canvas.set_context_menu_fn(self._on_plot_context_menu)
+
+        self._figure_canvas.mpl_connect('button_release_event', self._on_mpl_button_release_event)
+        # self._figure_canvas.mpl_connect('pick_event', self._on_mpl_pick_event)
+
+
 
     def sizeHint(self):
         ''' The default size of the spectrum-plot widget is 400x200. '''
@@ -300,6 +344,60 @@ class SpectrumPlot(QWidget):
 
         # Hide the plot's color in the tree widget
         treeitem.setIcon(0, QIcon())
+
+
+    def _on_plot_context_menu(self, event):
+        '''
+        This function shows a context menu on the plot window.
+        '''
+
+        menu = QMenu(self)
+
+        # TODO(donnie):  Eventually, probably expose options for picked spectra
+
+        act = menu.addAction(self.tr('Configure plot...'))
+        # TODO(donnie):  "Configure plot" option
+
+        act = menu.addAction(self.tr('Export plot to image...'))
+        act.triggered.connect(self._on_export_plot_to_image)
+
+        menu.exec_(event.globalPos())
+
+
+    def _on_mpl_button_release_event(self, event):
+        print('-' * 70)
+        print('_on_mpl_button_release_event')
+        print(f'MPL Event name={event.name} type={type(event)} ' +
+              f'x={event.x} y={event.y} ' +
+              f'xdata={event.xdata} ydata={event.ydata}')
+        print(f'event.inaxes={event.inaxes}')
+        print(f'event.guiEvent={event.guiEvent}')
+
+        # The guiEvent's type is QMouseEvent.  If this wasn't a left mouse-click
+        # then ignore the event.  (For example, if this was a right-click, Qt
+        # will respond with a context-menu notification.)
+        if event.guiEvent.button() != Qt.LeftButton:
+            return
+
+        # Find all spectra with X-axis ranges that correspond to the xdata value
+        # from the mouse click.
+
+
+    '''
+    def _on_mpl_pick_event(self, event):
+        print('-' * 70)
+        print('_on_mpl_pick_event')
+        print(f'MPL Event name={event.name} type={type(event)} ' +
+              f'x={event.x} y={event.y} inaxes={inaxes} ' +
+              f'xdata={xdata} ydata={ydata}')
+        print(f'event.inaxes={event.inaxes}')
+        print(f'event.guiEvent={event.guiEvent}')
+    '''
+
+
+    def _on_export_plot_to_image(self, act):
+        dialog = ExportPlotImageDialog(self._figure, parent=self)
+        dialog.exec_()
 
 
     def _on_configure(self):

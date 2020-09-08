@@ -13,6 +13,7 @@ FILENAMES=\
 	band_chooser_ui.py \
 	channel_stretch_widget_ui.py \
 	export_image_ui.py \
+	export_plot_image_ui.py \
 	export_spectra_dialog_ui.py \
 	roi_info_editor_ui.py \
 	spectrum_info_editor_ui.py \
