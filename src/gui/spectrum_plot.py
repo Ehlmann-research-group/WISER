@@ -32,7 +32,6 @@ from astropy import units as u
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
 
-
 class SpectrumPlotCanvas(FigureCanvas):
     '''
     This is a simple subclass of the matplotlib FigureCanvas that adds in
@@ -89,6 +88,10 @@ class SpectrumDisplayInfo:
             self._icon = get_color_icon(self._spectrum.get_color())
 
         return self._icon
+
+
+    def get_spectrum(self) -> SpectrumInfo:
+        return self._spectrum
 
 
     def generate_plot(self, axes, use_wavelengths, wavelength_units=u.nm):
@@ -280,13 +283,12 @@ class SpectrumPlot(QWidget):
         #==================================================
         # Events
 
-        # TODO(donnie):  Will this work for context menus?
-        #     Probably have to create a subclass of the figure canvas.
-        self._figure_canvas.setContextMenuPolicy(Qt.DefaultContextMenu)
-        self._figure_canvas.set_context_menu_fn(self._on_plot_context_menu)
+        if self._app_state.get_config_value('feature-flags.interactive-spectrum-plot', default=False, as_type=bool):
+            self._figure_canvas.setContextMenuPolicy(Qt.DefaultContextMenu)
+            self._figure_canvas.set_context_menu_fn(self._on_plot_context_menu)
 
-        self._figure_canvas.mpl_connect('button_release_event', self._on_mpl_button_release_event)
-        # self._figure_canvas.mpl_connect('pick_event', self._on_mpl_pick_event)
+            self._figure_canvas.mpl_connect('button_release_event', self._on_mpl_button_release_event)
+            # self._figure_canvas.mpl_connect('pick_event', self._on_mpl_pick_event)
 
 
 
@@ -381,6 +383,50 @@ class SpectrumPlot(QWidget):
 
         # Find all spectra with X-axis ranges that correspond to the xdata value
         # from the mouse click.
+
+        closest_spectrum = None
+        closest_index = None
+        closest_value = None
+        closest_distance = None
+
+        if self._plot_uses_wavelengths:
+            # Find the spectrum that has a wavelength near the clicked
+            # wavelength (x-value), and that also has the closest spectrum-value
+            # (y-value) for that wavelength.
+
+            click_x = event.xdata * self._plot_units
+            click_y = event.ydata
+
+            for (id, display_info) in self._spectrum_display_info.items():
+                spectrum = display_info.get_spectrum()
+                assert spectrum.has_wavelengths()
+
+                # See if the spectrum has a wavelength "near" the x-coordinate
+                # of the mouse-click.
+
+                # TODO(donnie):  specify max_distance so that we are within a
+                #     few pixels of the x_data value.
+                index = find_closest_wavelength(spectrum.get_wavelengths(),
+                    click_x)
+
+                if index is None:
+                    continue
+
+                # Compute the spectrum's y-distance from the y-coordinate of
+                # the mouse-click.
+
+                value = spectrum.get_spectrum()[index]
+                distance = abs(value - y_data)
+
+                if closest_distance is None or distance < closest_distance:
+                    closest_spectrum = spectrum
+                    closest_index = index
+                    closest_value = value
+                    closest_distance = distance
+
+        else:
+            # Find the spectrum that has valid bands near the clicked x-value.
+            pass
 
 
     '''

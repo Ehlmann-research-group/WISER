@@ -29,7 +29,9 @@ class MainViewWidget(RasterPane):
         self._export_image = ExportImageDialog(parent=self)
         self._link_view_scrolling = False
 
-        self._set_link_views_button_state()
+        if self._app_state.get_config_value('feature-flags.linked-multi-view', default=False, as_type=bool):
+            self._set_link_views_button_state()
+
         self._set_stretch_builder_button_state()
 
 
@@ -39,8 +41,11 @@ class MainViewWidget(RasterPane):
         selection tools.
         '''
         self._init_dataset_tools()
-        self._toolbar.addSeparator()
-        self._init_view_tools()
+
+        if self._app_state.get_config_value('feature-flags.linked-multi-view', default=False, as_type=bool):
+            self._toolbar.addSeparator()
+            self._init_view_tools()
+
         self._toolbar.addSeparator()
         self._init_zoom_tools()
         self._toolbar.addSeparator()
