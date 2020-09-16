@@ -1,6 +1,6 @@
-from enum import Enum
+import enum
 import os
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 
@@ -19,7 +19,7 @@ from raster.stretch import StretchBase
 from raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 
-class StateChange(Enum):
+class StateChange(enum.Enum):
     ITEM_ADDED = 1
     ITEM_EDITED = 2
     ITEM_REMOVED = 3
@@ -63,7 +63,7 @@ class ApplicationState(QObject):
 
     # TODO(donnie):  Signals for config changes and color changes!
 
-    def __init__(self, app):
+    def __init__(self, app, config: Optional[Dict] = None):
         super().__init__()
 
         # A reference to the overall UI
@@ -102,15 +102,28 @@ class ApplicationState(QObject):
         # into a spectral library.
         self._collected_spectra: List[SpectrumInfo] = []
 
+        # Configuration state.
 
-        # Configuration options.
-        self._config = {
-            'pixel-reticle-type' : PixelReticleType.SMALL_CROSS,
-
-            'default-area-average-x' : 1,
-            'default-area-average-y' : 1,
-            'default-area-average-mode' : 'MEAN',
+        # These are the default configuration options, which may be overrided
+        # by any passed-in configuration options.
+        self._config: Dict = {
+            'config' : {
+                'red_wavelength' : 700,
+                'green_wavelength' : 530,
+                'blue_wavelength' : 470,
+            },
+            'raster' : {
+                'pixel-reticle-type' : 'SMALL_CROSS',
+            },
+            'spectra' : {
+                'default-area-average-x' : 1,
+                'default-area-average-y' : 1,
+                'default-area-average-mode' : 'MEAN',
+            },
         }
+
+        if config is not None:
+            self._config.update(config)
 
         # Colors used for various purposes.
         self._colors = {
@@ -364,19 +377,48 @@ class ApplicationState(QObject):
         self.spectral_library_removed.emit(lib_id)
 
 
-    def get_config(self, option, default=None):
+    def get_config_value(self, option: str, default=None, as_type=str):
         '''
         Returns the value of the specified config option.  An optional default
         value may be specified.
+
+        Options are specified as a sequence of names separated by dots '.',
+        just like a series of object-member accesses on an object hierarchy.
         '''
-        return self._config.get(option, default)
+        parts = option.split('.')
+
+        value = self._config
+        for p in parts:
+            value = value.get(p)
+            if value is None:
+                break
+
+        if value is None:
+            value = default
+
+        else:
+            value = as_type(value)
+
+        return value
 
 
-    def set_config(self, option, value):
+    def set_config_value(self, option, value):
         '''
         Sets the value of the specified config option.
         '''
-        self._config[option] = value
+
+        parts = option.split('.')
+
+        d = self._config
+        for p in parts[:-1]:
+            next = d.get(p)
+            if next is None:
+                next = dict()
+                d[p] = next
+
+            d = next
+
+        d[parts[-1]] = value
 
 
     def get_color_of(self, option):

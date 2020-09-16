@@ -1,5 +1,10 @@
-import json, os, pathlib, sys, traceback
-from typing import List, Tuple
+import json
+import os
+import pathlib
+import sys
+import traceback
+
+from typing import Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -31,7 +36,7 @@ from raster.selection import SinglePixelSelection
 
 class DataVisualizerApp(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, config: Optional[Dict] = None):
         '''
         Initialize the data-visualization app.  This method initializes the
         model, various views, and hooks them together with the controller code.
@@ -41,7 +46,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Internal state
 
-        self._app_state = ApplicationState(self)
+        self._app_state = ApplicationState(self, config=config)
 
         # Application Toolbars
 
