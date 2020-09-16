@@ -67,7 +67,9 @@ def get_band_values(input_bands: List[u.Quantity], to_unit: Optional[u.Unit] = N
     return [convert_spectral(v, to_unit).value for v in input_bands]
 
 
-def find_band_near_wavelength(bands, wavelength, max_distance=20*u.nm):
+def find_band_near_wavelength(bands: List[Dict],
+                              wavelength: u.Quantity,
+                              max_distance=20*u.nm):
     '''
     Given a collection of bands and a wavelength, this function will try to find
     the band closest to the wavelength that is also within the maximum distance
@@ -77,29 +79,43 @@ def find_band_near_wavelength(bands, wavelength, max_distance=20*u.nm):
     If no suitable band is found, the function returns None.
     '''
 
-    best_band = None
+    wavelengths = [b.get('wavelength') for b in bands]
+    if None in wavelengths:
+        raise ValueError('Not all bands specify a wavelength')
+
+    return find_closest_wavelength(wavelengths, wavelength, max_distance)
+
+
+def find_closest_wavelength(wavelengths: List[u.Quantity],
+                            input_wavelength: u.Quantity,
+                            max_distance=20*u.nm):
+    '''
+    Given a list of wavelengths and an input wavelength, this function returns
+    the index of the wavelength closest to the input wavelength.  If no
+    wavelength is within max_distance of the input then None is returned.
+    '''
+
+    # Do the whole calculation in nm to keep things simple.
+
+    input_value = convert_spectral(input_wavelength, u.nm).value
+
+    max_dist_value = None
+    if max_distance is not None:
+        max_dist_value = convert_spectral(max_distance, u.nm).value
+
+    best_index = None
     best_distance = None
 
-    # TODO(donnie):  assert that wavelength units is nanometers
+    for (index, wavelength) in enumerate(wavelengths):
+        # Get the wavelength value, in the same units as the input value
+        value = convert_spectral(wavelength, u.nm).value
 
-    for band in bands:
-        # Fetch the band's wavelength as an astropy value-with-units.  If the
-        # band doesn't have a wavelength, this will evaluate to None.
-        band_wavelength = band.get('wavelength')
-        if band_wavelength is None:
+        distance = abs(value - input_value)
+        if max_dist_value is not None and distance > max_dist_value:
             continue
 
-        # TODO(donnie):  assert that band_wavelength units is nanometers
-        distance = abs(band_wavelength - wavelength)
-        if max_distance is not None and distance > max_distance:
-            continue
-
-        if best_band is None or distance < best_distance:
-            best_band = band
+        if best_index is None or distance < best_distance:
+            best_index = index
             best_distance = distance
 
-    index = None
-    if best_band is not None:
-        index = best_band['index']
-
-    return index
+    return best_index
