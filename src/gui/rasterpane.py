@@ -539,7 +539,7 @@ class RasterPane(QWidget):
     def _build_context_menu(self, menu, rasterview, context_menu_event):
         if rasterview.get_raster_data() is None:
             return
-            
+
         # Add any context-menu items that are independent of location
         self._context_menu_add_global_items(menu, rasterview)
 
@@ -1406,7 +1406,11 @@ class RasterPane(QWidget):
 
             # Draw a reticle centered on the highlighted pixel.
 
-            reticle_type = self._app_state.get_config('pixel-reticle-type', PixelReticleType.SMALL_CROSS)
+            reticle_type = self._app_state.get_config_value(
+                'raster.pixel-reticle-type',
+                default=PixelReticleType.SMALL_CROSS,
+                as_type=lambda s : PixelReticleType[s])
+
             if reticle_type == PixelReticleType.SMALL_CROSS:
                 painter.drawLine(screen_x - 15, screen_y, screen_x + 15, screen_y)
                 painter.drawLine(screen_x, screen_y - 15, screen_x, screen_y + 15)

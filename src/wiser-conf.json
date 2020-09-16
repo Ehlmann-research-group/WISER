@@ -1,5 +1,7 @@
 {
-  "loader" : {
-    "class" : "raster.gdal_dataset.GDALRasterDataLoader"
-  }
+    "online-bug-reporting" : false,
+    "feature-flags" : {
+        "multi-pane" : false,
+        "interactive-plot" : false
+    }
 }
