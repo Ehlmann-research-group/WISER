@@ -1,5 +1,5 @@
 APP_NAME=WISER
-APP_VERSION=1.0a3
+APP_VERSION=1.0a4-dev0
 
 PYLINT=pylint
 PYLINT_OPTS=
@@ -7,12 +7,13 @@ PYLINT_OPTS=
 MYPY=mypy
 MYPY_OPTS=
 
+-include Secret.mk
+
 
 #======================================================
 # MACOSX SETTINGS
 
 OSX_BUNDLE_ID=edu.caltech.gps.WISER
-OSX_KEY_NAME="WISER Project"
 
 #======================================================
 # WINDOWS SETTINGS
@@ -54,12 +55,19 @@ dist-mac : generated
 	cp dist/$(APP_NAME)/libpng16.16.dylib dist/$(APP_NAME).app/Contents/MacOS/
 
 	# Codesign the application
-	# codesign -s $(OSX_KEY_NAME) --deep dist/$(APP_NAME).app
+	codesign -s $(AD_CODESIGN_KEY_NAME) --deep \
+		--entitlements install-mac/entitlements.plist \
+		-o runtime dist/$(APP_NAME).app
 
 	# Generate a .dmg file containing the Mac application.
 	hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ -srcfolder dist/$(APP_NAME).app
 	hdiutil convert dist/tmp.dmg -format UDZO -o dist/$(APP_NAME)-$(APP_VERSION).dmg
 	rm dist/tmp.dmg
+
+	# Submit the disk image to Apple for notarization
+	xcrun altool --notarize -f dist/$(APP_NAME)-$(APP_VERSION).dmg \
+		--primary-bundle-id $(OSX_BUNDLE_ID) \
+		-u $(AD_USERNAME) -p $(AD_PASSWORD)
 
 
 # To debug PyInstaller issues:

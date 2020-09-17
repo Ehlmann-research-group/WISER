@@ -11,3 +11,7 @@ sli/
 # MacOSX py2app directories
 build/
 dist/
+
+# This file contains secrets for distribution, DO NOT CHECK IN!
+Secret.mk
+
