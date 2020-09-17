@@ -154,6 +154,9 @@ class SpectrumPlot(QWidget):
 
         self._app_state = app_state
 
+        # General configuration for the spectrum plot
+        self._plot_units = None
+
         # Display information for all spectra being plotted
         self._spectrum_display_info: Dict[int, SpectrumDisplayInfo] = {}
         self._plot_uses_wavelengths: bool = False
@@ -304,6 +307,10 @@ class SpectrumPlot(QWidget):
         # Figure out whether we should use wavelengths or not in the plot.
         use_wavelengths = False
         if spectrum.has_wavelengths():
+            # TODO(donnie):  This is ugly.  Find a way to expose wavelength units
+            #     on datasets and spectra.
+            self._plot_units = spectrum.get_wavelengths()[0].unit
+
             self._displayed_spectra_with_wavelengths += 1
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
                 use_wavelengths = True
@@ -316,7 +323,8 @@ class SpectrumPlot(QWidget):
             # Need to regenerate all plots with the new "use wavelengths" value
 
             if use_wavelengths:
-                self._axes.set_xlabel('Wavelength (nm)', labelpad=0, fontproperties=self._font_props)
+                self._axes.set_xlabel(f'Wavelength ({self._plot_units})',
+                    labelpad=0, fontproperties=self._font_props)
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
             else:
                 self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=self._font_props)
