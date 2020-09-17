@@ -255,12 +255,14 @@ def find_display_bands(dataset):
     if display_bands is not None:
         return display_bands
 
-    # If that didn't work, just choose first, middle and last bands
-    red_band   = 0
-    green_band = max(0, dataset.num_bands() // 2 - 1)
-    blue_band  = max(0, dataset.num_bands() - 1)
+    # If that didn't work, just choose the first bands
+    if dataset.num_bands() >= 3:
+        # We have at least 3 bands, so use those.
+        return (0, 1, 2)
 
-    return (red_band, green_band, blue_band)
+    else:
+        # We have fewer than 3 bands, so just use one band in grayscale mode.
+        return (0,)  # Need the comma to interpret as a tuple, not arithmetic.
 
 
 def get_normalized_band(dataset, band_index):
