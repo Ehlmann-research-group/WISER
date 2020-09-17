@@ -1,4 +1,4 @@
-from enum import Enum
+import enum
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -7,7 +7,7 @@ from PySide2.QtWidgets import *
 
 
 
-class PixelReticleType(Enum):
+class PixelReticleType(enum.Enum):
     '''
     This enumeration specifies the different options for how a selected pixel
     is highlighted in the user interface.
