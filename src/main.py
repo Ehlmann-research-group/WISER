@@ -7,11 +7,16 @@ import logging.config
 import os
 import sys
 
+CONFIG_FILE = 'wiser-conf.json'
+LOG_CONF_FILE = 'logging.conf'
+
 # Do this as early as possible so we can catch crashes at load time.
 # (Yes, even before loading Qt libraries.)
 faulthandler.enable()
 
-logging.config.fileConfig('logging.conf')
+if os.path.isfile(LOG_CONF_FILE):
+    logging.config.fileConfig(LOG_CONF_FILE)
+
 logger = logging.getLogger(__name__)
 
 from typing import Dict
@@ -34,8 +39,6 @@ from gui.app import DataVisualizerApp
 
 import version
 
-
-CONFIG_FILE = 'wiser-conf.json'
 
 
 def init_matplotlib():
