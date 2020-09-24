@@ -11,7 +11,7 @@ from osgeo import gdal, gdalconst
 
 # Report a warning the first time a virtual-memory mapping access fails.
 # Once a failure is reported, the
-__warn_on_vmm_fail = True
+warn_on_vmm_fail = True
 
 
 class GDALRasterDataSet(RasterDataSet):
@@ -262,12 +262,12 @@ class GDALRasterDataSet(RasterDataSet):
         try:
             np_array = band.GetVirtualMemAutoArray()
         except RuntimeError:
-            global __warn_on_vmm_fail
-            if __warn_on_vmm_fail:
+            global warn_on_vmm_fail
+            if warn_on_vmm_fail:
                 # TODO(donnie):  Windows Conda GDAL doesn't support virtual memory?!
                 print('Couldn\'t read with virtual memory.  Falling back to standard mechanism.')
                 print('(This will only be printed once.)')
-                __warn_on_vmm_fail = False
+                warn_on_vmm_fail = False
 
             np_array = band.ReadAsArray()
 
