@@ -29,7 +29,7 @@ to work though, and simply requires a bit more setup.
 
 3.  Just in case the `conda-forge` channel is not already included in the
     Miniconda config, you should do this:
-    
+
     `conda config --add channels conda-forge`
 
 4.  The following dependencies need to be installed via `conda`:
@@ -37,20 +37,25 @@ to work though, and simply requires a bit more setup.
     ```
     conda install pyside2
     conda install gdal
-    conda install matplotlib
+    conda install matplotlib=3.2.2
     conda install astropy
     conda install pyinstaller
     ```
+
+    >   NOTE:  PyInstaller 4.0 has a bug in its support of matplotlib 3.3.0.  This
+    >   is why we must install matplotlib 3.2.2 for the time being.  The bug
+    >   manifests as an inability to start the packaged Windows distributable.
 
 5.  The following dependencies need to be installed via `pip`:
 
     ```
     pip install pillow
+    pip install bugsnag
     ```
 
 6.  The `make` utility is used to generate supporting files for Qt 5.
 
-    TODO - WRITE.
+    TODO:  GNU Make for Windows
 
 ## Python IDE - PyCharm
 
@@ -72,11 +77,11 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 1.  Open an Anaconda terminal window.
 
     Start -> Anaconda3 (64-bit) -> Anaconda Prompt (Miniconda3)
-    
+
 2.  Figure out how to run `make` from the Anaconda terminal.
 
     I use MinGW32 to get the `make` utility, so I run it like this:
-    
+
     ```c:\MinGW\bin\mingw32-make```
 
 3.  Go to the PyCharm project directory for WISER.
@@ -87,9 +92,9 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 
     **This is currently a manual process, because the `clean` target doesn't
     work on Windows yet.**
-    
+
     Delete these files:
-    
+
     ```
     Install-WISER-*.exe
     src\gui\generated\*.py
