@@ -278,6 +278,7 @@ class RasterPane(QWidget):
         self._toolbar.addWidget(chooser)
 
         chooser.triggered.connect(self._on_add_selection_to_roi)
+        self._roi_selection_chooser = chooser
 
         self._populate_roi_combobox()
 
@@ -1117,8 +1118,11 @@ class RasterPane(QWidget):
             for roi in self._app_state.get_rois():
                 self._cbox_current_roi.addItem(roi.get_name(), roi.get_id())
 
+            self._roi_selection_chooser.setEnabled(True)
+
         else:
             self._cbox_current_roi.addItem(self.tr('(no ROIs)'), None)
+            self._roi_selection_chooser.setEnabled(False)
 
         # Figure out which item was previously selected.  If it is no longer
         # present, just select the first item.
@@ -1210,7 +1214,7 @@ class RasterPane(QWidget):
 
         result = QMessageBox.question(self,
             self.tr('Delete selection {0} from ROI "{1}"').format(sel_index, name),
-            self.tr('Are you sure you wish to delete selection {0}\n' +
+            self.tr('Are you sure you wish to delete selection {0} ' +
                     'from the ROI "{1}"?  This cannot be undone.').format(sel_index, name))
 
         if result == QMessageBox.Yes:
@@ -1238,7 +1242,7 @@ class RasterPane(QWidget):
         if len(pixels) > 200:
             result = QMessageBox.question(self,
                 self.tr('Export ROI Pixel Spectra'),
-                self.tr('This ROI has {0} pixels.  Are you sure you wish to\n' +
+                self.tr('This ROI has {0} pixels.  Are you sure you wish to ' +
                         'output the spectra of all pixels?').format(len(pixels)))
 
             if result == QMessageBox.No:
@@ -1269,7 +1273,7 @@ class RasterPane(QWidget):
         name = roi.get_name()
         result = QMessageBox.question(self,
             self.tr('Delete ROI "{0}"').format(name),
-            self.tr('Are you sure you wish to delete the ROI\n' +
+            self.tr('Are you sure you wish to delete the ROI ' +
                     '"{0}"?  This cannot be undone.').format(name))
 
         if result == QMessageBox.Yes:
