@@ -4,7 +4,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from version import VERSION
+import version
 
 from .generated.system_info_ui import Ui_SystemInfoDialog
 
@@ -34,8 +34,8 @@ class SystemInfoDialog(QDialog):
         # Application info
 
         info  = 'WISER:  Workbench for Imaging Spectroscopy Exploration and Research\n'
-        info += 'Version:  {0}\n'.format(VERSION)
-        info += 'Release Date:  Real Soon Now...\n'
+        info += 'Version:  {0}\n'.format(version.VERSION)
+        info += 'Release Date:  {0}\n'.format(version.RELEASE_DATE)
         info += '\n'
 
         # OS platform and Python platform info
