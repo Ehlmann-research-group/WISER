@@ -198,6 +198,7 @@ class RasterPane(QWidget):
         # self._band_chooser = BandChooser(self._app_state)
         # toolbar.addWidget(self._band_chooser)
         self._act_band_chooser.triggered.connect(self._on_band_chooser)
+        self._act_band_chooser.setEnabled(False)
 
 
     def _init_zoom_tools(self):
@@ -896,6 +897,12 @@ class RasterPane(QWidget):
 
         # print(f'on_dataset_added:  band info:  {self._display_bands}')
 
+        # TODO(donnie):  I don't know why I did all this stuff before, but I
+        #     think it was before I added the show_dataset() function.  So,
+        #     this code is temporarily commented out, and can be removed once
+        #     we know there are no ill effects.  (A lot of this logic needs to
+        #     be reworked once we get multi-views tidied up as well.)
+        '''
         if self._app_state.num_datasets() == 1:
             # We finally have a dataset!
 
@@ -910,7 +917,16 @@ class RasterPane(QWidget):
                 if self._initial_zoom is not None:
                     rasterview.scale_image(self._initial_zoom)
 
+            self._act_band_chooser.setEnabled(True)
             self._update_zoom_widgets()
+        '''
+
+        self.show_dataset(dataset)
+
+        # Always do this when we add a data set
+        self._act_band_chooser.setEnabled(True)
+        self._update_zoom_widgets()
+
 
 
     def _on_dataset_removed(self, ds_id):
@@ -928,6 +944,9 @@ class RasterPane(QWidget):
             rv_ds = rasterview.get_raster_data()
             if rv_ds is not None and rv_ds.get_id() == ds_id:
                 rasterview.set_raster_data(None, None)
+
+        if self._app_state.num_datasets() == 0:
+            self._act_band_chooser.setEnabled(False)
 
 
     def _on_dataset_changed(self, act):
