@@ -62,6 +62,24 @@ class ContextPane(RasterPane):
         self._update_image_scale()
 
 
+    def _on_dataset_added(self, ds_id):
+        '''
+        Override the base-class implementation so we can also update the
+        image scaling.
+        '''
+        super()._on_dataset_added(ds_id)
+        self._update_image_scale()
+
+
+    def _on_dataset_removed(self, ds_id):
+        '''
+        Override the base-class implementation so we can also update the
+        image scaling.
+        '''
+        super()._on_dataset_removed(ds_id)
+        self._update_image_scale()
+
+
     def _on_toggle_fit_to_window(self):
         '''
         Update the raster-view image when the "fit to window" button is toggled.
