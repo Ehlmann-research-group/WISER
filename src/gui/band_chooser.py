@@ -73,7 +73,13 @@ class BandChooserDialog(QDialog):
         # Get the band list from the dataset, and get a string description for
         # each band
         bands = self._dataset.band_list()
-        items = [b['description'] for b in bands]
+        items = []
+        for b in bands:
+            desc = b['description']
+            if len(desc) == 0:
+                desc = f'Band {b["index"]}'
+
+            items.append(desc)
 
         # Add all the band descriptions to the combobox.
         combobox.addItems(items)

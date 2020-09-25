@@ -103,8 +103,12 @@ class GDALRasterDataSet(RasterDataSet):
                 # If the raw metadata doesn't actually have band names, generate
                 # a band name/description from the wavelength information, since
                 # the GDAL info is a bit ridiculously formatted.
-                if not has_band_names and 'wavelength' in info:
-                    info['description'] = '{0:0.02f}'.format(info['wavelength'])
+                if not has_band_names:
+                    if 'wavelength' in info:
+                        info['description'] = '{0:0.02f}'.format(info['wavelength'])
+                    else:
+                        # NOTE:  Using 0-based index, not 1-based index!
+                        info['description'] = f'Band {info["index"]}'
 
             self.band_info.append(info)
 
