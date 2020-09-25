@@ -410,17 +410,31 @@ class RasterView(QWidget):
             self._image_widget.set_dataset_info(None, self._scale_factor)
             return
 
-        # print("Extracting raw band data")
-
         # Only generate (or regenerate) each color plane if we don't already
         # have data for it, and if we aren't told to explicitly regenerate it.
 
-        color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
-        for i in range(len(self._display_bands)):
-            if self._display_data[i] is None or color_indexes[i] in colors:
-                # Compute the contents of this color channel.
-                self._display_data[i] = make_channel_image(self._raster_data,
-                    self._display_bands[i], self._stretches[i])
+        assert len(self._display_bands) in [1, 3]
+
+        if len(self._display_bands) == 3:
+            # Check each color band to see if we need to update it.
+            color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
+            for i in range(len(self._display_bands)):
+                if self._display_data[i] is None or color_indexes[i] in colors:
+                    # Compute the contents of this color channel.
+                    self._display_data[i] = make_channel_image(self._raster_data,
+                        self._display_bands[i], self._stretches[i])
+        else:
+            # This is a grayscale image.
+            if colors != ImageColors.NONE:
+                # Regenerate the image.  Since all color bands are the same,
+                # generate the first one, then duplicate it for the other two
+                # bands.
+
+                self._display_data[0] = make_channel_image(self._raster_data,
+                    self._display_bands[0], self._stretches[0])
+
+                self._display_data[1] = self._display_data[0]
+                self._display_data[2] = self._display_data[0]
 
         # Combine our individual color channel(s) into a single RGB image.
         img_data = make_rgb_image(self._display_data)
