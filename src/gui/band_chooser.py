@@ -150,12 +150,12 @@ class BandChooserDialog(QDialog):
             return None
 
         if self._ui.rbtn_rgb.isChecked():
-            return [self._ui.cbox_red_band.currentIndex(),
+            return (self._ui.cbox_red_band.currentIndex(),
                     self._ui.cbox_green_band.currentIndex(),
-                    self._ui.cbox_blue_band.currentIndex()]
+                    self._ui.cbox_blue_band.currentIndex(),)
         else:
             assert self._ui.rbtn_grayscale.isChecked()
-            return [self._ui.cbox_gray_band.currentIndex()]
+            return (self._ui.cbox_gray_band.currentIndex(),)
 
 
     def apply_globally(self):
