@@ -343,7 +343,11 @@ class SpectrumPlot(QWidget):
 
     def _remove_spectrum_from_plot(self, spectrum, treeitem):
         id = spectrum.get_id()
-        display_info = self._spectrum_display_info[id]
+        display_info = self._spectrum_display_info.get(id)
+        if display_info is None:
+            # Already not displaying the spectrum - we are done!
+            return
+
         del self._spectrum_display_info[id]
 
         # Figure out whether we should use wavelengths or not in the plot.
@@ -817,7 +821,7 @@ class SpectrumPlot(QWidget):
         display_info = self._spectrum_display_info.get(spectrum.get_id())
         if display_info is not None:
             display_info.reset()
-            display_info.generate_plot(self._axes, True)
+            display_info.generate_plot(self._axes, self._plot_uses_wavelengths)
             treeitem.setIcon(0, display_info.get_icon())
 
         self._draw_spectra()
@@ -836,15 +840,16 @@ class SpectrumPlot(QWidget):
             return
 
         # If we got here, we are discarding the spectrum.
-
         if treeitem.parent() is self._treeitem_collected:
             # The spectrum is in the collected spectra.
             index = self._treeitem_collected.indexOfChild(treeitem)
-            del self._collected_spectra[index]
+            self._app_state.remove_collected_spectrum(index)
+            # TODO:
+            '''
             self._treeitem_collected.takeChild(index)
-
             if len(self._collected_spectra) == 0:
                 self._treeitem_collected.setHidden(True)
+            '''
         else:
             # The spectrum is the active spectrum.
             self._app_state.set_active_spectrum(None)
