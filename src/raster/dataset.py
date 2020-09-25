@@ -217,11 +217,18 @@ def find_truecolor_bands(dataset, red=RED_WAVELENGTH, green=GREEN_WAVELENGTH,
                          blue=BLUE_WAVELENGTH):
     '''
     This function looks for bands in the dataset that are closest to the
-    visible-light spectral bands.  If a band cannot be found for red, green or
-    blue wavelengths, the function returns None.  Otherwise, if bands are found
-    for all of red, green and blue, then the function returns a
-    (red_band_index, grn_band_index, blu_band_index) triple.
+    visible-light spectral bands.
+
+    If a band cannot be found for red, green or blue wavelengths, the function
+    returns None.  Similarly, if the dataset doesn't specify wavelengths for
+    bands, the function returns None.
+
+    If bands are found for all of the red, green and blue wavelengths, then the
+    function returns a (red_band_index, grn_band_index, blu_band_index) triple.
     '''
+    if not dataset.has_wavelengths():
+        return None
+    
     bands = dataset.band_list()
     red_band   = find_band_near_wavelength(bands, red)
     green_band = find_band_near_wavelength(bands, green)
