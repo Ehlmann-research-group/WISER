@@ -159,7 +159,7 @@ class SpectrumPlot(QWidget):
 
         # Display information for all spectra being plotted
         self._spectrum_display_info: Dict[int, SpectrumDisplayInfo] = {}
-        self._plot_uses_wavelengths: bool = False
+        self._plot_uses_wavelengths: Optional[bool] = None
         self._displayed_spectra_with_wavelengths = 0
 
         # Display state for the "active spectrum"
