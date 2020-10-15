@@ -496,6 +496,10 @@ class DataVisualizerApp(QMainWindow):
         # Create a single-pixel selection with the dataset and coordinate of
         # the selected pixel.
         ds = self._main_view.get_current_dataset(rasterview_position)
+        if ds is None:
+            # The clicked-on rasterview has no dataset loaded; ignore.
+            return
+
         sel = SinglePixelSelection(ds_point, ds)
 
         # Update the main and zoom windows to show the selected dataset and pixel.
