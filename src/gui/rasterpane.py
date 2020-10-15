@@ -46,6 +46,173 @@ class RecenterMode(Enum):
     IF_NOT_VISIBLE = 2
 
 
+class TiledRasterView(RasterView):
+    '''
+    This class subclasses the RasterView class for use in a tiled layout in the
+    RasterPane.  It adds a toolbar and a position within the RasterPane.  The
+    toolbar includes some basic tools, including a band chooser, a stretch
+    builder, and a widget to choose the dataset being displayed.
+    '''
+
+    def __init__(self, rasterpane, position, parent=None, forward=None):
+        super().__init__(parent=parent, forward=forward)
+
+        self._rasterpane = rasterpane
+        self._position = position
+
+        self._toolbar = QToolBar(
+            self.tr('RasterView [{row}, {col}] Toolbar').format(row=position[0],
+                                                                col=position[1]),
+            parent=self)
+        self._layout.setMenuBar(self._toolbar)
+
+        self._toolbar.setIconSize(QSize(16, 16))
+        # self._toolbar.setFloatable(False)
+        # self._toolbar.setMovable(False)
+
+        #====================
+        # Dataset Chooser
+
+        self._cbox_dataset_chooser = QComboBox()
+        self._cbox_dataset_chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self._toolbar.addWidget(self._cbox_dataset_chooser)
+
+        self._cbox_dataset_chooser.activated.connect(self._on_switch_to_dataset)
+
+        # rv_dataset_chooser = DatasetChooser(None, self._app_state)
+        # rv_toolbar.addWidget(rv_dataset_chooser)
+        # TODO:  rv_dataset_chooser.triggered.connect(self._on_dataset_changed)
+
+        #====================
+        # Band Chooser
+
+        self._act_band_chooser = add_toolbar_action(self._toolbar,
+            ':/icons/choose-bands.svg', self.tr('Band chooser'), self)
+        self._act_band_chooser.triggered.connect(
+            lambda checked=False : self._rasterpane._on_band_chooser(
+                checked, rasterview_pos=self._position))
+
+        #====================
+        # Stretch Builder
+
+        self._act_stretch_builder = add_toolbar_action(self._toolbar,
+            ':/icons/stretch-builder.svg', self.tr('Stretch builder'), self)
+        self._act_stretch_builder.triggered.connect(
+            lambda checked=False : self._rasterpane._on_stretch_builder(
+                checked, rasterview_pos=self._position))
+
+        self.update_toolbar_state()
+
+
+    def show_toolbar(self):
+        ''' Shows the toolbar on this raster-view. '''
+        self._toolbar.show()
+
+    def hide_toolbar(self):
+        ''' Hides the toolbar on this raster-view. '''
+        self._toolbar.hide()
+
+    def update_toolbar_state(self):
+        '''
+        Updates the toolbar's state to match the current application state.
+        This includes synchronizing the list of datasets in the datset-chooser
+        with the datasets in the application, and also updating the button
+        enabled-state based on what tasks should be available to users.
+        '''
+        app_state = self._rasterpane.get_app_state()
+
+        num_datasets = app_state.num_datasets()
+
+        self._act_band_chooser.setEnabled(num_datasets > 0)
+        self._act_stretch_builder.setEnabled(num_datasets > 0)
+
+        current_index = self._cbox_dataset_chooser.currentIndex()
+        current_ds_id = None
+        if current_index != -1:
+            current_ds_id = self._cbox_dataset_chooser.itemData(current_index)
+        else:
+            # This occurs initially, when the combobox is empty and has no
+            # selection.  Make sure the "(no data)" option is selected by the
+            # end of this process.
+            current_index = 0
+            current_ds_id = -1
+
+        # print(f'update_toolbar_state(position={self._position}):  current_index = {current_index}, current_ds_id = {current_ds_id}')
+
+        new_index = None
+        self._cbox_dataset_chooser.clear()
+
+        if num_datasets > 0:
+            for (index, dataset) in enumerate(app_state.get_datasets()):
+                id = dataset.get_id()
+                name = dataset.get_filepaths()[0]
+
+                self._cbox_dataset_chooser.addItem(name, id)
+                if dataset.get_id() == current_ds_id:
+                    new_index = index
+
+            self._cbox_dataset_chooser.insertSeparator(num_datasets)
+            self._cbox_dataset_chooser.addItem(self.tr('(no data)'), -1)
+            if current_ds_id == -1:
+                new_index = self._cbox_dataset_chooser.count() - 1
+        else:
+            # No datasets yet
+            self._cbox_dataset_chooser.addItem(self.tr('(no data)'), -1)
+            if current_ds_id == -1:
+                new_index = 0
+
+        # print(f'update_toolbar_state(position={self._position}):  new_index = {new_index}')
+
+        if new_index is None:
+            if num_datasets > 0:
+                new_index = min(current_index, num_datasets - 1)
+            else:
+                new_index = 0
+
+        self._cbox_dataset_chooser.setCurrentIndex(new_index)
+
+
+    def _on_switch_to_dataset(self, index: int):
+        '''
+        This function handles "activated" events from the dataset-chooser
+        widget.
+        '''
+        # print(f'_on_switch_to_dataset(position={self._position}):  index = {index}')
+
+        ds_id = self._cbox_dataset_chooser.itemData(index)
+
+        dataset = None
+        if ds_id != -1:
+            app_state = self._rasterpane.get_app_state()
+            dataset = app_state.get_dataset(ds_id)
+
+        self._rasterpane.show_dataset(dataset, self._position)
+
+
+    def set_raster_data(self, raster_data, display_bands, stretches=None):
+        '''
+        Override the base-class implementation to also update the toolbar's
+        dataset-chooser to match the dataset being displayed.
+        '''
+        # Let the base implementation do its thing first.
+        super().set_raster_data(raster_data, display_bands, stretches=stretches)
+
+        # Update the dataset-chooser to match this raster data.
+
+        # print(f'set_raster_data(position={self._position})')
+
+        if raster_data is None:
+            index = self._cbox_dataset_chooser.findData(-1)
+            assert index != -1, f'Missing the (no data) option!'
+
+        else:
+            ds_id = raster_data.get_id()
+            index = self._cbox_dataset_chooser.findData(ds_id)
+            assert index != -1, f'Tried to display an unrecognized dataset:  {ds_id}'
+
+        self._cbox_dataset_chooser.setCurrentIndex(index)
+
+
 class RasterPane(QWidget):
     '''
     This widget provides a raster-view with an associated toolbar.
@@ -290,6 +457,11 @@ class RasterPane(QWidget):
 
 
     def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1)):
+        '''
+        Initialize the raster-pane to have MxN raster-views displayed in the
+        pane.  The default is to have only one raster-view showing in the pane.
+        '''
+
         if num_views[0] < 1 or num_views[1] < 1:
             raise ValueError(f'Minimum number of raster-view rows/cols is 1, got {num_views}')
 
@@ -310,69 +482,43 @@ class RasterPane(QWidget):
             'scrollContentsBy'  : self._afterRasterScroll,
         }
 
-        # There are existing raster-views; clean them all up.
-        # TODO(donnie):  Just clean up the ones that are now "out of bounds" for
-        #     the new layout.
-        # TODO(donnie):  This is not a good approach, since a rasterview may be
-        #     given a toolbar, or have its toolbar taken away.  Probably better
-        #     to record the config of the rasterviews that are in-bounds, and
-        #     re-apply the config to the newly created rasterviews.  The config
-        #     would be:  dataset-ID, display bands, stretches.
         if len(self._rasterviews) != 0:
-            # Remove each raster-view from the grid layout
-            for (position, rasterview) in self._rasterviews.items():
-                # Remove the rasterview from the layout, and hide it.
-                self._rasterview_layout.removeWidget(rasterview)
-                rasterview.hide()
+            # There are existing raster-views.  Clean up the ones that are now
+            # "out of bounds" for the new layout.
+            for (position, rasterview) in list(self._rasterviews.items()):
+                (row, col) = position
+                if row < num_views[0] and col < num_views[1]:
+                    # Keep this RasterView and its frame.
+                    continue
 
-            # Clear out the dictionary of raster-views
-            self._rasterviews.clear()
+                # Remove the rasterview-frame from the layout, and close it.
+                self._rasterview_layout.removeWidget(rasterview)
+                rasterview.close()
+
+                # Remove the entry from the rasterviews collection
+                del self._rasterviews[position]
 
         # Create new raster-views as specified by the arguments
+
         multiviews = (num_views != (1, 1))
+
         (rows, cols) = num_views
         for row in range(rows):
             for col in range(cols):
-                rasterview = RasterView(parent=self, forward=forward)
-                rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
-
-                rv_container = rasterview
-                if multiviews:
-                    # TODO(donnie):  All this malarkey is so we can add a toolbar to
-                    #     the individual rasterviews.
-                    rv_container = QWidget()
-                    rv_layout = QGridLayout()
-                    rv_layout.setContentsMargins(QMargins(0, 0, 0, 0))
-                    rv_container.setLayout(rv_layout)
-                    rv_layout.addWidget(rasterview)
-
-                    rv_toolbar = QToolBar(
-                        self.tr('RasterView [{row}, {col}] Toolbar').format(row=row, col=col),
-                        parent=rv_container)
-                    rv_layout.setMenuBar(rv_toolbar)
-
-                    rv_toolbar.setIconSize(QSize(16, 16))
-                    # rv_toolbar.setFloatable(False)
-                    # rv_toolbar.setMovable(False)
-
-                    rv_ds_name = QComboBox()
-                    rv_toolbar.addWidget(rv_ds_name)
-
-                    # rv_dataset_chooser = DatasetChooser(None, self._app_state)
-                    # rv_toolbar.addWidget(rv_dataset_chooser)
-                    # TODO:  rv_dataset_chooser.triggered.connect(self._on_dataset_changed)
-
-                    rv_act_band_chooser = add_toolbar_action(rv_toolbar,
-                        ':/icons/choose-bands.svg', self.tr('Band chooser'), rv_container)
-                    # TODO:  rv_act_band_chooser.triggered.connect(self._on_band_chooser)
-
-
                 position = (row, col)
-                # TODO(donnie):  THIS NEEDS TO CHANGE IF THIS CONTAINER STUFF WORKS
-                # self._rasterviews[position] = (rasterview, rv_container)
-                self._rasterviews[position] = rasterview
-                # self._rasterview_layout.addWidget(rasterview, row, col)
-                self._rasterview_layout.addWidget(rv_container, row, col)
+
+                rasterview = self._rasterviews.get(position)
+                if rasterview is None:
+                    rasterview = TiledRasterView(self, position, forward=forward)
+                    rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
+
+                    self._rasterviews[position] = rasterview
+                    self._rasterview_layout.addWidget(rasterview, row, col)
+
+                if multiviews:
+                    rasterview.show_toolbar()
+                else:
+                    rasterview.hide_toolbar()
 
         self._num_views = num_views
         self.views_changed.emit(self._num_views)
@@ -391,6 +537,10 @@ class RasterPane(QWidget):
                 return pos
 
         return None
+
+
+    def get_app_state(self):
+        return self._app_state
 
 
     def get_num_views(self) -> Tuple[int, int]:
@@ -426,13 +576,27 @@ class RasterPane(QWidget):
             rv.update()
 
 
+    def _update_rasterview_toolbars(self):
+        '''
+        An internal helper function to update the toolbars of all tiled
+        rasterviews being displayed.
+        '''
+        # Update the toolbar state of all rasterviews
+        for rasterview in self._rasterviews.values():
+            rasterview.update_toolbar_state()
+
+
     def get_all_visible_regions(self) -> List:
         '''
         Returns a list of all visible regions
         '''
         # Get the list of visible regions, but filter out empty regions.
-        regions = [rv.get_visible_region() for rv in self._rasterviews.values()]
-        regions = [r for r in regions if r is not None]
+        regions = []
+        for rv in self._rasterviews.values():
+            region = rv.get_visible_region()
+            if region is not None:
+                regions.append(region)
+
         return regions
 
 
@@ -456,8 +620,8 @@ class RasterPane(QWidget):
 
         As one would expect, this will generate a viewport-changed event.
         '''
-        for rasterview in self._rasterviews.values():
-            rasterview.scale_image(scale)
+        for rv in self._rasterviews.values():
+            rv.scale_image(scale)
 
 
     def resizeEvent(self, event):
@@ -739,9 +903,12 @@ class RasterPane(QWidget):
         if rasterview.get_raster_data() is dataset:
             return
 
-        ds_id = dataset.get_id()
-        bands = self._display_bands[ds_id]
-        stretches = self._app_state.get_stretches(ds_id, bands)
+        bands = None
+        stretches = None
+        if dataset is not None:
+            ds_id = dataset.get_id()
+            bands = self._display_bands[ds_id]
+            stretches = self._app_state.get_stretches(ds_id, bands)
 
         rasterview.set_raster_data(dataset, bands, stretches)
 
@@ -758,13 +925,13 @@ class RasterPane(QWidget):
 
         # If the specified data set is the one currently being displayed, update
         # the UI display.
-        for rasterview in self._rasterviews.values():
-            rv_dataset = rasterview.get_raster_data()
+        for rv in self._rasterviews.values():
+            rv_dataset = rv.get_raster_data()
             if rv_dataset is not None and ds_id == rv_dataset.get_id():
                 # Get the stretches at the same time, so that we only update the
                 # raster-view once.
                 stretches = self._app_state.get_stretches(ds_id, bands)
-                rasterview.set_display_bands(bands, stretches=stretches)
+                rv.set_display_bands(bands, stretches=stretches)
 
 
     def make_point_visible(self, x, y, rasterview_pos=(0, 0)):
@@ -795,18 +962,18 @@ class RasterPane(QWidget):
 
         # TODO(donnie):  Do we want to force all raster-views to switch to
         #     displaying the viewport?
-        for rasterview in self._rasterviews.values():
-            visible = rasterview.get_visible_region()
+        for rv in self._rasterviews.values():
+            visible = rv.get_visible_region()
             if visible is None or viewport is None or isinstance(viewport, list):
-                rasterview.update()
+                rv.update()
                 continue
 
             if not visible.contains(viewport):
                 center = viewport.center()
-                rasterview.make_point_visible(center.x(), center.y())
+                rv.make_point_visible(center.x(), center.y())
 
             # Repaint raster-view
-            rasterview.update()
+            rv.update()
 
 
     def set_pixel_highlight(self, pixel_sel: Optional[SinglePixelSelection],
@@ -895,33 +1062,22 @@ class RasterPane(QWidget):
         bands = find_display_bands(dataset)
         self._display_bands[ds_id] = bands
 
-        # print(f'on_dataset_added:  band info:  {self._display_bands}')
+        self._update_rasterview_toolbars()
 
-        # TODO(donnie):  I don't know why I did all this stuff before, but I
-        #     think it was before I added the show_dataset() function.  So,
-        #     this code is temporarily commented out, and can be removed once
-        #     we know there are no ill effects.  (A lot of this logic needs to
-        #     be reworked once we get multi-views tidied up as well.)
-        '''
-        if self._app_state.num_datasets() == 1:
-            # We finally have a dataset!
+        # Search through the current set of RasterViews; if one is currently not
+        # showing data, display the new dataset in that view.  If all are
+        # showing data, just show it in the top-left view.
 
-            for rasterview in self._rasterviews.values():
-                # Only do this when the raster dataset actually changes,
-                # or the displayed bands change, etc.
-                if dataset != rasterview.get_raster_data():
-                    bands = self._display_bands[ds_id]
-                    stretches = self._app_state.get_stretches(ds_id, bands)
-                    rasterview.set_raster_data(dataset, bands, stretches)
+        display_pos = (0, 0)
 
-                if self._initial_zoom is not None:
-                    rasterview.scale_image(self._initial_zoom)
+        positions = [(r, c) for r in range(self._num_views[0])
+                            for c in range(self._num_views[1])]
+        for pos in positions:
+            if self._rasterviews[pos].get_raster_data() is None:
+                display_pos = pos
+                break
 
-            self._act_band_chooser.setEnabled(True)
-            self._update_zoom_widgets()
-        '''
-
-        self.show_dataset(dataset)
+        self.show_dataset(dataset, display_pos)
 
         # Always do this when we add a data set
         self._act_band_chooser.setEnabled(True)
@@ -940,10 +1096,10 @@ class RasterPane(QWidget):
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 
-        for rasterview in self._rasterviews.values():
-            rv_ds = rasterview.get_raster_data()
+        for rv in self._rasterviews.values():
+            rv_ds = rv.get_raster_data()
             if rv_ds is not None and rv_ds.get_id() == ds_id:
-                rasterview.set_raster_data(None, None)
+                rv.set_raster_data(None, None)
 
         if self._app_state.num_datasets() == 0:
             self._act_band_chooser.setEnabled(False)
@@ -955,10 +1111,12 @@ class RasterPane(QWidget):
         self.show_dataset(dataset, rasterview_pos)
 
 
-    def _on_band_chooser(self, act):
-        dataset = self.get_current_dataset()
-        # TODO(donnie):  This needs to change with multi-views
-        display_bands = self.get_rasterview().get_display_bands()
+    def _on_band_chooser(self, checked=False, rasterview_pos=(0,0)):
+        print(f'on_band_chooser invoked for position {rasterview_pos}')
+
+        rasterview = self.get_rasterview(rasterview_pos)
+        dataset = rasterview.get_raster_data()
+        display_bands = rasterview.get_display_bands()
 
         dialog = BandChooserDialog(dataset, display_bands, parent=self)
         dialog.setModal(True)
@@ -976,14 +1134,32 @@ class RasterPane(QWidget):
                 self.set_display_bands(dataset.get_id(), bands)
 
 
+    def _on_stretch_builder(self, checked=False, rasterview_pos=(0, 0)):
+        ''' Show the Stretch Builder on behalf of the specified raster-view. '''
+
+        # print(f'on_stretch_builder invoked for position {rasterview_pos}')
+
+        if self._stretch_builder is None:
+            self._stretch_builder = StretchBuilderDialog(parent=self)
+
+        rasterview = self.get_rasterview(rasterview_pos)
+        self._stretch_builder.show(rasterview.get_raster_data(),
+                                   rasterview.get_display_bands(),
+                                   rasterview.get_stretches())
+
+
     def _on_stretch_changed(self, ds_id, bands):
         # Iterate through all rasterviews.  If any is displaying the dataset
         # that changed stretch, update its stretches.
-        for rasterview in self._rasterviews.values():
-            if rasterview.get_raster_data().get_id() == ds_id:
-                bands = rasterview.get_display_bands()
+        for rv in self._rasterviews.values():
+            dataset = rv.get_raster_data()
+            if dataset is None:
+                continue
+
+            if dataset.get_id() == ds_id:
+                bands = rv.get_display_bands()
                 stretches = self._app_state.get_stretches(ds_id, bands)
-                rasterview.set_stretches(stretches)
+                rv.set_stretches(stretches)
 
 
     def _on_zoom_in(self, evt):
