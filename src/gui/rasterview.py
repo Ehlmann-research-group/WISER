@@ -286,13 +286,13 @@ class RasterView(QWidget):
 
         # Set up the layout
 
-        layout = QVBoxLayout()
-        layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        self._layout = QVBoxLayout()
+        self._layout.setContentsMargins(QMargins(0, 0, 0, 0))
 
         # layout.addWidget(self.image_toolbar)
         # layout.setMenuBar(self.image_toolbar)
-        layout.addWidget(self._scroll_area)
-        self.setLayout(layout)
+        self._layout.addWidget(self._scroll_area)
+        self.setLayout(self._layout)
 
     def get_stretches(self):
         return self._stretches
@@ -342,13 +342,18 @@ class RasterView(QWidget):
         self._clear_members()
 
         self._raster_data = raster_data
-        self._display_bands = display_bands
 
-        if stretches is not None:
-            self._stretches = stretches
+        if raster_data is not None:
+            self._display_bands = display_bands
+
+            if stretches is not None:
+                self._stretches = stretches
+            else:
+                # Default to no stretches.
+                self._stretches = [None] * len(self._display_bands)
         else:
-            # Default to no stretches.
-            self._stretches = [None] * len(self._display_bands)
+            self._display_bands = None
+            self._stretches = None
 
         self.update_display_image()
 
