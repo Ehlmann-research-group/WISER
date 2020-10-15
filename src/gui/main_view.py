@@ -173,14 +173,6 @@ class MainViewWidget(RasterPane):
         return self._stretch_builder
 
 
-    def _on_stretch_builder(self, act):
-        ''' Show the Stretch Builder. '''
-
-        self._stretch_builder.show(self.get_current_dataset(),
-                                   self.get_rasterview().get_display_bands(),
-                                   self.get_rasterview().get_stretches())
-
-
     def _on_split_views(self, action):
         '''
         This function handles when the user requests a split-view layout of some
