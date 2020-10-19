@@ -493,24 +493,48 @@ class DataVisualizerApp(QMainWindow):
         if self._app_state.num_datasets() == 0:
             return
 
-        # Create a single-pixel selection with the dataset and coordinate of
-        # the selected pixel.
+        # Get the dataset of the main view.  If no dataset is being displayed,
+        # this is a no-op.
         ds = self._main_view.get_current_dataset(rasterview_position)
         if ds is None:
             # The clicked-on rasterview has no dataset loaded; ignore.
             return
 
-        sel = SinglePixelSelection(ds_point, ds)
+        # App behavior varies when we are in linked mode vs. not in linked mode
+        if self._main_view.is_scrolling_linked():
+            # Linked scrolling:  Don't change the dataset of any other panes;
+            # just show the corresponding data in those panes' datasets.
 
-        # Update the main and zoom windows to show the selected dataset and pixel.
-        self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
-        self._zoom_pane.show_dataset(ds)
-        self._zoom_pane.set_pixel_highlight(sel)
+            sel = SinglePixelSelection(ds_point, None)
 
-        # Set the active spectrum to be from the selected dataset and pixel.
-        # TODO(donnie):  Need to include the default area and average mode too!
-        spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
-        self._app_state.set_active_spectrum(spectrum)
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+            self._zoom_pane.set_pixel_highlight(sel)
+
+            # Set the active spectrum to be from the selected dataset and pixel.
+            # TODO(donnie):  Need to include the default area and average mode too!
+            # TODO(donnie):  If the Spectrum Plot window has a "current dataset"
+            #     set, get the spectrum from there instead.
+            spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
+            self._app_state.set_active_spectrum(spectrum)
+
+
+        else:
+            # Non-linked scrolling:  Change the dataset of other panes before
+            # updating them to show the clicked data.
+
+            sel = SinglePixelSelection(ds_point, ds)
+
+            self._context_pane.show_dataset(ds)
+
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+
+            self._zoom_pane.show_dataset(ds)
+            self._zoom_pane.set_pixel_highlight(sel)
+
+            # Set the active spectrum to be from the selected dataset and pixel.
+            # TODO(donnie):  Need to include the default area and average mode too!
+            spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
+            self._app_state.set_active_spectrum(spectrum)
 
 
     def _on_stretch_changed(self, ds_id: int, bands: Tuple, stretches: List):
@@ -563,16 +587,45 @@ class DataVisualizerApp(QMainWindow):
         if self._app_state.num_datasets() == 0:
             return
 
-        # Create a single-pixel selection with the dataset and coordinate of
-        # the selected pixel.
-        ds = self._main_view.get_current_dataset(rasterview_position)
-        sel = SinglePixelSelection(ds_point, ds)
+        # Get the dataset of the main view.  If no dataset is being displayed,
+        # this is a no-op.
+        ds = self._zoom_pane.get_current_dataset()
+        if ds is None:
+            # The clicked-on rasterview has no dataset loaded; ignore.
+            return
 
-        # Update the main and zoom windows to show the selected dataset and pixel.
-        self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
-        self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+        # App behavior varies when we are in linked mode vs. not in linked mode
+        if self._main_view.is_scrolling_linked():
+            # Linked scrolling:  Don't change the dataset of any other panes;
+            # just show the corresponding data in those panes' datasets.
 
-        # Set the active spectrum to be from the selected dataset and pixel.
-        # TODO(donnie):  Need to include the default area and average mode too!
-        spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
-        self._app_state.set_active_spectrum(spectrum)
+            sel = SinglePixelSelection(ds_point, None)
+
+            # Update the main and zoom windows to show the selected dataset and pixel.
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
+            self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+
+            # Set the active spectrum to be from the selected dataset and pixel.
+            # TODO(donnie):  Need to include the default area and average mode too!
+            # TODO(donnie):  If the Spectrum Plot window has a "current dataset"
+            #     set, get the spectrum from there instead.
+            spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
+            self._app_state.set_active_spectrum(spectrum)
+
+        else:
+            # Non-linked scrolling:  Change the dataset of other panes before
+            # updating them to show the clicked data.
+
+            sel = SinglePixelSelection(ds_point, ds)
+
+            self._context_pane.show_dataset(ds)
+
+            self._main_view.show_dataset(ds)
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
+
+            self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+
+            # Set the active spectrum to be from the selected dataset and pixel.
+            # TODO(donnie):  Need to include the default area and average mode too!
+            spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
+            self._app_state.set_active_spectrum(spectrum)
