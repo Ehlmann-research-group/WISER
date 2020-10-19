@@ -33,7 +33,7 @@ class MainViewWidget(RasterPane):
         if self._app_state.get_config_value('feature-flags.linked-multi-view', default=True, as_type=bool):
             self._set_link_views_button_state()
 
-        self._set_stretch_builder_button_state()
+        self._set_dataset_tools_button_state()
 
 
     def _init_toolbar(self):
@@ -138,11 +138,17 @@ class MainViewWidget(RasterPane):
         '''
         self._act_link_view_scroll.setEnabled(self._num_views != (1, 1))
 
-    def _set_stretch_builder_button_state(self):
+    def _set_dataset_tools_button_state(self):
         '''
         Sets the enabled/disabled state of the "stretch builder" button.
         '''
-        self._act_stretch_builder.setEnabled(self._app_state.num_datasets() > 0)
+
+        enabled = (self._app_state.num_datasets() > 0 and self._num_views == (1, 1))
+
+        self._dataset_chooser.setEnabled(enabled)
+        self._act_band_chooser.setEnabled(enabled)
+        self._act_stretch_builder.setEnabled(enabled)
+
 
     def _on_dataset_added(self, ds_id):
         '''
@@ -150,7 +156,7 @@ class MainViewWidget(RasterPane):
         stretch-builder button state.
         '''
         super()._on_dataset_added(ds_id)
-        self._set_stretch_builder_button_state()
+        self._set_dataset_tools_button_state()
 
 
     def _on_export_image_visible_area(self, rasterview):
@@ -196,6 +202,8 @@ class MainViewWidget(RasterPane):
             self._app_state.show_status_text(msg, 10)
 
         self._init_rasterviews(new_dim)
+
+        self._set_dataset_tools_button_state()
         self._set_link_views_button_state()
 
 
