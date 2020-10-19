@@ -1,7 +1,7 @@
 {
     "online-bug-reporting" : false,
     "feature-flags" : {
-        "linked-multi-view" : false,
+        "linked-multi-view" : true,
         "interactive-spectrum-plot" : false
     }
 }
