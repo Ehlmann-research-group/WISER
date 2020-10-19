@@ -18,6 +18,7 @@ FILENAMES=\
 	roi_info_editor_ui.py \
 	spectrum_info_editor_ui.py \
 	spectrum_plot_config_ui.py \
+	split_unsplit_pane_ui.py \
 	stretch_config_widget_ui.py \
 	system_info_ui.py
 
