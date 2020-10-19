@@ -1112,7 +1112,7 @@ class RasterPane(QWidget):
 
 
     def _on_band_chooser(self, checked=False, rasterview_pos=(0,0)):
-        print(f'on_band_chooser invoked for position {rasterview_pos}')
+        # print(f'on_band_chooser invoked for position {rasterview_pos}')
 
         rasterview = self.get_rasterview(rasterview_pos)
         dataset = rasterview.get_raster_data()
