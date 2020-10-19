@@ -10,6 +10,7 @@ from .export_image import ExportImageDialog
 from .toolbarmenu import ToolbarMenu
 from .rasterpane import RasterPane
 from .rasterview import RasterView
+from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
 
@@ -79,6 +80,7 @@ class MainViewWidget(RasterPane):
             (self.tr('1 row x 2 columns' ), (1, 2)),
             (self.tr('2 rows x 1 column' ), (2, 1)),
             (self.tr('2 rows x 2 columns'), (2, 2)),
+            (self.tr('Other layout...'   ), (-1, -1)),
         ]
         self._view_chooser = ToolbarMenu(icon=QIcon(':/icons/split-view.svg'),
             items=chooser_items)
@@ -179,12 +181,21 @@ class MainViewWidget(RasterPane):
         structure.
         '''
         new_dim = action.data()
+
+        if new_dim == (-1, -1):
+            # User wants a general MxN layout.
+            dialog = SplitPaneDialog(initial=self._num_views)
+            if dialog.exec() != QDialog.Accepted:
+                return
+
+            new_dim = dialog.get_dimensions()
+
         if new_dim != self._num_views:
             msg = self.tr('Switching main view to {rows}x{cols} display')
             msg = msg.format(rows=new_dim[0], cols=new_dim[1])
-            self._app_state.show_status_text(msg, 5)
+            self._app_state.show_status_text(msg, 10)
 
-        self._init_rasterviews(action.data())
+        self._init_rasterviews(new_dim)
         self._set_link_views_button_state()
 
 
