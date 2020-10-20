@@ -96,6 +96,8 @@ needs to be downloaded and installed so that the `SignTool` utility is available
     Delete these files:
 
     ```
+    build directory
+    dist directory
     Install-WISER-*.exe
     src\gui\generated\*.py
     ```
