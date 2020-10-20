@@ -620,7 +620,12 @@ class DataVisualizerApp(QMainWindow):
 
             self._context_pane.show_dataset(ds)
 
-            self._main_view.show_dataset(ds)
+            # If the dataset isn't showing in the main viewing area, show it.
+            # Rationale:  The visible area of the zoom-pane is also indicated
+            # in the main viewing area.
+            if not self._main_view.is_showing_dataset(ds):
+                self._main_view.show_dataset(ds)
+
             self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
 
             self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
