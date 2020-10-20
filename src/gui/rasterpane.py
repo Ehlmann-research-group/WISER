@@ -913,6 +913,32 @@ class RasterPane(QWidget):
         rasterview.set_raster_data(dataset, bands, stretches)
 
 
+    def is_showing_dataset(self, dataset) -> Optional[Tuple[int, int]]:
+        '''
+        If some rasterview in this pane is displaying the dataset, this function
+        returns the 2-tuple position of the rasterview in the pane.  If no
+        rasterview is displaying the dataset then this function returns None.
+        '''
+
+        for r in range(self._num_views[0]):
+            for c in range(self._num_views[1]):
+                pos = (r, c)
+                rv_dataset = self._rasterviews[pos].get_raster_data()
+
+                if (dataset is None and rv_dataset is None):
+                    return pos
+
+                # At this point, at least one dataset is not None
+
+                if (dataset is None or rv_dataset is None):
+                    continue
+
+                if dataset.get_id() == rv_dataset.get_id():
+                    return pos
+
+        return None
+
+
     def set_display_bands(self, ds_id: int, bands: Tuple):
         # TODO(donnie):  Verify the dataset ID?
 
