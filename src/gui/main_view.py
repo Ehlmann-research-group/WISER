@@ -43,7 +43,7 @@ class MainViewWidget(RasterPane):
         '''
         self._init_dataset_tools()
 
-        if self._app_state.get_config_value('feature-flags.linked-multi-view', default=False, as_type=bool):
+        if self._app_state.get_config_value('feature-flags.linked-multi-view', default=True, as_type=bool):
             self._toolbar.addSeparator()
             self._init_view_tools()
 
