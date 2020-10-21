@@ -18,7 +18,7 @@ from raster.envi_spectral_library import ENVISpectralLibrary
 from raster.spectra import SpectrumType, SpectrumAverageMode, calc_rect_spectrum
 from raster.spectra_export import export_spectrum_list
 from raster.spectrum_info import SpectrumInfo, LibrarySpectrum
-from raster.units import get_band_values
+import raster.units
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -112,8 +112,8 @@ class SpectrumDisplayInfo:
             # the graphs to look correct, even in the face of bad bands, plots
             # from different datasets with different wavelengths, etc.
 
-            wavelengths = get_band_values(self._spectrum.get_wavelengths(),
-                                          wavelength_units)
+            wavelengths = raster.units.get_band_values(
+                self._spectrum.get_wavelengths(), wavelength_units)
 
             lines = axes.plot(wavelengths, values, color=color, linewidth=linewidth)
             assert(len(lines) == 1)
@@ -135,13 +135,6 @@ class SpectrumDisplayInfo:
             self._line2d = None
 
 
-    # def is_visible(self) -> bool:
-    #     return self._line2d.visible
-    #
-    # def set_visible(self, visible: bool) -> None:
-    #     self._line2d.set_visible(visible)
-
-
 class SpectrumPlot(QWidget):
     '''
     This widget provides a spectrum-plot window in the user interface.
@@ -161,6 +154,9 @@ class SpectrumPlot(QWidget):
         self._spectrum_display_info: Dict[int, SpectrumDisplayInfo] = {}
         self._plot_uses_wavelengths: Optional[bool] = None
         self._displayed_spectra_with_wavelengths = 0
+
+        # Display information for mouse clicks
+        self._click_vline: Optional[matplotlib.lines.Line2D] = None
 
         # Display state for the "active spectrum"
         self._active_spectrum_color = None
@@ -393,12 +389,18 @@ class SpectrumPlot(QWidget):
         if event.guiEvent.button() != Qt.LeftButton:
             return
 
+        # Clear any click vertical-line from previous mouse clicks
+        if self._click_vline is not None:
+            self._click_vline.remove()
+            self._click_vline = None
+
         # Find all spectra with X-axis ranges that correspond to the xdata value
         # from the mouse click.
 
         closest_spectrum = None
         closest_index = None
-        closest_value = None
+        closest_x_value = None
+        closest_y_value = None
         closest_distance = None
 
         if self._plot_uses_wavelengths:
@@ -415,30 +417,46 @@ class SpectrumPlot(QWidget):
 
                 # See if the spectrum has a wavelength "near" the x-coordinate
                 # of the mouse-click.
+                # TODO(donnie):  Filter out bad wavelengths here.
+                wavelengths = spectrum.get_wavelengths()
 
                 # TODO(donnie):  specify max_distance so that we are within a
                 #     few pixels of the x_data value.
-                index = find_closest_wavelength(spectrum.get_wavelengths(),
-                    click_x)
-
+                index = raster.units.find_closest_wavelength(wavelengths, click_x)
                 if index is None:
                     continue
 
                 # Compute the spectrum's y-distance from the y-coordinate of
                 # the mouse-click.
 
-                value = spectrum.get_spectrum()[index]
-                distance = abs(value - y_data)
+                x_value = wavelengths[index].value
+                y_value = spectrum.get_spectrum()[index]
+                if np.isnan(y_value):
+                    continue
+
+                distance = abs(y_value - click_y)
 
                 if closest_distance is None or distance < closest_distance:
                     closest_spectrum = spectrum
                     closest_index = index
-                    closest_value = value
+                    closest_x_value = x_value
+                    closest_y_value = y_value
                     closest_distance = distance
+
+            if closest_spectrum is not None:
+                print(f'Closest spectrum value:  id={closest_spectrum.get_id()} index={closest_index} y_value={closest_y_value}')
+
+                self._click_vline = self._axes.axvline(x=closest_x_value,
+                    linewidth=0.5, linestyle='dotted', color='black')
+
+            else:
+                print('Couldn\'t find a nearby spectrum.')
 
         else:
             # Find the spectrum that has valid bands near the clicked x-value.
             pass
+
+        self._draw_spectra()
 
 
     '''
