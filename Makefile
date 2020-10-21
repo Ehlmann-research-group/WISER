@@ -1,5 +1,5 @@
 APP_NAME=WISER
-APP_VERSION=1.0a7
+APP_VERSION := $(shell python src/version.py)
 
 PYLINT=pylint
 PYLINT_OPTS=
@@ -44,6 +44,8 @@ typecheck:
 
 
 dist-mac : generated
+	@echo Building WISER version $(APP_VERSION)
+
 	pyinstaller WISER-MacOSX.spec
 
 	# Patch the package with the correct version of libpng, since pyinstaller
