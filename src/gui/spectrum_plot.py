@@ -26,10 +26,14 @@ matplotlib.use('Qt5Agg')
 # matplotlib.rcParams['backend.qt5'] = 'PySide2'
 
 import matplotlib.pyplot as plt
+from matplotlib import patches
+
 import numpy as np
 from astropy import units as u
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
+
+from typing import Optional
 
 
 class SpectrumPlotCanvas(FigureCanvas):
@@ -135,6 +139,58 @@ class SpectrumDisplayInfo:
             self._line2d = None
 
 
+class PointDisplayInfo:
+    '''
+    This class is used within the spectrum-plot window to record display
+    information for a specific point being displayed.
+    '''
+
+    def __init__(self, x, y, text: Optional[str] = None):
+
+        self._x = x
+        self._y = y
+        self._text: Optional[str] = text
+
+        # matplotlib information for the point
+        self._point_hline: Optional[matplotlib.lines.Line2D] = None
+        self._point_vline: Optional[matplotlib.lines.Line2D] = None
+        self._scatter: Optional[matplotlib.collections.PathCollection] = None
+
+
+    def generate_plot(self, axes):
+        assert self._point_hline is None
+        assert self._point_vline is None
+        assert self._scatter is None
+
+        self._point_vline = axes.axvline(x=self._x,
+            linewidth=0.5, linestyle='dotted', color='black')
+
+        self._point_hline = axes.axhline(y=self._y,
+            linewidth=0.5, linestyle='dotted', color='black')
+
+        # Other possible markers:
+        #     '+' plus
+        #     's' square
+        #     '.' small circle
+        #     'o' big circle
+        #     '_' horizontal line
+        #     'D' diamond
+        self._scatter = axes.scatter(self._x, self._y, label=self._text,
+            marker='s', s=3, linewidth=0.5, color='black')
+
+
+    def remove_plot(self):
+        if self._point_vline is not None:
+            self._point_vline.remove()
+            self._point_vline = None
+
+            self._point_hline.remove()
+            self._point_hline = None
+
+            self._scatter.remove()
+            self._scatter = None
+
+
 class SpectrumPlot(QWidget):
     '''
     This widget provides a spectrum-plot window in the user interface.
@@ -156,7 +212,7 @@ class SpectrumPlot(QWidget):
         self._displayed_spectra_with_wavelengths = 0
 
         # Display information for mouse clicks
-        self._click_vline: Optional[matplotlib.lines.Line2D] = None
+        self._click: Optional[PointDisplayInfo] = None
 
         # Display state for the "active spectrum"
         self._active_spectrum_color = None
@@ -375,6 +431,8 @@ class SpectrumPlot(QWidget):
 
 
     def _on_mpl_button_release_event(self, event):
+
+        ''' Debug info for spectrum-plot clicks
         print('-' * 70)
         print('_on_mpl_button_release_event')
         print(f'MPL Event name={event.name} type={type(event)} ' +
@@ -382,6 +440,7 @@ class SpectrumPlot(QWidget):
               f'xdata={event.xdata} ydata={event.ydata}')
         print(f'event.inaxes={event.inaxes}')
         print(f'event.guiEvent={event.guiEvent}')
+        '''
 
         # The guiEvent's type is QMouseEvent.  If this wasn't a left mouse-click
         # then ignore the event.  (For example, if this was a right-click, Qt
@@ -389,10 +448,10 @@ class SpectrumPlot(QWidget):
         if event.guiEvent.button() != Qt.LeftButton:
             return
 
-        # Clear any click vertical-line from previous mouse clicks
-        if self._click_vline is not None:
-            self._click_vline.remove()
-            self._click_vline = None
+        # Clear any click display-info from previous mouse clicks
+        if self._click is not None:
+            self._click.remove_plot()
+            self._click = None
 
         # Find all spectra with X-axis ranges that correspond to the xdata value
         # from the mouse click.
@@ -444,13 +503,11 @@ class SpectrumPlot(QWidget):
                     closest_distance = distance
 
             if closest_spectrum is not None:
-                print(f'Closest spectrum value:  id={closest_spectrum.get_id()} index={closest_index} y_value={closest_y_value}')
+                # print(f'Closest spectrum value:  id={closest_spectrum.get_id()} index={closest_index} y_value={closest_y_value}')
 
-                self._click_vline = self._axes.axvline(x=closest_x_value,
-                    linewidth=0.5, linestyle='dotted', color='black')
-
-            else:
-                print('Couldn\'t find a nearby spectrum.')
+                self._click = PointDisplayInfo(closest_x_value, closest_y_value,
+                    f'({closest_x_value:.3f}, {closest_y_value:.3f})')
+                self._click.generate_plot(self._axes)
 
         else:
             # Find the spectrum that has valid bands near the clicked x-value.
