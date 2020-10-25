@@ -139,33 +139,57 @@ class SpectrumDisplayInfo:
             self._line2d = None
 
 
-class PointDisplayInfo:
+class SpectrumPointDisplayInfo:
     '''
     This class is used within the spectrum-plot window to record display
     information for a specific point being displayed.
     '''
 
-    def __init__(self, x, y, text: Optional[str] = None):
-
-        self._x = x
-        self._y = y
-        self._text: Optional[str] = text
+    def __init__(self, spectrum, band_index: int, use_wavelength: bool,
+                 band_units=None):
+        # Info we need about the spectrum to show the desired point
+        self._spectrum = spectrum
+        self._band_index = band_index
+        self._use_wavelength = use_wavelength
+        self._band_units = band_units
 
         # matplotlib information for the point
         self._point_hline: Optional[matplotlib.lines.Line2D] = None
         self._point_vline: Optional[matplotlib.lines.Line2D] = None
         self._scatter: Optional[matplotlib.collections.PathCollection] = None
+        self._label: Optional[matplotlib.text.Text] = None
+
+
+    def get_spectrum(self):
+        ''' Returns the spectrum with the point being displayed. '''
+        return self._spectrum
+
+
+    def get_band_index(self):
+        ''' Returns the band-index tof the point on the spectrum to show. '''
+        return self._band_index
 
 
     def generate_plot(self, axes):
         assert self._point_hline is None
         assert self._point_vline is None
         assert self._scatter is None
+        assert self._label is None
 
-        self._point_vline = axes.axvline(x=self._x,
+        if self._use_wavelength:
+            x_value = self._spectrum.get_wavelengths()[self._band_index]
+
+            if self._band_units is not None:
+                x_value = raster.units.convert_spectral(x_value, self._band_units)
+        else:
+            x_value = self._band_index
+
+        y_value = self._spectrum.get_spectrum()[self._band_index]
+
+        self._point_vline = axes.axvline(x=x_value.value,
             linewidth=0.5, linestyle='dotted', color='black')
 
-        self._point_hline = axes.axhline(y=self._y,
+        self._point_hline = axes.axhline(y=y_value,
             linewidth=0.5, linestyle='dotted', color='black')
 
         # Other possible markers:
@@ -175,8 +199,17 @@ class PointDisplayInfo:
         #     'o' big circle
         #     '_' horizontal line
         #     'D' diamond
-        self._scatter = axes.scatter(self._x, self._y, label=self._text,
+        self._scatter = axes.scatter(x_value, y_value, # label=self._text,
             marker='s', s=3, linewidth=0.5, color='black')
+
+        # Put some text in the top left corner - use the axis coordinate system
+        # to achieve this.
+        label = f'{x_value} = {y_value}'
+        self._label = axes.text(0.02, 0.98, label,
+            fontsize=4, # backgroundcolor='#ffffff7f',
+            bbox={'pad':1, 'color':'white', 'alpha':0.8, 'fill':True},
+            horizontalalignment='left', verticalalignment='top',
+            transform=axes.transAxes)
 
 
     def remove_plot(self):
@@ -189,6 +222,9 @@ class PointDisplayInfo:
 
             self._scatter.remove()
             self._scatter = None
+
+            self._label.remove()
+            self._label = None
 
 
 class SpectrumPlot(QWidget):
@@ -212,7 +248,7 @@ class SpectrumPlot(QWidget):
         self._displayed_spectra_with_wavelengths = 0
 
         # Display information for mouse clicks
-        self._click: Optional[PointDisplayInfo] = None
+        self._click: Optional[SpectrumPointDisplayInfo] = None
 
         # Display state for the "active spectrum"
         self._active_spectrum_color = None
@@ -411,6 +447,11 @@ class SpectrumPlot(QWidget):
         # Hide the plot's color in the tree widget
         treeitem.setIcon(0, QIcon())
 
+        # Are we showing a point on this spectrum?
+        if self._click is not None and self._click.get_spectrum() is spectrum:
+            self._click.remove_plot()
+            self._click = None
+
 
     def _on_plot_context_menu(self, event):
         '''
@@ -505,8 +546,7 @@ class SpectrumPlot(QWidget):
             if closest_spectrum is not None:
                 # print(f'Closest spectrum value:  id={closest_spectrum.get_id()} index={closest_index} y_value={closest_y_value}')
 
-                self._click = PointDisplayInfo(closest_x_value, closest_y_value,
-                    f'({closest_x_value:.3f}, {closest_y_value:.3f})')
+                self._click = SpectrumPointDisplayInfo(spectrum, index, True)
                 self._click.generate_plot(self._axes)
 
         else:
@@ -899,16 +939,21 @@ class SpectrumPlot(QWidget):
             display_info.generate_plot(self._axes, self._plot_uses_wavelengths)
             treeitem.setIcon(0, display_info.get_icon())
 
+        # Are we showing a point on this spectrum?
+        if self._click is not None and self._click.get_spectrum() is spectrum:
+            self._click.remove_plot()
+            self._click.generate_plot(self._axes)
+
         self._draw_spectra()
 
 
     def _on_discard_spectrum(self, treeitem):
-        info = treeitem.data(0, Qt.UserRole)
+        spectrum = treeitem.data(0, Qt.UserRole)
 
         # Get confirmation from the user.
         confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
             self.tr('Are you sure you want to discard this spectrum?') +
-            '\n\n' + info.get_name())
+            '\n\n' + spectrum.get_name())
 
         if confirm != QMessageBox.Yes:
             # User canceled the discard operation.
@@ -928,6 +973,11 @@ class SpectrumPlot(QWidget):
         else:
             # The spectrum is the active spectrum.
             self._app_state.set_active_spectrum(None)
+
+        # Are we showing a point on the discarded spectrum?
+        if self._click is not None and self._click.get_spectrum() is spectrum:
+            self._click.remove_plot()
+
 
 
     def _on_save_collected_spectra(self):
