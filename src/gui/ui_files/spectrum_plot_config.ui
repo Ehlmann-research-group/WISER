@@ -6,102 +6,379 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>357</width>
-    <height>215</height>
+    <width>482</width>
+    <height>319</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Spectrum Plot Configuration</string>
   </property>
-  <widget class="QDialogButtonBox" name="buttonBox">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>180</y>
-     <width>341</width>
-     <height>32</height>
-    </rect>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
-   </property>
-   <property name="standardButtons">
-    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-   </property>
-  </widget>
-  <widget class="QWidget" name="gridLayoutWidget">
-   <property name="geometry">
-    <rect>
-     <x>9</x>
-     <y>9</y>
-     <width>341</width>
-     <height>161</height>
-    </rect>
-   </property>
-   <layout class="QGridLayout" name="grid_layout" columnstretch="1,0,0">
-    <item row="2" column="2">
-     <widget class="QLineEdit" name="lineedit_area_avg_y"/>
-    </item>
-    <item row="3" column="0" colspan="3">
-     <widget class="QLabel" name="label_placeholder">
-      <property name="text">
-       <string>TODO:  Spectrum plot configuration (tick marks, etc.)</string>
-      </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="1" column="0">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="tab_plot">
+      <attribute name="title">
+       <string>Plot</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="0" column="0">
+        <widget class="QLabel" name="lbl_plot_title">
+         <property name="text">
+          <string>Plot Title:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_plot_title</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="2">
+        <widget class="QLabel" name="lbl_font_size">
+         <property name="text">
+          <string>Size:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_font_size</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <spacer name="verticalSpacer_plot">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="lbl_font">
+         <property name="text">
+          <string>Font:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_font</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="lbl_legend">
+         <property name="text">
+          <string>Legend:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_legend</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QFontComboBox" name="cbox_font"/>
+       </item>
+       <item row="3" column="3">
+        <widget class="QLineEdit" name="ledit_font_size">
+         <property name="minimumSize">
+          <size>
+           <width>64</width>
+           <height>0</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1" colspan="3">
+        <widget class="QComboBox" name="cbox_legend"/>
+       </item>
+       <item row="0" column="1" colspan="3">
+        <widget class="QLineEdit" name="ledit_plot_title"/>
+       </item>
+      </layout>
      </widget>
-    </item>
-    <item row="1" column="2">
-     <widget class="QLineEdit" name="lineedit_area_avg_x"/>
-    </item>
-    <item row="2" column="1">
-     <widget class="QLabel" name="label_area_avg_y">
-      <property name="text">
-       <string>Y</string>
-      </property>
-      <property name="buddy">
-       <cstring>lineedit_area_avg_y</cstring>
-      </property>
+     <widget class="QWidget" name="tab_xaxis">
+      <attribute name="title">
+       <string>X Axis</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_4">
+       <item row="4" column="0" colspan="2">
+        <widget class="QCheckBox" name="ckbox_xaxis_specify_range">
+         <property name="text">
+          <string>Specify min/max range for axis</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QCheckBox" name="ckbox_xaxis_major_ticks">
+         <property name="text">
+          <string>Major tick marks every</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="ledit_xaxis_label"/>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="lbl_xaxis_units">
+         <property name="text">
+          <string>X Axis Units:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_xaxis_units</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="1">
+        <widget class="QLineEdit" name="ledit_xaxis_maxval"/>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="lbl_xaxis_minval">
+         <property name="text">
+          <string>Minimum value:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_xaxis_minval</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="cbox_xaxis_units"/>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="ledit_xaxis_minor_ticks"/>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="ledit_xaxis_major_ticks"/>
+       </item>
+       <item row="5" column="1">
+        <widget class="QLineEdit" name="ledit_xaxis_minval"/>
+       </item>
+       <item row="3" column="0">
+        <widget class="QCheckBox" name="ckbox_xaxis_minor_ticks">
+         <property name="text">
+          <string>Minor tick marks every</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="lbl_xaxis_label">
+         <property name="text">
+          <string>X Axis Label:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_xaxis_label</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="lbl_xaxis_maxval">
+         <property name="text">
+          <string>Maximum value:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_xaxis_maxval</cstring>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </widget>
-    </item>
-    <item row="0" column="1" colspan="2">
-     <widget class="QComboBox" name="combobox_avg_mode"/>
-    </item>
-    <item row="1" column="0">
-     <widget class="QLabel" name="label_area_avg">
-      <property name="text">
-       <string>Default area-average size</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-      </property>
+     <widget class="QWidget" name="tab_yaxis">
+      <attribute name="title">
+       <string>Y Axis</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_5">
+       <item row="4" column="0">
+        <widget class="QLabel" name="lbl_yaxis_minval">
+         <property name="text">
+          <string>Minimum value:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_yaxis_minval</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0" colspan="2">
+        <widget class="QCheckBox" name="ckbox_yaxis_specify_range">
+         <property name="text">
+          <string>Specify min/max range for axis</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QCheckBox" name="ckbox_yaxis_minor_ticks">
+         <property name="text">
+          <string>Minor tick marks every</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="ledit_yaxis_label"/>
+       </item>
+       <item row="1" column="0">
+        <widget class="QCheckBox" name="checkBox_8">
+         <property name="text">
+          <string>Major tick marks every</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="ledit_yaxis_minor_ticks"/>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="lbl_yaxis_maxval">
+         <property name="text">
+          <string>Maximum value:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_yaxis_maxval</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="lbl_yaxis_label">
+         <property name="text">
+          <string>Y Axis Label:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_yaxis_label</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="ledit_yaxis_major_ticks"/>
+       </item>
+       <item row="4" column="1">
+        <widget class="QLineEdit" name="ledit_yaxis_minval"/>
+       </item>
+       <item row="5" column="1">
+        <widget class="QLineEdit" name="ledit_yaxis_maxval"/>
+       </item>
+       <item row="6" column="0">
+        <spacer name="verticalSpacer_yaxis">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
      </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QLabel" name="label_area_avg_x">
-      <property name="text">
-       <string>X</string>
-      </property>
-      <property name="buddy">
-       <cstring>lineedit_area_avg_x</cstring>
-      </property>
+     <widget class="QWidget" name="tab_newspectra">
+      <attribute name="title">
+       <string>New Spectra</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_3">
+       <item row="3" column="0">
+        <spacer name="verticalSpacer_newspectra">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="lbl_default_aavg_size">
+         <property name="text">
+          <string>Default area-average size</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_aavg_x</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="QLineEdit" name="ledit_aavg_y"/>
+       </item>
+       <item row="1" column="2">
+        <widget class="QLineEdit" name="ledit_aavg_x"/>
+       </item>
+       <item row="0" column="2">
+        <widget class="QComboBox" name="cbox_default_avg_mode"/>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLabel" name="lbl_aavg_x">
+         <property name="text">
+          <string>X:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_aavg_x</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLabel" name="lbl_aavg_y">
+         <property name="text">
+          <string>Y:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_aavg_y</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="2">
+        <widget class="QLabel" name="lbl_default_avg_mode">
+         <property name="text">
+          <string>Default average mode:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_default_avg_mode</cstring>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </widget>
-    </item>
-    <item row="0" column="0">
-     <widget class="QLabel" name="label_avg_mode">
-      <property name="text">
-       <string>Default area-average mode</string>
-      </property>
-      <property name="buddy">
-       <cstring>combobox_avg_mode</cstring>
-      </property>
-     </widget>
-    </item>
-   </layout>
-  </widget>
+    </widget>
+   </item>
+  </layout>
  </widget>
  <tabstops>
-  <tabstop>combobox_avg_mode</tabstop>
-  <tabstop>lineedit_area_avg_x</tabstop>
-  <tabstop>lineedit_area_avg_y</tabstop>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>ledit_plot_title</tabstop>
+  <tabstop>cbox_legend</tabstop>
+  <tabstop>cbox_font</tabstop>
+  <tabstop>ledit_font_size</tabstop>
+  <tabstop>ledit_xaxis_label</tabstop>
+  <tabstop>cbox_xaxis_units</tabstop>
+  <tabstop>ckbox_xaxis_major_ticks</tabstop>
+  <tabstop>ledit_xaxis_major_ticks</tabstop>
+  <tabstop>ckbox_xaxis_minor_ticks</tabstop>
+  <tabstop>ledit_xaxis_minor_ticks</tabstop>
+  <tabstop>ckbox_xaxis_specify_range</tabstop>
+  <tabstop>ledit_xaxis_minval</tabstop>
+  <tabstop>ledit_xaxis_maxval</tabstop>
+  <tabstop>ledit_yaxis_label</tabstop>
+  <tabstop>checkBox_8</tabstop>
+  <tabstop>ledit_yaxis_major_ticks</tabstop>
+  <tabstop>ckbox_yaxis_minor_ticks</tabstop>
+  <tabstop>ledit_yaxis_minor_ticks</tabstop>
+  <tabstop>ckbox_yaxis_specify_range</tabstop>
+  <tabstop>ledit_yaxis_minval</tabstop>
+  <tabstop>ledit_yaxis_maxval</tabstop>
+  <tabstop>cbox_default_avg_mode</tabstop>
+  <tabstop>ledit_aavg_x</tabstop>
+  <tabstop>ledit_aavg_y</tabstop>
  </tabstops>
  <resources/>
  <connections>

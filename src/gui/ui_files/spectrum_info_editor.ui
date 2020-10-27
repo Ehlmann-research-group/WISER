@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>419</width>
-    <height>329</height>
+    <width>436</width>
+    <height>352</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,10 +17,7 @@
    <bool>true</bool>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="6" column="2">
-    <widget class="QLineEdit" name="lineedit_area_avg_y"/>
-   </item>
-   <item row="3" column="0" colspan="2">
+   <item row="4" column="0" colspan="2">
     <widget class="QLabel" name="label_location">
      <property name="text">
       <string>Location:</string>
@@ -30,118 +27,7 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="2">
-    <widget class="QLineEdit" name="lineedit_dataset">
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="5" column="2">
-    <widget class="QLineEdit" name="lineedit_area_avg_x"/>
-   </item>
-   <item row="5" column="0">
-    <widget class="QLabel" name="label_area_avg">
-     <property name="text">
-      <string>Area-average size</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item row="5" column="1">
-    <widget class="QLabel" name="label_area_avg_x">
-     <property name="text">
-      <string>X</string>
-     </property>
-     <property name="buddy">
-      <cstring>lineedit_area_avg_x</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="0" colspan="2">
-    <widget class="QLabel" name="label_description">
-     <property name="text">
-      <string>Name:</string>
-     </property>
-     <property name="buddy">
-      <cstring>lineedit_name</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0" colspan="2">
-    <widget class="QLabel" name="label_dataset">
-     <property name="text">
-      <string>Data set:</string>
-     </property>
-     <property name="buddy">
-      <cstring>lineedit_dataset</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="2">
-    <widget class="QLineEdit" name="lineedit_location">
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="0" colspan="2">
-    <widget class="QLabel" name="label_avg_mode">
-     <property name="text">
-      <string>Average mode:</string>
-     </property>
-     <property name="buddy">
-      <cstring>combobox_avg_mode</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0" colspan="2">
-    <widget class="QLabel" name="label_spectrum_type">
-     <property name="text">
-      <string>Spectrum type:</string>
-     </property>
-     <property name="buddy">
-      <cstring>lineedit_spectrum_type</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="2">
-    <widget class="QLineEdit" name="lineedit_spectrum_type">
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="2">
-    <widget class="QLineEdit" name="lineedit_name"/>
-   </item>
-   <item row="9" column="0" colspan="3">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="2">
-    <widget class="QComboBox" name="combobox_avg_mode">
-     <item>
-      <property name="text">
-       <string>Mean</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>Median</string>
-      </property>
-     </item>
-    </widget>
-   </item>
-   <item row="7" column="2">
+   <item row="8" column="2">
     <widget class="QWidget" name="widget" native="true">
      <layout class="QGridLayout" name="gridLayout_2" columnstretch="1,0">
       <property name="leftMargin">
@@ -178,7 +64,20 @@
      </layout>
     </widget>
    </item>
-   <item row="6" column="1">
+   <item row="10" column="0" colspan="3">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="2">
+    <widget class="QLineEdit" name="lineedit_name"/>
+   </item>
+   <item row="7" column="1">
     <widget class="QLabel" name="label_area_avg_y">
      <property name="text">
       <string>Y</string>
@@ -188,7 +87,101 @@
      </property>
     </widget>
    </item>
+   <item row="5" column="2">
+    <widget class="QComboBox" name="combobox_avg_mode">
+     <item>
+      <property name="text">
+       <string>Mean</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Median</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="7" column="2">
+    <widget class="QLineEdit" name="lineedit_area_avg_y"/>
+   </item>
+   <item row="2" column="2">
+    <widget class="QLineEdit" name="lineedit_spectrum_type">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0" colspan="2">
+    <widget class="QLabel" name="label_avg_mode">
+     <property name="text">
+      <string>Average mode:</string>
+     </property>
+     <property name="buddy">
+      <cstring>combobox_avg_mode</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="QLabel" name="label_spectrum_type">
+     <property name="text">
+      <string>Spectrum type:</string>
+     </property>
+     <property name="buddy">
+      <cstring>lineedit_spectrum_type</cstring>
+     </property>
+    </widget>
+   </item>
    <item row="8" column="0" colspan="2">
+    <widget class="QLabel" name="label_plot_color">
+     <property name="text">
+      <string>Plot color:</string>
+     </property>
+     <property name="buddy">
+      <cstring>lineedit_plot_color</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="2">
+    <widget class="QLineEdit" name="lineedit_area_avg_x"/>
+   </item>
+   <item row="4" column="2">
+    <widget class="QLineEdit" name="lineedit_location">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="2">
+    <widget class="QLabel" name="label_description">
+     <property name="text">
+      <string>Spectrum name:</string>
+     </property>
+     <property name="buddy">
+      <cstring>lineedit_name</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0" colspan="2">
+    <widget class="QLabel" name="label_dataset">
+     <property name="text">
+      <string>Data set:</string>
+     </property>
+     <property name="buddy">
+      <cstring>lineedit_dataset</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QLabel" name="label_area_avg_x">
+     <property name="text">
+      <string>X</string>
+     </property>
+     <property name="buddy">
+      <cstring>lineedit_area_avg_x</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -201,13 +194,30 @@
      </property>
     </spacer>
    </item>
-   <item row="7" column="0" colspan="2">
-    <widget class="QLabel" name="label_plot_color">
+   <item row="6" column="0">
+    <widget class="QLabel" name="label_area_avg">
      <property name="text">
-      <string>Plot color:</string>
+      <string>Area-average size</string>
      </property>
-     <property name="buddy">
-      <cstring>lineedit_plot_color</cstring>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="2">
+    <widget class="QLineEdit" name="lineedit_dataset">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="2">
+    <widget class="QCheckBox" name="ckbox_autogen_name">
+     <property name="text">
+      <string>Use auto-generated name</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
      </property>
     </widget>
    </item>

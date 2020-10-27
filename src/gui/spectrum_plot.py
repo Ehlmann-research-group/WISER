@@ -119,7 +119,8 @@ class SpectrumDisplayInfo:
             wavelengths = raster.units.get_band_values(
                 self._spectrum.get_wavelengths(), wavelength_units)
 
-            lines = axes.plot(wavelengths, values, color=color, linewidth=linewidth)
+            lines = axes.plot(wavelengths, values, color=color,
+                linewidth=linewidth, label=self._spectrum.get_name())
             assert(len(lines) == 1)
             self._line2d = lines[0]
         else:
@@ -128,7 +129,8 @@ class SpectrumDisplayInfo:
             # will be meaningful if there are multiple plots from different
             # datasets to display.
 
-            lines = axes.plot(values, color=color, linewidth=linewidth)
+            lines = axes.plot(values, color=color, linewidth=linewidth,
+                label=self._spectrum.get_name())
             assert(len(lines) == 1)
             self._line2d = lines[0]
 
@@ -374,7 +376,7 @@ class SpectrumPlot(QWidget):
         #==================================================
         # Events
 
-        if self._app_state.get_config_value('feature-flags.interactive-spectrum-plot', default=False, as_type=bool):
+        if self._app_state.get_config('feature-flags.interactive-spectrum-plot', default=False, as_type=bool):
             self._figure_canvas.setContextMenuPolicy(Qt.DefaultContextMenu)
             self._figure_canvas.set_context_menu_fn(self._on_plot_context_menu)
 
@@ -463,7 +465,7 @@ class SpectrumPlot(QWidget):
         # TODO(donnie):  Eventually, probably expose options for picked spectra
 
         act = menu.addAction(self.tr('Configure plot...'))
-        # TODO(donnie):  "Configure plot" option
+        act.triggered.connect(self._on_configure)
 
         act = menu.addAction(self.tr('Export plot to image...'))
         act.triggered.connect(self._on_export_plot_to_image)
@@ -487,6 +489,11 @@ class SpectrumPlot(QWidget):
         # then ignore the event.  (For example, if this was a right-click, Qt
         # will respond with a context-menu notification.)
         if event.guiEvent.button() != Qt.LeftButton:
+            return
+
+        # If the event doesn't indicate a mouse-click within the axes then
+        # ignore the event.
+        if event.xdata is None or event.ydata is None:
             return
 
         # Clear any click display-info from previous mouse clicks
@@ -546,7 +553,7 @@ class SpectrumPlot(QWidget):
             if closest_spectrum is not None:
                 # print(f'Closest spectrum value:  id={closest_spectrum.get_id()} index={closest_index} y_value={closest_y_value}')
 
-                self._click = SpectrumPointDisplayInfo(spectrum, index, True)
+                self._click = SpectrumPointDisplayInfo(closest_spectrum, closest_index, True)
                 self._click.generate_plot(self._axes)
 
         else:
@@ -578,17 +585,12 @@ class SpectrumPlot(QWidget):
         This event-handler gets called when the user invokes the spectrum
         configuration dialog.
         '''
-        cfg_dialog = SpectrumPlotConfigDialog(self,
-            default_avg_mode=self._default_average_mode,
-            default_area_avg_x=self._default_area_avg_x,
-            default_area_avg_y=self._default_area_avg_y)
+        cfg_dialog = SpectrumPlotConfigDialog(self._app_state, self._axes,
+            parent=self)
 
-        result = cfg_dialog.exec_()
+        cfg_dialog.exec_()
 
-        if result == QDialog.Accepted:
-            self._default_average_mode = cfg_dialog.get_default_avg_mode()
-            self._default_area_avg_x = cfg_dialog.get_default_area_avg_x()
-            self._default_area_avg_y = cfg_dialog.get_default_area_avg_y()
+        self._draw_spectra()
 
 
     def _on_load_spectral_library(self):
