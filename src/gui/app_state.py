@@ -116,9 +116,9 @@ class ApplicationState(QObject):
                 'pixel-reticle-type' : 'SMALL_CROSS',
             },
             'spectra' : {
-                'default-area-average-x' : 1,
-                'default-area-average-y' : 1,
-                'default-area-average-mode' : 'MEAN',
+                'default_area_avg_x' : 1,
+                'default_area_avg_y' : 1,
+                'default_area_avg_mode' : 'MEAN',
             },
         }
 
@@ -377,7 +377,7 @@ class ApplicationState(QObject):
         self.spectral_library_removed.emit(lib_id)
 
 
-    def get_config_value(self, option: str, default=None, as_type=str):
+    def get_config(self, option: str, default=None, as_type=str):
         '''
         Returns the value of the specified config option.  An optional default
         value may be specified.
@@ -402,7 +402,7 @@ class ApplicationState(QObject):
         return value
 
 
-    def set_config_value(self, option, value):
+    def set_config(self, option, value):
         '''
         Sets the value of the specified config option.
         '''

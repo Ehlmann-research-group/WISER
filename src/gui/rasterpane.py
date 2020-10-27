@@ -1631,7 +1631,7 @@ class RasterPane(QWidget):
 
             # Draw a reticle centered on the highlighted pixel.
 
-            reticle_type = self._app_state.get_config_value(
+            reticle_type = self._app_state.get_config(
                 'raster.pixel-reticle-type',
                 default=PixelReticleType.SMALL_CROSS,
                 as_type=lambda s : PixelReticleType[s])
