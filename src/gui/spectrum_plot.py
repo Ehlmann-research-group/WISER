@@ -26,14 +26,56 @@ matplotlib.use('Qt5Agg')
 # matplotlib.rcParams['backend.qt5'] = 'PySide2'
 
 import matplotlib.pyplot as plt
-from matplotlib import patches
 
 import numpy as np
 from astropy import units as u
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-from typing import Optional
+from typing import List, Optional, Tuple
+
+
+def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
+    '''
+    Given the specified range and tick interval, this function returns a list of
+    values within that range where tick marks are to appear.  If no tick marks
+    will fall within that range, an empty list is returned.  For example, if the
+    min_value is 5 and the max_value is 7, and the tick_interval is 100, an
+    empty list will be returned since no tick marks will fall within that range.
+    '''
+
+    # print(f'range=[{min_value} , {max_value}] - interval={tick_interval}')
+
+    ticks = []
+
+    # Instead of looping on specific tick values, which has the potential to
+    # accumulate errors, compute the integer "tick count," which is how many
+    # ticks to get past the min_value.  Then, we can increment the tick
+    # count to move forward, rather than adding in the tick_interval value.
+
+    tick_count = int(min_value // tick_interval)
+    if abs(tick_count * tick_interval - min_value) <= 1e-6:
+        # The start of the range is near a tick mark.
+        ticks.append(tick_count * tick_interval)
+
+    while True:
+        tick_count += 1
+        tick_value = tick_count * tick_interval
+        if tick_value > max_value:
+            break
+
+        ticks.append(tick_value)
+
+    # print(f'ticks={ticks}')
+    return ticks
+
+
+def get_font_properties(font_name: str, font_size: float) \
+        -> matplotlib.font_manager.FontProperties:
+    # FontProperties(family=None, style=None, variant=None, weight=None,
+    #                stretch=None, size=None, fname=None)
+    return matplotlib.font_manager.FontProperties(family=font_name,
+        size=font_size)
 
 
 class SpectrumPlotCanvas(FigureCanvas):
@@ -241,8 +283,31 @@ class SpectrumPlot(QWidget):
 
         self._app_state = app_state
 
+        #=====================================================================
         # General configuration for the spectrum plot
-        self._plot_units = None
+
+        # Font information for the plot
+        self._font_name = None
+        self._title_font_size = 8
+        self._axes_font_size = 7
+        self._legend_font_size = 6
+        self._point_font_size = 5
+
+        # X-range and Y-range information.  If the range is unspecified on a
+        # given axis then the plot is auto-ranged along that axis.
+        self._x_range: Optional[Tuple[float, float]] = None
+        self._y_range: Optional[Tuple[float, float]] = None
+
+        # Major and minor tick information for both axes.  If the value is None
+        # then that tick is disabled.
+        self._x_major_tick_interval: Optional[float] = None
+        self._x_minor_tick_interval: Optional[float] = None
+        self._y_major_tick_interval: Optional[float] = None
+        self._y_minor_tick_interval: Optional[float] = None
+
+        # Since the X-axis often has units associated with it, this field holds
+        # the units used for the plot.
+        self._x_units = None
 
         # Display information for all spectra being plotted
         self._spectrum_display_info: Dict[int, SpectrumDisplayInfo] = {}
@@ -390,6 +455,31 @@ class SpectrumPlot(QWidget):
         return QSize(400, 200)
 
 
+    def get_app_state(self):
+        return self._app_state
+
+
+    def get_axes(self):
+        return self._axes
+
+
+    def get_x_range(self) -> Optional[Tuple[float, float]]:
+        return self._x_range
+
+
+    def set_x_range(self, range: Optional[Tuple[float, float]]):
+        self._x_range = range
+
+
+    def get_y_range(self) -> Optional[Tuple[float, float]]:
+        return self._y_range
+
+
+    def set_y_range(self, range: Optional[Tuple[float, float]]):
+        self._y_range = range
+
+
+
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
@@ -399,7 +489,7 @@ class SpectrumPlot(QWidget):
         if spectrum.has_wavelengths():
             # TODO(donnie):  This is ugly.  Find a way to expose wavelength units
             #     on datasets and spectra.
-            self._plot_units = spectrum.get_wavelengths()[0].unit
+            self._x_units = spectrum.get_wavelengths()[0].unit
 
             self._displayed_spectra_with_wavelengths += 1
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
@@ -413,7 +503,7 @@ class SpectrumPlot(QWidget):
             # Need to regenerate all plots with the new "use wavelengths" value
 
             if use_wavelengths:
-                self._axes.set_xlabel(f'Wavelength ({self._plot_units})',
+                self._axes.set_xlabel(f'Wavelength ({self._x_units})',
                     labelpad=0, fontproperties=self._font_props)
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
             else:
@@ -515,7 +605,7 @@ class SpectrumPlot(QWidget):
             # wavelength (x-value), and that also has the closest spectrum-value
             # (y-value) for that wavelength.
 
-            click_x = event.xdata * self._plot_units
+            click_x = event.xdata * self._x_units
             click_y = event.ydata
 
             for (id, display_info) in self._spectrum_display_info.items():
@@ -585,11 +675,8 @@ class SpectrumPlot(QWidget):
         This event-handler gets called when the user invokes the spectrum
         configuration dialog.
         '''
-        cfg_dialog = SpectrumPlotConfigDialog(self._app_state, self._axes,
-            parent=self)
-
+        cfg_dialog = SpectrumPlotConfigDialog(self, parent=self)
         cfg_dialog.exec_()
-
         self._draw_spectra()
 
 

@@ -1,3 +1,5 @@
+import math
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -6,56 +8,20 @@ from .generated.spectrum_plot_config_ui import Ui_SpectrumPlotConfig
 from raster.spectra import SpectrumAverageMode
 from raster import units
 
-from typing import List
-
-
-def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
-    '''
-    Given the specified range and tick interval, this function returns a list of
-    values within that range where tick marks are to appear.  If no tick marks
-    will fall within that range, an empty list is returned.  For example, if the
-    min_value is 5 and the max_value is 7, and the tick_interval is 100, an
-    empty list will be returned since no tick marks will fall within that range.
-    '''
-
-    # print(f'range=[{min_value} , {max_value}] - interval={tick_interval}')
-
-    ticks = []
-
-    # Instead of looping on specific tick values, which has the potential to
-    # accumulate errors, compute the integer "tick count," which is how many
-    # ticks to get past the min_value.  Then, we can increment the tick
-    # count to move forward, rather than adding in the tick_interval value.
-
-    tick_count = int(min_value // tick_interval)
-    if abs(tick_count * tick_interval - min_value) <= 1e-6:
-        # The start of the range is near a tick mark.
-        ticks.append(tick_count * tick_interval)
-
-    while True:
-        tick_count += 1
-        tick_value = tick_count * tick_interval
-        if tick_value > max_value:
-            break
-
-        ticks.append(tick_value)
-
-    # print(f'ticks={ticks}')
-    return ticks
-
 
 class SpectrumPlotConfigDialog(QDialog):
     '''
     The
     '''
 
-    def __init__(self, app_state, axes, parent=None):
+    def __init__(self, spectrum_plot, parent=None):
         super().__init__(parent=parent)
         self._ui = Ui_SpectrumPlotConfig()
         self._ui.setupUi(self)
 
-        self._app_state = app_state
-        self._axes = axes
+        self._spectrum_plot = spectrum_plot
+        app_state = self._spectrum_plot.get_app_state()
+        axes = self._spectrum_plot.get_axes()
 
         #==============================
         # Plot tab
@@ -77,6 +43,9 @@ class SpectrumPlotConfigDialog(QDialog):
         for (s, unit) in units.KNOWN_SPECTRAL_UNITS.items():
             self._ui.cbox_xaxis_units.addItem(self.tr(s), unit)
 
+        self._ui.ledit_xaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
+        self._ui.ledit_xaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
+
         self._init_tick_ui(axes.get_xticks(minor=False),
                            self._ui.ckbox_xaxis_major_ticks,
                            self._ui.ledit_xaxis_major_ticks)
@@ -85,13 +54,37 @@ class SpectrumPlotConfigDialog(QDialog):
                            self._ui.ckbox_xaxis_minor_ticks,
                            self._ui.ledit_xaxis_minor_ticks)
 
-        # TODO(donnie):  Need to ask the spectrum-plot widget whether it is
-        #     doing auto-limits or manually specified limits.
+        self._ui.ledit_xaxis_minval.setValidator(QDoubleValidator())
+        self._ui.ledit_xaxis_maxval.setValidator(QDoubleValidator())
+
+        range = spectrum_plot.get_x_range()
+
+        self._ui.ckbox_xaxis_specify_range.setChecked(range is not None)
+        self._ui.ledit_xaxis_minval.setEnabled(range is not None)
+        self._ui.ledit_xaxis_maxval.setEnabled(range is not None)
+
+        if range is not None:
+            self._ui.ledit_xaxis_minval.setText(f'{range[0]}')
+            self._ui.ledit_xaxis_maxval.setText(f'{range[1]}')
+
+        # Event handlers
+
+        self._ui.ckbox_xaxis_major_ticks.clicked.connect(
+            self._on_xaxis_major_ticks)
+
+        self._ui.ckbox_xaxis_minor_ticks.clicked.connect(
+            self._on_xaxis_minor_ticks)
+
+        self._ui.ckbox_xaxis_specify_range.clicked.connect(
+            self._on_xaxis_specify_range)
 
         #==============================
         # Y-Axis tab
 
         self._ui.ledit_yaxis_label.setText(axes.get_ylabel())
+
+        self._ui.ledit_yaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
+        self._ui.ledit_yaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
 
         self._init_tick_ui(axes.get_yticks(minor=False),
                            self._ui.ckbox_yaxis_major_ticks,
@@ -101,8 +94,29 @@ class SpectrumPlotConfigDialog(QDialog):
                            self._ui.ckbox_yaxis_minor_ticks,
                            self._ui.ledit_yaxis_minor_ticks)
 
-        # TODO(donnie):  Need to ask the spectrum-plot widget whether it is
-        #     doing auto-limits or manually specified limits.
+        self._ui.ledit_yaxis_minval.setValidator(QDoubleValidator())
+        self._ui.ledit_yaxis_maxval.setValidator(QDoubleValidator())
+
+        range = spectrum_plot.get_y_range()
+
+        self._ui.ckbox_yaxis_specify_range.setChecked(range is not None)
+        self._ui.ledit_yaxis_minval.setEnabled(range is not None)
+        self._ui.ledit_yaxis_maxval.setEnabled(range is not None)
+
+        if range is not None:
+            self._ui.ledit_yaxis_minval.setText(f'{range[0]}')
+            self._ui.ledit_yaxis_maxval.setText(f'{range[1]}')
+
+        # Event handlers
+
+        self._ui.ckbox_yaxis_major_ticks.clicked.connect(
+            self._on_yaxis_major_ticks)
+
+        self._ui.ckbox_yaxis_minor_ticks.clicked.connect(
+            self._on_yaxis_minor_ticks)
+
+        self._ui.ckbox_yaxis_specify_range.clicked.connect(
+            self._on_yaxis_specify_range)
 
         #==============================
         # New Spectra tab
@@ -124,13 +138,40 @@ class SpectrumPlotConfigDialog(QDialog):
 
 
     def _init_tick_ui(self, ticks, checkbox, lineedit):
-        checkbox.setChecked(len(ticks) > 1)
-        if len(ticks) > 1:
+        has_ticks = (len(ticks) > 1)
+        checkbox.setChecked(has_ticks)
+        lineedit.setEnabled(has_ticks)
+        if has_ticks:
             lineedit.setText(f'{ticks[1] - ticks[0]}')
         else:
             lineedit.clear()
 
+    def _on_xaxis_major_ticks(self, checked):
+        self._ui.ledit_xaxis_major_ticks.setEnabled(checked)
+
+    def _on_xaxis_minor_ticks(self, checked):
+        self._ui.ledit_xaxis_minor_ticks.setEnabled(checked)
+
+    def _on_xaxis_specify_range(self, checked):
+        self._ui.ledit_xaxis_minval.setEnabled(checked)
+        self._ui.ledit_xaxis_maxval.setEnabled(checked)
+
+
+    def _on_yaxis_major_ticks(self, checked):
+        self._ui.ledit_yaxis_major_ticks.setEnabled(checked)
+
+    def _on_yaxis_minor_ticks(self, checked):
+        self._ui.ledit_yaxis_minor_ticks.setEnabled(checked)
+
+    def _on_yaxis_specify_range(self, checked):
+        self._ui.ledit_yaxis_minval.setEnabled(checked)
+        self._ui.ledit_yaxis_maxval.setEnabled(checked)
+
+
     def accept(self):
+
+        app_state = self._spectrum_plot.get_app_state()
+        axes = self._spectrum_plot.get_axes()
 
         # Validate inputs
 
@@ -152,67 +193,55 @@ class SpectrumPlotConfigDialog(QDialog):
         #==============================
         # Plot tab
 
-        self._axes.set_title(self._ui.ledit_plot_title.text().strip())
+        axes.set_title(self._ui.ledit_plot_title.text().strip())
 
         legend_location = self._ui.cbox_legend.currentData()
         if legend_location is None:
             # Need to remove the legend
-            legend = self._axes.get_legend()
+            legend = axes.get_legend()
             if legend is not None:
                 legend.remove()
 
         else:
-            self._axes.legend(loc=legend_location)
+            axes.legend(loc=legend_location)
 
         #==============================
         # X-Axis tab
 
-        self._axes.set_xlabel(self._ui.ledit_xaxis_label.text().strip())
+        axes.set_xlabel(self._ui.ledit_xaxis_label.text().strip())
 
+        interval = None
         if self._ui.ckbox_xaxis_major_ticks.isChecked():
             interval = float(self._ui.ledit_xaxis_major_ticks.text().strip())
-            (lower, upper) = self._axes.get_xbound()
-            ticks = generate_ticks(lower, upper, interval)
-            self._axes.set_xticks(ticks, minor=False)
-        else:
-            self._axes.set_xticks([], minor=False)
+        self._spectrum_plot.set_x_major_tick_interval(interval)
 
+        interval = None
         if self._ui.ckbox_xaxis_minor_ticks.isChecked():
             interval = float(self._ui.ledit_xaxis_minor_ticks.text().strip())
-            (lower, upper) = self._axes.get_xbound()
-            ticks = generate_ticks(lower, upper, interval)
-            self._axes.set_xticks(ticks, minor=True)
-        else:
-            self._axes.set_xticks([], minor=True)
+        self._spectrum_plot.set_x_minor_tick_interval(interval)
 
         #==============================
         # Y-Axis tab
 
-        self._axes.set_ylabel(self._ui.ledit_yaxis_label.text().strip())
+        axes.set_ylabel(self._ui.ledit_yaxis_label.text().strip())
 
+        interval = None
         if self._ui.ckbox_yaxis_major_ticks.isChecked():
             interval = float(self._ui.ledit_yaxis_major_ticks.text().strip())
-            (lower, upper) = self._axes.get_ybound()
-            ticks = generate_ticks(lower, upper, interval)
-            self._axes.set_yticks(ticks, minor=False)
-        else:
-            self._axes.set_yticks([], minor=False)
+        self._spectrum_plot.set_y_major_tick_interval(interval)
 
+        interval = None
         if self._ui.ckbox_yaxis_minor_ticks.isChecked():
             interval = float(self._ui.ledit_yaxis_minor_ticks.text().strip())
-            (lower, upper) = self._axes.get_ybound()
-            ticks = generate_ticks(lower, upper, interval)
-            self._axes.set_yticks(ticks, minor=True)
-        else:
-            self._axes.set_yticks([], minor=True)
+        self._spectrum_plot.set_y_minor_tick_interval(interval)
 
         #==============================
         # New Spectra tab
 
-        self._app_state.set_config('spectra.default_area_avg_x', aavg_x)
-        self._app_state.set_config('spectra.default_area_avg_y', aavg_y)
+        app_state.set_config('spectra.default_area_avg_x', aavg_x)
+        app_state.set_config('spectra.default_area_avg_y', aavg_y)
 
         mode = self._ui.cbox_default_avg_mode.currentData()
-        self._app_state.set_config('spectra.default_area_avg_mode', mode)
+        app_state.set_config('spectra.default_area_avg_mode', mode)
 
         super().accept()
