@@ -88,7 +88,16 @@
         </widget>
        </item>
        <item row="3" column="1">
-        <widget class="QFontComboBox" name="cbox_font"/>
+        <widget class="QFontComboBox" name="cbox_font">
+         <property name="fontFilters">
+          <set>QFontComboBox::ScalableFonts</set>
+         </property>
+         <property name="currentFont">
+          <font>
+           <family>Arial</family>
+          </font>
+         </property>
+        </widget>
        </item>
        <item row="3" column="3">
         <widget class="QLineEdit" name="ledit_font_size">
@@ -227,7 +236,7 @@
         <widget class="QLineEdit" name="ledit_yaxis_label"/>
        </item>
        <item row="1" column="0">
-        <widget class="QCheckBox" name="checkBox_8">
+        <widget class="QCheckBox" name="ckbox_yaxis_major_ticks">
          <property name="text">
           <string>Major tick marks every</string>
          </property>
@@ -369,7 +378,7 @@
   <tabstop>ledit_xaxis_minval</tabstop>
   <tabstop>ledit_xaxis_maxval</tabstop>
   <tabstop>ledit_yaxis_label</tabstop>
-  <tabstop>checkBox_8</tabstop>
+  <tabstop>ckbox_yaxis_major_ticks</tabstop>
   <tabstop>ledit_yaxis_major_ticks</tabstop>
   <tabstop>ckbox_yaxis_minor_ticks</tabstop>
   <tabstop>ledit_yaxis_minor_ticks</tabstop>
