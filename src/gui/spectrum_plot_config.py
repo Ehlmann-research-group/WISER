@@ -1,5 +1,7 @@
 import math
 
+from typing import Optional
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -35,6 +37,11 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.cbox_legend.addItem(self.tr('Lower center' ), 'lower center')
         self._ui.cbox_legend.addItem(self.tr('Lower right'  ), 'lower right' )
 
+        # Choose the currently used legend-placement option in the combobox.
+        index = self._ui.cbox_legend.findData(spectrum_plot.get_legend())
+        if index != -1:
+            self._ui.cbox_legend.setCurrentIndex(index)
+
         #==============================
         # X-Axis tab
 
@@ -46,11 +53,11 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.ledit_xaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
         self._ui.ledit_xaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
 
-        self._init_tick_ui(axes.get_xticks(minor=False),
+        self._init_tick_ui(spectrum_plot.get_x_major_tick_interval(),
                            self._ui.ckbox_xaxis_major_ticks,
                            self._ui.ledit_xaxis_major_ticks)
 
-        self._init_tick_ui(axes.get_xticks(minor=True),
+        self._init_tick_ui(spectrum_plot.get_x_minor_tick_interval(),
                            self._ui.ckbox_xaxis_minor_ticks,
                            self._ui.ledit_xaxis_minor_ticks)
 
@@ -86,11 +93,11 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.ledit_yaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
         self._ui.ledit_yaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
 
-        self._init_tick_ui(axes.get_yticks(minor=False),
+        self._init_tick_ui(spectrum_plot.get_y_major_tick_interval(),
                            self._ui.ckbox_yaxis_major_ticks,
                            self._ui.ledit_yaxis_major_ticks)
 
-        self._init_tick_ui(axes.get_yticks(minor=True),
+        self._init_tick_ui(spectrum_plot.get_y_minor_tick_interval(),
                            self._ui.ckbox_yaxis_minor_ticks,
                            self._ui.ledit_yaxis_minor_ticks)
 
@@ -137,12 +144,12 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.cbox_default_avg_mode.setCurrentIndex(index)
 
 
-    def _init_tick_ui(self, ticks, checkbox, lineedit):
-        has_ticks = (len(ticks) > 1)
+    def _init_tick_ui(self, interval: Optional[float], checkbox, lineedit):
+        has_ticks = (interval is not None)
         checkbox.setChecked(has_ticks)
         lineedit.setEnabled(has_ticks)
         if has_ticks:
-            lineedit.setText(f'{ticks[1] - ticks[0]}')
+            lineedit.setText(f'{interval}')
         else:
             lineedit.clear()
 
@@ -196,14 +203,7 @@ class SpectrumPlotConfigDialog(QDialog):
         axes.set_title(self._ui.ledit_plot_title.text().strip())
 
         legend_location = self._ui.cbox_legend.currentData()
-        if legend_location is None:
-            # Need to remove the legend
-            legend = axes.get_legend()
-            if legend is not None:
-                legend.remove()
-
-        else:
-            axes.legend(loc=legend_location)
+        self._spectrum_plot.set_legend(legend_location)
 
         #==============================
         # X-Axis tab

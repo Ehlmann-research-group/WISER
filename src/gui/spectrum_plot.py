@@ -286,12 +286,15 @@ class SpectrumPlot(QWidget):
         #=====================================================================
         # General configuration for the spectrum plot
 
+        # Are we displaying a legend?
+        self._legend_location: Optional[str] = None
+
         # Font information for the plot
         self._font_name = None
-        self._title_font_size = 8
-        self._axes_font_size = 7
-        self._legend_font_size = 6
-        self._point_font_size = 5
+        self._title_font_size: int = 8
+        self._axes_font_size: int = 7
+        self._legend_font_size: int = 5
+        self._point_font_size: int = 5
 
         # X-range and Y-range information.  If the range is unspecified on a
         # given axis then the plot is auto-ranged along that axis.
@@ -376,8 +379,6 @@ class SpectrumPlot(QWidget):
             bottom=True, left=True, top=False, right=False)
 
         self._figure_canvas = SpectrumPlotCanvas(self._figure)
-
-        self._font_props = matplotlib.font_manager.FontProperties(size=4)
 
         # self.axes.set_autoscalex_on(True)
         # self.axes.set_autoscaley_on(False)
@@ -475,9 +476,66 @@ class SpectrumPlot(QWidget):
         return self._y_range
 
 
-    def set_y_range(self, range: Optional[Tuple[float, float]]):
+    def set_y_range(self, range: Optional[Tuple[float, float]]) -> None:
         self._y_range = range
 
+
+
+    def get_x_major_tick_interval(self) -> Optional[float]:
+        return self._x_major_tick_interval
+
+    def set_x_major_tick_interval(self, interval: Optional[float]) -> None:
+        if interval is not None and interval <= 0:
+            raise ValueError(f'interval must be >= 0; got {interval}')
+        self._x_major_tick_interval = interval
+
+    def get_x_minor_tick_interval(self) -> Optional[float]:
+        return self._x_minor_tick_interval
+
+    def set_x_minor_tick_interval(self, interval: Optional[float]) -> None:
+        if interval is not None and interval <= 0:
+            raise ValueError(f'interval must be >= 0; got {interval}')
+        self._x_minor_tick_interval = interval
+
+
+    def get_y_major_tick_interval(self) -> Optional[float]:
+        return self._y_major_tick_interval
+
+    def set_y_major_tick_interval(self, interval: Optional[float]) -> None:
+        if interval is not None and interval <= 0:
+            raise ValueError(f'interval must be >= 0; got {interval}')
+        self._y_major_tick_interval = interval
+
+    def get_y_minor_tick_interval(self) -> Optional[float]:
+        return self._y_minor_tick_interval
+
+    def set_y_minor_tick_interval(self, interval: Optional[float]) -> None:
+        if interval is not None and interval <= 0:
+            raise ValueError(f'interval must be >= 0; got {interval}')
+        self._y_minor_tick_interval = interval
+
+
+    def get_legend(self) -> Optional[str]:
+        '''
+        If the legend is enabled, this fucntion returns the current location of
+        the legend.  If the legend is disabled then this function returns None.
+        '''
+        return self._legend_location
+
+
+    def set_legend(self, location: Optional[str]) -> None:
+        '''
+        Enables or disables the legend on the plot, along with the location that
+        the legend should appear.
+
+        If location is a string specifying where to place the legend, then the
+        legend will be displayed accordingly.  Possible location values are as
+        specified by the pyplot.legend() function:
+        https://matplotlib.org/api/_as_gen/matplotlib.pyplot.legend.html#matplotlib.pyplot.legend
+
+        If location is None then the legend is hidden.
+        '''
+        self._legend_location = location
 
 
     def _add_spectrum_to_plot(self, spectrum, treeitem):
@@ -502,13 +560,14 @@ class SpectrumPlot(QWidget):
         else:
             # Need to regenerate all plots with the new "use wavelengths" value
 
+            axes_font = get_font_properties(self._font_name, self._axes_font_size)
             if use_wavelengths:
                 self._axes.set_xlabel(f'Wavelength ({self._x_units})',
-                    labelpad=0, fontproperties=self._font_props)
-                self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
+                    labelpad=0, fontproperties=axes_font)
+                self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
             else:
-                self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=self._font_props)
-                self._axes.set_ylabel('Value', labelpad=0, fontproperties=self._font_props)
+                self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=axes_font)
+                self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
 
             for other_info in self._spectrum_display_info.values():
                 other_info.generate_plot(self._axes, use_wavelengths)
@@ -651,18 +710,6 @@ class SpectrumPlot(QWidget):
             pass
 
         self._draw_spectra()
-
-
-    '''
-    def _on_mpl_pick_event(self, event):
-        print('-' * 70)
-        print('_on_mpl_pick_event')
-        print(f'MPL Event name={event.name} type={type(event)} ' +
-              f'x={event.x} y={event.y} inaxes={inaxes} ' +
-              f'xdata={xdata} ydata={ydata}')
-        print(f'event.inaxes={event.inaxes}')
-        print(f'event.guiEvent={event.guiEvent}')
-    '''
 
 
     def _on_export_plot_to_image(self, act):
@@ -1166,4 +1213,32 @@ class SpectrumPlot(QWidget):
         any changes that have been made to the plot.
         '''
         self._axes.relim(visible_only=True)
+
+        # Legend:
+
+        '''
+        legend = self._axes.get_legend()
+        if legend is not None:
+            legend.remove()
+
+        if self._legend_location is not None:
+            # Need to add a legend.  Use the user-specified location, and also
+            # the current font for the legend.
+            legend_font = get_font_properties(self._font_name, self._legend_font_size)
+            self._axes.legend(loc=self._legend_location, prop=legend_font)
+        '''
+
+        if self._legend_location is None:
+            # Need to remove the legend
+            legend = self._axes.get_legend()
+            if legend is not None:
+                legend.remove()
+
+        else:
+            # Need to add a legend.  Use the user-specified location, and also
+            # the current font for the legend.
+            legend_font = get_font_properties(self._font_name, self._legend_font_size)
+            self._axes.legend(loc=self._legend_location, prop=legend_font)
+
+        # All done!
         self._figure_canvas.draw()
