@@ -12,6 +12,9 @@ sli/
 build/
 dist/
 
+# Windows installers that end up in the top-level directory
+Install-WISER-*.exe
+
 # This file contains secrets for distribution, DO NOT CHECK IN!
 Secret.mk
 
