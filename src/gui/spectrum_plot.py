@@ -291,10 +291,12 @@ class SpectrumPlot(QWidget):
 
         # Font information for the plot
         self._font_name = None
-        self._title_font_size: int = 8
-        self._axes_font_size: int = 7
-        self._legend_font_size: int = 5
-        self._point_font_size: int = 5
+        self._font_size: Dict[str, float] = {
+            'title'  : 7,
+            'axes'   : 6,
+            'legend' : 5,
+            'point'  : 5,
+        }
 
         # X-range and Y-range information.  If the range is unspecified on a
         # given axis then the plot is auto-ranged along that axis.
@@ -460,10 +462,6 @@ class SpectrumPlot(QWidget):
         return self._app_state
 
 
-    def get_axes(self):
-        return self._axes
-
-
     def get_x_range(self) -> Optional[Tuple[float, float]]:
         return self._x_range
 
@@ -515,6 +513,63 @@ class SpectrumPlot(QWidget):
         self._y_minor_tick_interval = interval
 
 
+    def get_font_size(self, item: str) -> float:
+        '''
+        Returns the current font size for the specified item.  Recognized items
+        are case sensitive, and are as follows:
+
+        *   'title' - the font size for the title text
+        *   'axes' - the font size for the axis labels
+        *   'legend' - the font size for the legend text
+        *   'point' - the font size for describing a selected point on a
+            spectrum
+
+        If an unrecognized item is specified, this method will throw a KeyError.
+        '''
+        return self._font_size[item]
+
+
+    def set_font_size(self, item, size: float) -> None:
+        if item not in ['title', 'axes', 'legend', 'point']:
+            raise KeyError(f'Unrecognized item:  {item}')
+
+        self._font_size[item] = size
+
+        # TODO(donnie):  Update the display here?
+        if item == 'title':
+            self.set_title(self.get_title())
+
+        elif item == 'legend':
+            self.set_legend(self.get_legend())
+
+
+    def get_title(self) -> Optional[str]:
+        return self._axes.get_title()
+
+
+    def set_title(self, title: Optional[str]) -> None:
+        title_font = get_font_properties(self._font_name, self._font_size['title'])
+        self._axes.set_title(title, fontproperties=title_font)
+
+
+    def get_x_label(self) -> Optional[str]:
+        return self._axes.get_xlabel()
+
+
+    def set_x_label(self, label: Optional[str]) -> None:
+        axes_font = get_font_properties(self._font_name, self._font_size['axes'])
+        self._axes.set_xlabel(label, fontproperties=axes_font)
+
+
+    def get_y_label(self) -> Optional[str]:
+        return self._axes.get_ylabel()
+
+
+    def set_y_label(self, label: Optional[str]) -> None:
+        axes_font = get_font_properties(self._font_name, self._font_size['axes'])
+        self._axes.set_ylabel(label, fontproperties=axes_font)
+
+
     def get_legend(self) -> Optional[str]:
         '''
         If the legend is enabled, this fucntion returns the current location of
@@ -560,7 +615,7 @@ class SpectrumPlot(QWidget):
         else:
             # Need to regenerate all plots with the new "use wavelengths" value
 
-            axes_font = get_font_properties(self._font_name, self._axes_font_size)
+            axes_font = get_font_properties(self._font_name, self._font_size['axes'])
             if use_wavelengths:
                 self._axes.set_xlabel(f'Wavelength ({self._x_units})',
                     labelpad=0, fontproperties=axes_font)
@@ -1216,18 +1271,6 @@ class SpectrumPlot(QWidget):
 
         # Legend:
 
-        '''
-        legend = self._axes.get_legend()
-        if legend is not None:
-            legend.remove()
-
-        if self._legend_location is not None:
-            # Need to add a legend.  Use the user-specified location, and also
-            # the current font for the legend.
-            legend_font = get_font_properties(self._font_name, self._legend_font_size)
-            self._axes.legend(loc=self._legend_location, prop=legend_font)
-        '''
-
         if self._legend_location is None:
             # Need to remove the legend
             legend = self._axes.get_legend()
@@ -1237,7 +1280,7 @@ class SpectrumPlot(QWidget):
         else:
             # Need to add a legend.  Use the user-specified location, and also
             # the current font for the legend.
-            legend_font = get_font_properties(self._font_name, self._legend_font_size)
+            legend_font = get_font_properties(self._font_name, self._font_size['legend'])
             self._axes.legend(loc=self._legend_location, prop=legend_font)
 
         # All done!

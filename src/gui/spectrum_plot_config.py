@@ -23,29 +23,42 @@ class SpectrumPlotConfigDialog(QDialog):
 
         self._spectrum_plot = spectrum_plot
         app_state = self._spectrum_plot.get_app_state()
-        axes = self._spectrum_plot.get_axes()
 
         #==============================
         # Plot tab
 
-        self._ui.ledit_plot_title.setText(axes.get_title())
+        self._ui.ledit_plot_title.setText(spectrum_plot.get_title())
 
         self._ui.cbox_legend.addItem(self.tr('No legend'), None)
-        self._ui.cbox_legend.addItem(self.tr('Best location'), 'best'        )
+        self._ui.cbox_legend.addItem(self.tr('Upper left'   ), 'upper left'  )
+        self._ui.cbox_legend.addItem(self.tr('Upper center' ), 'upper center')
         self._ui.cbox_legend.addItem(self.tr('Upper right'  ), 'upper right' )
+        self._ui.cbox_legend.addItem(self.tr('Center left'  ), 'center left' )
         self._ui.cbox_legend.addItem(self.tr('Center right' ), 'center right')
+        self._ui.cbox_legend.addItem(self.tr('Lower left'   ), 'lower left'  )
         self._ui.cbox_legend.addItem(self.tr('Lower center' ), 'lower center')
         self._ui.cbox_legend.addItem(self.tr('Lower right'  ), 'lower right' )
+        self._ui.cbox_legend.addItem(self.tr('Best location'), 'best'        )
 
         # Choose the currently used legend-placement option in the combobox.
         index = self._ui.cbox_legend.findData(spectrum_plot.get_legend())
         if index != -1:
             self._ui.cbox_legend.setCurrentIndex(index)
 
+        # Populate the font sizes
+
+        self._ui.ledit_title_font_size.setValidator(QDoubleValidator(1.0, 72.0, 1))
+        self._ui.ledit_axes_font_size.setValidator(QDoubleValidator(1.0, 72.0, 1))
+        self._ui.ledit_legend_font_size.setValidator(QDoubleValidator(1.0, 72.0, 1))
+
+        self._ui.ledit_title_font_size.setText(str(spectrum_plot.get_font_size('title')))
+        self._ui.ledit_axes_font_size.setText(str(spectrum_plot.get_font_size('axes')))
+        self._ui.ledit_legend_font_size.setText(str(spectrum_plot.get_font_size('legend')))
+
         #==============================
         # X-Axis tab
 
-        self._ui.ledit_xaxis_label.setText(axes.get_xlabel())
+        self._ui.ledit_xaxis_label.setText(spectrum_plot.get_x_label())
 
         for (s, unit) in units.KNOWN_SPECTRAL_UNITS.items():
             self._ui.cbox_xaxis_units.addItem(self.tr(s), unit)
@@ -88,7 +101,7 @@ class SpectrumPlotConfigDialog(QDialog):
         #==============================
         # Y-Axis tab
 
-        self._ui.ledit_yaxis_label.setText(axes.get_ylabel())
+        self._ui.ledit_yaxis_label.setText(spectrum_plot.get_y_label())
 
         self._ui.ledit_yaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
         self._ui.ledit_yaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
@@ -178,7 +191,6 @@ class SpectrumPlotConfigDialog(QDialog):
     def accept(self):
 
         app_state = self._spectrum_plot.get_app_state()
-        axes = self._spectrum_plot.get_axes()
 
         # Validate inputs
 
@@ -200,15 +212,28 @@ class SpectrumPlotConfigDialog(QDialog):
         #==============================
         # Plot tab
 
-        axes.set_title(self._ui.ledit_plot_title.text().strip())
+        # Title and legend
+
+        self._spectrum_plot.set_title(self._ui.ledit_plot_title.text().strip())
 
         legend_location = self._ui.cbox_legend.currentData()
         self._spectrum_plot.set_legend(legend_location)
 
+        # Font sizes
+
+        self._spectrum_plot.set_font_size('title',
+            float(self._ui.ledit_title_font_size.text()))
+
+        self._spectrum_plot.set_font_size('axes',
+            float(self._ui.ledit_axes_font_size.text()))
+
+        self._spectrum_plot.set_font_size('legend',
+            float(self._ui.ledit_legend_font_size.text()))
+
         #==============================
         # X-Axis tab
 
-        axes.set_xlabel(self._ui.ledit_xaxis_label.text().strip())
+        self._spectrum_plot.set_x_label(self._ui.ledit_xaxis_label.text().strip())
 
         interval = None
         if self._ui.ckbox_xaxis_major_ticks.isChecked():
@@ -223,7 +248,7 @@ class SpectrumPlotConfigDialog(QDialog):
         #==============================
         # Y-Axis tab
 
-        axes.set_ylabel(self._ui.ledit_yaxis_label.text().strip())
+        self._spectrum_plot.set_y_label(self._ui.ledit_yaxis_label.text().strip())
 
         interval = None
         if self._ui.ckbox_yaxis_major_ticks.isChecked():
