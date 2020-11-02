@@ -45,6 +45,12 @@ class SpectrumPlotConfigDialog(QDialog):
         if index != -1:
             self._ui.cbox_legend.setCurrentIndex(index)
 
+        # Get the current font name, and select it in the font combobox
+        font_name = spectrum_plot.get_font_name()
+        index = self._ui.cbox_font.findText(font_name)
+        if index != -1:
+            self._ui.cbox_font.setCurrentIndex(index)
+
         # Populate the font sizes
 
         self._ui.ledit_title_font_size.setValidator(QDoubleValidator(1.0, 72.0, 1))
@@ -218,6 +224,11 @@ class SpectrumPlotConfigDialog(QDialog):
 
         legend_location = self._ui.cbox_legend.currentData()
         self._spectrum_plot.set_legend(legend_location)
+
+        # Font name
+
+        self._spectrum_plot.set_font_name(
+            self._ui.cbox_font.currentFont().family())
 
         # Font sizes
 

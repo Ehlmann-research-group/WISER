@@ -513,6 +513,24 @@ class SpectrumPlot(QWidget):
         self._y_minor_tick_interval = interval
 
 
+    def get_font_name(self) -> str:
+        return self._font_name
+
+
+    def set_font_name(self, font_name: str) -> None:
+        if self._font_name != font_name:
+            self._font_name = font_name
+
+            # Regenerate all the text to switch it to the new font.
+
+            self.set_title(self.get_title())
+            self.set_x_label(self.get_x_label())
+            self.set_y_label(self.get_y_label())
+            self.set_legend(self.get_legend())
+
+
+
+
     def get_font_size(self, item: str) -> float:
         '''
         Returns the current font size for the specified item.  Recognized items
@@ -538,6 +556,10 @@ class SpectrumPlot(QWidget):
         # TODO(donnie):  Update the display here?
         if item == 'title':
             self.set_title(self.get_title())
+
+        elif item == 'axes':
+            self.set_x_label(self.get_x_label())
+            self.set_y_label(self.get_y_label())
 
         elif item == 'legend':
             self.set_legend(self.get_legend())
