@@ -6,6 +6,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from astropy import units as u
+
 from .generated.spectrum_plot_config_ui import Ui_SpectrumPlotConfig
 from raster.spectra import SpectrumAverageMode
 from raster import units
@@ -53,24 +55,40 @@ class SpectrumPlotConfigDialog(QDialog):
 
         # Populate the font sizes
 
-        self._ui.ledit_title_font_size.setValidator(QDoubleValidator(1.0, 72.0, 1))
-        self._ui.ledit_axes_font_size.setValidator(QDoubleValidator(1.0, 72.0, 1))
-        self._ui.ledit_legend_font_size.setValidator(QDoubleValidator(1.0, 72.0, 1))
-
-        self._ui.ledit_title_font_size.setText(str(spectrum_plot.get_font_size('title')))
-        self._ui.ledit_axes_font_size.setText(str(spectrum_plot.get_font_size('axes')))
-        self._ui.ledit_legend_font_size.setText(str(spectrum_plot.get_font_size('legend')))
+        self._ui.sbox_title_font_size.setValue(spectrum_plot.get_font_size('title'))
+        self._ui.sbox_axes_font_size.setValue(spectrum_plot.get_font_size('axes'))
+        self._ui.sbox_tick_font_size.setValue(spectrum_plot.get_font_size('ticks'))
+        self._ui.sbox_legend_font_size.setValue(spectrum_plot.get_font_size('legend'))
+        self._ui.sbox_selection_font_size.setValue(spectrum_plot.get_font_size('selection'))
 
         #==============================
         # X-Axis tab
 
         self._ui.ledit_xaxis_label.setText(spectrum_plot.get_x_label())
 
-        for (s, unit) in units.KNOWN_SPECTRAL_UNITS.items():
-            self._ui.cbox_xaxis_units.addItem(self.tr(s), unit)
+        self._ui.cbox_xaxis_units.addItem(self.tr('No units'   ), None        )
+        self._ui.cbox_xaxis_units.addItem(self.tr('Meters'     ), u.m         )
+        self._ui.cbox_xaxis_units.addItem(self.tr('Centimeters'), u.cm        )
+        self._ui.cbox_xaxis_units.addItem(self.tr('Millimeters'), u.mm        )
+        self._ui.cbox_xaxis_units.addItem(self.tr('Micrometers'), u.micrometer)
+        self._ui.cbox_xaxis_units.addItem(self.tr('Nanometers' ), u.nm        )
+        self._ui.cbox_xaxis_units.addItem(self.tr('Microns'    ), u.micron    )
+        self._ui.cbox_xaxis_units.addItem(self.tr('Angstroms'  ), u.angstrom  )
+        self._ui.cbox_xaxis_units.addItem(self.tr('Wavenumber' ), u.cm ** -1  )
+        self._ui.cbox_xaxis_units.addItem(self.tr('MHz'        ), u.MHz       )
+        self._ui.cbox_xaxis_units.addItem(self.tr('GHz'        ), u.GHz       )
+
+        units = spectrum_plot.get_x_units()
+        index = self._ui.cbox_xaxis_units.findData(units)
+        self._ui.cbox_xaxis_units.setCurrentIndex(index)
+        if units is None:
+            self._ui.cbox_xaxis_units.setEnabled(False)
 
         self._ui.ledit_xaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
         self._ui.ledit_xaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
+
+        autoticks = spectrum_plot.get_x_autoticks()
+        self._ui.gbox_xaxis_ticks.setChecked(not autoticks)
 
         self._init_tick_ui(spectrum_plot.get_x_major_tick_interval(),
                            self._ui.ckbox_xaxis_major_ticks,
@@ -83,15 +101,16 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.ledit_xaxis_minval.setValidator(QDoubleValidator())
         self._ui.ledit_xaxis_maxval.setValidator(QDoubleValidator())
 
+        autorange = spectrum_plot.get_x_autorange()
         range = spectrum_plot.get_x_range()
 
-        self._ui.ckbox_xaxis_specify_range.setChecked(range is not None)
-        self._ui.ledit_xaxis_minval.setEnabled(range is not None)
-        self._ui.ledit_xaxis_maxval.setEnabled(range is not None)
+        self._ui.gbox_xaxis_range.setChecked(not autorange)
+        self._ui.ledit_xaxis_minval.setText(f'{range[0]:g}')
+        self._ui.ledit_xaxis_maxval.setText(f'{range[1]:g}')
 
-        if range is not None:
-            self._ui.ledit_xaxis_minval.setText(f'{range[0]}')
-            self._ui.ledit_xaxis_maxval.setText(f'{range[1]}')
+        self._update_tick_results(self._ui.lbl_xaxis_tick_results,
+            self._ui.ckbox_xaxis_major_ticks, self._ui.ledit_xaxis_major_ticks,
+            self._ui.ckbox_xaxis_minor_ticks, self._ui.ledit_xaxis_minor_ticks)
 
         # Event handlers
 
@@ -101,8 +120,11 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.ckbox_xaxis_minor_ticks.clicked.connect(
             self._on_xaxis_minor_ticks)
 
-        self._ui.ckbox_xaxis_specify_range.clicked.connect(
-            self._on_xaxis_specify_range)
+        self._ui.ledit_xaxis_major_ticks.textEdited.connect(
+            self._on_xaxis_major_ticks_edited)
+
+        self._ui.ledit_xaxis_minor_ticks.textEdited.connect(
+            self._on_xaxis_minor_ticks_edited)
 
         #==============================
         # Y-Axis tab
@@ -111,6 +133,9 @@ class SpectrumPlotConfigDialog(QDialog):
 
         self._ui.ledit_yaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
         self._ui.ledit_yaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
+
+        autoticks = spectrum_plot.get_y_autoticks()
+        self._ui.gbox_yaxis_ticks.setChecked(not autoticks)
 
         self._init_tick_ui(spectrum_plot.get_y_major_tick_interval(),
                            self._ui.ckbox_yaxis_major_ticks,
@@ -123,15 +148,16 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.ledit_yaxis_minval.setValidator(QDoubleValidator())
         self._ui.ledit_yaxis_maxval.setValidator(QDoubleValidator())
 
+        autorange = spectrum_plot.get_y_autorange()
         range = spectrum_plot.get_y_range()
 
-        self._ui.ckbox_yaxis_specify_range.setChecked(range is not None)
-        self._ui.ledit_yaxis_minval.setEnabled(range is not None)
-        self._ui.ledit_yaxis_maxval.setEnabled(range is not None)
+        self._ui.gbox_yaxis_range.setChecked(not autorange)
+        self._ui.ledit_yaxis_minval.setText(f'{range[0]:g}')
+        self._ui.ledit_yaxis_maxval.setText(f'{range[1]:g}')
 
-        if range is not None:
-            self._ui.ledit_yaxis_minval.setText(f'{range[0]}')
-            self._ui.ledit_yaxis_maxval.setText(f'{range[1]}')
+        self._update_tick_results(self._ui.lbl_yaxis_tick_results,
+            self._ui.ckbox_yaxis_major_ticks, self._ui.ledit_yaxis_major_ticks,
+            self._ui.ckbox_yaxis_minor_ticks, self._ui.ledit_yaxis_minor_ticks)
 
         # Event handlers
 
@@ -141,8 +167,11 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.ckbox_yaxis_minor_ticks.clicked.connect(
             self._on_yaxis_minor_ticks)
 
-        self._ui.ckbox_yaxis_specify_range.clicked.connect(
-            self._on_yaxis_specify_range)
+        self._ui.ledit_yaxis_major_ticks.textEdited.connect(
+            self._on_yaxis_major_ticks_edited)
+
+        self._ui.ledit_yaxis_minor_ticks.textEdited.connect(
+            self._on_yaxis_minor_ticks_edited)
 
         #==============================
         # New Spectra tab
@@ -166,32 +195,100 @@ class SpectrumPlotConfigDialog(QDialog):
     def _init_tick_ui(self, interval: Optional[float], checkbox, lineedit):
         has_ticks = (interval is not None)
         checkbox.setChecked(has_ticks)
-        lineedit.setEnabled(has_ticks)
         if has_ticks:
-            lineedit.setText(f'{interval}')
+            lineedit.setText(f'{interval:g}')
         else:
             lineedit.clear()
 
+
     def _on_xaxis_major_ticks(self, checked):
-        self._ui.ledit_xaxis_major_ticks.setEnabled(checked)
+        self._update_tick_results(self._ui.lbl_xaxis_tick_results,
+            self._ui.ckbox_xaxis_major_ticks, self._ui.ledit_xaxis_major_ticks,
+            self._ui.ckbox_xaxis_minor_ticks, self._ui.ledit_xaxis_minor_ticks)
 
     def _on_xaxis_minor_ticks(self, checked):
-        self._ui.ledit_xaxis_minor_ticks.setEnabled(checked)
-
-    def _on_xaxis_specify_range(self, checked):
-        self._ui.ledit_xaxis_minval.setEnabled(checked)
-        self._ui.ledit_xaxis_maxval.setEnabled(checked)
+        self._update_tick_results(self._ui.lbl_xaxis_tick_results,
+            self._ui.ckbox_xaxis_major_ticks, self._ui.ledit_xaxis_major_ticks,
+            self._ui.ckbox_xaxis_minor_ticks, self._ui.ledit_xaxis_minor_ticks)
 
 
     def _on_yaxis_major_ticks(self, checked):
-        self._ui.ledit_yaxis_major_ticks.setEnabled(checked)
+        self._update_tick_results(self._ui.lbl_yaxis_tick_results,
+            self._ui.ckbox_yaxis_major_ticks, self._ui.ledit_yaxis_major_ticks,
+            self._ui.ckbox_yaxis_minor_ticks, self._ui.ledit_yaxis_minor_ticks)
 
     def _on_yaxis_minor_ticks(self, checked):
-        self._ui.ledit_yaxis_minor_ticks.setEnabled(checked)
+        self._update_tick_results(self._ui.lbl_yaxis_tick_results,
+            self._ui.ckbox_yaxis_major_ticks, self._ui.ledit_yaxis_major_ticks,
+            self._ui.ckbox_yaxis_minor_ticks, self._ui.ledit_yaxis_minor_ticks)
 
-    def _on_yaxis_specify_range(self, checked):
-        self._ui.ledit_yaxis_minval.setEnabled(checked)
-        self._ui.ledit_yaxis_maxval.setEnabled(checked)
+
+    def _on_xaxis_major_ticks_edited(self, text: str):
+        if text:
+            self._ui.ckbox_xaxis_major_ticks.setChecked(True)
+
+        self._update_tick_results(self._ui.lbl_xaxis_tick_results,
+            self._ui.ckbox_xaxis_major_ticks, self._ui.ledit_xaxis_major_ticks,
+            self._ui.ckbox_xaxis_minor_ticks, self._ui.ledit_xaxis_minor_ticks)
+
+    def _on_xaxis_minor_ticks_edited(self, text: str):
+        if text:
+            self._ui.ckbox_xaxis_minor_ticks.setChecked(True)
+
+        self._update_tick_results(self._ui.lbl_xaxis_tick_results,
+            self._ui.ckbox_xaxis_major_ticks, self._ui.ledit_xaxis_major_ticks,
+            self._ui.ckbox_xaxis_minor_ticks, self._ui.ledit_xaxis_minor_ticks)
+
+    def _on_yaxis_major_ticks_edited(self, text: str):
+        if text:
+            self._ui.ckbox_yaxis_major_ticks.setChecked(True)
+
+        self._update_tick_results(self._ui.lbl_yaxis_tick_results,
+            self._ui.ckbox_yaxis_major_ticks, self._ui.ledit_yaxis_major_ticks,
+            self._ui.ckbox_yaxis_minor_ticks, self._ui.ledit_yaxis_minor_ticks)
+
+    def _on_yaxis_minor_ticks_edited(self, text: str):
+        if text:
+            self._ui.ckbox_yaxis_minor_ticks.setChecked(True)
+
+        self._update_tick_results(self._ui.lbl_yaxis_tick_results,
+            self._ui.ckbox_yaxis_major_ticks, self._ui.ledit_yaxis_major_ticks,
+            self._ui.ckbox_yaxis_minor_ticks, self._ui.ledit_yaxis_minor_ticks)
+
+
+    def _update_tick_results(self, label: QLabel,
+                             ckbox_major: QCheckBox, ledit_major: QLineEdit,
+                             ckbox_minor: QCheckBox, ledit_minor: QLineEdit):
+        major_enabled = ckbox_major.isChecked()
+        major_interval = None
+        if major_enabled and ledit_major.text():
+            major_interval = float(ledit_major.text())
+
+        minor_enabled = ckbox_minor.isChecked()
+        minor_interval = None
+        if minor_enabled and ledit_minor.text():
+            minor_interval = float(ledit_minor.text())
+
+        label.setText(self._describe_tick_results(major_enabled, major_interval,
+                                                  minor_enabled, minor_interval))
+
+
+    def _describe_tick_results(self,
+            major_enabled: bool, major_interval: Optional[float],
+            minor_enabled: bool, minor_interval: Optional[float]):
+
+        result = []
+
+        if major_enabled and major_interval:
+            result.append(self.tr('Major ticks every {0:g}.').format(major_interval))
+
+        if minor_enabled and minor_interval:
+            result.append(self.tr('Minor ticks every {0:g}.').format(minor_interval))
+
+        if not result:
+            result.append(self.tr('No ticks displayed.'))
+
+        return ' '.join(result)
 
 
     def accept(self):
@@ -233,43 +330,71 @@ class SpectrumPlotConfigDialog(QDialog):
         # Font sizes
 
         self._spectrum_plot.set_font_size('title',
-            float(self._ui.ledit_title_font_size.text()))
+            self._ui.sbox_title_font_size.value())
 
         self._spectrum_plot.set_font_size('axes',
-            float(self._ui.ledit_axes_font_size.text()))
+            self._ui.sbox_axes_font_size.value())
+
+        self._spectrum_plot.set_font_size('ticks',
+            self._ui.sbox_tick_font_size.value())
 
         self._spectrum_plot.set_font_size('legend',
-            float(self._ui.ledit_legend_font_size.text()))
+            self._ui.sbox_legend_font_size.value())
+
+        self._spectrum_plot.set_font_size('selection',
+            self._ui.sbox_selection_font_size.value())
 
         #==============================
         # X-Axis tab
 
         self._spectrum_plot.set_x_label(self._ui.ledit_xaxis_label.text().strip())
 
-        interval = None
-        if self._ui.ckbox_xaxis_major_ticks.isChecked():
-            interval = float(self._ui.ledit_xaxis_major_ticks.text().strip())
-        self._spectrum_plot.set_x_major_tick_interval(interval)
+        self._spectrum_plot.set_x_units(self._ui.cbox_xaxis_units.currentData())
 
-        interval = None
-        if self._ui.ckbox_xaxis_minor_ticks.isChecked():
-            interval = float(self._ui.ledit_xaxis_minor_ticks.text().strip())
-        self._spectrum_plot.set_x_minor_tick_interval(interval)
+        manual_ticks = self._ui.gbox_xaxis_ticks.isChecked()
+        self._spectrum_plot.set_x_autoticks(not manual_ticks)
+        if manual_ticks:
+            interval = None
+            if self._ui.ckbox_xaxis_major_ticks.isChecked():
+                interval = float(self._ui.ledit_xaxis_major_ticks.text().strip())
+            self._spectrum_plot.set_x_major_tick_interval(interval)
+
+            interval = None
+            if self._ui.ckbox_xaxis_minor_ticks.isChecked():
+                interval = float(self._ui.ledit_xaxis_minor_ticks.text().strip())
+            self._spectrum_plot.set_x_minor_tick_interval(interval)
+
+        manual_range = self._ui.gbox_xaxis_range.isChecked()
+        self._spectrum_plot.set_x_autorange(not manual_range)
+        if manual_range:
+            range = (float(self._ui.ledit_xaxis_minval.text().strip()),
+                     float(self._ui.ledit_xaxis_maxval.text().strip()))
+            self._spectrum_plot.set_x_range(range)
 
         #==============================
         # Y-Axis tab
 
         self._spectrum_plot.set_y_label(self._ui.ledit_yaxis_label.text().strip())
 
-        interval = None
-        if self._ui.ckbox_yaxis_major_ticks.isChecked():
-            interval = float(self._ui.ledit_yaxis_major_ticks.text().strip())
-        self._spectrum_plot.set_y_major_tick_interval(interval)
+        manual_ticks = self._ui.gbox_yaxis_ticks.isChecked()
+        self._spectrum_plot.set_y_autoticks(not manual_ticks)
+        if manual_ticks:
+            interval = None
+            if self._ui.ckbox_yaxis_major_ticks.isChecked():
+                interval = float(self._ui.ledit_yaxis_major_ticks.text().strip())
+            self._spectrum_plot.set_y_major_tick_interval(interval)
 
-        interval = None
-        if self._ui.ckbox_yaxis_minor_ticks.isChecked():
-            interval = float(self._ui.ledit_yaxis_minor_ticks.text().strip())
-        self._spectrum_plot.set_y_minor_tick_interval(interval)
+            interval = None
+            if self._ui.ckbox_yaxis_minor_ticks.isChecked():
+                interval = float(self._ui.ledit_yaxis_minor_ticks.text().strip())
+            self._spectrum_plot.set_y_minor_tick_interval(interval)
+
+        manual_range = self._ui.gbox_yaxis_range.isChecked()
+        self._spectrum_plot.set_y_autorange(not manual_range)
+        if manual_range:
+            range = (float(self._ui.ledit_yaxis_minval.text().strip()),
+                     float(self._ui.ledit_yaxis_maxval.text().strip()))
+            self._spectrum_plot.set_y_range(range)
 
         #==============================
         # New Spectra tab

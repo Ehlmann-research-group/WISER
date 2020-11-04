@@ -1,5 +1,7 @@
 from enum import Enum
-import os, traceback
+import os
+import traceback
+import warnings
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -33,6 +35,9 @@ from astropy import units as u
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
 from typing import List, Optional, Tuple
+
+
+TICK_THRESHOLD = 100
 
 
 def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
@@ -248,9 +253,9 @@ class SpectrumPointDisplayInfo:
 
         # Put some text in the top left corner - use the axis coordinate system
         # to achieve this.
+        selection_font = get_font_properties(self._font_name, self._font_size['selection'])
         label = f'{x_value} = {y_value}'
-        self._label = axes.text(0.02, 0.98, label,
-            fontsize=4, # backgroundcolor='#ffffff7f',
+        self._label = axes.text(0.02, 0.98, label, fontproperties=selection_font,
             bbox={'pad':1, 'color':'white', 'alpha':0.8, 'fill':True},
             horizontalalignment='left', verticalalignment='top',
             transform=axes.transAxes)
@@ -292,19 +297,23 @@ class SpectrumPlot(QWidget):
         # Font information for the plot
         self._font_name = None
         self._font_size: Dict[str, float] = {
-            'title'  : 7,
-            'axes'   : 6,
-            'legend' : 5,
-            'point'  : 5,
+            'title'     : 7,
+            'axes'      : 6,
+            'ticks'     : 5,
+            'legend'    : 5,
+            'selection' : 5,
         }
 
-        # X-range and Y-range information.  If the range is unspecified on a
-        # given axis then the plot is auto-ranged along that axis.
-        self._x_range: Optional[Tuple[float, float]] = None
-        self._y_range: Optional[Tuple[float, float]] = None
+        # X-range and Y-range information.  Even when automatic range is on,
+        # the range values will reflect the current range of the plot.
+        self._x_autorange: bool = True
+        self._y_autorange: bool = True
+        self._x_range: Tuple[float, float] = (0.0, 1.0)
+        self._y_range: Tuple[float, float] = (0.0, 1.0)
 
-        # Major and minor tick information for both axes.  If the value is None
-        # then that tick is disabled.
+        # Major and minor tick information for both axes.
+        self._x_autoticks: bool = True
+        self._y_autoticks: bool = True
         self._x_major_tick_interval: Optional[float] = None
         self._x_minor_tick_interval: Optional[float] = None
         self._y_major_tick_interval: Optional[float] = None
@@ -312,7 +321,7 @@ class SpectrumPlot(QWidget):
 
         # Since the X-axis often has units associated with it, this field holds
         # the units used for the plot.
-        self._x_units = None
+        self._x_units: Optional[u.Unit] = None
 
         # Display information for all spectra being plotted
         self._spectrum_display_info: Dict[int, SpectrumDisplayInfo] = {}
@@ -320,6 +329,7 @@ class SpectrumPlot(QWidget):
         self._displayed_spectra_with_wavelengths = 0
 
         # Display information for mouse clicks
+        self._plot_mouse_down: bool = False
         self._click: Optional[SpectrumPointDisplayInfo] = None
 
         # Display state for the "active spectrum"
@@ -381,6 +391,8 @@ class SpectrumPlot(QWidget):
             bottom=True, left=True, top=False, right=False)
 
         self._figure_canvas = SpectrumPlotCanvas(self._figure)
+
+        self._axes.tick_params(which='both', direction='in')
 
         # self.axes.set_autoscalex_on(True)
         # self.axes.set_autoscaley_on(False)
@@ -448,9 +460,9 @@ class SpectrumPlot(QWidget):
             self._figure_canvas.setContextMenuPolicy(Qt.DefaultContextMenu)
             self._figure_canvas.set_context_menu_fn(self._on_plot_context_menu)
 
+            self._figure_canvas.mpl_connect('button_press_event', self._on_mpl_button_press_event)
+            self._figure_canvas.mpl_connect('motion_notify_event', self._on_mpl_mouse_move_event)
             self._figure_canvas.mpl_connect('button_release_event', self._on_mpl_button_release_event)
-            # self._figure_canvas.mpl_connect('pick_event', self._on_mpl_pick_event)
-
 
 
     def sizeHint(self):
@@ -462,21 +474,64 @@ class SpectrumPlot(QWidget):
         return self._app_state
 
 
-    def get_x_range(self) -> Optional[Tuple[float, float]]:
+    def get_x_units(self) -> Optional[u.Unit]:
+        return self._x_units
+
+    def set_x_units(self, unit: Optional[u.Unit]) -> None:
+        self._x_units = unit
+        # TODO(donnie):  This can result in a significant change in the plot.
+        #     Need to go through all displayed spectra and regenerate the plots.
+
+
+    def get_x_autorange(self) -> bool:
+        return self._x_autorange
+
+    def set_x_autorange(self, autorange: bool = True) -> None:
+        self._x_autorange = autorange
+        self._draw_spectra()
+
+    def get_y_autorange(self) -> bool:
+        return self._y_autorange
+
+    def set_y_autorange(self, autorange: bool = True) -> None:
+        self._y_autorange = autorange
+        self._draw_spectra()
+
+
+    def get_x_autoticks(self) -> bool:
+        return self._x_autoticks
+
+    def set_x_autoticks(self, autoticks: bool = True) -> None:
+        self._x_autoticks = autoticks
+        self._draw_spectra()
+
+    def get_y_autoticks(self) -> bool:
+        return self._y_autoticks
+
+    def set_y_autoticks(self, autoticks: bool = True) -> None:
+        self._y_autoticks = autoticks
+        self._draw_spectra()
+
+
+    def get_x_range(self) -> Tuple[float, float]:
         return self._x_range
 
+    def set_x_range(self, range: Tuple[float, float]):
+        if self._x_autorange:
+            raise ValueError('Cannot set x-range if x-autorange is on')
 
-    def set_x_range(self, range: Optional[Tuple[float, float]]):
         self._x_range = range
+        self._draw_spectra()
 
-
-    def get_y_range(self) -> Optional[Tuple[float, float]]:
+    def get_y_range(self) -> Tuple[float, float]:
         return self._y_range
 
+    def set_y_range(self, range: Tuple[float, float]) -> None:
+        if self._y_autorange:
+            raise ValueError('Cannot set y-range if y-autorange is on')
 
-    def set_y_range(self, range: Optional[Tuple[float, float]]) -> None:
         self._y_range = range
-
+        self._draw_spectra()
 
 
     def get_x_major_tick_interval(self) -> Optional[float]:
@@ -486,6 +541,7 @@ class SpectrumPlot(QWidget):
         if interval is not None and interval <= 0:
             raise ValueError(f'interval must be >= 0; got {interval}')
         self._x_major_tick_interval = interval
+        self._draw_spectra()
 
     def get_x_minor_tick_interval(self) -> Optional[float]:
         return self._x_minor_tick_interval
@@ -494,6 +550,7 @@ class SpectrumPlot(QWidget):
         if interval is not None and interval <= 0:
             raise ValueError(f'interval must be >= 0; got {interval}')
         self._x_minor_tick_interval = interval
+        self._draw_spectra()
 
 
     def get_y_major_tick_interval(self) -> Optional[float]:
@@ -503,6 +560,7 @@ class SpectrumPlot(QWidget):
         if interval is not None and interval <= 0:
             raise ValueError(f'interval must be >= 0; got {interval}')
         self._y_major_tick_interval = interval
+        self._draw_spectra()
 
     def get_y_minor_tick_interval(self) -> Optional[float]:
         return self._y_minor_tick_interval
@@ -511,24 +569,21 @@ class SpectrumPlot(QWidget):
         if interval is not None and interval <= 0:
             raise ValueError(f'interval must be >= 0; got {interval}')
         self._y_minor_tick_interval = interval
+        self._draw_spectra()
 
 
     def get_font_name(self) -> str:
         return self._font_name
-
 
     def set_font_name(self, font_name: str) -> None:
         if self._font_name != font_name:
             self._font_name = font_name
 
             # Regenerate all the text to switch it to the new font.
-
             self.set_title(self.get_title())
             self.set_x_label(self.get_x_label())
             self.set_y_label(self.get_y_label())
             self.set_legend(self.get_legend())
-
-
 
 
     def get_font_size(self, item: str) -> float:
@@ -538,8 +593,9 @@ class SpectrumPlot(QWidget):
 
         *   'title' - the font size for the title text
         *   'axes' - the font size for the axis labels
+        *   'ticks' - the font size for text by major tick marks
         *   'legend' - the font size for the legend text
-        *   'point' - the font size for describing a selected point on a
+        *   'selection' - the font size for describing a selected point on a
             spectrum
 
         If an unrecognized item is specified, this method will throw a KeyError.
@@ -548,7 +604,7 @@ class SpectrumPlot(QWidget):
 
 
     def set_font_size(self, item, size: float) -> None:
-        if item not in ['title', 'axes', 'legend', 'point']:
+        if item not in ['title', 'axes', 'ticks', 'legend', 'selection']:
             raise KeyError(f'Unrecognized item:  {item}')
 
         self._font_size[item] = size
@@ -699,16 +755,16 @@ class SpectrumPlot(QWidget):
         menu.exec_(event.globalPos())
 
 
-    def _on_mpl_button_release_event(self, event):
-
+    def _on_mpl_button_press_event(self, event):
         ''' Debug info for spectrum-plot clicks
         print('-' * 70)
-        print('_on_mpl_button_release_event')
+        print('_on_mpl_button_press_event')
         print(f'MPL Event name={event.name} type={type(event)} ' +
               f'x={event.x} y={event.y} ' +
               f'xdata={event.xdata} ydata={event.ydata}')
         print(f'event.inaxes={event.inaxes}')
         print(f'event.guiEvent={event.guiEvent}')
+        print(f'self._plot_mouse_down={self._plot_mouse_down} self._click={self._click}')
         '''
 
         # The guiEvent's type is QMouseEvent.  If this wasn't a left mouse-click
@@ -717,10 +773,64 @@ class SpectrumPlot(QWidget):
         if event.guiEvent.button() != Qt.LeftButton:
             return
 
+        self._plot_mouse_down = True
+
+
+
+    def _on_mpl_mouse_move_event(self, event):
+        ''' Debug info for spectrum-plot clicks
+        print('-' * 70)
+        print('_on_mpl_mouse_move_event')
+        print(f'MPL Event name={event.name} type={type(event)} ' +
+              f'x={event.x} y={event.y} ' +
+              f'xdata={event.xdata} ydata={event.ydata}')
+        print(f'event.inaxes={event.inaxes}')
+        print(f'event.guiEvent={event.guiEvent}')
+        print(f'self._plot_mouse_down={self._plot_mouse_down} self._click={self._click}')
+        '''
+
+        if not self._plot_mouse_down:
+            # print('Mouse button is not pressed, ignoring.')
+            return
+
+        # If the event doesn't indicate a mouse-click within the axes then
+        # ignore the event.
+        if event.xdata is None or event.ydata is None:
+            # print(f'xdata or ydata is None (xdata={event.xdata}, ydata={event.ydata})')
+            return
+
+        self._update_spectrum_mouse_click(event)
+
+
+    def _on_mpl_button_release_event(self, event):
+        ''' Debug info for spectrum-plot clicks
+        print('-' * 70)
+        print('_on_mpl_button_release_event')
+        print(f'MPL Event name={event.name} type={type(event)} ' +
+              f'x={event.x} y={event.y} ' +
+              f'xdata={event.xdata} ydata={event.ydata}')
+        print(f'event.inaxes={event.inaxes}')
+        print(f'event.guiEvent={event.guiEvent}')
+        print(f'self._plot_mouse_down={self._plot_mouse_down} self._click={self._click}')
+        '''
+
+        # The guiEvent's type is QMouseEvent.  If this wasn't a left mouse-click
+        # then ignore the event.  (For example, if this was a right-click, Qt
+        # will respond with a context-menu notification.)
+        if event.guiEvent.button() != Qt.LeftButton:
+            return
+
+        self._plot_mouse_down = False
+
         # If the event doesn't indicate a mouse-click within the axes then
         # ignore the event.
         if event.xdata is None or event.ydata is None:
             return
+
+        self._update_spectrum_mouse_click(event)
+
+
+    def _update_spectrum_mouse_click(self, event):
 
         # Clear any click display-info from previous mouse clicks
         if self._click is not None:
@@ -784,6 +894,7 @@ class SpectrumPlot(QWidget):
 
         else:
             # Find the spectrum that has valid bands near the clicked x-value.
+            print('TODO(donnie):  find point on spectrum without units')
             pass
 
         self._draw_spectra()
@@ -958,7 +1069,7 @@ class SpectrumPlot(QWidget):
         if self._app_state.get_active_spectrum() is None:
             # The "collect spectrum" button shouldn't be enabled if there is no
             # active spectrum!
-            warning.warn('Shouldn\'t be able to collect spectrum when no active spectrum!')
+            warnings.warn('Shouldn\'t be able to collect spectrum when no active spectrum!')
             return
 
         # This will cause the app-state to emit both an "active spectrum
@@ -1289,7 +1400,90 @@ class SpectrumPlot(QWidget):
         This helper function refreshes the matplotlib drawing canvas to reflect
         any changes that have been made to the plot.
         '''
+
+        # Apply X/Y axis data limits (or auto-limit, if that is the config)
+
         self._axes.relim(visible_only=True)
+
+        if self._x_autorange:
+            self._x_range = self._axes.get_xlim()
+            # print(f'X autorange on:  range is {self._x_range}')
+        else:
+            self._axes.set_xlim(left=self._x_range[0], right=self._x_range[1])
+            # print(f'X autorange off:  range is {self._x_range}')
+
+        if self._y_autorange:
+            self._y_range = self._axes.get_ylim()
+            # print(f'Y autorange on:  range is {self._y_range}')
+        else:
+            self._axes.set_ylim(bottom=self._y_range[0], top=self._y_range[1])
+            # print(f'Y autorange off:  range is {self._y_range}')
+
+        # Generate major and minor tick marks as needed
+
+        if self._x_autoticks:
+            # TODO:  X ticks
+            print('TODO:  X ticks')
+        else:
+            ticks = []
+            if self._x_major_tick_interval is not None:
+                ticks = generate_ticks(self._x_range[0], self._x_range[1],
+                    self._x_major_tick_interval)
+            # print(f'x-major-ticks = {ticks}')
+
+            if len(ticks) > TICK_THRESHOLD:
+                msg = (f'Configured X major tick interval {self._x_major_tick_interval} ' +
+                    f'generates {len(ticks)} ticks, which exceeds the ' +
+                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
+                warnings.warn(msg)
+            else:
+                self._axes.set_xticks(ticks, minor=False)
+
+            ticks = []
+            if self._x_minor_tick_interval is not None:
+                ticks = generate_ticks(self._x_range[0], self._x_range[1],
+                    self._x_minor_tick_interval)
+            # print(f'x-minor-ticks = {ticks}')
+
+            if len(ticks) > TICK_THRESHOLD:
+                msg = (f'Configured X minor tick interval {self._x_minor_tick_interval} ' +
+                    f'generates {len(ticks)} ticks, which exceeds the ' +
+                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
+                warnings.warn(msg)
+            else:
+                self._axes.set_xticks(ticks, minor=True)
+
+        if self._y_autoticks:
+            # TODO:  Y ticks
+            print('TODO:  Y ticks')
+        else:
+            ticks = []
+            if self._y_major_tick_interval is not None:
+                ticks = generate_ticks(self._y_range[0], self._y_range[1],
+                    self._y_major_tick_interval)
+            # print(f'y-major-ticks = {ticks}')
+
+            if len(ticks) > TICK_THRESHOLD:
+                msg = (f'Configured Y major tick interval {self._y_major_tick_interval} ' +
+                    f'generates {len(ticks)} ticks, which exceeds the ' +
+                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
+                warnings.warn(msg)
+            else:
+                self._axes.set_yticks(ticks, minor=False)
+
+            ticks = []
+            if self._y_minor_tick_interval is not None:
+                ticks = generate_ticks(self._y_range[0], self._y_range[1],
+                    self._y_minor_tick_interval)
+            # print(f'y-minor-ticks = {ticks}')
+
+            if len(ticks) > TICK_THRESHOLD:
+                msg = (f'Configured Y minor tick interval {self._y_minor_tick_interval} ' +
+                    f'generates {len(ticks)} ticks, which exceeds the ' +
+                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
+                warnings.warn(msg)
+            else:
+                self._axes.set_yticks(ticks, minor=True)
 
         # Legend:
 
