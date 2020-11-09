@@ -61,6 +61,23 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.sbox_legend_font_size.setValue(spectrum_plot.get_font_size('legend'))
         self._ui.sbox_selection_font_size.setValue(spectrum_plot.get_font_size('selection'))
 
+        # Config for the selected point
+
+        self._ui.cbox_selection_symbol.addItem(self.tr('Plus'           ), '+')
+        self._ui.cbox_selection_symbol.addItem(self.tr('Square'         ), 's')
+        # self._ui.cbox_selection_symbol.addItem(self.tr('Small circle'   ), '.')
+        # self._ui.cbox_selection_symbol.addItem(self.tr('Large circle'   ), 'o')
+        self._ui.cbox_selection_symbol.addItem(self.tr('Circle'         ), 'o')
+        self._ui.cbox_selection_symbol.addItem(self.tr('Horizontal line'), '_')
+        self._ui.cbox_selection_symbol.addItem(self.tr('Diamond'        ), 'D')
+
+        index = self._ui.cbox_selection_symbol.findData(spectrum_plot.get_selection_marker())
+        if index != -1:
+            self._ui.cbox_selection_symbol.setCurrentIndex(index)
+
+        self._ui.ckbox_selection_crosshair.setChecked(
+            spectrum_plot.selection_has_crosshair())
+
         #==============================
         # X-Axis tab
 
@@ -343,6 +360,15 @@ class SpectrumPlotConfigDialog(QDialog):
 
         self._spectrum_plot.set_font_size('selection',
             self._ui.sbox_selection_font_size.value())
+
+        # Selected point on spectrum
+
+        self._spectrum_plot.set_selection_marker(
+            self._ui.cbox_selection_symbol.currentData())
+
+        self._spectrum_plot.set_selection_crosshair(
+            self._ui.ckbox_selection_crosshair.isChecked())
+
 
         #==============================
         # X-Axis tab

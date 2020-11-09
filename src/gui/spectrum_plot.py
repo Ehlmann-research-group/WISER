@@ -195,12 +195,28 @@ class SpectrumPointDisplayInfo:
     '''
 
     def __init__(self, spectrum, band_index: int, use_wavelength: bool,
-                 band_units=None):
+                 band_units=None, marker_type='s', crosshair=True):
+        '''
+        The marker_type value specifies what kind of marker to use on the plot
+        display.  It is taken from the matplotlib scatter-plot marker types:
+        *   '+' plus
+        *   's' square
+        *   '.' small circle
+        *   'o' big circle
+        *   '_' horizontal line
+        *   'D' diamond
+
+        '''
+
         # Info we need about the spectrum to show the desired point
         self._spectrum = spectrum
         self._band_index = band_index
         self._use_wavelength = use_wavelength
         self._band_units = band_units
+
+        # Display style info
+        self._marker_type = marker_type
+        self._crosshair = crosshair
 
         # matplotlib information for the point
         self._point_hline: Optional[matplotlib.lines.Line2D] = None
@@ -235,21 +251,15 @@ class SpectrumPointDisplayInfo:
 
         y_value = self._spectrum.get_spectrum()[self._band_index]
 
-        self._point_vline = axes.axvline(x=x_value.value,
-            linewidth=0.5, linestyle='dotted', color='black')
+        if self._crosshair:
+            self._point_vline = axes.axvline(x=x_value.value,
+                linewidth=0.5, linestyle='dotted', color='black')
 
-        self._point_hline = axes.axhline(y=y_value,
-            linewidth=0.5, linestyle='dotted', color='black')
+            self._point_hline = axes.axhline(y=y_value,
+                linewidth=0.5, linestyle='dotted', color='black')
 
-        # Other possible markers:
-        #     '+' plus
-        #     's' square
-        #     '.' small circle
-        #     'o' big circle
-        #     '_' horizontal line
-        #     'D' diamond
         self._scatter = axes.scatter(x_value, y_value, # label=self._text,
-            marker='s', s=3, linewidth=0.5, color='black')
+            marker=self._marker_type, s=3, linewidth=0.5, color='black')
 
         # Put some text in the top left corner - use the axis coordinate system
         # to achieve this.
@@ -266,12 +276,15 @@ class SpectrumPointDisplayInfo:
             self._point_vline.remove()
             self._point_vline = None
 
+        if self._point_hline is not None:
             self._point_hline.remove()
             self._point_hline = None
 
+        if self._scatter is not None:
             self._scatter.remove()
             self._scatter = None
 
+        if self._label is not None:
             self._label.remove()
             self._label = None
 
@@ -331,6 +344,9 @@ class SpectrumPlot(QWidget):
         # Display information for mouse clicks
         self._plot_mouse_down: bool = False
         self._click: Optional[SpectrumPointDisplayInfo] = None
+
+        self._selection_marker: str = 's'
+        self._selection_crosshair: bool = True
 
         # Display state for the "active spectrum"
         self._active_spectrum_color = None
@@ -671,6 +687,21 @@ class SpectrumPlot(QWidget):
         self._legend_location = location
 
 
+    def get_selection_marker(self) -> str:
+        return self._selection_marker
+
+    def set_selection_marker(self, marker: str) -> None:
+        self._selection_marker = marker
+        self._update_spectrum_mouse_click()
+
+    def selection_has_crosshair(self) -> bool:
+        return self._selection_crosshair
+
+    def set_selection_crosshair(self, crosshair: bool) -> None:
+        self._selection_crosshair = crosshair
+        self._update_spectrum_mouse_click()
+
+
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
@@ -799,7 +830,7 @@ class SpectrumPlot(QWidget):
             # print(f'xdata or ydata is None (xdata={event.xdata}, ydata={event.ydata})')
             return
 
-        self._update_spectrum_mouse_click(event)
+        self._update_spectrum_mouse_click(pick_location=(event.xdata, event.ydata))
 
 
     def _on_mpl_button_release_event(self, event):
@@ -827,21 +858,56 @@ class SpectrumPlot(QWidget):
         if event.xdata is None or event.ydata is None:
             return
 
-        self._update_spectrum_mouse_click(event)
+        self._update_spectrum_mouse_click(pick_location=(event.xdata, event.ydata))
 
 
-    def _update_spectrum_mouse_click(self, event):
+    def _update_spectrum_mouse_click(self,
+            pick_location:Optional[Tuple[float, float]]=None):
 
-        # Clear any click display-info from previous mouse clicks
+        # If we have an existing "point on spectrum" selection, pull out the
+        # spectrum and index.  Also, erase the existing graphics for the
+        # selection, since we "update" by removing and then re-adding the
+        # graphics.
+        # TODO(donnie):  Eventually we may want to add support for updating
+        #     existing grahpics objects, rather than removing and re-adding them
+
+        spectrum = None
+        index = None
         if self._click is not None:
+            spectrum = self._click.get_spectrum()
+            index = self._click.get_band_index()
+
             self._click.remove_plot()
             self._click = None
 
+        if pick_location is not None:
+            # Need to generate a new selection point based on the click.
+            (spectrum, index) = self._find_spectrum_point_nearest_selection(
+                pick_location[0], pick_location[1])
+
+            # If the picked location isn't near a spectrum, return.
+            if spectrum is None:
+                return
+
+        # Create a new "point on spectrum" display object
+
+        self._click = SpectrumPointDisplayInfo(spectrum, index,
+            self._plot_uses_wavelengths, marker_type=self._selection_marker,
+            crosshair=self._selection_crosshair)
+
+        self._click.generate_plot(self._axes, self._font_name,
+            self._font_size['selection'])
+
+        self._draw_spectra()
+
+
+    def _find_spectrum_point_nearest_selection(self, click_x, click_y):
         # Find all spectra with X-axis ranges that correspond to the xdata value
         # from the mouse click.
 
         closest_spectrum = None
         closest_index = None
+
         closest_x_value = None
         closest_y_value = None
         closest_distance = None
@@ -851,8 +917,8 @@ class SpectrumPlot(QWidget):
             # wavelength (x-value), and that also has the closest spectrum-value
             # (y-value) for that wavelength.
 
-            click_x = event.xdata * self._x_units
-            click_y = event.ydata
+            # Turn the X coordinate into a value-with-units
+            click_x = click_x * self._x_units
 
             for (id, display_info) in self._spectrum_display_info.items():
                 spectrum = display_info.get_spectrum()
@@ -886,18 +952,11 @@ class SpectrumPlot(QWidget):
                     closest_y_value = y_value
                     closest_distance = distance
 
-            if closest_spectrum is not None:
-                # print(f'Closest spectrum value:  id={closest_spectrum.get_id()} index={closest_index} y_value={closest_y_value}')
-
-                self._click = SpectrumPointDisplayInfo(closest_spectrum, closest_index, True)
-                self._click.generate_plot(self._axes, self._font_name, self._font_size['selection'])
-
         else:
             # Find the spectrum that has valid bands near the clicked x-value.
-            print('TODO(donnie):  find point on spectrum without units')
-            pass
+            print('TODO:  find point on spectrum without units')
 
-        self._draw_spectra()
+        return (closest_spectrum, closest_index)
 
 
     def _on_export_plot_to_image(self, act):
