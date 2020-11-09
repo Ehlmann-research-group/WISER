@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>438</width>
-    <height>470</height>
+    <width>452</width>
+    <height>516</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -34,8 +34,18 @@
        <string>Plot</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_2">
+       <item row="3" column="0">
+        <widget class="QLabel" name="lbl_font">
+         <property name="text">
+          <string>Font:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_font</cstring>
+         </property>
+        </widget>
+       </item>
        <item row="8" column="0" colspan="2">
-        <widget class="QGroupBox" name="groupBox">
+        <widget class="QGroupBox" name="gbox_font_sizes">
          <property name="title">
           <string>Font Sizes</string>
          </property>
@@ -128,38 +138,18 @@
          </layout>
         </widget>
        </item>
-       <item row="10" column="0">
-        <widget class="QLabel" name="lbl_selection_display">
-         <property name="text">
-          <string>Selected point:</string>
+       <item row="12" column="0" colspan="2">
+        <spacer name="verticalSpacer_plot">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
          </property>
-         <property name="buddy">
-          <cstring>cbox_selection_display</cstring>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
          </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="lbl_font">
-         <property name="text">
-          <string>Font:</string>
-         </property>
-         <property name="buddy">
-          <cstring>cbox_font</cstring>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QLineEdit" name="ledit_plot_title"/>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="lbl_legend">
-         <property name="text">
-          <string>Legend:</string>
-         </property>
-         <property name="buddy">
-          <cstring>cbox_legend</cstring>
-         </property>
-        </widget>
+        </spacer>
        </item>
        <item row="2" column="1">
         <widget class="QComboBox" name="cbox_legend"/>
@@ -176,6 +166,9 @@
          </property>
         </widget>
        </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="ledit_plot_title"/>
+       </item>
        <item row="0" column="0">
         <widget class="QLabel" name="lbl_plot_title">
          <property name="text">
@@ -186,21 +179,44 @@
          </property>
         </widget>
        </item>
-       <item row="10" column="1">
-        <widget class="QComboBox" name="cbox_selection_display"/>
+       <item row="2" column="0">
+        <widget class="QLabel" name="lbl_legend">
+         <property name="text">
+          <string>Legend:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_legend</cstring>
+         </property>
+        </widget>
        </item>
        <item row="11" column="0" colspan="2">
-        <spacer name="verticalSpacer_plot">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
+        <widget class="QGroupBox" name="gbox_selection">
+         <property name="title">
+          <string>Selected Point</string>
          </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
+         <layout class="QGridLayout" name="gridLayout_11">
+          <item row="0" column="1">
+           <widget class="QComboBox" name="cbox_selection_symbol"/>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="lbl_selection_symbol">
+            <property name="text">
+             <string>Draw with symbol:</string>
+            </property>
+            <property name="buddy">
+             <cstring>cbox_selection_symbol</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QCheckBox" name="ckbox_selection_crosshair">
+            <property name="text">
+             <string>Draw crosshair through selected point</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
        </item>
       </layout>
      </widget>
@@ -541,7 +557,8 @@
   <tabstop>sbox_tick_font_size</tabstop>
   <tabstop>sbox_legend_font_size</tabstop>
   <tabstop>sbox_selection_font_size</tabstop>
-  <tabstop>cbox_selection_display</tabstop>
+  <tabstop>cbox_selection_symbol</tabstop>
+  <tabstop>ckbox_selection_crosshair</tabstop>
   <tabstop>ledit_xaxis_label</tabstop>
   <tabstop>cbox_xaxis_units</tabstop>
   <tabstop>gbox_xaxis_ticks</tabstop>
@@ -574,8 +591,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
+     <x>254</x>
+     <y>511</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -590,8 +607,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
+     <x>322</x>
+     <y>511</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>

@@ -1,4 +1,4 @@
-from enum import Enum
+import enum
 import os
 import traceback
 import warnings
@@ -219,7 +219,7 @@ class SpectrumPointDisplayInfo:
         return self._band_index
 
 
-    def generate_plot(self, axes):
+    def generate_plot(self, axes, font_name: str, font_size: int):
         assert self._point_hline is None
         assert self._point_vline is None
         assert self._scatter is None
@@ -253,7 +253,7 @@ class SpectrumPointDisplayInfo:
 
         # Put some text in the top left corner - use the axis coordinate system
         # to achieve this.
-        selection_font = get_font_properties(self._font_name, self._font_size['selection'])
+        selection_font = get_font_properties(font_name, font_size)
         label = f'{x_value} = {y_value}'
         self._label = axes.text(0.02, 0.98, label, fontproperties=selection_font,
             bbox={'pad':1, 'color':'white', 'alpha':0.8, 'fill':True},
@@ -890,7 +890,7 @@ class SpectrumPlot(QWidget):
                 # print(f'Closest spectrum value:  id={closest_spectrum.get_id()} index={closest_index} y_value={closest_y_value}')
 
                 self._click = SpectrumPointDisplayInfo(closest_spectrum, closest_index, True)
-                self._click.generate_plot(self._axes)
+                self._click.generate_plot(self._axes, self._font_name, self._font_size['selection'])
 
         else:
             # Find the spectrum that has valid bands near the clicked x-value.
@@ -1266,7 +1266,7 @@ class SpectrumPlot(QWidget):
         # Are we showing a point on this spectrum?
         if self._click is not None and self._click.get_spectrum() is spectrum:
             self._click.remove_plot()
-            self._click.generate_plot(self._axes)
+            self._click.generate_plot(self._axes, self._font_name, self._font_size['selection'])
 
         self._draw_spectra()
 
@@ -1406,6 +1406,7 @@ class SpectrumPlot(QWidget):
         self._axes.relim(visible_only=True)
 
         if self._x_autorange:
+            self._axes.autoscale(axis='x')
             self._x_range = self._axes.get_xlim()
             # print(f'X autorange on:  range is {self._x_range}')
         else:
@@ -1413,6 +1414,7 @@ class SpectrumPlot(QWidget):
             # print(f'X autorange off:  range is {self._x_range}')
 
         if self._y_autorange:
+            self._axes.autoscale(axis='y')
             self._y_range = self._axes.get_ylim()
             # print(f'Y autorange on:  range is {self._y_range}')
         else:
@@ -1422,9 +1424,16 @@ class SpectrumPlot(QWidget):
         # Generate major and minor tick marks as needed
 
         if self._x_autoticks:
-            # TODO:  X ticks
-            print('TODO:  X ticks')
+            # Automatically generate X-ticks
+            self._axes.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
+            self._axes.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+
         else:
+            # Manually generate X-ticks.
+            # TODO(donnie):  Switch to using the matplotlib tick locators, to
+            #     reduce this project's complexity.  Still need to count how
+            #     many ticks are required so we can ignore the config if it is
+            #     a terrible idea.
             ticks = []
             if self._x_major_tick_interval is not None:
                 ticks = generate_ticks(self._x_range[0], self._x_range[1],
@@ -1454,9 +1463,16 @@ class SpectrumPlot(QWidget):
                 self._axes.set_xticks(ticks, minor=True)
 
         if self._y_autoticks:
-            # TODO:  Y ticks
-            print('TODO:  Y ticks')
+            # Automatically generate Y-ticks
+            self._axes.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
+            self._axes.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+
         else:
+            # Manually generate Y-ticks.
+            # TODO(donnie):  Switch to using the matplotlib tick locators, to
+            #     reduce this project's complexity.  Still need to count how
+            #     many ticks are required so we can ignore the config if it is
+            #     a terrible idea.
             ticks = []
             if self._y_major_tick_interval is not None:
                 ticks = generate_ticks(self._y_range[0], self._y_range[1],
