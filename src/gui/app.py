@@ -29,6 +29,7 @@ from .util import *
 
 from .app_state import ApplicationState
 
+from raster.spectra import SpectrumAverageMode
 from raster.spectrum_info import SpectrumAtPoint
 from raster.selection import SinglePixelSelection
 
@@ -511,10 +512,13 @@ class DataVisualizerApp(QMainWindow):
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the active spectrum to be from the selected dataset and pixel.
-            # TODO(donnie):  Need to include the default area and average mode too!
             # TODO(donnie):  If the Spectrum Plot window has a "current dataset"
             #     set, get the spectrum from there instead.
-            spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
+
+            area = (self._app_state.get_config('spectra.default_area_avg_x', as_type=int),
+                    self._app_state.get_config('spectra.default_area_avg_y', as_type=int))
+            mode = self._app_state.get_config('spectra.default_area_avg_mode', as_type=lambda s : SpectrumAverageMode[s])
+            spectrum = SpectrumAtPoint(ds, ds_point.toTuple(), area, mode)
             self._app_state.set_active_spectrum(spectrum)
 
 
@@ -532,8 +536,11 @@ class DataVisualizerApp(QMainWindow):
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the active spectrum to be from the selected dataset and pixel.
-            # TODO(donnie):  Need to include the default area and average mode too!
-            spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
+
+            area = (self._app_state.get_config('spectra.default_area_avg_x', as_type=int),
+                    self._app_state.get_config('spectra.default_area_avg_y', as_type=int))
+            mode = self._app_state.get_config('spectra.default_area_avg_mode', as_type=lambda s : SpectrumAverageMode[s])
+            spectrum = SpectrumAtPoint(ds, ds_point.toTuple(), area, mode)
             self._app_state.set_active_spectrum(spectrum)
 
 
