@@ -495,13 +495,12 @@ class SpectrumPlot(QWidget):
         #==================================================
         # Events
 
-        if self._app_state.get_config('feature-flags.interactive-spectrum-plot', default=False, as_type=bool):
-            self._figure_canvas.setContextMenuPolicy(Qt.DefaultContextMenu)
-            self._figure_canvas.set_context_menu_fn(self._on_plot_context_menu)
+        self._figure_canvas.setContextMenuPolicy(Qt.DefaultContextMenu)
+        self._figure_canvas.set_context_menu_fn(self._on_plot_context_menu)
 
-            self._figure_canvas.mpl_connect('button_press_event', self._on_mpl_button_press_event)
-            self._figure_canvas.mpl_connect('motion_notify_event', self._on_mpl_mouse_move_event)
-            self._figure_canvas.mpl_connect('button_release_event', self._on_mpl_button_release_event)
+        self._figure_canvas.mpl_connect('button_press_event', self._on_mpl_button_press_event)
+        self._figure_canvas.mpl_connect('motion_notify_event', self._on_mpl_mouse_move_event)
+        self._figure_canvas.mpl_connect('button_release_event', self._on_mpl_button_release_event)
 
 
     def sizeHint(self):
