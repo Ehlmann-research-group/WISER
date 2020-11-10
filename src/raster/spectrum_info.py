@@ -54,6 +54,10 @@ class SpectrumInfo:
         '''
         raise NotImplementedError('Must be implemented in subclass')
 
+    def num_bands(self) -> int:
+        ''' Returns the number of spectral bands in the spectrum. '''
+        pass
+
     def has_wavelengths(self) -> bool:
         '''
         Returns True if this spectrum has wavelength units for all bands, False
@@ -119,6 +123,10 @@ class LibrarySpectrum(SpectrumInfo):
             ds_name = 'unknown'
 
         return ds_name
+
+    def num_bands(self) -> int:
+        ''' Returns the number of spectral bands in the raster data. '''
+        return self._spectral_library.num_bands()
 
     def has_wavelengths(self) -> bool:
         '''
@@ -215,6 +223,10 @@ class RasterDataSetSpectrum(SpectrumInfo):
         self._avg_mode = avg_mode
         self._reset_internal_state()
 
+    def num_bands(self) -> int:
+        ''' Returns the number of spectral bands in the raster data. '''
+        return self._dataset.num_bands()
+
     def has_wavelengths(self) -> bool:
         '''
         Returns True if this spectrum has wavelength units for all bands, False
@@ -222,12 +234,18 @@ class RasterDataSetSpectrum(SpectrumInfo):
         '''
         return self._dataset.has_wavelengths()
 
-    def get_wavelengths(self) -> List[u.Quantity]:
+    def get_wavelengths(self, filter_bad_bands=False) -> List[u.Quantity]:
         '''
         Returns a list of wavelength values corresponding to each band.  The
         individual values are astropy values-with-units.
         '''
-        return [b['wavelength'] for b in self._dataset.band_list()]
+        bands =  [b['wavelength'] for b in self._dataset.band_list()]
+
+        if filter_bad_bands:
+            bad_bands = self._dataset.get_bad_bands()
+            bands = [bands[i] for i in range(len(bands)) if bad_bands[i]]
+
+        return bands
 
     def _calculate_spectrum(self):
         '''

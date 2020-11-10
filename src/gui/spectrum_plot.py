@@ -261,22 +261,26 @@ class SpectrumPointDisplayInfo:
         assert self._scatter is None
         assert self._label is None
 
+        y_value = self._spectrum.get_spectrum()[self._band_index]
+
+        label:str = None
         if self._use_wavelength:
             x_value = self._spectrum.get_wavelengths()[self._band_index]
 
             if self._band_units is not None:
                 x_value = raster.units.convert_spectral(x_value, self._band_units)
-        else:
-            x_value = self._band_index
 
-        y_value = self._spectrum.get_spectrum()[self._band_index]
+            label = f'{x_value} = {y_value}'
+        else:
+            x_value = self._band_index * u.dimensionless_unscaled
+            label = f'Band {self._band_index} = {y_value}'
 
         if self._crosshair:
             self._point_vline = axes.axvline(x=x_value.value,
-                linewidth=0.5, linestyle='dotted', color='black')
+                linewidth=0.5, linestyle='dotted', color='black', zorder=1)
 
             self._point_hline = axes.axhline(y=y_value,
-                linewidth=0.5, linestyle='dotted', color='black')
+                linewidth=0.5, linestyle='dotted', color='black', zorder=1)
 
         self._scatter = axes.scatter(x_value, y_value, # label=self._text,
             marker=self._marker_type, s=3, linewidth=0.5, color='black')
@@ -284,7 +288,6 @@ class SpectrumPointDisplayInfo:
         # Put some text in the top left corner - use the axis coordinate system
         # to achieve this.
         selection_font = get_font_properties(font_name, font_size)
-        label = f'{x_value} = {y_value}'
         self._label = axes.text(0.02, 0.98, label, fontproperties=selection_font,
             bbox={'pad':1, 'color':'white', 'alpha':0.8, 'fill':True},
             horizontalalignment='left', verticalalignment='top',
@@ -330,11 +333,11 @@ class SpectrumPlot(QWidget):
         # Font information for the plot
         self._font_name = None
         self._font_size: Dict[str, float] = {
-            'title'     : 7,
-            'axes'      : 6,
-            'ticks'     : 5,
-            'legend'    : 5,
-            'selection' : 5,
+            'title'     : 7.0,
+            'axes'      : 6.0,
+            'ticks'     : 5.0,
+            'legend'    : 5.0,
+            'selection' : 5.0,
         }
 
         # X-range and Y-range information.  Even when automatic range is on,
@@ -917,7 +920,15 @@ class SpectrumPlot(QWidget):
         self._draw_spectra()
 
 
-    def _find_spectrum_point_nearest_selection(self, click_x, click_y):
+    def _find_spectrum_point_nearest_selection(self, click_x: float, click_y: float) -> Tuple:
+        '''
+        Given a (click_x, click_y) coordinate in data space, this function finds
+        the spectrum with an X-value "near" click_x, and a Y-value closer to
+        click_y than any other spectrum in the data set.  If such a spectrum
+        exists, the function returns a (spectrum, index) pair; if no such
+        spectrum exists, the function returns (None, None).
+        '''
+
         # Find all spectra with X-axis ranges that correspond to the xdata value
         # from the mouse click.
 
@@ -942,7 +953,6 @@ class SpectrumPlot(QWidget):
 
                 # See if the spectrum has a wavelength "near" the x-coordinate
                 # of the mouse-click.
-                # TODO(donnie):  Filter out bad wavelengths here.
                 wavelengths = spectrum.get_wavelengths()
 
                 # TODO(donnie):  specify max_distance so that we are within a
@@ -970,7 +980,32 @@ class SpectrumPlot(QWidget):
 
         else:
             # Find the spectrum that has valid bands near the clicked x-value.
-            print('TODO:  find point on spectrum without units')
+
+            for (id, display_info) in self._spectrum_display_info.items():
+                spectrum = display_info.get_spectrum()
+
+                # Round the X coordinate to the closest band index.  If the
+                # spectrum doesn't have that many bands, skip it.
+                index = int(click_x + 0.5)
+                if index >= spectrum.num_bands():
+                    continue
+
+                # Compute the spectrum's y-distance from the y-coordinate of
+                # the mouse-click.
+
+                x_value = float(index)
+                y_value = spectrum.get_spectrum()[index]
+                if np.isnan(y_value):
+                    continue
+
+                distance = abs(y_value - click_y)
+
+                if closest_distance is None or distance < closest_distance:
+                    closest_spectrum = spectrum
+                    closest_index = index
+                    closest_x_value = x_value
+                    closest_y_value = y_value
+                    closest_distance = distance
 
         return (closest_spectrum, closest_index)
 

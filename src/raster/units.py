@@ -88,7 +88,7 @@ def find_band_near_wavelength(bands: List[Dict],
 
 def find_closest_wavelength(wavelengths: List[u.Quantity],
                             input_wavelength: u.Quantity,
-                            max_distance=20*u.nm):
+                            max_distance=20*u.nm) -> int:
     '''
     Given a list of wavelengths and an input wavelength, this function returns
     the index of the wavelength closest to the input wavelength.  If no
@@ -103,15 +103,20 @@ def find_closest_wavelength(wavelengths: List[u.Quantity],
     if max_distance is not None:
         max_dist_value = convert_spectral(max_distance, u.nm).value
 
+    values = [convert_spectral(v, u.nm).value for v in wavelengths]
+
+    return find_closest_value(values, input_value, max_dist_value)
+
+
+def find_closest_value(values: List[float], input_value: float,
+                       max_distance: Optional[float]) -> int:
     best_index = None
     best_distance = None
 
-    for (index, wavelength) in enumerate(wavelengths):
-        # Get the wavelength value, in the same units as the input value
-        value = convert_spectral(wavelength, u.nm).value
-
+    for (index, value) in enumerate(values):
         distance = abs(value - input_value)
-        if max_dist_value is not None and distance > max_dist_value:
+
+        if max_distance is not None and distance > max_distance:
             continue
 
         if best_index is None or distance < best_distance:

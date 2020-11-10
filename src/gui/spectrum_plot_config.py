@@ -15,7 +15,8 @@ from raster import units
 
 class SpectrumPlotConfigDialog(QDialog):
     '''
-    The
+    This dialog provides configuration options for the spectrum plot component,
+    and for spectrum collection.
     '''
 
     def __init__(self, spectrum_plot, parent=None):
