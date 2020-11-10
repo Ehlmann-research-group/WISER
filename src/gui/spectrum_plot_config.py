@@ -10,7 +10,6 @@ from astropy import units as u
 
 from .app_config import LegendPlacement
 from .generated.spectrum_plot_config_ui import Ui_SpectrumPlotConfig
-from raster.spectra import SpectrumAverageMode
 from raster import units
 
 
@@ -206,9 +205,10 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.ledit_aavg_x.setText(str(app_state.get_config('spectra.default_area_avg_x')))
         self._ui.ledit_aavg_y.setText(str(app_state.get_config('spectra.default_area_avg_y')))
 
-        self._ui.cbox_default_avg_mode.addItem(self.tr('Mean'  ), SpectrumAverageMode.MEAN  )
-        self._ui.cbox_default_avg_mode.addItem(self.tr('Median'), SpectrumAverageMode.MEDIAN)
+        self._ui.cbox_default_avg_mode.addItem(self.tr('Mean'  ), 'MEAN')
+        self._ui.cbox_default_avg_mode.addItem(self.tr('Median'), 'MEDIAN')
 
+        # Fetch the mode as a string
         mode = app_state.get_config('spectra.default_area_avg_mode')
         index = self._ui.cbox_default_avg_mode.findData(mode)
         if index == -1:
