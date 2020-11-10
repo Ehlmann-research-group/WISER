@@ -135,7 +135,7 @@ class DataVisualizerApp(QMainWindow):
 
     def _init_menus(self):
         # Application menu
-        self._app_menu = self.menuBar().addMenu(sys.argv[0])
+        self._app_menu = self.menuBar().addMenu('WISER')
 
         act = self._app_menu.addAction(self.tr('About WISER'))
         act.setMenuRole(QAction.AboutRole)
