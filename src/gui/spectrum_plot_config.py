@@ -8,6 +8,7 @@ from PySide2.QtWidgets import *
 
 from astropy import units as u
 
+from .app_config import LegendPlacement
 from .generated.spectrum_plot_config_ui import Ui_SpectrumPlotConfig
 from raster.spectra import SpectrumAverageMode
 from raster import units
@@ -31,16 +32,22 @@ class SpectrumPlotConfigDialog(QDialog):
 
         self._ui.ledit_plot_title.setText(spectrum_plot.get_title())
 
-        self._ui.cbox_legend.addItem(self.tr('No legend'), None)
-        self._ui.cbox_legend.addItem(self.tr('Upper left'   ), 'upper left'  )
-        self._ui.cbox_legend.addItem(self.tr('Upper center' ), 'upper center')
-        self._ui.cbox_legend.addItem(self.tr('Upper right'  ), 'upper right' )
-        self._ui.cbox_legend.addItem(self.tr('Center left'  ), 'center left' )
-        self._ui.cbox_legend.addItem(self.tr('Center right' ), 'center right')
-        self._ui.cbox_legend.addItem(self.tr('Lower left'   ), 'lower left'  )
-        self._ui.cbox_legend.addItem(self.tr('Lower center' ), 'lower center')
-        self._ui.cbox_legend.addItem(self.tr('Lower right'  ), 'lower right' )
-        self._ui.cbox_legend.addItem(self.tr('Best location'), 'best'        )
+        self._ui.cbox_legend.addItem(self.tr('No legend'), LegendPlacement.NO_LEGEND)
+        self._ui.cbox_legend.insertSeparator(self._ui.cbox_legend.count())
+        self._ui.cbox_legend.addItem(self.tr('Upper left'   ), LegendPlacement.UPPER_LEFT)
+        self._ui.cbox_legend.addItem(self.tr('Upper center' ), LegendPlacement.UPPER_CENTER)
+        self._ui.cbox_legend.addItem(self.tr('Upper right'  ), LegendPlacement.UPPER_RIGHT)
+        self._ui.cbox_legend.addItem(self.tr('Center left'  ), LegendPlacement.CENTER_LEFT)
+        self._ui.cbox_legend.addItem(self.tr('Center right' ), LegendPlacement.CENTER_RIGHT)
+        self._ui.cbox_legend.addItem(self.tr('Lower left'   ), LegendPlacement.LOWER_LEFT)
+        self._ui.cbox_legend.addItem(self.tr('Lower center' ), LegendPlacement.LOWER_CENTER)
+        self._ui.cbox_legend.addItem(self.tr('Lower right'  ), LegendPlacement.LOWER_RIGHT)
+        self._ui.cbox_legend.addItem(self.tr('Best location'), LegendPlacement.BEST_LOCATION)
+        self._ui.cbox_legend.insertSeparator(self._ui.cbox_legend.count())
+        self._ui.cbox_legend.addItem(self.tr('Center right (outside)'),
+            LegendPlacement.OUTSIDE_CENTER_RIGHT)
+        self._ui.cbox_legend.addItem(self.tr('Lower center (outside)'),
+            LegendPlacement.OUTSIDE_LOWER_CENTER)
 
         # Choose the currently used legend-placement option in the combobox.
         index = self._ui.cbox_legend.findData(spectrum_plot.get_legend())

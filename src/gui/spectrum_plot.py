@@ -9,6 +9,7 @@ from PySide2.QtWidgets import *
 
 import gui.generated.resources
 
+from .app_config import LegendPlacement
 from .app_state import ApplicationState, StateChange
 from .export_plot_image import ExportPlotImageDialog
 from .spectrum_plot_config import SpectrumPlotConfigDialog
@@ -35,6 +36,22 @@ from astropy import units as u
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
 from typing import List, Optional, Tuple
+
+
+MATPLOTLIB_LEGEND_ARGS = {
+    LegendPlacement.NO_LEGEND : None,
+    LegendPlacement.UPPER_LEFT : {'loc':'upper left'},
+    LegendPlacement.UPPER_CENTER : {'loc':'upper center'},
+    LegendPlacement.UPPER_RIGHT : {'loc':'upper right'},
+    LegendPlacement.CENTER_LEFT : {'loc':'center left'},
+    LegendPlacement.CENTER_RIGHT : {'loc':'center right'},
+    LegendPlacement.LOWER_LEFT : {'loc':'lower left'},
+    LegendPlacement.LOWER_CENTER : {'loc':'lower center'},
+    LegendPlacement.LOWER_RIGHT : {'loc':'lower right'},
+    LegendPlacement.BEST_LOCATION : {'loc':'best'},
+    LegendPlacement.OUTSIDE_CENTER_RIGHT : {'loc':'center left', 'bbox_to_anchor':(1.05, 0.5)},
+    LegendPlacement.OUTSIDE_LOWER_CENTER : {'loc':'upper center', 'bbox_to_anchor':(0.5, -0.05)},
+}
 
 
 TICK_THRESHOLD = 100
@@ -208,6 +225,9 @@ class SpectrumPointDisplayInfo:
 
         '''
 
+        if spectrum is None:
+            raise ValueError('spectrum cannot be None')
+
         # Info we need about the spectrum to show the desired point
         self._spectrum = spectrum
         self._band_index = band_index
@@ -305,7 +325,7 @@ class SpectrumPlot(QWidget):
         # General configuration for the spectrum plot
 
         # Are we displaying a legend?
-        self._legend_location: Optional[str] = None
+        self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
 
         # Font information for the plot
         self._font_name = None
@@ -664,25 +684,20 @@ class SpectrumPlot(QWidget):
         self._axes.set_ylabel(label, fontproperties=axes_font)
 
 
-    def get_legend(self) -> Optional[str]:
+    def get_legend(self) -> LegendPlacement:
         '''
-        If the legend is enabled, this fucntion returns the current location of
-        the legend.  If the legend is disabled then this function returns None.
+        Returns the current enabled-state and placement of the plot's legend.
         '''
         return self._legend_location
 
 
-    def set_legend(self, location: Optional[str]) -> None:
+    def set_legend(self, location: LegendPlacement) -> None:
         '''
         Enables or disables the legend on the plot, along with the location that
         the legend should appear.
 
-        If location is a string specifying where to place the legend, then the
-        legend will be displayed accordingly.  Possible location values are as
-        specified by the pyplot.legend() function:
-        https://matplotlib.org/api/_as_gen/matplotlib.pyplot.legend.html#matplotlib.pyplot.legend
-
-        If location is None then the legend is hidden.
+        The recognized placement options are specified in the LegendPlacement
+        enumeration.
         '''
         self._legend_location = location
 
@@ -885,9 +900,10 @@ class SpectrumPlot(QWidget):
             (spectrum, index) = self._find_spectrum_point_nearest_selection(
                 pick_location[0], pick_location[1])
 
-            # If the picked location isn't near a spectrum, return.
-            if spectrum is None:
-                return
+        # If the picked location isn't near a spectrum, or if there was no pick
+        # location and no previous picked spectrum, return.
+        if spectrum is None:
+            return
 
         # Create a new "point on spectrum" display object
 
@@ -1562,7 +1578,7 @@ class SpectrumPlot(QWidget):
 
         # Legend:
 
-        if self._legend_location is None:
+        if self._legend_location == LegendPlacement.NO_LEGEND:
             # Need to remove the legend
             legend = self._axes.get_legend()
             if legend is not None:
@@ -1571,8 +1587,9 @@ class SpectrumPlot(QWidget):
         else:
             # Need to add a legend.  Use the user-specified location, and also
             # the current font for the legend.
+            args = MATPLOTLIB_LEGEND_ARGS[self._legend_location]
             legend_font = get_font_properties(self._font_name, self._font_size['legend'])
-            self._axes.legend(loc=self._legend_location, prop=legend_font)
+            self._axes.legend(**args, prop=legend_font)
 
         # All done!
         self._figure_canvas.draw()
