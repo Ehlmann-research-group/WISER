@@ -27,6 +27,27 @@ class PixelReticleType(enum.Enum):
     SMALL_CROSS_BOX = 3
 
 
+class LegendPlacement(enum.Enum):
+    '''
+    An enumeration of the placement options that the spectral plot window
+    recognizes.  These are mapped to matplotlib arguments in the component.
+    '''
+    NO_LEGEND = 0
+
+    UPPER_LEFT = 1
+    UPPER_CENTER = 2
+    UPPER_RIGHT = 3
+    CENTER_LEFT = 4
+    CENTER_RIGHT = 5
+    LOWER_LEFT = 6
+    LOWER_CENTER = 7
+    LOWER_RIGHT = 8
+
+    OUTSIDE_CENTER_RIGHT = 20
+    OUTSIDE_LOWER_CENTER = 30
+
+    BEST_LOCATION = 50
+
 
 CONFIG_KEYS = [
     ('viewport-highlight', QColor, QColor(Qt.yellow)),
