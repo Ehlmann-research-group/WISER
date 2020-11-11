@@ -500,9 +500,15 @@ class StretchBuilderDialog(QDialog):
 
         self.setWindowTitle(self.tr('Contrast Stretch Configuration'))
 
+        '''
+        # TODO(donnie):  Stretch-builder dialog has its close-button removed
+        #     since we don't know whether "close" means "accept" or "reject."
+        #     However, this makes it hard for people with small screens.  So,
+        #     disable for now, and assume "close" means "accept."  2020-11-10
         flags = ((self.windowFlags() | Qt.CustomizeWindowHint | Qt.WindowStaysOnTopHint)
             & ~Qt.WindowCloseButtonHint)
         self.setWindowFlags(flags)
+        '''
 
         self._num_active_channels = 0
 
@@ -825,6 +831,15 @@ class StretchBuilderDialog(QDialog):
 
         self.adjustSize()
         super().show()
+
+
+    def closeEvent(self, event):
+        '''
+        When the stretch-builder dialog is closed, consider it as being
+        accepted.
+        '''
+        self.done(QDialog.Accepted)
+
 
     def reject(self):
         '''
