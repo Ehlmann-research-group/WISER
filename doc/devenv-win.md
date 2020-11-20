@@ -35,9 +35,17 @@ to work though, and simply requires a bit more setup.
 4.  The following dependencies need to be installed via `conda`:
 
     ```
+    # Install NumPy first, making sure OpenBLAS is available so that the HUGE
+    # MKL libraries are not present (they cause the binary to be HUGE.)
+    conda install conda-forge::blas=*=openblas
+    conda install -c conda-forge numpy
+
     conda install pyside2
     conda install gdal
+
+    # This verison of matplotlib is required due to a pyinstaller incompatibility
     conda install matplotlib=3.2.2
+    
     conda install astropy
     conda install pyinstaller
     ```
