@@ -8,7 +8,7 @@ import numpy as np
 class DataDistributionError(Exception):
     '''
     This exception is thrown when the data distribution for a dataset will not
-    support a certain kind of stretch.
+    support a certain kind of contrast stretch.
     '''
     pass
 
