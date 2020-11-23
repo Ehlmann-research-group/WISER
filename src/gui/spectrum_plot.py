@@ -1610,6 +1610,16 @@ class SpectrumPlot(QWidget):
             else:
                 self._axes.set_yticks(ticks, minor=True)
 
+        # Make sure the tick labels use the specified font info
+
+        ticks_font = get_font_properties(self._font_name, self._font_size['ticks'])
+
+        for tl in self._axes.get_xticklabels():
+            tl.set_fontproperties(ticks_font)
+
+        for tl in self._axes.get_yticklabels():
+            tl.set_fontproperties(ticks_font)
+
         # Legend:
 
         if self._legend_location == LegendPlacement.NO_LEGEND:
