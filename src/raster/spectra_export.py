@@ -36,12 +36,16 @@ def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,
 
     num_bands = dataset.num_bands()
     has_wavelengths = dataset.has_wavelengths()
+
     if has_wavelengths:
         # Pull the wavelength values from the dataset, convert them to the
         # requested units (if specified), and extract just the list of values.
         input_bands = [info['wavelength'] for info in dataset.band_list()]
-        output_bands = get_band_values(input_bands, unit)
 
+        if unit is None:
+            unit = input_bands[0].unit
+
+        output_bands = get_band_values(input_bands, unit)
     else:
         # We don't have wavelength info, so just use band index
         output_bands = range(num_bands)
