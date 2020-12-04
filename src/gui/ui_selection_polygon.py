@@ -30,7 +30,7 @@ def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
 
     if active:
         # Draw boxes on all control-points.
-        color = Qt.yellow
+        color = self._app_state.get_config('raster.selection.edit_points')
         painter.setPen(QPen(color))
         for cp in points_scaled:
             cp_scaled = cp * scale
@@ -140,7 +140,7 @@ class PolygonSelectionCreator(TaskDelegate):
 
         # print(f'PS:  bad_point = {bad_point}\tclosed_loop = {closed_loop}')
 
-        color = Qt.white # self._app_state.get_color_of('create-selection')
+        color = self._app_state.get_config('raster.selection.edit_outline')
         pen = QPen(color)
 
         if not closed_loop:
@@ -159,7 +159,7 @@ class PolygonSelectionCreator(TaskDelegate):
 
         # Draw boxes on the points themselves.
 
-        color = Qt.yellow
+        color = self._app_state.get_config('raster.selection.edit_points')
         painter.setPen(QPen(color))
 
         for p_scaled in points_scaled:
@@ -263,7 +263,7 @@ class PolygonSelectionEditor(TaskDelegate):
 
         # Draw the polygon specified by all the points, using a dotted line.
 
-        color = Qt.white # self._app_state.get_color_of('create-selection')
+        color = self._app_state.get_config('raster.selection.edit_outline')
         pen = QPen(color)
         pen.setStyle(Qt.DashLine)
         painter.setPen(pen)
@@ -272,7 +272,7 @@ class PolygonSelectionEditor(TaskDelegate):
             painter.drawLine(points_scaled[i - 1], points_scaled[i])
 
         # Draw boxes on all control-points.
-        color = Qt.yellow
+        color = self._app_state.get_config('raster.selection.edit_points')
         painter.setPen(QPen(color))
         for cp in points_scaled:
             painter.fillRect(cp.x() - CONTROL_POINT_SIZE / 2,
