@@ -1200,14 +1200,13 @@ class SpectrumPlot(QWidget):
             self._add_spectrum_to_plot(spectrum, treeitem)
 
         elif change == StateChange.ITEM_REMOVED:
-            if index is not None:
+            if index >= 0:
                 treeitem = self._treeitem_collected.takeChild(index)
                 spectrum = treeitem.data(0, Qt.UserRole)
                 self._remove_spectrum_from_plot(spectrum, treeitem)
 
             else:
                 # All collected items are discarded.
-
                 while self._treeitem_collected.childCount() > 0:
                     treeitem = self._treeitem_collected.takeChild(0)
                     spectrum = treeitem.data(0, Qt.UserRole)
