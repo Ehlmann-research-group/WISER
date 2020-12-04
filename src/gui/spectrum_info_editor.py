@@ -29,6 +29,12 @@ class SpectrumInfoEditor(QDialog):
         self._ui.lineedit_area_avg_y.setValidator(QIntValidator(1, 99))
 
         self._ui.button_plot_color.clicked.connect(self._on_choose_color)
+        self._ui.lineedit_name.textEdited.connect(self._on_name_edited)
+        self._ui.ckbox_autogen_name.clicked.connect(self._on_autogen_name)
+
+        self._ui.combobox_avg_mode.activated.connect(self._on_aavg_mode_changed)
+        self._ui.lineedit_area_avg_x.editingFinished.connect(self._on_finish_aavg)
+        self._ui.lineedit_area_avg_y.editingFinished.connect(self._on_finish_aavg)
 
 
     def configure_ui(self, spectrum_info):
@@ -46,6 +52,11 @@ class SpectrumInfoEditor(QDialog):
 
         self._ui.lineedit_name.setText(self._spectrum_info.get_name())
         self._ui.lineedit_dataset.setText(self._spectrum_info.get_source_name())
+
+        autogen_name = False
+        if isinstance(self._spectrum_info, RasterDataSetSpectrum):
+            autogen_name = self._spectrum_info.use_generated_name()
+        self._ui.ckbox_autogen_name.setChecked(autogen_name)
 
         # Location
 
@@ -109,11 +120,32 @@ class SpectrumInfoEditor(QDialog):
 
 
     def _on_choose_color(self, checked):
-        initial_color = QColor(self._spectrum_info.get_color())
+        initial_color = QColor(self._ui.lineedit_plot_color.text())
         color = QColorDialog.getColor(parent=self, initial=initial_color)
         if color.isValid():
-            self._spectrum_info.set_color(color.name())
+            # self._spectrum_info.set_color(color.name())
             self._ui.lineedit_plot_color.setText(color.name())
+
+
+    def _on_name_edited(self, text):
+        '''
+        If the user edits the spectrum name, clear the "auto-generate name" flag
+        '''
+        self._ui.ckbox_autogen_name.setChecked(False)
+
+
+    def _maybe_regenerate_name(self):
+        if self._ui.ckbox_autogen_name.isChecked():
+            self._ui.lineedit_name.setText(self._spectrum_info._generate_name())
+
+    def _on_autogen_name(self, checked):
+        self._maybe_regenerate_name()
+
+    def _on_aavg_mode_changed(self, index):
+        self._maybe_regenerate_name()
+
+    def _on_finish_aavg(self):
+        self._maybe_regenerate_name()
 
 
     def accept(self):
@@ -122,9 +154,10 @@ class SpectrumInfoEditor(QDialog):
 
         # Name
 
+        use_autogen_name = self._ui.ckbox_autogen_name.isChecked()
         name = self._ui.lineedit_name.text().strip()
 
-        if len(name) == 0:
+        if not use_autogen_name and len(name) == 0:
             QMessageBox.critical(self, self.tr('Missing or invalid values'),
                 self.tr('Spectrum name must be specified.'), QMessageBox.Ok)
             return
@@ -156,7 +189,9 @@ class SpectrumInfoEditor(QDialog):
 
         # Name
 
-        self._spectrum_info.set_name(name)
+        self._spectrum_info.set_use_generated_name(use_autogen_name)
+        if not use_autogen_name:
+            self._spectrum_info.set_name(name)
 
         # Average Mode
 

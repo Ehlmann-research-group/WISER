@@ -28,7 +28,6 @@ class SpectrumInfo:
     def __init__(self):
         self._id: Optional[int] = None
         self._name: Optional[str] = None
-        self._use_generated_name = True
 
         self._color = None
 
@@ -193,6 +192,9 @@ class RasterDataSetSpectrum(SpectrumInfo):
         self._use_generated_name = use_generated
         if use_generated:
             self._name = None
+
+    def use_generated_name(self) -> bool:
+        return self._use_generated_name
 
     def _generate_name(self) -> str:
         '''
