@@ -35,7 +35,7 @@ def draw_rectangle_selection(rasterview, painter, rect_sel, color, active=False)
 
     if active:
         # Draw boxes on all control-points.
-        color = Qt.yellow
+        color = self._app_state.get_config('raster.selection.edit_points')
         painter.setPen(QPen(color))
         for cp in self._control_points:
             cp_scaled = cp * scale
@@ -79,7 +79,7 @@ class RectangleSelectionCreator(TaskDelegate):
 
         # Draw a box between the two points, using a dotted rectangle.
 
-        color = Qt.white # self._app_state.get_color_of('create-selection')
+        color = self._app_state.get_config('raster.selection.edit_outline')
         pen = QPen(color)
         pen.setStyle(Qt.DashLine)
         painter.setPen(pen)
@@ -88,7 +88,7 @@ class RectangleSelectionCreator(TaskDelegate):
 
         # Draw boxes on the two points themselves.
 
-        color = Qt.yellow
+        color = self._app_state.get_config('raster.selection.edit_points')
         painter.setPen(QPen(color))
         painter.fillRect(p1_scaled.x() - CONTROL_POINT_SIZE / 2,
                          p1_scaled.y() - CONTROL_POINT_SIZE / 2,
@@ -227,7 +227,7 @@ class RectangleSelectionEditor(TaskDelegate):
 
         # Draw a box between the two points, using a dotted rectangle.
 
-        color = Qt.white # self._app_state.get_color_of('create-selection')
+        color = self._app_state.get_config('raster.selection.edit_outline')
         pen = QPen(color)
         pen.setStyle(Qt.DashLine)
         painter.setPen(pen)
@@ -235,7 +235,7 @@ class RectangleSelectionEditor(TaskDelegate):
         painter.drawRect(rect)
 
         # Draw boxes on all control-points.
-        color = Qt.yellow
+        color = self._app_state.get_config('raster.selection.edit_points')
         painter.setPen(QPen(color))
         for cp in self._control_points:
             cp_scaled = cp * scale

@@ -1,10 +1,14 @@
-from typing import List
+from typing import List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from astropy import units as u
+
 from .generated.band_chooser_ui import Ui_BandChooserDialog
+
+from .app_state import ApplicationState
 
 from raster.dataset import RasterDataSet, find_truecolor_bands
 
@@ -16,12 +20,14 @@ class BandChooserDialog(QDialog):
     There is also a "copy to clipboard" button to simplify bug reporting.
     '''
 
-    def __init__(self, dataset: RasterDataSet, display_bands: List[int], parent=None):
+    def __init__(self, app_state: ApplicationState, dataset: RasterDataSet,
+                 display_bands: List[int], parent=None):
         super().__init__(parent=parent)
 
         if len(display_bands) not in [1, 3]:
             raise ValueError('display_bands must be either 1 element or 3 elements')
 
+        self._app_state = app_state
         self._dataset = dataset
         self._display_bands = display_bands
 
@@ -103,6 +109,18 @@ class BandChooserDialog(QDialog):
         self._ui.cbox_gray_band.setCurrentIndex(display_bands[0])
 
 
+    def _get_truecolor_bands(self) -> Optional[Tuple[int, int, int]]:
+        '''
+        A helper function that tries to find the truecolor bands of the current
+        dataset, using the app-state's current definitions of
+        "red", "green" and "blue" wavelengths.
+        '''
+        return find_truecolor_bands(self._dataset,
+            red=self._app_state.get_config('general.red_wavelength_nm') * u.nm,
+            green=self._app_state.get_config('general.green_wavelength_nm') * u.nm,
+            blue=self._app_state.get_config('general.blue_wavelength_nm') * u.nm)
+
+
     def _configure_buttons(self):
         '''
         Configure whether the "choose visible-light bands" and "choose default
@@ -118,7 +136,7 @@ class BandChooserDialog(QDialog):
         self._ui.btn_gray_choose_defaults.setEnabled(
             default_bands is not None and len(default_bands) == 1)
 
-        truecolor_bands = find_truecolor_bands(self._dataset)
+        truecolor_bands = self._get_truecolor_bands()
         self._ui.btn_rgb_choose_visible.setEnabled(truecolor_bands is not None)
 
 
@@ -134,7 +152,7 @@ class BandChooserDialog(QDialog):
 
 
     def _on_rgb_choose_visible_bands(self, checked):
-        pass
+        self._set_rgb_bands(self._get_truecolor_bands())
 
 
     def _on_rgb_choose_default_bands(self, checked):

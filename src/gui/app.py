@@ -6,6 +6,8 @@ import traceback
 
 from typing import Dict, List, Optional, Tuple
 
+import bugsnag
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -27,6 +29,8 @@ from .infoview import DatasetInfoView
 
 from .util import *
 
+from .app_config import ApplicationConfig, get_wiser_config_dir
+from .app_config_dialog import AppConfigDialog
 from .app_state import ApplicationState
 
 from raster.spectra import SpectrumAverageMode
@@ -37,7 +41,8 @@ from raster.selection import SinglePixelSelection
 
 class DataVisualizerApp(QMainWindow):
 
-    def __init__(self, config: Optional[Dict] = None):
+    def __init__(self, config_path: Optional[str] = None,
+                       config: Optional[ApplicationConfig] = None):
         '''
         Initialize the data-visualization app.  This method initializes the
         model, various views, and hooks them together with the controller code.
@@ -47,7 +52,12 @@ class DataVisualizerApp(QMainWindow):
 
         # Internal state
 
-        self._app_state = ApplicationState(self, config=config)
+        if config_path is None:
+            config_path = get_wiser_config_dir()
+
+        self._config_path: str = config_path
+
+        self._app_state: ApplicationState = ApplicationState(self, config=config)
 
         # Application Toolbars
 
@@ -67,7 +77,8 @@ class DataVisualizerApp(QMainWindow):
         self._make_dockable_pane(self._context_pane, name='context_pane',
             title=self.tr('Context'), icon=':/icons/context-pane.svg',
             tooltip=self.tr('Show/hide the context pane'),
-            allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea,
+            allowed_areas=Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea |
+                          Qt.TopDockWidgetArea | Qt.BottomDockWidgetArea,
             area=Qt.LeftDockWidgetArea)
 
         # Zoom pane
@@ -134,12 +145,19 @@ class DataVisualizerApp(QMainWindow):
 
 
     def _init_menus(self):
+
+        # TODO(donnie):  Configure the menus based on the OS/platform
+
         # Application menu
         self._app_menu = self.menuBar().addMenu('WISER')
 
         act = self._app_menu.addAction(self.tr('About WISER'))
         act.setMenuRole(QAction.AboutRole)
         act.triggered.connect(self.show_about_dialog)
+
+        act = self._app_menu.addAction(self.tr('Preferences...'))
+        act.setMenuRole(QAction.PreferencesRole)
+        act.triggered.connect(self.show_preferences)
 
         # File menu
 
@@ -153,6 +171,19 @@ class DataVisualizerApp(QMainWindow):
         act = self._file_menu.addAction(self.tr('Save &project file...'))
         act.setStatusTip(self.tr('Save the current project configuration'))
         act.triggered.connect(self.show_save_project_dialog)
+
+        self._file_menu.addSeparator()
+
+        self._close_dataset_menu = self._file_menu.addMenu(self.tr('Close dataset...'))
+        act.setStatusTip(self.tr('Close an open dataset or spectral library'))
+        self._close_dataset_menu.setEnabled(False)
+
+        self._file_menu.addSeparator()
+
+        # TODO(donnie)
+        act = self._file_menu.addAction(self.tr('&Quit WISER'))
+        act.setMenuRole(QAction.QuitRole)
+        act.triggered.connect(self.quit_app)
 
         # View menu
 
@@ -197,22 +228,42 @@ class DataVisualizerApp(QMainWindow):
         self.statusBar().showMessage(text, seconds * 1000)
 
 
-    def closeEvent(self, event):
+    def quit_app(self):
+        ''' User-triggered operation to exit the application. '''
+
         # TODO(donnie):  Ask user to save any unsaved state?  (This also means
         #     we must detect unsaved state.)
 
         # TODO(donnie):  Save Qt state.
 
+        pass
+
+
+    def closeEvent(self, event):
+        if not self.quit_app():
+            return
+
         super().closeEvent(event)
 
 
     def show_about_dialog(self, evt):
-        '''
-        Shows the "About WISER" dialog in the
-        user interface.
-        '''
+        ''' Shows the "About WISER" dialog in the user interface. '''
         about = AboutDialog(self)
         about.exec()
+
+
+    def show_preferences(self, evt):
+        ''' Shows the WISER preferences / config dialog. '''
+        config_dialog = AppConfigDialog(self._app_state, parent=self)
+        if config_dialog.exec() == QDialog.Accepted:
+            # Save the configuration file
+            self._app_state.config().save(
+                os.path.join(self._config_path, 'wiser-conf.json'))
+
+            # The only config property that is not applied automatically is the
+            # BugSnag reporting configuration.  Do that here.
+            auto_notify = self._app_state.config().get('general.online_bug_reporting')
+            bugsnag.configure(auto_notify=auto_notify)
 
 
     def show_open_file_dialog(self, evt):

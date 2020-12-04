@@ -97,7 +97,7 @@ class MultiPixelSelectionManipulator(TaskDelegate):
 
         points_scaled = [p * scale for p in self._points]
 
-        color = Qt.white # self._app_state.get_color_of('create-selection')
+        color = self._app_state.get_config('raster.selection.edit_outline')
         painter.setPen(QPen(color))
 
         for p in points_scaled:

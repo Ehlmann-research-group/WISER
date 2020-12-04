@@ -1144,7 +1144,7 @@ class RasterPane(QWidget):
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
 
-        dialog = BandChooserDialog(dataset, display_bands, parent=self)
+        dialog = BandChooserDialog(self._app_state, dataset, display_bands, parent=self)
         dialog.setModal(True)
 
         if dialog.exec_() == QDialog.Accepted:
@@ -1575,7 +1575,7 @@ class RasterPane(QWidget):
 
         # Draw the viewport highlight.
         with get_painter(widget) as painter:
-            color = self._app_state.get_color_of('viewport-highlight')
+            color = self._app_state.get_config('raster.viewport_highlight_color')
             painter.setPen(QPen(color))
 
             for box in highlights:
@@ -1614,7 +1614,7 @@ class RasterPane(QWidget):
         coord = self._pixel_highlight.get_pixel()
 
         with get_painter(widget) as painter:
-            color = self._app_state.get_color_of('pixel-highlight')
+            color = self._app_state.get_config('raster.pixel_cursor_color')
             painter.setPen(QPen(color))
 
             # (ds_x, ds_y) is the coordinate within the data-set.
@@ -1632,7 +1632,7 @@ class RasterPane(QWidget):
             # Draw a reticle centered on the highlighted pixel.
 
             reticle_type = self._app_state.get_config(
-                'raster.pixel-reticle-type',
+                'raster.pixel_cursor_type',
                 default=PixelReticleType.SMALL_CROSS,
                 as_type=lambda s : PixelReticleType[s])
 
@@ -1654,8 +1654,8 @@ class RasterPane(QWidget):
                     # Compute the rectangle that will border the specified
                     # pixel.  Subtract 1 from the width and height to keep the
                     # rectangle from spilling into the neighboring pixel.
-                    scaled = QRect(screen_x, screen_y, scale, scale)
+                    scaled = QRect(ds_x * scale, ds_y * scale, scale, scale)
                     painter.drawRect(scaled)
 
             else:
-                raise ValueError(f'Unrecognized reticle-type {reticle_type}')
+                raise ValueError(f'Unrecognized pixel cursor type {reticle_type}')
