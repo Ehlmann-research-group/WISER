@@ -165,7 +165,7 @@ class DataVisualizerApp(QMainWindow):
             act.setMenuRole(QAction.PreferencesRole)
             act.triggered.connect(self.show_preferences)
 
-            act = self._file_menu.addAction(self.tr('&Quit WISER'))
+            act = self._app_menu.addAction(self.tr('&Quit WISER'))
             act.setMenuRole(QAction.QuitRole)
             act.triggered.connect(self.quit_app)
 
