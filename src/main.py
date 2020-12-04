@@ -36,30 +36,9 @@ warnings.filterwarnings('ignore', '(?s).*MATPLOTLIBDATA.*', category=UserWarning
 import matplotlib
 
 from gui.app import DataVisualizerApp
+from gui.app_config import (get_wiser_config_dir, ApplicationConfig)
 
 import version
-
-
-
-def init_matplotlib():
-    matplotlib.rcParams['font.size'] = 9
-
-
-def load_wiser_conf(filename: str) -> Dict:
-    '''
-    Load the specified WISER configuration file.  If the file cannot be loaded
-    for some reason, this function will log the error and then terminate the
-    application.
-    '''
-    logger.info(f'Loading WISER configuration file "{filename}"')
-    try:
-        with open(filename) as f:
-            config = json.load(f)
-    except:
-        logger.exception(f'Couldn\'t open WISER configuration file')
-        sys.exit(1)
-
-    return config
 
 
 def main():
@@ -77,8 +56,8 @@ def main():
 
     parser.add_argument('data_files', metavar='file', nargs='*',
         help='An optional list of data files to open in WISER')
-    parser.add_argument('--config',
-        help='The path and filename of an optional WISER configuration file')
+    parser.add_argument('--config_path',
+        help='The path to read WISER configuration from')
     # TODO(donnie):  Provide a way to specify Qt arguments
 
     args = parser.parse_args()
@@ -87,19 +66,52 @@ def main():
     # load it and exit if we can't load it.  Otherwise, if we see a WISER-config
     # file in the local directory, load it; if we don't see one, don't try to
     # load anything.
-    config = {}
-    if args.config is not None:
-        config = load_wiser_conf(args.config)
-    elif os.path.isfile(CONFIG_FILE):
-        config = load_wiser_conf(CONFIG_FILE)
 
-    logger.debug(f'Loaded WISER configuration:\n{json.dumps(config, sort_keys=True, indent=4)}')
+    config_path: str = get_wiser_config_dir()
+    if args.config_path is not None:
+        # User specified config path; try to load it.
+        config_path = args.config_path
+
+    logger.info(f'Loading WISER configuration from path {config_path}')
+
+    config: ApplicationConfig = ApplicationConfig()
+    wiser_conf_path: str = os.path.join(config_path, 'wiser-conf.json')
+    loaded: bool = False
+
+    if os.path.isfile(wiser_conf_path):
+        logger.info(f'Trying to load wiser-conf.json from path {wiser_conf_path}')
+
+        try:
+            config.load(wiser_conf_path)
+            loaded = True
+
+        except:
+            # Couldn't load the file.  Try to move it out of the way and create
+            # a new one.
+
+            logger.exception('Couldn\'t load WISER config file, is it corrupt?')
+            logger.info('Renaming bad WISER config file and creating new config.')
+            error_conf_path = os.path.join(config_path, 'wiser-conf.json.error')
+            os.replace(wiser_conf_path, error_conf_path)
+
+    if not loaded:
+        # The config file couldn't be loaded, either because it doesn't
+        # exist, or because it was corrupt.  Try to create a new default
+        # config file.  Failure is not fatal; WISER will still use the
+        # default configuration.
+        logger.info(f'Creating a new WISER config file at {config_path}')
+        try:
+            # Try to save the WISER configuration file
+            config.save(wiser_conf_path)
+        except OSError:
+            logger.exception(f'Couldn\'t create new WISER config file at {config_path}')
+
+    logger.debug(f'WISER configuration:\n{config.to_string()}')
 
     #========================================================================
     # Configure BugSnag
 
-    # TODO(donnie):  Later want to default online bug reporting to False.
-    auto_notify = bool(config.get('online-bug-reporting', True))
+    auto_notify = config.get('general.online_bug_reporting')
     bugsnag.configure(
         api_key='29bf39226c3071461f3d0630c9ced4b6',
         app_version=version.VERSION,
@@ -119,10 +131,7 @@ def main():
     #========================================================================
     # WISER Application Initialization
 
-    # TODO(donnie):  Remove?
-    # init_matplotlib()
-
-    wiser_ui = DataVisualizerApp(config=config)
+    wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
 
     # Set the initial window size to be 70% of the screen size.
     screen_size = app.screens()[0].size()

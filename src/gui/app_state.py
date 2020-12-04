@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 
-from .app_config import PixelReticleType
+from .app_config import ApplicationConfig, PixelReticleType
 
 from raster.dataset import *
 from raster.gdal_dataset import GDALRasterDataLoader
@@ -63,7 +63,7 @@ class ApplicationState(QObject):
 
     # TODO(donnie):  Signals for config changes and color changes!
 
-    def __init__(self, app, config: Optional[Dict] = None):
+    def __init__(self, app, config: Optional[ApplicationConfig] = None):
         super().__init__()
 
         # A reference to the overall UI
@@ -104,33 +104,10 @@ class ApplicationState(QObject):
 
         # Configuration state.
 
-        # These are the default configuration options, which may be overrided
-        # by any passed-in configuration options.
-        self._config: Dict = {
-            'config' : {
-                'red_wavelength' : 700,
-                'green_wavelength' : 530,
-                'blue_wavelength' : 470,
-            },
-            'raster' : {
-                'pixel-reticle-type' : 'SMALL_CROSS',
-            },
-            'spectra' : {
-                'default_area_avg_x' : 1,
-                'default_area_avg_y' : 1,
-                'default_area_avg_mode' : 'MEAN',
-            },
-        }
+        if config is None:
+            config = ApplicationConfig()
 
-        if config is not None:
-            self._config.update(config)
-
-        # Colors used for various purposes.
-        self._colors = {
-            'viewport-highlight' : Qt.yellow,
-            'pixel-highlight' : Qt.red,
-            'roi-default-color' : Qt.white,
-        }
+        self._config: ApplicationConfig = config
 
 
     def _take_next_id(self) -> int:
@@ -377,7 +354,11 @@ class ApplicationState(QObject):
         self.spectral_library_removed.emit(lib_id)
 
 
-    def get_config(self, option: str, default=None, as_type=str):
+    def config(self) -> ApplicationConfig:
+        return self._config
+
+
+    def get_config(self, option: str, default=None, as_type=None):
         '''
         Returns the value of the specified config option.  An optional default
         value may be specified.
@@ -385,53 +366,15 @@ class ApplicationState(QObject):
         Options are specified as a sequence of names separated by dots '.',
         just like a series of object-member accesses on an object hierarchy.
         '''
-        parts = option.split('.')
-
-        value = self._config
-        for p in parts:
-            value = value.get(p)
-            if value is None:
-                break
-
-        if value is None:
-            value = default
-
-        else:
-            value = as_type(value)
-
-        return value
+        return self._config.get(option, default, as_type)
 
 
     def set_config(self, option, value):
         '''
         Sets the value of the specified config option.
         '''
+        self._config.set(option, value)
 
-        parts = option.split('.')
-
-        d = self._config
-        for p in parts[:-1]:
-            next = d.get(p)
-            if next is None:
-                next = dict()
-                d[p] = next
-
-            d = next
-
-        d[parts[-1]] = value
-
-
-    def get_color_of(self, option):
-        '''
-        Returns the color of the specified config option.
-        '''
-        return self._colors[option]
-
-    def set_color_of(self, option, color):
-        '''
-        Sets the color of the specified config option.
-        '''
-        self._colors[option] = color
 
     def add_roi(self, roi: RegionOfInterest) -> None:
         # Verify that the ROI's name is unique.
@@ -506,4 +449,4 @@ class ApplicationState(QObject):
 
     def remove_all_collected_spectra(self):
         self._collected_spectra.clear()
-        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, None)
+        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)

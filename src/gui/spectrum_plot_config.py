@@ -439,4 +439,7 @@ class SpectrumPlotConfigDialog(QDialog):
         mode = self._ui.cbox_default_avg_mode.currentData()
         app_state.set_config('spectra.default_area_avg_mode', mode)
 
+        #==============================
+        # All done!
+
         super().accept()
