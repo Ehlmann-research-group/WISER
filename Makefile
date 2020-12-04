@@ -86,6 +86,7 @@ dist-win : generated
 		--add-binary C:\ProgramData\Miniconda3\Library\plugins\iconengines;iconengines \
 		--add-data C:\ProgramData\Miniconda3\Library\bin\libiomp5md.dll;. \
 		--hidden-import PySide2.QtSvg \
+		--exclude-module PyQt5 \
 		src\main.py
 
 	$(NSIS) /NOCD install-win\win-install.nsi
