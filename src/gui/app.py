@@ -1,6 +1,7 @@
 import json
 import os
 import pathlib
+import platform
 import sys
 import traceback
 
@@ -146,18 +147,27 @@ class DataVisualizerApp(QMainWindow):
 
     def _init_menus(self):
 
-        # TODO(donnie):  Configure the menus based on the OS/platform
+        # Configure the menus based on the OS/platform
+        system_name = platform.system()
 
         # Application menu
-        self._app_menu = self.menuBar().addMenu('WISER')
 
-        act = self._app_menu.addAction(self.tr('About WISER'))
-        act.setMenuRole(QAction.AboutRole)
-        act.triggered.connect(self.show_about_dialog)
+        if system_name == 'Darwin':
+            # macOS has an application menu that includes "about" and
+            # "preferences" entries, and a "Quit XXXX" entry
+            self._app_menu = self.menuBar().addMenu('WISER')
 
-        act = self._app_menu.addAction(self.tr('Preferences...'))
-        act.setMenuRole(QAction.PreferencesRole)
-        act.triggered.connect(self.show_preferences)
+            act = self._app_menu.addAction(self.tr('About WISER'))
+            act.setMenuRole(QAction.AboutRole)
+            act.triggered.connect(self.show_about_dialog)
+
+            act = self._app_menu.addAction(self.tr('Preferences...'))
+            act.setMenuRole(QAction.PreferencesRole)
+            act.triggered.connect(self.show_preferences)
+
+            act = self._file_menu.addAction(self.tr('&Quit WISER'))
+            act.setMenuRole(QAction.QuitRole)
+            act.triggered.connect(self.quit_app)
 
         # File menu
 
@@ -174,16 +184,23 @@ class DataVisualizerApp(QMainWindow):
 
         self._file_menu.addSeparator()
 
-        self._close_dataset_menu = self._file_menu.addMenu(self.tr('Close dataset...'))
-        act.setStatusTip(self.tr('Close an open dataset or spectral library'))
-        self._close_dataset_menu.setEnabled(False)
+        # TODO(donnie) - this will require a lot of testing
+        # self._close_dataset_menu = self._file_menu.addMenu(self.tr('Close dataset...'))
+        # act.setStatusTip(self.tr('Close an open dataset or spectral library'))
+        # self._close_dataset_menu.setEnabled(False)
+        #
+        # self._file_menu.addSeparator()
 
-        self._file_menu.addSeparator()
+        if system_name == 'Windows':
+            act = self._file_menu.addAction(self.tr('Settings...'))
+            act.setMenuRole(QAction.PreferencesRole)
+            act.triggered.connect(self.show_preferences)
 
-        # TODO(donnie)
-        act = self._file_menu.addAction(self.tr('&Quit WISER'))
-        act.setMenuRole(QAction.QuitRole)
-        act.triggered.connect(self.quit_app)
+            self._file_menu.addSeparator()
+
+            act = self._file_menu.addAction(self.tr('E&xit WISER'))
+            act.setMenuRole(QAction.QuitRole)
+            act.triggered.connect(self.quit_app)
 
         # View menu
 
@@ -191,8 +208,14 @@ class DataVisualizerApp(QMainWindow):
 
         # Other menus?
 
-        # self.window_menu = self.menuBar().addMenu(self.tr('&Window'))
-        # self.help_menu = self.menuBar().addMenu(self.tr('&Help'))
+        # self._tools_menu = self.menuBar().addMenu(self.tr('&Tools'))
+
+        if platform.system() == 'Windows':
+            self._help_menu = self.menuBar().addMenu(self.tr('&Help'))
+
+            act = self._help_menu.addAction(self.tr('About WISER'))
+            act.setMenuRole(QAction.AboutRole)
+            act.triggered.connect(self.show_about_dialog)
 
 
     def _init_toolbars(self):
@@ -234,14 +257,17 @@ class DataVisualizerApp(QMainWindow):
         # TODO(donnie):  Ask user to save any unsaved state?  (This also means
         #     we must detect unsaved state.)
 
-        # TODO(donnie):  Save Qt state.
+        # TODO(donnie):  Maybe save Qt state?
 
-        pass
+        # Exit WISER
+        QApplication.exit(0)
 
 
     def closeEvent(self, event):
-        if not self.quit_app():
-            return
+        # TODO(donnie):  Ask user to save any unsaved state?  (This also means
+        #     we must detect unsaved state.)
+
+        # TODO(donnie):  Maybe save Qt state?
 
         super().closeEvent(event)
 
