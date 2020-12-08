@@ -1,5 +1,3 @@
-# WISER Manual
-
 Welcome to WISER, the Workbench for Imaging Spectroscopy Exploration and
 Research.  WISER makes it easy to load and analyze spectral imaging data sets
 with a variety of helpful features.
@@ -105,7 +103,9 @@ is displayed.
 ## Dataset Chooser
 
 The _dataset chooser_ simply allows the user to change what data set is being
-displayed in a given pane.
+displayed in a given pane.  When clicked, the dataset chooser will show a
+pop-up menu listing all data sets currently loaded, and selecting a different
+data set will switch the display to that data set.
 
 ## Band Chooser
 
@@ -122,12 +122,38 @@ wavelengths or frequencies for each band, and if these wavelengths are near the
 red/green/blue frequencies specified in WISER's global configuration, the band
 chooser can automatically choose the bands closest to these frequencies.
 
+Note that if a data set does not have default display bands, or if the data
+set doesn't have visible-light frequencies, the corresponding button in the
+dialog will be disabled.
+
 ## Contrast Stretch
 
 The contrast stretch tool provides sophisticated options for adjusting the
 contrast of images being displayed.  This allows the user to bring out details
 in the image data that might otherwise not be perceptible.
 
+Here is an example of the contrast stretch tool being used with the Caltech
+AVIRIS data.
+
+<img class="img_center" src="images/stretch_full_linear.png" width="80%">
+
+A histogram is shown for each display band, allowing one to see the
+distribution of values for that band.  The user can select both the kind of
+contrast stretch used, and any conditioners to apply to the data before
+applying the stretch.  Because it is useful to see the results of applying
+contrast stretch, changes in the dialog are immediately reflected in the
+affected raster displays.  If the "Cancel" button is pressed, the changes
+will be discarded; otherwise, they will be kept when the dialog is closed.
+
+Here is another example of applying a 2.5% linear stretch to the Caltech
+AVIRIS data:
+
+<img class="img_center" src="images/stretch_2.5_linear.png" width="80%">
+
+When applying a linear stretch, the sliders may be adjusted to control the
+endpoints of the contrast-stretch operation.  Additionally, minimum and
+maximum values may be specified, to exclude noise that appears outside the
+range of useful data, or to focus in on a specific range of values.
 
 For a detailed description of how WISER performs contrast stretch calculations,
 please refer to [this document](./contrast-stretch.html).
