@@ -66,39 +66,37 @@ followed for each color channel being displayed.
 
 ## Stretch Types
 
-The Workbench supports three stretch types:
+WISER supports three stretch types:
 
-*   No stretch
+*   100% linear stretch
 *   Linear stretch
 *   Histogram equalization stretch
 
-If the Workbench is displaying an RGB image, all color channels will use the
-same same stretch type.  It is not possible to configure the Workbench to
-display different color channels of the same image with different stretch types.
-(Obviously, the parameters for each channel may be different, as each channel's
-data distribution will be different.)
+If WISER is displaying an RGB image, all color channels will use the same
+stretch type.  It is not possible to configure WISER to display different color
+channels of the same image with different stretch types.  (Obviously, the
+parameters for each channel may be different, as each channel's data
+distribution will be different.)
 
-### No Stretch
+### 100% Linear Stretch
 
-The "no stretch" type causes the Workbench to follow a very straightforward,
-simplistic mapping of band data to color values in the range [0, 255].  The
-specific mapping depends on the type of the input data.
+The "100% linear stretch" type causes the Workbench to follow a very
+straightforward, simple mapping of band data to color values in the range
+[0, 255].  The specific mapping depends on the type of the input data.
 
-(Note that this is a difficult problem to solve generally, and it is expected
-that this mapping will not be useful in many cases.  Fortunately, the other
-stretch configurations should produce much more useful results, if this mapping
-is not useful for a particular data set.)
+1.  The minimum and maximum data value for each band is determined.
 
-*   If the band data is 32-bit or 64-bit floating point, then all values are
-    clipped to the range [0.0, 1.0] and then multiplied by 255 to generate a
-    value in the range [0, 255].
+2.  Values in each band are mapped to the range [0.0, 1.0] with a simple
+    calculation:  (value - band_min) / (band_max - band_min).  This is typically
+    represented as a 32-bit floating point value, but may be 64-bit floating
+    point if the initial data was 64-bit floating point.
 
-*   If the band data is an 8-bit signed or unsigned integer value, then the
-    value is used as-is.  (TODO:  Not sure what this means for signed data...)
+3.  Values are then scaled to integers in the range [0, 255], with 0.0 mapping
+    to 0, and 1.0 mapping to 255.
 
-*   If the band data is a 16/32/64-bit signed or unsigned integer value, then
-    only the top byte of the value is used as-is.  (TODO:  Again, not sure what
-    this means for signed data...)
+This approach is called "100% linear stretch" because it is just the "linear
+stretch" method, with low and high bounds taken from the band's minimum and
+maximum values.
 
 ### Linear Stretch
 
