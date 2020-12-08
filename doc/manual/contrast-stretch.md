@@ -4,9 +4,9 @@ WISER supports manipulating the contrast stretch of data sets being displayed.
 This is often very helpful to bring out important details in the data.
 
 Before discussing how stretch may be applied, it is important to understand what
-the Workbench must do to display data.  The band data being displayed may be of
-many different data types; floating point or integer data, of various bit
-widths (e.g. 8, 16, 32 or 64 bits).  Therefore, the data itself may cover many
+WISER must do to display data.  The band data being displayed may be of many
+different data types; floating point or integer data, of various bit widths
+(e.g. 8, 16, 32 or 64 bits).  Therefore, the data itself may cover many
 different ranges of values.  The Workbench must map each band's values to an
 integer color value in the range [0, 255].  If the Workbench is showing image
 data in RGB mode, this must occur for each color channel; if the Workbench is
@@ -100,7 +100,7 @@ maximum values.
 
 ### Linear Stretch
 
-The "linear stretch" type causes the Workbench to map band values in a range
+The "linear stretch" type causes WISER to map band values in a range
 [stretch_low, stretch_high] to floating-point values in the range [0.0, 1.0].
 
 *   Values less than stretch_low are mapped to 0.0.
@@ -111,33 +111,32 @@ The "linear stretch" type causes the Workbench to map band values in a range
 These intermediate values are then mapped to a color value in the range
 [0, 255].
 
-The Workbench supports arbitrary values for the stretch_low and stretch_high
-values, and each color channel will specify its own values for stretch_low and
+WISER supports arbitrary values for the stretch_low and stretch_high values,
+and each color channel will specify its own values for stretch_low and
 stretch_high.  The Contrast Stretch UI calculates and displays a histogram of
 the band data for each channel, to aid the user in selecting appropriate
 stretch_low / stretch_high values.  In addition, the UI provides the ability to
 apply a 2.5% or 5% linear stretch across all channels.
 
-For an N% linear stretch, the Workbench will choose each channel's stretch_low
-and stretch_high such that (N/2)% of the low values will be excluded, and (N/2)%
+For an N% linear stretch, WISER will choose each channel's stretch_low and
+stretch_high such that (N/2)% of the low values will be excluded, and (N/2)%
 of the high values will be excluded.  This is computed from the band's
 histogram, and is therefore approximate.  (As mentioned earlier, this histogram
 is computed after the min/max limits have been used to filter the band's data.)
 
 ### Histogram Equalization Stretch
 
-The "histogram equalization stretch" type causes the Workbench to map the
-normalized band values to floating point values in the range [0.0, 1.0] such
-that the density of the output values is uniform across this range.  This is
-computed from the band's histogram.  (As mentioned earlier, this histogram is
-computed after the min/max limits have been used to filter the band's data.)
+The "histogram equalization stretch" type causes WISER to map the normalized
+band values to floating point values in the range [0.0, 1.0] such that the
+density of the output values is uniform across this range.  This is computed
+from the band's histogram.  (As mentioned earlier, this histogram is computed
+after the min/max limits have been used to filter the band's data.)
 
 ## Conditioners
 
 Conditioners can be useful when the input data's distribution needs to be
 modified; for example, to bring out details in low intensity values and to mute
-variations in high intensity values.  The Workbench supports three conditioner
-options:
+variations in high intensity values.  WISER supports three conditioner options:
 
 *   No conditioner
 *   Square root conditioner
@@ -148,9 +147,8 @@ case of "no conditioner," this can be thought of as the identity function, but
 the implementation simply does nothing.
 
 It may be noted that sqrt(x) for x in [0.0, 1.0] already produces values only
-in the range [0.0, 1.0].  This is what the Workbench does for square root
-conditioning.
+in the range [0.0, 1.0].  This is what WISER does for square root conditioning.
 
-In the case of logarithmic conditioner, the Workbench uses the function
-log2(x + 1.0); when given values in the range [0.0, 1.0], this will only produce
-values in the range [0.0, 1.0].
+In the case of logarithmic conditioner, WISER uses the function
+log<sub>2</sub>(x + 1.0); when given values in the range [0.0, 1.0], this will
+only produce values in the range [0.0, 1.0].
