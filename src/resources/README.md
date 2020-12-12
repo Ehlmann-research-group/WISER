@@ -14,6 +14,7 @@ from [Flaticon](https://www.flaticon.com/).
 *   clear-all-plots.svg (was interface.svg)
 *   configure.svg (was cogwheels.svg)
 *   split-view.svg (was writing.svg)
+*   bug.svg
 
 Icons made by [Pixel perfect](https://www.flaticon.com/authors/pixel-perfect)
 from [Flaticon](https://www.flaticon.com/).

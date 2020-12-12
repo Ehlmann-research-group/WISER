@@ -33,6 +33,7 @@ from .util import *
 from .app_config import ApplicationConfig, get_wiser_config_dir
 from .app_config_dialog import AppConfigDialog
 from .app_state import ApplicationState
+from . import bug_reporting
 
 from raster.spectra import SpectrumAverageMode
 from raster.spectrum_info import SpectrumAtPoint
@@ -225,6 +226,18 @@ class DataVisualizerApp(QMainWindow):
 
         self._main_toolbar.addSeparator()
 
+        # If the bug-button feature flag is on, make a button that will trigger
+        # an error, so that we can exercise online error reporting.
+        if self._app_state.get_config('feature_flags.bug_button', default=False):
+            def _raise_bug():
+                raise Exception('Intentional exception for testing online bug reporting')
+
+            act = add_toolbar_action(self._main_toolbar, ':/icons/bug.svg',
+                'Generate an error!', self)
+            act.triggered.connect(lambda checked=False: _raise_bug())
+
+            self._main_toolbar.addSeparator()
+
 
     def _make_dockable_pane(self, widget, name, title, icon, tooltip,
                             allowed_areas, area):
@@ -289,7 +302,7 @@ class DataVisualizerApp(QMainWindow):
             # The only config property that is not applied automatically is the
             # BugSnag reporting configuration.  Do that here.
             auto_notify = self._app_state.config().get('general.online_bug_reporting')
-            bugsnag.configure(auto_notify=auto_notify)
+            bug_reporting.set_enabled(auto_notify)
 
 
     def show_open_file_dialog(self, evt):
