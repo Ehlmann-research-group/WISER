@@ -120,8 +120,13 @@ class ExportImageDialog(QDialog):
 
         # Events:
 
+        self._ui.ledit_filename.editingFinished.connect(self._on_ledit_filename_edited)
         self._ui.btn_filename.clicked.connect(self._on_btn_filename_clicked)
         self._ui.cbox_image_format.activated.connect(self._on_cbox_image_format_changed)
+
+
+    def _on_ledit_filename_edited(self):
+        self._set_image_format_from_filename()
 
 
     def _on_btn_filename_clicked(self, checked):
@@ -137,7 +142,6 @@ class ExportImageDialog(QDialog):
         # If there is already an initial filename, select it in the dialog.
         initial_filename = self._ui.ledit_filename.text().strip()
         if len(initial_filename) > 0:
-            print(f'initial = "{initial_filename}"')
             file_dialog.selectFile(initial_filename)
 
         result = file_dialog.exec()
@@ -145,6 +149,17 @@ class ExportImageDialog(QDialog):
             filename = file_dialog.selectedFiles()[0]
             self._ui.ledit_filename.setText(filename)
             self._set_image_format_from_filename()
+
+
+    def _on_cbox_image_format_changed(self, index):
+        '''
+        If the image-format combobox changes, this function updates the stacked
+        widget to show the image format's configuration.  it also updates the
+        filename to match the new image format.
+        '''
+        idx = self._ui.cbox_image_format.currentIndex()
+        self._ui.stack_image_config.setCurrentIndex(idx)
+        self._update_filename_from_image_format()
 
 
     def _set_image_format_from_filename(self) -> None:
@@ -156,6 +171,10 @@ class ExportImageDialog(QDialog):
 
         filename = self._ui.ledit_filename.text().strip()
         ext = os.path.splitext(filename)[1].lower()
+        if len(ext) > 0:
+            # Extension will have a leading "."
+            ext = ext[1:]
+
         try:
             # Try to find the image extension in the recognized image types.
             # If we find it, update the UI to show that format's options.
@@ -199,16 +218,6 @@ class ExportImageDialog(QDialog):
         except ValueError:
             # Unrecognized image file extension.  Don't update anything.
             pass
-
-
-    def _on_cbox_image_format_changed(self, index):
-        '''
-        If the image-format combobox changes, this function updates the stacked
-        widget to show the image format's configuration.
-        '''
-        idx = self._ui.cbox_image_format.currentIndex()
-        self._ui.stack_image_config.setCurrentIndex(idx)
-        self._update_filename_from_image_format()
 
 
     def configure(self, rasterview:  RasterView, x: int, y: int,
