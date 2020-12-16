@@ -36,7 +36,9 @@ class ExportPlotImageDialog(QDialog):
         canvas_formats = self._figure.canvas.get_supported_filetypes()
         for name in check_formats:
             if name in canvas_formats:
-                desc = canvas_formats[name]
+                # TODO(donnie):  Delete?  No one cares what "EPS" stands for.
+                # desc = f'{name.upper()} - {canvas_formats[name]}'
+                desc = name.upper()
                 self._supported_formats.append((name, desc))
                 self._ui.cbox_image_format.addItem(desc, userData=name)
 
