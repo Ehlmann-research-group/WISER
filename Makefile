@@ -43,27 +43,33 @@ typecheck:
 	$(MYPY) $(MYPY_OPTS) src
 
 
-dist-mac : generated
+build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
-
 	pyinstaller WISER-MacOSX.spec
 
-	# Patch the package with the correct version of libpng, since pyinstaller
-	# finds the wrong one.  (Note:  Can't use the --add-binary option because
-	# the dylib's information also needs to be patched.)
-	cp /opt/local/lib/libpng16.16.dylib dist/$(APP_NAME)/
-	install_name_tool -id @loader_path/libpng16.16.dylib dist/$(APP_NAME)/libpng16.16.dylib
-	install_name_tool -change /opt/local/lib/libz.1.dylib @loader_path/libz.1.dylib dist/$(APP_NAME)/libpng16.16.dylib
-	cp dist/$(APP_NAME)/libpng16.16.dylib dist/$(APP_NAME).app/Contents/MacOS/
+	# Patch the package with the correct version of libpng, since
+	# pyinstaller finds the wrong one.  (Note:  Can't use the --add-binary
+	# option because the dylib's information also needs to be patched.)
+	# cp /opt/local/lib/libpng16.16.dylib dist/$(APP_NAME)/
+	# install_name_tool -id @loader_path/libpng16.16.dylib \
+	#	dist/$(APP_NAME)/libpng16.16.dylib
+	# install_name_tool -change /opt/local/lib/libz.1.dylib \
+	#	@loader_path/libz.1.dylib dist/$(APP_NAME)/libpng16.16.dylib
+	# cp dist/$(APP_NAME)/libpng16.16.dylib \
+	#	dist/$(APP_NAME).app/Contents/MacOS/
 
-	# Codesign the application
+
+dist-mac : build-mac
+	# Codesign the built application
 	codesign -s $(AD_CODESIGN_KEY_NAME) --deep \
 		--entitlements install-mac/entitlements.plist \
 		-o runtime dist/$(APP_NAME).app
 
 	# Generate a .dmg file containing the Mac application.
-	hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ -srcfolder dist/$(APP_NAME).app
-	hdiutil convert dist/tmp.dmg -format UDZO -o dist/$(APP_NAME)-$(APP_VERSION).dmg
+	hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ \
+		-srcfolder dist/$(APP_NAME).app
+	hdiutil convert dist/tmp.dmg -format UDZO \
+		-o dist/$(APP_NAME)-$(APP_VERSION).dmg
 	rm dist/tmp.dmg
 
 	# Submit the disk image to Apple for notarization
