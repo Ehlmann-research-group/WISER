@@ -800,6 +800,11 @@ class SpectrumPlot(QWidget):
         act = menu.addAction(self.tr('Export plot to image...'))
         act.triggered.connect(self._on_export_plot_to_image)
 
+        if self._click is not None:
+            menu.addSeparator()
+            act = menu.addAction(self.tr('Hide selected point'))
+            act.triggered.connect(self._on_hide_spectrum_mouse_click)
+
         menu.exec_(event.globalPos())
 
 
@@ -1007,6 +1012,13 @@ class SpectrumPlot(QWidget):
                     closest_distance = distance
 
         return (closest_spectrum, closest_index)
+
+
+    def _on_hide_spectrum_mouse_click(self, act):
+        if self._click is not None:
+            self._click.remove_plot()
+            self._click = None
+            self._draw_spectra()
 
 
     def _on_export_plot_to_image(self, act):
@@ -1409,6 +1421,7 @@ class SpectrumPlot(QWidget):
         # Are we showing a point on the discarded spectrum?
         if self._click is not None and self._click.get_spectrum() is spectrum:
             self._click.remove_plot()
+            self._click = None
 
 
 
