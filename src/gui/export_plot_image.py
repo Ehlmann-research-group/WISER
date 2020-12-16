@@ -39,7 +39,7 @@ class ExportPlotImageDialog(QDialog):
                 # TODO(donnie):  Delete?  No one cares what "EPS" stands for.
                 # desc = f'{name.upper()} - {canvas_formats[name]}'
                 desc = name.upper()
-                self._supported_formats.append((name, desc))
+                self._supported_formats.append(name)
                 self._ui.cbox_image_format.addItem(desc, userData=name)
 
         if len(self._supported_formats) == 0:
@@ -55,7 +55,13 @@ class ExportPlotImageDialog(QDialog):
 
         # Events:
 
+        self._ui.ledit_filename.editingFinished.connect(self._on_ledit_filename_edited)
         self._ui.btn_filename.clicked.connect(self._on_btn_filename_clicked)
+        self._ui.cbox_image_format.activated.connect(self._on_cbox_image_format_changed)
+
+
+    def _on_ledit_filename_edited(self):
+        self._set_image_format_from_filename()
 
 
     def _on_btn_filename_clicked(self, checked):
@@ -63,7 +69,7 @@ class ExportPlotImageDialog(QDialog):
         This helper function shows the file-chooser dialog when the user clicks
         the corresponding button in the UI.
         '''
-        extensions = ' '.join([f'*.{f[0]}' for f in self._supported_formats])
+        extensions = ' '.join([f'*.{fmt}' for fmt in self._supported_formats])
         file_dialog = QFileDialog(parent=self, caption=self.tr('Image Filename'),
             filter=self.tr('Image files ({extensions})').format(extensions=extensions))
         file_dialog.setFileMode(QFileDialog.AnyFile)
@@ -72,14 +78,79 @@ class ExportPlotImageDialog(QDialog):
         # If there is already an initial filename, select it in the dialog.
         initial_filename = self._ui.ledit_filename.text().strip()
         if len(initial_filename) > 0:
-            print(f'initial = "{initial_filename}"')
             file_dialog.selectFile(initial_filename)
 
         result = file_dialog.exec()
         if result == QDialog.Accepted:
             filename = file_dialog.selectedFiles()[0]
             self._ui.ledit_filename.setText(filename)
-            # TODO(donnie):  self._set_image_format_from_filename()
+            self._set_image_format_from_filename()
+
+
+    def _on_cbox_image_format_changed(self, index):
+        '''
+        If the image-format combobox changes, this function updates the filename
+        to match the new image format.
+        '''
+        idx = self._ui.cbox_image_format.currentIndex()
+        self._update_filename_from_image_format()
+
+
+    def _set_image_format_from_filename(self) -> None:
+        '''
+        This helper function tries to update the image-format attributes pane
+        to reflect the image format indicated by the file extension.  If the
+        extension is unrecognized or unspecified, the UI state is not changed.
+        '''
+
+        filename = self._ui.ledit_filename.text().strip()
+        ext = os.path.splitext(filename)[1].lower()
+        if len(ext) > 0:
+            # Extension will have a leading "."
+            ext = ext[1:]
+
+        try:
+            # Try to find the image extension in the recognized image types.
+            # If we find it, update the UI to show that format's options.
+            idx = self._supported_formats.index(ext)
+            self._ui.cbox_image_format.setCurrentIndex(idx)
+
+        except ValueError:
+            # Unrecognized image file extension.  Don't try to update anything
+            # in the UI.
+            pass
+
+
+    def _update_filename_from_image_format(self) -> None:
+        '''
+        This helper function tries to update the filename extension to reflect
+        the currently chosen image format.  If the filename's current extension
+        is a recognized image format that is also different from the selected
+        format then the filename's extension will be updated.  If the filename's
+        current extension is not a recognized image format then it will not be
+        modified.
+        '''
+
+        filename = self._ui.ledit_filename.text().strip()
+        (base, ext) = os.path.splitext(filename)
+        if len(ext) > 0:
+            # Chop off the '.' at the start of the extension, and convert to
+            # lowercase
+            ext = ext[1:].lower()
+
+        try:
+            # Try to find the image extension in the recognized image types.
+            # If we find it, update the filename with the new extension.
+            idx = self._supported_formats.index(ext)
+            new_idx = self._ui.cbox_image_format.currentIndex()
+            if idx != new_idx:
+                # Filename's extension and selected image format don't match.
+                filename = f'{base}.{self._supported_formats[new_idx]}'
+                self._ui.ledit_filename.setText(filename)
+
+        except ValueError:
+            # Unrecognized image file extension.  Don't update anything.
+            pass
 
 
     def accept(self):
