@@ -22,7 +22,7 @@ class VariableType(enum.Enum):
 
     IMAGE_BAND = 2
 
-    IMAGE_PIXEL_SPECTRUM = 3
+    # IMAGE_PIXEL_SPECTRUM = 3
 
     LIBRARY_SPECTRUM = 4
 
@@ -73,10 +73,20 @@ class BandMathDialog(QDialog):
                 new_row = self._ui.tbl_variables.rowCount()
                 self._ui.tbl_variables.insertRow(new_row)
 
-                self._ui.tbl_variables.setItem(new_row, 0,
-                    QTableWidgetItem(var))
-                self._ui.tbl_variables.setItem(new_row, 1,
-                    QTableWidgetItem(VariableType.IMAGE_BAND.name))
+                item = QTableWidgetItem(var)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self._ui.tbl_variables.setItem(new_row, 0, item)
+
+                widget = QComboBox()
+                widget.addItem('Image', VariableType.IMAGE)
+                widget.addItem('Image band', VariableType.IMAGE_BAND)
+                # widget.addItem('Image pixel spectrum', VariableType.IMAGE_PIXEL_SPECTRUM)
+                widget.addItem('Library spectrum', VariableType.LIBRARY_SPECTRUM)
+
+                item = QTableWidgetItem('Image band')
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
+                self._ui.tbl_variables.setCellWidget(new_row, 1, widget)
+                self._ui.tbl_variables.setItem(new_row, 1, item)
 
         # Remove deleted variables from the list of bindings.  Do this in
         # reverse order so we don't have to adjust for rows shifting up.
@@ -85,7 +95,7 @@ class BandMathDialog(QDialog):
                 self._ui.tbl_variables.removeRow(row)
 
         # Reenable the sorting on the table.
-        self._ui.tbl_variables.sortByColumn(0)
+        self._ui.tbl_variables.sortByColumn(0, Qt.AscendingOrder)
         self._ui.tbl_variables.setSortingEnabled(True)
 
 
