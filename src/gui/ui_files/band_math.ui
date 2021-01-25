@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>387</width>
-    <height>491</height>
+    <width>568</width>
+    <height>507</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -39,13 +39,6 @@
    </item>
    <item row="1" column="0">
     <widget class="QPlainTextEdit" name="txt_math_expr"/>
-   </item>
-   <item row="3" column="0">
-    <widget class="QLabel" name="label_3">
-     <property name="text">
-      <string>Variable bindings:</string>
-     </property>
-    </widget>
    </item>
    <item row="5" column="0">
     <widget class="QLabel" name="label_2">
@@ -79,14 +72,29 @@
    <item row="2" column="0">
     <widget class="QWidget" name="widget" native="true">
      <layout class="QGridLayout" name="gridLayout_2">
-      <item row="0" column="1">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <item row="0" column="2">
        <widget class="QPushButton" name="btn_parse">
         <property name="text">
          <string>Parse and Update Bindings</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="0">
+      <item row="0" column="1">
        <spacer name="horizontalSpacer">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
@@ -99,6 +107,16 @@
         </property>
        </spacer>
       </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>Variable bindings:</string>
+        </property>
+        <property name="buddy">
+         <cstring>tbl_variables</cstring>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -106,6 +124,8 @@
  </widget>
  <tabstops>
   <tabstop>txt_math_expr</tabstop>
+  <tabstop>btn_parse</tabstop>
+  <tabstop>tbl_variables</tabstop>
   <tabstop>cbox_prev_exprs</tabstop>
  </tabstops>
  <resources/>
