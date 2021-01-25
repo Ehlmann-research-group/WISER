@@ -56,10 +56,16 @@ class BandMathDialog(QDialog):
                 self.tr('Please enter a band-math expression'))
             return
 
-        variables: Set[str] = parser.get_variables(expr)
-        print(f'Found variables:  {variables}')
+        try:
+            variables: Set[str] = parser.get_variables(expr)
+            print(f'Found variables:  {variables}')
 
-        self._sync_binding_table_with_variables(variables)
+            self._sync_binding_table_with_variables(variables)
+
+        except lark.exceptions.LarkError as err:
+            QMessageBox.critical(self, self.tr('Parse Error'),
+                self.tr('The expression does not parse correctly.\n' +
+                        'Please fix it and try parsing again.'))
 
 
     def _sync_binding_table_with_variables(self, variables):
