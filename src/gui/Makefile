@@ -12,6 +12,7 @@ FILENAMES=\
 	about_dialog_ui.py \
 	app_config_ui.py \
 	band_chooser_ui.py \
+	band_math_ui.py \
 	bug_reporting_dialog_ui.py \
 	channel_stretch_widget_ui.py \
 	export_image_ui.py \
