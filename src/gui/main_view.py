@@ -6,6 +6,7 @@ from PySide2.QtWidgets import *
 
 import gui.generated.resources
 
+from .bandmath_dialog import BandMathDialog
 from .export_image import ExportImageDialog
 from .toolbarmenu import ToolbarMenu
 from .rasterpane import RasterPane
@@ -123,11 +124,21 @@ class MainViewWidget(RasterPane):
         # When listening for these actions, pass in the rasterview that
         # generated the event.
 
-        act = menu.addAction(self.tr('Export visible image area to RGB image file...'))
+        # Band math
+
+        act = menu.addAction(self.tr('Band math...'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._on_dataset_band_math(rv))
+
+        # Submenu for RGB image export
+
+        submenu = menu.addMenu(self.tr('Export RGB image'))
+
+        act = submenu.addAction(self.tr('Export visible image area to RGB image...'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_export_image_visible_area(rv))
 
-        act = menu.addAction(self.tr('Export full image extent to RGB image file...'))
+        act = submenu.addAction(self.tr('Export full image extent to RGB image...'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_export_image_full(rv))
 
@@ -157,6 +168,13 @@ class MainViewWidget(RasterPane):
         '''
         super()._on_dataset_added(ds_id)
         self._set_dataset_tools_button_state()
+
+
+    def _on_dataset_band_math(self, rasterview):
+        dataset = rasterview.get_raster_data()
+        dialog = BandMathDialog(self._app_state, rasterview=rasterview)
+        if dialog.exec() == QDialog.Accepted:
+            print('TODO:  Evaluate band math')
 
 
     def _on_export_image_visible_area(self, rasterview):

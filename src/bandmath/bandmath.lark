@@ -1,0 +1,67 @@
+%import common.WS
+%ignore WS
+
+// NOTE:
+// This generates right-deep trees:
+//     ?add_expr : mul_expr (ADD_OP add_expr)?
+// Instead we prefer to generate left-deep trees:
+//     ?add_expr : (add_expr ADD_OP)? mul_expr
+
+
+
+//========================================
+// Expressions
+
+?expression: or_expr
+
+//========================================
+// Logical expressions
+
+?or_expr : (and_expr "or")? and_expr
+
+?and_expr : (not_expr "and")? not_expr
+
+?not_expr : "not" not_expr | comparison
+
+//========================================
+// Comparisons
+
+CMP_OP: ("=" | "==" | ">" | "<" | ">=" | "<=" | "!=" | "<>")
+
+?comparison: (comparison CMP_OP)? add_expr
+
+//========================================
+// Arithmetic expressions
+
+ADD_OP: ("+" | "-")
+MUL_OP: ("*" | "/" | "%")
+
+// This generates right-deep trees:  ?add_expr : mul_expr (ADD_OP add_expr)?
+// Instead we would prefer to generate left-deep trees.
+?add_expr : (add_expr ADD_OP)? mul_expr
+
+?mul_expr : (mul_expr MUL_OP)? unary_op
+
+?unary_op : ADD_OP? base
+
+//========================================
+// Base expression values
+
+?base: "True"  -> true
+     | "False" -> false
+     | NUMBER  -> number
+     | variable
+     | function
+     | "(" expression ")"
+
+//      | STRING  -> string
+
+
+variable : NAME
+function : NAME "(" (expression ("," expression)*)? ")"
+
+NAME: /[A-Za-z_][A-Za-z0-9_]*/
+
+NUMBER: /([0-9]+(\.[0-9]*)?)|(\.[0-9]+)/
+
+// STRING: /\"[^"]*\"/
