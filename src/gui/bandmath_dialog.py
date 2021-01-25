@@ -62,7 +62,7 @@ class BandMathDialog(QDialog):
         self._sync_binding_table_with_variables(variables)
 
 
-    def _sync_binding_table_with_variables(variables):
+    def _sync_binding_table_with_variables(self, variables):
         # Disable sorting while we update the table.
         self._ui.tbl_variables.setSortingEnabled(False)
 
