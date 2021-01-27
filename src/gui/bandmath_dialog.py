@@ -1,5 +1,3 @@
-import enum
-
 from typing import List, Optional, Set, Tuple
 
 from PySide2.QtCore import *
@@ -14,17 +12,7 @@ from .app_state import ApplicationState
 from .rasterview import RasterView
 
 from raster.dataset import RasterDataSet
-from bandmath import parser
-
-
-class VariableType(enum.Enum):
-    IMAGE = 1
-
-    IMAGE_BAND = 2
-
-    # IMAGE_PIXEL_SPECTRUM = 3
-
-    LIBRARY_SPECTRUM = 4
+import bandmath
 
 
 class BandMathDialog(QDialog):
@@ -50,14 +38,14 @@ class BandMathDialog(QDialog):
 
 
     def _on_parse_expr(self, checked):
-        expr = self._ui.txt_math_expr.toPlainText().strip()
+        expr = self._ui.ledit_math_expr.text().strip()
         if not expr:
             QMessageBox.critical(self, self.tr('No Expression'),
                 self.tr('Please enter a band-math expression'))
             return
 
         try:
-            variables: Set[str] = parser.get_variables(expr)
+            variables: Set[str] = bandmath.get_bandmath_variables(expr)
             print(f'Found variables:  {variables}')
 
             self._sync_binding_table_with_variables(variables)
@@ -84,10 +72,10 @@ class BandMathDialog(QDialog):
                 self._ui.tbl_variables.setItem(new_row, 0, item)
 
                 widget = QComboBox()
-                widget.addItem('Image', VariableType.IMAGE)
-                widget.addItem('Image band', VariableType.IMAGE_BAND)
+                widget.addItem('Image', bandmath.VariableType.IMAGE_CUBE)
+                widget.addItem('Image band', bandmath.VariableType.IMAGE_BAND)
                 # widget.addItem('Image pixel spectrum', VariableType.IMAGE_PIXEL_SPECTRUM)
-                widget.addItem('Library spectrum', VariableType.LIBRARY_SPECTRUM)
+                widget.addItem('Spectrum', bandmath.VariableType.SPECTRUM)
 
                 item = QTableWidgetItem('Image band')
                 item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)

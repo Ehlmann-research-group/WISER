@@ -1,6 +1,22 @@
-from typing import Set
+import enum
+
+from typing import Dict, List, Set
 
 import lark
+
+
+class VariableType(enum.Enum):
+    '''
+    Types of variables that are supported by the band-math functionality.
+    '''
+
+    IMAGE_CUBE = 1
+
+    IMAGE_BAND = 2
+
+    SPECTRUM = 3
+
+    REGION_OF_INTEREST = 4
 
 
 class VariableCollector(lark.visitors.Visitor):
@@ -15,7 +31,7 @@ class VariableCollector(lark.visitors.Visitor):
         self.variables.add(var)
 
 
-def get_variables(bandmath_expr: str) -> Set[str]:
+def get_bandmath_variables(bandmath_expr: str) -> Set[str]:
     '''
     Parses the specified band-math expression, and returns a set of all
     variables found in the expression.  All variable names are converted to
@@ -26,3 +42,7 @@ def get_variables(bandmath_expr: str) -> Set[str]:
     collector = VariableCollector()
     collector.visit(tree)
     return collector.variables
+
+
+def verify_bandmath_expr(bandmath_expr: str, bindings: Dict[str, VariableType]) -> List[str]:
+    return []
