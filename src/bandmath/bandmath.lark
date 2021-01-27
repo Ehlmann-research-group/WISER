@@ -47,9 +47,9 @@ MUL_OP: ("*" | "/" | "%")
 //========================================
 // Base expression values
 
-?base: "True"  -> true
-     | "False" -> false
-     | NUMBER  -> number
+?base: "true"i  -> true
+     | "false"i -> false
+     | NUMBER   -> number
      | variable
      | function
      | "(" expression ")"
