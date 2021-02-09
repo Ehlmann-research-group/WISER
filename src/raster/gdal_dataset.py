@@ -9,9 +9,24 @@ from astropy import units as u
 from osgeo import gdal, gdalconst
 
 
-# Report a warning the first time a virtual-memory mapping access fails.
-# Once a failure is reported, the
-warn_on_vmm_fail = True
+# A flag controlling whether virtual memory mapping warnings are reported.  The
+# warn_on_vmm_fail() function will report an error if this flag is true, and
+# then clear it so that VMM-failure warnings don't get too prolific.  (Basically
+# they either never happen, or they happen always.)
+flag_warn_on_vmm_fail = True
+
+def warn_on_vmm_fail():
+    '''
+    Report a warning the first time a virtual-memory mapping access fails.  Once
+    a failure is reported, no subsequent warnings are reported unless
+    flag_warn_on_vmm_fail is set again.
+    '''
+    global flag_warn_on_vmm_fail
+    if flag_warn_on_vmm_fail:
+        # TODO(donnie):  Windows Conda GDAL doesn't support virtual memory?!
+        print('Couldn\'t read with virtual memory.  Falling back to standard mechanism.')
+        print('(This will only be printed once.)')
+        flag_warn_on_vmm_fail = False
 
 
 class GDALRasterDataSet(RasterDataSet):
@@ -244,6 +259,32 @@ class GDALRasterDataSet(RasterDataSet):
         return bad_bands
 
 
+    def get_image_data(self, filter_data_ignore_value=True):
+        '''
+        Returns a numpy 3D array of the entire image cube.
+
+        The numpy array is configured such that the pixel (x, y) values of band
+        b are at element array[b][x][y].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        try:
+            np_array = self.gdal_dataset.GetVirtualMemArray(band_sequential=True)
+        except RuntimeError:
+            warn_on_vmm_fail()
+            np_array = self.gdal_dataset.ReadAsArray()
+
+        if filter_data_ignore_value:
+            ignore_val = self.get_data_ignore_value()
+            if ignore_val is not None:
+                np_array = np.ma.masked_values(np_array, ignore_val)
+
+        return np_array
+
+
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
@@ -266,13 +307,7 @@ class GDALRasterDataSet(RasterDataSet):
         try:
             np_array = band.GetVirtualMemAutoArray()
         except RuntimeError:
-            global warn_on_vmm_fail
-            if warn_on_vmm_fail:
-                # TODO(donnie):  Windows Conda GDAL doesn't support virtual memory?!
-                print('Couldn\'t read with virtual memory.  Falling back to standard mechanism.')
-                print('(This will only be printed once.)')
-                warn_on_vmm_fail = False
-
+            warn_on_vmm_fail()
             np_array = band.ReadAsArray()
 
         if filter_data_ignore_value:
@@ -345,6 +380,17 @@ class GDALRasterDataLoader(RasterDataLoader):
     def __init__(self, config=None):
         # No configuration at this point.
         pass
+
+
+    def new(self, width, height, bands=1, elemtype='f4'):
+        '''
+        Create a new in-memory raster image with the specified width, height and
+        optional number of bands.  If the number of bands is unspecified, it
+        defaults to 1.
+
+        The element type can be specified using
+        '''
+        raise NotImplementedError('TODO:  GDALRasterDataLoader.new()')
 
 
     def load(self, path_or_url):

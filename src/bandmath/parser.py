@@ -1,22 +1,8 @@
-import enum
-
 from typing import Dict, List, Set
 
 import lark
 
-
-class VariableType(enum.Enum):
-    '''
-    Types of variables that are supported by the band-math functionality.
-    '''
-
-    IMAGE_CUBE = 1
-
-    IMAGE_BAND = 2
-
-    SPECTRUM = 3
-
-    REGION_OF_INTEREST = 4
+from .common import VariableType
 
 
 class VariableCollector(lark.visitors.Visitor):
