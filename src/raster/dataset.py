@@ -163,6 +163,20 @@ class RasterDataSet:
         '''
         pass
 
+    def get_image_data(self, filter_data_ignore_value=True):
+        '''
+        Returns a numpy 3D array of the entire image cube.
+
+        The numpy array is configured such that the pixel (x, y) values of band
+        b are at element array[b][x][y].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        pass
+
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
@@ -197,6 +211,46 @@ class RasterDataSet:
         pass
 
 
+class RasterDataBand:
+    '''
+    A helper class to represent a single band of a raster data set.  This is a
+    simple wrapper around RasterDataSet that also tracks a single band.
+    '''
+    def __init__(self, dataset:RasterDataSet, band_index: int):
+        if band_index < 0 or band_index >= dataset.num_bands():
+            raise ValueError(f'band_index {band_index} is invalid')
+
+        self._dataset = dataset
+        self._band_index = band_index
+
+    def get_dataset(self):
+        return self._dataset
+
+    def get_band_index(self):
+        return self._band_index
+
+    def get_data(self, filter_data_ignore_value=True):
+        '''
+        Returns a numpy 2D array of this band's data.
+
+        The numpy array is configured such that the pixel (x, y) values are at
+        element array[x][y].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        return self._dataset.get_band_data(self._band_index,
+                                           filter_data_ignore_value)
+
+    def get_stats(self):
+        '''
+        Returns statistics of this band's data, wrapped in a BandStats object.
+        '''
+        return self._dataset.get_band_stats(self._band_index)
+
+
 class RasterDataLoader:
     '''
     A loader for loading 2D raster data-sets from some source, using some
@@ -228,7 +282,7 @@ def find_truecolor_bands(dataset, red=RED_WAVELENGTH, green=GREEN_WAVELENGTH,
     '''
     if not dataset.has_wavelengths():
         return None
-    
+
     bands = dataset.band_list()
     red_band   = find_band_near_wavelength(bands, red)
     green_band = find_band_near_wavelength(bands, green)
