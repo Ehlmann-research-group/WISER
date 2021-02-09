@@ -1,5 +1,4 @@
 import unittest
-from PySide2.QtCore import *
 
 import tests.context
 
@@ -11,14 +10,7 @@ class TestBandmathParser(unittest.TestCase):
     Exercise code in the bandmath.parser module.
     '''
 
-    def get_bandmath_vars_empty_expr(self):
-        '''
-        Getting variables from an empty expression should produce an empty set.
-        '''
-        vars = bandmath.get_bandmath_variables('')
-        self.assertTrue(len(vars) == 0)
-
-    def get_bandmath_vars_literal_expr(self):
+    def test_bandmath_getvars_literal_expr(self):
         '''
         Getting variables from an expression only containing literals should
         produce an empty set.
@@ -26,7 +18,7 @@ class TestBandmathParser(unittest.TestCase):
         vars = bandmath.get_bandmath_variables('15*(6-3)')
         self.assertTrue(len(vars) == 0)
 
-    def get_bandmath_vars_multiple_vars(self):
+    def test_bandmath_getvars_multiple_vars(self):
         '''
         Getting variables from an expression reports all variables, and converts
         everything to lowercase.
@@ -41,7 +33,7 @@ class TestBandmathParser(unittest.TestCase):
         self.assertTrue('B3' not in vars)
         self.assertTrue('B5' not in vars)
 
-    def get_bandmath_vars_repeated_variables(self):
+    def test_bandmath_getvars_repeated_variables(self):
         '''
         Getting variables from an expression reports each variable only once.
         '''

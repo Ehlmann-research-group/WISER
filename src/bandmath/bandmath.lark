@@ -17,9 +17,9 @@
 //========================================
 // Logical expressions
 
-?or_expr : (and_expr "or"i)? and_expr
+?or_expr : (or_expr "or"i)? and_expr
 
-?and_expr : (not_expr "and"i)? not_expr
+?and_expr : (and_expr "and"i)? not_expr
 
 ?not_expr : "not"i not_expr | comparison
 
@@ -42,7 +42,7 @@ MUL_OP: ("*" | "/")
 
 ?mul_expr : (mul_expr MUL_OP)? power_op
 
-?power_op : unary_op "**" unary_op
+?power_op : unary_op ("**" unary_op)?
 
 ?unary_op : ADD_OP? base
 
