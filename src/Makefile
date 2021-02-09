@@ -11,7 +11,8 @@ TEST_MODULES=\
 	tests.test_gui_geom          \
 	tests.test_gui_spectrum_plot \
 	tests.test_raster_nputil     \
-	tests.test_raster_units
+	tests.test_raster_units      \
+	tests.test_bandmath_parser
 
 
 all : generated
