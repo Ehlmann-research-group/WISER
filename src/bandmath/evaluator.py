@@ -3,6 +3,7 @@ import enum
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import lark
+import numpy as np
 
 from .common import VariableType
 
@@ -560,7 +561,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         raise NotImplementedError(f'TODO:  comparison({args})')
 
 
-    def add_oper(self, values):
+    def add_expr(self, values):
         '''
         Implementation of addition and subtraction operations in the
         transformer.
@@ -578,7 +579,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         raise RuntimeError(f'Unexpected operator {oper}')
 
 
-    def mul_oper(self, args):
+    def mul_expr(self, args):
         '''
         Implementation of multiplication and division operations in the
         transformer.
@@ -618,8 +619,9 @@ class BandMathEvaluator(lark.visitors.Transformer):
         return args[0]
 
     def variable(self, args):
-        print(f'Lookup on variable({args[0]})')
-        return self._variables[args[0]]
+        name = args[0]
+        (type, value) = self._variables[name]
+        return BandMathValue(type, value, computed=False)
 
     def function(self, args):
         print(f'TODO:  function({args})')
@@ -631,7 +633,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
     def NUMBER(self, token):
         ''' Parse a token as a number. '''
-        return float(token)
+        return BandMathValue(VariableType.NUMBER, float(token), computed=False)
 
 
 def eval_bandmath_expr(bandmath_expr: str,
