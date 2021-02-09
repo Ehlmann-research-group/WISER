@@ -629,7 +629,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
     def NAME(self, token):
         ''' Parse a token as a string variable name. '''
-        return str(token)
+        return str(token).lower()
 
     def NUMBER(self, token):
         ''' Parse a token as a number. '''
