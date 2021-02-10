@@ -42,6 +42,39 @@ class TestBandmathEvaluator(unittest.TestCase):
     #===========================================================================
     # SIMPLE ADDITION TESTS
 
+    def test_bandmath_add_image_band(self):
+        ''' Test band-math involving adding an image and a band. '''
+        img = make_image(2, 3, 4)
+        img[0].fill(1.0)
+        img[1].fill(2.0)
+
+        band = make_band(3, 4)
+        for y in range(band.shape[1]):
+            for x in range(band.shape[0]):
+                band[x, y] = 0.5 * x + 10 * y
+
+        (result_type, result_img) = bandmath.eval_bandmath_expr('image + band',
+            {'image':(VariableType.IMAGE_CUBE, img),
+             'band':(VariableType.IMAGE_BAND, band)}, {})
+
+        self.assertEqual(result_type, VariableType.IMAGE_CUBE)
+
+        # Make sure output image has correct results
+        self.assertEqual(result_img.shape, (2, 3, 4))
+        for b in range(result_img.shape[0]):
+            for y in range(result_img.shape[2]):
+                for x in range(result_img.shape[1]):
+                    self.assertEqual(result_img[b, x, y],
+                                     (b + 1.0) + 0.5 * x + 10 * y)
+
+        # Make sure input image didn't change
+
+        for value in np.nditer(img[0]):
+            self.assertEqual(value, 1.0)
+
+        for value in np.nditer(img[1]):
+            self.assertEqual(value, 2.0)
+
     def test_bandmath_add_image_number(self):
         ''' Test band-math involving adding an image and a number. '''
         img = make_image(2, 4, 5)
@@ -60,23 +93,38 @@ class TestBandmathEvaluator(unittest.TestCase):
         for value in np.nditer(img):
             self.assertEqual(value, 2.5)
 
-    def test_bandmath_add_number_image(self):
-        ''' Test band-math involving adding a number and an image. '''
-        img = make_image(2, 4, 5)
-        img.fill(2.5)
+    def test_bandmath_add_band_image(self):
+        ''' Test band-math involving adding a band and an image. '''
+        img = make_image(2, 3, 4)
+        img[0].fill(1.0)
+        img[1].fill(2.0)
 
-        (result_type, result_img) = bandmath.eval_bandmath_expr('0.5 + image',
-            {'image':(VariableType.IMAGE_CUBE, img)}, {})
+        band = make_band(3, 4)
+        for y in range(band.shape[1]):
+            for x in range(band.shape[0]):
+                band[x, y] = 0.5 * x + 10 * y
+
+        (result_type, result_img) = bandmath.eval_bandmath_expr('band + image',
+            {'image':(VariableType.IMAGE_CUBE, img),
+             'band':(VariableType.IMAGE_BAND, band)}, {})
 
         self.assertEqual(result_type, VariableType.IMAGE_CUBE)
 
         # Make sure output image has correct results
-        for value in np.nditer(result_img):
-            self.assertEqual(value, 3.0)
+        self.assertEqual(result_img.shape, (2, 3, 4))
+        for b in range(result_img.shape[0]):
+            for y in range(result_img.shape[2]):
+                for x in range(result_img.shape[1]):
+                    self.assertEqual(result_img[b, x, y],
+                                     (b + 1.0) + 0.5 * x + 10 * y)
 
         # Make sure input image didn't change
-        for value in np.nditer(img):
-            self.assertEqual(value, 2.5)
+
+        for value in np.nditer(img[0]):
+            self.assertEqual(value, 1.0)
+
+        for value in np.nditer(img[1]):
+            self.assertEqual(value, 2.0)
 
     def test_bandmath_add_band_number(self):
         ''' Test band-math involving adding a band and a number. '''
@@ -84,24 +132,6 @@ class TestBandmathEvaluator(unittest.TestCase):
         band.fill(2.5)
 
         (result_type, result_band) = bandmath.eval_bandmath_expr('b + 0.5',
-            {'b':(VariableType.IMAGE_BAND, band)}, {})
-
-        self.assertEqual(result_type, VariableType.IMAGE_BAND)
-
-        # Make sure output band has correct results
-        for value in np.nditer(result_band):
-            self.assertEqual(value, 3.0)
-
-        # Make sure input band didn't change
-        for value in np.nditer(band):
-            self.assertEqual(value, 2.5)
-
-    def test_bandmath_add_number_band(self):
-        ''' Test band-math involving adding a number and a band. '''
-        band = make_band(4, 5)
-        band.fill(2.5)
-
-        (result_type, result_band) = bandmath.eval_bandmath_expr('0.5 + b',
             {'b':(VariableType.IMAGE_BAND, band)}, {})
 
         self.assertEqual(result_type, VariableType.IMAGE_BAND)
@@ -132,6 +162,42 @@ class TestBandmathEvaluator(unittest.TestCase):
         for value in np.nditer(spectrum):
             self.assertEqual(value, 2.5)
 
+    def test_bandmath_add_number_image(self):
+        ''' Test band-math involving adding a number and an image. '''
+        img = make_image(2, 4, 5)
+        img.fill(2.5)
+
+        (result_type, result_img) = bandmath.eval_bandmath_expr('0.5 + image',
+            {'image':(VariableType.IMAGE_CUBE, img)}, {})
+
+        self.assertEqual(result_type, VariableType.IMAGE_CUBE)
+
+        # Make sure output image has correct results
+        for value in np.nditer(result_img):
+            self.assertEqual(value, 3.0)
+
+        # Make sure input image didn't change
+        for value in np.nditer(img):
+            self.assertEqual(value, 2.5)
+
+    def test_bandmath_add_number_band(self):
+        ''' Test band-math involving adding a number and a band. '''
+        band = make_band(4, 5)
+        band.fill(2.5)
+
+        (result_type, result_band) = bandmath.eval_bandmath_expr('0.5 + b',
+            {'b':(VariableType.IMAGE_BAND, band)}, {})
+
+        self.assertEqual(result_type, VariableType.IMAGE_BAND)
+
+        # Make sure output band has correct results
+        for value in np.nditer(result_band):
+            self.assertEqual(value, 3.0)
+
+        # Make sure input band didn't change
+        for value in np.nditer(band):
+            self.assertEqual(value, 2.5)
+
     def test_bandmath_add_number_spectrum(self):
         ''' Test band-math involving adding a number and a spectrum. '''
         spectrum = make_spectrum(15)
@@ -152,6 +218,39 @@ class TestBandmathEvaluator(unittest.TestCase):
 
     #===========================================================================
     # SIMPLE SUBTRACTION TESTS
+
+    def test_bandmath_sub_image_band(self):
+        ''' Test band-math involving subtracting a band from an image. '''
+        img = make_image(2, 3, 4)
+        img[0].fill(1.0)
+        img[1].fill(2.0)
+
+        band = make_band(3, 4)
+        for y in range(band.shape[1]):
+            for x in range(band.shape[0]):
+                band[x, y] = 0.5 * x + 10 * y
+
+        (result_type, result_img) = bandmath.eval_bandmath_expr('image - band',
+            {'image':(VariableType.IMAGE_CUBE, img),
+             'band':(VariableType.IMAGE_BAND, band)}, {})
+
+        self.assertEqual(result_type, VariableType.IMAGE_CUBE)
+
+        # Make sure output image has correct results
+        self.assertEqual(result_img.shape, (2, 3, 4))
+        for b in range(result_img.shape[0]):
+            for y in range(result_img.shape[2]):
+                for x in range(result_img.shape[1]):
+                    self.assertEqual(result_img[b, x, y],
+                                     (b + 1.0) - (0.5 * x + 10 * y))
+
+        # Make sure input image didn't change
+
+        for value in np.nditer(img[0]):
+            self.assertEqual(value, 1.0)
+
+        for value in np.nditer(img[1]):
+            self.assertEqual(value, 2.0)
 
     def test_bandmath_sub_image_number(self):
         ''' Test band-math involving subtracting a number from an image. '''
