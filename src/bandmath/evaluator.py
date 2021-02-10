@@ -639,6 +639,30 @@ class BandMathEvaluator(lark.visitors.Transformer):
 def eval_bandmath_expr(bandmath_expr: str,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, Callable]):
+    '''
+    Evaluate a band-math expression using the specified variable and function
+    definitions.
+
+    Variables are passed in a dictionary of string names that map to 2-tuples:
+    (VariableType, value).  The VariableType enum-value specifies the high-level
+    type of the value, since multiple specific types are supported.
+
+    *   VariableType.IMAGE_CUBE:  RasterDataSet, 3D np.ndarray [band][x][y]
+    *   VariableType.IMAGE_BAND:  RasterDataBand, 2D np.ndarray [x][y]
+    *   VariableType.SPECTRUM:  SpectrumInfo, 1D np.ndarray [band]
+
+    Functions are passed in a dictionary of string names that map to a callable.
+    TODO:  MORE DETAIL HERE, ONCE WE IMPLEMENT THIS.
+
+    If successful, the result of the calculation is returned as a 2-tuple of the
+    same form as the variables, although the value is always either a number or
+    a NumPy array:
+
+    *   VariableType.IMAGE_CUBE:  3D np.ndarray [band][x][y]
+    *   VariableType.IMAGE_BAND:  2D np.ndarray [x][y]
+    *   VariableType.SPECTRUM:  1D np.ndarray [band]
+    *   VariableType.NUMBER:  float
+    '''
 
     # Just to be defensive against potentially bad inputs, make sure all names
     # of variables and functions are lowercase.
