@@ -7,6 +7,9 @@ import numpy as np
 
 from .common import VariableType
 
+from raster.dataset import RasterDataSet, RasterDataBand
+from raster.spectrum_info import SpectrumInfo
+
 
 class BandMathOperation(enum.Enum):
     ADD = 1

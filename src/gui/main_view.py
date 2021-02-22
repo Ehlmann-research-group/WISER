@@ -15,6 +15,8 @@ from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
 
+import bandmath
+
 
 class MainViewWidget(RasterPane):
     '''
@@ -174,7 +176,17 @@ class MainViewWidget(RasterPane):
         dataset = rasterview.get_raster_data()
         dialog = BandMathDialog(self._app_state, rasterview=rasterview)
         if dialog.exec() == QDialog.Accepted:
-            print('TODO:  Evaluate band math')
+            expression = dialog.get_expression()
+            print(f'Evaluate band math:  {expression}')
+
+            variables = dialog.get_variable_bindings()
+            (result_type, result) = bandmath.eval_bandmath_expr(expression,
+                variables, {})
+
+            print(f'Result of band-math evaluation is type {result_type}')
+            print(f'Result is:\n{result}')
+
+            print('TODO:  Display result of band-math')
 
 
     def _on_export_image_visible_area(self, rasterview):
