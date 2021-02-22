@@ -229,10 +229,11 @@ class ExportImageDialog(QDialog):
         raster_height = dataset.get_height()
 
         basename = 'image'
-        if len(dataset.get_filepaths()) > 0:
-            basename = dataset.get_filepaths()[0]
-            # Chop off extension, if any
-            basename = os.path.splitext(basename)[0]
+        paths = dataset.get_filepaths()
+        if paths:
+            # Use the first filename for the image filename, chopping off the
+            # extension, if any.
+            basename = os.path.splitext(paths[0])[0]
 
         self._ui.ledit_x.setText(f'{x}')
         self._ui.ledit_height.setValidator(QIntValidator(0, raster_width - 1))

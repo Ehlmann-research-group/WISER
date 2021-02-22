@@ -89,10 +89,8 @@ class DatasetChooser(QToolButton):
     def _add_dataset_menu_items(self, menu, rasterview_pos=(0, 0)):
         # Add an action for each dataset
         for dataset in self._app_state.get_datasets():
-            file_path = dataset.get_filepaths()[0]
-            file_name = os.path.basename(file_path)
-
-            act = QAction(file_name, parent=menu)
+            # TODO(donnie):  Eventually, include the path if the name isn't unique.
+            act = QAction(dataset.get_name(), parent=menu)
             act.setCheckable(True)
             act.setData( (rasterview_pos, dataset.get_id()) )
 
