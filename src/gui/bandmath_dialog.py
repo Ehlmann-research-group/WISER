@@ -40,7 +40,7 @@ def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
 def make_dataset_chooser(app_state) -> QComboBox:
     chooser = QComboBox()
     for ds in app_state.get_datasets():
-        chooser.addItem(ds.get_filepaths()[0], ds.get_id())
+        chooser.addItem(ds.get_name(), ds.get_id())
 
     return chooser
 

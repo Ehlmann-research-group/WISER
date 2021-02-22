@@ -145,7 +145,7 @@ class TiledRasterView(RasterView):
         if num_datasets > 0:
             for (index, dataset) in enumerate(app_state.get_datasets()):
                 id = dataset.get_id()
-                name = dataset.get_filepaths()[0]
+                name = dataset.get_name()
 
                 self._cbox_dataset_chooser.addItem(name, id)
                 if dataset.get_id() == current_ds_id:

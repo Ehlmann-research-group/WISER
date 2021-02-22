@@ -120,6 +120,10 @@ class ApplicationState(QObject):
         return id
 
 
+    def get_loader(self):
+        return self._raster_data_loader
+
+
     def get_current_dir(self) -> str:
         '''
         Returns the current directory of the application.  This is the last

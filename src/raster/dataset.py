@@ -85,7 +85,8 @@ class RasterDataSet:
     def get_filepaths(self):
         '''
         Returns the paths and filenames of all files associated with this raster
-        dataset.  This may be None if the data is in-memory only.
+        dataset.  This will be an empty list (not None) if the data is in-memory
+        only.
         '''
         pass
 

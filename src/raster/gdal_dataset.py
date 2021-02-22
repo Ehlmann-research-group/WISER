@@ -6,7 +6,7 @@ from .units import make_spectral_value, convert_spectral
 
 import numpy as np
 from astropy import units as u
-from osgeo import gdal, gdalconst
+from osgeo import gdal, gdalconst, gdal_array
 
 
 # A flag controlling whether virtual memory mapping warnings are reported.  The
@@ -48,7 +48,7 @@ class GDALRasterDataSet(RasterDataSet):
         employ various performance-improvement techniques.
     '''
 
-    def __init__(self, gdal_dataset):
+    def __init__(self, gdal_dataset, **kwargs):
         self.gdal_dataset = gdal_dataset
 
         # A map of band index to BandStats objects, so that we can lazily
@@ -56,6 +56,19 @@ class GDALRasterDataSet(RasterDataSet):
         self._cached_band_stats = {}
 
         self.init_band_info()
+
+        if 'name' in kwargs:
+            # Dataset name was specified.
+            self._name = kwargs['name']
+        else:
+            # Dataset name was not specified.  Use the first filename in the
+            # list of files for the dataset.  If that is not present, just use
+            # "unnamed"
+            paths = self.gdal_dataset.GetFileList()
+            if paths:
+                self._name = os.path.basename(paths[0])
+            else:
+                self._name = 'unnamed'
 
         # TODO(donnie):  May need to pull other details based on the data-set
         #     type, using gdal_dataset.GetDriver().ShortName ('ENVI', 'GTiff',
@@ -154,16 +167,22 @@ class GDALRasterDataSet(RasterDataSet):
         '''
         return self.gdal_dataset.GetDriver().ShortName
 
+    def get_name(self):
+        return self._name
+
     def get_filepaths(self):
         '''
         Returns the paths and filenames of all files associated with this raster
-        dataset.  This may be None if the data is in-memory only.
+        dataset.  This will be an empty list (not None) if the data is in-memory
+        only.
         '''
-
         # TODO(donnie):  Sort the list?  Or does the driver return the filenames
         #     in a meaningful order?
-        # TODO(donnie):  What about in-memory data sets?
-        return self.gdal_dataset.GetFileList()
+        paths = self.gdal_dataset.GetFileList()
+        if paths is None:
+            paths = []
+
+        return paths
 
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
@@ -379,18 +398,9 @@ class GDALRasterDataLoader(RasterDataLoader):
 
     def __init__(self, config=None):
         # No configuration at this point.
-        pass
 
-
-    def new(self, width, height, bands=1, elemtype='f4'):
-        '''
-        Create a new in-memory raster image with the specified width, height and
-        optional number of bands.  If the number of bands is unspecified, it
-        defaults to 1.
-
-        The element type can be specified using
-        '''
-        raise NotImplementedError('TODO:  GDALRasterDataLoader.new()')
+        # This is a counter so we can generate names for unnamed datasets.
+        self._unnamed_datasets: int = 0
 
 
     def load(self, path_or_url):
@@ -424,3 +434,14 @@ class GDALRasterDataLoader(RasterDataLoader):
             allowed_drivers=['ENVI', 'GTiff', 'PDS', 'PDS4'])
 
         return GDALRasterDataSet(gdal_dataset)
+
+
+    def from_numpy_array(self, arr: np.ndarray):
+
+        gdal.UseExceptions()
+        gdal_dataset = gdal_array.OpenNumPyArray(arr, binterleave=True)
+
+        self._unnamed_datasets += 1
+        name = f'unnamed {self._unnamed_datasets}'
+
+        return GDALRasterDataSet(gdal_dataset, name=name)

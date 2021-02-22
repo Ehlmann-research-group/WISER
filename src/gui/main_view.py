@@ -4,6 +4,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import numpy as np
+
 import gui.generated.resources
 
 from .bandmath_dialog import BandMathDialog
@@ -187,6 +189,23 @@ class MainViewWidget(RasterPane):
             print(f'Result is:\n{result}')
 
             print('TODO:  Display result of band-math')
+
+            if result_type == bandmath.VariableType.IMAGE_CUBE:
+                loader = self._app_state.get_loader()
+                new_dataset = loader.from_numpy_array(result)
+                self._app_state.add_dataset(new_dataset)
+
+            elif result_type == bandmath.VariableType.IMAGE_BAND:
+                # Convert the image band into a 1-band image cube
+                result = result[np.newaxis, :]
+                loader = self._app_state.get_loader()
+                new_dataset = loader.from_numpy_array(result)
+                self._app_state.add_dataset(new_dataset)
+
+            elif result_type == bandmath.VariableType.SPECTRUM:
+                # new_spectrum = bandmath.result_to_spectrum(result_type, result)
+                # self._app_state.set_active_spectrum(new_spectrum)
+                print('TODO:  create new spectrum')
 
 
     def _on_export_image_visible_area(self, rasterview):
