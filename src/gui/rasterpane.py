@@ -15,6 +15,8 @@ from .roi_info_editor import ROIInfoEditor
 from .rasterview import RasterView
 from .util import add_toolbar_action, get_painter, make_filename
 
+import plugins
+
 from raster.dataset import RasterDataSet, find_display_bands, find_truecolor_bands
 from raster.roi import RegionOfInterest
 from raster.selection import SelectionType, Selection, SinglePixelSelection
@@ -741,6 +743,16 @@ class RasterPane(QWidget):
         # TODO(donnie):  Set up handler for the action
         # act = menu.addAction(self.tr('Annotate location'))
 
+        # Add plugin menu items
+        context = {
+            'dataset':rasterview.get_raster_data(),
+            'ds_coord':ds_coord.toTuple()
+        }
+        for (plugin_name, plugin) in self._app_state.get_plugins().items():
+            if isinstance(plugin, plugins.ContextMenuPlugin):
+                plugin.add_context_menu_items(plugins.ContextMenuType.DATASET_PICK,
+                    menu, context)
+
         # Find Regions of Interest that include the click location.  This is a
         # complicated thing to do, since a ROI can consist of multiple
         # selections.  So, this variable is a list of 2-tuples, where each pair
@@ -772,6 +784,14 @@ class RasterPane(QWidget):
                 act = roi_menu.addAction(self.tr('Export all spectra in ROI...'))
                 act.triggered.connect(
                     lambda checked : self._on_export_roi_pixel_spectra(roi=roi, rasterview=rasterview))
+
+                # Add plugin menu items
+                context = {'dataset':rasterview.get_raster_data(),
+                    'roi':roi, 'ds_coord':ds_coord.toTuple()}
+                for (plugin_name, plugin) in self._app_state.get_plugins().items():
+                    if isinstance(plugin, plugins.ContextMenuPlugin):
+                        plugin.add_context_menu_items(plugins.ContextMenuType.ROI_PICK,
+                            roi_menu, context)
 
                 for sel_index in picked_sels:
                     roi_menu.addSeparator()

@@ -261,14 +261,15 @@ class DataVisualizerApp(QMainWindow):
                 plugin = plugins.instantiate(pc)
 
             except Exception as e:
-                print(f'ERROR instantiating plugin class "{pc}"!')
-                traceback.print_exc()
+                print(f'ERROR:  Couldn\'t instantiate plugin class "{pc}"!')
+                traceback.print_exc(limit=3)
                 continue
 
             if (not isinstance(plugin, plugins.ToolsMenuPlugin) and
                 not isinstance(plugin, plugins.ContextMenuPlugin) and
                 not isinstance(plugin, plugins.BandMathPlugin)):
-                raise ValueError(f'Unrecognized plugin type "{pc}", skipping')
+                print(f'ERROR:  Unrecognized plugin type "{pc}", skipping')
+                continue
 
             self._app_state.add_plugin(pc, plugin)
 

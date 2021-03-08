@@ -6,12 +6,33 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from PySide2.QtWidgets import QMenu
 
 from bandmath import BandMathValue
+from bandmath.functions import BandMathFunction # Type annotation
 
 
-class ItemPickType(enum.IntFlag):
-    DATASET_PICK = 1
-    SPECTRUM_PICK = 2
-    ROI_PICK = 4
+class ContextMenuType(enum.Enum):
+    '''
+    This enumeration specifies the kind of context-menu event that occurred,
+    so that plugins know what items to add to the menu.
+    '''
+
+    # Context-menu display in a raster-view, which probably is showing a
+    # dataset.  The current dataset is passed to the plugin.
+    RASTER_VIEW = 1
+
+    # Context-menu display in the spectrum-plot window.
+    SPECTRUM_PLOT = 2
+
+    # A specific dataset was picked.  This may not be in the context of a
+    # raster-view window, e.g. if the user right-clicks on a dataset in the info
+    # viewer.
+    DATASET_PICK = 10
+
+    # A specific spectrum was picked.  The spectrum is passed to the plugin.
+    SPECTRUM_PICK = 11
+
+    # A specific ROI was picked.  The ROI is passed, along with the current
+    # dataset (if available).
+    ROI_PICK = 12
 
 
 class Plugin:
@@ -56,26 +77,23 @@ class ContextMenuPlugin(Plugin):
     def __init__(self):
         super().__init__()
 
-    def get_item_pick_type(self) -> ItemPickType:
-        '''
-        If the plugin is a context-menu plugin, this method reports the kind(s)
-        of items that the plugin wants to have context-menu actions on.
-        '''
-        pass
-
-    def add_context_menu_items(self, context_menu: QMenu) -> None:
+    def add_context_menu_items(self, context_type: ContextMenuType,
+            context_menu: QMenu, context: Dict[str, Any]) -> None:
         pass
 
 
 class BandMathPlugin(Plugin):
+    '''
+    This is the base type for plugins that provide custom band-math functions.
+    '''
 
     def __init__(self):
         super().__init__()
 
-    def get_bandmath_functions(self) -> Dict[str, Callable[[List[BandMathValue]], BandMathValue]]:
+    def get_bandmath_functions(self) -> Dict[str, BandMathFunction]:
         '''
-        If the plugin is a band-math plugin, this method returns all band-math
-        functions defined by the plugin.
+        This method returns a dictionary of all band-math functions defined by
+        the plugin.  The
         '''
         pass
 
