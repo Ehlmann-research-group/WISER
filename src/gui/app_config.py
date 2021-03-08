@@ -104,6 +104,8 @@ def get_path_to_wiser_conf(*subpaths: List[str]):
 class ApplicationConfig:
 
     DEFAULTS = {
+        # General properties - these are all scalars
+
         'general.version'              : (str, version.VERSION),
         'general.online_bug_reporting' : (bool, False),
         'general.red_wavelength_nm'    : (int, 700),
@@ -120,6 +122,11 @@ class ApplicationConfig:
         'spectra.default_area_avg_x'    : (int, 1),
         'spectra.default_area_avg_y'    : (int, 1),
         'spectra.default_area_avg_mode' : (str, 'MEAN'), # SpectrumAverageMode
+
+        # Plugin configuration - by default this is all empty
+
+        'plugin_paths' : (list, []),
+        'plugins' : (list, []),
     }
 
     FEATURE_FLAGS = 'feature_flags.'
@@ -216,8 +223,9 @@ class ApplicationConfig:
             if not isinstance(key, str):
                 raise ValueError('Loaded configuration must have string keys')
 
-            if isinstance(value, dict) or isinstance(value, list):
-                raise ValueError('Loaded configuration must have scalar values')
+            # TODO(donnie):  The plugin config is lists.
+            # if isinstance(value, dict) or isinstance(value, list):
+            #     raise ValueError('Loaded configuration must have scalar values')
 
         # If we got here, we were able to successfully load the configuration
         self._load_defaults()
@@ -238,6 +246,7 @@ class ApplicationConfig:
         # Save the file.  Let exceptions propagate out.
         with open(config_path, 'w') as f:
             json.dump(self._config, f, sort_keys=True, indent=4)
+
 
     def to_string(self) -> str:
         return json.dumps(self._config, sort_keys=True, indent=4)

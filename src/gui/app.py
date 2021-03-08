@@ -35,6 +35,11 @@ from .app_config_dialog import AppConfigDialog
 from .app_state import ApplicationState
 from . import bug_reporting
 
+import plugins
+
+from .bandmath_dialog import BandMathDialog
+import bandmath
+
 from raster.spectra import SpectrumAverageMode
 from raster.spectrum_info import SpectrumAtPoint
 from raster.selection import SinglePixelSelection
@@ -68,6 +73,10 @@ class DataVisualizerApp(QMainWindow):
         self._main_toolbar = self.addToolBar(self.tr('Main'))
         self._main_toolbar.setObjectName('main_toolbar') # Needed for UI persistence
         self._init_toolbars()
+
+        # Plugins
+
+        self._init_plugins()
 
         # Status bar
         self.statusBar().showMessage(
@@ -207,9 +216,14 @@ class DataVisualizerApp(QMainWindow):
 
         self._view_menu = self.menuBar().addMenu(self.tr('&View'))
 
-        # Other menus?
+        # Tools menu
 
-        # self._tools_menu = self.menuBar().addMenu(self.tr('&Tools'))
+        self._tools_menu = self.menuBar().addMenu(self.tr('&Tools'))
+
+        act = self._tools_menu.addAction(self.tr('Band math...'))
+        act.triggered.connect(self.show_bandmath_dialog)
+
+        # Windows:  Help menu
 
         if platform.system() == 'Windows':
             self._help_menu = self.menuBar().addMenu(self.tr('&Help'))
@@ -237,6 +251,30 @@ class DataVisualizerApp(QMainWindow):
             act.triggered.connect(lambda checked=False: _raise_bug())
 
             self._main_toolbar.addSeparator()
+
+
+    def _init_plugins(self):
+        plugin_classes = self._app_state.get_config('plugins')
+        for pc in plugin_classes:
+            print(f'Instantiating plugin class "{pc}"')
+            try:
+                plugin = plugins.instantiate(pc)
+
+            except Exception as e:
+                print(f'ERROR instantiating plugin class "{pc}"!')
+                traceback.print_exc()
+                continue
+
+            if (not isinstance(plugin, plugins.ToolsMenuPlugin) and
+                not isinstance(plugin, plugins.ContextMenuPlugin) and
+                not isinstance(plugin, plugins.BandMathPlugin)):
+                raise ValueError(f'Unrecognized plugin type "{pc}", skipping')
+
+            self._app_state.add_plugin(pc, plugin)
+
+            # Let "Tools"-menu plugins add their actions to the menu.
+            if isinstance(plugin, plugins.ToolsMenuPlugin):
+                plugin.add_tool_menu_items(self._tools_menu)
 
 
     def _make_dockable_pane(self, widget, name, title, icon, tooltip,
@@ -518,6 +556,68 @@ class DataVisualizerApp(QMainWindow):
         settings = QSettings('Caltech', 'WISER')
         self.restoreGeometry(settings.value('geometry'))
         self.restoreState(settings.value('window-state'))
+
+
+    def show_bandmath_dialog(self):
+        dialog = BandMathDialog(self._app_state)
+        if dialog.exec() == QDialog.Accepted:
+            expression = dialog.get_expression()
+            print(f'Evaluate band math:  {expression}')
+
+            variables = dialog.get_variable_bindings()
+
+            # Collect functions from all plugins.
+            functions = {}
+            for (plugin_name, plugin) in self._app_state.get_plugins().items():
+                if isinstance(plugin, plugins.BandMathPlugin):
+                    plugin_fns = plugin.get_bandmath_functions()
+
+                    # Make sure all function names are lowercase.
+                    for k in list(plugin_fns.keys()):
+                        lower_k = k.lower()
+                        if k != lower_k:
+                            plugin_fns[lower_k] = plugin_fns[k]
+                            del plugin_fns[k]
+
+                    # If any functions appear multiple times, make sure to
+                    # report a warning about it.
+                    for k in plugin_fns.keys():
+                        if k in functions:
+                            print(f'WARNING:  Function "{k}" is defined ' +
+                                  f'multiple times (last seen in plugin {name})')
+
+                    functions.update(plugin_fns)
+
+            try:
+                (result_type, result) = bandmath.eval_bandmath_expr(expression,
+                    variables, functions)
+
+                print(f'Result of band-math evaluation is type {result_type}')
+                print(f'Result is:\n{result}')
+
+                if result_type == bandmath.VariableType.IMAGE_CUBE:
+                    loader = self._app_state.get_loader()
+                    new_dataset = loader.from_numpy_array(result)
+                    self._app_state.add_dataset(new_dataset)
+
+                elif result_type == bandmath.VariableType.IMAGE_BAND:
+                    # Convert the image band into a 1-band image cube
+                    result = result[np.newaxis, :]
+                    loader = self._app_state.get_loader()
+                    new_dataset = loader.from_numpy_array(result)
+                    self._app_state.add_dataset(new_dataset)
+
+                elif result_type == bandmath.VariableType.SPECTRUM:
+                    # new_spectrum = bandmath.result_to_spectrum(result_type, result)
+                    # self._app_state.set_active_spectrum(new_spectrum)
+                    print('TODO:  create new spectrum')
+
+            except Exception as e:
+                traceback.print_exc()
+                QMessageBox.critical(self, self.tr('Bandmath Evaluation Error'),
+                    self.tr('Couldn\'t evaluate band-math expression') +
+                    f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
+                return
 
 
     def _on_display_bands_change(self, ds_id: int, bands: Tuple, is_global: bool):

@@ -5,10 +5,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import lark
 import numpy as np
 
-from .common import VariableType
-
-from raster.dataset import RasterDataSet, RasterDataBand
-from raster.spectrum_info import SpectrumInfo
+from .common import VariableType, BandMathValue, BandMathEvalError
+from .functions import get_builtin_functions
 
 
 class BandMathOperation(enum.Enum):
@@ -37,49 +35,6 @@ class BandMathTypeError(TypeError):
         super().__init__(msg)
         self.lhs_type = lhs_type
         self.rhs_type = rhs_type
-
-
-class BandMathValue:
-    '''
-    This is a value created or consumed by a band-math expression during
-    evaluation.  The high-level type of the variable is stored, along with the
-    actual value.  The value may be one of several possible types, since most
-    band-math operations work directly on NumPy arrays rather than other WISER
-    types.
-
-    Whether the band-math value is a computed result or not is also recorded in
-    this type, so that math operations can reuse an argument's memory where that
-    would be more efficient.
-    '''
-    def __init__(self, type: VariableType, value: Any, computed: bool = True):
-        if type not in VariableType:
-            raise ValueError(f'Unrecognized variable-type {type}')
-
-        self.type = type
-        self.value = value
-        self.computed = computed
-
-    def as_numpy_array(self):
-        # If the value is already a NumPy array, we are done!
-        if isinstance(self.value, np.ndarray):
-            return self.value
-
-        if self.type == VariableType.IMAGE_CUBE:
-            if isinstance(self.value, RasterDataSet):
-                return self.value.get_image_data()
-
-        elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
-                return self.value.get_data()
-
-        elif self.type == VariableType.SPECTRUM:
-            if isinstance(self.value, SpectrumInfo):
-                return self.value.get_spectrum()
-
-        # If we got here, we don't know how to convert the value into a NumPy
-        # array.
-        raise TypeError(f'Don\'t know how to convert {self.type} ' +
-                        f'value {self.value} into a NumPy array')
 
 
 def add_values(lhs, rhs):
@@ -627,7 +582,14 @@ class BandMathEvaluator(lark.visitors.Transformer):
         return BandMathValue(type, value, computed=False)
 
     def function(self, args):
-        print(f'TODO:  function({args})')
+        func_name = args[0]
+        func_args = args[1:]
+
+        if func_name not in self._functions:
+            raise BandMathEvalError(f'Unrecognized function "{func_name}"')
+
+        func_impl = self._functions[func_name]
+        return func_impl(func_args)
 
 
     def NAME(self, token):
@@ -641,7 +603,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
 def eval_bandmath_expr(bandmath_expr: str,
         variables: Dict[str, Tuple[VariableType, Any]],
-        functions: Dict[str, Callable]):
+        functions: Dict[str, Callable] = None):
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -676,9 +638,10 @@ def eval_bandmath_expr(bandmath_expr: str,
     for name, value in variables.items():
         lower_variables[name.lower()] = value
 
-    lower_functions = {}
-    for name, function in functions.items():
-        lower_functions[name.lower()] = function
+    lower_functions = get_builtin_functions()
+    if functions:
+        for name, function in functions.items():
+            lower_functions[name.lower()] = function
 
     parser = lark.Lark.open('bandmath.lark', rel_to=__file__, start='expression')
     tree = parser.parse(bandmath_expr)

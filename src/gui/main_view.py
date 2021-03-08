@@ -1,4 +1,5 @@
 import os
+import traceback
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -8,7 +9,6 @@ import numpy as np
 
 import gui.generated.resources
 
-from .bandmath_dialog import BandMathDialog
 from .export_image import ExportImageDialog
 from .toolbarmenu import ToolbarMenu
 from .rasterpane import RasterPane
@@ -16,8 +16,6 @@ from .rasterview import RasterView
 from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
-
-import bandmath
 
 
 class MainViewWidget(RasterPane):
@@ -128,12 +126,6 @@ class MainViewWidget(RasterPane):
         # When listening for these actions, pass in the rasterview that
         # generated the event.
 
-        # Band math
-
-        act = menu.addAction(self.tr('Band math...'))
-        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
-                              self._on_dataset_band_math(rv))
-
         # Submenu for RGB image export
 
         submenu = menu.addMenu(self.tr('Export RGB image'))
@@ -172,40 +164,6 @@ class MainViewWidget(RasterPane):
         '''
         super()._on_dataset_added(ds_id)
         self._set_dataset_tools_button_state()
-
-
-    def _on_dataset_band_math(self, rasterview):
-        dataset = rasterview.get_raster_data()
-        dialog = BandMathDialog(self._app_state, rasterview=rasterview)
-        if dialog.exec() == QDialog.Accepted:
-            expression = dialog.get_expression()
-            print(f'Evaluate band math:  {expression}')
-
-            variables = dialog.get_variable_bindings()
-            (result_type, result) = bandmath.eval_bandmath_expr(expression,
-                variables, {})
-
-            print(f'Result of band-math evaluation is type {result_type}')
-            print(f'Result is:\n{result}')
-
-            print('TODO:  Display result of band-math')
-
-            if result_type == bandmath.VariableType.IMAGE_CUBE:
-                loader = self._app_state.get_loader()
-                new_dataset = loader.from_numpy_array(result)
-                self._app_state.add_dataset(new_dataset)
-
-            elif result_type == bandmath.VariableType.IMAGE_BAND:
-                # Convert the image band into a 1-band image cube
-                result = result[np.newaxis, :]
-                loader = self._app_state.get_loader()
-                new_dataset = loader.from_numpy_array(result)
-                self._app_state.add_dataset(new_dataset)
-
-            elif result_type == bandmath.VariableType.SPECTRUM:
-                # new_spectrum = bandmath.result_to_spectrum(result_type, result)
-                # self._app_state.set_active_spectrum(new_spectrum)
-                print('TODO:  create new spectrum')
 
 
     def _on_export_image_visible_area(self, rasterview):
