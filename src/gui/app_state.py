@@ -6,6 +6,8 @@ from PySide2.QtCore import *
 
 from .app_config import ApplicationConfig, PixelReticleType
 
+from plugins import Plugin
+
 from raster.dataset import *
 from raster.gdal_dataset import GDALRasterDataLoader
 
@@ -69,6 +71,9 @@ class ApplicationState(QObject):
         # A reference to the overall UI
         self._app = app
 
+        # The plugins currently loaded into WISER.
+        self._plugins: Dict[str, Plugin] = {}
+
         self._current_dir = os.getcwd()
         self._raster_data_loader = GDALRasterDataLoader()
 
@@ -94,6 +99,10 @@ class ApplicationState(QObject):
         # of the ROI, and the value is a RegionOfInterest object.
         self._regions_of_interest: Dict[int, RegionOfInterest] = {}
 
+        # A collection of all spectra in the application state, so that we can
+        # look them up by ID.
+        self._all_spectra: Dict[int, SpectrumInfo] = {}
+
         # The "currently active" spectrum, which is set when the user clicks on
         # pixels, or wants to view an ROI average spectrum, etc.
         self._active_spectrum: Optional[SpectrumInfo] = None
@@ -118,6 +127,17 @@ class ApplicationState(QObject):
         id = self._next_id
         self._next_id += 1
         return id
+
+
+    def add_plugin(self, class_name: str, plugin: Plugin):
+        if class_name in self._plugins:
+            raise ValueError(f'Plugin class "{class_name}" is already added')
+
+        self._plugins[class_name] = plugin
+
+
+    def get_plugins(self) -> Dict[str, Plugin]:
+        return dict(self._plugins)
 
 
     def get_loader(self):
@@ -414,22 +434,43 @@ class ApplicationState(QObject):
     def get_rois(self):
         return self._regions_of_interest.values()
 
+    def get_spectrum(self, spectrum_id: int) -> SpectrumInfo:
+        return self._all_spectra[spectrum_id]
+
     def get_active_spectrum(self):
         return self._active_spectrum
 
     def set_active_spectrum(self, spectrum: SpectrumInfo):
-        if spectrum is not None and spectrum.get_id() is None:
-            spectrum.set_id(self._take_next_id())
+        # If we already have an active spectrum, remove its ID from the mapping.
+        if self._active_spectrum:
+            del self._all_spectra[self._active_spectrum.get_id()]
 
+        # Assign an ID to this spectrum if it doesn't have one.
+        if spectrum is not None and spectrum.get_id() is None:
+            id = self._take_next_id()
+            spectrum.set_id(id)
+            self._all_spectra[id] = spectrum
+
+        # Store it!  Then fire an event.
         self._active_spectrum = spectrum
         self.active_spectrum_changed.emit()
 
     def collect_spectrum(self, spectrum: SpectrumInfo):
+        if spectrum is None:
+            raise ValueError('spectrum cannot be None')
+
+        if spectrum is self._active_spectrum:
+            raise RuntimeError('Use collect_active_spectrum() to collect the ' +
+                               'active spectrum')
+
+        # Assign an ID to this spectrum if it doesn't have one.
         if spectrum.get_id() is None:
             spectrum.set_id(self._take_next_id())
 
+        # Store it!  Then fire an event.
         index = len(self._collected_spectra)
         self._collected_spectra.append(spectrum)
+        self._all_spectra[spectrum.get_id()] = spectrum
         self.collected_spectra_changed.emit(StateChange.ITEM_ADDED, index)
 
     def collect_active_spectrum(self):
@@ -448,9 +489,15 @@ class ApplicationState(QObject):
         return list(self._collected_spectra)
 
     def remove_collected_spectrum(self, index):
+        id = self._collected_spectra[index].get_id()
         del self._collected_spectra[index]
+        del self._all_spectra[id]
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, index)
 
     def remove_all_collected_spectra(self):
+        # Remove all the collected spectra from the ID->Spectrum mapping
+        for s in self._collected_spectra:
+            del self._all_spectra[s.get_id()]
+
         self._collected_spectra.clear()
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)
