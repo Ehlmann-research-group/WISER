@@ -17,6 +17,8 @@ from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
 
+import plugins
+
 
 class MainViewWidget(RasterPane):
     '''
@@ -137,6 +139,14 @@ class MainViewWidget(RasterPane):
         act = submenu.addAction(self.tr('Export full image extent to RGB image...'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_export_image_full(rv))
+
+        # Plugin context-menus
+
+        context = {'dataset':rasterview.get_raster_data()}
+        for (plugin_name, plugin) in self._app_state.get_plugins().items():
+            if isinstance(plugin, plugins.ContextMenuPlugin):
+                plugin.add_context_menu_items(plugins.ContextMenuType.RASTER_VIEW,
+                    menu, context)
 
 
     def _set_link_views_button_state(self):

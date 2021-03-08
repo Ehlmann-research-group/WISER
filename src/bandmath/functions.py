@@ -1,12 +1,16 @@
 import sys
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, NewType
 
 import numpy as np
 
 from .common import VariableType, BandMathValue, BandMathEvalError
 
 
-def get_builtin_functions() -> Dict[str, Callable]:
+# The type for band-math functions
+BandMathFunction = Callable[[List[BandMathValue]], BandMathValue]
+
+
+def get_builtin_functions() -> Dict[str, BandMathFunction]:
     '''
     This function returns a dictionary of built-in functions supported by the
     band-math evaluator.

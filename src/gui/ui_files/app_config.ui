@@ -6,212 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>411</width>
-    <height>563</height>
+    <width>503</width>
+    <height>626</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>WISER Configuration</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0">
-    <widget class="QGroupBox" name="gbox_error_reporting">
-     <property name="title">
-      <string>Error Reporting</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_8">
-      <item row="0" column="0">
-       <widget class="QCheckBox" name="ckbox_online_bug_reporting">
-        <property name="text">
-         <string>Send WISER exceptions and crashes to BugSnag</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="lbl_online_bug_reporting">
-        <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No personally identifying information is sent to &lt;a href=&quot;https://www.bugsnag.com&quot;&gt;BugSnag&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="textFormat">
-         <enum>Qt::RichText</enum>
-        </property>
-        <property name="indent">
-         <number>18</number>
-        </property>
-        <property name="openExternalLinks">
-         <bool>true</bool>
-        </property>
-        <property name="buddy">
-         <cstring>ckbox_online_bug_reporting</cstring>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="4" column="0">
-    <widget class="QGroupBox" name="gbox_new_spectra_defaults">
-     <property name="title">
-      <string>Defaults for New Spectra</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_4">
-      <item row="1" column="1">
-       <widget class="QLabel" name="lbl_aavg_x">
-        <property name="text">
-         <string>X:</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_aavg_x</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QLabel" name="lbl_aavg_y">
-        <property name="text">
-         <string>Y:</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_aavg_y</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="lbl_aavg_size">
-        <property name="text">
-         <string>Default area-average size</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_aavg_x</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QLineEdit" name="ledit_aavg_x"/>
-      </item>
-      <item row="2" column="2">
-       <widget class="QLineEdit" name="ledit_aavg_y"/>
-      </item>
-      <item row="0" column="0" colspan="2">
-       <widget class="QLabel" name="lbl_default_avg_mode">
-        <property name="text">
-         <string>Default average mode:</string>
-        </property>
-        <property name="buddy">
-         <cstring>cbox_default_avg_mode</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="2">
-       <widget class="QComboBox" name="cbox_default_avg_mode"/>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="3" column="0">
-    <widget class="QGroupBox" name="gbox_raster_views">
-     <property name="title">
-      <string>Raster Display</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_9">
-      <item row="2" column="1">
-       <widget class="QWidget" name="widget_pixel_cursor_color" native="true">
-        <layout class="QGridLayout" name="gridLayout_10" columnstretch="1,0">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <property name="spacing">
-          <number>0</number>
-         </property>
-         <item row="0" column="1">
-          <widget class="QPushButton" name="btn_pixel_cursor_color">
-           <property name="text">
-            <string>...</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0">
-          <widget class="QLineEdit" name="ledit_pixel_cursor_color"/>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QComboBox" name="cbox_pixel_cursor_type"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="lbl_pixel_cursor_type">
-        <property name="text">
-         <string>Pixel cursor type:</string>
-        </property>
-        <property name="buddy">
-         <cstring>cbox_pixel_cursor_type</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="lbl_pixel_cursor_color">
-        <property name="text">
-         <string>Pixel cursor color:</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_pixel_cursor_color</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Viewport highlight color:</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_viewport_highlight_color</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QWidget" name="widget_viewport_highlight_color" native="true">
-        <layout class="QGridLayout" name="gridLayout_2" columnstretch="1,0">
-         <property name="leftMargin">
-          <number>0</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <property name="spacing">
-          <number>0</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLineEdit" name="ledit_viewport_highlight_color"/>
-         </item>
-         <item row="0" column="1">
-          <widget class="QPushButton" name="btn_viewport_highlight_color">
-           <property name="text">
-            <string>...</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="5" column="0">
+   <item row="3" column="0" colspan="2">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -222,69 +25,359 @@
     </widget>
    </item>
    <item row="2" column="0">
-    <widget class="QGroupBox" name="gbox_rgb_wavelengths">
-     <property name="title">
-      <string>Visible-Light Wavelengths</string>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
      </property>
-     <layout class="QGridLayout" name="gridLayout_3">
-      <item row="2" column="0">
-       <widget class="QLabel" name="lbl_blue_wavelength">
-        <property name="text">
-         <string>Blue wavelength (nm):</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_blue_wavelength</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="lbl_red_wavelength">
-        <property name="text">
-         <string>Red wavelength (nm):</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_red_wavelength</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="lbl_green_wavelength">
-        <property name="text">
-         <string>Green wavelength (nm):</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_green_wavelength</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="ledit_red_wavelength"/>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="ledit_green_wavelength"/>
-      </item>
-      <item row="2" column="1">
-       <widget class="QLineEdit" name="ledit_blue_wavelength"/>
-      </item>
-     </layout>
+     <widget class="QWidget" name="tab_general">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_5">
+       <item row="3" column="0">
+        <widget class="QGroupBox" name="gbox_error_reporting">
+         <property name="title">
+          <string>Error Reporting</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_8">
+          <item row="1" column="0">
+           <widget class="QLabel" name="lbl_online_bug_reporting">
+            <property name="text">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No personally identifying information is sent to &lt;a href=&quot;https://www.bugsnag.com&quot;&gt;BugSnag&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="textFormat">
+             <enum>Qt::RichText</enum>
+            </property>
+            <property name="indent">
+             <number>18</number>
+            </property>
+            <property name="openExternalLinks">
+             <bool>true</bool>
+            </property>
+            <property name="buddy">
+             <cstring>ckbox_online_bug_reporting</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="ckbox_online_bug_reporting">
+            <property name="text">
+             <string>Send WISER exceptions and crashes to BugSnag</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <widget class="QGroupBox" name="gbox_raster_views">
+         <property name="title">
+          <string>Raster Display</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_9">
+          <item row="1" column="1">
+           <widget class="QWidget" name="widget_viewport_highlight_color" native="true">
+            <layout class="QGridLayout" name="gridLayout_2" columnstretch="1,0">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLineEdit" name="ledit_viewport_highlight_color"/>
+             </item>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="btn_viewport_highlight_color">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Viewport highlight color:</string>
+            </property>
+            <property name="buddy">
+             <cstring>ledit_viewport_highlight_color</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QWidget" name="widget_pixel_cursor_color" native="true">
+            <layout class="QGridLayout" name="gridLayout_10" columnstretch="1,0">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="btn_pixel_cursor_color">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLineEdit" name="ledit_pixel_cursor_color"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="cbox_pixel_cursor_type"/>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="lbl_pixel_cursor_type">
+            <property name="text">
+             <string>Pixel cursor type:</string>
+            </property>
+            <property name="buddy">
+             <cstring>cbox_pixel_cursor_type</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="lbl_pixel_cursor_color">
+            <property name="text">
+             <string>Pixel cursor color:</string>
+            </property>
+            <property name="buddy">
+             <cstring>ledit_pixel_cursor_color</cstring>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QGroupBox" name="gbox_rgb_wavelengths">
+         <property name="title">
+          <string>Visible-Light Wavelengths</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_3">
+          <item row="3" column="0">
+           <widget class="QLabel" name="lbl_green_wavelength">
+            <property name="text">
+             <string>Green wavelength (nm):</string>
+            </property>
+            <property name="buddy">
+             <cstring>ledit_green_wavelength</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="lbl_red_wavelength">
+            <property name="text">
+             <string>Red wavelength (nm):</string>
+            </property>
+            <property name="buddy">
+             <cstring>ledit_red_wavelength</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="ledit_red_wavelength"/>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="ledit_green_wavelength"/>
+          </item>
+          <item row="4" column="1">
+           <widget class="QLineEdit" name="ledit_blue_wavelength"/>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="lbl_blue_wavelength">
+            <property name="text">
+             <string>Blue wavelength (nm):</string>
+            </property>
+            <property name="buddy">
+             <cstring>ledit_blue_wavelength</cstring>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="6" column="0">
+        <widget class="QGroupBox" name="gbox_new_spectra_defaults">
+         <property name="title">
+          <string>Defaults for New Spectra</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4">
+          <item row="1" column="1">
+           <widget class="QLabel" name="lbl_aavg_x">
+            <property name="text">
+             <string>X:</string>
+            </property>
+            <property name="buddy">
+             <cstring>ledit_aavg_x</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLabel" name="lbl_aavg_y">
+            <property name="text">
+             <string>Y:</string>
+            </property>
+            <property name="buddy">
+             <cstring>ledit_aavg_y</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="lbl_aavg_size">
+            <property name="text">
+             <string>Default area-average size</string>
+            </property>
+            <property name="buddy">
+             <cstring>ledit_aavg_x</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLineEdit" name="ledit_aavg_x"/>
+          </item>
+          <item row="2" column="2">
+           <widget class="QLineEdit" name="ledit_aavg_y"/>
+          </item>
+          <item row="0" column="0" colspan="2">
+           <widget class="QLabel" name="lbl_default_avg_mode">
+            <property name="text">
+             <string>Default average mode:</string>
+            </property>
+            <property name="buddy">
+             <cstring>cbox_default_avg_mode</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QComboBox" name="cbox_default_avg_mode"/>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_plugins">
+      <attribute name="title">
+       <string>Plugins</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_6">
+       <item row="0" column="0">
+        <widget class="QGroupBox" name="groupBox">
+         <property name="title">
+          <string>Plugin Directories</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0" colspan="2">
+           <widget class="QListWidget" name="listWidget"/>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Add plugin directory:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QWidget" name="widget" native="true">
+            <layout class="QGridLayout" name="gridLayout_12" columnstretch="1,0">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="pushButton">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLineEdit" name="lineEdit"/>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QPushButton" name="pushButton_2">
+            <property name="text">
+             <string>Add</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QGroupBox" name="groupBox_2">
+         <property name="title">
+          <string>Plugins</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_11">
+          <item row="2" column="0">
+           <widget class="QLineEdit" name="lineEdit_2"/>
+          </item>
+          <item row="0" column="0">
+           <widget class="QListWidget" name="listWidget_2"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_3">
+            <property name="text">
+             <string>Add plugin:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QPushButton" name="pushButton_3">
+            <property name="text">
+             <string>Add</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
   </layout>
  </widget>
- <tabstops>
-  <tabstop>ckbox_online_bug_reporting</tabstop>
-  <tabstop>ledit_red_wavelength</tabstop>
-  <tabstop>ledit_green_wavelength</tabstop>
-  <tabstop>ledit_blue_wavelength</tabstop>
-  <tabstop>ledit_viewport_highlight_color</tabstop>
-  <tabstop>btn_viewport_highlight_color</tabstop>
-  <tabstop>cbox_pixel_cursor_type</tabstop>
-  <tabstop>ledit_pixel_cursor_color</tabstop>
-  <tabstop>btn_pixel_cursor_color</tabstop>
-  <tabstop>cbox_default_avg_mode</tabstop>
-  <tabstop>ledit_aavg_x</tabstop>
-  <tabstop>ledit_aavg_y</tabstop>
- </tabstops>
  <resources/>
  <connections>
   <connection>

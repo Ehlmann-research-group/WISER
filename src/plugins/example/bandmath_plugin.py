@@ -5,14 +5,14 @@ import numpy as np
 from plugins import BandMathPlugin
 
 from bandmath import BandMathValue, BandMathEvalError, VariableType
-from bandmath.functions import verify_function_args
+from bandmath.functions import BandMathFunction, verify_function_args
 
 
 class SpectralAnglePlugin(BandMathPlugin):
     def __init__(self):
         super().__init__()
 
-    def get_bandmath_functions(self) -> Dict[str, Callable[[List[BandMathValue]], BandMathValue]]:
+    def get_bandmath_functions(self) -> Dict[str, BandMathFunction]:
         return {'spectral_angle': spectral_angle}
 
 

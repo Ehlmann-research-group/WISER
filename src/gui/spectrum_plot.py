@@ -17,6 +17,8 @@ from .spectrum_info_editor import SpectrumInfoEditor
 
 from .util import add_toolbar_action, get_random_matplotlib_color, get_color_icon
 
+import plugins
+
 from raster.envi_spectral_library import ENVISpectralLibrary
 from raster.spectra import SpectrumType, SpectrumAverageMode, calc_rect_spectrum
 from raster.spectra_export import export_spectrum_list
@@ -800,6 +802,13 @@ class SpectrumPlot(QWidget):
         act = menu.addAction(self.tr('Export plot to image...'))
         act.triggered.connect(self._on_export_plot_to_image)
 
+        # Add plugin menu items
+        context = {}
+        for (plugin_name, plugin) in self._app_state.get_plugins().items():
+            if isinstance(plugin, plugins.ContextMenuPlugin):
+                plugin.add_context_menu_items(plugins.ContextMenuType.SPECTRUM_PLOT,
+                    menu, context)
+
         if self._click is not None:
             menu.addSeparator()
             act = menu.addAction(self.tr('Hide selected point'))
@@ -1259,6 +1268,13 @@ class SpectrumPlot(QWidget):
             act.triggered.connect(lambda *args, treeitem=treeitem :
                                   self._on_edit_spectrum(treeitem))
 
+            # Add plugin menu items
+            context = {'spectrum': treeitem.data(0, Qt.UserRole)}
+            for (plugin_name, plugin) in self._app_state.get_plugins().items():
+                if isinstance(plugin, plugins.ContextMenuPlugin):
+                    plugin.add_context_menu_items(plugins.ContextMenuType.SPECTRUM_PICK,
+                        menu, context)
+
             menu.addSeparator()
 
             act = menu.addAction(self.tr('Discard...'))
@@ -1329,6 +1345,14 @@ class SpectrumPlot(QWidget):
                 act.triggered.connect(lambda *args, treeitem=treeitem :
                                       self._on_edit_spectrum(treeitem))
 
+            # Add plugin menu items
+            context = {'spectrum': spectrum}
+            for (plugin_name, plugin) in self._app_state.get_plugins().items():
+                if isinstance(plugin, plugins.ContextMenuPlugin):
+                    plugin.add_context_menu_items(plugins.ContextMenuType.SPECTRUM_PICK,
+                        menu, context)
+
+            if not isinstance(spectrum, LibrarySpectrum):
                 menu.addSeparator()
 
                 act = menu.addAction(self.tr('Discard...'))
