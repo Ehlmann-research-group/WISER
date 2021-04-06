@@ -254,6 +254,16 @@ class DataVisualizerApp(QMainWindow):
 
 
     def _init_plugins(self):
+
+        plugin_paths = self._app_state.get_config('plugin_paths')
+        for p in plugin_paths:
+            if not os.path.isdir(p):
+                print(f'WARNING:  Plugin-path "{p}" doesn\'t exist; ignoring')
+                continue
+
+            if p not in sys.path:
+                sys.path.append(p)
+
         plugin_classes = self._app_state.get_config('plugins')
         for pc in plugin_classes:
             print(f'Instantiating plugin class "{pc}"')
