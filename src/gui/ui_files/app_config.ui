@@ -287,56 +287,25 @@
       </attribute>
       <layout class="QGridLayout" name="gridLayout_6">
        <item row="0" column="0">
-        <widget class="QGroupBox" name="groupBox">
+        <widget class="QGroupBox" name="gbox_plugin_paths">
          <property name="title">
           <string>Plugin Directories</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_7">
-          <item row="0" column="0" colspan="2">
-           <widget class="QListWidget" name="listWidget"/>
-          </item>
-          <item row="1" column="0" colspan="2">
-           <widget class="QLabel" name="label_2">
+          <item row="1" column="1">
+           <widget class="QPushButton" name="btn_del_plugin_path">
             <property name="text">
-             <string>Add plugin directory:</string>
+             <string>Remove...</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
-           <widget class="QWidget" name="widget" native="true">
-            <layout class="QGridLayout" name="gridLayout_12" columnstretch="1,0">
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <property name="spacing">
-              <number>0</number>
-             </property>
-             <item row="0" column="1">
-              <widget class="QPushButton" name="pushButton">
-               <property name="text">
-                <string>...</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="0">
-              <widget class="QLineEdit" name="lineEdit"/>
-             </item>
-            </layout>
-           </widget>
+          <item row="0" column="0" colspan="2">
+           <widget class="QListWidget" name="list_plugin_paths"/>
           </item>
-          <item row="4" column="0">
-           <widget class="QPushButton" name="pushButton_2">
+          <item row="1" column="0">
+           <widget class="QPushButton" name="btn_add_plugin_path">
             <property name="text">
-             <string>Add</string>
+             <string>Add...</string>
             </property>
            </widget>
           </item>
@@ -344,30 +313,27 @@
         </widget>
        </item>
        <item row="1" column="0">
-        <widget class="QGroupBox" name="groupBox_2">
+        <widget class="QGroupBox" name="gbox_plugins">
          <property name="title">
           <string>Plugins</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_11">
-          <item row="2" column="0">
-           <widget class="QLineEdit" name="lineEdit_2"/>
-          </item>
-          <item row="0" column="0">
-           <widget class="QListWidget" name="listWidget_2"/>
-          </item>
           <item row="1" column="0">
-           <widget class="QLabel" name="label_3">
+           <widget class="QPushButton" name="btn_add_plugin">
             <property name="text">
-             <string>Add plugin:</string>
+             <string>Add...</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
-           <widget class="QPushButton" name="pushButton_3">
+          <item row="1" column="1">
+           <widget class="QPushButton" name="btn_del_plugin">
             <property name="text">
-             <string>Add</string>
+             <string>Remove...</string>
             </property>
            </widget>
+          </item>
+          <item row="0" column="0" colspan="2">
+           <widget class="QListWidget" name="list_plugins"/>
           </item>
          </layout>
         </widget>
