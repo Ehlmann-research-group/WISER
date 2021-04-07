@@ -349,7 +349,10 @@ class AppConfigDialog(QDialog):
         #==============================
         # Plugin details group-box
 
-        # TODO(donnie):  Validate that plugins can be loaded?
+        # TODO(donnie):  Validate that plugins can be loaded?  Users have the
+        #     ability to do this already, but maybe we want to kick this off
+        #     if they have added plugins or removed paths, have not validated,
+        #     and then accepted this dialog.
 
         #=======================================================================
         # Apply values
@@ -397,7 +400,17 @@ class AppConfigDialog(QDialog):
         # Plugin details group-box
 
         plugin_paths = qlistwidget_to_list(self._ui.list_plugin_paths)
+        self._app_state.set_config('plugin_paths', plugin_paths)
+
         plugins = qlistwidget_to_list(self._ui.list_plugins)
+        self._app_state.set_config('plugins', plugins)
+
+        if (plugin_paths != self._initial_plugin_paths or
+            plugins != self._initial_plugins):
+            QMessageBox.information(self, self.tr('Plugin changes detected'),
+                self.tr('Changes to plugin configuration will not be\n' +
+                        'applied until the next time WISER is started.'),
+                QMessageBox.Ok)
 
         #==============================
         # All done!
