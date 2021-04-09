@@ -303,10 +303,7 @@ class AppConfigDialog(QDialog):
         for p in qlistwidget_to_list(self._ui.list_plugins):
             try:
                 inst = plugins.instantiate(p)
-
-                if (not isinstance(inst, plugins.ToolsMenuPlugin) and
-                    not isinstance(inst, plugins.ContextMenuPlugin) and
-                    not isinstance(inst, plugins.BandMathPlugin)):
+                if not plugins.is_plugin(inst):
                     msg = self.tr('Class "{0}" isn\'t a recognized plugin type')
                     issues.append(msg.format(p))
 

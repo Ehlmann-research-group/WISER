@@ -1,3 +1,3 @@
 from .common import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin
 from .common import ContextMenuType
-from .common import instantiate
+from .common import is_plugin, instantiate
