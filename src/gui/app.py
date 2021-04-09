@@ -266,7 +266,7 @@ class DataVisualizerApp(QMainWindow):
 
         plugin_classes = self._app_state.get_config('plugins')
         for pc in plugin_classes:
-            print(f'Instantiating plugin class "{pc}"')
+            # print(f'Instantiating plugin class "{pc}"')
             try:
                 plugin = plugins.instantiate(pc)
 
@@ -275,9 +275,7 @@ class DataVisualizerApp(QMainWindow):
                 traceback.print_exc(limit=3)
                 continue
 
-            if (not isinstance(plugin, plugins.ToolsMenuPlugin) and
-                not isinstance(plugin, plugins.ContextMenuPlugin) and
-                not isinstance(plugin, plugins.BandMathPlugin)):
+            if not plugins.is_plugin(plugin):
                 print(f'ERROR:  Unrecognized plugin type "{pc}", skipping')
                 continue
 
