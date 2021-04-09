@@ -40,11 +40,11 @@ MUL_OP: ("*" | "/")
 // Instead we would prefer to generate left-deep trees.
 ?add_expr : (add_expr ADD_OP)? mul_expr
 
-?mul_expr : (mul_expr MUL_OP)? power_op
+?mul_expr : (mul_expr MUL_OP)? power_expr
 
-?power_op : unary_op ("**" unary_op)?
+?power_expr : unary_op_expr ("**" unary_op_expr)?
 
-?unary_op : ADD_OP? base
+?unary_op_expr : ADD_OP? base
 
 //========================================
 // Base expression values
