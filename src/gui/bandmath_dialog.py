@@ -117,6 +117,10 @@ class BandMathDialog(QDialog):
         # self._dataset = dataset
         # self._display_bands = display_bands
 
+        # Keep track of whether there are unsaved changes to the "saved
+        # expressions" list.
+        self._saved_exprs_modified: bool = False
+
         # Set up the UI state
         self._ui = Ui_BandMathDialog()
         self._ui.setupUi(self)
@@ -124,30 +128,58 @@ class BandMathDialog(QDialog):
         # Hook up event handlers
 
         # self._ui.ledit_math_expr.install
-        self._ui.ledit_math_expr.installEventFilter(ReturnEventFilter())
+        # self._ui.ledit_math_expr.installEventFilter(ReturnEventFilter())
 
-        self._ui.ledit_math_expr.editingFinished.connect(lambda: self._on_parse_expr())
-        self._ui.btn_parse.clicked.connect(lambda: self._on_parse_expr(manual=True))
+        #==================================
+        # "Current expression" UI widgets
+
+        self._ui.ledit_expression.editingFinished.connect(lambda: self._parse_expr())
+        self._ui.btn_add_to_saved.clicked.connect(self._on_add_expr_to_saved)
+
+        #==================================
+        # "Saved expressions" UI widgets
+
+        self._ui.cbox_saved_exprs.activated.connect(self._on_choose_saved_expr)
+
+        self._ui.btn_load_saved_exprs.clicked.connect(self._on_load_saved_exprs)
+        self._ui.btn_save_saved_exprs.clicked.connect(self._on_save_saved_exprs)
+
+        # Do this here so that we can use the text-translation facilities.
+        self._variable_types_text = {
+            bandmath.VariableType.IMAGE_CUBE: self.tr('Image'),
+            bandmath.VariableType.IMAGE_BAND: self.tr('Image Band'),
+            bandmath.VariableType.SPECTRUM: self.tr('Spectrum'),
+            bandmath.VariableType.REGION_OF_INTEREST: self.tr('Region of Interest'),
+            bandmath.VariableType.NUMBER: self.tr('Number'),
+            bandmath.VariableType.BOOLEAN: self.tr('Boolean'),
+        }
 
 
-    def _on_parse_expr(self, manual=False):
-        expr = self._ui.ledit_math_expr.text().strip()
+    def _parse_expr(self):
+        expr = self.get_expression()
         if not expr:
-            QMessageBox.critical(self, self.tr('No Expression'),
-                self.tr('Please enter a band-math expression'))
             return
 
+        # Try to identify details about the expression by parsing and analyzing
+        # it.  This could fail, of course.
         try:
+            # Try to identify variables in the band-math expression.
             variables: Set[str] = bandmath.get_bandmath_variables(expr)
             self._sync_binding_table_with_variables(variables)
 
-        except lark.exceptions.LarkError as err:
-            if manual:
-                # Only show the error dialog if the user manually invoked the
-                # parser
-                QMessageBox.critical(self, self.tr('Parse Error'),
-                    self.tr('The expression does not parse correctly.\n' +
-                            'Please fix it and try parsing again.'))
+            # Try to identify the type of the result.
+            self._ui.lbl_result_info.clear()
+            self._ui.lbl_result_info.setStyleSheet('QLabel { color: black; }')
+            result_type = bandmath.get_bandmath_result_type(expr,
+                self.get_variable_bindings(), None)
+
+            s = self.tr('Result: {type}')
+            s = s.format(type=self._variable_types_text[result_type])
+            self._ui.lbl_result_info.setText(s)
+
+        except lark.exceptions.LarkError as e:
+            self._ui.lbl_result_info.setText(self.tr('Parse error!'))
+            self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
 
 
     def _sync_binding_table_with_variables(self, variables):
@@ -273,7 +305,119 @@ class BandMathDialog(QDialog):
         self._ui.tbl_variables.setCellWidget(var_row, 2, value_widget)
 
 
+    def _on_add_expr_to_saved(self, checked=False):
+        expr = self.get_expression()
+
+        # Verify that we have a parseable expression.
+        if not bandmath.bandmath_parses(expr):
+            QMessageBox.critical(self, self.tr('Parse Error'),
+                self.tr('The current band-math expression does not parse.\n\n' +
+                        'Please fix the expression before saving it.'))
+            return
+
+        # Verify that the expression doesn't already appear in the saved
+        # expressions.
+        for i in range(self._ui.cbox_saved_exprs.count()):
+            # TODO(donnie):  This comparison doesn't catch situations where
+            #     whitespace is the only difference.
+            saved_expr = self._ui.cbox_saved_expr.itemText(i).casefold()
+            if expr == saved_expr:
+                QMessageBox.critical(self, self.tr('Expression already saved'),
+                    self.tr('The current band-math expression is already\n' +
+                            'in the saved-expressions list.'))
+                return
+
+        self._ui.cbox_saved_exprs.addItem(expr)
+        self._saved_exprs_modified = True
+
+
+    def _on_load_saved_exprs(self, checked=False):
+        # Are there unsaved changes to the saved-expressions list?
+        if self._ui.cbox_saved_exprs.count() > 0 and self._saved_exprs_modified:
+            response = QMessageBox.question(self, self.tr('Un-saved Expressions'),
+                self.tr('Discard unsaved changes to saved expressions?'))
+
+            if response != QMessageBox.Yes:
+                return
+
+        (path, _) = QFileDialog.getOpenFileName(self,
+            self.tr('Read Saved-Expressions from File'),
+            self._app_state.get_current_dir(),
+            self.tr('Text files (*.txt);;All files (*)'))
+
+        if not path:
+            return
+
+        try:
+            with open(path) as f:
+                # Read in all lines of the file
+                lines = f.readlines()
+
+        except Exception as e:
+            QMessageBox.critical(self, self.tr('Couldn\'t Open File'),
+                self.tr('Couldn\'t open file {0}:\n\n{1}').format(path, e))
+            return
+
+        # Strip leading and trailing whitespace off every line, and
+        # convert to lowercase so everything is normalized.
+        lines = [line.strip().casefold() for line in lines]
+
+        # Filter out blank lines.
+        lines = [line for line in lines if line]
+
+        self._ui.cbox_saved_exprs.clear()
+        for line in lines:
+            # TODO(donnie):  Make sure all lines parse?
+            self._ui.cbox_saved_exprs.addItem(line)
+
+        self._saved_exprs_modified = False
+
+
+    def _on_save_saved_exprs(self, checked=False):
+        (path, _) = QFileDialog.getSaveFileName(self,
+            self.tr('Write Saved-Expressions to File'),
+            self._app_state.get_current_dir(),
+            self.tr('Text files (*.txt);;All files (*)'))
+
+        if not path:
+            return
+
+        try:
+            with open(path, 'w') as f:
+                for i in range(self._ui.cbox_saved_exprs.count()):
+                    expr = self._ui.cbox_saved_exprs.itemText(i)
+                    f.write(f'{expr}\n')
+
+        except Exception as e:
+            QMessageBox.critical(self, self.tr('Couldn\'t Open File'),
+                self.tr('Couldn\'t open file {0}:\n\n{1}').format(path, e))
+            return
+
+        self._saved_exprs_modified = False
+
+    def _on_choose_saved_expr(self, index):
+        '''
+        Handle events where the user chooses one of the saved expressions.
+        '''
+        expr = self._ui.cbox_saved_exprs.currentText()
+        self._ui.ledit_expression.setText(expr)
+        self._parse_expr()
+
+
+    def _check_saved_expressions(self):
+        if self._ui.cbox_saved_exprs.count() > 0 and self._saved_exprs_modified:
+            response = QMessageBox.question(self, self.tr('Un-saved Expressions'),
+                self.tr('Do you want to save your changes\n' +
+                        'to the saved-expressions list?'))
+
+            if response == QMessageBox.Yes:
+                self._on_save_saved_exprs()
+
+
     def accept(self):
+        # Have changes been made to the saved-expressions list?
+        self._check_saved_expressions()
+
         # TODO(donnie):  validation
         # Make sure that all variable-bindings are specified, and that there are
         # no obvious errors with the band-math expression.
@@ -289,11 +433,20 @@ class BandMathDialog(QDialog):
         super().accept()
 
 
+    def reject(self):
+        # Have changes been made to the saved-expressions list?
+        self._check_saved_expressions()
+
+        super().reject()
+
+
     def get_expression(self) -> str:
         '''
-        Returns the math expression as entered by the user.
+        Returns the math expression as entered by the user, with leading and
+        trailing whitespace stripped, and the expression casefolded to
+        lowercase.
         '''
-        return self._ui.ledit_math_expr.text()
+        return self._ui.ledit_expression.text().strip().casefold()
 
 
     def get_variable_bindings(self) -> Dict[str, Tuple[bandmath.VariableType, Any]]:

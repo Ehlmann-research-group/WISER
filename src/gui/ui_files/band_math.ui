@@ -6,26 +6,63 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>568</width>
-    <height>507</height>
+    <width>473</width>
+    <height>377</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Band Math</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,0,0,0,0,0,0,0,0">
-   <item row="0" column="0">
+  <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="1,0">
+   <item row="0" column="0" colspan="2">
     <widget class="QLabel" name="lbl_math_expr">
      <property name="text">
       <string>Expression:</string>
      </property>
      <property name="buddy">
-      <cstring>ledit_math_expr</cstring>
+      <cstring>ledit_expression</cstring>
      </property>
     </widget>
    </item>
-   <item row="4" column="0">
+   <item row="5" column="0" colspan="2">
+    <widget class="QLabel" name="lbl_result_info">
+     <property name="text">
+      <string>Result:  (unknown)</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QPushButton" name="btn_add_to_saved">
+     <property name="text">
+      <string>Save expression</string>
+     </property>
+    </widget>
+   </item>
+   <item row="15" column="0" colspan="2">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="QLabel" name="lbl_variables">
+     <property name="text">
+      <string>Variable bindings:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0" colspan="2">
     <widget class="QTableWidget" name="tbl_variables">
+     <attribute name="horizontalHeaderStretchLastSection">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="verticalHeaderMinimumSectionSize">
+      <number>23</number>
+     </attribute>
      <column>
       <property name="text">
        <string>Variable</string>
@@ -43,90 +80,45 @@
      </column>
     </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QLineEdit" name="ledit_math_expr"/>
-   </item>
-   <item row="5" column="0">
-    <widget class="QLabel" name="label_2">
+   <item row="8" column="1">
+    <widget class="QPushButton" name="btn_save_saved_exprs">
      <property name="text">
-      <string>Previous expressions:</string>
+      <string>Save to file...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="0">
+    <widget class="QComboBox" name="cbox_saved_exprs"/>
+   </item>
+   <item row="7" column="1">
+    <widget class="QPushButton" name="btn_load_saved_exprs">
+     <property name="text">
+      <string>Load from file...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
+    <widget class="QLabel" name="lbl_saved_exprs">
+     <property name="text">
+      <string>Saved expressions:</string>
      </property>
      <property name="buddy">
-      <cstring>cbox_prev_exprs</cstring>
+      <cstring>cbox_saved_exprs</cstring>
      </property>
     </widget>
    </item>
-   <item row="2" column="0">
-    <widget class="QWidget" name="widget" native="true">
-     <layout class="QGridLayout" name="gridLayout_2">
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
-      <property name="spacing">
-       <number>0</number>
-      </property>
-      <item row="0" column="2">
-       <widget class="QPushButton" name="btn_parse">
-        <property name="text">
-         <string>Parse and Update Bindings</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="text">
-         <string>Variable bindings:</string>
-        </property>
-        <property name="buddy">
-         <cstring>tbl_variables</cstring>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="9" column="0">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-     </property>
-    </widget>
-   </item>
-   <item row="6" column="0">
-    <widget class="QComboBox" name="cbox_prev_exprs"/>
+   <item row="1" column="0">
+    <widget class="QLineEdit" name="ledit_expression"/>
    </item>
   </layout>
  </widget>
  <tabstops>
-  <tabstop>ledit_math_expr</tabstop>
-  <tabstop>btn_parse</tabstop>
+  <tabstop>ledit_expression</tabstop>
+  <tabstop>btn_add_to_saved</tabstop>
   <tabstop>tbl_variables</tabstop>
-  <tabstop>cbox_prev_exprs</tabstop>
+  <tabstop>cbox_saved_exprs</tabstop>
+  <tabstop>btn_load_saved_exprs</tabstop>
+  <tabstop>btn_save_saved_exprs</tabstop>
  </tabstops>
  <resources/>
  <connections>

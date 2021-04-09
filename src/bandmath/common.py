@@ -23,6 +23,8 @@ class VariableType(enum.IntEnum):
 
     NUMBER = 5
 
+    BOOLEAN = 6
+
 
 def prepare_array(arr):
     if isinstance(arr, np.ma.MaskedArray):
