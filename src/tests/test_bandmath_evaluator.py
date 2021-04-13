@@ -3,8 +3,8 @@ import numpy as np
 
 import tests.context
 
-import bandmath
-from bandmath import VariableType
+from wiser import bandmath
+from wiser.bandmath import VariableType
 
 
 def make_image(bands, width, height):

@@ -2,7 +2,7 @@ import unittest
 from PySide2.QtCore import *
 
 import tests.context
-from gui.geom import (distance, manhattan_distance)
+from wiser.gui.geom import (distance, manhattan_distance)
 
 
 class TestGuiGeom(unittest.TestCase):

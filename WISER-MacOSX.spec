@@ -3,8 +3,8 @@
 block_cipher = None
 
 
-a = Analysis(['src/main.py'],
-             pathex=['/Users/donnie/projects/WISER'],
+a = Analysis(['src/wiser/__main__.py'],
+             pathex=['/Users/donnie/Projects/WISER'],
              binaries=[],
              datas=[('./LICENSE','.')],
              hiddenimports=[],

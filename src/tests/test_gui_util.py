@@ -1,7 +1,7 @@
 import unittest
 
 import tests.context
-from gui.util import make_filename
+from wiser.gui.util import make_filename
 
 
 class TestGuiUtil(unittest.TestCase):

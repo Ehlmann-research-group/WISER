@@ -1,7 +1,7 @@
 import unittest
 
 import tests.context
-from raster.nputil import normalize
+from wiser.raster.nputil import normalize
 
 import numpy as np
 
