@@ -1,7 +1,7 @@
 RCC=pyside2-rcc
 
-RESOURCE_DIR=resources
-TARGET_DIR=gui/generated
+RESOURCE_DIR=wiser/resources
+TARGET_DIR=wiser/gui/generated
 
 TARGETS=$(TARGET_DIR)/resources.py
 

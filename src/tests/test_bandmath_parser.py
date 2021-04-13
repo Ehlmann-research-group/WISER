@@ -2,7 +2,7 @@ import unittest
 
 import tests.context
 
-import bandmath
+from wiser import bandmath
 
 
 class TestBandmathParser(unittest.TestCase):

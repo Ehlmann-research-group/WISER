@@ -30,7 +30,7 @@ all : generated
 # Generate the various files that Qt will need for the UI.
 generated :
 	$(MAKE) -C src generated
-	$(MAKE) -C src/gui generated
+	$(MAKE) -C src/wiser/gui generated
 
 
 test:
@@ -45,7 +45,7 @@ typecheck:
 
 build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
-	pyinstaller WISER-MacOSX.spec
+	pyinstaller --noconfirm WISER-MacOSX.spec
 
 	# Patch the package with the correct version of libpng, since
 	# pyinstaller finds the wrong one.  (Note:  Can't use the --add-binary
@@ -99,7 +99,7 @@ dist-win : generated
 
 clean:
 	$(MAKE) -C src clean
-	$(MAKE) -C src/gui clean
+	$(MAKE) -C src/wiser/gui clean
 
 	$(RM) -r build dist
 

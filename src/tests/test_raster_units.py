@@ -1,7 +1,7 @@
 import unittest
 
 import tests.context
-from raster.units import make_spectral_value
+from wiser.raster.units import make_spectral_value
 
 from astropy import units as u
 
