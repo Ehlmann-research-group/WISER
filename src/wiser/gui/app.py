@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pathlib
 import platform
@@ -6,8 +7,6 @@ import sys
 import traceback
 
 from typing import Dict, List, Optional, Tuple
-
-import bugsnag
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -44,6 +43,8 @@ from wiser.raster.spectra import SpectrumAverageMode
 from wiser.raster.spectrum_info import SpectrumAtPoint
 from wiser.raster.selection import SinglePixelSelection
 
+
+logger = logging.getLogger(__name__)
 
 
 class DataVisualizerApp(QMainWindow):
@@ -254,29 +255,41 @@ class DataVisualizerApp(QMainWindow):
 
 
     def _init_plugins(self):
+        logger.info('Initializing plugins')
 
         plugin_paths = self._app_state.get_config('plugin_paths')
+
+        s = ' * ' + '\n * '.join(plugin_paths)
+        logger.info(f'Adding plugin paths to WISER PYTHON_PATH:\n{s}')
+
         for p in plugin_paths:
             if not os.path.isdir(p):
-                print(f'WARNING:  Plugin-path "{p}" doesn\'t exist; ignoring')
+                logger.warning(f'Plugin-path "{p}" doesn\'t exist; ignoring')
                 continue
 
             if p not in sys.path:
                 sys.path.append(p)
+            else:
+                logger.debug(f'Plugin-path "{p}" already in PYTHON_PATH; ignoring')
+
+        logger.debug(f'Final PYTHON_PATH:  "{sys.path}"')
 
         plugin_classes = self._app_state.get_config('plugins')
+
+        s = ' * ' + '\n * '.join(plugin_classes)
+        logger.info(f'Initializing plugin classes:\n{s}')
+
         for pc in plugin_classes:
-            # print(f'Instantiating plugin class "{pc}"')
+            logger.debug(f'Instantiating plugin class "{pc}"')
             try:
                 plugin = plugins.instantiate(pc)
 
             except Exception as e:
-                print(f'ERROR:  Couldn\'t instantiate plugin class "{pc}"!')
-                traceback.print_exc(limit=3)
+                logging.exception(f'Couldn\'t instantiate plugin class "{pc}"!')
                 continue
 
             if not plugins.is_plugin(plugin):
-                print(f'ERROR:  Unrecognized plugin type "{pc}", skipping')
+                logging.error(f'"{pc}" is not a recognized plugin type; skipping')
                 continue
 
             self._app_state.add_plugin(pc, plugin)

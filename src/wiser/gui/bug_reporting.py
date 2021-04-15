@@ -1,4 +1,5 @@
 import json
+import logging
 import pprint
 
 from typing import Optional
@@ -12,6 +13,9 @@ from PySide2.QtWidgets import *
 from wiser import version
 
 from .generated.bug_reporting_dialog_ui import Ui_BugReportingDialog
+
+
+logger = logging.getLogger(__name__)
 
 
 class BugReportingDialog(QDialog):
@@ -36,6 +40,7 @@ class BugReportingDialog(QDialog):
 def initialize(config):
 
     auto_notify = config.get('general.online_bug_reporting')
+    logger.info(f'Configuring online bug-reporting with auto_notify = {auto_notify}')
 
     bugsnag.configure(
         api_key='29bf39226c3071461f3d0630c9ced4b6',
@@ -46,10 +51,16 @@ def initialize(config):
     bugsnag.before_notify(before_bugsnag_notify)
 
 
-def set_enabled(enable):
+def set_enabled(enable: bool) -> None:
+    '''
+    Enable or disable online bug-reporting.  This setting is applied
+    immediately.
+    '''
     bugsnag.configure(auto_notify=enable)
 
 
 def before_bugsnag_notify(event):
+    # TODO(donnie):  There is still a bit of identifying information in this
+    #     payload.  Strip it out!
     payload = json.loads(event._payload())
     pprint.pprint(payload)
