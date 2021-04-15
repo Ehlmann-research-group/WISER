@@ -6,23 +6,58 @@ import logging.config
 import os
 import sys
 
+#============================================================================
+# ESSENTIAL DEBUG CONFIGURATION
+#
+
 CONFIG_FILE = 'wiser-conf.json'
 LOG_CONF_FILE = 'logging.conf'
 
 # Do this as early as possible so we can catch crashes at load time.
-# (Yes, even before loading Qt libraries.)
+# (Especially before loading Qt libraries.)
 faulthandler.enable()
 
-if os.path.isfile(LOG_CONF_FILE):
-    logging.config.fileConfig(LOG_CONF_FILE)
+from wiser.gui.app_config import (get_wiser_config_dir, ApplicationConfig)
+
+# Hard-code the logging configuration to remove the need for a log-config file.
+logfile_path = os.path.join(get_wiser_config_dir(), 'wiser.log')
+logging.config.dictConfig({
+    'version':1,
+    'formatters':{
+        'simpleFormatter':{
+            'format':'%(asctime)s %(levelname)-5s %(name)s : %(message)s',
+        },
+    },
+    'handlers':{
+        'consoleHandler':{
+            'class':'logging.StreamHandler',
+            'level':'WARNING',
+            'formatter':'simpleFormatter',
+            'stream':sys.stderr,
+        },
+        'fileHandler':{
+            'class':'logging.handlers.RotatingFileHandler',
+            'level':'DEBUG',
+            'formatter':'simpleFormatter',
+            'filename':logfile_path,
+            'maxBytes':10000000,
+            'backupCount':5,
+        },
+    },
+    'loggers':{
+        'root':{
+            'level':'DEBUG',
+            'handlers':['consoleHandler','fileHandler'],
+        },
+        'matplotlib':{
+            'level':'WARNING',
+            'handlers':['consoleHandler','fileHandler'],
+            'qualname':'matplotlib',
+        },
+    },
+})
 
 logger = logging.getLogger(__name__)
-
-from typing import Dict
-
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
 
 # TODO(donnie):  Do this before importing matplotlib, to get rid of the
 #     annoying warnings generated from the PyInstaller-frozen version.
@@ -30,12 +65,33 @@ from PySide2.QtWidgets import *
 import warnings
 warnings.filterwarnings('ignore', '(?s).*MATPLOTLIBDATA.*', category=UserWarning)
 
+#============================================================================
+# QT AND MATPLOTLIB IMPORTS
+#
+# If a failure occurs on these imports, it may be due to a missing library.
+# This is why we do the debugging setup first.
+#
+
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
+
 import matplotlib
 
-from .gui.app import DataVisualizerApp
-from .gui.app_config import (get_wiser_config_dir, ApplicationConfig)
-from .gui import bug_reporting
+# Use absolute imports in __main__.py so that we can pass the file to
+# pyinstaller.
+from wiser.gui.app import DataVisualizerApp
+from wiser.gui import bug_reporting
 
+
+#============================================================================
+# MAIN APPLICATION-LAUNCH CODE
+#
+
+def qt_debug_callback(*args, **kwargs):
+    # TODO(donnie):  This is an experiment to see if we can get useful info
+    #     out of Qt5 for WISER.  So far it has not panned out.  (2021-04-14)
+    logger.debug(f'qt_debug_callback:  args={args}  kwargs={kwargs}')
 
 def main():
     '''
@@ -112,6 +168,8 @@ def main():
     #========================================================================
     # Qt Platform Initialization
 
+    qInstallMessageHandler(qt_debug_callback)
+
     # Turn on high-DPI application scaling in Qt.
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
@@ -132,6 +190,8 @@ def main():
     # If the WISER config file was created for the first time, ask the user if
     # they would like to opt in to online bug reporting.
     if not loaded_config:
+        logger.debug('WISER config not loaded.  Asking user to opt-in for ' +
+                     'online bug reporting.')
         dialog = bug_reporting.BugReportingDialog()
         dialog.exec()
 
@@ -141,12 +201,14 @@ def main():
 
         try:
             # Try to save the WISER configuration file
+            logger.debug(f'Saving initial WISER config:  "{wiser_conf_path}"')
             config.save(wiser_conf_path)
         except OSError:
             logger.exception(f'Couldn\'t save WISER config file at {config_path}')
 
     # If any data files are specified on the command-line, open them now
     for file_path in sys.argv[1:]:
+        logger.info(f'Opening file "{file_path}" specified on command-line')
         wiser_ui._app_state.open_file(file_path)
 
     sys.exit(app.exec_())
