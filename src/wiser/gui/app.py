@@ -256,12 +256,11 @@ class DataVisualizerApp(QMainWindow):
 
     def _init_plugins(self):
         logger.info('Initializing plugins')
+        logger.debug(f'sys.path = {sys.path}')
+        logger.debug(f'sys.meta_path = {sys.meta_path}')
 
         plugin_paths = self._app_state.get_config('plugin_paths')
-
-        s = ' * ' + '\n * '.join(plugin_paths)
-        logger.info(f'Adding plugin paths to WISER PYTHON_PATH:\n{s}')
-
+        logger.info(f'Adding plugin paths to WISER PYTHON_PATH:  {plugin_paths}')
         for p in plugin_paths:
             if not os.path.isdir(p):
                 logger.warning(f'Plugin-path "{p}" doesn\'t exist; ignoring')
@@ -275,10 +274,7 @@ class DataVisualizerApp(QMainWindow):
         logger.debug(f'Final PYTHON_PATH:  "{sys.path}"')
 
         plugin_classes = self._app_state.get_config('plugins')
-
-        s = ' * ' + '\n * '.join(plugin_classes)
-        logger.info(f'Initializing plugin classes:\n{s}')
-
+        logger.info(f'Initializing plugin classes:  {plugin_classes}')
         for pc in plugin_classes:
             logger.debug(f'Instantiating plugin class "{pc}"')
             try:
