@@ -137,10 +137,12 @@ class AppConfigDialog(QDialog):
             item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             self._ui.list_plugin_paths.addItem(item)
 
+        self._ui.btn_edit_plugin_path.setEnabled(False)
         self._ui.btn_del_plugin_path.setEnabled(False)
 
         self._ui.list_plugin_paths.itemSelectionChanged.connect(self._on_plugin_path_selection_changed)
         self._ui.btn_add_plugin_path.clicked.connect(self._on_add_plugin_path)
+        self._ui.btn_edit_plugin_path.clicked.connect(self._on_edit_plugin_path)
         self._ui.btn_del_plugin_path.clicked.connect(self._on_del_plugin_path)
 
         # Plugins
@@ -151,10 +153,12 @@ class AppConfigDialog(QDialog):
             item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             self._ui.list_plugins.addItem(item)
 
+        self._ui.btn_edit_plugin.setEnabled(False)
         self._ui.btn_del_plugin.setEnabled(False)
 
         self._ui.list_plugins.itemSelectionChanged.connect(self._on_plugin_selection_changed)
         self._ui.btn_add_plugin.clicked.connect(self._on_add_plugin)
+        self._ui.btn_edit_plugin.clicked.connect(self._on_edit_plugin)
         self._ui.btn_del_plugin.clicked.connect(self._on_del_plugin)
         self._ui.btn_verify_plugins.clicked.connect(self._on_verify_plugins)
 
@@ -179,11 +183,23 @@ class AppConfigDialog(QDialog):
     def _on_plugin_path_selection_changed(self):
         # Enable or disable the "Remove path" button based on whether something
         # is actually selected.
-        self._ui.btn_del_plugin_path.setEnabled(
-            len(self._ui.list_plugin_paths.selectedItems()) > 0)
+        item_selected = (len(self._ui.list_plugin_paths.selectedItems()) > 0)
+        self._ui.btn_edit_plugin_path.setEnabled(item_selected)
+        self._ui.btn_del_plugin_path.setEnabled(item_selected)
 
     def _on_add_plugin_path(self, checked=False):
-        path = QFileDialog.getExistingDirectory(parent=self,
+        self._edit_plugin_path_helper()
+
+    def _on_edit_plugin_path(self, checked=False):
+        item = self._ui.list_plugin_paths.currentItem()
+        self._edit_plugin_path_helper(item)
+
+    def _edit_plugin_path_helper(self, existing_item=None):
+        initial_path = None
+        if existing_item is not None:
+            initial_path = existing_item.text()
+
+        path = QFileDialog.getExistingDirectory(parent=self, dir=initial_path,
             caption=self.tr('Choose plugin path'))
 
         if path:
@@ -195,9 +211,16 @@ class AppConfigDialog(QDialog):
                 return
 
             # Add the path to the list widget.
-            item = QListWidgetItem(path)
-            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            self._ui.list_plugin_paths.addItem(item)
+            if existing_item is not None:
+                # Update the list-widget item with the updated path.
+                existing_item.setText(path)
+
+            else:
+                # Add the path to the list widget.
+                item = QListWidgetItem(path)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self._ui.list_plugin_paths.addItem(item)
+
 
     def _on_del_plugin_path(self, checked=False):
         # Find the path or paths to be removed
@@ -230,13 +253,26 @@ class AppConfigDialog(QDialog):
     def _on_plugin_selection_changed(self):
         # Enable or disable the "Remove plugin" button based on whether
         # something is actually selected.
-        self._ui.btn_del_plugin.setEnabled(
-            len(self._ui.list_plugins.selectedItems()) > 0)
+        item_selected = (len(self._ui.list_plugins.selectedItems()) > 0)
+        self._ui.btn_edit_plugin.setEnabled(item_selected)
+        self._ui.btn_del_plugin.setEnabled(item_selected)
 
     def _on_add_plugin(self, checked=False):
+        self._edit_plugin_helper()
+
+    def _on_edit_plugin(self, checked=False):
+        item = self._ui.list_plugins.currentItem()
+        self._edit_plugin_helper(item)
+
+    def _edit_plugin_helper(self, existing_item=None):
+        initial_plugin = None
+        if existing_item is not None:
+            initial_plugin = existing_item.text()
+
         (plugin, success) = QInputDialog.getText(self,
             self.tr('Plugin class name'),
-            self.tr('Enter fully-qualified name of plugin class'))
+            self.tr('Enter fully-qualified name of plugin class'),
+            text=initial_plugin)
 
         if success:
             # Make sure the plugin isn't already in the list of plugins.
@@ -246,10 +282,15 @@ class AppConfigDialog(QDialog):
                     self.tr('Plugin "{0}" already in plugin list').format(plugin))
                 return
 
-            # Add the plugin to the list widget.
-            item = QListWidgetItem(plugin)
-            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            self._ui.list_plugins.addItem(item)
+            if existing_item is not None:
+                # Update the list-widget item with the updated plugin.
+                existing_item.setText(plugin)
+
+            else:
+                # Add the plugin to the list widget.
+                item = QListWidgetItem(plugin)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self._ui.list_plugins.addItem(item)
 
     def _on_del_plugin(self, checked=False):
         # Find the plugin(s) to be removed
