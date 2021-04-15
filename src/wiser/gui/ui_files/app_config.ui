@@ -292,20 +292,27 @@
           <string>Plugin Directories</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_7">
-          <item row="1" column="1">
-           <widget class="QPushButton" name="btn_del_plugin_path">
-            <property name="text">
-             <string>Remove...</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0" colspan="2">
+          <item row="0" column="0" colspan="3">
            <widget class="QListWidget" name="list_plugin_paths"/>
           </item>
           <item row="1" column="0">
            <widget class="QPushButton" name="btn_add_plugin_path">
             <property name="text">
-             <string>Add...</string>
+             <string>Add</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QPushButton" name="btn_del_plugin_path">
+            <property name="text">
+             <string>Remove</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="btn_edit_plugin_path">
+            <property name="text">
+             <string>Edit</string>
             </property>
            </widget>
           </item>
@@ -318,29 +325,36 @@
           <string>Plugins</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_11">
-          <item row="1" column="1">
-           <widget class="QPushButton" name="btn_del_plugin">
-            <property name="text">
-             <string>Remove...</string>
-            </property>
-           </widget>
-          </item>
           <item row="1" column="0">
            <widget class="QPushButton" name="btn_add_plugin">
             <property name="text">
-             <string>Add...</string>
+             <string>Add</string>
             </property>
            </widget>
+          </item>
+          <item row="0" column="0" colspan="4">
+           <widget class="QListWidget" name="list_plugins"/>
           </item>
           <item row="1" column="2">
-           <widget class="QPushButton" name="btn_verify_plugins">
+           <widget class="QPushButton" name="btn_del_plugin">
             <property name="text">
-             <string>Verify...</string>
+             <string>Remove</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="0" colspan="3">
-           <widget class="QListWidget" name="list_plugins"/>
+          <item row="1" column="3">
+           <widget class="QPushButton" name="btn_verify_plugins">
+            <property name="text">
+             <string>Verify All</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="btn_edit_plugin">
+            <property name="text">
+             <string>Edit</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -351,6 +365,30 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>ckbox_online_bug_reporting</tabstop>
+  <tabstop>ledit_red_wavelength</tabstop>
+  <tabstop>ledit_green_wavelength</tabstop>
+  <tabstop>ledit_blue_wavelength</tabstop>
+  <tabstop>ledit_viewport_highlight_color</tabstop>
+  <tabstop>btn_viewport_highlight_color</tabstop>
+  <tabstop>cbox_pixel_cursor_type</tabstop>
+  <tabstop>ledit_pixel_cursor_color</tabstop>
+  <tabstop>btn_pixel_cursor_color</tabstop>
+  <tabstop>cbox_default_avg_mode</tabstop>
+  <tabstop>ledit_aavg_x</tabstop>
+  <tabstop>ledit_aavg_y</tabstop>
+  <tabstop>list_plugin_paths</tabstop>
+  <tabstop>btn_add_plugin_path</tabstop>
+  <tabstop>btn_edit_plugin_path</tabstop>
+  <tabstop>btn_del_plugin_path</tabstop>
+  <tabstop>list_plugins</tabstop>
+  <tabstop>btn_add_plugin</tabstop>
+  <tabstop>btn_edit_plugin</tabstop>
+  <tabstop>btn_del_plugin</tabstop>
+  <tabstop>btn_verify_plugins</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
@@ -360,8 +398,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>224</x>
-     <y>541</y>
+     <x>230</x>
+     <y>621</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -376,8 +414,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>292</x>
-     <y>547</y>
+     <x>298</x>
+     <y>621</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
