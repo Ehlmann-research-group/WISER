@@ -14,7 +14,7 @@ from .generated.app_config_ui import Ui_AppConfigDialog
 from .app_state import ApplicationState
 
 # We have a lot of variables named "plugins" so make the package name distinct.
-from wiser import plugins as plugins_api
+from wiser.plugins import utils as plugutils
 
 
 def qlistwidget_to_list(list_widget: QListWidget) -> List[str]:
@@ -344,8 +344,8 @@ class AppConfigDialog(QDialog):
         issues = []
         for p in qlistwidget_to_list(self._ui.list_plugins):
             try:
-                inst = plugins_api.instantiate(p)
-                if not plugins_api.is_plugin(inst):
+                inst = plugutils.instantiate(p)
+                if not plugutils.is_plugin(inst):
                     msg = self.tr('Class "{0}" isn\'t a recognized plugin type')
                     issues.append(msg.format(p))
 

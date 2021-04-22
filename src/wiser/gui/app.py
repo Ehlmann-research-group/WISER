@@ -278,13 +278,13 @@ class DataVisualizerApp(QMainWindow):
         for pc in plugin_classes:
             logger.debug(f'Instantiating plugin class "{pc}"')
             try:
-                plugin = plugins.instantiate(pc)
+                plugin = plugins.utils.instantiate(pc)
 
             except Exception as e:
                 logging.exception(f'Couldn\'t instantiate plugin class "{pc}"!')
                 continue
 
-            if not plugins.is_plugin(plugin):
+            if not plugins.utils.is_plugin(plugin):
                 logging.error(f'"{pc}" is not a recognized plugin type; skipping')
                 continue
 
