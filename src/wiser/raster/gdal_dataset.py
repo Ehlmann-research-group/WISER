@@ -9,26 +9,6 @@ from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array
 
 
-# A flag controlling whether virtual memory mapping warnings are reported.  The
-# warn_on_vmm_fail() function will report an error if this flag is true, and
-# then clear it so that VMM-failure warnings don't get too prolific.  (Basically
-# they either never happen, or they happen always.)
-flag_warn_on_vmm_fail = True
-
-def warn_on_vmm_fail():
-    '''
-    Report a warning the first time a virtual-memory mapping access fails.  Once
-    a failure is reported, no subsequent warnings are reported unless
-    flag_warn_on_vmm_fail is set again.
-    '''
-    global flag_warn_on_vmm_fail
-    if flag_warn_on_vmm_fail:
-        # TODO(donnie):  Windows Conda GDAL doesn't support virtual memory?!
-        print('Couldn\'t read with virtual memory.  Falling back to standard mechanism.')
-        print('(This will only be printed once.)')
-        flag_warn_on_vmm_fail = False
-
-
 class GDALRasterDataSet(RasterDataSet):
     '''
     A 2D raster data-set loaded and accessed through the GDAL (Geospatial Data
@@ -293,7 +273,6 @@ class GDALRasterDataSet(RasterDataSet):
         try:
             np_array = self.gdal_dataset.GetVirtualMemArray(band_sequential=True)
         except RuntimeError:
-            warn_on_vmm_fail()
             np_array = self.gdal_dataset.ReadAsArray()
 
         if filter_data_ignore_value:
@@ -326,7 +305,6 @@ class GDALRasterDataSet(RasterDataSet):
         try:
             np_array = band.GetVirtualMemAutoArray()
         except RuntimeError:
-            warn_on_vmm_fail()
             np_array = band.ReadAsArray()
 
         if filter_data_ignore_value:
