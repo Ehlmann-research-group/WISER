@@ -7,7 +7,7 @@ import numpy as np
 
 from .dataset import RasterDataSet
 from .roi import RegionOfInterest
-from .units import convert_spectral
+from .utils import convert_spectral
 
 
 class SpectrumType(Enum):

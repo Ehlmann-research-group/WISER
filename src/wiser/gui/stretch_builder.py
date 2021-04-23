@@ -7,8 +7,9 @@ from PySide2.QtWidgets import *
 from .generated.channel_stretch_widget_ui import Ui_ChannelStretchWidget
 from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 
-from wiser.raster.dataset import RasterDataSet, get_normalized_band
+from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
+from wiser.raster.utils import get_normalized_band
 
 import numpy as np
 import numpy.ma as ma

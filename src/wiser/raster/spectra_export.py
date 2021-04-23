@@ -7,7 +7,7 @@ from .dataset import RasterDataSet
 from .roi import RegionOfInterest
 from .spectra import get_all_spectra_in_roi
 from .spectrum_info import SpectrumInfo
-from .units import convert_spectral, get_band_values
+from .utils import convert_spectral, get_band_values
 
 
 def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,

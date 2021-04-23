@@ -1,1 +1,1 @@
-__all__ = ['dataset', 'gdal_dataset', 'units']
+__all__ = ['dataset', 'gdal_dataset', 'utils']

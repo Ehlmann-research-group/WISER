@@ -2,9 +2,6 @@ from typing import Optional, Union
 
 import numpy as np
 
-from .units import find_band_near_wavelength, \
-    RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-
 
 class BandStats:
     '''
@@ -266,81 +263,3 @@ class RasterDataLoader:
         RasterDataSet object.
         '''
         pass
-
-
-def find_truecolor_bands(dataset, red=RED_WAVELENGTH, green=GREEN_WAVELENGTH,
-                         blue=BLUE_WAVELENGTH):
-    '''
-    This function looks for bands in the dataset that are closest to the
-    visible-light spectral bands.
-
-    If a band cannot be found for red, green or blue wavelengths, the function
-    returns None.  Similarly, if the dataset doesn't specify wavelengths for
-    bands, the function returns None.
-
-    If bands are found for all of the red, green and blue wavelengths, then the
-    function returns a (red_band_index, grn_band_index, blu_band_index) triple.
-    '''
-    if not dataset.has_wavelengths():
-        return None
-
-    bands = dataset.band_list()
-    red_band   = find_band_near_wavelength(bands, red)
-    green_band = find_band_near_wavelength(bands, green)
-    blue_band  = find_band_near_wavelength(bands, blue)
-
-    # If that didn't work, report None
-    if red_band is None or green_band is None or blue_band is None:
-        return None
-
-    return (red_band, green_band, blue_band)
-
-
-def find_display_bands(dataset):
-    '''
-    This helper function figures out which bands to use for displaying the
-    specified raster data set.  The function operates as follows:
-
-    1)  If the data set specifies default display bands, these are returned.
-    2)  Otherwise, if the data set has frequency bands that correspond to the
-        frequencies/wavelengths perceived by the human eye, these are returned.
-    3)  Otherwise, the first, middle and last bands are used as display bands.
-    '''
-
-    # See if the raster data-set specifies display bands, and if so, use them
-    display_bands = dataset.default_display_bands()
-    if display_bands is not None:
-        return display_bands
-
-    # Try to find bands based on what is close to visible spectral bands
-    display_bands = find_truecolor_bands(dataset)
-    if display_bands is not None:
-        return display_bands
-
-    # If that didn't work, just choose the first bands
-    if dataset.num_bands() >= 3:
-        # We have at least 3 bands, so use those.
-        return (0, 1, 2)
-
-    else:
-        # We have fewer than 3 bands, so just use one band in grayscale mode.
-        return (0,)  # Need the comma to interpret as a tuple, not arithmetic.
-
-
-def get_normalized_band(dataset, band_index):
-    '''
-    Extracts the specified band of raster data, mapping all elements to the
-    range of [0.0, 1.0].  Elements will be of type np.float32, unless the input
-    data is already np.float64, in which case the elements are left as
-    np.float64.
-    '''
-    band_data = dataset.get_band_data(band_index)
-    stats = dataset.get_band_stats(band_index)
-
-    norm_data = (band_data - stats.get_min()) / (stats.get_max() - stats.get_min())
-
-    if norm_data.dtype not in [np.float32, np.float64]:
-        print(f'NOTE:  norm_data.dtype is {norm_data.dtype}, band_data.dtype is {band_data.dtype}')
-        norm_data = norm_data.astype(np.float32)
-
-    return norm_data

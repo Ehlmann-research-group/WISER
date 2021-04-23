@@ -10,7 +10,6 @@ from astropy import units as u
 
 from .app_config import LegendPlacement
 from .generated.spectrum_plot_config_ui import Ui_SpectrumPlotConfig
-from wiser.raster import units
 
 
 class SpectrumPlotConfigDialog(QDialog):

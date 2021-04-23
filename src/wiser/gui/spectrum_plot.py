@@ -23,7 +23,7 @@ from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectra import SpectrumType, SpectrumAverageMode, calc_rect_spectrum
 from wiser.raster.spectra_export import export_spectrum_list
 from wiser.raster.spectrum_info import SpectrumInfo, LibrarySpectrum
-from wiser.raster import units as raster_units
+from wiser.raster import utils as raster_utils
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -182,7 +182,7 @@ class SpectrumDisplayInfo:
             # the graphs to look correct, even in the face of bad bands, plots
             # from different datasets with different wavelengths, etc.
 
-            wavelengths = raster_units.get_band_values(
+            wavelengths = raster_utils.get_band_values(
                 self._spectrum.get_wavelengths(), wavelength_units)
 
             lines = axes.plot(wavelengths, values, color=color,
@@ -270,7 +270,7 @@ class SpectrumPointDisplayInfo:
             x_value = self._spectrum.get_wavelengths()[self._band_index]
 
             if self._band_units is not None:
-                x_value = raster_units.convert_spectral(x_value, self._band_units)
+                x_value = raster_utils.convert_spectral(x_value, self._band_units)
 
             label = f'{x_value} = {y_value}'
         else:
@@ -970,7 +970,7 @@ class SpectrumPlot(QWidget):
 
                 # TODO(donnie):  specify max_distance so that we are within a
                 #     few pixels of the x_data value.
-                index = raster_units.find_closest_wavelength(wavelengths, click_x)
+                index = raster_utils.find_closest_wavelength(wavelengths, click_x)
                 if index is None:
                     continue
 

@@ -2,7 +2,7 @@ import math, os
 from urllib.parse import urlparse
 
 from .dataset import RasterDataSet, RasterDataLoader, BandStats
-from .units import make_spectral_value, convert_spectral
+from .utils import make_spectral_value, convert_spectral
 
 import numpy as np
 from astropy import units as u

@@ -2,7 +2,7 @@ import os, warnings
 
 from .spectral_library import SpectralLibrary
 from .loaders.envi import *
-from .units import make_spectral_value, convert_spectral
+from .utils import make_spectral_value, convert_spectral
 
 import numpy as np
 from astropy import units as u
