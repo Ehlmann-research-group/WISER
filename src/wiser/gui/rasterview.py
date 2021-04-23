@@ -10,9 +10,9 @@ import numpy as np
 
 from .util import get_painter
 
-from wiser.raster.dataset import RasterDataSet, find_display_bands
+from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import StretchBase
-from wiser.raster.nputil import normalize
+from wiser.raster.utils import find_display_bands, normalize_ndarray
 
 
 def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
@@ -26,7 +26,7 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     stats = dataset.get_band_stats(band)
 
     # Normalize the raw band data.
-    band_data = normalize(raw_data,
+    band_data = normalize_ndarray(raw_data,
         minval=stats.get_min(), maxval=stats.get_max())
 
     # If a stretch is specified for the channel, apply it to the

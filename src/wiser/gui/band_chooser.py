@@ -10,7 +10,8 @@ from .generated.band_chooser_ui import Ui_BandChooserDialog
 
 from .app_state import ApplicationState
 
-from wiser.raster.dataset import RasterDataSet, find_truecolor_bands
+from wiser.raster.dataset import RasterDataSet
+from wiser.raster.utils import find_truecolor_bands
 
 
 class BandChooserDialog(QDialog):
