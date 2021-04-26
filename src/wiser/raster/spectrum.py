@@ -1,3 +1,5 @@
+import abc
+import enum
 import os
 from typing import List, Optional, Tuple
 
@@ -11,7 +13,23 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.roi import RegionOfInterest
-from wiser.raster.spectra import SpectrumAverageMode, calc_rect_spectrum, calc_roi_spectrum
+
+
+#============================================================================
+# SPECTRAL CALCULATIONS
+
+
+class SpectrumAverageMode(enum.Enum):
+    '''
+    This enumeration specifies the calculation mode when a spectrum is computed
+    over multiple pixels of a raster data set.
+    '''
+
+    # Compute the mean (average) spectrum over multiple spatial pixels
+    MEAN = 1
+
+    # Compute the median spectrum over multiple spatial pixels
+    MEDIAN = 2
 
 
 AVG_MODE_NAMES = {
@@ -20,7 +38,92 @@ AVG_MODE_NAMES = {
 }
 
 
-class SpectrumInfo:
+def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
+    '''
+    Calculate a spectrum over a rectangular area of the specified dataset.
+    The calculation mode can be specified with the mode argument.
+
+    The rect argument is expected to be a QRect object.
+    '''
+    points = [(rect.left() + dx, rect.top() + dy)
+              for dx, dy in np.ndindex(rect.width(), rect.height())]
+
+    return calc_spectrum(dataset, points, mode)
+
+
+def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
+                  mode=SpectrumAverageMode.MEAN):
+    '''
+    Calculate a spectrum over a collection of points from the specified dataset.
+    The calculation mode can be specified with the mode argument.
+
+    The points argument can be any iterable that produces coordinates for this
+    function to use.
+    '''
+
+    n = 0
+    spectra = []
+
+    # Collect the spectra that we need for the calculation
+    for p in points:
+        n += 1
+        s = dataset.get_all_bands_at(p[0], p[1])
+        spectra.append(s)
+
+    if len(spectra) > 1:
+        # Need to compute mean/median/... of the collection of spectra
+        if mode == SpectrumAverageMode.MEAN:
+            spectrum = np.mean(spectra, axis=0)
+
+        elif mode == SpectrumAverageMode.MEDIAN:
+            spectrum = np.median(spectra, axis=0)
+
+        else:
+            raise ValueError(f'Unrecognized average type {mode}')
+
+    else:
+        # Only one spectrum, don't need to compute mean/median
+        spectrum = spectra[0]
+
+    return spectrum
+
+
+def get_all_spectra_in_roi(dataset: RasterDataSet, roi: RegionOfInterest) -> List[Tuple[Tuple[int, int], np.ndarray]]:
+    '''
+    Given a raster data set and a region of interest, this function returns an
+    array of 2-tuples, where each pair is comprised of:
+
+    *   The pixel's (x, y) integer coordinates as a 2-tuple
+    *   A NumPy ndarray object containing the spectrum at that coordinate.
+
+    Note that the spectral data will include NaNs for any value from a bad band,
+    or that was set to the "data ignore value".
+    '''
+    # Generate the set of all pixels in the ROI.  Turn it into a list so we can
+    # sort it.
+    all_pixels = list(roi.get_all_pixels())
+    all_pixels.sort()
+
+    # Generate the collection of spectra at all of those pixels.  Each element
+    # in the list is the pixel, plus its NumPy
+    all_spectra = [(p, dataset.get_all_bands_at(x=p[0], y=p[1])) for p in all_pixels]
+
+    return all_spectra
+
+
+def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=SpectrumAverageMode.MEAN):
+    '''
+    Calculate a spectrum over a Region of Interest from the specified dataset.
+    The calculation mode can be specified with the mode argument.
+    '''
+    return calc_spectrum(dataset, roi.get_all_pixels(), mode)
+
+
+#============================================================================
+# CLASSES TO REPRESENT SPECTRA
+
+
+class Spectrum(abc.ABC):
     '''
     The base class for representing spectra of interest to the user of the
     application.
@@ -88,7 +191,7 @@ class SpectrumInfo:
 # LIBRARY SPECTRA
 #===============================================================================
 
-class LibrarySpectrum(SpectrumInfo):
+class LibrarySpectrum(Spectrum):
     '''
     This class represents a spectrum that is taken from a spectral library.
     '''
@@ -147,11 +250,26 @@ class LibrarySpectrum(SpectrumInfo):
         '''
         return self._spectral_library.get_spectrum(self._spectrum_index)
 
+
+#===============================================================================
+# NUMPY ARRAY SPECTRA
+#===============================================================================
+
+class NumPyArraySpectrum(Spectrum):
+    '''
+    This class represents a spectrum that wraps a simple 1D NumPy array.  This
+    is generally used for computed spectra.
+    '''
+    def __init__(self, arr: np.ndarray):
+        super().__init__()
+        self._arr = arr
+
+
 #===============================================================================
 # RASTER DATA-SET SPECTRA
 #===============================================================================
 
-class RasterDataSetSpectrum(SpectrumInfo):
+class RasterDataSetSpectrum(Spectrum):
     def __init__(self, dataset):
         super().__init__()
         self._dataset = dataset

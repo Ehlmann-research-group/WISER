@@ -21,7 +21,7 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType, Selection, SinglePixelSelection
 from wiser.raster.spectra_export import export_roi_pixel_spectra
-from wiser.raster.spectrum_info import ROIAverageSpectrum
+from wiser.raster.spectrum import ROIAverageSpectrum
 from wiser.raster.utils import find_display_bands, find_truecolor_bands
 
 from .ui_roi import draw_roi, get_picked_roi_selections

@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import platform
+import pprint
 import sys
 import traceback
 
@@ -39,9 +40,8 @@ from wiser import plugins
 from .bandmath_dialog import BandMathDialog
 from wiser import bandmath
 
-from wiser.raster.spectra import SpectrumAverageMode
-from wiser.raster.spectrum_info import SpectrumAtPoint
 from wiser.raster.selection import SinglePixelSelection
+from wiser.raster.spectrum import SpectrumAtPoint, SpectrumAverageMode
 
 
 logger = logging.getLogger(__name__)
@@ -580,9 +580,10 @@ class DataVisualizerApp(QMainWindow):
         dialog = BandMathDialog(self._app_state)
         if dialog.exec() == QDialog.Accepted:
             expression = dialog.get_expression()
-            print(f'Evaluate band math:  {expression}')
-
             variables = dialog.get_variable_bindings()
+
+            logger.info(f'Evaluating band-math expression:  {expression}\n' +
+                        f'Variable bindings:\n{pprint.pformat(variables)}')
 
             # Collect functions from all plugins.
             functions = {}
@@ -610,28 +611,27 @@ class DataVisualizerApp(QMainWindow):
                 (result_type, result) = bandmath.eval_bandmath_expr(expression,
                     variables, functions)
 
-                print(f'Result of band-math evaluation is type {result_type}')
-                print(f'Result is:\n{result}')
+                logger.debug(f'Result of band-math evaluation is type ' +
+                             f'{result_type}, value:\n{result}')
+
+                loader = self._app_state.get_loader()
 
                 if result_type == bandmath.VariableType.IMAGE_CUBE:
-                    loader = self._app_state.get_loader()
-                    new_dataset = loader.from_numpy_array(result)
+                    new_dataset = loader.dataset_from_numpy_array(result)
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.IMAGE_BAND:
                     # Convert the image band into a 1-band image cube
                     result = result[np.newaxis, :]
-                    loader = self._app_state.get_loader()
-                    new_dataset = loader.from_numpy_array(result)
+                    new_dataset = loader.dataset_from_numpy_array(result)
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.SPECTRUM:
-                    # new_spectrum = bandmath.result_to_spectrum(result_type, result)
-                    # self._app_state.set_active_spectrum(new_spectrum)
-                    print('TODO:  create new spectrum')
+                    new_spectrum = loader.spectrum_from_numpy_array(result)
+                    self._app_state.set_active_spectrum(new_spectrum)
 
             except Exception as e:
-                traceback.print_exc()
+                logger.exception('Couldn\'t evaluate band-math expression')
                 QMessageBox.critical(self, self.tr('Bandmath Evaluation Error'),
                     self.tr('Couldn\'t evaluate band-math expression') +
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')

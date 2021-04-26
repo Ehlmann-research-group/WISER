@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
-from wiser.raster.spectrum_info import SpectrumInfo
+from wiser.raster.spectrum import Spectrum
 
 
 class VariableType(enum.IntEnum):
