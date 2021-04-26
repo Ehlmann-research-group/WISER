@@ -20,9 +20,8 @@ from .util import add_toolbar_action, get_random_matplotlib_color, get_color_ico
 from wiser import plugins
 
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
-from wiser.raster.spectra import SpectrumType, SpectrumAverageMode, calc_rect_spectrum
 from wiser.raster.spectra_export import export_spectrum_list
-from wiser.raster.spectrum_info import SpectrumInfo, LibrarySpectrum
+from wiser.raster.spectrum import Spectrum, LibrarySpectrum
 from wiser.raster import utils as raster_utils
 
 import matplotlib
@@ -135,12 +134,12 @@ class SpectrumDisplayInfo:
     information for a specific spectrum being displayed.
     '''
 
-    def __init__(self, spectrum: SpectrumInfo):
+    def __init__(self, spectrum: Spectrum):
         '''
         *   id is the numeric ID assigned to the spectrum
         *   line2d is the matplotlib line for the spectrum's data
         '''
-        self._spectrum = spectrum
+        self._spectrum: Spectrum = spectrum
 
         if self._spectrum.get_color() is None:
             self._spectrum.set_color(get_random_matplotlib_color())
@@ -160,7 +159,7 @@ class SpectrumDisplayInfo:
         return self._icon
 
 
-    def get_spectrum(self) -> SpectrumInfo:
+    def get_spectrum(self) -> Spectrum:
         return self._spectrum
 
 

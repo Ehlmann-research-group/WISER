@@ -11,7 +11,7 @@ from wiser.plugins import Plugin
 from wiser.raster.dataset import *
 from wiser.raster.gdal_dataset import GDALRasterDataLoader
 
-from wiser.raster.spectrum_info import SpectrumInfo
+from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import SpectralLibrary
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.loaders.envi import EnviFileFormatError
@@ -101,15 +101,15 @@ class ApplicationState(QObject):
 
         # A collection of all spectra in the application state, so that we can
         # look them up by ID.
-        self._all_spectra: Dict[int, SpectrumInfo] = {}
+        self._all_spectra: Dict[int, Spectrum] = {}
 
         # The "currently active" spectrum, which is set when the user clicks on
         # pixels, or wants to view an ROI average spectrum, etc.
-        self._active_spectrum: Optional[SpectrumInfo] = None
+        self._active_spectrum: Optional[Spectrum] = None
 
         # The spectra collected by the user, possibly for export, or conversion
         # into a spectral library.
-        self._collected_spectra: List[SpectrumInfo] = []
+        self._collected_spectra: List[Spectrum] = []
 
         # Configuration state.
 
@@ -434,13 +434,13 @@ class ApplicationState(QObject):
     def get_rois(self):
         return self._regions_of_interest.values()
 
-    def get_spectrum(self, spectrum_id: int) -> SpectrumInfo:
+    def get_spectrum(self, spectrum_id: int) -> Spectrum:
         return self._all_spectra[spectrum_id]
 
     def get_active_spectrum(self):
         return self._active_spectrum
 
-    def set_active_spectrum(self, spectrum: SpectrumInfo):
+    def set_active_spectrum(self, spectrum: Spectrum):
         # If we already have an active spectrum, remove its ID from the mapping.
         if self._active_spectrum:
             del self._all_spectra[self._active_spectrum.get_id()]
@@ -455,7 +455,7 @@ class ApplicationState(QObject):
         self._active_spectrum = spectrum
         self.active_spectrum_changed.emit()
 
-    def collect_spectrum(self, spectrum: SpectrumInfo):
+    def collect_spectrum(self, spectrum: Spectrum):
         if spectrum is None:
             raise ValueError('spectrum cannot be None')
 

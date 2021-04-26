@@ -1,8 +1,6 @@
 import os
 from typing import Optional
 
-from .dataset import RasterDataSet
-
 
 class SpectralLibrary:
     '''

@@ -6,10 +6,9 @@ import matplotlib
 
 from .generated.spectrum_info_editor_ui import Ui_SpectrumInfoEditor
 
-from wiser.raster.spectrum_info import (AVG_MODE_NAMES, SpectrumInfo,
-    LibrarySpectrum, RasterDataSetSpectrum, SpectrumAtPoint, ROIAverageSpectrum)
-
-from wiser.raster.spectra import SpectrumType, SpectrumAverageMode
+from wiser.raster.spectrum import (SpectrumAverageMode, AVG_MODE_NAMES)
+from wiser.raster.spectrum import (Spectrum, LibrarySpectrum,
+    RasterDataSetSpectrum, SpectrumAtPoint, ROIAverageSpectrum)
 
 
 class SpectrumInfoEditor(QDialog):
@@ -37,8 +36,8 @@ class SpectrumInfoEditor(QDialog):
         self._ui.lineedit_area_avg_y.editingFinished.connect(self._on_finish_aavg)
 
 
-    def configure_ui(self, spectrum_info):
-        self._spectrum_info = spectrum_info
+    def configure_ui(self, spectrum: Spectrum):
+        self._spectrum = spectrum
 
         #========================================
         # Constants:
@@ -50,31 +49,31 @@ class SpectrumInfoEditor(QDialog):
 
         # Name, Spectrum type, Data set
 
-        self._ui.lineedit_name.setText(self._spectrum_info.get_name())
-        self._ui.lineedit_dataset.setText(self._spectrum_info.get_source_name())
+        self._ui.lineedit_name.setText(self._spectrum.get_name())
+        self._ui.lineedit_dataset.setText(self._spectrum.get_source_name())
 
         autogen_name = False
-        if isinstance(self._spectrum_info, RasterDataSetSpectrum):
-            autogen_name = self._spectrum_info.use_generated_name()
+        if isinstance(self._spectrum, RasterDataSetSpectrum):
+            autogen_name = self._spectrum.use_generated_name()
         self._ui.ckbox_autogen_name.setChecked(autogen_name)
 
         # Location
 
-        if isinstance(spectrum_info, SpectrumAtPoint):
+        if isinstance(spectrum, SpectrumAtPoint):
             self._ui.lineedit_spectrum_type.setText(self.tr('Spectrum at pixel'))
 
-            p = self._spectrum_info.get_point()
+            p = self._spectrum.get_point()
             self._ui.lineedit_location.setText(f'({p[0]}, {p[1]})')
             self._ui.lineedit_location.setEnabled(True)
 
-        elif isinstance(spectrum_info, ROIAverageSpectrum):
+        elif isinstance(spectrum, ROIAverageSpectrum):
             self._ui.lineedit_spectrum_type.setText(self.tr('Region of interest'))
 
-            roi_name = self._spectrum_info.get_roi().get_name()
+            roi_name = self._spectrum.get_roi().get_name()
             self._ui.lineedit_location.setText(f'Region of Interest:  {roi_name}')
             self._ui.lineedit_location.setEnabled(True)
 
-        elif isinstance(spectrum_info, LibrarySpectrum):
+        elif isinstance(spectrum, LibrarySpectrum):
             self._ui.lineedit_spectrum_type.setText(self.tr('Library spectrum'))
 
             self._ui.lineedit_location.clear()
@@ -83,11 +82,11 @@ class SpectrumInfoEditor(QDialog):
         # Average Mode
 
         self._ui.combobox_avg_mode.clear()
-        if isinstance(spectrum_info, RasterDataSetSpectrum):
+        if isinstance(spectrum, RasterDataSetSpectrum):
             for (key, value) in avg_modes.items():
                 self._ui.combobox_avg_mode.addItem(value, key)
 
-            avg_mode = self._spectrum_info.get_avg_mode()
+            avg_mode = self._spectrum.get_avg_mode()
             i = self._ui.combobox_avg_mode.findData(avg_mode)
             self._ui.combobox_avg_mode.setCurrentIndex(i)
 
@@ -99,8 +98,8 @@ class SpectrumInfoEditor(QDialog):
 
         # Area-average size
 
-        if isinstance(spectrum_info, SpectrumAtPoint):
-            (area_avg_x, area_avg_y) = self._spectrum_info.get_area()
+        if isinstance(spectrum, SpectrumAtPoint):
+            (area_avg_x, area_avg_y) = self._spectrum.get_area()
 
             self._ui.lineedit_area_avg_x.setText(str(area_avg_x))
             self._ui.lineedit_area_avg_y.setText(str(area_avg_y))
@@ -116,14 +115,14 @@ class SpectrumInfoEditor(QDialog):
 
         # Plot color
 
-        self._ui.lineedit_plot_color.setText(self._spectrum_info.get_color())
+        self._ui.lineedit_plot_color.setText(self._spectrum.get_color())
 
 
     def _on_choose_color(self, checked):
         initial_color = QColor(self._ui.lineedit_plot_color.text())
         color = QColorDialog.getColor(parent=self, initial=initial_color)
         if color.isValid():
-            # self._spectrum_info.set_color(color.name())
+            # self._spectrum.set_color(color.name())
             self._ui.lineedit_plot_color.setText(color.name())
 
 
@@ -136,7 +135,7 @@ class SpectrumInfoEditor(QDialog):
 
     def _maybe_regenerate_name(self):
         if self._ui.ckbox_autogen_name.isChecked():
-            self._ui.lineedit_name.setText(self._spectrum_info._generate_name())
+            self._ui.lineedit_name.setText(self._spectrum._generate_name())
 
     def _on_autogen_name(self, checked):
         self._maybe_regenerate_name()
@@ -164,7 +163,7 @@ class SpectrumInfoEditor(QDialog):
 
         # Area-average size (if spectrum at point)
 
-        if isinstance(self._spectrum_info, SpectrumAtPoint):
+        if isinstance(self._spectrum, SpectrumAtPoint):
             area_avg_x = int(self._ui.lineedit_area_avg_x.text())
             area_avg_y = int(self._ui.lineedit_area_avg_y.text())
 
@@ -189,23 +188,23 @@ class SpectrumInfoEditor(QDialog):
 
         # Name
 
-        self._spectrum_info.set_use_generated_name(use_autogen_name)
+        self._spectrum.set_use_generated_name(use_autogen_name)
         if not use_autogen_name:
-            self._spectrum_info.set_name(name)
+            self._spectrum.set_name(name)
 
         # Average Mode
 
-        if isinstance(self._spectrum_info, RasterDataSetSpectrum):
-            self._spectrum_info.set_avg_mode(self._ui.combobox_avg_mode.currentData())
+        if isinstance(self._spectrum, RasterDataSetSpectrum):
+            self._spectrum.set_avg_mode(self._ui.combobox_avg_mode.currentData())
 
         # Area-average size
 
-        if isinstance(self._spectrum_info, SpectrumAtPoint):
-            self._spectrum_info.set_area( (area_avg_x, area_avg_y) )
+        if isinstance(self._spectrum, SpectrumAtPoint):
+            self._spectrum.set_area( (area_avg_x, area_avg_y) )
 
         # Plot color
 
-        self._spectrum_info.set_color(color_name)
+        self._spectrum.set_color(color_name)
 
         #=======================================================================
         # All done!

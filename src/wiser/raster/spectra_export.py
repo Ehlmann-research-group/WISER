@@ -5,8 +5,7 @@ from astropy import units as u
 
 from .dataset import RasterDataSet
 from .roi import RegionOfInterest
-from .spectra import get_all_spectra_in_roi
-from .spectrum_info import SpectrumInfo
+from .spectrum import Spectrum, get_all_spectra_in_roi
 from .utils import convert_spectral, get_band_values
 
 
@@ -88,7 +87,7 @@ def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,
             f.write('\n')
 
 
-def export_spectrum_list(filename: str, spectra: List[SpectrumInfo],
+def export_spectrum_list(filename: str, spectra: List[Spectrum],
                          missing_value=9999):
     '''
     Export the specified list of spectra, to a tab-delimited text file.

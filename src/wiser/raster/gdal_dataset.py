@@ -2,6 +2,7 @@ import math, os
 from urllib.parse import urlparse
 
 from .dataset import RasterDataSet, RasterDataLoader, BandStats
+from .spectrum import Spectrum
 from .utils import make_spectral_value, convert_spectral
 
 import numpy as np
@@ -414,7 +415,18 @@ class GDALRasterDataLoader(RasterDataLoader):
         return GDALRasterDataSet(gdal_dataset)
 
 
-    def from_numpy_array(self, arr: np.ndarray):
+    def dataset_from_numpy_array(self, arr: np.ndarray) -> RasterDataSet:
+        '''
+        Given a NumPy ndarray, this function returns a RasterDataSet object
+        that uses the array for its raster data.  The input ndarray must have
+        three dimensions; they are interpreted as
+        [spatial_y][spatial_x][spectral].
+
+        Raises a ValueError if the input array doesn't have 3 dimensions.
+        '''
+
+        if len(arr.shape) != 3:
+            raise ValueError('NumPy array must have 3 dimensions')
 
         gdal.UseExceptions()
         gdal_dataset = gdal_array.OpenNumPyArray(arr, binterleave=True)
@@ -423,3 +435,7 @@ class GDALRasterDataLoader(RasterDataLoader):
         name = f'unnamed {self._unnamed_datasets}'
 
         return GDALRasterDataSet(gdal_dataset, name=name)
+
+
+    def spectrum_from_numpy_array(self, arr: np.ndarray) -> Spectrum:
+        return None

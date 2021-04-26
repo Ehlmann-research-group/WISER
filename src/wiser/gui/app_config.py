@@ -10,7 +10,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from wiser import version
-from wiser.raster.spectra import SpectrumAverageMode
+from wiser.raster.spectrum import SpectrumAverageMode
 
 
 
