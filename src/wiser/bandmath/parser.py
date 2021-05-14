@@ -2,7 +2,7 @@ from typing import Dict, List, Set
 
 import lark
 
-from .common import VariableType
+from .types import VariableType
 
 
 class VariableCollector(lark.visitors.Visitor):

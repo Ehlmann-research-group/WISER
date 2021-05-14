@@ -1,5 +1,7 @@
 from typing import List
 
+import numpy as np
+
 from wiser.bandmath import VariableType, BandMathValue
 from wiser.bandmath.functions import BandMathFunction
 

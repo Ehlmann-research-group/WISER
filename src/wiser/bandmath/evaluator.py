@@ -5,25 +5,11 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import lark
 import numpy as np
 
-from .common import VariableType, BandMathValue, BandMathEvalError
+from .types import VariableType, BandMathValue, BandMathEvalError
 from .functions import BandMathFunction, get_builtin_functions
 
 from .builtins import OperatorAdd, OperatorSub, OperatorMul, OperatorDiv
 from .builtins import OperatorUnaryNegate, OperatorPower
-
-
-class BandMathOperation(enum.Enum):
-    ADD = 1
-
-    SUBTRACT = 2
-
-    MULTIPLY = 3
-
-    DIVIDE = 4
-
-    POWER = 5
-
-    UNARY_NEGATE = 6
 
 
 class BandMathEvaluator(lark.visitors.Transformer):
@@ -36,16 +22,36 @@ class BandMathEvaluator(lark.visitors.Transformer):
         self._functions = functions
 
     def and_expr(self, values):
-        raise NotImplementedError(f'TODO:  and_expr({values})')
+        '''
+        Implementation of logical AND operations in the transformer.
+        '''
+        lhs = values[0]
+        rhs = values[1]
+        return OperatorAnd().apply([lhs, rhs])
 
     def or_expr(self, values):
-        raise NotImplementedError(f'TODO:  or_expr({values})')
+        '''
+        Implementation of logical OR operations in the transformer.
+        '''
+        lhs = values[0]
+        rhs = values[1]
+        return OperatorOr().apply([lhs, rhs])
 
     def not_expr(self, values):
-        raise NotImplementedError(f'TODO:  not_expr({values})')
+        return OperatorNot().apply([values[0]])
 
     def comparison(self, args):
-        raise NotImplementedError(f'TODO:  comparison({args})')
+        lhs = values[0]
+        oper = values[1]
+        rhs = values[2]
+
+        if oper == '>':
+            return OperatorGreater().apply([lhs, rhs])
+
+        elif oper == '<':
+            return OperatorLess().apply([lhs, rhs])
+
+        raise RuntimeError(f'Unexpected operator {oper}')
 
 
     def add_expr(self, values):
@@ -104,20 +110,30 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
 
     def true(self, args):
+        ''' Returns a BandMathValue of True. '''
         return BandMathValue(VariableType.BOOLEAN, True, computed=False)
 
     def false(self, args):
+        ''' Returns a BandMathValue of False. '''
         return BandMathValue(VariableType.BOOLEAN, False, computed=False)
 
     def number(self, args):
+        ''' Returns a BandMathValue containing a specific number. '''
         return args[0]
 
-    def variable(self, args):
+    def variable(self, args) -> BandMathValue:
+        '''
+        Returns a BandMathValue containing the value of the specified variable.
+        '''
         name = args[0]
         (type, value) = self._variables[name]
         return BandMathValue(type, value, computed=False)
 
-    def function(self, args):
+    def function(self, args) -> BandMathValue:
+        '''
+        Calls the function named in args[0], passing it args[1:], and returns
+        the result as a BandMathValue.
+        '''
         func_name = args[0]
         func_args = args[1:]
 
@@ -127,12 +143,18 @@ class BandMathEvaluator(lark.visitors.Transformer):
         func_impl = self._functions[func_name]
         return func_impl.apply(func_args)
 
-    def NAME(self, token):
-        ''' Parse a token as a string variable name. '''
+    def NAME(self, token) -> str:
+        '''
+        Parse a token as a string variable name.  The variable name is converted
+        to lowercase.
+        '''
         return str(token).lower()
 
-    def NUMBER(self, token):
-        ''' Parse a token as a number. '''
+    def NUMBER(self, token) -> BandMathValue:
+        '''
+        Parse a token as a number.  The number is represented as a Python float,
+        and is wrapped in a BandMathValue object.
+        '''
         return BandMathValue(VariableType.NUMBER, float(token), computed=False)
 
 
@@ -149,7 +171,7 @@ def eval_bandmath_expr(bandmath_expr: str,
 
     *   VariableType.IMAGE_CUBE:  RasterDataSet, 3D np.ndarray [band][x][y]
     *   VariableType.IMAGE_BAND:  RasterDataBand, 2D np.ndarray [x][y]
-    *   VariableType.SPECTRUM:  SpectrumInfo, 1D np.ndarray [band]
+    *   VariableType.SPECTRUM:  Spectrum, 1D np.ndarray [band]
 
     Functions are passed in a dictionary of string names that map to a callable.
     TODO:  MORE DETAIL HERE, ONCE WE IMPLEMENT THIS.

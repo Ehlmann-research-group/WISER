@@ -382,10 +382,10 @@ class GDALRasterDataLoader(RasterDataLoader):
         self._unnamed_datasets: int = 0
 
 
-    def load(self, path_or_url):
+    def load(self, path):
         '''
-        Load a raster data-set from the specified path or URL.  Returns a
-        RasterDataSet object.
+        Load a raster data-set from the specified path.  Returns a
+        class:RasterDataSet object.
         '''
 
         # TODO(donnie):  For now, assume we have a file path.
@@ -393,22 +393,22 @@ class GDALRasterDataLoader(RasterDataLoader):
 
         # ENVI files:  GDAL doesn't like dealing with the ".hdr" files, so if we
         # are given a ".hdr" file, try to find the corresponding data file.
-        if path_or_url.endswith('.hdr'):
-            s = path_or_url[:-4]
+        if path.endswith('.hdr'):
+            s = path[:-4]
             if os.path.isfile(s):
-                path_or_url = s
+                path = s
             else:
                 s = s + '.img'
                 if os.path.isfile(s):
-                    path_or_url = s
+                    path = s
                 else:
-                    raise ValueError(f"Can't find raster file corresponding to"
-                                     " ENVI header file {path_or_url}")
+                    raise ValueError("Can't find raster file corresponding to" +
+                                     f" ENVI header file {path}")
 
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
-        gdal_dataset = gdal.OpenEx(path_or_url,
+        gdal_dataset = gdal.OpenEx(path,
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
             allowed_drivers=['ENVI', 'GTiff', 'PDS', 'PDS4'])
 
