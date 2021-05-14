@@ -14,12 +14,15 @@ class BandStats:
         self._max_value = max_value
 
     def get_band_index(self):
+        ''' Returns the 0-based index of the band in the spectral data set. '''
         return self._band_index
 
     def get_min(self):
+        ''' Returns the cached minimum value in the band. '''
         return self._min_value
 
     def get_max(self):
+        ''' Returns the cached maximum value in the band. '''
         return self._max_value
 
     def __str__(self):
@@ -28,23 +31,8 @@ class BandStats:
 
 class RasterDataSet:
     '''
-    A 2D raster data-set, possibly with many bands of data per pixel.  It can be
-    used to represent hyperspectral data, as well as results of analysis
-    generated from a hyperspectral data-set.
-
-    If specific steps must be taken when a data-set is closed, the
-    implementation should implement the __del__ function.
-
-    TODO(donnie):  This abstraction doesn't capture a couple of details.  First,
-        different bands can have different resolutions.  Second, the data-set
-        may contain multiple scaled versions for rapid display and analysis of
-        data.
-
-    TODO(donnie):  The API here is very generalized.  Somehow we need to
-        provide a mechanism for processing and traversal that knows how to
-        traverse the underlying data in the most efficient way possible.
-        Ideally, also allowing us to push computation into numpy, where we can
-        employ various performance-improvement techniques.
+    A 2D raster data-set for imaging spectroscopy, possibly with many bands of
+    data for each pixel.
     '''
 
     def get_id(self):
@@ -166,7 +154,7 @@ class RasterDataSet:
         Returns a numpy 3D array of the entire image cube.
 
         The numpy array is configured such that the pixel (x, y) values of band
-        b are at element array[b][x][y].
+        b are at element array[b][y][x].
 
         If the data-set has a "data ignore value" and filter_data_ignore_value
         is also set to True, the array will be filtered such that any element
@@ -181,7 +169,7 @@ class RasterDataSet:
         is at index 0.
 
         The numpy array is configured such that the pixel (x, y) values are at
-        element array[x][y].
+        element array[y][x].
 
         If the data-set has a "data ignore value" and filter_data_ignore_value
         is also set to True, the array will be filtered such that any element
@@ -192,8 +180,8 @@ class RasterDataSet:
 
     def get_band_stats(self, band_index):
         '''
-        Returns statistics of the specified band's data, wrapped in a BandStats
-        object.
+        Returns statistics of the specified band's data, wrapped in a
+        class:BandStats object.
         '''
         pass
 
@@ -212,27 +200,29 @@ class RasterDataSet:
 class RasterDataBand:
     '''
     A helper class to represent a single band of a raster data set.  This is a
-    simple wrapper around RasterDataSet that also tracks a single band.
+    simple wrapper around class:RasterDataSet that also tracks a single band.
     '''
-    def __init__(self, dataset:RasterDataSet, band_index: int):
+    def __init__(self, dataset: RasterDataSet, band_index: int):
         if band_index < 0 or band_index >= dataset.num_bands():
             raise ValueError(f'band_index {band_index} is invalid')
 
         self._dataset = dataset
         self._band_index = band_index
 
-    def get_dataset(self):
+    def get_dataset(self) -> RasterDataSet:
+        ''' Return the backing data set. '''
         return self._dataset
 
-    def get_band_index(self):
+    def get_band_index(self) -> int:
+        ''' Return the 0-based index of the band in the backing data set. '''
         return self._band_index
 
-    def get_data(self, filter_data_ignore_value=True):
+    def get_data(self, filter_data_ignore_value: bool = True) -> np.ndarray:
         '''
         Returns a numpy 2D array of this band's data.
 
         The numpy array is configured such that the pixel (x, y) values are at
-        element array[x][y].
+        element ``array[y][x]``.
 
         If the data-set has a "data ignore value" and filter_data_ignore_value
         is also set to True, the array will be filtered such that any element
@@ -242,9 +232,10 @@ class RasterDataBand:
         return self._dataset.get_band_data(self._band_index,
                                            filter_data_ignore_value)
 
-    def get_stats(self):
+    def get_stats(self) -> BandStats:
         '''
-        Returns statistics of this band's data, wrapped in a BandStats object.
+        Returns statistics of this band's data, wrapped in a class:BandStats
+        object.
         '''
         return self._dataset.get_band_stats(self._band_index)
 
@@ -253,13 +244,32 @@ class RasterDataLoader:
     '''
     A loader for loading 2D raster data-sets from some source, using some
     mechanism for reading the data.
-
-    TODO(donnie):  Would be nice to have a way to browse remote sources of data.
     '''
 
-    def load(self, path_or_url):
+    def load(self, path):
         '''
-        Load a raster data-set from the specified path or URL.  Returns a
-        RasterDataSet object.
+        Load a raster data-set from the specified path.  Returns a
+        class:RasterDataSet object.
+        '''
+        pass
+
+    def dataset_from_numpy_array(self, arr: np.ndarray) -> RasterDataSet:
+        '''
+        Given a NumPy ndarray, this function returns a class:RasterDataSet
+        object that uses the array for its raster data.  The input ndarray must
+        have three dimensions; they are interpreted as
+        [spectral][spatial_y][spatial_x].
+
+        Raises a ValueError if the input array doesn't have 3 dimensions.
+        '''
+        pass
+
+    def spectrum_from_numpy_array(self, arr: np.ndarray): # -> Spectrum:
+        '''
+        Given a NumPy ndarray, this function returns a class:Spectrum object
+        that uses the array for its raster data.  The input ndarray must have
+        one dimension; each value is for a separate band.
+
+        Raises a ValueError if the input array doesn't have 1 dimension.
         '''
         pass

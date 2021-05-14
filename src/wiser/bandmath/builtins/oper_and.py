@@ -5,14 +5,16 @@ import numpy as np
 from wiser.bandmath import VariableType, BandMathValue
 from wiser.bandmath.functions import BandMathFunction
 
+from .utils import reorder_values
 
-class OperatorDiv(BandMathFunction):
+
+class OperatorAnd(BandMathFunction):
     '''
-    Binary division operator.
+    Logical comparison operator.
     '''
 
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for /')
+        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for AND')
 
 
     def get_result_type(self, arg_types: List[VariableType]):
@@ -23,6 +25,20 @@ class OperatorDiv(BandMathFunction):
         # Take care of the simple case first.
         if lhs == VariableType.NUMBER and rhs == VariableType.NUMBER:
             return VariableType.NUMBER
+
+        # Swap LHS and RHS based on the types, to make the analysis logic easier
+
+        if lhs == VariableType.IMAGE_CUBE or rhs == VariableType.IMAGE_CUBE:
+            if lhs != VariableType.IMAGE_CUBE:
+                (rhs, lhs) = (lhs, rhs)
+
+        elif lhs == VariableType.IMAGE_BAND or rhs == VariableType.IMAGE_BAND:
+            if lhs != VariableType.IMAGE_BAND:
+                (rhs, lhs) = (lhs, rhs)
+
+        elif lhs == VariableType.SPECTRUM or rhs == VariableType.SPECTRUM:
+            if lhs != VariableType.SPECTRUM:
+                (rhs, lhs) = (lhs, rhs)
 
         # Analyze the input types to determine the result type
 
@@ -50,53 +66,38 @@ class OperatorDiv(BandMathFunction):
 
     def apply(self, args: List[BandMathValue]):
         '''
-        Divide the LHS by the RHS and return the result.
+        Compute the logical AND of the LHS and RHS and return the result.
         '''
 
         if len(args) != 2:
-            raise Exception('+ requires exactly two arguments')
+            raise Exception('AND requires exactly two arguments')
 
         lhs = args[0]
         rhs = args[1]
 
-        # Take care of the simple case first, where it's just two numbers.
-        if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
-            return BandMathValue(VariableType.NUMBER, lhs.value / rhs.value)
+        # Take care of simple scalar arguments first.
+        if (lhs.type in [VariableType.NUMBER, VariableType.BOOLEAN] and
+            rhs.type in [VariableType.NUMBER, VariableType.BOOLEAN]):
+            result = lhs.value and rhs.value
+            if isinstance(result, bool):
+                result_type = VariableType.BOOLEAN
+            else:
+                result_type = VariableType.NUMBER
+
+            return BandMathValue(result_type, result)
+
+        # Since logical AND is commutative, arrange the arguments to make the
+        # calculation logic easier.
+        (lhs, rhs) = reorder_args(lhs, rhs)
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
             lhs_arr = lhs.as_numpy_array()
             assert lhs_arr.ndim == 3
 
-            if rhs.type == VariableType.IMAGE_CUBE:
-                # Dimensions:  [band][x][y]
-                rhs_arr = rhs.as_numpy_array()
-                result_arr = lhs_arr / rhs_arr
-
-            elif rhs.type == VariableType.IMAGE_BAND:
-                # Dimensions:  [x][y]
-                rhs_arr = rhs.as_numpy_array()
-                assert rhs_arr.ndim == 2
-
-                # NumPy will broadcast the band across the entire image.
-                result_arr = lhs_arr / rhs_arr
-
-            elif rhs.type == VariableType.SPECTRUM:
-                # Dimensions:  [band]
-                rhs_arr = rhs.as_numpy_array()
-                assert rhs_arr.ndim == 1
-
-                # To ensure the spectrum is added to the image's pixels, reshape to
-                # effectively create a 1x1 image.
-                # New dimensions:  [band][x=1][y=1]
-                rhs_arr = rhs_arr[:, np.newaxis, np.newaxis]
-
-                result_arr = lhs_arr / rhs_arr
-
-            elif rhs.type == VariableType.NUMBER:
-                result_arr = lhs_arr / rhs.value
-
-            else:
+            try:
+                rhs_value = make_image_cube_compatible(rhs)
+            except TypeError:
                 self._report_type_error(args[0].type, args[1].type)
 
             # The result array should have the same dimensions as the LHS input
@@ -110,15 +111,20 @@ class OperatorDiv(BandMathFunction):
             lhs_arr = lhs.as_numpy_array()
             assert lhs_arr.ndim == 2
 
+            try:
+                rhs_value = make_image_band_compatible(rhs)
+            except TypeError:
+                self._report_type_error(args[0].type, args[1].type)
+
             if rhs.type == VariableType.IMAGE_BAND:
                 # Dimensions:  [x][y]
                 rhs_arr = rhs.as_numpy_array()
                 assert rhs_arr.ndim == 2
 
-                result_arr = lhs_arr / rhs_arr
+                result_arr = lhs_arr + rhs_arr
 
             elif rhs.type == VariableType.NUMBER:
-                result_arr = lhs_arr / rhs.value
+                result_arr = lhs_arr + rhs.value
 
             else:
                 self._report_type_error(args[0].type, args[1].type)
@@ -139,10 +145,10 @@ class OperatorDiv(BandMathFunction):
                 rhs_arr = rhs.as_numpy_array()
                 assert rhs_arr.ndim == 1
 
-                result_arr = lhs_arr / rhs_arr
+                result_arr = lhs_arr + rhs_arr
 
             elif rhs.type == VariableType.NUMBER:
-                result_arr = lhs_arr / rhs.value
+                result_arr = lhs_arr + rhs.value
 
             else:
                 self._report_type_error(args[0].type, args[1].type)
@@ -153,5 +159,5 @@ class OperatorDiv(BandMathFunction):
             assert result_arr.shape == lhs_arr.shape
             return BandMathValue(VariableType.SPECTRUM, result_arr)
 
-        # If we get here, we don't know how to multiply the two types.
+        # If we get here, we don't know how to add the two types.
         self._report_type_error(args[0].type, args[1].type)

@@ -5,8 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from PySide2.QtWidgets import QMenu
 
-from wiser.bandmath import BandMathValue
-from wiser.bandmath.functions import BandMathFunction # Type annotation
+from wiser.bandmath import BandMathValue, BandMathFunction
 
 
 class ContextMenuType(enum.Enum):
@@ -92,7 +91,20 @@ class BandMathPlugin(Plugin):
 
     def get_bandmath_functions(self) -> Dict[str, BandMathFunction]:
         '''
-        This method returns a dictionary of all band-math functions defined by
-        the plugin.  The
+        This method returns a dictionary of all band-math functions provided by
+        the plugin.
+
+        The keys are the function names, and must satisfy the parsing
+        requirements of the band-math parser:  names must start with an
+        alphabetical character (a-z), and must include only alphanumeric
+        characters and underscores (a-z, 0-9, _).
+
+        The values are instances of classes that extend the
+        :class:`BandMathFunction` type, to provide the various operations
+        required by band-math functions.
+
+        Band-math expressions are *case-insensitive*.  Therefore, all function
+        names specified by a plugin are converted to lowercase when loaded into
+        the band-math evaluator.
         '''
         pass

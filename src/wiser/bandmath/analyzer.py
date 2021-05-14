@@ -5,11 +5,23 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import lark
 import numpy as np
 
-from .common import VariableType, BandMathValue, BandMathEvalError
+from .types import VariableType, BandMathValue, BandMathEvalError
 from .functions import BandMathFunction, get_builtin_functions
 
 from .builtins import OperatorAdd, OperatorSub, OperatorMul, OperatorDiv
 from .builtins import OperatorUnaryNegate, OperatorPower
+
+
+class BandMathExprInfo:
+    def __init__(self):
+        # The result-type of the band-math expression.
+        self.result_type = None
+
+        # If the result is an array, this is the element type.
+        self.elem_type = None
+
+        # If the result is an array, this is the shape of the array.
+        self.shape = None
 
 
 class BandMathAnalyzer(lark.visitors.Transformer):
@@ -137,7 +149,7 @@ def get_bandmath_result_type(bandmath_expr: str,
 
     *   VariableType.IMAGE_CUBE:  RasterDataSet, 3D np.ndarray [band][x][y]
     *   VariableType.IMAGE_BAND:  RasterDataBand, 2D np.ndarray [x][y]
-    *   VariableType.SPECTRUM:  SpectrumInfo, 1D np.ndarray [band]
+    *   VariableType.SPECTRUM:  Spectrum, 1D np.ndarray [band]
 
     Functions are passed in a dictionary of string names that map to a
     BandMathFunction object.

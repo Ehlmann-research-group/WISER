@@ -3,39 +3,7 @@ from typing import Callable, Dict, List, NewType
 
 import numpy as np
 
-from .common import VariableType, BandMathValue, BandMathEvalError
-
-
-class BandMathFunction:
-    '''
-    The abstract base-class for all band-math functions.  Functions must be able
-    to report useful documentation, as well as the type of the result based on
-    their input types, so that the user interface can provide useful feedback to
-    users.
-    '''
-
-    def get_description(self):
-        '''
-        Return a helpful description of the band-math function.
-
-        TODO:  How to internationalize?
-        '''
-        return self.__doc__
-
-    def get_result_type(self, arg_types: List[VariableType]) -> VariableType:
-        '''
-        Given the indicated argument types, this function reports the
-        result-type of the function.
-        '''
-        raise NotImplementedError()
-
-    def apply(self, args: List[BandMathValue]) -> BandMathValue:
-        '''
-        Apply the function to the specified arguments to produce a value.  If
-        the function gets the wrong number or types of arguments, it should
-        raise a suitably-typed Exception.
-        '''
-        raise NotImplementedError()
+from .types import VariableType, BandMathValue, BandMathFunction, BandMathEvalError
 
 
 def get_builtin_functions() -> Dict[str, BandMathFunction]:
