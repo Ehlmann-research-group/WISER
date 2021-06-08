@@ -47,17 +47,6 @@ build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
 	pyinstaller --noconfirm WISER-macOS.spec
 
-	# Patch the package with the correct version of libpng, since
-	# pyinstaller finds the wrong one.  (Note:  Can't use the --add-binary
-	# option because the dylib's information also needs to be patched.)
-	# cp /opt/local/lib/libpng16.16.dylib dist/$(APP_NAME)/
-	# install_name_tool -id @loader_path/libpng16.16.dylib \
-	#	dist/$(APP_NAME)/libpng16.16.dylib
-	# install_name_tool -change /opt/local/lib/libz.1.dylib \
-	#	@loader_path/libz.1.dylib dist/$(APP_NAME)/libpng16.16.dylib
-	# cp dist/$(APP_NAME)/libpng16.16.dylib \
-	#	dist/$(APP_NAME).app/Contents/MacOS/
-
 
 dist-mac : build-mac
 	# Codesign the built application
