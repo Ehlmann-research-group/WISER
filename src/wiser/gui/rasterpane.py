@@ -14,6 +14,7 @@ from .dataset_chooser import DatasetChooser
 from .roi_info_editor import ROIInfoEditor
 from .rasterview import RasterView
 from .util import add_toolbar_action, get_painter, make_filename
+from .plugin_utils import add_plugin_context_menu_items
 
 from wiser import plugins
 
@@ -749,10 +750,8 @@ class RasterPane(QWidget):
             'dataset':rasterview.get_raster_data(),
             'ds_coord':ds_coord.toTuple()
         }
-        for (plugin_name, plugin) in self._app_state.get_plugins().items():
-            if isinstance(plugin, plugins.ContextMenuPlugin):
-                plugin.add_context_menu_items(plugins.ContextMenuType.DATASET_PICK,
-                    menu, context)
+        add_plugin_context_menu_items(self._app_state,
+            plugins.ContextMenuType.DATASET_PICK, menu, context)
 
         # Find Regions of Interest that include the click location.  This is a
         # complicated thing to do, since a ROI can consist of multiple
@@ -787,12 +786,13 @@ class RasterPane(QWidget):
                     lambda checked : self._on_export_roi_pixel_spectra(roi=roi, rasterview=rasterview))
 
                 # Add plugin menu items
-                context = {'dataset':rasterview.get_raster_data(),
-                    'roi':roi, 'ds_coord':ds_coord.toTuple()}
-                for (plugin_name, plugin) in self._app_state.get_plugins().items():
-                    if isinstance(plugin, plugins.ContextMenuPlugin):
-                        plugin.add_context_menu_items(plugins.ContextMenuType.ROI_PICK,
-                            roi_menu, context)
+                context = {
+                    'dataset':rasterview.get_raster_data(),
+                    'roi':roi,
+                    'ds_coord':ds_coord.toTuple()
+                }
+                add_plugin_context_menu_items(self._app_state,
+                    plugins.ContextMenuType.ROI_PICK, menu, context)
 
                 for sel_index in picked_sels:
                     roi_menu.addSeparator()

@@ -17,6 +17,8 @@ from .spectrum_info_editor import SpectrumInfoEditor
 
 from .util import add_toolbar_action, get_random_matplotlib_color, get_color_icon
 
+from .plugin_utils import add_plugin_context_menu_items
+
 from wiser import plugins
 
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
@@ -803,10 +805,8 @@ class SpectrumPlot(QWidget):
 
         # Add plugin menu items
         context = {}
-        for (plugin_name, plugin) in self._app_state.get_plugins().items():
-            if isinstance(plugin, plugins.ContextMenuPlugin):
-                plugin.add_context_menu_items(plugins.ContextMenuType.SPECTRUM_PLOT,
-                    menu, context)
+        add_plugin_context_menu_items(self._app_state,
+            plugins.ContextMenuType.SPECTRUM_PLOT, menu, context)
 
         if self._click is not None:
             menu.addSeparator()
@@ -1269,10 +1269,8 @@ class SpectrumPlot(QWidget):
 
             # Add plugin menu items
             context = {'spectrum': treeitem.data(0, Qt.UserRole)}
-            for (plugin_name, plugin) in self._app_state.get_plugins().items():
-                if isinstance(plugin, plugins.ContextMenuPlugin):
-                    plugin.add_context_menu_items(plugins.ContextMenuType.SPECTRUM_PICK,
-                        menu, context)
+            add_plugin_context_menu_items(self._app_state,
+                plugins.ContextMenuType.SPECTRUM_PICK, menu, context)
 
             menu.addSeparator()
 
@@ -1346,10 +1344,8 @@ class SpectrumPlot(QWidget):
 
             # Add plugin menu items
             context = {'spectrum': spectrum}
-            for (plugin_name, plugin) in self._app_state.get_plugins().items():
-                if isinstance(plugin, plugins.ContextMenuPlugin):
-                    plugin.add_context_menu_items(plugins.ContextMenuType.SPECTRUM_PICK,
-                        menu, context)
+            add_plugin_context_menu_items(self._app_state,
+                plugins.ContextMenuType.SPECTRUM_PICK, menu, context)
 
             if not isinstance(spectrum, LibrarySpectrum):
                 menu.addSeparator()
