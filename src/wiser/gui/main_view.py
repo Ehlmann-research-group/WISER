@@ -1,3 +1,4 @@
+import logging
 import os
 import traceback
 
@@ -16,8 +17,12 @@ from .rasterview import RasterView
 from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
+from .plugin_utils import add_plugin_context_menu_items
 
 from wiser import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 class MainViewWidget(RasterPane):
@@ -143,10 +148,8 @@ class MainViewWidget(RasterPane):
         # Plugin context-menus
 
         context = {'dataset':rasterview.get_raster_data()}
-        for (plugin_name, plugin) in self._app_state.get_plugins().items():
-            if isinstance(plugin, plugins.ContextMenuPlugin):
-                plugin.add_context_menu_items(plugins.ContextMenuType.RASTER_VIEW,
-                    menu, context)
+        add_plugin_context_menu_items(self._app_state,
+            plugins.ContextMenuType.RASTER_VIEW, menu, context)
 
 
     def _set_link_views_button_state(self):
