@@ -11,6 +11,7 @@ Extending WISER
    :caption: Contents:
 
    plugins
+   ctxmenu_plugins
    ui_plugins
    bandmath_plugins
    supporting_types

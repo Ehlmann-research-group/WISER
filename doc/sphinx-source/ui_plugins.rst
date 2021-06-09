@@ -5,6 +5,8 @@ WISER is written using the `Qt 5 API and the PySide2 Python bindings
 <https://doc.qt.io/qtforpython-5/>`_ provided by `The Qt Company
 <https://www.qt.io/>`_.  Plugins that wish to provide graphical user interfaces
 for configuration or workflow must also use Qt 5 to build this functionality.
+This is likely to be common in tool plugins and context-menu plugins; band-math
+plugins, on the other hand, should not show UI components.
 
 Using Qt Designer
 -----------------

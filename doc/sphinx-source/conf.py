@@ -30,6 +30,7 @@ author = 'California Institute of Technology'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosectionlabel',
     'enum_tools.autoenum',
 ]
 
