@@ -146,10 +146,10 @@ class MainViewWidget(RasterPane):
                               self._on_export_image_full(rv))
 
         # Plugin context-menus
-
-        context = {'dataset':rasterview.get_raster_data()}
         add_plugin_context_menu_items(self._app_state,
-            plugins.ContextMenuType.RASTER_VIEW, menu, context)
+            plugins.ContextMenuType.RASTER_VIEW, menu,
+            dataset=rasterview.get_raster_data(),
+            display_bands=rasterview.get_display_bands())
 
 
     def _set_link_views_button_state(self):

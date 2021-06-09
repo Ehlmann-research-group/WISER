@@ -804,9 +804,8 @@ class SpectrumPlot(QWidget):
         act.triggered.connect(self._on_export_plot_to_image)
 
         # Add plugin menu items
-        context = {}
         add_plugin_context_menu_items(self._app_state,
-            plugins.ContextMenuType.SPECTRUM_PLOT, menu, context)
+            plugins.ContextMenuType.SPECTRUM_PLOT, menu)
 
         if self._click is not None:
             menu.addSeparator()
@@ -1268,9 +1267,9 @@ class SpectrumPlot(QWidget):
                                   self._on_edit_spectrum(treeitem))
 
             # Add plugin menu items
-            context = {'spectrum': treeitem.data(0, Qt.UserRole)}
             add_plugin_context_menu_items(self._app_state,
-                plugins.ContextMenuType.SPECTRUM_PICK, menu, context)
+                plugins.ContextMenuType.SPECTRUM_PICK, menu,
+                spectrum=treeitem.data(0, Qt.UserRole))
 
             menu.addSeparator()
 
@@ -1343,9 +1342,9 @@ class SpectrumPlot(QWidget):
                                       self._on_edit_spectrum(treeitem))
 
             # Add plugin menu items
-            context = {'spectrum': spectrum}
             add_plugin_context_menu_items(self._app_state,
-                plugins.ContextMenuType.SPECTRUM_PICK, menu, context)
+                plugins.ContextMenuType.SPECTRUM_PICK, menu,
+                spectrum=spectrum)
 
             if not isinstance(spectrum, LibrarySpectrum):
                 menu.addSeparator()
