@@ -369,6 +369,16 @@ class GDALRasterDataSet(RasterDataSet):
         return np_array
 
 
+    def copy_metadata_from(self, dataset: RasterDataSet) -> None:
+
+        if self.num_bands() != dataset.num_bands():
+            raise ValueError('Cannot copy metadata; this dataset has ' +
+                f'{self.num_bands()} bands, other dataset has ' +
+                f'{dataset.num_bands()} bands')
+
+        # TODO(donnie): FINISH
+
+
 class GDALRasterDataLoader(RasterDataLoader):
     '''
     A loader for loading 2D raster data-sets from the local filesystem, using
