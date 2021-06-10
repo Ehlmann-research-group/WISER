@@ -1,3 +1,6 @@
+import abc
+from abc import abstractmethod
+
 from typing import Optional, Union
 
 import numpy as np
@@ -29,7 +32,7 @@ class BandStats:
         return f'BandStats[index={self._band_index}, min={self._min_value}, max={self._max_value}]'
 
 
-class RasterDataSet:
+class RasterDataSet(abc.ABC):
     '''
     A 2D raster data-set for imaging spectroscopy, possibly with many bands of
     data for each pixel.
@@ -51,6 +54,7 @@ class RasterDataSet:
         self._id = id
 
 
+    @abstractmethod
     def get_description(self):
         '''
         Returns a description of the dataset that might be specified in the
@@ -59,6 +63,7 @@ class RasterDataSet:
         '''
         pass
 
+    @abstractmethod
     def get_filetype(self):
         '''
         Returns a string describing the type of raster data file that backs this
@@ -67,6 +72,7 @@ class RasterDataSet:
         '''
         pass
 
+    @abstractmethod
     def get_filepaths(self):
         '''
         Returns the paths and filenames of all files associated with this raster
@@ -75,18 +81,22 @@ class RasterDataSet:
         '''
         pass
 
+    @abstractmethod
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
         pass
 
+    @abstractmethod
     def get_height(self):
         ''' Returns the number of rows of data in the raster data. '''
         pass
 
+    @abstractmethod
     def num_bands(self):
         ''' Returns the number of spectral bands in the raster data. '''
         pass
 
+    @abstractmethod
     def band_list(self):
         '''
         Returns a description of all bands in the data set.  The description is
@@ -122,6 +132,7 @@ class RasterDataSet:
 
         return True
 
+    @abstractmethod
     def default_display_bands(self):
         '''
         Returns a list of integer indexes, specifying the default bands for
@@ -133,6 +144,7 @@ class RasterDataSet:
         '''
         pass
 
+    @abstractmethod
     def get_data_ignore_value(self) -> Optional[Union[int, float]]:
         '''
         Returns the number that indicates a value to be ignored in the dataset.
@@ -140,6 +152,7 @@ class RasterDataSet:
         '''
         pass
 
+    @abstractmethod
     def get_bad_bands(self):
         '''
         Returns a "bad band list" as a list of 0 or 1 integer values, with the
@@ -149,6 +162,7 @@ class RasterDataSet:
         '''
         pass
 
+    @abstractmethod
     def get_image_data(self, filter_data_ignore_value=True):
         '''
         Returns a numpy 3D array of the entire image cube.
@@ -163,6 +177,7 @@ class RasterDataSet:
         '''
         pass
 
+    @abstractmethod
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
@@ -178,13 +193,15 @@ class RasterDataSet:
         '''
         pass
 
+    @abstractmethod
     def get_band_stats(self, band_index):
         '''
         Returns statistics of the specified band's data, wrapped in a
-        class:BandStats object.
+        :class:`BandStats` object.
         '''
         pass
 
+    @abstractmethod
     def get_all_bands_at(self, x, y, filter_bad_values=True):
         '''
         Returns a numpy 1D array of the values of all bands at the specified
@@ -194,6 +211,10 @@ class RasterDataSet:
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
         '''
+        pass
+
+    @abstractmethod
+    def copy_metadata_from(self, dataset: 'RasterDataSet') -> None:
         pass
 
 
@@ -240,12 +261,13 @@ class RasterDataBand:
         return self._dataset.get_band_stats(self._band_index)
 
 
-class RasterDataLoader:
+class RasterDataLoader(abc.ABC):
     '''
     A loader for loading 2D raster data-sets from some source, using some
     mechanism for reading the data.
     '''
 
+    @abstractmethod
     def load(self, path):
         '''
         Load a raster data-set from the specified path.  Returns a
@@ -253,6 +275,7 @@ class RasterDataLoader:
         '''
         pass
 
+    @abstractmethod
     def dataset_from_numpy_array(self, arr: np.ndarray) -> RasterDataSet:
         '''
         Given a NumPy ndarray, this function returns a class:RasterDataSet
@@ -264,6 +287,7 @@ class RasterDataLoader:
         '''
         pass
 
+    @abstractmethod
     def spectrum_from_numpy_array(self, arr: np.ndarray): # -> Spectrum:
         '''
         Given a NumPy ndarray, this function returns a class:Spectrum object

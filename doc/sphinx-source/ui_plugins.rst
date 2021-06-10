@@ -23,7 +23,7 @@ more sophisticated user interfaces, as it encourages an object-oriented approach
 to the code layout, and it makes it easier to access the widgets that comprise
 the GUI.
 
-Here is an example configuration UI for a Gaussian Blur plugin, which uses
+Here is an example configuration UI for a Gaussian blur plugin, which uses
 OpenCV to perform the blurring operation.
 
 .. image:: images/qt_designer_gaussian_blur.png
@@ -93,16 +93,11 @@ the UI widgets within the dialog.  The code continues:
             ledit.setValidator(QDoubleValidator(0.0, 1000000.0, 6))
             ledit.setText('0')
 
-            # We want the blur operation to create a new image by default.
-            ckbox = dialog.findChild(QCheckBox, 'ckbox_new_image')
-            ckbox.setChecked(True)
-
             # Show the dialog!
             if dialog.exec() == QDialog.Accepted:
                 # Pull the values out of the UI widgets.
                 kernel_size = sbox.value()
                 sigma = float(ledit.text())
-                new_image = ckbox.isChecked()
 
                 # Compute the Gaussian blur based on the parameters
                 ...
@@ -161,8 +156,6 @@ needed.
             self._ui.ledit_sigma.setValidator(QDoubleValidator(0.0, 1000000.0, 6))
             self._ui.ledit_sigma.setText('0')
 
-            self._ui.ckbox_new_image.setChecked(True)
-
         def _on_kernel_size_changed(self) -> None:
         # The value cannot be even.
         value = self._ui.spinbox_kernel_size.value()
@@ -174,9 +167,6 @@ needed.
 
         def get_sigma(self) -> float:
             return float(self._ui.ledit_sigma.text())
-
-        def make_new_image(self) -> bool:
-            return self._ui.ckbox_new_image.isChecked()
 
 It should be obvious that this approach is completely equivalent to the approach
 of using ``QUiLoader``.  However, this approach is more desirable for complex
@@ -198,7 +188,6 @@ very simple:
             if dialog.exec() == QDialog.Accepted:
                 kernel_size = dialog.get_kernel_size()
                 sigma = dialog.get_sigma()
-                new_image = dialog.make_new_image()
 
                 # Compute the Gaussian blur based on the parameters
                 ...
