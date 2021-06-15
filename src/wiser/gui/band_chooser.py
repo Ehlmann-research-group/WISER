@@ -10,8 +10,7 @@ from .generated.band_chooser_ui import Ui_BandChooserDialog
 
 from .app_state import ApplicationState
 
-from wiser.raster.dataset import RasterDataSet
-from wiser.raster.utils import find_truecolor_bands
+from wiser.raster.dataset import RasterDataSet, find_truecolor_bands
 
 
 class BandChooserDialog(QDialog):
@@ -130,7 +129,8 @@ class BandChooserDialog(QDialog):
         '''
 
         default_bands = self._dataset.default_display_bands()
-
+        print(f'band chooser:  default bands = {default_bands}')
+        
         self._ui.btn_rgb_choose_defaults.setEnabled(
             default_bands is not None and len(default_bands) == 3)
 

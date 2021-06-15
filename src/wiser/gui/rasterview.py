@@ -1,5 +1,8 @@
+import enum
+import logging
 import sys
-from enum import Enum, IntFlag
+import time
+
 from typing import Dict, List, Optional, Tuple, Union
 
 from PySide2.QtCore import *
@@ -10,9 +13,12 @@ import numpy as np
 
 from .util import get_painter
 
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.stretch import StretchBase
-from wiser.raster.utils import find_display_bands, normalize_ndarray
+from wiser.raster.utils import normalize_ndarray
+
+
+logger = logging.getLogger(__name__)
 
 
 def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
@@ -94,10 +100,13 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     if isinstance(rgb_data, np.ma.MaskedArray):
         rgb_data.fill_value = 0xff000000
 
+    if not rgb_data.flags['C_CONTIGUOUS']:
+        rgb_data = np.ascontiguousarray(rgb_data)
+
     return rgb_data
 
 
-class ImageColors(IntFlag):
+class ImageColors(enum.IntFlag):
     '''
     This enumeration is used to specify one or more color band, that may need to
     be regenerated within the rasterview.
@@ -112,7 +121,7 @@ class ImageColors(IntFlag):
     RGB = 7
 
 
-class ScaleToFitMode(Enum):
+class ScaleToFitMode(enum.Enum):
     '''
     The "scale to fit" operation can be performed in several ways, depending
     on how the image needs to fit into its viewing area.  This enumeration
@@ -420,6 +429,8 @@ class RasterView(QWidget):
 
         assert len(self._display_bands) in [1, 3]
 
+        time_1 = time.perf_counter()
+
         if len(self._display_bands) == 3:
             # Check each color band to see if we need to update it.
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
@@ -441,20 +452,18 @@ class RasterView(QWidget):
                 self._display_data[1] = self._display_data[0]
                 self._display_data[2] = self._display_data[0]
 
+        time_2 = time.perf_counter()
+
         # Combine our individual color channel(s) into a single RGB image.
         img_data = make_rgb_image(self._display_data)
 
-        # TODO(donnie):  I don't know why the tostring() is required here, but
-        #     it seems to be required for making the QImage when we use GDAL.
-        #     Note - may be because of the numpy MaskedArray...
-        # img_data = img_data.tostring()
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
         self._img_data = img_data
         self._img_data.flags.writeable = False
-        # print('stored:')
-        # print(self._img_data)
+
+        time_3 = time.perf_counter()
 
         # This is the 100% scale QImage of the data.
         self._image = QImage(img_data,
@@ -462,6 +471,13 @@ class RasterView(QWidget):
             QImage.Format_RGB32)
 
         self._image_pixmap = QPixmap.fromImage(self._image)
+
+        time_4 = time.perf_counter()
+
+        logger.debug(f'update_display_image(colors={colors}) update times:  ' +
+                     f'channels = {time_2 - time_1:0.02f}s ' +
+                     f'image = {time_3 - time_2:0.02f}s ' +
+                     f'qt = {time_4 - time_3:0.02f}s')
 
         self._update_scaled_image()
 

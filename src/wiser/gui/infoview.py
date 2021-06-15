@@ -8,8 +8,7 @@ from PySide2.QtWidgets import *
 
 import numpy as np
 
-from wiser.raster.dataset import RasterDataSet
-from wiser.raster.utils import find_display_bands
+from wiser.raster.dataset import RasterDataSet, find_display_bands
 
 
 class DatasetInfoView(QTreeWidget):
@@ -57,7 +56,7 @@ class DatasetInfoView(QTreeWidget):
         item.setText(0, f'Description:  {dataset.get_description()}')
 
         item = QTreeWidgetItem(top)
-        item.setText(0, f'File Type:  {dataset.get_filetype()}')
+        item.setText(0, f'Format:  {dataset.get_format()}')
 
         item = QTreeWidgetItem(top)
         item.setText(0, f'Size:  {dataset.get_width()}x{dataset.get_height()}')
