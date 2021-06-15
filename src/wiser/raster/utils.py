@@ -1,7 +1,5 @@
 from typing import Dict, List, Optional, Tuple, Union
 
-from .dataset import RasterDataSet
-
 import numpy as np
 from astropy import units as u
 
@@ -145,82 +143,6 @@ def find_closest_value(values: List[Number], input_value: Number,
             best_distance = distance
 
     return best_index
-
-
-def find_truecolor_bands(dataset: RasterDataSet,
-                         red: u.Quantity = RED_WAVELENGTH,
-                         green: u.Quantity = GREEN_WAVELENGTH,
-                         blue: u.Quantity = BLUE_WAVELENGTH) -> Optional[Tuple[int, int, int]]:
-    '''
-    This function looks for bands in the dataset that are closest to the
-    visible-light spectral bands.
-
-    If a band cannot be found for red, green or blue wavelengths, the function
-    returns None.  Similarly, if the dataset doesn't specify wavelengths for
-    bands, the function returns None.
-
-    If bands are found for all of the red, green and blue wavelengths, then the
-    function returns a (red_band_index, grn_band_index, blu_band_index) triple.
-    '''
-    if not dataset.has_wavelengths():
-        return None
-
-    bands = dataset.band_list()
-    red_band   = find_band_near_wavelength(bands, red)
-    green_band = find_band_near_wavelength(bands, green)
-    blue_band  = find_band_near_wavelength(bands, blue)
-
-    # If that didn't work, report None
-    if red_band is None or green_band is None or blue_band is None:
-        return None
-
-    return (red_band, green_band, blue_band)
-
-
-def find_display_bands(dataset: RasterDataSet,
-                       red: u.Quantity = RED_WAVELENGTH,
-                       green: u.Quantity = GREEN_WAVELENGTH,
-                       blue: u.Quantity = BLUE_WAVELENGTH) -> Union[Tuple[int, int, int], Tuple[int]]:
-    '''
-    This helper function figures out which band(s) to use for displaying the
-    specified raster dataset.  The return-value will be either a 3-tuple or a
-    1-tuple of band indexes; the former is returned for RGB display of a
-    dataset, and the latter is returned for a grayscale display of a dataset.
-
-    The function operates as follows:
-
-    1)  If the dataset specifies default display bands, these are returned.
-        Note that a dataset's default display bands may specify 3 bands for RGB
-        display, or 1 band for grayscale display.
-    2)  Otherwise, if the dataset has frequency bands that correspond to the
-        frequencies/wavelengths perceived by the human eye, these are returned.
-    3)  Otherwise, if the dataset has at least three bands, then the first,
-        second and third bands are used as RGB display bands.  If the dataset
-        has fewer than three bands, the first band is used as the grayscale
-        display band.
-
-    The definitions of "red", "green", and "blue" wavelengths can be specified
-    as optional arguments to this function.
-    '''
-
-    # See if the raster data-set specifies display bands, and if so, use them
-    display_bands = dataset.default_display_bands()
-    if display_bands is not None:
-        return display_bands
-
-    # Try to find bands based on what is close to visible spectral bands
-    display_bands = find_truecolor_bands(dataset, red, green, blue)
-    if display_bands is not None:
-        return display_bands
-
-    # If that didn't work, just choose the first bands
-    if dataset.num_bands() >= 3:
-        # We have at least 3 bands, so use those.
-        return (0, 1, 2)
-
-    else:
-        # We have fewer than 3 bands, so just use one band in grayscale mode.
-        return (0,)  # Need the comma to interpret as a tuple, not arithmetic.
 
 
 #============================================================================

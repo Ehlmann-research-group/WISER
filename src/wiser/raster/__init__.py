@@ -1,4 +1,5 @@
-from .dataset import RasterDataSet, RasterDataBand, BandStats, RasterDataLoader
+from .dataset import RasterDataSet, RasterDataBand, BandStats
+from .loader import RasterDataLoader
 from .roi import RegionOfInterest
 from .spectrum import Spectrum
 

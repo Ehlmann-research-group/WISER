@@ -9,7 +9,7 @@ from .app_config import ApplicationConfig, PixelReticleType
 from wiser.plugins import Plugin
 
 from wiser.raster.dataset import *
-from wiser.raster.gdal_dataset import GDALRasterDataLoader
+from wiser.raster.loader import RasterDataLoader
 
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import SpectralLibrary
@@ -75,7 +75,7 @@ class ApplicationState(QObject):
         self._plugins: Dict[str, Plugin] = {}
 
         self._current_dir = os.getcwd()
-        self._raster_data_loader = GDALRasterDataLoader()
+        self._raster_data_loader = RasterDataLoader()
 
         # Source of numeric IDs for assigning to objects in the application
         # state.  IDs are unique across all objects, not just for each type of
@@ -234,7 +234,7 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
 
-        raster_data = self._raster_data_loader.load(file_path)
+        raster_data = self._raster_data_loader.load_from_file(file_path)
         self.add_dataset(raster_data)
 
 
