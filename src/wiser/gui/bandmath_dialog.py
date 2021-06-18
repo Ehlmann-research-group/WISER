@@ -1,3 +1,5 @@
+import logging
+
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from PySide2.QtCore import *
@@ -13,6 +15,9 @@ from .rasterview import RasterView
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
 from wiser import bandmath
+
+
+logger = logging.getLogger(__name__)
 
 
 def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
@@ -178,6 +183,7 @@ class BandMathDialog(QDialog):
             self._ui.lbl_result_info.setText(s)
 
         except lark.exceptions.LarkError as e:
+            logger.exception(f'Bandmath UI:  Parse failure on expression "{expr}"')
             self._ui.lbl_result_info.setText(self.tr('Parse error!'))
             self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
 
