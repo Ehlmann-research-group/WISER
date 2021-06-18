@@ -1,3 +1,4 @@
+from .oper_compare import OperatorCompare
 from .oper_add import OperatorAdd
 from .oper_sub import OperatorSub
 from .oper_mul import OperatorMul

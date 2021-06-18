@@ -8,8 +8,11 @@ import numpy as np
 from .types import VariableType, BandMathValue, BandMathEvalError
 from .functions import BandMathFunction, get_builtin_functions
 
-from .builtins import OperatorAdd, OperatorSub, OperatorMul, OperatorDiv
-from .builtins import OperatorUnaryNegate, OperatorPower
+from .builtins import (
+    OperatorCompare,
+    OperatorAdd, OperatorSub, OperatorMul, OperatorDiv,
+    OperatorUnaryNegate, OperatorPower,
+    )
 
 
 class BandMathEvaluator(lark.visitors.Transformer):
@@ -41,17 +44,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         return OperatorNot().apply([values[0]])
 
     def comparison(self, args):
-        lhs = values[0]
-        oper = values[1]
-        rhs = values[2]
-
-        if oper == '>':
-            return OperatorGreater().apply([lhs, rhs])
-
-        elif oper == '<':
-            return OperatorLess().apply([lhs, rhs])
-
-        raise RuntimeError(f'Unexpected operator {oper}')
+        lhs = args[0]
+        oper = args[1]
+        rhs = args[2]
+        return OperatorCompare(oper).apply([lhs, rhs])
 
 
     def add_expr(self, values):
@@ -169,8 +165,8 @@ def eval_bandmath_expr(bandmath_expr: str,
     (VariableType, value).  The VariableType enum-value specifies the high-level
     type of the value, since multiple specific types are supported.
 
-    *   VariableType.IMAGE_CUBE:  RasterDataSet, 3D np.ndarray [band][x][y]
-    *   VariableType.IMAGE_BAND:  RasterDataBand, 2D np.ndarray [x][y]
+    *   VariableType.IMAGE_CUBE:  RasterDataSet, 3D np.ndarray [band][y][x]
+    *   VariableType.IMAGE_BAND:  RasterDataBand, 2D np.ndarray [y][x]
     *   VariableType.SPECTRUM:  Spectrum, 1D np.ndarray [band]
 
     Functions are passed in a dictionary of string names that map to a callable.
