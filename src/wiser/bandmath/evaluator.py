@@ -24,25 +24,6 @@ class BandMathEvaluator(lark.visitors.Transformer):
         self._variables = variables
         self._functions = functions
 
-    def and_expr(self, values):
-        '''
-        Implementation of logical AND operations in the transformer.
-        '''
-        lhs = values[0]
-        rhs = values[1]
-        return OperatorAnd().apply([lhs, rhs])
-
-    def or_expr(self, values):
-        '''
-        Implementation of logical OR operations in the transformer.
-        '''
-        lhs = values[0]
-        rhs = values[1]
-        return OperatorOr().apply([lhs, rhs])
-
-    def not_expr(self, values):
-        return OperatorNot().apply([values[0]])
-
     def comparison(self, args):
         lhs = args[0]
         oper = args[1]

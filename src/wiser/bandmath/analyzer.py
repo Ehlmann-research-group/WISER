@@ -1,27 +1,22 @@
 import enum
+import logging
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import lark
 import numpy as np
 
-from .types import VariableType, BandMathValue, BandMathEvalError
+from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
 
-from .builtins import OperatorAdd, OperatorSub, OperatorMul, OperatorDiv
-from .builtins import OperatorUnaryNegate, OperatorPower
+from .builtins import (
+    OperatorCompare,
+    OperatorAdd, OperatorSub, OperatorMul, OperatorDiv,
+    OperatorUnaryNegate, OperatorPower,
+)
 
 
-class BandMathExprInfo:
-    def __init__(self):
-        # The result-type of the band-math expression.
-        self.result_type = None
-
-        # If the result is an array, this is the element type.
-        self.elem_type = None
-
-        # If the result is an array, this is the shape of the array.
-        self.shape = None
+logger = logging.getLogger(__name__)
 
 
 class BandMathAnalyzer(lark.visitors.Transformer):
@@ -39,17 +34,14 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         self._result_type = None
 
 
-    def and_expr(self, values):
-        raise NotImplementedError(f'TODO:  and_expr({values})')
+    def comparison(self, args) -> BandMathExprInfo:
+        lhs: BandMathExprInfo = args[0]
+        oper = args[1]
+        rhs: BandMathExprInfo = args[2]
 
-    def or_expr(self, values):
-        raise NotImplementedError(f'TODO:  or_expr({values})')
-
-    def not_expr(self, values):
-        raise NotImplementedError(f'TODO:  not_expr({values})')
-
-    def comparison(self, args):
-        raise NotImplementedError(f'TODO:  comparison({args})')
+        # All comparisons produce the same results regardless of the specific
+        # operator.
+        return OperatorCompare(oper).analyze([lhs, rhs])
 
 
     def add_expr(self, values):
@@ -107,19 +99,33 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             raise RuntimeError(f'Unexpected operator {args[0]}')
 
 
-    def true(self, args):
-        return VariableType.BOOLEAN
+    def true(self, args) -> BandMathExprInfo:
+        return BandMathExprInfo(VariableType.BOOLEAN)
 
-    def false(self, args):
-        return VariableType.BOOLEAN
+    def false(self, args) -> BandMathExprInfo:
+        return BandMathExprInfo(VariableType.BOOLEAN)
 
-    def number(self, args):
-        return VariableType.NUMBER
+    def number(self, args) -> BandMathExprInfo:
+        return BandMathExprInfo(VariableType.NUMBER)
 
-    def variable(self, args):
+    def variable(self, args) -> BandMathExprInfo:
+        # Look up the variable's type and value.
         name = args[0]
-        (type, _) = self._variables[name]
-        return type
+        (type, value) = self._variables[name]
+
+        info = BandMathExprInfo(type)
+        if type in [VariableType.IMAGE_CUBE,
+                    VariableType.IMAGE_BAND,
+                    VariableType.SPECTRUM]:
+            # These types also have a shape and an element-type.
+            bmv = BandMathValue(type, value)
+            arr = bmv.as_numpy_array()
+            info.elem_type = arr.dtype
+            info.shape = arr.shape
+
+        logger.debug(f'Variable "{name}":  {info}')
+
+        return info
 
     def function(self, args):
         func_name = args[0]
@@ -136,9 +142,9 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         return str(token).lower()
 
 
-def get_bandmath_result_type(bandmath_expr: str,
+def get_bandmath_expr_info(bandmath_expr: str,
         variables: Dict[str, Tuple[VariableType, Any]],
-        functions: Dict[str, BandMathFunction] = None) -> VariableType:
+        functions: Dict[str, BandMathFunction] = None) -> BandMathExprInfo:
     '''
     Determine the return-type of a band-math expression using the specified
     variable and function definitions.
