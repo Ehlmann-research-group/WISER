@@ -2,11 +2,13 @@ from typing import List
 
 import numpy as np
 
-from wiser.bandmath import VariableType, BandMathValue
+from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
 
-from .utils import (make_image_cube_compatible, make_image_band_compatible,
-    make_spectrum_compatible)
+from .utils import (
+    check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
+    make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
+)
 
 
 COMPARE_OPERATORS = {
@@ -36,37 +38,90 @@ class OperatorCompare(BandMathFunction):
                         f'for {self.operator}')
 
 
-    def get_result_type(self, arg_types: List[VariableType]):
+    def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
 
-        lhs = arg_types[0]
-        rhs = arg_types[1]
+        if len(infos) != 2:
+            raise Exception(f'{self.operator} requires exactly two arguments')
 
-        # Take care of the simple case first.
-        if lhs == VariableType.NUMBER and rhs == VariableType.NUMBER:
-            return VariableType.NUMBER
+        lhs = infos[0]
+        rhs = infos[1]
 
-        # Analyze the input types to determine the result type
+        # Take care of the simple case first, where it's just two numbers.
+        # Use the eval() built-in function to evaluate the comparison.
+        if (lhs.result_type == VariableType.NUMBER and
+            rhs.result_type == VariableType.NUMBER):
+            return BandMathExprInfo(VariableType.NUMBER)
 
-        if lhs == VariableType.IMAGE_CUBE:
-            if rhs not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND, \
-                           VariableType.SPECTRUM, VariableType.NUMBER]:
-                self._report_type_error(arg_types[0], arg_types[1])
+        # If we got here, we are comparing more complex data types.
 
-            return VariableType.IMAGE_CUBE
+        if lhs.result_type == VariableType.IMAGE_CUBE:
+            # Dimensions:  [band][y][x]
 
-        elif lhs == VariableType.IMAGE_BAND:
-            if rhs not in [VariableType.IMAGE_BAND, VariableType.NUMBER]:
-                self._report_type_error(arg_types[0], arg_types[1])
+            # See if we can actually compare LHS and RHS.
+            check_image_cube_compatible(rhs, lhs.shape)
 
-            return VariableType.IMAGE_BAND
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE)
+            info.shape = lhs.shape
+            info.elem_type = np.byte
+            return info
 
-        elif lhs == VariableType.SPECTRUM:
-            if rhs not in [VariableType.SPECTRUM, VariableType.NUMBER]:
-                self._report_type_error(arg_types[0], arg_types[1])
+        elif rhs.result_type == VariableType.IMAGE_CUBE:
+            # Dimensions:  [band][y][x]
 
-            return VariableType.SPECTRUM
+            # See if we can actually compare LHS and RHS.
+            check_image_cube_compatible(lhs, rhs.shape)
 
-        self._report_type_error(arg_types[0], arg_types[1])
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE)
+            info.shape = rhs.shape
+            info.elem_type = np.byte
+            return info
+
+        elif lhs.result_type == VariableType.IMAGE_BAND:
+            # Dimensions:  [y][x]
+
+            # See if we can actually compare LHS and RHS.
+            check_image_band_compatible(rhs, lhs.shape)
+
+            info = BandMathExprInfo(VariableType.IMAGE_BAND)
+            info.shape = lhs.shape
+            info.elem_type = np.byte
+            return info
+
+        elif rhs.result_type == VariableType.IMAGE_BAND:
+            # Dimensions:  [y][x]
+
+            # See if we can actually compare LHS and RHS.
+            check_image_band_compatible(lhs, rhs.shape)
+
+            info = BandMathExprInfo(VariableType.IMAGE_BAND)
+            info.shape = rhs.shape
+            info.elem_type = np.byte
+            return info
+
+        elif lhs.result_type == VariableType.SPECTRUM:
+            # Dimensions:  [band]
+
+            # See if we can actually compare LHS and RHS.
+            check_spectrum_compatible(rhs, lhs.shape)
+
+            info = BandMathExprInfo(VariableType.SPECTRUM)
+            info.shape = lhs.shape
+            info.elem_type = np.byte
+            return info
+
+        elif rhs.result_type == VariableType.SPECTRUM:
+            # Dimensions:  [band]
+
+            # See if we can actually compare LHS and RHS.
+            check_spectrum_compatible(lhs, rhs.shape)
+
+            info = BandMathExprInfo(VariableType.SPECTRUM)
+            info.shape = rhs.shape
+            info.elem_type = np.byte
+            return info
+
+        # If we get here, we don't know how to multiply the two types.
+        self._report_type_error(args[0].result_type, args[1].result_type)
 
 
     def apply(self, args: List[BandMathValue]):
@@ -83,8 +138,12 @@ class OperatorCompare(BandMathFunction):
         # Take care of the simple case first, where it's just two numbers.
         # Use the eval() built-in function to evaluate the comparison.
         if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
-            return BandMathValue(VariableType.NUMBER,
-                eval(f'{lhs.value} {self.operator} {rhs.value}'))
+            flag = eval(f'{lhs.value} {self.operator} {rhs.value}')
+            if flag:
+                result = 1
+            else:
+                result = 0
+            return BandMathValue(VariableType.NUMBER, result)
 
         # If we got here, we are comparing more complex data types.
 
@@ -139,4 +198,4 @@ class OperatorCompare(BandMathFunction):
             return BandMathValue(VariableType.SPECTRUM, result_arr)
 
         # If we get here, we don't know how to multiply the two types.
-        self._report_type_error(args[0].type, args[1].type)
+        self._report_type_error(lhs.type, rhs.type)

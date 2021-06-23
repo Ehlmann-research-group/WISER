@@ -12,16 +12,7 @@
 //========================================
 // Expressions
 
-?expression: or_expr
-
-//========================================
-// Logical expressions
-
-?or_expr : (or_expr "or"i)? and_expr
-
-?and_expr : (and_expr "and"i)? not_expr
-
-?not_expr : "not"i not_expr | comparison
+?expression: comparison
 
 //========================================
 // Comparisons

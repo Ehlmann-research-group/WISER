@@ -4,7 +4,7 @@ Scalar = Union[int, float, bool]
 
 import numpy as np
 
-from wiser.bandmath import VariableType, BandMathValue
+from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 
 
 def is_scalar(value: BandMathValue) -> bool:
@@ -52,6 +52,133 @@ def reorder_args(lhs: BandMathValue, rhs: BandMathValue) -> Tuple[BandMathValue,
             (rhs, lhs) = (lhs, rhs)
 
     return (lhs, rhs)
+
+#######################
+
+def check_image_cube_compatible(arg: BandMathExprInfo,
+                                cube_shape: Tuple[int, int, int]) -> None:
+    '''
+    Given a band-math value, this function converts it to a value that is
+    "compatible with" a NumPy operation on an image-cube with the specified
+    shape.  This generally means that the return value can be broadcast against
+    an image-cube to achieve the "expected" behavior.
+
+    A ``TypeError`` is raised if the input argument isn't of one of these
+    ``VariableType`` values:
+
+    *   ``IMAGE_CUBE``
+    *   ``IMAGE_BAND``
+    *   ``SPECTRUM``
+    *   ``NUMBER``
+    *   ``BOOLEAN``
+
+    A ``ValueError`` is raised if the input argument has a shape incompatible
+    with the specified image-cube shape.
+    '''
+    assert len(cube_shape) == 3
+
+    # Only certain types can be compatible with operations involving image cubes
+    if arg.result_type not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND,
+            VariableType.SPECTRUM, VariableType.NUMBER, VariableType.BOOLEAN]:
+        raise ValueError(
+            f'Cannot perform operation between IMAGE_CUBE and {arg.result_type}')
+
+    # Dimensions:  [band][y][x]
+
+    if arg.result_type == VariableType.IMAGE_CUBE:
+        # Dimensions:  [band][y][x]
+        if arg.shape != cube_shape:
+            raise ValueError('Operand shapes are incompatible:  ' +
+                f'cubes {cube_shape} and {arg.shape}')
+
+    elif arg.result_type == VariableType.IMAGE_BAND:
+        # Dimensions:  [y][x]
+        # NumPy will broadcast the band across the entire image, band by band.
+        if arg.shape != cube_shape[1:]:
+            raise ValueError('Operand shapes are incompatible:  ' +
+                f'cube {cube_shape}, band {arg.shape}')
+
+    elif arg.result_type == VariableType.SPECTRUM:
+        # Dimensions:  [band]
+        if arg.shape != cube_shape[0]:
+            raise ValueError('Operand shapes are incompatible:  ' +
+                f'cube {cube_shape}, spectrum {arg.shape}')
+
+    else:
+        # This is a scalar:  number or Boolean
+        assert arg.result_type in [VariableType.NUMBER, VariableType.BOOLEAN]
+
+
+def check_image_band_compatible(arg: BandMathExprInfo,
+                                band_shape: Tuple[int, int]) -> None:
+    '''
+    Given a band-math value, this function converts it to a value that is
+    "compatible with" a NumPy operation on an image-band with the specified
+    shape.  This generally means that the return value can be broadcast against
+    an image-band to achieve the "expected" behavior.
+
+    A ``TypeError`` is raised if the input argument isn't of one of these
+    ``VariableType`` values:
+
+    *   ``IMAGE_BAND``
+    *   ``NUMBER``
+    *   ``BOOLEAN``
+
+    A ``ValueError`` is raised if the input argument has a shape incompatible
+    with the specified image-band shape.
+    '''
+    assert len(band_shape) == 2
+
+    if arg.result_type not in [VariableType.IMAGE_BAND, VariableType.NUMBER,
+            VariableType.BOOLEAN]:
+        raise ValueError(
+            f'Cannot perform operation between IMAGE_BAND and {arg.result_type}')
+
+    if arg.result_type == VariableType.IMAGE_BAND:
+        # Dimensions:  [y][x]
+        if arg.shape != band_shape:
+            raise ValueError('Operand shapes are incompatible:  ' +
+                f'bands {band_shape} and {arg.shape}')
+
+    else:
+        # This is a scalar:  number or Boolean
+        assert arg.result_type in [VariableType.NUMBER, VariableType.BOOLEAN]
+
+
+def check_spectrum_compatible(arg: BandMathExprInfo,
+                             spectrum_shape: Tuple[int]) -> None:
+    '''
+    Given a band-math value, this function converts it to a value that is
+    "compatible with" a NumPy operation on a spectrum with the specified shape.
+    This generally means that the return value can be broadcast against a
+    spectrum to achieve the "expected" behavior.
+
+    A ``TypeError`` is raised if the input argument isn't of one of these
+    ``VariableType`` values:
+
+    *   ``SPECTRUM``
+    *   ``NUMBER``
+    *   ``BOOLEAN``
+
+    A ``ValueError`` is raised if the input argument has a shape incompatible
+    with the specified spectrum shape.
+    '''
+    assert len(spectrum_shape) == 1
+
+    if arg.result_type not in [VariableType.SPECTRUM, VariableType.NUMBER,
+            VariableType.BOOLEAN]:
+        raise ValueError(
+            f'Cannot perform operation between SPECTRUM and {arg.result_type}')
+
+    if arg.result_type == VariableType.SPECTRUM:
+        # Dimensions:  [band]
+        if arg.shape != spectrum_shape:
+            raise ValueError('Operand shapes are incompatible:  ' +
+                f'spectrums {spectrum_shape} and {arg.shape}')
+
+    else:
+        # This is a scalar:  number or Boolean
+        assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
 
 
 def make_image_cube_compatible(arg: BandMathValue,

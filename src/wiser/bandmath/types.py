@@ -1,6 +1,6 @@
 import enum
 
-from typing import Any, List
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -26,6 +26,35 @@ class VariableType(enum.IntEnum):
     NUMBER = 5
 
     BOOLEAN = 6
+
+
+class BandMathExprInfo:
+    '''
+    This class holds information produced by the band-math expression analyzer.
+    '''
+    def __init__(self, result_type=None):
+        # The result-type of the band-math expression.
+        self.result_type: Optional[VariableType] = result_type
+
+        # If the result is an array, this is the element type.
+        self.elem_type: Optional[np.dtype] = None
+
+        # If the result is an array, this is the shape of the array.
+        self.shape: Tuple = None
+
+    def result_size(self):
+        ''' Returns an estimate of this result's size in bytes. '''
+        return np.dtype(self.elem_type).itemsize * np.prod(self.shape)
+
+    def __repr__(self) -> str:
+        if self.result_type in [VariableType.IMAGE_CUBE,
+                                VariableType.IMAGE_BAND,
+                                VariableType.SPECTRUM]:
+            return (f'[type={self.result_type}, elem_type={self.elem_type}, ' +
+                    f'shape={self.shape}]')
+
+        else:
+            return f'[type={self.result_type}]'
 
 
 class BandMathValue:
