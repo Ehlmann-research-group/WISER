@@ -47,7 +47,6 @@ class OperatorCompare(BandMathFunction):
         rhs = infos[1]
 
         # Take care of the simple case first, where it's just two numbers.
-        # Use the eval() built-in function to evaluate the comparison.
         if (lhs.result_type == VariableType.NUMBER and
             rhs.result_type == VariableType.NUMBER):
             return BandMathExprInfo(VariableType.NUMBER)
@@ -121,7 +120,7 @@ class OperatorCompare(BandMathFunction):
             return info
 
         # If we get here, we don't know how to multiply the two types.
-        self._report_type_error(args[0].result_type, args[1].result_type)
+        self._report_type_error(lhs.result_type, rhs.result_type)
 
 
     def apply(self, args: List[BandMathValue]):

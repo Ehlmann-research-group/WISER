@@ -12,19 +12,19 @@ from .utils import (
 )
 
 
-class OperatorAdd(BandMathFunction):
+class OperatorMultiply(BandMathFunction):
     '''
-    Binary addition operator.
+    Binary multiplication operator.
     '''
 
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for +')
+        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for *')
 
 
     def analyze(self, infos: List[BandMathExprInfo]):
 
         if len(infos) != 2:
-            raise ValueError('Binary addition requires exactly two arguments')
+            raise ValueError('Binary multiplication requires exactly two arguments')
 
         lhs = infos[0]
         rhs = infos[1]
@@ -76,24 +76,24 @@ class OperatorAdd(BandMathFunction):
 
     def apply(self, args: List[BandMathValue]):
         '''
-        Add the LHS and RHS and return the result.
+        Multiply the LHS and RHS and return the result.
         '''
 
         if len(args) != 2:
-            raise Exception('+ requires exactly two arguments')
+            raise Exception('* requires exactly two arguments')
 
         lhs = args[0]
         rhs = args[1]
 
         # Take care of the simple case first, where it's just two numbers.
         if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
-            return BandMathValue(VariableType.NUMBER, lhs.value + rhs.value)
+            return BandMathValue(VariableType.NUMBER, lhs.value * rhs.value)
 
-        # Since addition is commutative, arrange the arguments to make the
+        # Since multiplication is commutative, arrange the arguments to make the
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
 
-        # Do the addition computation.
+        # Do the multiplication computation.
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
@@ -101,7 +101,7 @@ class OperatorAdd(BandMathFunction):
             assert lhs_value.ndim == 3
 
             rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value + rhs_value
+            result_arr = lhs_value * rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
@@ -115,7 +115,7 @@ class OperatorAdd(BandMathFunction):
             assert lhs_value.ndim == 2
 
             rhs_value = make_image_band_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value + rhs_value
+            result_arr = lhs_value * rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
@@ -129,7 +129,7 @@ class OperatorAdd(BandMathFunction):
             assert lhs_value.ndim == 1
 
             rhs_value = make_spectrum_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value + rhs_value
+            result_arr = lhs_value * rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
@@ -137,7 +137,7 @@ class OperatorAdd(BandMathFunction):
             assert result_arr.shape == lhs_value.shape
             return BandMathValue(VariableType.SPECTRUM, result_arr)
 
-        # If we get here, we don't know how to add the two types.
+        # If we get here, we don't know how to multiply the two types.
         # Use args[0] and args[1] instead of lhs and rhs, since lhs/rhs may be
         # reversed from the original inputs.
         self._report_type_error(args[0].type, args[1].type)
