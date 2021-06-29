@@ -5,6 +5,8 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from astropy import units as u
+import matplotlib.pyplot as plt
+from matplotlib import cm
 
 from .generated.band_chooser_ui import Ui_BandChooserDialog
 
@@ -41,6 +43,10 @@ class BandChooserDialog(QDialog):
                          self._ui.cbox_blue_band, self._ui.cbox_gray_band]:
             self._populate_combobox(combobox)
 
+        # Populate the list of colormaps based on what matplotlib reports
+        for cmap in plt.colormaps():
+            self._ui.cbox_colormap_name.addItem(cmap)
+
         if len(display_bands) == 3:
             self._ui.rbtn_rgb.setChecked(True)
             self._set_rgb_bands(display_bands)
@@ -53,6 +59,11 @@ class BandChooserDialog(QDialog):
 
         self._configure_buttons()
 
+        self._on_grayscale_use_colormap(False)
+        self._ui.lbl_colormap_display.setScaledContents(True)
+        self._on_grayscale_choose_colormap(0)
+
+        self._ui.cbox_colormap_name.setEnabled(False)
         self._ui.chk_apply_globally.setChecked(True)
 
         # Hook up event handlers
@@ -64,6 +75,9 @@ class BandChooserDialog(QDialog):
         self._ui.btn_rgb_choose_visible.clicked.connect(self._on_rgb_choose_visible_bands)
 
         self._ui.btn_gray_choose_defaults.clicked.connect(self._on_grayscale_choose_default_bands)
+
+        self._ui.ckbox_use_colormap.clicked.connect(self._on_grayscale_use_colormap)
+        self._ui.cbox_colormap_name.activated.connect(self._on_grayscale_choose_colormap)
 
 
     def _populate_combobox(self, combobox):
@@ -130,7 +144,7 @@ class BandChooserDialog(QDialog):
 
         default_bands = self._dataset.default_display_bands()
         print(f'band chooser:  default bands = {default_bands}')
-        
+
         self._ui.btn_rgb_choose_defaults.setEnabled(
             default_bands is not None and len(default_bands) == 3)
 
@@ -156,12 +170,34 @@ class BandChooserDialog(QDialog):
         self._set_rgb_bands(self._get_truecolor_bands())
 
 
-    def _on_rgb_choose_default_bands(self, checked):
+    def _on_rgb_choose_default_bands(self, checked: bool):
         self._set_rgb_bands(self._dataset.default_display_bands())
 
 
-    def _on_grayscale_choose_default_bands(self, checked):
+    def _on_grayscale_choose_default_bands(self, checked: bool):
         self._set_grayscale_bands(self._dataset.default_display_bands())
+
+
+    def _on_grayscale_use_colormap(self, checked: bool):
+        self._ui.cbox_colormap_name.setEnabled(checked)
+        self._ui.lbl_colormap_display.setEnabled(checked)
+
+
+    def _on_grayscale_choose_colormap(self, index: int):
+        '''
+        Generate an image to display the currently selected colormap.
+        '''
+
+        cm_name = self._ui.cbox_colormap_name.currentText()
+        cmap = cm.get_cmap(cm_name, 256)
+        img = QImage(cmap.N, 24, QImage.Format_RGB32)
+
+        for x in range(cmap.N):
+            rgba = cmap(x, bytes=True)
+            for y in range(img.height()):
+                img.setPixel(x, y, rgba[0] << 16 | rgba[1] << 8 | rgba[2])
+
+        self._ui.lbl_colormap_display.setPixmap(QPixmap.fromImage(img))
 
 
     def get_display_bands(self):
