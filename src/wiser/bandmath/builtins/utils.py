@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
@@ -19,7 +19,8 @@ def is_number(value: BandMathValue) -> bool:
     return (value.type == VariableType.NUMBER)
 
 
-def reorder_args(lhs: BandMathValue, rhs: BandMathValue) -> Tuple[BandMathValue, BandMathValue]:
+def reorder_args(lhs_type: VariableType, rhs_type: VariableType,
+                 lhs: Any, rhs: Any) -> Tuple[Any, Any]:
     '''
     This function reorders the input arguments such that:
     *   If only one argument is an image cube, it will be on the LHS.
@@ -34,26 +35,25 @@ def reorder_args(lhs: BandMathValue, rhs: BandMathValue) -> Tuple[BandMathValue,
     '''
     # Since logical AND is commutative, arrange the arguments to make the
     # calculation logic easier.
-    if lhs.type == VariableType.IMAGE_CUBE or rhs.type == VariableType.IMAGE_CUBE:
+    if lhs_type == VariableType.IMAGE_CUBE or rhs_type == VariableType.IMAGE_CUBE:
         # If there is only one image cube, make sure it is on the LHS.
-        if lhs.type != VariableType.IMAGE_CUBE:
+        if lhs_type != VariableType.IMAGE_CUBE:
             (rhs, lhs) = (lhs, rhs)
 
-    elif lhs.type == VariableType.IMAGE_BAND or rhs.type == VariableType.IMAGE_BAND:
+    elif lhs_type == VariableType.IMAGE_BAND or rhs_type == VariableType.IMAGE_BAND:
         # No image cubes.
         # If there is only one image band, make sure it is on the LHS.
-        if lhs.type != VariableType.IMAGE_BAND:
+        if lhs_type != VariableType.IMAGE_BAND:
             (rhs, lhs) = (lhs, rhs)
 
-    elif lhs.type == VariableType.SPECTRUM or rhs.type == VariableType.SPECTRUM:
+    elif lhs_type == VariableType.SPECTRUM or rhs_type == VariableType.SPECTRUM:
         # No image bands.
         # If there is only one spectrum, make sure it is on the LHS.
-        if lhs.type != VariableType.SPECTRUM:
+        if lhs_type != VariableType.SPECTRUM:
             (rhs, lhs) = (lhs, rhs)
 
     return (lhs, rhs)
 
-#######################
 
 def check_image_cube_compatible(arg: BandMathExprInfo,
                                 cube_shape: Tuple[int, int, int]) -> None:
@@ -100,7 +100,7 @@ def check_image_cube_compatible(arg: BandMathExprInfo,
 
     elif arg.result_type == VariableType.SPECTRUM:
         # Dimensions:  [band]
-        if arg.shape != cube_shape[0]:
+        if arg.shape != cube_shape[:1]:
             raise ValueError('Operand shapes are incompatible:  ' +
                 f'cube {cube_shape}, spectrum {arg.shape}')
 
@@ -178,7 +178,7 @@ def check_spectrum_compatible(arg: BandMathExprInfo,
 
     else:
         # This is a scalar:  number or Boolean
-        assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
+        assert arg.result_type in [VariableType.NUMBER, VariableType.BOOLEAN]
 
 
 def make_image_cube_compatible(arg: BandMathValue,

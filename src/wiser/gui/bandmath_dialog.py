@@ -91,7 +91,7 @@ def make_spectrum_chooser(app_state) -> QComboBox:
     active = app_state.get_active_spectrum()
     if active:
         # Add active spectrum to list
-        name = self.tr('Active:  {name}').format(name=active.get_name())
+        name = app_state.tr('Active:  {name}').format(name=active.get_name())
         chooser.addItem(name, active.get_id())
 
     collected = app_state.get_collected_spectra()
@@ -102,7 +102,7 @@ def make_spectrum_chooser(app_state) -> QComboBox:
             chooser.insertSeparator(chooser.count())
 
         for s in collected:
-            name = self.tr('{name}').format(name=s.get_name())
+            name = f'{s.get_name()}'
             chooser.addItem(name, s.get_id())
 
     # TODO(donnie):  Add spectral libraries to list

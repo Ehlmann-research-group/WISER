@@ -10,7 +10,7 @@ from .functions import BandMathFunction, get_builtin_functions
 
 from .builtins import (
     OperatorCompare,
-    OperatorAdd, OperatorSub, OperatorMul, OperatorDiv,
+    OperatorAdd, OperatorSubtract, OperatorMultiply, OperatorDivide,
     OperatorUnaryNegate, OperatorPower,
     )
 
@@ -44,7 +44,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
             return OperatorAdd().apply([lhs, rhs])
 
         elif oper == '-':
-            return OperatorSub().apply([lhs, rhs])
+            return OperatorSubtract().apply([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -59,10 +59,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMul().apply([lhs, rhs])
+            return OperatorMultiply().apply([lhs, rhs])
 
         elif oper == '/':
-            return OperatorDiv().apply([lhs, rhs])
+            return OperatorDivide().apply([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -103,6 +103,9 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Returns a BandMathValue containing the value of the specified variable.
         '''
         name = args[0]
+        if name not in self._variables or self._variables[name][1] is None:
+            raise BandMathEvalError(f'Variable "{name}" is unspecified')
+
         (type, value) = self._variables[name]
         return BandMathValue(type, value, computed=False)
 

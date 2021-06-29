@@ -11,7 +11,7 @@ from .functions import BandMathFunction, get_builtin_functions
 
 from .builtins import (
     OperatorCompare,
-    OperatorAdd, OperatorSub, OperatorMul, OperatorDiv,
+    OperatorAdd, OperatorSubtract, OperatorMultiply, OperatorDivide,
     OperatorUnaryNegate, OperatorPower,
 )
 
@@ -54,10 +54,10 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         rhs = values[2]
 
         if oper == '+':
-            return OperatorAdd().get_result_type([lhs, rhs])
+            return OperatorAdd().analyze([lhs, rhs])
 
         elif oper == '-':
-            return OperatorSub().get_result_type([lhs, rhs])
+            return OperatorSubtract().analyze([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -72,10 +72,10 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMul().get_result_type([lhs, rhs])
+            return OperatorMultiply().analyze([lhs, rhs])
 
         elif oper == '/':
-            return OperatorDiv().get_result_type([lhs, rhs])
+            return OperatorDivide().analyze([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -84,7 +84,7 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         '''
         Implementation of power operation in the transformer.
         '''
-        return OperatorPower().get_result_type([args[0], args[2]])
+        return OperatorPower().analyze([args[0], args[2]])
 
 
     def unary_op_expr(self, args):
@@ -92,7 +92,7 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         Implementation of unary operations in the transformer.
         '''
         if args[0] == '-':
-            return OperatorUnaryNegate().get_result_type([args[1]])
+            return OperatorUnaryNegate().analyze([args[1]])
 
         # Sanity check - shouldn't be possible
         if args[0] != '+':
@@ -135,7 +135,10 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             raise ValueError(f'Unrecognized function "{func_name}"')
 
         func_impl = self._functions[func_name]
-        return func_impl.get_result_type(func_args)
+        try:
+            return func_impl.analyze(func_args)
+        except Exception as e:
+            raise RuntimeError(f'Function "{func_name}" analysis error', e)
 
     def NAME(self, token):
         ''' Parse a token as a string variable name. '''
