@@ -237,9 +237,10 @@ class RasterPane(QWidget):
     #   - The int is the numeric ID of the dataset whose display bands are
     #     changing
     #   - The tuple is either a 1-tuple or 3-tuple specifying the display bands
+    #   - The str is an optional colormap name, when the tuple has 1 element
     #   - The Boolean argument is True for "global change," or False for "this
     #     view only"
-    display_bands_change = Signal(int, tuple, bool)
+    display_bands_change = Signal(int, tuple, str, bool)
 
 
     # Signal:  for when the user selects a raster pixel.  The signal reports the
@@ -958,7 +959,7 @@ class RasterPane(QWidget):
         return None
 
 
-    def set_display_bands(self, ds_id: int, bands: Tuple):
+    def set_display_bands(self, ds_id: int, bands: Tuple, colormap: Optional[str] = None):
         # TODO(donnie):  Verify the dataset ID?
 
         if len(bands) not in [1, 3]:
@@ -976,7 +977,7 @@ class RasterPane(QWidget):
                 # Get the stretches at the same time, so that we only update the
                 # raster-view once.
                 stretches = self._app_state.get_stretches(ds_id, bands)
-                rv.set_display_bands(bands, stretches=stretches)
+                rv.set_display_bands(bands, stretches=stretches, colormap=colormap)
 
 
     def make_point_visible(self, x, y, rasterview_pos=(0, 0)):
@@ -1169,14 +1170,15 @@ class RasterPane(QWidget):
         if dialog.exec_() == QDialog.Accepted:
             bands = dialog.get_display_bands()
             is_global = dialog.apply_globally()
+            colormap = dialog.get_colormap_name()
 
-            self.display_bands_change.emit(dataset.get_id(), bands, is_global)
+            self.display_bands_change.emit(dataset.get_id(), bands, colormap, is_global)
 
             # Only update our display bands if the change was not global, since
             # if it was, the main application controller will change everybody's
             # display bands.
             if not is_global:
-                self.set_display_bands(dataset.get_id(), bands)
+                self.set_display_bands(dataset.get_id(), bands, colormap=colormap)
 
 
     def _on_stretch_builder(self, checked=False, rasterview_pos=(0, 0)):

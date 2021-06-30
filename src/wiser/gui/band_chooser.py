@@ -23,7 +23,8 @@ class BandChooserDialog(QDialog):
     '''
 
     def __init__(self, app_state: ApplicationState, dataset: RasterDataSet,
-                 display_bands: List[int], parent=None):
+                 display_bands: List[int], colormap: Optional[str] = None,
+                 parent=None):
         super().__init__(parent=parent)
 
         if len(display_bands) not in [1, 3]:
@@ -44,8 +45,11 @@ class BandChooserDialog(QDialog):
             self._populate_combobox(combobox)
 
         # Populate the list of colormaps based on what matplotlib reports
+
         for cmap in plt.colormaps():
             self._ui.cbox_colormap_name.addItem(cmap)
+
+        # Set up the UI based on whether we are in RGB or grayscale mode
 
         if len(display_bands) == 3:
             self._ui.rbtn_rgb.setChecked(True)
@@ -57,13 +61,17 @@ class BandChooserDialog(QDialog):
             self._set_grayscale_bands(display_bands)
             self._ui.config_stack.setCurrentWidget(self._ui.config_grayscale)
 
+            if colormap is not None:
+                index = self._ui.cbox_colormap_name.findText(colormap)
+                if index != -1:
+                    self._ui.cbox_colormap_name.setCurrentIndex(index)
+
         self._configure_buttons()
 
-        self._on_grayscale_use_colormap(False)
+        self._on_grayscale_use_colormap(colormap is not None)
         self._ui.lbl_colormap_display.setScaledContents(True)
-        self._on_grayscale_choose_colormap(0)
+        self._on_grayscale_choose_colormap(-1)
 
-        self._ui.cbox_colormap_name.setEnabled(False)
         self._ui.chk_apply_globally.setChecked(True)
 
         # Hook up event handlers
@@ -76,7 +84,7 @@ class BandChooserDialog(QDialog):
 
         self._ui.btn_gray_choose_defaults.clicked.connect(self._on_grayscale_choose_default_bands)
 
-        self._ui.ckbox_use_colormap.clicked.connect(self._on_grayscale_use_colormap)
+        self._ui.chk_use_colormap.clicked.connect(self._on_grayscale_use_colormap)
         self._ui.cbox_colormap_name.activated.connect(self._on_grayscale_choose_colormap)
 
 
@@ -143,7 +151,7 @@ class BandChooserDialog(QDialog):
         '''
 
         default_bands = self._dataset.default_display_bands()
-        print(f'band chooser:  default bands = {default_bands}')
+        # print(f'band chooser:  default bands = {default_bands}')
 
         self._ui.btn_rgb_choose_defaults.setEnabled(
             default_bands is not None and len(default_bands) == 3)
@@ -215,3 +223,23 @@ class BandChooserDialog(QDialog):
 
     def apply_globally(self):
         return self._ui.chk_apply_globally.isChecked()
+
+
+    def use_colormap(self):
+        return (self._ui.rbtn_grayscale.isChecked() and
+                self._ui.chk_use_colormap.isChecked())
+
+
+    def get_colormap_name(self) -> Optional[str]:
+        '''
+        If a colormap should be used (i.e. the image is to be displayed in
+        grayscale and the user chose to use a colormap), then this method
+        returns the name of the colormap as registered with matplotlib.
+
+        Otherwise this method returns ``None``.
+        '''
+        cm_name: Optional[str] = None
+        if self.use_colormap():
+            cm_name = self._ui.cbox_colormap_name.currentText()
+
+        return cm_name
