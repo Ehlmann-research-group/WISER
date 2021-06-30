@@ -639,16 +639,17 @@ class DataVisualizerApp(QMainWindow):
                 return
 
 
-    def _on_display_bands_change(self, ds_id: int, bands: Tuple, is_global: bool):
+    def _on_display_bands_change(self, ds_id: int, bands: Tuple,
+                                 colormap: Optional[str], is_global: bool):
         '''
         When the user changes the display bands used in one of the raster panes,
         the pane will fire an event that the application controller can receive,
         if other raster panes also need to be updated.
         '''
         if is_global:
-            self._context_pane.set_display_bands(ds_id, bands)
-            self._main_view.set_display_bands(ds_id, bands)
-            self._zoom_pane.set_display_bands(ds_id, bands)
+            self._context_pane.set_display_bands(ds_id, bands, colormap=colormap)
+            self._main_view.set_display_bands(ds_id, bands, colormap=colormap)
+            self._zoom_pane.set_display_bands(ds_id, bands, colormap=colormap)
 
 
     def _on_create_selection(self, selection):

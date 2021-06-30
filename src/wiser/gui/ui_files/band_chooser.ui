@@ -40,7 +40,7 @@
       <item>
        <widget class="QStackedWidget" name="config_stack">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="config_rgb">
          <layout class="QGridLayout" name="gridLayout_2" columnstretch="0,1">
@@ -105,7 +105,7 @@
            <widget class="QComboBox" name="cbox_gray_band"/>
           </item>
           <item row="3" column="0">
-           <widget class="QCheckBox" name="ckbox_use_colormap">
+           <widget class="QCheckBox" name="chk_use_colormap">
             <property name="text">
              <string>Use a colormap</string>
             </property>
@@ -197,7 +197,7 @@
   <tabstop>chk_apply_globally</tabstop>
   <tabstop>cbox_gray_band</tabstop>
   <tabstop>btn_gray_choose_defaults</tabstop>
-  <tabstop>ckbox_use_colormap</tabstop>
+  <tabstop>chk_use_colormap</tabstop>
  </tabstops>
  <resources/>
  <connections>

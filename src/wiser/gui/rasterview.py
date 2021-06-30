@@ -383,7 +383,8 @@ class RasterView(QWidget):
         return tuple(self._display_bands)
 
 
-    def set_display_bands(self, display_bands: Tuple, stretches: List = None):
+    def set_display_bands(self, display_bands: Tuple, stretches: List = None,
+                          colormap: Optional[str] = None):
         if len(display_bands) not in [1, 3]:
             raise ValueError('display_bands must be a list of 1 or 3 ints')
 
@@ -439,6 +440,7 @@ class RasterView(QWidget):
                     # Compute the contents of this color channel.
                     self._display_data[i] = make_channel_image(self._raster_data,
                         self._display_bands[i], self._stretches[i])
+
         else:
             # This is a grayscale image.
             if colors != ImageColors.NONE:
