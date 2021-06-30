@@ -10,6 +10,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 import numpy as np
+from matplotlib import cm
 
 from .util import get_painter
 
@@ -54,15 +55,14 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
 
 def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     '''
-    Given a list of 1 or 3 color channels of the same dimensions, this function
-    combines them together into an RGB image.  If only one channel is provided,
-    the data is used for all three color channels, producing a grayscale image.
-    If three channels are provided, they are correspondingly used for the red,
-    green and blue channels of the resulting image.
+    Given a list of 3 color channels of the same dimensions, this function
+    combines them together into an RGB image.  The first, second and third
+    channels are correspondingly used for the red, green and blue channels of
+    the resulting image.
 
-    An Exception is thrown if:
-    *   A number of channels is specified other than 1 or 3.
-    *   Any channel is not of type np.uint8, np.uint16, or np.uint32.
+    An exception is raised if:
+    *   A number of channels is specified other than 3.
+    *   Any channel is not of type ``np.uint8``, ``np.uint16``, or ``np.uint32``.
     *   The channels do not all have the same dimensions (shape).
 
     If optimizations are not enabled, the function also verifies that all
@@ -71,8 +71,8 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     '''
 
     # Make sure the correct number of channels were specified
-    if len(channels) not in [1, 3]:
-        raise ValueError(f'Must specify 1 or 3 channels; got {len(channels)}')
+    if len(channels) != 3:
+        raise ValueError(f'Must specify 3 channels; got {len(channels)}')
 
     # Make sure that all color channels have unsigned integer data
     for c in channels:
@@ -89,21 +89,69 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
         assert (0 <= np.amin(c) <= 255) and (0 <= np.amax(c) <= 255), \
             'Channel may only contain values in range 0..255, and no NaNs'
 
-    # If we are in grayscale mode, make the green and blue channels the same
-    # as the red channel.
-    if len(channels) == 1:
-        channels = channels * 3
-
     rgb_data = (channels[0] << 16 |
                 channels[1] <<  8 |
                 channels[2]) | 0xff000000
     if isinstance(rgb_data, np.ma.MaskedArray):
         rgb_data.fill_value = 0xff000000
 
+    # Qt5/PySide2 complains if the array is not contiguous.
     if not rgb_data.flags['C_CONTIGUOUS']:
         rgb_data = np.ascontiguousarray(rgb_data)
 
     return rgb_data
+
+
+def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) -> np.ndarray:
+    '''
+    Given a single image channel, this function generates a grayscale image, or,
+    if a colormap name is specified, a color-mapped image from the single
+    channel's data.
+
+    An exception is raised if:
+    *   The channel is not of type ``np.uint8``, ``np.uint16``, or ``np.uint32``.
+
+    If optimizations are not enabled, the function also verifies that all
+    channel values are in the range [0, 255]; since this is an expensive check,
+    it is disabled if optimizations are turned on.
+    '''
+
+    def make_colormap_array(cmap):
+        result = []
+        for v in range(256):
+            rgba = cmap(v, bytes=True)
+            result.append(rgba[0] << 16 | rgba[1] << 8 | rgba[2] | 0xff000000)
+
+        return np.array(result, np.uint32)
+
+    # Make sure that the color channel has unsigned integer data
+    if channel.dtype not in [np.uint8, np.uint16, np.uint32]:
+        raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {channel.dtype}')
+
+    # Expensive sanity checks:
+    if __debug__:
+        assert (0 <= np.amin(channel) <= 255) and (0 <= np.amax(channel) <= 255), \
+            'Channel may only contain values in range 0..255, and no NaNs'
+
+    if colormap is None:
+        # Use the channel data to generate various gray RGB values.
+        rgb_data = (channel << 16 | channel << 8 | channel) | 0xff000000
+
+    else:
+        # Map the channel data to RGB colors using the colormap.
+        cmap = cm.get_cmap(colormap, 256)
+        cmap_arr = make_colormap_array(cmap)
+        rgb_data = cmap_arr[channel]
+
+    if isinstance(rgb_data, np.ma.MaskedArray):
+        rgb_data.fill_value = 0xff000000
+
+    # Qt5/PySide2 complains if the array is not contiguous.
+    if not rgb_data.flags['C_CONTIGUOUS']:
+        rgb_data = np.ascontiguousarray(rgb_data)
+
+    return rgb_data
+
 
 
 class ImageColors(enum.IntFlag):
@@ -319,7 +367,7 @@ class RasterView(QWidget):
 
         self._raster_data = None
         self._display_bands = None
-
+        self._colormap: Optional[str] = None
         self._stretches = None
 
         # These members are for storing the components of the raster data, so
@@ -416,6 +464,7 @@ class RasterView(QWidget):
                 changed |= ImageColors.BLUE
 
         self._display_bands = display_bands
+        self._colormap = colormap
         self.update_display_image(colors=changed)
 
 
@@ -441,6 +490,11 @@ class RasterView(QWidget):
                     self._display_data[i] = make_channel_image(self._raster_data,
                         self._display_bands[i], self._stretches[i])
 
+            time_2 = time.perf_counter()
+
+            # Combine our individual color channel(s) into a single RGB image.
+            img_data = make_rgb_image(self._display_data)
+
         else:
             # This is a grayscale image.
             if colors != ImageColors.NONE:
@@ -454,10 +508,10 @@ class RasterView(QWidget):
                 self._display_data[1] = self._display_data[0]
                 self._display_data[2] = self._display_data[0]
 
-        time_2 = time.perf_counter()
+            time_2 = time.perf_counter()
 
-        # Combine our individual color channel(s) into a single RGB image.
-        img_data = make_rgb_image(self._display_data)
+            # Combine our individual color channel(s) into a single RGB image.
+            img_data = make_grayscale_image(self._display_data[0], self._colormap)
 
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
