@@ -237,10 +237,13 @@ class RasterPane(QWidget):
     #   - The int is the numeric ID of the dataset whose display bands are
     #     changing
     #   - The tuple is either a 1-tuple or 3-tuple specifying the display bands
-    #   - The str is an optional colormap name, when the tuple has 1 element
+    #   - The object is an optional string colormap name, when the tuple has 1
+    #     element; otherwise it is None (NOTE:  declaring the value as a str
+    #     will cause Qt to convert a value of None to an empty string, which is
+    #     not what we want)
     #   - The Boolean argument is True for "global change," or False for "this
     #     view only"
-    display_bands_change = Signal(int, tuple, str, bool)
+    display_bands_change = Signal(int, tuple, object, bool)
 
 
     # Signal:  for when the user selects a raster pixel.  The signal reports the
@@ -1163,8 +1166,10 @@ class RasterPane(QWidget):
         rasterview = self.get_rasterview(rasterview_pos)
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
+        colormap = rasterview.get_colormap()
 
-        dialog = BandChooserDialog(self._app_state, dataset, display_bands, parent=self)
+        dialog = BandChooserDialog(self._app_state, dataset, display_bands,
+            colormap=colormap, parent=self)
         dialog.setModal(True)
 
         if dialog.exec_() == QDialog.Accepted:

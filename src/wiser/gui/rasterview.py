@@ -468,6 +468,10 @@ class RasterView(QWidget):
         self.update_display_image(colors=changed)
 
 
+    def get_colormap(self) -> Optional[str]:
+        return self._colormap
+
+
     def update_display_image(self, colors=ImageColors.RGB):
         if self._raster_data is None:
             # No raster data to display
