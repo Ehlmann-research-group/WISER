@@ -43,6 +43,9 @@ class RasterDataImpl(abc.ABC):
         ''' Returns the number of spectral bands in the raster data. '''
         pass
 
+    def get_elem_type(self) -> np.dtype:
+        pass
+
     def get_image_data(self) -> np.ndarray:
         pass
 
@@ -81,7 +84,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         # Note:  GDAL indexes bands from 1, not 0.
         x_size = None
         y_size = None
-        data_type = None
+        self.gdal_data_type = None
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
             band = self.gdal_dataset.GetRasterBand(band_index)
 
@@ -89,11 +92,11 @@ class GDALRasterDataImpl(RasterDataImpl):
                 # First band:  record the width, height and data-type
                 x_size = band.XSize
                 y_size = band.YSize
-                data_type = band.DataType
+                self.gdal_data_type = band.DataType
             else:
                 # Subsequent bands:  should match the first band!
                 if x_size != band.XSize or y_size != band.YSize or \
-                   data_type != band.DataType:
+                   self.gdal_data_type != band.DataType:
                     raise ValueError('Cannot handle raster data with bands ' +
                         'of different dimensions or types!  Band-1 values:  ' +
                         f'{x_size} {y_size} {data_type}  Band-{band_index} ' +
@@ -128,6 +131,9 @@ class GDALRasterDataImpl(RasterDataImpl):
         ''' Returns the number of spectral bands in the raster data. '''
         return self.gdal_dataset.RasterCount
 
+    def get_elem_type(self) -> np.dtype:
+        return gdal_array.GDALTypeCodeToNumericTypeCode(self.gdal_data_type)
+
     def get_image_data(self):
         '''
         Returns a numpy 3D array of the entire image cube.
@@ -143,6 +149,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         try:
             np_array = self.gdal_dataset.GetVirtualMemArray(band_sequential=True)
         except RuntimeError:
+            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
             np_array = self.gdal_dataset.ReadAsArray()
 
         return np_array
@@ -359,6 +366,9 @@ class NumPyRasterDataImpl(RasterDataImpl):
     def num_bands(self) -> int:
         ''' Returns the number of spectral bands in the raster data. '''
         return self._arr.shape[0]
+
+    def get_elem_type(self) -> np.dtype:
+        return self._arr.dtype
 
     def get_image_data(self) -> np.ndarray:
         return self._arr

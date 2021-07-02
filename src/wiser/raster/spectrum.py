@@ -160,6 +160,19 @@ class Spectrum(abc.ABC):
         ''' Returns the number of spectral bands in the spectrum. '''
         pass
 
+    def get_shape(self) -> Tuple[int]:
+        '''
+        Returns the shape of the spectrum.  This is always simply
+        ``(num_bands)``.
+        '''
+        return (self.num_bands,)
+
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the spectrum.
+        '''
+        pass
+
     def has_wavelengths(self) -> bool:
         '''
         Returns True if this spectrum has wavelength units for all bands, False
@@ -230,6 +243,12 @@ class LibrarySpectrum(Spectrum):
         ''' Returns the number of spectral bands in the raster data. '''
         return self._spectral_library.num_bands()
 
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the spectrum.
+        '''
+        return self._spectral_library.get_elem_type()
+
     def has_wavelengths(self) -> bool:
         '''
         Returns True if this spectrum has wavelength units for all bands, False
@@ -263,6 +282,12 @@ class NumPyArraySpectrum(Spectrum):
     def __init__(self, arr: np.ndarray):
         super().__init__()
         self._arr = arr
+
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the spectrum.
+        '''
+        return self._arr.dtype
 
 
 #===============================================================================
@@ -347,6 +372,12 @@ class RasterDataSetSpectrum(Spectrum):
         ''' Returns the number of spectral bands in the raster data. '''
         return self._dataset.num_bands()
 
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the spectrum.
+        '''
+        return self._dataset.get_elem_type()
+
     def has_wavelengths(self) -> bool:
         '''
         Returns True if this spectrum has wavelength units for all bands, False
@@ -399,7 +430,6 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
         self._area: Tuple[int, int] = None
         self.set_area(area)
         self.set_avg_mode(avg_mode)
-
 
     def _generate_name(self) -> str:
         '''

@@ -1,6 +1,8 @@
 import os
 from typing import Optional
 
+import numpy as np
+
 
 class SpectralLibrary:
     '''
@@ -58,6 +60,12 @@ class SpectralLibrary:
 
     def num_bands(self):
         ''' Returns the number of spectral bands in the spectral library. '''
+        pass
+
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of spectra in the spectral library.
+        '''
         pass
 
     def band_list(self):

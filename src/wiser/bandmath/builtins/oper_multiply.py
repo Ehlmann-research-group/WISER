@@ -91,7 +91,7 @@ class OperatorMultiply(BandMathFunction):
 
         # Since multiplication is commutative, arrange the arguments to make the
         # calculation logic easier.
-        (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
+        (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
         # Do the multiplication computation.
 

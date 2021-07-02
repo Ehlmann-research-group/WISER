@@ -173,6 +173,21 @@ class RasterDataSet:
         return self._impl.num_bands()
 
 
+    def get_shape(self) -> Tuple[int, int, int]:
+        '''
+        Returns the shape of the raster data set.  This is always in the order
+        ``(num_bands, height, width)``.
+        '''
+        return (self.num_bands(), self.get_height(), self.get_width())
+
+
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the raster data set.
+        '''
+        return self._impl.get_elem_type()
+
+
     def band_list(self) -> List[Dict[str, Any]]:
         '''
         Returns a description of all bands in the data set.  The description is
@@ -382,6 +397,27 @@ class RasterDataBand:
         self._dataset = dataset
         self._band_index = band_index
 
+    def get_width(self):
+        ''' Returns the number of pixels per row in the raster data. '''
+        return self._dataset.get_width()
+
+    def get_height(self):
+        ''' Returns the number of rows of data in the raster data. '''
+        return self._dataset.get_height()
+
+    def get_shape(self) -> Tuple[int, int]:
+        '''
+        Returns the shape of the raster data set.  This is always in the order
+        ``(height, width)``.
+        '''
+        return (self.get_height(), self.get_width())
+
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the raster data set.
+        '''
+        return self._dataset.get_elem_type()
+
     def get_dataset(self) -> RasterDataSet:
         ''' Return the backing data set. '''
         return self._dataset
@@ -411,8 +447,6 @@ class RasterDataBand:
         object.
         '''
         return self._dataset.get_band_stats(self._band_index)
-
-
 
 
 def find_truecolor_bands(dataset: RasterDataSet,

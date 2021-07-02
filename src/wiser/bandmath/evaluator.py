@@ -1,4 +1,5 @@
 import enum
+import logging
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -15,6 +16,9 @@ from .builtins import (
     )
 
 
+logger = logging.getLogger(__name__)
+
+
 class BandMathEvaluator(lark.visitors.Transformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
@@ -25,6 +29,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         self._functions = functions
 
     def comparison(self, args):
+        logger.debug(' * comparison')
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
@@ -36,6 +41,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Implementation of addition and subtraction operations in the
         transformer.
         '''
+        logger.debug(' * add_expr')
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
@@ -54,6 +60,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Implementation of multiplication and division operations in the
         transformer.
         '''
+        logger.debug(' * mul_expr')
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
@@ -71,37 +78,44 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         Implementation of power operation in the transformer.
         '''
-        return OperatorPower().apply([args[0], args[2]])
+        logger.debug(' * power_expr')
+        return OperatorPower().apply([args[0], args[1]])
 
 
-    def unary_op_expr(self, args):
+    def unary_negate_expr(self, args):
         '''
-        Implementation of unary operations in the transformer.
+        Implementation of unary negation in the transformer.
         '''
-        if args[0] == '-':
-            return OperatorUnaryNegate().apply([args[1]])
-
-        # Sanity check - shouldn't be possible
-        if args[0] != '+':
-            raise RuntimeError(f'Unexpected operator {args[0]}')
+        logger.debug(' * unary_negate_expr')
+        # args[0] is the '-' character
+        return OperatorUnaryNegate().apply([args[1]])
 
 
     def true(self, args):
         ''' Returns a BandMathValue of True. '''
+        logger.debug(' * true')
         return BandMathValue(VariableType.BOOLEAN, True, computed=False)
 
     def false(self, args):
         ''' Returns a BandMathValue of False. '''
+        logger.debug(' * false')
         return BandMathValue(VariableType.BOOLEAN, False, computed=False)
 
     def number(self, args):
         ''' Returns a BandMathValue containing a specific number. '''
+        logger.debug(f' * number {args[0]}')
+        return args[0]
+
+    def string(self, args):
+        ''' Returns a BandMathValue containing a specific string. '''
+        logger.debug(f' * string "{args[0]}"')
         return args[0]
 
     def variable(self, args) -> BandMathValue:
         '''
         Returns a BandMathValue containing the value of the specified variable.
         '''
+        logger.debug(' * variable')
         name = args[0]
         if name not in self._variables or self._variables[name][1] is None:
             raise BandMathEvalError(f'Variable "{name}" is unspecified')
@@ -109,13 +123,35 @@ class BandMathEvaluator(lark.visitors.Transformer):
         (type, value) = self._variables[name]
         return BandMathValue(type, value, computed=False)
 
+    def named_expression(self, args) -> BandMathValue:
+        '''
+        Named expressions can appear in function arguments.
+        '''
+        logger.debug(' * named_expression')
+        # The first argument is the name, and the second argument is a
+        # BandMathValue object holding the result of the expression evaluation.
+        # Set the name and return the object.
+        value = args[1]
+        value.set_name(args[0])
+        return value
+
     def function(self, args) -> BandMathValue:
         '''
         Calls the function named in args[0], passing it args[1:], and returns
         the result as a BandMathValue.
         '''
+        logger.debug(' * function')
         func_name = args[0]
         func_args = args[1:]
+
+        has_named_args = False
+        for fa in func_args:
+            if fa.name is None:
+                if has_named_args:
+                    raise BandMathEvalError('Named arguments must be '
+                        'specified after all positional arguments')
+            else:
+                has_named_args = True
 
         if func_name not in self._functions:
             raise BandMathEvalError(f'Unrecognized function "{func_name}"')
@@ -128,6 +164,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Parse a token as a string variable name.  The variable name is converted
         to lowercase.
         '''
+        logger.debug(' * NAME')
         return str(token).lower()
 
     def NUMBER(self, token) -> BandMathValue:
@@ -135,7 +172,18 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Parse a token as a number.  The number is represented as a Python float,
         and is wrapped in a BandMathValue object.
         '''
+        logger.debug(' * NUMBER')
         return BandMathValue(VariableType.NUMBER, float(token), computed=False)
+
+    def STRING(self, token) -> str:
+        '''
+        Parse a token as a string literal.  The variable name is converted
+        to lowercase.
+        '''
+        logger.debug(' * STRING')
+        # Chop the quotes off of the string value
+        return str(token)[1:-1]
+
 
 
 def eval_bandmath_expr(bandmath_expr: str,
@@ -182,6 +230,9 @@ def eval_bandmath_expr(bandmath_expr: str,
 
     parser = lark.Lark.open('bandmath.lark', rel_to=__file__, start='expression')
     tree = parser.parse(bandmath_expr)
+    logger.info(f'Band-math parse tree:\n{tree.pretty()}')
+
+    logger.debug('Beginning band-math evaluation')
     eval = BandMathEvaluator(lower_variables, lower_functions)
     result_value = eval.transform(tree)
 

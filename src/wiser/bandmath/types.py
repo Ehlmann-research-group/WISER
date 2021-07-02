@@ -27,6 +27,8 @@ class VariableType(enum.IntEnum):
 
     BOOLEAN = 6
 
+    STRING = 7
+
 
 class BandMathExprInfo:
     '''
@@ -77,9 +79,56 @@ class BandMathValue:
         if type not in VariableType:
             raise ValueError(f'Unrecognized variable-type {type}')
 
+        self.name: Optional[str] = None
         self.type: VariableType = type
         self.value: Any = value
         self.computed: bool = computed
+
+
+    def set_name(self, name: Optional[str]) -> None:
+        self.name = name
+
+
+    def get_shape(self) -> Tuple:
+        if isinstance(self.value, np.ndarray):
+            return self.value.shape
+
+        if self.type == VariableType.IMAGE_CUBE:
+            if isinstance(self.value, RasterDataSet):
+                return self.value.get_shape()
+
+        elif self.type == VariableType.IMAGE_BAND:
+            if isinstance(self.value, RasterDataBand):
+                return self.value.get_shape()
+
+        elif self.type == VariableType.SPECTRUM:
+            if isinstance(self.value, Spectrum):
+                return self.value.get_shape()
+
+        # If we got here, we don't know how to convert the value into a NumPy
+        # array.
+        raise TypeError(f'Don\'t know how to get shape of {self.type} value')
+
+
+    def get_elem_type(self) -> np.dtype:
+        if isinstance(self.value, np.ndarray):
+            return self.value.dtype
+
+        if self.type == VariableType.IMAGE_CUBE:
+            if isinstance(self.value, RasterDataSet):
+                return self.value.get_elem_type()
+
+        elif self.type == VariableType.IMAGE_BAND:
+            if isinstance(self.value, RasterDataBand):
+                return self.value.get_elem_type()
+
+        elif self.type == VariableType.SPECTRUM:
+            if isinstance(self.value, Spectrum):
+                return self.value.get_elem_type()
+
+        # If we got here, we don't know how to convert the value into a NumPy
+        # array.
+        raise TypeError(f'Don\'t know how to get element-type of {self.type} value')
 
 
     def as_numpy_array(self) -> np.ndarray:
