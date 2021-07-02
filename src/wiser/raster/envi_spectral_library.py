@@ -111,6 +111,12 @@ class ENVISpectralLibrary(SpectralLibrary):
     def num_bands(self):
         return self._num_bands
 
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the spectrum.
+        '''
+        return self._data.dtype
+
     def num_spectra(self):
         '''
         Returns the number of spectra in the spectral library.

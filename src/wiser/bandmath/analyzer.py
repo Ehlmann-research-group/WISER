@@ -84,19 +84,15 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         '''
         Implementation of power operation in the transformer.
         '''
-        return OperatorPower().analyze([args[0], args[2]])
+        return OperatorPower().analyze([args[0], args[1]])
 
 
-    def unary_op_expr(self, args):
+    def unary_negate_expr(self, args):
         '''
         Implementation of unary operations in the transformer.
         '''
-        if args[0] == '-':
-            return OperatorUnaryNegate().analyze([args[1]])
-
-        # Sanity check - shouldn't be possible
-        if args[0] != '+':
-            raise RuntimeError(f'Unexpected operator {args[0]}')
+        # args[0] is the '-' character
+        return OperatorUnaryNegate().analyze([args[1]])
 
 
     def true(self, args) -> BandMathExprInfo:
@@ -107,6 +103,9 @@ class BandMathAnalyzer(lark.visitors.Transformer):
 
     def number(self, args) -> BandMathExprInfo:
         return BandMathExprInfo(VariableType.NUMBER)
+
+    def string(self, args) -> BandMathExprInfo:
+        return BandMathExprInfo(VariableType.STRING)
 
     def variable(self, args) -> BandMathExprInfo:
         # Look up the variable's type and value.
@@ -119,13 +118,16 @@ class BandMathAnalyzer(lark.visitors.Transformer):
                     VariableType.SPECTRUM]:
             # These types also have a shape and an element-type.
             bmv = BandMathValue(type, value)
-            arr = bmv.as_numpy_array()
-            info.elem_type = arr.dtype
-            info.shape = arr.shape
+            info.elem_type = bmv.get_elem_type()
+            info.shape = bmv.get_shape()
 
         logger.debug(f'Variable "{name}":  {info}')
 
         return info
+
+    def named_expression(self, args) -> BandMathExprInfo:
+        # args[0] is the name, args[1] is the expression's info
+        return args[1]
 
     def function(self, args):
         func_name = args[0]

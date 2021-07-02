@@ -2,7 +2,7 @@ from typing import List
 
 import numpy as np
 
-from wiser.bandmath import VariableType, BandMathValue
+from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
 
 
@@ -15,16 +15,20 @@ class OperatorUnaryNegate(BandMathFunction):
         raise TypeError(f'Don\'t know how to unary-negate {operand_type}')
 
 
-    def get_result_type(self, arg_types: List[VariableType]):
+    def analyze(self, infos: List[BandMathExprInfo]):
 
-        arg_type = arg_types[0]
+        if len(infos) != 1:
+            raise Exception('Unary negation requires exactly one operand')
 
-        if arg_type not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND, \
-                            VariableType.SPECTRUM, VariableType.NUMBER]:
+        arg = infos[0]
+
+        # Make sure the input type is compatible with unary negation
+        if arg.result_type not in [VariableType.IMAGE_CUBE,
+            VariableType.IMAGE_BAND, VariableType.SPECTRUM, VariableType.NUMBER]:
             self._report_type_error(arg_type)
 
-        # Unary negation returns the same kind of value that it is given.
-        return arg_type
+        # Unary negation returns the same kind of input that it is given.
+        return arg
 
 
     def apply(self, args: List[BandMathValue]):

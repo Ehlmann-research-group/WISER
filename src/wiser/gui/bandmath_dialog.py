@@ -243,6 +243,13 @@ class BandMathDialog(QDialog):
             self._ui.lbl_result_info.setStyleSheet('QLabel { color: black; }')
             expr_info = bandmath.get_bandmath_expr_info(expr, bindings, None)
 
+            if expr_info.result_type not in [bandmath.VariableType.IMAGE_CUBE,
+                bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM]:
+                self._ui.lbl_result_info.setText(self.tr('Enter an ' +
+                    'expression that produces an image cube, band, or spectrum'))
+                self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
+                return
+
             type_str = self._variable_types_text[expr_info.result_type]
             dims_str = ''
             mem_size_str = ''
