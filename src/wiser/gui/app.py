@@ -646,6 +646,8 @@ class DataVisualizerApp(QMainWindow):
         the pane will fire an event that the application controller can receive,
         if other raster panes also need to be updated.
         '''
+        logger.debug(f'on_display_bands_change({ds_id}, {bands}, ' +
+                     f'{str_or_none(colormap)}, {is_global})')
         if is_global:
             self._context_pane.set_display_bands(ds_id, bands, colormap=colormap)
             self._main_view.set_display_bands(ds_id, bands, colormap=colormap)

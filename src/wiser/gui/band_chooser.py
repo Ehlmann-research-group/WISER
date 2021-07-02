@@ -68,9 +68,11 @@ class BandChooserDialog(QDialog):
 
         self._configure_buttons()
 
-        self._on_grayscale_use_colormap(colormap is not None)
+        # Configure the colormap portion of the dialog.
         self._ui.lbl_colormap_display.setScaledContents(True)
-        self._on_grayscale_choose_colormap(-1)
+        self._ui.chk_use_colormap.setChecked(colormap is not None)
+        self._on_grayscale_use_colormap(colormap is not None)
+        self._on_grayscale_choose_colormap(-1) # The argument here is ignored
 
         self._ui.chk_apply_globally.setChecked(True)
 
