@@ -43,6 +43,13 @@ def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
 
 
 def get_dimensions(type: bandmath.VariableType, shape: Tuple) -> str:
+    '''
+    This helper function takes a band-math value-type with a specified shape,
+    and returns a human-readable string version of the value's shape.
+
+    If the variable-type isn't an image cube, image band, or spectrum, this
+    fucntion returns the empty string ``''``.
+    '''
     if type == bandmath.VariableType.IMAGE_CUBE:
         return f'{shape[2]}x{shape[1]}, {shape[0]} bands'
 
@@ -56,6 +63,12 @@ def get_dimensions(type: bandmath.VariableType, shape: Tuple) -> str:
 
 
 def get_memory_size(size_bytes: int) -> str:
+    '''
+    This helper function takes a size in bytes, and generates a human-readable
+    string versino of the size.  The size will be reported using bytes,
+    kilobytes (=2**10 bytes), megabytes (=2**20 bytes), gigabytes, or terabytes,
+    depending on the most appropriate option for the input size.
+    '''
     suffixes = ['B', 'KB', 'MB', 'GB', 'TB']
     size = size_bytes
     for i in range(len(suffixes)):
@@ -70,6 +83,11 @@ def get_memory_size(size_bytes: int) -> str:
 
 
 def all_bindings_specified(bindings: Dict[str, Tuple[bandmath.VariableType, Any]]):
+    '''
+    This helper function returns True if all variables in the ``bindings``
+    dictionary specify usable values, or ``False`` otherwise.  (A missing value
+    is indicated by ``None``.)
+    '''
     for (name, (type, value)) in bindings.items():
         if value is None:
             return False
@@ -78,6 +96,10 @@ def all_bindings_specified(bindings: Dict[str, Tuple[bandmath.VariableType, Any]
 
 
 def make_dataset_chooser(app_state) -> QComboBox:
+    '''
+    This helper function returns a combobox for choosing a dataset from the
+    set of currently loaded datasets.
+    '''
     chooser = QComboBox()
     for ds in app_state.get_datasets():
         chooser.addItem(ds.get_name(), ds.get_id())
@@ -86,6 +108,10 @@ def make_dataset_chooser(app_state) -> QComboBox:
 
 
 def make_spectrum_chooser(app_state) -> QComboBox:
+    '''
+    This helper function returns a combobox for choosing a spectrum from the
+    set of currently loaded spectra.
+    '''
     chooser = QComboBox()
     chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
     active = app_state.get_active_spectrum()
@@ -126,31 +152,27 @@ class DatasetBandChooserWidget(QWidget):
         layout.setVerticalSpacing(0)
         self.setLayout(layout)
 
-        self._dataset_chooser = make_dataset_chooser(self._app_state)
-        layout.addWidget(self._dataset_chooser, 0, 0)
+        self.dataset_chooser = make_dataset_chooser(self._app_state)
+        layout.addWidget(self.dataset_chooser, 0, 0)
 
-        self._band_chooser = QComboBox()
-        self._band_chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.band_chooser = QComboBox()
+        self.band_chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self._populate_band_chooser()
-        layout.addWidget(self._band_chooser, 0, 1)
+        layout.addWidget(self.band_chooser, 0, 1)
 
-        self._dataset_chooser.activated.connect(self._on_dataset_changed)
-
-
-    def keyPressEvent(self, event):
-        print(f'Key press event:  {event}')
+        self.dataset_chooser.activated.connect(self._on_dataset_changed)
 
 
     def _populate_band_chooser(self):
-        self._band_chooser.clear()
+        self.band_chooser.clear()
 
-        ds_id = self._dataset_chooser.currentData()
+        ds_id = self.dataset_chooser.currentData()
         dataset = self._app_state.get_dataset(ds_id)
 
         for b in dataset.band_list():
             # TODO(donnie):  Generate a band name in some generalized way.
             band_name = f'Band {b["index"]}'
-            self._band_chooser.addItem(band_name, b['index'])
+            self.band_chooser.addItem(band_name, b['index'])
 
 
     def _on_dataset_changed(self, index):
@@ -158,8 +180,8 @@ class DatasetBandChooserWidget(QWidget):
 
 
     def get_ds_band(self) -> Tuple[int, int]:
-        return (self._dataset_chooser.currentData(),
-                self._band_chooser.currentData())
+        return (self.dataset_chooser.currentData(),
+                self.band_chooser.currentData())
 
 
 class ReturnEventFilter(QObject):
@@ -198,7 +220,7 @@ class BandMathDialog(QDialog):
         #==================================
         # "Current expression" UI widgets
 
-        self._ui.ledit_expression.editingFinished.connect(lambda: self._parse_expr())
+        self._ui.ledit_expression.editingFinished.connect(lambda: self._analyze_expr())
         self._ui.btn_add_to_saved.clicked.connect(self._on_add_expr_to_saved)
 
         #==================================
@@ -217,10 +239,18 @@ class BandMathDialog(QDialog):
             bandmath.VariableType.REGION_OF_INTEREST: self.tr('Region of Interest'),
             bandmath.VariableType.NUMBER: self.tr('Number'),
             bandmath.VariableType.BOOLEAN: self.tr('Boolean'),
+            bandmath.VariableType.STRING: self.tr('String'),
         }
 
 
-    def _parse_expr(self):
+    def _analyze_expr(self):
+        '''
+        This helper method parses and analyzes the current band-math expression,
+        identifying all variables in the expression, and updating the list of
+        variable bindings shown in the dialog.  If all variables are bound, the
+        method also analyzes the expression to predict the type, shape and size
+        of the expression's result, and displays this information in the UI.
+        '''
         expr = self.get_expression()
         if not expr:
             return
@@ -264,14 +294,19 @@ class BandMathDialog(QDialog):
                 dimensions=dims_str, mem_size=mem_size_str)
             self._ui.lbl_result_info.setText(s)
 
+        except lark.exceptions.VisitError as e:
+            logger.exception(f'Bandmath UI:  Analysis error on expression "{expr}"')
+            self._ui.lbl_result_info.setText(self.tr('Error:  {0}').format(e.orig_exc))
+            self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
+
         except lark.exceptions.LarkError as e:
-            logger.exception(f'Bandmath UI:  Parse failure on expression "{expr}"')
+            logger.exception(f'Bandmath UI:  Parse error on expression "{expr}"')
             self._ui.lbl_result_info.setText(self.tr('Parse error!'))
             self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
 
         except Exception as e:
-            logger.exception(f'Bandmath UI:  Analysis failure on expression "{expr}"')
-            self._ui.lbl_result_info.setText(self.tr('Error:  {0}').format(e.msg))
+            logger.exception(f'Bandmath UI:  Other error on expression "{expr}"')
+            self._ui.lbl_result_info.setText(self.tr('Error:  {0}').format(e))
             self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
 
 
@@ -360,12 +395,15 @@ class BandMathDialog(QDialog):
 
         if variable_type == bandmath.VariableType.IMAGE_CUBE:
             value_widget = make_dataset_chooser(self._app_state)
+            value_widget.activated.connect(self._on_variable_shape_change)
 
         elif variable_type == bandmath.VariableType.IMAGE_BAND:
             value_widget = DatasetBandChooserWidget(self._app_state)
+            value_widget.dataset_chooser.activated.connect(self._on_variable_shape_change)
 
         elif variable_type == bandmath.VariableType.SPECTRUM:
             value_widget = make_spectrum_chooser(self._app_state)
+            value_widget.activated.connect(self._on_variable_shape_change)
 
         else:
             raise AssertionError(f'Unrecognized variable type {variable_type}')
@@ -374,6 +412,10 @@ class BandMathDialog(QDialog):
 
 
     def _on_variable_type_change(self, type_index: int, var_name: str):
+        '''
+        When a variable's type changes, the dialog must show a new value-chooser
+        for that variable.
+        '''
         print(f'Variable {var_name} type change to {type_index}')
         var_row = self._find_variable_in_bindings(var_name)
         if var_row == -1:
@@ -383,6 +425,17 @@ class BandMathDialog(QDialog):
         print(f' * New type is {var_type}')
         value_widget = self._make_value_widget(var_type)
         self._ui.tbl_variables.setCellWidget(var_row, 2, value_widget)
+
+        # Update the expression analysis
+        self._analyze_expr()
+
+
+    def _on_variable_shape_change(self, index: int):
+        '''
+        When a variable's shape changes, the dialog must update its analysis of
+        the expression's results.
+        '''
+        self._analyze_expr()
 
 
     def _on_add_expr_to_saved(self, checked=False):
@@ -481,7 +534,7 @@ class BandMathDialog(QDialog):
         '''
         expr = self._ui.cbox_saved_exprs.currentText()
         self._ui.ledit_expression.setText(expr)
-        self._parse_expr()
+        self._analyze_expr()
 
 
     def _check_saved_expressions(self):
