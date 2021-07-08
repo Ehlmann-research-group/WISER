@@ -6,6 +6,8 @@ import numpy as np
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 
+from wiser.bandmath.utils import raise_shape_mismatch
+
 
 def is_scalar(value: BandMathValue) -> bool:
     '''
@@ -88,21 +90,21 @@ def check_image_cube_compatible(arg: BandMathExprInfo,
     if arg.result_type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         if arg.shape != cube_shape:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'cubes {cube_shape} and {arg.shape}')
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.result_type, arg.shape)
 
     elif arg.result_type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
         # NumPy will broadcast the band across the entire image, band by band.
         if arg.shape != cube_shape[1:]:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'cube {cube_shape}, band {arg.shape}')
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.result_type, arg.shape)
 
     elif arg.result_type == VariableType.SPECTRUM:
         # Dimensions:  [band]
         if arg.shape != cube_shape[:1]:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'cube {cube_shape}, spectrum {arg.shape}')
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.result_type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean
@@ -137,8 +139,8 @@ def check_image_band_compatible(arg: BandMathExprInfo,
     if arg.result_type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
         if arg.shape != band_shape:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'bands {band_shape} and {arg.shape}')
+            raise_shape_mismatch(VariableType.IMAGE_BAND, spectrum_shape,
+                                 arg.result_type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean
@@ -173,8 +175,8 @@ def check_spectrum_compatible(arg: BandMathExprInfo,
     if arg.result_type == VariableType.SPECTRUM:
         # Dimensions:  [band]
         if arg.shape != spectrum_shape:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'spectrums {spectrum_shape} and {arg.shape}')
+            raise_shape_mismatch(VariableType.SPECTRUM, spectrum_shape,
+                                 arg.result_type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean
@@ -216,8 +218,8 @@ def make_image_cube_compatible(arg: BandMathValue,
         assert result.ndim == 3
 
         if result.shape != cube_shape:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'cubes {result.shape} and {cube_shape}')
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.type, arg.shape)
 
     elif arg.type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
@@ -226,8 +228,8 @@ def make_image_cube_compatible(arg: BandMathValue,
         assert result.ndim == 2
 
         if result.shape != cube_shape[1:]:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'cube {cube_shape}, band {result.shape}')
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.type, arg.shape)
 
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]
@@ -235,8 +237,8 @@ def make_image_cube_compatible(arg: BandMathValue,
         assert result.ndim == 1
 
         if result.shape != cube_shape[0]:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'cube {cube_shape}, spectrum {result.shape}')
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.type, arg.shape)
 
         # To ensure the spectrum is broadcast across the image's pixels,
         # reshape to effectively create a 1x1 image.
@@ -282,8 +284,8 @@ def make_image_band_compatible(arg: BandMathValue,
         assert result.ndim == 2
 
         if result.shape != band_shape:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'bands {band_shape} and {result.shape}')
+            raise_shape_mismatch(VariableType.IMAGE_BAND, band_shape,
+                                 arg.type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean
@@ -324,8 +326,8 @@ def make_spectrum_compatible(arg: BandMathValue,
         assert result.ndim == 1
 
         if result.shape != spectrum_shape:
-            raise ValueError('Operand shapes are incompatible:  ' +
-                f'spectrums {spectrum_shape} and {result.shape}')
+            raise_shape_mismatch(VariableType.SPECTRUM, spectrum_shape,
+                                 arg.type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean

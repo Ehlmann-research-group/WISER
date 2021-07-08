@@ -7,8 +7,6 @@ import numpy as np
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
 from wiser.raster.spectrum import Spectrum
 
-from .utils import prepare_array
-
 
 class VariableType(enum.IntEnum):
     '''
@@ -144,15 +142,15 @@ class BandMathValue:
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):
-                return prepare_array(self.value.get_image_data())
+                return self.value.get_image_data()
 
         elif self.type == VariableType.IMAGE_BAND:
             if isinstance(self.value, RasterDataBand):
-                return prepare_array(self.value.get_data())
+                return self.value.get_data()
 
         elif self.type == VariableType.SPECTRUM:
             if isinstance(self.value, Spectrum):
-                return prepare_array(self.value.get_spectrum())
+                return self.value.get_spectrum()
 
         # If we got here, we don't know how to convert the value into a NumPy
         # array.
