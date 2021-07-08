@@ -165,7 +165,7 @@ class Spectrum(abc.ABC):
         Returns the shape of the spectrum.  This is always simply
         ``(num_bands)``.
         '''
-        return (self.num_bands,)
+        return (self.num_bands(),)
 
     def get_elem_type(self) -> np.dtype:
         '''
