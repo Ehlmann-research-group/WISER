@@ -128,7 +128,7 @@ class OperatorDivide(BandMathFunction):
             # The result array should have the same dimensions as the LHS input
             # array.
             assert result_arr.ndim == 1
-            assert result_arr.shape == lhs_arr.shape
+            assert result_arr.shape == lhs_value.shape
             return BandMathValue(VariableType.SPECTRUM, result_arr)
 
         # If we get here, we don't know how to divide the two types.
