@@ -15,6 +15,7 @@ from .rasterview import RasterView
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
 from wiser import bandmath
+from wiser.bandmath.utils import get_dimensions
 
 
 logger = logging.getLogger(__name__)
@@ -40,26 +41,6 @@ def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
     else:
         # This is the default guess
         return bandmath.VariableType.IMAGE_BAND
-
-
-def get_dimensions(type: bandmath.VariableType, shape: Tuple) -> str:
-    '''
-    This helper function takes a band-math value-type with a specified shape,
-    and returns a human-readable string version of the value's shape.
-
-    If the variable-type isn't an image cube, image band, or spectrum, this
-    fucntion returns the empty string ``''``.
-    '''
-    if type == bandmath.VariableType.IMAGE_CUBE:
-        return f'{shape[2]}x{shape[1]}, {shape[0]} bands'
-
-    elif type == bandmath.VariableType.IMAGE_BAND:
-        return f'{shape[1]}x{shape[0]}'
-
-    elif type == bandmath.VariableType.SPECTRUM:
-        return f'{shape[0]} bands'
-
-    return ''
 
 
 def get_memory_size(size_bytes: int) -> str:
@@ -280,18 +261,18 @@ class BandMathDialog(QDialog):
                 self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
                 return
 
-            type_str = self._variable_types_text[expr_info.result_type]
+            type_str = self._variable_types_text.get(expr_info.result_type,
+                self.tr('Unrecognized type'))
             dims_str = ''
             mem_size_str = ''
 
             if expr_info.result_type in [bandmath.VariableType.IMAGE_CUBE,
                 bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM]:
-                dims_str = get_dimensions(expr_info.result_type, expr_info.shape)
-                mem_size_str = get_memory_size(expr_info.result_size())
+                dims_str = f' {get_dimensions(expr_info.result_type, expr_info.shape)}'
+                mem_size_str = f' ({get_memory_size(expr_info.result_size())})'
 
-            s = self.tr('Result: {type} {dimensions} {mem_size}')
-            s = s.format(type=self._variable_types_text[expr_info.result_type],
-                dimensions=dims_str, mem_size=mem_size_str)
+            s = self.tr('Result: {type}{dimensions}{mem_size}')
+            s = s.format(type=type_str, dimensions=dims_str, mem_size=mem_size_str)
             self._ui.lbl_result_info.setText(s)
 
         except lark.exceptions.VisitError as e:
@@ -453,14 +434,17 @@ class BandMathDialog(QDialog):
         for i in range(self._ui.cbox_saved_exprs.count()):
             # TODO(donnie):  This comparison doesn't catch situations where
             #     whitespace is the only difference.
-            saved_expr = self._ui.cbox_saved_expr.itemText(i).casefold()
+            saved_expr = self._ui.cbox_saved_exprs.itemText(i).casefold()
             if expr == saved_expr:
                 QMessageBox.critical(self, self.tr('Expression already saved'),
                     self.tr('The current band-math expression is already\n' +
                             'in the saved-expressions list.'))
                 return
 
+        # Add the expression to the end of the list, and make sure it is
+        # visible/selected in the combo-box.
         self._ui.cbox_saved_exprs.addItem(expr)
+        self._ui.cbox_saved_exprs.setCurrentIndex(self._ui.cbox_saved_exprs.count() - 1)
         self._saved_exprs_modified = True
 
 
