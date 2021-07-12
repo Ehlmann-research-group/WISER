@@ -152,8 +152,14 @@ class DatasetBandChooserWidget(QWidget):
 
         for b in dataset.band_list():
             # TODO(donnie):  Generate a band name in some generalized way.
-            band_name = f'Band {b["index"]}'
-            self.band_chooser.addItem(band_name, b['index'])
+
+            desc = b['description']
+            if desc:
+                desc = f'Band {b["index"]}: {desc}'
+            else:
+                desc = f'Band {b["index"]}'
+
+            self.band_chooser.addItem(desc, b['index'])
 
 
     def _on_dataset_changed(self, index):

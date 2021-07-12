@@ -106,7 +106,9 @@ class BandChooserDialog(QDialog):
         items = []
         for b in bands:
             desc = b['description']
-            if len(desc) == 0:
+            if desc:
+                desc = f'Band {b["index"]}: {desc}'
+            else:
                 desc = f'Band {b["index"]}'
 
             items.append(desc)
