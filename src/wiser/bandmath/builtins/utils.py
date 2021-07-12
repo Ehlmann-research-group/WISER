@@ -139,7 +139,7 @@ def check_image_band_compatible(arg: BandMathExprInfo,
     if arg.result_type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
         if arg.shape != band_shape:
-            raise_shape_mismatch(VariableType.IMAGE_BAND, spectrum_shape,
+            raise_shape_mismatch(VariableType.IMAGE_BAND, band_shape,
                                  arg.result_type, arg.shape)
 
     else:
