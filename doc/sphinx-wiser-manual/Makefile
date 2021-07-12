@@ -1,8 +1,5 @@
-SOURCES=bandmath_plugins.rst \
-	index.rst \
-	plugins.rst \
-	supporting_types.rst \
-	ui_plugins.rst
+SOURCES=index.rst \
+	bandmath.rst
 
 
 all: runsphinx
