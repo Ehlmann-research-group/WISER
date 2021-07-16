@@ -225,7 +225,7 @@ class BandMathDialog(QDialog):
         self._ui.btn_toggle_help.clicked.connect(self._on_toggle_help)
 
         # Always start with the help info hidden.
-        self._ui.tedit_bandmath_help.setVisible(False)
+        # self._ui.tedit_bandmath_help.setVisible(False)
 
         self._ui.ledit_expression.editingFinished.connect(lambda: self._analyze_expr())
         self._ui.btn_add_to_saved.clicked.connect(self._on_add_expr_to_saved)
@@ -595,15 +595,14 @@ class BandMathDialog(QDialog):
         # Have changes been made to the saved-expressions list?
         self._check_saved_expressions()
 
-        # TODO(donnie):  validation
         # Make sure that all variable-bindings are specified, and that there are
         # no obvious errors with the band-math expression.
-        '''
-        if not self.all_variables_bound():
+
+        bindings = self.get_variable_bindings()
+        if not all_bindings_specified(bindings):
             QMessageBox.critical(self, self.tr('Binding Error'),
                 self.tr('Please specify all variable bindings.'))
             return
-        '''
 
         # TODO(donnie):  Check for obvious issues with the band math?
 
