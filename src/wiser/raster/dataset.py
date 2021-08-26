@@ -94,9 +94,13 @@ class RasterDataSet:
         return True
 
 
-    def _set_dirty(self, dirty: bool = True):
+    def set_dirty(self, dirty: bool = True):
         self._dirty = dirty
         # TODO(donnie):  Notify someone?
+
+
+    def is_dirty(self) -> bool:
+        return self._dirty
 
 
     def get_id(self) -> Optional[int]:
@@ -137,7 +141,7 @@ class RasterDataSet:
         Sets the string description of the dataset.
         '''
         self._description = description
-        self._set_dirty()
+        self.set_dirty()
 
 
     def get_format(self):
@@ -243,7 +247,7 @@ class RasterDataSet:
                 raise ValueError(f'bands must contain either 1 or 3 integer values; got {bands}')
 
         self._default_display_bands = tuple(bands)
-        self._set_dirty()
+        self.set_dirty()
 
 
     def get_data_ignore_value(self) -> Optional[Number]:
@@ -257,7 +261,7 @@ class RasterDataSet:
 
     def set_data_ignore_value(self, ignore_value: Optional[Number]) -> None:
         self._data_ignore_value = value
-        self._set_dirty()
+        self.set_dirty()
 
 
     def get_bad_bands(self) -> Optional[List[int]]:
@@ -382,7 +386,7 @@ class RasterDataSet:
 
         self._has_wavelengths = self._compute_has_wavelengths()
 
-        self._set_dirty()
+        self.set_dirty()
 
 
 class RasterDataBand:
