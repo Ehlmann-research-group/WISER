@@ -1,5 +1,6 @@
 import enum
 import os
+import warnings
 from typing import Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
@@ -179,7 +180,7 @@ class ApplicationState(QObject):
         isn't really a fatal issue, but we may want to look into it if it
         happens a lot.
         '''
-        dir = path
+        dir = os.path.abspath(path)
         if not os.path.isdir(dir):
             dir = os.path.dirname(dir)
 
