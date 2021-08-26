@@ -1,0 +1,551 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AdvancedSaveDatasetDialog</class>
+ <widget class="QDialog" name="AdvancedSaveDatasetDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>566</width>
+    <height>355</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Save Dataset - Advanced</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="tab_general">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_4">
+       <item row="5" column="0">
+        <widget class="QLabel" name="lbl_description">
+         <property name="text">
+          <string>Description:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_description</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="cbox_dataset"/>
+       </item>
+       <item row="6" column="1">
+        <widget class="QLineEdit" name="ledit_data_ignore_value"/>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="lbl_data_ignore">
+         <property name="text">
+          <string>Data-ignore value:</string>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_data_ignore_value</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="lbl_save_format">
+         <property name="text">
+          <string>Save format:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_save_format</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="lbl_filenames">
+         <property name="text">
+          <string>Filename:</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+         </property>
+         <property name="buddy">
+          <cstring>ledit_filename</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="cbox_save_format"/>
+       </item>
+       <item row="3" column="1">
+        <widget class="QWidget" name="widget" native="true">
+         <layout class="QGridLayout" name="gridLayout_7">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <property name="spacing">
+           <number>0</number>
+          </property>
+          <item row="0" column="0">
+           <widget class="QLineEdit" name="ledit_filename"/>
+          </item>
+          <item row="0" column="1">
+           <widget class="QPushButton" name="btn_filename">
+            <property name="text">
+             <string>...</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="lbl_dataset">
+         <property name="text">
+          <string>Dataset:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_dataset</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QLineEdit" name="ledit_description"/>
+       </item>
+       <item row="4" column="1">
+        <widget class="QLabel" name="lbl_filenames_value">
+         <property name="text">
+          <string>filename.hdr
+filename.img</string>
+         </property>
+         <property name="textFormat">
+          <enum>Qt::PlainText</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="lbl_writes_to">
+         <property name="text">
+          <string>Writes to:</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_dimensions">
+      <attribute name="title">
+       <string>Dimensions</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_3">
+       <item row="2" column="0">
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="lbl_src_dims">
+         <property name="text">
+          <string>Image dimensions:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="lbl_src_dims_value">
+         <property name="text">
+          <string>1234 x 5678</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0" colspan="2">
+        <widget class="QGroupBox" name="groupBox">
+         <property name="title">
+          <string>Save a subset of image</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_5">
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="sbox_width"/>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="lbl_left">
+            <property name="text">
+             <string>Left (X):</string>
+            </property>
+            <property name="buddy">
+             <cstring>sbox_left</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="sbox_left"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="lbl_top">
+            <property name="text">
+             <string>Top (Y):</string>
+            </property>
+            <property name="buddy">
+             <cstring>sbox_top</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="lbl_width">
+            <property name="text">
+             <string>Width:</string>
+            </property>
+            <property name="buddy">
+             <cstring>sbox_width</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="sbox_top"/>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="lbl_height">
+            <property name="text">
+             <string>Height:</string>
+            </property>
+            <property name="buddy">
+             <cstring>sbox_height</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QSpinBox" name="sbox_height"/>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_bands">
+      <attribute name="title">
+       <string>Bands</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="1" column="0">
+        <widget class="QLabel" name="lbl_wavelength_units">
+         <property name="text">
+          <string>Wavelength units:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_wavelength_units</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="cbox_wavelength_units"/>
+       </item>
+       <item row="0" column="0" colspan="2">
+        <widget class="QTableWidget" name="tbl_bands">
+         <property name="columnCount">
+          <number>3</number>
+         </property>
+         <attribute name="horizontalHeaderDefaultSectionSize">
+          <number>60</number>
+         </attribute>
+         <attribute name="horizontalHeaderStretchLastSection">
+          <bool>true</bool>
+         </attribute>
+         <attribute name="verticalHeaderStretchLastSection">
+          <bool>false</bool>
+         </attribute>
+         <column>
+          <property name="text">
+           <string>Include</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Bad band</string>
+          </property>
+         </column>
+         <column>
+          <property name="text">
+           <string>Band name / wavelength</string>
+          </property>
+         </column>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab">
+      <attribute name="title">
+       <string>Display Bands</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_8">
+       <item row="1" column="1">
+        <widget class="QRadioButton" name="radioButton_2">
+         <property name="text">
+          <string>Grayscale</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QRadioButton" name="radioButton">
+         <property name="text">
+          <string>RGB</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0" colspan="2">
+        <widget class="QStackedWidget" name="stackedWidget">
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <widget class="QWidget" name="page">
+          <layout class="QGridLayout" name="gridLayout_9" columnstretch="0,1">
+           <item row="1" column="1">
+            <widget class="QComboBox" name="comboBox_2"/>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="comboBox"/>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label">
+             <property name="text">
+              <string>Red channel:</string>
+             </property>
+             <property name="buddy">
+              <cstring>comboBox</cstring>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_2">
+             <property name="text">
+              <string>Green channel:</string>
+             </property>
+             <property name="buddy">
+              <cstring>comboBox_2</cstring>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_3">
+             <property name="text">
+              <string>Blue channel:</string>
+             </property>
+             <property name="buddy">
+              <cstring>comboBox_3</cstring>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QComboBox" name="comboBox_3"/>
+           </item>
+           <item row="4" column="0" colspan="2">
+            <spacer name="verticalSpacer_3">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="3" column="1">
+            <widget class="QPushButton" name="pushButton">
+             <property name="text">
+              <string>Choose visible-light bands</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="page_2">
+          <layout class="QGridLayout" name="gridLayout_10">
+           <item row="0" column="1">
+            <widget class="QComboBox" name="comboBox_4"/>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_4">
+             <property name="text">
+              <string>Grayscale channel:</string>
+             </property>
+             <property name="buddy">
+              <cstring>comboBox_4</cstring>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0" colspan="2">
+            <spacer name="verticalSpacer_4">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="2">
+        <widget class="QCheckBox" name="checkBox">
+         <property name="text">
+          <string>Set default display bands</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_projection">
+      <attribute name="title">
+       <string>Projection</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_6">
+       <item row="1" column="0">
+        <widget class="QTableWidget" name="tbl_map_info"/>
+       </item>
+       <item row="3" column="0">
+        <widget class="QTextEdit" name="txt_coordinate_system">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="lbl_coordinate_system">
+         <property name="text">
+          <string>Coordinate system:</string>
+         </property>
+         <property name="buddy">
+          <cstring>txt_coordinate_system</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="lbl_map_info">
+         <property name="text">
+          <string>Map info:</string>
+         </property>
+         <property name="buddy">
+          <cstring>tbl_map_info</cstring>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>cbox_dataset</tabstop>
+  <tabstop>cbox_save_format</tabstop>
+  <tabstop>ledit_filename</tabstop>
+  <tabstop>btn_filename</tabstop>
+  <tabstop>ledit_description</tabstop>
+  <tabstop>ledit_data_ignore_value</tabstop>
+  <tabstop>groupBox</tabstop>
+  <tabstop>sbox_left</tabstop>
+  <tabstop>sbox_top</tabstop>
+  <tabstop>sbox_width</tabstop>
+  <tabstop>sbox_height</tabstop>
+  <tabstop>tbl_bands</tabstop>
+  <tabstop>cbox_wavelength_units</tabstop>
+  <tabstop>checkBox</tabstop>
+  <tabstop>radioButton</tabstop>
+  <tabstop>radioButton_2</tabstop>
+  <tabstop>comboBox</tabstop>
+  <tabstop>comboBox_2</tabstop>
+  <tabstop>comboBox_3</tabstop>
+  <tabstop>pushButton</tabstop>
+  <tabstop>tbl_map_info</tabstop>
+  <tabstop>txt_coordinate_system</tabstop>
+  <tabstop>comboBox_4</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>AdvancedSaveDatasetDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>224</x>
+     <y>379</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>AdvancedSaveDatasetDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>292</x>
+     <y>385</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
