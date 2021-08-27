@@ -2,6 +2,7 @@ import abc
 import logging
 import math
 import os
+import pprint
 from urllib.parse import urlparse
 
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -204,8 +205,181 @@ class GDALRasterDataImpl(RasterDataImpl):
 
 class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
+    @staticmethod
+    def get_load_filename(path: str) -> str:
+        if path.endswith('.hdr'):
+            s = path[:-4]
+            if os.path.isfile(s):
+                path = s
+            else:
+                s = s + '.img'
+                if os.path.isfile(s):
+                    path = s
+                else:
+                    raise ValueError('Can\'t find raster file corresponding ' +
+                                     f'to ENVI header file {path}')
+
+    @staticmethod
+    def get_save_filenames(path: str) -> List[str]:
+        # Note that the save-filename may not yet exist.
+        if path.endswith('.hdr'):
+            hdr_path = path
+            img_path = path[:-4] + '.img'
+
+        else:
+            img_path = path
+
+            idx = path.rfind('.')
+            if idx != -1 and len(path) - idx <= 5:
+                hdr_path = path[:idx] + '.hdr'
+            else:
+                hdr_path = path + '.hdr'
+
+        return [img_path, hdr_path]
+
+
+    @staticmethod
+    def save_dataset_as(src_dataset: 'RasterDataSet', path: str,
+                        options: Optional[Dict] = None) -> 'ENVI_GDALRasterDataImpl':
+
+        if options is None:
+            options = {}
+
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        gdal.SetConfigOption('GDAL_PAM_ENABLED', 'NO')
+
+        # TODO(donnie):  Pull important values from source dataset.  If the
+        #     "options" argument is also specified, use that to override the
+        #     source dataset's values.
+
+        src_width = src_dataset.get_width()
+        src_height = src_dataset.get_height()
+        src_bands = src_dataset.num_bands()
+
+        src_default_display_bands = src_dataset.default_display_bands()
+
+        src_bad_bands = src_dataset.get_bad_bands()
+        src_data_ignore = src_dataset.get_data_ignore_value()
+        print(f'source data-ignore value is {src_data_ignore}')
+
+        dst_width = options.get('width', src_width)
+        dst_height = options.get('height', src_height)
+
+        src_offset_x = options.get('offset_x', 0)
+        src_offset_y = options.get('offset_y', 0)
+
+        dst_default_display_bands = options.get('default_display_bands',
+            src_default_display_bands)
+
+        dst_data_ignore = options.get('data_ignore', src_data_ignore)
+
+        dst_bands = src_bands
+        dst_include_bands = options.get('include_bands')
+        if dst_include_bands is not None:
+            # Compute how many bands there will be in the destination image
+            dst_bands = sum([1 if b else 0 for b in dst_include_bands])
+
+        else:
+            # Make a simple "include bands" array that includes all source bands
+            dst_include_bands = [True] * src_bands
+
+        elem_type = src_dataset.get_elem_type()
+        gdal_elem_type = gdal_array.NumericTypeCodeToGDALTypeCode(elem_type)
+
+        # logger.debug('Destination raster image values:\n' +
+        #     f'width={dst_width}, height={dst_height}\n' +
+        #     f'data-ignore={dst_data_ignore}\n' +)
+
+        # From the GDAL documentation for the ENVI Driver:
+        #
+        # Creation Options:
+        #
+        # *   INTERLEAVE=BSQ/BIP/BIL: Force the generation specified type of
+        #     interleaving. BSQ – band sequential (default), BIP — data
+        #     interleaved by pixel, BIL – data interleaved by line.
+        #
+        # *   SUFFIX=REPLACE/ADD: Force adding “.hdr” suffix to supplied
+        #     filename, e.g. if user selects “file.bin” name for output dataset,
+        #     “file.bin.hdr” header file will be created. By default header file
+        #     suffix replaces the binary file suffix, e.g. for “file.bin” name
+        #     “file.hdr” header file will be created.
+
+        driver = gdal.GetDriverByName('ENVI')
+        driver_options: List[str] = ['INTERLEAVE=BIL']
+        print(f'driver.Create("{path}", {dst_width}, {dst_height}, {dst_bands}, {gdal_elem_type}, {driver_options})')
+
+        dst_gdal_dataset = driver.Create(path, dst_width, dst_height, dst_bands,
+            gdal_elem_type, driver_options)
+
+        if dst_default_display_bands is not None:
+            str_default_display_bands = '{' + ','.join([str(b) for b in dst_default_display_bands]) + '}'
+            print(f'Setting default display bands to {str_default_display_bands}')
+            dst_gdal_dataset.SetMetadataItem('default_bands', str_default_display_bands, 'ENVI')
+
+        # TODO(donnie):  This doesn't seem to work.  Trying to set it on the bands.
+        #     See note below - trying to set it on the bands fails with an error.
+        # if dst_data_ignore is not None:
+        #     print(f'Setting data-ignore value to {dst_data_ignore}')
+        #     dst_gdal_dataset.SetMetadataItem('data_ignore_value', f'{dst_data_ignore}', 'ENVI')
+
+        dst_wavelengths = []
+        dst_wavelength_units = None
+        dst_bad_bands = []
+        dst_index = 1
+        for band_info in src_dataset.band_list():
+            src_index = band_info['index']
+
+            # If band is to be excluded, continue.
+            if not dst_include_bands[src_index]:
+                continue
+
+            dst_band = dst_gdal_dataset.GetRasterBand(dst_index)
+            src_data = src_dataset.get_band_data(src_index)
+            # TODO(donnie):  Apply any spatial subsetting here
+            dst_band.WriteArray(src_data, 0, 0)
+
+            # Metadata for the band
+
+            # TODO(donnie):  This fails with an error.  Not supported by ENVI format?
+            # if dst_data_ignore is not None:
+            #     dst_band.SetNoDataValue(float(dst_data_ignore))
+
+            if 'wavelength_str' in band_info:
+                dst_wavelengths.append(band_info['wavelength_str'])
+
+                if dst_wavelength_units is None:
+                    dst_wavelength_units = band_info['wavelength_units']
+                else:
+                    if band_info['wavelength_units'] != dst_wavelength_units:
+                        print('WARNING:  wavelength_units differs across bands')
+
+            dst_bad_bands.append(src_bad_bands[src_index])
+
+            dst_index += 1
+
+        # If we have wavelengths, store the wavelength metadata
+        if len(dst_wavelengths) == dst_bands:
+            str_wavelengths = '{' + ','.join(dst_wavelengths) + '}'
+            dst_gdal_dataset.SetMetadataItem('wavelength', str_wavelengths, 'ENVI')
+            dst_gdal_dataset.SetMetadataItem('wavelength_units', dst_wavelength_units, 'ENVI')
+        else:
+            print(f'WARNING:  # bands with wavelengths {len(dst_wavelengths)} doesn\'t match total # of bands {dst_bands}')
+
+        # Store the bad-bands metadata
+        str_bad_bands = '{' + ','.join([str(bb) for bb in dst_bad_bands]) + '}'
+        dst_gdal_dataset.SetMetadataItem('bbl', str_bad_bands, 'ENVI')
+
+        dst_dataset_impl = ENVI_GDALRasterDataImpl(dst_gdal_dataset)
+        return dst_dataset_impl
+
+
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
+
+        md = self.gdal_dataset.GetMetadata('ENVI')
+        print(f'ENVI metadata is:\n{pprint.pformat(md)}')
+
 
     def read_description(self) -> Optional[str]:
         '''
@@ -308,7 +482,6 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         '''
         md = self.gdal_dataset.GetMetadata('ENVI')
         if 'data_ignore_value' in md:
-            # Make sure all values are integers.
             return float(md['data_ignore_value'])
 
         return None

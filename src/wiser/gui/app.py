@@ -28,6 +28,9 @@ from .zoom_pane import ZoomPane
 from .spectrum_plot import SpectrumPlot
 from .infoview import DatasetInfoView
 
+from .save_dataset_basic import BasicSaveDatasetDialog
+from .save_dataset_adv import AdvancedSaveDatasetDialog
+
 from .util import *
 
 from .app_config import ApplicationConfig, get_wiser_config_dir
@@ -155,6 +158,12 @@ class DataVisualizerApp(QMainWindow):
         self._zoom_pane.display_bands_change.connect(self._on_display_bands_change)
         self._zoom_pane.create_selection.connect(self._on_create_selection)
 
+        #=======================================
+        # EVENTS
+
+        self._app_state.dataset_added.connect(self._on_dataset_added)
+        self._app_state.dataset_removed.connect(self._on_dataset_removed)
+
 
     def _init_menus(self):
 
@@ -195,12 +204,15 @@ class DataVisualizerApp(QMainWindow):
 
         self._file_menu.addSeparator()
 
-        # TODO(donnie) - this will require a lot of testing
-        # self._close_dataset_menu = self._file_menu.addMenu(self.tr('Close dataset...'))
-        # act.setStatusTip(self.tr('Close an open dataset or spectral library'))
-        # self._close_dataset_menu.setEnabled(False)
-        #
-        # self._file_menu.addSeparator()
+        self._save_dataset_menu = self._file_menu.addMenu(self.tr('Save dataset as...'))
+        self._save_dataset_menu.setStatusTip(self.tr('Save a dataset or spectral library'))
+        self._save_dataset_menu.setEnabled(False)
+
+        self._close_dataset_menu = self._file_menu.addMenu(self.tr('Close dataset'))
+        self._close_dataset_menu.setStatusTip(self.tr('Close a dataset or spectral library'))
+        self._close_dataset_menu.setEnabled(False)
+
+        self._file_menu.addSeparator()
 
         if system_name == 'Windows':
             act = self._file_menu.addAction(self.tr('Settings...'))
@@ -319,6 +331,68 @@ class DataVisualizerApp(QMainWindow):
 
     def show_status_text(self, text: str, seconds: int=0):
         self.statusBar().showMessage(text, seconds * 1000)
+
+
+    def _on_dataset_added(self, ds_id: int):
+        self._update_dataset_menus()
+
+    def _on_dataset_removed(self, ds_id: int):
+        self._update_dataset_menus()
+
+
+    def _update_dataset_menus(self):
+        self._update_dataset_menu(self._save_dataset_menu, self._on_save_dataset)
+        self._update_dataset_menu(self._close_dataset_menu, self._on_close_dataset)
+
+
+    def _update_dataset_menu(self, menu, handler):
+        menu.clear()
+
+        for ds in self._app_state.get_datasets():
+            act = menu.addAction(ds.get_name())
+            act.setData(ds.get_id())
+            act.triggered.connect(lambda checked=False: handler(ds_id=ds.get_id()))
+
+        menu.setEnabled(self._app_state.num_datasets() > 0)
+
+
+    def _on_save_dataset(self, ds_id: int):
+        # TODO(donnie):  Show save/save-as dialog.
+
+        dialog = BasicSaveDatasetDialog(self._app_state, ds_id, parent=self)
+        result = dialog.exec()
+        print(f'Save dialog result = {result}')
+
+        if result == QDialog.Accepted:
+            # TODO(donnie):  Save the dataset to the specified file.
+            loader = self._app_state.get_loader()
+
+            # The chosen format may create multiple files; this path is expected
+            # to be the one that GDAL needs for the specified format.
+            path = dialog.get_save_path()
+            format = dialog.get_save_format()
+
+            dataset = self._app_state.get_dataset(ds_id)
+            loader.save_dataset_as(dataset, path, format)
+
+            # Mark dataset as unmodified.
+            dataset.set_dirty(False)
+
+
+    def _on_close_dataset(self, ds_id: int):
+        # If dataset is modified, ask user if they want to save it.
+        dataset = self._app_state.get_dataset(ds_id)
+        if dataset.is_dirty():
+            response = QMessageBox.question(self,
+                self.tr('Save modified dataset?'),
+                self.tr('Dataset has unsaved changes.  Save it?'))
+
+            if response == QMessageBox.Yes:
+                # User wants to save the dataset, so let them do so.
+                self._on_save_dataset(ds_id)
+
+        # Finally, remove the dataset.
+        self._app_state.remove_dataset(ds_id)
 
 
     def quit_app(self):

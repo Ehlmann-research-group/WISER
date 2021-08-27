@@ -1,5 +1,7 @@
 import os
 
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 
 from osgeo import gdal, gdalconst, gdal_array
@@ -67,11 +69,25 @@ class RasterDataLoader:
         if driver_name == 'ENVI':
             impl = ENVI_GDALRasterDataImpl(gdal_dataset)
         else:
-            raise ValueError(f'Unrecognized driver name "{driver_name}"')
+            raise ValueError(f'Unsupported format "{driver_name}"')
 
         ds = RasterDataSet(impl)
         self._name_dataset(ds)
         return ds
+
+
+    def get_save_filenames(self, path: str, format: str = 'ENVI') -> List[str]:
+        if format == 'ENVI':
+            return ENVI_GDALRasterDataImpl.get_save_filenames(path)
+        else:
+            raise ValueError(f'Unsupported format "{format}"')
+
+
+    def save_dataset_as(self, dataset: RasterDataSet, path: str, format: str) -> None:
+        if format == 'ENVI':
+            return ENVI_GDALRasterDataImpl.save_dataset_as(dataset, path)
+        else:
+            raise ValueError(f'Unsupported format "{format}"')
 
 
     def dataset_from_numpy_array(self, arr: np.ndarray) -> RasterDataSet:
