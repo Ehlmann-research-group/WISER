@@ -720,6 +720,9 @@ class RasterPane(QWidget):
         # Add any context-menu items that are specific to this location
         self._context_menu_add_local_items(menu, rasterview, context_menu_event)
 
+        # Add any context-menu items that should go at the end
+        self._context_menu_add_end_items(menu, rasterview)
+
 
     def _context_menu_add_global_items(self, menu, rasterview):
         '''
@@ -812,6 +815,17 @@ class RasterPane(QWidget):
 
                 act = roi_menu.addAction(self.tr('Delete Region of Interest...'))
                 act.triggered.connect(lambda checked : self._on_delete_roi(roi=roi))
+
+
+    def _context_menu_add_end_items(self, menu, rasterview):
+        '''
+        This helper function adds items to the context menu that should be at
+        the end of the menu.
+
+        The base implementation does nothing.
+        '''
+        # Let subclasses do things if they want.
+        pass
 
 
     def _afterRasterScroll(self, rasterview, dx, dy):
