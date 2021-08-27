@@ -142,7 +142,7 @@ class DatasetInfoView(QTreeWidget):
         '''
 
         for i in range(self.topLevelItemCount()):
-            entry = self.itemFromIndex(i)
+            entry = self.topLevelItem(i)
             if entry.data(0, Qt.UserRole) == ds_id:
                 return (i, entry)
 
