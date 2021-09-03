@@ -361,7 +361,7 @@ class DataVisualizerApp(QMainWindow):
 
         dialog = BasicSaveDatasetDialog(self._app_state, ds_id, parent=self)
         result = dialog.exec()
-        print(f'Save dialog result = {result}')
+        # print(f'Save dialog result = {result}')
 
         if result == QDialog.Accepted:
             # TODO(donnie):  Save the dataset to the specified file.
