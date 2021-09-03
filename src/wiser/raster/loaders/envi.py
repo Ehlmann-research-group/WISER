@@ -1,4 +1,6 @@
 import os
+import textwrap
+
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -262,8 +264,15 @@ def load_envi_data(filename, header_filename=None, metadata=None, mmap=True):
 
 def find_envi_filenames(filename: str) -> Tuple[str, str]:
     '''
-    Given a filename that may be either the header file or the data file, this
-    function attempts to figure out
+    Given a filename that may be either the header file or the image file of an
+    ENVI raster iamge, this function attempts to figure out both the header and
+    image filenames based on common extensions and approaches.
+
+    If the function is successful at identifying both the header and image
+    filenames, it returns a tuple ``(hdr_filename, img_filename)``.
+
+    A ``FileNotFoundError`` is raised if the specified ``filename`` doesn't
+    exist, or if both the header and image filenames cannot be determined.
     '''
     # Make sure that whatever we were handed, is actually a file.  Otherwise,
     # there's no point in going on.
@@ -349,3 +358,112 @@ def load_envi_file(filename, mmap=True):
     (metadata, data) = load_envi_data(data_filename, header_filename, mmap)
 
     return ([header_filename, data_filename], metadata, data)
+
+
+def list_to_envi_multivalue(name: str, seq: List) -> str:
+    '''
+    Convert a list (or other sequence) of data values to a nicely formatted ENVI
+    "name = { value, value, ... }".  If the string version is too long to fit on
+    a single line, it is text-wrapped across multiple lines.
+    '''
+    # Generate a nice comma-separated and wrapped version of the list data.
+    seq_str = ', '.join([str(v) for v in seq])
+    if len(name) + len(seq_str) + 3 > 78:
+        lines = textwrap.wrap(seq_str, 76, initial_indent='  ', subsequent_indent='  ')
+        seq_str = '\n'.join(lines)
+        return f'{name} = {{\n{seq_str} }}\n'
+    else:
+        return f'{name} = {{ {seq_str} }}\n'
+
+
+def write_envi_name_value_pair(f, name: str, value: Any) -> None:
+    if value is None:
+        return
+
+    if isinstance(value, list) or isinstance(value, tuple):
+        output_str = list_to_envi_multivalue(name, value)
+
+    else:
+        # Not an iterable.  Use the single-valued format.
+
+        if isinstance(value, float) and value.is_integer():
+            value = int(value)
+
+        output_str = f'{name} = {value}\n'
+
+    f.write(output_str)
+
+
+def verify_required_config(metadata: Dict[str, Any], name: str):
+    '''
+    Verify that the specified attribute-name has a non-None value in the ENVI
+    metadata.  If no value is specified for the name (or if the value is None),
+    then a ``ValueError`` is raised.
+    '''
+    if metadata.get(name) is None:
+        raise ValueError(f'ENVI metadata is missing required config "{name}"')
+
+
+def write_envi_header(filename: str, metadata: Dict[str, Any]) -> None:
+    known_keys = [
+        'description',
+
+        # Structural information about the data
+        'samples',
+        'lines',
+        'bands',
+        'header offset',
+        'file type',
+        'data type',
+        'interleave',
+        'sensor type',
+        'byte order',
+        'data ignore value',
+        'y start',
+
+        # Geographical information
+        'map info',
+        'projection info',
+        'coordinate system string',
+
+        # Band metadata
+        'default bands',
+        'band names',
+        'spectra names',
+        'wavelength units',
+        'wavelength',
+        'fwhm',
+        'bbl',
+
+        # Supporting files
+        'crosstrack scatter file',
+        'flat field file',
+        'spectral scatter file',
+        'correction factors',
+        'wavelength file',
+        'radiance version',
+        'rcc file',
+        'smoothing factors',
+        'bad pixel map',
+    ]
+
+    # Verify that all required keys are present
+    for name in ['samples', 'lines', 'bands', 'file type', 'data type',
+                 'interleave', 'byte order']:
+        verify_required_config(metadata, name)
+
+    with open(filename, 'w') as f:
+        f.write('ENVI\n')
+
+        all_keys = set(metadata.keys())
+
+        # Go through the keys we know about, in the specified ordering.
+        for name in known_keys:
+            value = metadata.get(name)
+            all_keys.discard(name)
+            write_envi_name_value_pair(f, name, value)
+
+        # Output all unrecognized keys at the end.
+        for name in all_keys:
+            value = metadata.get(name)
+            write_envi_name_value_pair(f, name, value)

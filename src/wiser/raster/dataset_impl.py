@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 
 from .utils import make_spectral_value, convert_spectral
+from .loaders import envi
 
 import numpy as np
 from astropy import units as u
@@ -261,7 +262,6 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         src_bad_bands = src_dataset.get_bad_bands()
         src_data_ignore = src_dataset.get_data_ignore_value()
-        print(f'source data-ignore value is {src_data_ignore}')
 
         dst_width = options.get('width', src_width)
         dst_height = options.get('height', src_height)
@@ -305,17 +305,21 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         #     suffix replaces the binary file suffix, e.g. for “file.bin” name
         #     “file.hdr” header file will be created.
 
+        # Use the ENVI GDAL driver to output the data, then create a separate
+        # header file since GDAL doesn't understand most of the ENVI attributes.
+
         driver = gdal.GetDriverByName('ENVI')
-        driver_options: List[str] = ['INTERLEAVE=BIL']
-        print(f'driver.Create("{path}", {dst_width}, {dst_height}, {dst_bands}, {gdal_elem_type}, {driver_options})')
+        driver_options: List[str] = ['INTERLEAVE=BSQ']
+        logger.debug(f'driver.Create("{path}", {dst_width}, {dst_height}, ' +
+            f'{dst_bands}, {gdal_elem_type}, {driver_options})')
 
         dst_gdal_dataset = driver.Create(path, dst_width, dst_height, dst_bands,
             gdal_elem_type, driver_options)
 
-        if dst_default_display_bands is not None:
-            str_default_display_bands = '{' + ','.join([str(b) for b in dst_default_display_bands]) + '}'
-            print(f'Setting default display bands to {str_default_display_bands}')
-            dst_gdal_dataset.SetMetadataItem('default_bands', str_default_display_bands, 'ENVI')
+        # if dst_default_display_bands is not None:
+        #     str_default_display_bands = '{' + ','.join([str(b) for b in dst_default_display_bands]) + '}'
+        #     print(f'Setting default display bands to {str_default_display_bands}')
+        #     dst_gdal_dataset.SetMetadataItem('default_bands', str_default_display_bands, 'ENVI')
 
         # TODO(donnie):  This doesn't seem to work.  Trying to set it on the bands.
         #     See note below - trying to set it on the bands fails with an error.
@@ -358,27 +362,52 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
             dst_index += 1
 
+        # Make sure all the data is written to the file.
+        dst_gdal_dataset.FlushCache()
+        del dst_gdal_dataset
+
+        # Generate the header file now.
+        # TODO(donnie):  What to do if an exception is raised???
+        (hdr_filename, img_filename) = envi.find_envi_filenames(path)
+
+        dst_metadata = {}
+
+        # Read in the GDAL-generated metadata, and copy over the data-format
+        # specific configuration values.
+        gdal_metadata = envi.load_envi_header(hdr_filename)
+        for name in ['samples', 'lines', 'bands', 'header offset', 'file type',
+                     'data type', 'interleave', 'byte order']:
+            dst_metadata[name] = gdal_metadata[name]
+
+        # If the value is None, the ENVI header-writer will skip them.
+        dst_metadata['default bands'] = dst_default_display_bands
+        dst_metadata['data ignore value'] = dst_data_ignore
+
         # If we have wavelengths, store the wavelength metadata
         if len(dst_wavelengths) == dst_bands:
-            str_wavelengths = '{' + ','.join(dst_wavelengths) + '}'
-            dst_gdal_dataset.SetMetadataItem('wavelength', str_wavelengths, 'ENVI')
-            dst_gdal_dataset.SetMetadataItem('wavelength_units', dst_wavelength_units, 'ENVI')
+            dst_metadata['wavelength'] = dst_wavelengths
+            dst_metadata['wavelength units'] = dst_wavelength_units
+
         else:
-            print(f'WARNING:  # bands with wavelengths {len(dst_wavelengths)} doesn\'t match total # of bands {dst_bands}')
+            print(f'WARNING:  # bands with wavelengths {len(dst_wavelengths)}' +
+                  f' doesn\'t match total # of bands {dst_bands}')
 
-        # Store the bad-bands metadata
-        str_bad_bands = '{' + ','.join([str(bb) for bb in dst_bad_bands]) + '}'
-        dst_gdal_dataset.SetMetadataItem('bbl', str_bad_bands, 'ENVI')
+        # Bad bands - only write it if any bands are actually bad
+        if 0 in dst_bad_bands:
+            dst_metadata['bbl'] = dst_bad_bands
 
-        dst_dataset_impl = ENVI_GDALRasterDataImpl(dst_gdal_dataset)
-        return dst_dataset_impl
+        envi.write_envi_header(hdr_filename, dst_metadata)
+
+        # TODO(donnie):  Maybe reopen the file and return a dataset-impl for it.
+        # dst_dataset_impl = ENVI_GDALRasterDataImpl(dst_gdal_dataset)
+        # return dst_dataset_impl
 
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
         md = self.gdal_dataset.GetMetadata('ENVI')
-        print(f'ENVI metadata is:\n{pprint.pformat(md)}')
+        logger.info(f'ENVI metadata is:\n{pprint.pformat(md)}')
 
 
     def read_description(self) -> Optional[str]:
