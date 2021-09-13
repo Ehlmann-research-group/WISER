@@ -1,6 +1,6 @@
 import logging
 
-from wiser.plugins import ToolsMenuPlugin, WISERControl
+from wiser.plugins import ToolsMenuPlugin
 
 from PySide2.QtWidgets import QMenu, QMessageBox
 
@@ -16,7 +16,7 @@ class HelloToolPlugin(ToolsMenuPlugin):
     def __init__(self):
         super().__init__()
 
-    def add_tool_menu_items(self, tool_menu: QMenu, wiser: WISERControl) -> None:
+    def add_tool_menu_items(self, tool_menu: QMenu, wiser) -> None:
         '''
         Use QMenu.addAction() to add individual actions, or QMenu.addMenu() to
         add sub-menus to the Tools menu.

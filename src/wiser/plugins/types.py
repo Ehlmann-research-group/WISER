@@ -5,7 +5,7 @@ import importlib
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from .wiser_control import WISERControl
+    from .gui.app_state import ApplicationState
 
 from PySide2.QtWidgets import QMenu
 
@@ -53,7 +53,7 @@ class ToolsMenuPlugin(Plugin):
         super().__init__()
 
 
-    def add_tool_menu_items(self, tool_menu: QMenu, wiser: 'WISERControl') -> None:
+    def add_tool_menu_items(self, tool_menu: QMenu, wiser: 'ApplicationState') -> None:
         '''
         This method is called by WISER to allow plugins to add menu actions or
         submenus into the Tools application menu.
@@ -100,7 +100,7 @@ class ContextMenuPlugin(Plugin):
         specific key/value pairs relevant to the context, that the plugin may
         need for its operation.  The details are specified below.  Besides these
         values, the ``context`` dictionary will also always contain a ``wiser``
-        key that references a :class:`wiser.plugins.WISERControl` object for
+        key that references a :class:`wiser.gui.ApplicationState` object for
         accessing and manipulating WISER's internal state in specific ways.
 
         ``RASTER_VIEW``
