@@ -1,5 +1,5 @@
-WISER Band-Math Support
-=======================
+Band-Math
+=========
 
 WISER supports the evaluation and visualization of simple band-math expressions
 that generate image-cubes, image-bands, and spectra.  The band-math
