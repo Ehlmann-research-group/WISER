@@ -30,14 +30,12 @@ def add_plugin_context_menu_items(app_state: ApplicationState,
     its context, no other plugins will see this.
     '''
 
-    wiser_ctl = plugins.WISERControl(app_state)
-
     for (plugin_name, plugin) in app_state.get_plugins().items():
         if isinstance(plugin, plugins.ContextMenuPlugin):
             # Make a copy of the context, so that plugins can misbehave and
             # mutate the context without affecting each other.
             context = kwargs.copy()
-            context['wiser'] = wiser_ctl
+            context['wiser'] = app_state
 
             try:
                 # Call the plugin!

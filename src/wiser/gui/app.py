@@ -303,9 +303,8 @@ class DataVisualizerApp(QMainWindow):
             self._app_state.add_plugin(pc, plugin)
 
             # Let "Tools"-menu plugins add their actions to the menu.
-            wiser = plugins.WISERControl(self._app_state)
             if isinstance(plugin, plugins.ToolsMenuPlugin):
-                plugin.add_tool_menu_items(self._tools_menu, wiser)
+                plugin.add_tool_menu_items(self._tools_menu, self._app_state)
 
 
     def _make_dockable_pane(self, widget, name, title, icon, tooltip,
