@@ -59,6 +59,7 @@ to work though, and simply requires a bit more setup.
     ```
     pip install pillow
     pip install bugsnag
+    pip install lark
     ```
 
 6.  The `make` utility is used to generate supporting files for Qt 5.
@@ -88,9 +89,9 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 
 2.  Figure out how to run `make` from the Anaconda terminal.
 
-    I use MinGW32 to get the `make` utility, so I run it like this:
+    I use GNU Make, so I run it like this:
 
-    ```c:\MinGW\bin\mingw32-make```
+    ```c:\Program Files (x86)\GnuWin32\bin\make.exe```
 
 3.  Go to the PyCharm project directory for WISER.
 
@@ -113,7 +114,7 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 5.  Build the project:
 
     ```
-    c:\MinGW\bin\mingw32-make dist-win
+    "c:\Program Files (x86)\GnuWin32\bin\make.exe" dist-win
     ```
 
     This should result in the creation of an NSIS installer in the local

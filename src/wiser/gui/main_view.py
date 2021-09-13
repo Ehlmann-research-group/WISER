@@ -1,3 +1,4 @@
+import logging
 import os
 import traceback
 
@@ -16,8 +17,12 @@ from .rasterview import RasterView
 from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action
+from .plugin_utils import add_plugin_context_menu_items
 
 from wiser import plugins
+
+
+logger = logging.getLogger(__name__)
 
 
 class MainViewWidget(RasterPane):
@@ -141,12 +146,28 @@ class MainViewWidget(RasterPane):
                               self._on_export_image_full(rv))
 
         # Plugin context-menus
+        add_plugin_context_menu_items(self._app_state,
+            plugins.ContextMenuType.RASTER_VIEW, menu,
+            dataset=rasterview.get_raster_data(),
+            display_bands=rasterview.get_display_bands())
 
-        context = {'dataset':rasterview.get_raster_data()}
-        for (plugin_name, plugin) in self._app_state.get_plugins().items():
-            if isinstance(plugin, plugins.ContextMenuPlugin):
-                plugin.add_context_menu_items(plugins.ContextMenuType.RASTER_VIEW,
-                    menu, context)
+
+    def _context_menu_add_end_items(self, menu, rasterview):
+        '''
+        This helper function adds items to the context menu that should be at
+        the end of the menu.
+        '''
+
+        if not menu.isEmpty():
+            menu.addSeparator()
+
+        # act = menu.addAction('Save')
+
+        act = menu.addAction('Save as...')
+        act.triggered.connect(lambda checked=False, rv=rasterview : self._on_save_dataset_as(rv))
+
+        act = menu.addAction('Close dataset')
+        act.triggered.connect(lambda checked=False, rv=rasterview : self._on_close_dataset(rv))
 
 
     def _set_link_views_button_state(self):
@@ -192,6 +213,29 @@ class MainViewWidget(RasterPane):
             dataset.get_width(), dataset.get_height(), 1.0)
 
         self._export_image.exec()
+
+
+    def _on_save_dataset_as(self, rasterview):
+        dataset = rasterview.get_raster_data()
+        # TODO(donnie):  Don't do it this way!
+        self._app_state._app._on_save_dataset(dataset.get_id())
+
+
+    def _on_close_dataset(self, rasterview):
+        # If dataset is modified, ask user if they want to save it.
+        dataset = rasterview.get_raster_data()
+        if dataset.is_dirty():
+            response = QMessageBox.question(self,
+                self.tr('Save modified dataset?'),
+                self.tr('Dataset has unsaved changes.  Save it?'))
+
+            if response == QMessageBox.Yes:
+                # User wants to save the dataset, so let them do so.
+                # TODO(donnie):  Don't do it this way!
+                self._app_state._app._on_save_dataset(dataset.get_id())
+
+        # Finally, remove the dataset.
+        self._app_state.remove_dataset(dataset.get_id())
 
 
     def get_stretch_builder(self):

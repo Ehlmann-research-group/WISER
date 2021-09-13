@@ -1,5 +1,8 @@
-import os, random, string
-from typing import List, Optional
+import os
+import random
+import string
+
+from typing import Dict, List, Optional
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -9,6 +12,18 @@ import matplotlib
 import numpy as np
 
 import wiser.gui.generated.resources
+
+
+def str_or_none(s: Optional[str]) -> str:
+    '''
+    Formats an optional string for logging.  If the argument is a string then
+    the function returns the string in double-quotes.  If the argument is
+    ``None`` then the function returns the string ``'None'``.
+    '''
+    if s is not None:
+        return f'"{s}"'
+    else:
+        return 'None'
 
 
 def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None, before=None):

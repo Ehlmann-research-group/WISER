@@ -2,8 +2,14 @@ from typing import List
 
 import numpy as np
 
-from wiser.bandmath import VariableType, BandMathValue
+from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
+
+from .utils import (
+    reorder_args,
+    check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
+    make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
+)
 
 
 class OperatorAdd(BandMathFunction):
@@ -15,51 +21,57 @@ class OperatorAdd(BandMathFunction):
         raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for +')
 
 
-    def get_result_type(self, arg_types: List[VariableType]):
+    def analyze(self, infos: List[BandMathExprInfo]):
 
-        lhs = arg_types[0]
-        rhs = arg_types[1]
+        if len(infos) != 2:
+            raise ValueError('Binary addition requires exactly two arguments')
+
+        lhs = infos[0]
+        rhs = infos[1]
 
         # Take care of the simple case first.
-        if lhs == VariableType.NUMBER and rhs == VariableType.NUMBER:
-            return VariableType.NUMBER
+        if (lhs.result_type == VariableType.NUMBER and
+            rhs.result_type == VariableType.NUMBER):
+            return BandMathExprInfo(VariableType.NUMBER)
 
-        # Swap LHS and RHS based on the types, to make the analysis logic easier
+        # If we got here, we are comparing more complex data types.
 
-        if lhs == VariableType.IMAGE_CUBE or rhs == VariableType.IMAGE_CUBE:
-            if lhs != VariableType.IMAGE_CUBE:
-                (rhs, lhs) = (lhs, rhs)
+        # Since addition is commutative, swap LHS and RHS based on the types,
+        # to make the analysis logic easier
 
-        elif lhs == VariableType.IMAGE_BAND or rhs == VariableType.IMAGE_BAND:
-            if lhs != VariableType.IMAGE_BAND:
-                (rhs, lhs) = (lhs, rhs)
-
-        elif lhs == VariableType.SPECTRUM or rhs == VariableType.SPECTRUM:
-            if lhs != VariableType.SPECTRUM:
-                (rhs, lhs) = (lhs, rhs)
+        (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
 
         # Analyze the input types to determine the result type
+        # TODO(donnie):  This code assumes the result's element-type will be the
+        #     same as the LHS element-type, but this is not guaranteed.  Best
+        #     way to do this is to ask NumPy what the result element-type will
+        #     be.
 
-        if lhs == VariableType.IMAGE_CUBE:
-            if rhs not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND, \
-                           VariableType.SPECTRUM, VariableType.NUMBER]:
-                self._report_type_error(arg_types[0], arg_types[1])
+        if lhs.result_type == VariableType.IMAGE_CUBE:
+            check_image_cube_compatible(rhs, lhs.shape)
 
-            return VariableType.IMAGE_CUBE
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE)
+            info.shape = lhs.shape
+            info.elem_type = lhs.elem_type
+            return info
 
-        elif lhs == VariableType.IMAGE_BAND:
-            if rhs not in [VariableType.IMAGE_BAND, VariableType.NUMBER]:
-                self._report_type_error(arg_types[0], arg_types[1])
+        elif lhs.result_type == VariableType.IMAGE_BAND:
+            check_image_band_compatible(rhs, lhs.shape)
 
-            return VariableType.IMAGE_BAND
+            info = BandMathExprInfo(VariableType.IMAGE_BAND)
+            info.shape = lhs.shape
+            info.elem_type = lhs.elem_type
+            return info
 
-        elif lhs == VariableType.SPECTRUM:
-            if rhs not in [VariableType.SPECTRUM, VariableType.NUMBER]:
-                self._report_type_error(arg_types[0], arg_types[1])
+        elif lhs.result_type == VariableType.SPECTRUM:
+            check_spectrum_compatible(rhs, lhs.shape)
 
-            return VariableType.SPECTRUM
+            info = BandMathExprInfo(VariableType.SPECTRUM)
+            info.shape = lhs.shape
+            info.elem_type = lhs.elem_type
+            return info
 
-        self._report_type_error(arg_types[0], arg_types[1])
+        self._report_type_error(lhs.result_type, rhs.result_type)
 
 
     def apply(self, args: List[BandMathValue]):
@@ -79,111 +91,53 @@ class OperatorAdd(BandMathFunction):
 
         # Since addition is commutative, arrange the arguments to make the
         # calculation logic easier.
-        if lhs.type == VariableType.IMAGE_CUBE or rhs.type == VariableType.IMAGE_CUBE:
-            # If there is only one image cube, make sure it is on the LHS.
-            if lhs.type != VariableType.IMAGE_CUBE:
-                (rhs, lhs) = (lhs, rhs)
-        elif lhs.type == VariableType.IMAGE_BAND or rhs.type == VariableType.IMAGE_BAND:
-            # No image cubes.
-            # If there is only one image band, make sure it is on the LHS.
-            if lhs.type != VariableType.IMAGE_BAND:
-                (rhs, lhs) = (lhs, rhs)
+        (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
-        elif lhs.type == VariableType.SPECTRUM or rhs.type == VariableType.SPECTRUM:
-            # No image bands.
-            # If there is only one spectrum, make sure it is on the LHS.
-            if lhs.type != VariableType.SPECTRUM:
-                (rhs, lhs) = (lhs, rhs)
+        # Do the addition computation.
 
         if lhs.type == VariableType.IMAGE_CUBE:
-            # Dimensions:  [band][x][y]
-            lhs_arr = lhs.as_numpy_array()
-            assert lhs_arr.ndim == 3
+            # Dimensions:  [band][y][x]
+            lhs_value = lhs.as_numpy_array()
+            assert lhs_value.ndim == 3
 
-            if rhs.type == VariableType.IMAGE_CUBE:
-                # Dimensions:  [band][x][y]
-                rhs_arr = rhs.as_numpy_array()
-                result_arr = lhs_arr + rhs_arr
-
-            elif rhs.type == VariableType.IMAGE_BAND:
-                # Dimensions:  [x][y]
-                rhs_arr = rhs.as_numpy_array()
-                assert rhs_arr.ndim == 2
-
-                # NumPy will broadcast the band across the entire image.
-                result_arr = lhs_arr + rhs_arr
-
-            elif rhs.type == VariableType.SPECTRUM:
-                # Dimensions:  [band]
-                rhs_arr = rhs.as_numpy_array()
-                assert rhs_arr.ndim == 1
-
-                # To ensure the spectrum is added to the image's pixels, reshape to
-                # effectively create a 1x1 image.
-                # New dimensions:  [band][x=1][y=1]
-                rhs_arr = rhs_arr[:, np.newaxis, np.newaxis]
-
-                result_arr = lhs_arr + rhs_arr
-
-            elif rhs.type == VariableType.NUMBER:
-                result_arr = lhs_arr + rhs.value
-
-            else:
-                self._report_type_error(args[0].type, args[1].type)
+            rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+            result_arr = lhs_value + rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
             assert result_arr.ndim == 3
-            assert result_arr.shape == lhs_arr.shape
+            assert result_arr.shape == lhs_value.shape
             return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
         elif lhs.type == VariableType.IMAGE_BAND:
-            # Dimensions:  [x][y]
-            lhs_arr = lhs.as_numpy_array()
-            assert lhs_arr.ndim == 2
+            # Dimensions:  [y][x]
+            lhs_value = lhs.as_numpy_array()
+            assert lhs_value.ndim == 2
 
-            if rhs.type == VariableType.IMAGE_BAND:
-                # Dimensions:  [x][y]
-                rhs_arr = rhs.as_numpy_array()
-                assert rhs_arr.ndim == 2
-
-                result_arr = lhs_arr + rhs_arr
-
-            elif rhs.type == VariableType.NUMBER:
-                result_arr = lhs_arr + rhs.value
-
-            else:
-                self._report_type_error(args[0].type, args[1].type)
+            rhs_value = make_image_band_compatible(rhs, lhs_value.shape)
+            result_arr = lhs_value + rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
             assert result_arr.ndim == 2
-            assert result_arr.shape == lhs_arr.shape
+            assert result_arr.shape == lhs_value.shape
             return BandMathValue(VariableType.IMAGE_BAND, result_arr)
 
         elif lhs.type == VariableType.SPECTRUM:
             # Dimensions:  [band]
-            lhs_arr = lhs.as_numpy_array()
-            assert lhs_arr.ndim == 1
+            lhs_value = lhs.as_numpy_array()
+            assert lhs_value.ndim == 1
 
-            if rhs.type == VariableType.SPECTRUM:
-                # Dimensions:  [band]
-                rhs_arr = rhs.as_numpy_array()
-                assert rhs_arr.ndim == 1
-
-                result_arr = lhs_arr + rhs_arr
-
-            elif rhs.type == VariableType.NUMBER:
-                result_arr = lhs_arr + rhs.value
-
-            else:
-                self._report_type_error(args[0].type, args[1].type)
+            rhs_value = make_spectrum_compatible(rhs, lhs_value.shape)
+            result_arr = lhs_value + rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
             assert result_arr.ndim == 1
-            assert result_arr.shape == lhs_arr.shape
+            assert result_arr.shape == lhs_value.shape
             return BandMathValue(VariableType.SPECTRUM, result_arr)
 
         # If we get here, we don't know how to add the two types.
+        # Use args[0] and args[1] instead of lhs and rhs, since lhs/rhs may be
+        # reversed from the original inputs.
         self._report_type_error(args[0].type, args[1].type)

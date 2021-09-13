@@ -40,7 +40,7 @@
       <item>
        <widget class="QStackedWidget" name="config_stack">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="config_rgb">
          <layout class="QGridLayout" name="gridLayout_2" columnstretch="0,1">
@@ -100,7 +100,37 @@
          </layout>
         </widget>
         <widget class="QWidget" name="config_grayscale">
-         <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,1">
+         <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,0">
+          <item row="0" column="1">
+           <widget class="QComboBox" name="cbox_gray_band"/>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="chk_use_colormap">
+            <property name="text">
+             <string>Use a colormap</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QComboBox" name="cbox_colormap_name"/>
+          </item>
+          <item row="6" column="0" colspan="2">
+           <widget class="QLabel" name="lbl_colormap_display">
+            <property name="frameShape">
+             <enum>QFrame::Box</enum>
+            </property>
+            <property name="text">
+             <string>[generated image showing the colormap]</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0" colspan="2">
+           <widget class="QPushButton" name="btn_gray_choose_defaults">
+            <property name="text">
+             <string>Choose &amp;Default Band</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="0">
            <widget class="QLabel" name="lbl_gray_band">
             <property name="text">
@@ -111,7 +141,7 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="2" column="0" colspan="2">
            <spacer name="verticalSpacer">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
@@ -123,16 +153,6 @@
              </size>
             </property>
            </spacer>
-          </item>
-          <item row="0" column="1">
-           <widget class="QComboBox" name="cbox_gray_band"/>
-          </item>
-          <item row="1" column="0" colspan="2">
-           <widget class="QPushButton" name="btn_gray_choose_defaults">
-            <property name="text">
-             <string>Choose &amp;Default Band</string>
-            </property>
-           </widget>
           </item>
          </layout>
         </widget>
@@ -174,9 +194,10 @@
   <tabstop>cbox_blue_band</tabstop>
   <tabstop>btn_rgb_choose_defaults</tabstop>
   <tabstop>btn_rgb_choose_visible</tabstop>
+  <tabstop>chk_apply_globally</tabstop>
   <tabstop>cbox_gray_band</tabstop>
   <tabstop>btn_gray_choose_defaults</tabstop>
-  <tabstop>chk_apply_globally</tabstop>
+  <tabstop>chk_use_colormap</tabstop>
  </tabstops>
  <resources/>
  <connections>

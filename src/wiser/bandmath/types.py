@@ -1,13 +1,11 @@
 import enum
 
-from typing import Any, List
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
 from wiser.raster.spectrum import Spectrum
-
-from .utils import prepare_array
 
 
 class VariableType(enum.IntEnum):
@@ -26,6 +24,37 @@ class VariableType(enum.IntEnum):
     NUMBER = 5
 
     BOOLEAN = 6
+
+    STRING = 7
+
+
+class BandMathExprInfo:
+    '''
+    This class holds information produced by the band-math expression analyzer.
+    '''
+    def __init__(self, result_type=None):
+        # The result-type of the band-math expression.
+        self.result_type: Optional[VariableType] = result_type
+
+        # If the result is an array, this is the element type.
+        self.elem_type: Optional[np.dtype] = None
+
+        # If the result is an array, this is the shape of the array.
+        self.shape: Tuple = None
+
+    def result_size(self):
+        ''' Returns an estimate of this result's size in bytes. '''
+        return np.dtype(self.elem_type).itemsize * np.prod(self.shape)
+
+    def __repr__(self) -> str:
+        if self.result_type in [VariableType.IMAGE_CUBE,
+                                VariableType.IMAGE_BAND,
+                                VariableType.SPECTRUM]:
+            return (f'[type={self.result_type}, elem_type={self.elem_type}, ' +
+                    f'shape={self.shape}]')
+
+        else:
+            return f'[type={self.result_type}]'
 
 
 class BandMathValue:
@@ -48,9 +77,56 @@ class BandMathValue:
         if type not in VariableType:
             raise ValueError(f'Unrecognized variable-type {type}')
 
+        self.name: Optional[str] = None
         self.type: VariableType = type
         self.value: Any = value
         self.computed: bool = computed
+
+
+    def set_name(self, name: Optional[str]) -> None:
+        self.name = name
+
+
+    def get_shape(self) -> Tuple:
+        if isinstance(self.value, np.ndarray):
+            return self.value.shape
+
+        if self.type == VariableType.IMAGE_CUBE:
+            if isinstance(self.value, RasterDataSet):
+                return self.value.get_shape()
+
+        elif self.type == VariableType.IMAGE_BAND:
+            if isinstance(self.value, RasterDataBand):
+                return self.value.get_shape()
+
+        elif self.type == VariableType.SPECTRUM:
+            if isinstance(self.value, Spectrum):
+                return self.value.get_shape()
+
+        # If we got here, we don't know how to convert the value into a NumPy
+        # array.
+        raise TypeError(f'Don\'t know how to get shape of {self.type} value')
+
+
+    def get_elem_type(self) -> np.dtype:
+        if isinstance(self.value, np.ndarray):
+            return self.value.dtype
+
+        if self.type == VariableType.IMAGE_CUBE:
+            if isinstance(self.value, RasterDataSet):
+                return self.value.get_elem_type()
+
+        elif self.type == VariableType.IMAGE_BAND:
+            if isinstance(self.value, RasterDataBand):
+                return self.value.get_elem_type()
+
+        elif self.type == VariableType.SPECTRUM:
+            if isinstance(self.value, Spectrum):
+                return self.value.get_elem_type()
+
+        # If we got here, we don't know how to convert the value into a NumPy
+        # array.
+        raise TypeError(f'Don\'t know how to get element-type of {self.type} value')
 
 
     def as_numpy_array(self) -> np.ndarray:
@@ -66,15 +142,15 @@ class BandMathValue:
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):
-                return prepare_array(self.value.get_image_data())
+                return self.value.get_image_data()
 
         elif self.type == VariableType.IMAGE_BAND:
             if isinstance(self.value, RasterDataBand):
-                return prepare_array(self.value.get_data())
+                return self.value.get_data()
 
         elif self.type == VariableType.SPECTRUM:
             if isinstance(self.value, Spectrum):
-                return prepare_array(self.value.get_spectrum())
+                return self.value.get_spectrum()
 
         # If we got here, we don't know how to convert the value into a NumPy
         # array.

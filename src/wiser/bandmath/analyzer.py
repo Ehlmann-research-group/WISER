@@ -1,27 +1,22 @@
 import enum
+import logging
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import lark
 import numpy as np
 
-from .types import VariableType, BandMathValue, BandMathEvalError
+from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
 
-from .builtins import OperatorAdd, OperatorSub, OperatorMul, OperatorDiv
-from .builtins import OperatorUnaryNegate, OperatorPower
+from .builtins import (
+    OperatorCompare,
+    OperatorAdd, OperatorSubtract, OperatorMultiply, OperatorDivide,
+    OperatorUnaryNegate, OperatorPower,
+)
 
 
-class BandMathExprInfo:
-    def __init__(self):
-        # The result-type of the band-math expression.
-        self.result_type = None
-
-        # If the result is an array, this is the element type.
-        self.elem_type = None
-
-        # If the result is an array, this is the shape of the array.
-        self.shape = None
+logger = logging.getLogger(__name__)
 
 
 class BandMathAnalyzer(lark.visitors.Transformer):
@@ -39,17 +34,14 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         self._result_type = None
 
 
-    def and_expr(self, values):
-        raise NotImplementedError(f'TODO:  and_expr({values})')
+    def comparison(self, args) -> BandMathExprInfo:
+        lhs: BandMathExprInfo = args[0]
+        oper = args[1]
+        rhs: BandMathExprInfo = args[2]
 
-    def or_expr(self, values):
-        raise NotImplementedError(f'TODO:  or_expr({values})')
-
-    def not_expr(self, values):
-        raise NotImplementedError(f'TODO:  not_expr({values})')
-
-    def comparison(self, args):
-        raise NotImplementedError(f'TODO:  comparison({args})')
+        # All comparisons produce the same results regardless of the specific
+        # operator.
+        return OperatorCompare(oper).analyze([lhs, rhs])
 
 
     def add_expr(self, values):
@@ -62,10 +54,10 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         rhs = values[2]
 
         if oper == '+':
-            return OperatorAdd().get_result_type([lhs, rhs])
+            return OperatorAdd().analyze([lhs, rhs])
 
         elif oper == '-':
-            return OperatorSub().get_result_type([lhs, rhs])
+            return OperatorSubtract().analyze([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -80,10 +72,10 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMul().get_result_type([lhs, rhs])
+            return OperatorMultiply().analyze([lhs, rhs])
 
         elif oper == '/':
-            return OperatorDiv().get_result_type([lhs, rhs])
+            return OperatorDivide().analyze([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -92,34 +84,50 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         '''
         Implementation of power operation in the transformer.
         '''
-        return OperatorPower().get_result_type([args[0], args[2]])
+        return OperatorPower().analyze([args[0], args[1]])
 
 
-    def unary_op_expr(self, args):
+    def unary_negate_expr(self, args):
         '''
         Implementation of unary operations in the transformer.
         '''
-        if args[0] == '-':
-            return OperatorUnaryNegate().get_result_type([args[1]])
-
-        # Sanity check - shouldn't be possible
-        if args[0] != '+':
-            raise RuntimeError(f'Unexpected operator {args[0]}')
+        # args[0] is the '-' character
+        return OperatorUnaryNegate().analyze([args[1]])
 
 
-    def true(self, args):
-        return VariableType.BOOLEAN
+    def true(self, args) -> BandMathExprInfo:
+        return BandMathExprInfo(VariableType.BOOLEAN)
 
-    def false(self, args):
-        return VariableType.BOOLEAN
+    def false(self, args) -> BandMathExprInfo:
+        return BandMathExprInfo(VariableType.BOOLEAN)
 
-    def number(self, args):
-        return VariableType.NUMBER
+    def number(self, args) -> BandMathExprInfo:
+        return BandMathExprInfo(VariableType.NUMBER)
 
-    def variable(self, args):
+    def string(self, args) -> BandMathExprInfo:
+        return BandMathExprInfo(VariableType.STRING)
+
+    def variable(self, args) -> BandMathExprInfo:
+        # Look up the variable's type and value.
         name = args[0]
-        (type, _) = self._variables[name]
-        return type
+        (type, value) = self._variables[name]
+
+        info = BandMathExprInfo(type)
+        if type in [VariableType.IMAGE_CUBE,
+                    VariableType.IMAGE_BAND,
+                    VariableType.SPECTRUM]:
+            # These types also have a shape and an element-type.
+            bmv = BandMathValue(type, value)
+            info.elem_type = bmv.get_elem_type()
+            info.shape = bmv.get_shape()
+
+        logger.debug(f'Variable "{name}":  {info}')
+
+        return info
+
+    def named_expression(self, args) -> BandMathExprInfo:
+        # args[0] is the name, args[1] is the expression's info
+        return args[1]
 
     def function(self, args):
         func_name = args[0]
@@ -129,16 +137,19 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             raise ValueError(f'Unrecognized function "{func_name}"')
 
         func_impl = self._functions[func_name]
-        return func_impl.get_result_type(func_args)
+        try:
+            return func_impl.analyze(func_args)
+        except Exception as e:
+            raise RuntimeError(f'Function "{func_name}" analysis error', e)
 
     def NAME(self, token):
         ''' Parse a token as a string variable name. '''
         return str(token).lower()
 
 
-def get_bandmath_result_type(bandmath_expr: str,
+def get_bandmath_expr_info(bandmath_expr: str,
         variables: Dict[str, Tuple[VariableType, Any]],
-        functions: Dict[str, BandMathFunction] = None) -> VariableType:
+        functions: Dict[str, BandMathFunction] = None) -> BandMathExprInfo:
     '''
     Determine the return-type of a band-math expression using the specified
     variable and function definitions.
