@@ -14,8 +14,6 @@
 ; Project Settings
 
 Name "Workbench for Imaging Spectroscopy Exploration and Research"
-; TODO(donnie):  Get version from external file.
-; OutFile "Install-WISER-1.0b2.exe"
 Unicode True
 ManifestDPIAware True
 
@@ -50,7 +48,7 @@ InstallDir "$PROGRAMFILES64\WISER"
   ; Good.  Now we can carry on writing the real installer.
 
   ; TODO(donnie):  Get version from external file.
-  OutFile "Install-WISER-1.0b2.exe"
+  OutFile "Install-WISER-1.1a0.exe"
   ; SetCompressor /SOLID lzma
 !endif
 
