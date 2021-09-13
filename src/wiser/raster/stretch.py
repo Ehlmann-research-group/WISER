@@ -5,6 +5,10 @@ from enum import Enum
 import numpy as np
 
 
+# An epsilon value for checking stretch ranges.
+EPSILON = 1e-6
+
+
 class DataDistributionError(Exception):
     '''
     This exception is thrown when the data distribution for a dataset will not
@@ -141,14 +145,25 @@ class StretchLinear(StretchBase):
         linear stretch are also required to be in the range [0, 1].
         '''
 
-        if lower < 0 or lower > 1:
+        # Use 1.0 + EPSILON because sometimes the value is extreeeemly close to
+        # 1.0, but *just* over.
+
+        if lower < 0.0 or lower > 1.0 + EPSILON:
             raise ValueError(f'Required:  0 <= lower <= 1 (got {lower})')
 
-        if upper < 0 or upper > 1:
+        if upper < 0.0 or upper > 1.0 + EPSILON:
             raise ValueError(f'Required:  0 <= upper <= 1 (got {upper})')
 
         if upper <= lower:
             raise ValueError(f'Required:  lower < upper (got {lower}, {upper})')
+
+        # Clamp values that are out of range.
+
+        if lower > 1.0:
+            lower = 1.0
+
+        if upper > 1.0:
+            upper = 1.0
 
         self._lower = lower
         self._upper = upper

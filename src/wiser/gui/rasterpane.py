@@ -14,15 +14,16 @@ from .dataset_chooser import DatasetChooser
 from .roi_info_editor import ROIInfoEditor
 from .rasterview import RasterView
 from .util import add_toolbar_action, get_painter, make_filename
+from .plugin_utils import add_plugin_context_menu_items
 
 from wiser import plugins
 
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import find_display_bands, find_truecolor_bands
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType, Selection, SinglePixelSelection
 from wiser.raster.spectra_export import export_roi_pixel_spectra
 from wiser.raster.spectrum import ROIAverageSpectrum
-from wiser.raster.utils import find_display_bands, find_truecolor_bands
 
 from .ui_roi import draw_roi, get_picked_roi_selections
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
@@ -236,9 +237,13 @@ class RasterPane(QWidget):
     #   - The int is the numeric ID of the dataset whose display bands are
     #     changing
     #   - The tuple is either a 1-tuple or 3-tuple specifying the display bands
+    #   - The object is an optional string colormap name, when the tuple has 1
+    #     element; otherwise it is None (NOTE:  declaring the value as a str
+    #     will cause Qt to convert a value of None to an empty string, which is
+    #     not what we want)
     #   - The Boolean argument is True for "global change," or False for "this
     #     view only"
-    display_bands_change = Signal(int, tuple, bool)
+    display_bands_change = Signal(int, tuple, object, bool)
 
 
     # Signal:  for when the user selects a raster pixel.  The signal reports the
@@ -715,6 +720,9 @@ class RasterPane(QWidget):
         # Add any context-menu items that are specific to this location
         self._context_menu_add_local_items(menu, rasterview, context_menu_event)
 
+        # Add any context-menu items that should go at the end
+        self._context_menu_add_end_items(menu, rasterview)
+
 
     def _context_menu_add_global_items(self, menu, rasterview):
         '''
@@ -745,14 +753,11 @@ class RasterPane(QWidget):
         # act = menu.addAction(self.tr('Annotate location'))
 
         # Add plugin menu items
-        context = {
-            'dataset':rasterview.get_raster_data(),
-            'ds_coord':ds_coord.toTuple()
-        }
-        for (plugin_name, plugin) in self._app_state.get_plugins().items():
-            if isinstance(plugin, plugins.ContextMenuPlugin):
-                plugin.add_context_menu_items(plugins.ContextMenuType.DATASET_PICK,
-                    menu, context)
+        add_plugin_context_menu_items(self._app_state,
+            plugins.ContextMenuType.DATASET_PICK, menu,
+            dataset=rasterview.get_raster_data(),
+            display_bands=rasterview.get_display_bands(),
+            ds_coord=ds_coord.toTuple())
 
         # Find Regions of Interest that include the click location.  This is a
         # complicated thing to do, since a ROI can consist of multiple
@@ -787,12 +792,12 @@ class RasterPane(QWidget):
                     lambda checked : self._on_export_roi_pixel_spectra(roi=roi, rasterview=rasterview))
 
                 # Add plugin menu items
-                context = {'dataset':rasterview.get_raster_data(),
-                    'roi':roi, 'ds_coord':ds_coord.toTuple()}
-                for (plugin_name, plugin) in self._app_state.get_plugins().items():
-                    if isinstance(plugin, plugins.ContextMenuPlugin):
-                        plugin.add_context_menu_items(plugins.ContextMenuType.ROI_PICK,
-                            roi_menu, context)
+                add_plugin_context_menu_items(self._app_state,
+                    plugins.ContextMenuType.ROI_PICK, menu,
+                    dataset=rasterview.get_raster_data(),
+                    display_bands=rasterview.get_display_bands(),
+                    roi=roi,
+                    ds_coord=ds_coord.toTuple())
 
                 for sel_index in picked_sels:
                     roi_menu.addSeparator()
@@ -810,6 +815,17 @@ class RasterPane(QWidget):
 
                 act = roi_menu.addAction(self.tr('Delete Region of Interest...'))
                 act.triggered.connect(lambda checked : self._on_delete_roi(roi=roi))
+
+
+    def _context_menu_add_end_items(self, menu, rasterview):
+        '''
+        This helper function adds items to the context menu that should be at
+        the end of the menu.
+
+        The base implementation does nothing.
+        '''
+        # Let subclasses do things if they want.
+        pass
 
 
     def _afterRasterScroll(self, rasterview, dx, dy):
@@ -960,7 +976,7 @@ class RasterPane(QWidget):
         return None
 
 
-    def set_display_bands(self, ds_id: int, bands: Tuple):
+    def set_display_bands(self, ds_id: int, bands: Tuple, colormap: Optional[str] = None):
         # TODO(donnie):  Verify the dataset ID?
 
         if len(bands) not in [1, 3]:
@@ -978,7 +994,7 @@ class RasterPane(QWidget):
                 # Get the stretches at the same time, so that we only update the
                 # raster-view once.
                 stretches = self._app_state.get_stretches(ds_id, bands)
-                rv.set_display_bands(bands, stretches=stretches)
+                rv.set_display_bands(bands, stretches=stretches, colormap=colormap)
 
 
     def make_point_visible(self, x, y, rasterview_pos=(0, 0)):
@@ -1164,21 +1180,24 @@ class RasterPane(QWidget):
         rasterview = self.get_rasterview(rasterview_pos)
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
+        colormap = rasterview.get_colormap()
 
-        dialog = BandChooserDialog(self._app_state, dataset, display_bands, parent=self)
+        dialog = BandChooserDialog(self._app_state, dataset, display_bands,
+            colormap=colormap, parent=self)
         dialog.setModal(True)
 
         if dialog.exec_() == QDialog.Accepted:
             bands = dialog.get_display_bands()
             is_global = dialog.apply_globally()
+            colormap = dialog.get_colormap_name()
 
-            self.display_bands_change.emit(dataset.get_id(), bands, is_global)
+            self.display_bands_change.emit(dataset.get_id(), bands, colormap, is_global)
 
             # Only update our display bands if the change was not global, since
             # if it was, the main application controller will change everybody's
             # display bands.
             if not is_global:
-                self.set_display_bands(dataset.get_id(), bands)
+                self.set_display_bands(dataset.get_id(), bands, colormap=colormap)
 
 
     def _on_stretch_builder(self, checked=False, rasterview_pos=(0, 0)):

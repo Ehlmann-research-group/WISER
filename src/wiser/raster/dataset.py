@@ -1,6 +1,19 @@
-from typing import Optional, Union
+import abc
+from abc import abstractmethod
+import copy
+import math
+
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from astropy import units as u
+
+from .dataset_impl import RasterDataImpl
+from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
+from .utils import find_band_near_wavelength
+
+Number = Union[int, float]
+DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
 
 class BandStats:
@@ -35,59 +48,151 @@ class RasterDataSet:
     data for each pixel.
     '''
 
-    def get_id(self):
+    def __init__(self, impl: RasterDataImpl):
+
+        if impl is None:
+            raise ValueError('impl cannot be None')
+
+        # Unique numeric ID assigned to the data set by WISER
+        self._id: Optional[int] = None
+
+        self._impl: RasterDataImpl = impl
+
+        self._name: Optional[str] = None
+
+        # Optional description for the raster data set
+        self._description: Optional[str] = impl.read_description()
+
+        self._band_info: List[Dict[str, Any]] = impl.read_band_info()
+
+        self._bad_bands: Optional[List[int]] = impl.read_bad_bands()
+
+        # Optional default display bands for the raster data
+        self._default_display_bands: Optional[DisplayBands] = impl.read_default_display_bands()
+
+        self._data_ignore_value: Optional[Number] = impl.read_data_ignore_value()
+
+        # True if the dataset has wavelengths (or units that can be converted to
+        # wavelengths) for ALL bands.
+        self._has_wavelengths: bool = self._compute_has_wavelengths()
+
+        # Flag indicating whether the data set contains unsaved data.  Some
+        # values are excluded from this, like the numeric ID, which is internal
+        # to WISER, and varies from run to run.
+        self._dirty: bool = False
+
+        # A map of band index to BandStats objects, so that we can lazily
+        # compute these values and reuse them.
+        self._cached_band_stats: Dict[int, BandStats] = {}
+
+
+    def _compute_has_wavelengths(self):
+        for b in self._band_info:
+            if 'wavelength' not in b:
+                return False
+
+        return True
+
+
+    def set_dirty(self, dirty: bool = True):
+        self._dirty = dirty
+        # TODO(donnie):  Notify someone?
+
+
+    def is_dirty(self) -> bool:
+        return self._dirty
+
+
+    def get_id(self) -> Optional[int]:
         '''
         Returns a numeric ID for referring to the data set within the
-        application.
+        application.  A value of ``None`` indicates that the data-set has not
+        yet been assigned an ID.
         '''
         return self._id
 
 
-    def set_id(self, id):
+    def set_id(self, id: int) -> None:
         '''
-        Sets a numeric ID for referring to the data set within the
-        application.
+        Sets a unique numeric ID for referring to the data set within WISER.
         '''
         self._id = id
 
 
-    def get_description(self):
-        '''
-        Returns a description of the dataset that might be specified in the
-        raster file's metadata.  A missing description is indicated by the empty
-        string "".
-        '''
-        pass
+    def get_name(self) -> Optional[str]:
+        return self._name
 
-    def get_filetype(self):
+
+    def set_name(self, name: Optional[str]) -> None:
+        self._name = name
+
+
+    def get_description(self) -> Optional[str]:
+        '''
+        Returns a string description of the dataset that might be specified in
+        the raster file's metadata.  A missing description is indicated by the
+        ``None`` value.
+        '''
+        return self._description
+
+
+    def set_description(self, description: Optional[str]) -> None:
+        '''
+        Sets the string description of the dataset.
+        '''
+        self._description = description
+        self.set_dirty()
+
+
+    def get_format(self):
         '''
         Returns a string describing the type of raster data file that backs this
         dataset.  The file-type string will be specific to the kind of loader
         used to load the dataset.
         '''
-        pass
+        return self._impl.get_format()
+
 
     def get_filepaths(self):
         '''
         Returns the paths and filenames of all files associated with this raster
-        dataset.  This will be an empty list (not None) if the data is in-memory
-        only.
+        dataset.  This will be an empty list (not ``None``) if the data is
+        in-memory only, e.g. because it wasn't yet saved.
         '''
-        pass
+        return self._impl.get_filepaths()
+
 
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
-        pass
+        return self._impl.get_width()
+
 
     def get_height(self):
         ''' Returns the number of rows of data in the raster data. '''
-        pass
+        return self._impl.get_height()
+
 
     def num_bands(self):
         ''' Returns the number of spectral bands in the raster data. '''
-        pass
+        return self._impl.num_bands()
 
-    def band_list(self):
+
+    def get_shape(self) -> Tuple[int, int, int]:
+        '''
+        Returns the shape of the raster data set.  This is always in the order
+        ``(num_bands, height, width)``.
+        '''
+        return (self.num_bands(), self.get_height(), self.get_width())
+
+
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the raster data set.
+        '''
+        return self._impl.get_elem_type()
+
+
+    def band_list(self) -> List[Dict[str, Any]]:
         '''
         Returns a description of all bands in the data set.  The description is
         formulated as a list of dictionaries, where each dictionary provides
@@ -109,45 +214,82 @@ class RasterDataSet:
         taken not to mutate the return-value of this method, as it will affect
         the data-set's internal state.
         '''
-        pass
+        return self._band_info
+
 
     def has_wavelengths(self):
         '''
-        Returns True if all bands specify a wavelength (or some other unit that
-        can be converted to wavelength); otherwise, returns False.
+        Returns ``True`` if all bands specify a wavelength (or some other unit
+        that can be converted to wavelength); otherwise, returns ``False``.
         '''
-        for b in self.band_list():
-            if 'wavelength' not in b:
-                return False
+        return self._has_wavelengths
 
-        return True
 
-    def default_display_bands(self):
+    def default_display_bands(self) -> Optional[DisplayBands]:
         '''
-        Returns a list of integer indexes, specifying the default bands for
+        Returns a tuple of integer indexes, specifying the default bands for
         display.  If the list has 3 values, these are displayed using the red,
         green and blue channels of an image.  If the list has 1 value, the band
         is displayed as grayscale.
 
-        If the raster data specifies no default bands, the return value is None.
+        If the raster data specifies no default bands, the return value is
+        ``None``.
         '''
-        pass
+        return self._default_display_bands
 
-    def get_data_ignore_value(self) -> Optional[Union[int, float]]:
+
+    def set_default_display_bands(self, bands: Optional[DisplayBands]) -> None:
+        if len(bands) not in [1, 3]:
+            raise ValueError(f'bands must contain either 1 or 3 integer values; got {bands}')
+
+        for b in bands:
+            if not isinstance(b, int):
+                raise ValueError(f'bands must contain either 1 or 3 integer values; got {bands}')
+
+        self._default_display_bands = tuple(bands)
+        self.set_dirty()
+
+
+    def get_data_ignore_value(self) -> Optional[Number]:
         '''
         Returns the number that indicates a value to be ignored in the dataset.
-        If this value is unknown or unspecified in the data, None is returned.
+        If this value is unknown or unspecified in the data, ``None`` is
+        returned.
         '''
-        pass
+        return self._data_ignore_value
 
-    def get_bad_bands(self):
+
+    def set_data_ignore_value(self, ignore_value: Optional[Number]) -> None:
+        self._data_ignore_value = value
+        self.set_dirty()
+
+
+    def get_bad_bands(self) -> Optional[List[int]]:
         '''
         Returns a "bad band list" as a list of 0 or 1 integer values, with the
         same number of elements as the total number of bands in the dataset.
         A value of 0 means the band is "bad," and a value of 1 means the band is
         "good."
+
+        The returned list is a copy of the internal list; mutation on the
+        returned list will not affect the raster data set.
         '''
-        pass
+        if self._bad_bands is not None:
+            return list(self._bad_bands)
+        else:
+            return None
+
+
+    def set_bad_bands(self, bad_bands: Optional[List[int]]):
+        if len(bad_bands) != self.num_bands():
+            raise ValueError(f'Raster data set has {self.num_bands()} bands; ' +
+                f'specified bad-band list has {len(bad_bands)} values')
+
+        if bad_bands is not None:
+            self._bad_bands = list(bad_bands)
+        else:
+            self._bad_bands = None
+
 
     def get_image_data(self, filter_data_ignore_value=True):
         '''
@@ -161,9 +303,15 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        pass
+        arr = self._impl.get_image_data()
 
-    def get_band_data(self, band_index, filter_data_ignore_value=True):
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        return arr
+
+
+    def get_band_data(self, band_index: int, filter_data_ignore_value=True):
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
         is at index 0.
@@ -176,16 +324,30 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        pass
+        arr = self._impl.get_band_data(band_index)
 
-    def get_band_stats(self, band_index):
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        return arr
+
+
+    def get_band_stats(self, band_index: int):
         '''
         Returns statistics of the specified band's data, wrapped in a
-        class:BandStats object.
+        :class:`BandStats` object.
         '''
-        pass
 
-    def get_all_bands_at(self, x, y, filter_bad_values=True):
+        stats = self._cached_band_stats.get(band_index)
+        if stats is None:
+            band = self.get_band_data(band_index)
+            stats = BandStats(band_index, np.nanmin(band), np.nanmax(band))
+            self._cached_band_stats[band_index] = stats
+
+        return stats
+
+
+    def get_all_bands_at(self, x: int, y: int, filter_bad_values=True):
         '''
         Returns a numpy 1D array of the values of all bands at the specified
         (x, y) coordinate in the raster data.
@@ -194,7 +356,37 @@ class RasterDataSet:
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
         '''
-        pass
+        arr = self._impl.get_all_bands_at(x, y)
+
+        if filter_bad_values:
+            arr = arr.copy()
+            for i, v in enumerate(self.get_bad_bands()):
+                if v == 0:
+                    # Band is marked "bad"
+                    arr[i] = np.nan
+
+                elif (self._data_ignore_value is not None and
+                      math.isclose(arr[i], self._data_ignore_value)):
+                    # Band has the "data ignore" value
+                    arr[i] = np.nan
+
+        return arr
+
+    def copy_metadata_from(self, dataset: 'RasterDataSet') -> None:
+        if dataset.num_bands() != self.num_bands():
+            raise ValueError(f'This dataset has {self.num_bands()} bands; ' +
+                             f'source dataset has {dataset.num_bands()} bands')
+
+        # Copy across all the metadata!
+        self._description = dataset._description
+        self._band_info = copy.deepcopy(dataset._band_info)
+        self._bad_bands = list(dataset._bad_bands)
+        self._default_display_bands = dataset._default_display_bands
+        self._data_ignore_value = dataset._data_ignore_value
+
+        self._has_wavelengths = self._compute_has_wavelengths()
+
+        self.set_dirty()
 
 
 class RasterDataBand:
@@ -208,6 +400,27 @@ class RasterDataBand:
 
         self._dataset = dataset
         self._band_index = band_index
+
+    def get_width(self):
+        ''' Returns the number of pixels per row in the raster data. '''
+        return self._dataset.get_width()
+
+    def get_height(self):
+        ''' Returns the number of rows of data in the raster data. '''
+        return self._dataset.get_height()
+
+    def get_shape(self) -> Tuple[int, int]:
+        '''
+        Returns the shape of the raster data set.  This is always in the order
+        ``(height, width)``.
+        '''
+        return (self.get_height(), self.get_width())
+
+    def get_elem_type(self) -> np.dtype:
+        '''
+        Returns the element-type of the raster data set.
+        '''
+        return self._dataset.get_elem_type()
 
     def get_dataset(self) -> RasterDataSet:
         ''' Return the backing data set. '''
@@ -240,36 +453,77 @@ class RasterDataBand:
         return self._dataset.get_band_stats(self._band_index)
 
 
-class RasterDataLoader:
+def find_truecolor_bands(dataset: RasterDataSet,
+                         red: u.Quantity = RED_WAVELENGTH,
+                         green: u.Quantity = GREEN_WAVELENGTH,
+                         blue: u.Quantity = BLUE_WAVELENGTH) -> Optional[Tuple[int, int, int]]:
     '''
-    A loader for loading 2D raster data-sets from some source, using some
-    mechanism for reading the data.
+    This function looks for bands in the dataset that are closest to the
+    visible-light spectral bands.
+
+    If a band cannot be found for red, green or blue wavelengths, the function
+    returns None.  Similarly, if the dataset doesn't specify wavelengths for
+    bands, the function returns None.
+
+    If bands are found for all of the red, green and blue wavelengths, then the
+    function returns a (red_band_index, grn_band_index, blu_band_index) triple.
+    '''
+    if not dataset.has_wavelengths():
+        return None
+
+    bands = dataset.band_list()
+    red_band   = find_band_near_wavelength(bands, red)
+    green_band = find_band_near_wavelength(bands, green)
+    blue_band  = find_band_near_wavelength(bands, blue)
+
+    # If that didn't work, report None
+    if red_band is None or green_band is None or blue_band is None:
+        return None
+
+    return (red_band, green_band, blue_band)
+
+
+def find_display_bands(dataset: RasterDataSet,
+                       red: u.Quantity = RED_WAVELENGTH,
+                       green: u.Quantity = GREEN_WAVELENGTH,
+                       blue: u.Quantity = BLUE_WAVELENGTH) -> DisplayBands:
+    '''
+    This helper function figures out which band(s) to use for displaying the
+    specified raster dataset.  The return-value will be either a 3-tuple or a
+    1-tuple of band indexes; the former is returned for RGB display of a
+    dataset, and the latter is returned for a grayscale display of a dataset.
+
+    The function operates as follows:
+
+    1)  If the dataset specifies default display bands, these are returned.
+        Note that a dataset's default display bands may specify 3 bands for RGB
+        display, or 1 band for grayscale display.
+    2)  Otherwise, if the dataset has frequency bands that correspond to the
+        frequencies/wavelengths perceived by the human eye, these are returned.
+    3)  Otherwise, if the dataset has at least three bands, then the first,
+        second and third bands are used as RGB display bands.  If the dataset
+        has fewer than three bands, the first band is used as the grayscale
+        display band.
+
+    The definitions of "red", "green", and "blue" wavelengths can be specified
+    as optional arguments to this function.
     '''
 
-    def load(self, path):
-        '''
-        Load a raster data-set from the specified path.  Returns a
-        class:RasterDataSet object.
-        '''
-        pass
+    # See if the raster data-set specifies display bands, and if so, use them
+    display_bands = dataset.default_display_bands()
+    if display_bands is not None:
+        return display_bands
 
-    def dataset_from_numpy_array(self, arr: np.ndarray) -> RasterDataSet:
-        '''
-        Given a NumPy ndarray, this function returns a class:RasterDataSet
-        object that uses the array for its raster data.  The input ndarray must
-        have three dimensions; they are interpreted as
-        [spectral][spatial_y][spatial_x].
+    # Try to find bands based on what is close to visible spectral bands
+    display_bands = find_truecolor_bands(dataset, red, green, blue)
+    if display_bands is not None:
+        return display_bands
 
-        Raises a ValueError if the input array doesn't have 3 dimensions.
-        '''
-        pass
+    # If that didn't work, just choose the first bands
+    if dataset.num_bands() >= 3:
+        # We have at least 3 bands, so use those.
+        return (0, 1, 2)
 
-    def spectrum_from_numpy_array(self, arr: np.ndarray): # -> Spectrum:
-        '''
-        Given a NumPy ndarray, this function returns a class:Spectrum object
-        that uses the array for its raster data.  The input ndarray must have
-        one dimension; each value is for a separate band.
-
-        Raises a ValueError if the input array doesn't have 1 dimension.
-        '''
-        pass
+    else:
+        # We have fewer than 3 bands, so just use one band in grayscale mode.
+        return (0,)  # Need the comma to interpret as a tuple, not arithmetic.

@@ -5,7 +5,7 @@ from PySide2.QtWidgets import *
 from .rasterpane import RasterPane
 from .util import add_toolbar_action
 
-from wiser.raster.utils import find_truecolor_bands
+from wiser.raster.dataset import find_truecolor_bands
 
 
 class ZoomPane(RasterPane):

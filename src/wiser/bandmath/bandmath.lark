@@ -12,16 +12,7 @@
 //========================================
 // Expressions
 
-?expression: or_expr
-
-//========================================
-// Logical expressions
-
-?or_expr : (or_expr "or"i)? and_expr
-
-?and_expr : (and_expr "and"i)? not_expr
-
-?not_expr : "not"i not_expr | comparison
+?expression: comparison
 
 //========================================
 // Comparisons
@@ -35,6 +26,7 @@ CMP_OP: ("==" | ">" | "<" | ">=" | "<=" | "!=")
 
 ADD_OP: ("+" | "-")
 MUL_OP: ("*" | "/")
+NEGATE_OP: "-"
 
 // This generates right-deep trees:  ?add_expr : mul_expr (ADD_OP add_expr)?
 // Instead we would prefer to generate left-deep trees.
@@ -42,9 +34,9 @@ MUL_OP: ("*" | "/")
 
 ?mul_expr : (mul_expr MUL_OP)? power_expr
 
-?power_expr : unary_op_expr ("**" unary_op_expr)?
+?power_expr : unary_negate_expr ("**" unary_negate_expr)?
 
-?unary_op_expr : ADD_OP? base
+?unary_negate_expr : NEGATE_OP? base
 
 //========================================
 // Base expression values
@@ -52,16 +44,17 @@ MUL_OP: ("*" | "/")
 ?base: "true"i  -> true
      | "false"i -> false
      | NUMBER   -> number
+     | STRING  -> string
      | variable
      | function
      | "(" expression ")"
 
-//      | STRING  -> string
-
-
 variable : NAME
-function : NAME "(" (expression ("," expression)*)? ")"
+
+?named_expression : (NAME "=")? expression
+function : NAME "(" (named_expression ("," named_expression)*)? ")"
 
 NAME: /[A-Za-z_][A-Za-z0-9_]*/
 
 NUMBER: /([0-9]+(\.[0-9]*)?)|(\.[0-9]+)/
+STRING: /(\"[^"]*\")|(\'[^']*\')/
