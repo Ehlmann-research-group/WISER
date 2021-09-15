@@ -81,7 +81,7 @@ dist-win : generated
 		--add-binary C:\ProgramData\Miniconda3\Library\plugins\iconengines;iconengines \
 		--add-data C:\ProgramData\Miniconda3\Library\bin\libiomp5md.dll;. \
 		--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
-		--hidden-import PySide2.QtSvg \
+		--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
 		--exclude-module PyQt5 \
 		src\wiser\__main__.py
 
