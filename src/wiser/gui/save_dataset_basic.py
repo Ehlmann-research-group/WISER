@@ -12,8 +12,7 @@ from .generated.save_dataset_advanced_ui import Ui_AdvancedSaveDatasetDialog
 
 class BasicSaveDatasetDialog(QDialog):
     '''
-    A dialog for saving a dataset, allowing the user to specify advanced options
-    such as what are the default bands, saving a subset of the image, etc.
+    A dialog for saving a dataset, exposing only basic options.
     '''
 
     def __init__(self, app_state, ds_id=None, parent=None):
