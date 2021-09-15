@@ -37,7 +37,7 @@ all : generated
 generated : $(TARGETS)
 
 $(TARGET_DIR)/%_ui.py : $(UI_SRC_DIR)/%.ui
-	$(UIC) $< > $@
+	$(UIC) $< -o $@
 
 clean :
 	$(RM) $(TARGETS)
