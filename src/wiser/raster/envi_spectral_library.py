@@ -1,4 +1,7 @@
-import os, warnings
+import logging
+import os
+import pprint
+import warnings
 
 from .spectral_library import SpectralLibrary
 from .loaders.envi import *
@@ -6,6 +9,8 @@ from .utils import make_spectral_value, convert_spectral
 
 import numpy as np
 from astropy import units as u
+
+logger = logging.getLogger(__name__)
 
 
 # Log a warning if an ENVI Spectral Library file is larger than this value.
@@ -63,10 +68,16 @@ class ENVISpectralLibrary(SpectralLibrary):
         self._num_bands = self._metadata['samples']
         self._num_spectra = self._metadata['lines']
 
+        logger.info('Loaded ENVI spectral library:  ' +
+            f'{self._num_spectra} spectra, {self._num_bands} bands')
+
         # Update:  [samples, lines, bands] -> [lines, samples, bands]
         # Then, eliminate the last dimension, since it should always be 1.
-        self._data = np.moveaxis(self._data, 1, 0)
-        self._data.reshape(self._num_spectra, self._num_bands)
+        logger.info(f'Initial spectral library shape:  {self._data.shape}')
+        # self._data = np.moveaxis(self._data, 1, 0)
+        assert self._data.shape[-1] == 1
+        self._data = self._data.reshape(self._num_spectra, self._num_bands)
+        logger.info(f'Final spectral library shape:  {self._data.shape}')
 
         # Initialize internal structures to hold the spectral library's metadata
 
@@ -75,6 +86,8 @@ class ENVISpectralLibrary(SpectralLibrary):
         self._spectra_names = self._metadata.get('spectra names')
         if self._spectra_names is None:
             self._spectra_names = [''] * self._num_spectra
+
+        logger.info('Spectra names:\n' + pprint.pformat(self._spectra_names))
 
 
     def _init_band_list(self):
