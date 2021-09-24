@@ -83,7 +83,7 @@ using the Identified Developer key generated earlier.
 This example is from the WISER `Makefile`:
 
 ```
-codesign -s $(AD_CODESIGN_KEY_NAME) --deep \
+codesign -s $(AD_CODESIGN_KEY_NAME) --deep --force \
         --entitlements install-mac/entitlements.plist \
         -o runtime dist/$(APP_NAME).app
 ```
@@ -103,6 +103,12 @@ Here are descriptions of the relevant arguments:
     Apple's notarization mechanism will complain.  The easy way to deal
     with this situation is to just ensure that everything is code-signed
     using your Identified Developer code-signing key.
+
+*   The `--force` argument is also necessary when shared libraries _are_
+    signed by their original providers.  In these cases, the `codesign` tool
+    will not replace the existing signature unless the command-line also
+    specifies this argument - and this will cause the notarization step to
+    fail.
 
 *   The `-o runtime` argument specifies the use of the
     [hardened runtime](https://developer.apple.com/documentation/security/hardened_runtime),
