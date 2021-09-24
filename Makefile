@@ -50,7 +50,7 @@ build-mac : generated
 
 dist-mac : build-mac
 	# Codesign the built application
-	codesign -s $(AD_CODESIGN_KEY_NAME) --deep \
+	codesign -s $(AD_CODESIGN_KEY_NAME) --deep --force \
 		--entitlements install-mac/entitlements.plist \
 		-o runtime dist/$(APP_NAME).app
 
