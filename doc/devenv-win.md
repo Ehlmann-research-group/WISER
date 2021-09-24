@@ -24,13 +24,19 @@ to work though, and simply requires a bit more setup.
 2.  Start an Anaconda Prompt in admin mode, to install packages.  From the
     Windows Start menu in the bottom corner:
 
-    Start -> Anaconda3 (64-bit) -> Anaconda Prompt [Right-Click] -> More ->
-    Run as Administrator
+    Start -> "Anaconda3 (64-bit)" -> "Anaconda Prompt (Miniconda3)" [Right-Click] ->
+    More -> "Run as administrator"
+
+    Click "Yes" on the UAC dialog.
 
 3.  Just in case the `conda-forge` channel is not already included in the
     Miniconda config, you should do this:
 
     `conda config --add channels conda-forge`
+
+    Usually this just outputs a message like this:
+
+        Warning: 'conda-forge' already in 'channels' list, moving to the top
 
 4.  The following dependencies need to be installed via `conda`:
 
@@ -45,7 +51,7 @@ to work though, and simply requires a bit more setup.
 
     # This verison of matplotlib is required due to a pyinstaller incompatibility
     conda install matplotlib=3.2.2
-    
+
     conda install astropy
     conda install pyinstaller
     ```
@@ -55,6 +61,8 @@ to work though, and simply requires a bit more setup.
     >   manifests as an inability to start the packaged Windows distributable.
 
 5.  The following dependencies need to be installed via `pip`:
+
+    >   NOTE:  `pillow` dependency may already be satisfied by earlier step.
 
     ```
     pip install pillow
@@ -85,7 +93,7 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 
 1.  Open an Anaconda terminal window.
 
-    Start -> Anaconda3 (64-bit) -> Anaconda Prompt (Miniconda3)
+    Start -> "Anaconda3 (64-bit)" -> "Anaconda Prompt (Miniconda3)"
 
 2.  Figure out how to run `make` from the Anaconda terminal.
 
@@ -119,6 +127,13 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 
     This should result in the creation of an NSIS installer in the local
     directory.
+
+**NOTE:**  On Python 3.9 and Pyside2 5.13.2, there is an issue with a Python
+file that is part of `pyside2-uic`.  Specifically, the `uiparser.py` file (at
+path `C:\ProgramData\Miniconda3\Lib\site-packages\pyside2uic\uiparser.py`)
+has a call to `elem.getiterator()` on line 797 that needs to be changed to
+`elem.iter()` instead.  Because of where this file lives, it needs to be
+edited with Administrator permissions, or else the edits cannot be saved.
 
 ## Code Signing
 
