@@ -6,6 +6,7 @@ import platform
 import pprint
 import sys
 import traceback
+import webbrowser
 
 from typing import Dict, List, Optional, Tuple
 
@@ -48,6 +49,9 @@ from wiser.raster.spectrum import SpectrumAtPoint, SpectrumAverageMode
 
 
 logger = logging.getLogger(__name__)
+
+
+REMOTE_WISER_MANUAL_URL = 'http://users.cms.caltech.edu/~donnie/WISER/manual/'
 
 
 class DataVisualizerApp(QMainWindow):
@@ -236,14 +240,17 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
 
-        # Windows:  Help menu
+        # Help menu
+
+        self._help_menu = self.menuBar().addMenu(self.tr('&Help'))
 
         if platform.system() == 'Windows':
-            self._help_menu = self.menuBar().addMenu(self.tr('&Help'))
-
             act = self._help_menu.addAction(self.tr('About WISER'))
             act.setMenuRole(QAction.AboutRole)
             act.triggered.connect(self.show_about_dialog)
+
+        act = self._help_menu.addAction(self.tr('Show WISER manual'))
+        act.triggered.connect(self.show_wiser_manual)
 
 
     def _init_toolbars(self):
@@ -419,6 +426,11 @@ class DataVisualizerApp(QMainWindow):
         ''' Shows the "About WISER" dialog in the user interface. '''
         about = AboutDialog(self)
         about.exec()
+
+
+    def show_wiser_manual(self, evt):
+        ''' Shows the WISER manual in a web browser. '''
+        webbrowser.open(REMOTE_WISER_MANUAL_URL)
 
 
     def show_preferences(self, evt):
