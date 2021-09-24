@@ -73,11 +73,11 @@ class ENVISpectralLibrary(SpectralLibrary):
 
         # Update:  [samples, lines, bands] -> [lines, samples, bands]
         # Then, eliminate the last dimension, since it should always be 1.
-        logger.info(f'Initial spectral library shape:  {self._data.shape}')
+        logger.debug(f'Initial spectral library shape:  {self._data.shape}')
         # self._data = np.moveaxis(self._data, 1, 0)
         assert self._data.shape[-1] == 1
         self._data = self._data.reshape(self._num_spectra, self._num_bands)
-        logger.info(f'Final spectral library shape:  {self._data.shape}')
+        logger.debug(f'Final spectral library shape:  {self._data.shape}')
 
         # Initialize internal structures to hold the spectral library's metadata
 
