@@ -184,12 +184,30 @@ class DatasetBandChooserWidget(QWidget):
                 self.band_chooser.currentData())
 
 
-class ReturnEventFilter(QObject):
-    # TODO(donnie):  This is my attempt at trying to filter carriage-returns on
-    #     the band-math expression field.
+class ExpressionReturnEventFilter(QObject):
+    '''
+    This event-filter helper class is installed on the expression line-edit so
+    that pressing Return/Enter after typing an expression will not cause the
+    dialog to close; rather, it will cause the expression to be analyzed and the
+    variable-list to be updated.  It seems to be natural to press Enter at the
+    end of typing an expression.
+    '''
 
-    def eventFilter(obj, evt) -> bool:
-        print(f'Object:  {obj}  Event:  {evt}')
+    def __init__(self, bandmath_dialog):
+        super().__init__()
+        self._bandmath_dialog = bandmath_dialog
+
+    def eventFilter(self, obj, evt) -> bool:
+        if (evt.type() == QEvent.KeyPress and
+            evt.key() in [Qt.Key_Return, Qt.Key_Enter]):
+            # Instead of letting the Return/Enter event propagate up (where it
+            # would close the band-math dialog), cause the expression to be
+            # analyzed instead.
+            self._bandmath_dialog._analyze_expr()
+
+            # Since we handled the event, ignore it now.
+            return True
+
         return False
 
 
@@ -216,8 +234,8 @@ class BandMathDialog(QDialog):
 
         # Hook up event handlers
 
-        # self._ui.ledit_math_expr.install
-        # self._ui.ledit_math_expr.installEventFilter(ReturnEventFilter())
+        self._expr_filter = ExpressionReturnEventFilter(self)
+        self._ui.ledit_expression.installEventFilter(self._expr_filter)
 
         #==================================
         # "Current expression" UI widgets
