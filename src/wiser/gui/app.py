@@ -51,7 +51,9 @@ from wiser.raster.spectrum import SpectrumAtPoint, SpectrumAverageMode
 logger = logging.getLogger(__name__)
 
 
-REMOTE_WISER_MANUAL_URL = 'http://users.cms.caltech.edu/~donnie/WISER/manual/'
+# TODO(donnie):  We also need an "offline/local" location for the manual,
+#     for when it's downloaded to the local system.
+ONLINE_WISER_MANUAL_URL = 'http://users.cms.caltech.edu/~donnie/WISER/manual/'
 
 
 class DataVisualizerApp(QMainWindow):
@@ -430,7 +432,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_wiser_manual(self, evt):
         ''' Shows the WISER manual in a web browser. '''
-        webbrowser.open(REMOTE_WISER_MANUAL_URL)
+        webbrowser.open(ONLINE_WISER_MANUAL_URL)
 
 
     def show_preferences(self, evt):
