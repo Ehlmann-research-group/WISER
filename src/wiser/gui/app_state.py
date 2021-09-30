@@ -28,6 +28,20 @@ class StateChange(enum.Enum):
     ITEM_REMOVED = 3
 
 
+def make_unique_name(candidate: str, used_names: str) -> str:
+    # If the name is already unique, return it
+    if candidate not in used_names:
+        return candidate
+
+    # Try to generate a unique name by tacking a number onto the name
+    i = 2
+    while True:
+        name = f'{candidate} {i}'
+        if name not in used_names:
+            return name
+
+        i += 1
+
 
 class ApplicationState(QObject):
     '''
@@ -310,6 +324,12 @@ class ApplicationState(QObject):
                 return False
 
         return True
+
+
+    def unique_dataset_name(self, candidate):
+        ds_names = {ds.get_name() for ds in self._datasets.values()}
+        ds_names = {name for name in ds_names if name}
+        return make_unique_name(candidate, ds_names)
 
 
     def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):

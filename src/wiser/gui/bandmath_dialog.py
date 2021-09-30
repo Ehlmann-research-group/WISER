@@ -184,6 +184,28 @@ class DatasetBandChooserWidget(QWidget):
                 self.band_chooser.currentData())
 
 
+''' TODO(donnie):  Coming soon...
+class VariableTypeDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+
+    def displayText(self, value, locale) -> str:
+        pass
+
+    def createEditor(self, parent, option, index):
+        type_widget = QComboBox(parent=parent)
+        type_widget.addItem(self.tr('Image'), bandmath.VariableType.IMAGE_CUBE)
+        type_widget.addItem(self.tr('Image band'), bandmath.VariableType.IMAGE_BAND)
+        type_widget.addItem(self.tr('Spectrum'), bandmath.VariableType.SPECTRUM)
+        type_widget.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+
+        # Guess the type of the variable based on its name, and choose
+        # that as the variable's initial type.
+        type_guess = guess_variable_type_from_name(var)
+        type_widget.setCurrentIndex(type_widget.findData(type_guess))
+'''
+
+
 class ExpressionReturnEventFilter(QObject):
     '''
     This event-filter helper class is installed on the expression line-edit so
@@ -243,10 +265,17 @@ class BandMathDialog(QDialog):
         self._ui.btn_toggle_help.clicked.connect(self._on_toggle_help)
 
         # Always start with the help info hidden.
+        # TODO(donnie):  This isn't working.
         # self._ui.tedit_bandmath_help.setVisible(False)
 
         self._ui.ledit_expression.editingFinished.connect(lambda: self._analyze_expr())
         self._ui.btn_add_to_saved.clicked.connect(self._on_add_expr_to_saved)
+
+        #==================================
+        # Variable-bindings table
+
+        # TODO(donnie):  Coming soon...
+        # self._ui.tbl_variables.setItemDelegateForColumn(1, VariableTypeDelegate())
 
         #==================================
         # "Saved expressions" UI widgets
@@ -405,6 +434,11 @@ class BandMathDialog(QDialog):
                 # item = QTableWidgetItem('Image band')
                 # item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
                 self._ui.tbl_variables.setCellWidget(new_row, 1, type_widget)
+
+                # TODO(donnie):  Coming soon...
+                # type_guess = guess_variable_type_from_name(var)
+                # item = QTableWidgetItem(type_guess)
+                # item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
                 # self._ui.tbl_variables.setItem(new_row, 1, item)
 
                 # Third column is the actual value bound to the variable.  Both
@@ -681,3 +715,14 @@ class BandMathDialog(QDialog):
             variables[var] = (type, value)
 
         return variables
+
+
+    def get_result_name(self) -> Optional[str]:
+        '''
+        Return the optional name of the result.
+        '''
+        name = self._ui.ledit_result_name.text().strip()
+        if not name:
+            name = None
+
+        return name
