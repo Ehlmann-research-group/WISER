@@ -23,17 +23,6 @@ class RasterDataLoader:
         self._unnamed_datasets: int = 0
 
 
-    def _name_dataset(self, dataset: RasterDataSet) -> None:
-        files = dataset.get_filepaths()
-        if files:
-            name = os.path.basename(files[0])
-        else:
-            self._unnamed_datasets += 1
-            name = f'unnamed {self._unnamed_datasets}'
-
-        dataset.set_name(name)
-
-
     def load_from_file(self, path):
         '''
         Load a raster data-set from the specified path.  Returns a
@@ -72,7 +61,13 @@ class RasterDataLoader:
             raise ValueError(f'Unsupported format "{driver_name}"')
 
         ds = RasterDataSet(impl)
-        self._name_dataset(ds)
+        files = ds.get_filepaths()
+        if files:
+            name = os.path.basename(files[0])
+        else:
+            name = os.path.basename(path)
+        ds.set_name(name)
+
         return ds
 
 
@@ -104,10 +99,7 @@ class RasterDataLoader:
             raise ValueError('NumPy array must have 3 dimensions')
 
         impl = NumPyRasterDataImpl(arr)
-        ds = RasterDataSet(impl)
-        self._name_dataset(ds)
-
-        return ds
+        return RasterDataSet(impl)
 
 
     def spectrum_from_numpy_array(self, arr: np.ndarray) -> Spectrum:

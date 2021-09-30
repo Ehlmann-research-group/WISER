@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -669,9 +670,11 @@ class DataVisualizerApp(QMainWindow):
         if dialog.exec() == QDialog.Accepted:
             expression = dialog.get_expression()
             variables = dialog.get_variable_bindings()
+            result_name = dialog.get_result_name()
 
             logger.info(f'Evaluating band-math expression:  {expression}\n' +
-                        f'Variable bindings:\n{pprint.pformat(variables)}')
+                        f'Variable bindings:\n{pprint.pformat(variables)}\n' +
+                        f'Result name:  {result_name}')
 
             # Collect functions from all plugins.
             functions = {}
@@ -702,20 +705,44 @@ class DataVisualizerApp(QMainWindow):
                 logger.debug(f'Result of band-math evaluation is type ' +
                              f'{result_type}, value:\n{result}')
 
+                # Compute a timestamp to put in the description
+                timestamp = datetime.datetime.now().isoformat()
+
                 loader = self._app_state.get_loader()
+
+                if not result_name:
+                    result_name = self.tr('Computed')
 
                 if result_type == bandmath.VariableType.IMAGE_CUBE:
                     new_dataset = loader.dataset_from_numpy_array(result)
+
+                    new_dataset.set_name(
+                        self._app_state.unique_dataset_name(result_name))
+                    new_dataset.set_description(
+                        f'Computed image-cube:  {expression} ({timestamp})')
+
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.IMAGE_BAND:
                     # Convert the image band into a 1-band image cube
                     result = result[np.newaxis, :]
                     new_dataset = loader.dataset_from_numpy_array(result)
+
+                    new_dataset.set_name(
+                        self._app_state.unique_dataset_name(result_name))
+                    new_dataset.set_description(
+                        f'Computed image-band:  {expression} ({timestamp})')
+
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.SPECTRUM:
                     new_spectrum = loader.spectrum_from_numpy_array(result)
+
+                    # new_spectrum.set_name(
+                    #     self._app_state.unique_spectrum_name(result_name))
+                    new_spectrum.set_description(
+                        f'Computed spectrum:  {expression} ({timestamp})')
+
                     self._app_state.set_active_spectrum(new_spectrum)
 
             except Exception as e:
