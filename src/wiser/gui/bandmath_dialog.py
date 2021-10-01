@@ -82,6 +82,8 @@ def make_dataset_chooser(app_state) -> QComboBox:
     set of currently loaded datasets.
     '''
     chooser = QComboBox()
+    chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+
     for ds in app_state.get_datasets():
         chooser.addItem(ds.get_name(), ds.get_id())
 
@@ -459,6 +461,8 @@ class BandMathDialog(QDialog):
         self._ui.tbl_variables.sortByColumn(0, Qt.AscendingOrder)
         self._ui.tbl_variables.setSortingEnabled(True)
 
+        self._ui.tbl_variables.resizeColumnsToContents()
+
 
     def _find_variable_in_bindings(self, variable) -> int:
         '''
@@ -513,6 +517,8 @@ class BandMathDialog(QDialog):
         print(f' * New type is {var_type}')
         value_widget = self._make_value_widget(var_type)
         self._ui.tbl_variables.setCellWidget(var_row, 2, value_widget)
+
+        self._ui.tbl_variables.resizeColumnToContents(2)
 
         # Update the expression analysis
         self._analyze_expr()

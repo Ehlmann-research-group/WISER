@@ -60,8 +60,11 @@
    </item>
    <item row="7" column="0" colspan="2">
     <widget class="QTableWidget" name="tbl_variables">
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOn</enum>
+     </property>
      <attribute name="horizontalHeaderStretchLastSection">
-      <bool>true</bool>
+      <bool>false</bool>
      </attribute>
      <attribute name="verticalHeaderMinimumSectionSize">
       <number>23</number>
@@ -122,6 +125,9 @@
    </item>
    <item row="3" column="2" rowspan="11">
     <widget class="QTextEdit" name="tedit_bandmath_help">
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
      <property name="readOnly">
       <bool>true</bool>
      </property>
@@ -190,6 +196,9 @@ p, li { white-space: pre-wrap; }
         <property name="text">
          <string>Result name (optional):</string>
         </property>
+        <property name="buddy">
+         <cstring>ledit_result_name</cstring>
+        </property>
        </widget>
       </item>
       <item row="0" column="1">
@@ -201,10 +210,15 @@ p, li { white-space: pre-wrap; }
   </layout>
  </widget>
  <tabstops>
+  <tabstop>ledit_expression</tabstop>
+  <tabstop>btn_toggle_help</tabstop>
+  <tabstop>btn_add_to_saved</tabstop>
   <tabstop>tbl_variables</tabstop>
+  <tabstop>ledit_result_name</tabstop>
   <tabstop>cbox_saved_exprs</tabstop>
   <tabstop>btn_load_saved_exprs</tabstop>
   <tabstop>btn_save_saved_exprs</tabstop>
+  <tabstop>tedit_bandmath_help</tabstop>
  </tabstops>
  <resources/>
  <connections>
@@ -215,8 +229,8 @@ p, li { white-space: pre-wrap; }
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
+     <x>254</x>
+     <y>455</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -231,8 +245,8 @@ p, li { white-space: pre-wrap; }
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
+     <x>322</x>
+     <y>455</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
