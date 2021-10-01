@@ -154,7 +154,13 @@ class DatasetBandChooserWidget(QWidget):
         self.band_chooser.clear()
 
         ds_id = self.dataset_chooser.currentData()
-        dataset = self._app_state.get_dataset(ds_id)
+        try:
+            dataset = self._app_state.get_dataset(ds_id)
+        except KeyError:
+            # This probably isn't a serious problem; for example, it can
+            # occur when WISER has no datasets loaded.
+            logger.info(f'Couldn\'t retrieve dataset with ID {ds_id}')
+            return
 
         for b in dataset.band_list():
             # TODO(donnie):  Generate a band name in some generalized way.
