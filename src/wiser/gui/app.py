@@ -46,7 +46,8 @@ from .bandmath_dialog import BandMathDialog
 from wiser import bandmath
 
 from wiser.raster.selection import SinglePixelSelection
-from wiser.raster.spectrum import SpectrumAtPoint, SpectrumAverageMode
+from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
+    NumPyArraySpectrum)
 
 
 logger = logging.getLogger(__name__)
@@ -710,11 +711,11 @@ class DataVisualizerApp(QMainWindow):
 
                 loader = self._app_state.get_loader()
 
-                if not result_name:
-                    result_name = self.tr('Computed')
-
                 if result_type == bandmath.VariableType.IMAGE_CUBE:
                     new_dataset = loader.dataset_from_numpy_array(result)
+
+                    if not result_name:
+                        result_name = self.tr('Computed')
 
                     new_dataset.set_name(
                         self._app_state.unique_dataset_name(result_name))
@@ -728,6 +729,9 @@ class DataVisualizerApp(QMainWindow):
                     result = result[np.newaxis, :]
                     new_dataset = loader.dataset_from_numpy_array(result)
 
+                    if not result_name:
+                        result_name = self.tr('Computed')
+
                     new_dataset.set_name(
                         self._app_state.unique_dataset_name(result_name))
                     new_dataset.set_description(
@@ -736,12 +740,13 @@ class DataVisualizerApp(QMainWindow):
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.SPECTRUM:
-                    new_spectrum = loader.spectrum_from_numpy_array(result)
 
-                    # new_spectrum.set_name(
-                    #     self._app_state.unique_spectrum_name(result_name))
-                    new_spectrum.set_description(
-                        f'Computed spectrum:  {expression} ({timestamp})')
+                    if not result_name:
+                        result_name = self.tr('Computed:  {expression} ({timestamp})')
+                        result_name = result_name.format(expression=expression,
+                                                         timestamp=timestamp)
+
+                    new_spectrum = NumPyArraySpectrum(result, name=result_name)
 
                     self._app_state.set_active_spectrum(new_spectrum)
 

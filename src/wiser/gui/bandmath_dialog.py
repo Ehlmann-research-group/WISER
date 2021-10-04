@@ -114,7 +114,18 @@ def make_spectrum_chooser(app_state) -> QComboBox:
             name = f'{s.get_name()}'
             chooser.addItem(name, s.get_id())
 
-    # TODO(donnie):  Add spectral libraries to list
+    # Add spectral libraries to list
+    for lib in app_state.get_spectral_libraries():
+        if lib.num_spectra() == 0:
+            continue
+
+        if chooser.count() > 0:
+            chooser.insertSeparator(chooser.count())
+
+        lib_id = lib.get_id()
+        for index in range(lib.num_spectra()):
+            name = lib.get_spectrum_name(index)
+            chooser.addItem(name, (lib_id, index, ) )
 
     return chooser
 
@@ -716,9 +727,17 @@ class BandMathDialog(QDialog):
                     value = RasterDataBand(dataset, band_index)
 
             elif type == bandmath.VariableType.SPECTRUM:
-                spectrum_id = self._ui.tbl_variables.cellWidget(row, 2).currentData()
-                if spectrum_id is not None:
-                    value = self._app_state.get_spectrum(spectrum_id)
+                spectrum_info = self._ui.tbl_variables.cellWidget(row, 2).currentData()
+                if isinstance(spectrum_info, int):
+                    value = self._app_state.get_spectrum(spectrum_info)
+
+                elif isinstance(spectrum_info, tuple):
+                    (lib_id, spectrum_index) = spectrum_info
+                    lib = self._app_state.get_spectral_library(lib_id)
+                    value = lib.get_spectrum(spectrum_index)
+
+                else:
+                    raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
 
             else:
                 raise AssertionError(

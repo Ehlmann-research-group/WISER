@@ -102,5 +102,7 @@ class RasterDataLoader:
         return RasterDataSet(impl)
 
 
-    def spectrum_from_numpy_array(self, arr: np.ndarray) -> Spectrum:
-        return None
+    # TODO(donnie):  Not presently needed - can instantiate a NumPyArraySpectrum
+    #     object from a NumPy array...
+    # def spectrum_from_numpy_array(self, arr: np.ndarray) -> Spectrum:
+    #     return None
