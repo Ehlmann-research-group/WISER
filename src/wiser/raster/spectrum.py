@@ -279,15 +279,71 @@ class NumPyArraySpectrum(Spectrum):
     This class represents a spectrum that wraps a simple 1D NumPy array.  This
     is generally used for computed spectra.
     '''
-    def __init__(self, arr: np.ndarray):
+    def __init__(self, arr: np.ndarray, name: Optional[str] = None,
+                 source_name: Optional[str] = None,
+                 wavelengths: Optional[List[u.Quantity]] = None):
         super().__init__()
+
         self._arr = arr
+
+        self._name = name
+        self._source_name = 'unknown'
+        if source_name:
+            self._source_name = source_name
+
+        self._wavelengths = wavelengths
+
+    def get_name(self) -> str:
+        return self._name
+
+    def set_name(self, name: str):
+        self._name = name
+
+    def get_source_name(self) -> str:
+        '''
+        Returns the name of the spectrum's source.
+        '''
+        return self._source_name
 
     def get_elem_type(self) -> np.dtype:
         '''
         Returns the element-type of the spectrum.
         '''
         return self._arr.dtype
+
+    def num_bands(self) -> int:
+        ''' Returns the number of spectral bands in the spectrum. '''
+        return self._arr.shape[0]
+
+    def has_wavelengths(self) -> bool:
+        '''
+        Returns True if this spectrum has wavelength units for all bands, False
+        otherwise.
+        '''
+        return (self._wavelengths is not None)
+
+    def get_wavelengths(self) -> List[u.Quantity]:
+        '''
+        Returns a list of wavelength values corresponding to each band.  The
+        individual values are astropy values-with-units.
+        '''
+        if self._wavelengths is None:
+            raise KeyError('Spectrum doesn\'t have wavelengths')
+
+        return self._wavelengths
+
+    def set_wavelengths(self, wavelengths: Optional[List[u.Quantity]]):
+        if wavelengths is not None and len(wavelengths) != self.num_bands():
+            raise ValueError(f'Spectrum has {self.num_bands()} bands, but ' +
+                             f'{len(wavelengths)} wavelengths were specified')
+
+        self._wavelengths = wavelengths
+
+    def get_spectrum(self) -> np.ndarray:
+        '''
+        Return the spectrum data as a 1D NumPy array.
+        '''
+        return self._arr
 
 
 #===============================================================================
