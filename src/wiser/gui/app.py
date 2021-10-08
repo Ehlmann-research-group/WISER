@@ -30,8 +30,7 @@ from .zoom_pane import ZoomPane
 from .spectrum_plot import SpectrumPlot
 from .infoview import DatasetInfoView
 
-from .save_dataset_basic import BasicSaveDatasetDialog
-from .save_dataset_adv import AdvancedSaveDatasetDialog
+from .save_dataset import SaveDatasetDialog
 
 from .util import *
 
@@ -369,7 +368,7 @@ class DataVisualizerApp(QMainWindow):
     def _on_save_dataset(self, ds_id: int):
         # TODO(donnie):  Show save/save-as dialog.
 
-        dialog = BasicSaveDatasetDialog(self._app_state, ds_id, parent=self)
+        dialog = SaveDatasetDialog(self._app_state, ds_id, parent=self)
         result = dialog.exec()
         # print(f'Save dialog result = {result}')
 
