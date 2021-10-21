@@ -293,15 +293,24 @@ class NumPyArraySpectrum(Spectrum):
 
         self._wavelengths = wavelengths
 
-    def get_name(self) -> str:
+    def get_name(self) -> Optional[str]:
+        '''
+        Returns the current name of the spectrum, or ``None`` if no name has
+        been assigned.
+        '''
         return self._name
 
-    def set_name(self, name: str):
+    def set_name(self, name: Optional[str]):
+        '''
+        Sets the name of the spectrum.  ``None`` may be specified if the
+        spectrum is to be unnamed.
+        '''
         self._name = name
 
-    def get_source_name(self) -> str:
+    def get_source_name(self) -> Optional[str]:
         '''
-        Returns the name of the spectrum's source.
+        Returns the name of the spectrum's source, or ``None`` if no source
+        name has been specified.
         '''
         return self._source_name
 
@@ -333,11 +342,21 @@ class NumPyArraySpectrum(Spectrum):
         return self._wavelengths
 
     def set_wavelengths(self, wavelengths: Optional[List[u.Quantity]]):
-        if wavelengths is not None and len(wavelengths) != self.num_bands():
-            raise ValueError(f'Spectrum has {self.num_bands()} bands, but ' +
-                             f'{len(wavelengths)} wavelengths were specified')
+        '''
+        Sets the wavelength values that correspond to each band.  The argument
+        is a list of astropy values-with-units.  Alternately, this method may
+        be used to clear the wavelength information, by passing in ``None`` as
+        the argument.
+        '''
+        if wavelengths is not None:
+            if len(wavelengths) != self.num_bands():
+                raise ValueError(f'Spectrum has {self.num_bands()} bands, but ' +
+                                 f'{len(wavelengths)} wavelengths were specified')
 
-        self._wavelengths = wavelengths
+            # Make a copy of the incoming list
+            wavelengths = list(wavelengths)
+
+        self._wavelengths = list(wavelengths)
 
     def get_spectrum(self) -> np.ndarray:
         '''
