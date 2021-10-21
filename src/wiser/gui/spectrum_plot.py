@@ -290,10 +290,12 @@ class SpectrumPointDisplayInfo:
 
         # Put some text in the top left corner - use the axis coordinate system
         # to achieve this.
+        # NOTE:  in_layout is false because this text can cause the Axes to
+        #     resize if it extends outside the plot.  It gets super annoying.
         selection_font = get_font_properties(font_name, font_size)
         self._label = axes.text(0.02, 0.98, label, fontproperties=selection_font,
             bbox={'pad':1, 'color':'white', 'alpha':0.8, 'fill':True},
-            horizontalalignment='left', verticalalignment='top',
+            horizontalalignment='left', verticalalignment='top', in_layout=False,
             transform=axes.transAxes)
 
 
