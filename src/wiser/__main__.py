@@ -17,9 +17,21 @@ LOG_CONF_FILE = 'logging.conf'
 # (Especially before loading Qt libraries.)
 faulthandler.enable()
 
-from wiser.gui.app_config import (get_wiser_config_dir, ApplicationConfig)
+from wiser.gui.app_config import (get_wiser_config_dir,
+    check_create_wiser_config_dir, ApplicationConfig)
+
+# Try to create the WISER config directory if it doesn't exist.  If an error
+# occurs, make sure to give the user a chance to find out.
+try:
+    check_create_wiser_config_dir()
+except Exception as e:
+    print(f'Couldn\'t create WISER config directory:  {get_wiser_config_dir()}')
+    input('Press Enter to terminate the program.')
+    sys.exit(1)
+
 
 # Hard-code the logging configuration to remove the need for a log-config file.
+# TODO(donnie):  This is probably a BAD idea and needs to be revised in the future.
 logfile_path = os.path.join(get_wiser_config_dir(), 'wiser.log')
 logging.config.dictConfig({
     'version':1,
