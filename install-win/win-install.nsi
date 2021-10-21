@@ -48,7 +48,7 @@ InstallDir "$PROGRAMFILES64\WISER"
   ; Good.  Now we can carry on writing the real installer.
 
   ; TODO(donnie):  Get version from external file.
-  OutFile "Install-WISER-1.1a2.exe"
+  OutFile "Install-WISER-1.1a3.exe"
   ; SetCompressor /SOLID lzma
 !endif
 
