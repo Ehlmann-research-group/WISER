@@ -45,10 +45,7 @@ def make_unique_name(candidate: str, used_names: str) -> str:
 
 class ApplicationState(QObject):
     '''
-    This class holds all application state for the visualizer.  This includes
-    both model state and view state.  This is primarily so the controller can
-    access everything in one place, but it also allows the programmatic
-    interface to operate on both the models and the views.
+    This class holds all WISER application state.
     '''
 
     # Signal:  a data-set with the specified ID was added
@@ -156,6 +153,10 @@ class ApplicationState(QObject):
 
 
     def get_loader(self):
+        '''
+        Returns the ``RasterDataLoader`` instance being used by WISER to load
+        data sets.
+        '''
         return self._raster_data_loader
 
 
@@ -190,9 +191,7 @@ class ApplicationState(QObject):
         The function only updates the current directory if the filesystem
         actually reports it as a valid directory.  If the directory can't be
         identified from the specified path (e.g. the OS doesn't report the path
-        as a valid directory), this function simply logs a warning, since this
-        isn't really a fatal issue, but we may want to look into it if it
-        happens a lot.
+        as a valid directory), this function simply logs a warning.
         '''
         dir = os.path.abspath(path)
         if not os.path.isdir(dir):
@@ -214,8 +213,11 @@ class ApplicationState(QObject):
 
     def open_file(self, file_path):
         '''
-        Open a data or configuration file in the Workbench for Imaging
-        Spectroscopy Exploration and Research (WISER).
+        A general file-open operation in WISER.  This method can be used
+        for loading any kind of data file whose type and contents can be
+        identified automatically.  This operation should not be used for
+        importing ASCII spectral data, regions of interest, etc. since
+        WISER cannot identify the file's contents automatically.
         '''
 
         # Remember the directory of the selected file, for next file-open
@@ -346,11 +348,11 @@ class ApplicationState(QObject):
 
 
     def get_stretches(self, ds_id: int, bands: Tuple):
-        '''
-        Returns the current stretches for the specified dataset ID and bands.
-        If a band has no stretch specified, its corresponding value will be
-        None.
-        '''
+        # TODO(donnie):  This comment is not a docstring so it will be excluded
+        #     from the auto-generated docs.
+        # Returns the current stretches for the specified dataset ID and bands.
+        # If a band has no stretch specified, its corresponding value will be
+        # ``None``.
         return [self._stretches.get((ds_id, b), None) for b in bands]
 
 
@@ -422,6 +424,10 @@ class ApplicationState(QObject):
 
 
     def add_roi(self, roi: RegionOfInterest) -> None:
+        '''
+        Add a Region of Interest to WISER's state.  A ``ValueError`` is raised
+        if the ROI does not have a unique name.
+        '''
         # Verify that the ROI's name is unique.
         name = roi.get_name()
         for existing_roi in self._regions_of_interest.values():
@@ -435,11 +441,21 @@ class ApplicationState(QObject):
         self.roi_added.emit(roi)
 
     def remove_roi(self, roi_id: int) -> None:
+        '''
+        Removes the specified Region of Interest from WISER's state.
+        A ``KeyError`` is raised if no ROI has the specified ID.
+        '''
         roi = self._regions_of_interest[roi_id]
         del self._regions_of_interest[roi_id]
         self.roi_removed.emit(roi)
 
     def get_roi(self, **kwargs) -> Optional[RegionOfInterest]:
+        '''
+        Retrieve a Region of Interest from WISER's state.  The caller may
+        specify an ``id`` keyword-argument to retrieve an ROI by ID, or
+        a ``name`` keyword-argument to retrieve an ROI by name.  Names are
+        case-sensitive.
+        '''
         if 'id' in kwargs:
             return self._regions_of_interest.get(kwargs['id'])
 
@@ -452,16 +468,35 @@ class ApplicationState(QObject):
         else:
             raise KeyError('Must specify either "id" or "name" keyword argument')
 
-    def get_rois(self):
+    def get_rois(self) -> List[RegionOfInterest]:
+        '''
+        Returns a list of all Regions of Interest in WISER's application state.
+        '''
         return self._regions_of_interest.values()
 
     def get_spectrum(self, spectrum_id: int) -> Spectrum:
+        '''
+        Retrieve a spectrum from WISER's state.  A ``KeyError`` is raised if
+        the ID doesn't correspond to a spectrum.
+        '''
         return self._all_spectra[spectrum_id]
 
     def get_active_spectrum(self):
+        '''
+        Retrieve the current active spectrum.  The "active spectrum" is the
+        spectrum that the user most recently selected, or it may be the
+        output of a band-math expression, plugin, etc. that computes a spectrum.
+        '''
         return self._active_spectrum
 
     def set_active_spectrum(self, spectrum: Spectrum):
+        '''
+        Set the current active spectrum to be the specified spectrum.
+        The "active spectrum" is the spectrum that the user most recently
+        selected, or it may be the output of a band-math expression, plugin,
+        etc. that computes a spectrum.
+        '''
+
         # If we already have an active spectrum, remove its ID from the mapping.
         if self._active_spectrum:
             del self._all_spectra[self._active_spectrum.get_id()]
@@ -477,6 +512,15 @@ class ApplicationState(QObject):
         self.active_spectrum_changed.emit()
 
     def collect_spectrum(self, spectrum: Spectrum):
+        '''
+        Add the specified spectrum to the "collected spectra" group.
+
+        Note that the specified spectrum cannot be the current "active
+        spectrum"; if it is, a ``RuntimeError`` will be raised.  The
+        current "active spectrum" is collected via the
+        ``collect_active_spectrum()`` method.
+        '''
+
         if spectrum is None:
             raise ValueError('spectrum cannot be None')
 
@@ -495,6 +539,13 @@ class ApplicationState(QObject):
         self.collected_spectra_changed.emit(StateChange.ITEM_ADDED, index)
 
     def collect_active_spectrum(self):
+        '''
+        Add the current "active spectrum" to the "collected spectra" group.
+
+        A ``RuntimeError`` will be raised if there is no active spectrum when
+        this method is called.
+        '''
+
         if self._active_spectrum is None:
             raise RuntimeError('There is no active spectrum to collect.')
 
@@ -506,17 +557,26 @@ class ApplicationState(QObject):
         # Causes "collected spectrum changed" signal to be emitted
         self.collect_spectrum(spectrum)
 
-    def get_collected_spectra(self):
+    def get_collected_spectra(self) -> List[Spectrum]:
+        '''
+        Returns the current list of collected spectra.
+        '''
         return list(self._collected_spectra)
 
     def remove_collected_spectrum(self, index):
+        '''
+        Removes a collected spectrum from the list of collected spectra.
+        The spectrum to remove is specified by a 0-based index.
+        '''
         id = self._collected_spectra[index].get_id()
         del self._collected_spectra[index]
         del self._all_spectra[id]
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, index)
 
     def remove_all_collected_spectra(self):
-        # Remove all the collected spectra from the ID->Spectrum mapping
+        '''
+        Removes all spectra from the list of collected spectra.
+        '''
         for s in self._collected_spectra:
             del self._all_spectra[s.get_id()]
 
