@@ -15,7 +15,7 @@ Extending WISER
     ctxmenu_plugins
     ui_plugins
     bandmath_plugins
-    wiser_ctl
+    wiser_state
     supporting_types
 
 

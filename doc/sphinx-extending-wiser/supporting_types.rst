@@ -20,8 +20,7 @@ Making a Data Set from a NumPy Array
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A data-set may be constructed from a NumPy array using the WISER data loader.
-
-TODO:  Document that.
+See the section :ref:`Loading Raster Data into WISER` for more details.
 
 Raster Data Bands
 -----------------
@@ -44,4 +43,13 @@ a pixel in an image, and so forth.  The base-type of all these different kinds
 of spectra is the ``Spectrum`` class:
 
 .. autoclass:: wiser.raster.Spectrum
+    :members:
+
+Making a Spectrum from a NumPy Array
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A spectrum may be constructed from a NumPy array using the
+``NumPyArraySpectrum`` subclass:
+
+.. autoclass:: wiser.raster.NumPyArraySpectrum
     :members:
