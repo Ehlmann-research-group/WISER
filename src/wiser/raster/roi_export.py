@@ -7,11 +7,10 @@ from .roi import RegionOfInterest
 from .selection import SelectionType
 
 
-def export_roi_list_to_file(roi_list: List[RegionOfInterest], filename,
+def export_roi_list_to_geojson_file(roi_list: List[RegionOfInterest], filename,
         pretty=False):
     '''
-    This function converts a list of Regions of Interest into an OGR Layer
-    object.
+    This function exports a list of Regions of Interest into a GeoJSON file.
     '''
 
     driver = gdal.GetDriverByName('GeoJSON')
@@ -37,7 +36,11 @@ def export_roi_list_to_file(roi_list: List[RegionOfInterest], filename,
             json.dump(data, f, indent=2)
 
 
-def export_roi_to_file(roi: RegionOfInterest, filename, pretty=False):
+def export_roi_to_geojson_file(roi: RegionOfInterest, filename, pretty=False):
+    '''
+    This function exports a single Region of Interest into a GeoJSON file.
+    '''
+
     feature = roi_to_ogr_feature(roi)
     json_str = feature.ExportToJson()
 
@@ -145,3 +148,13 @@ def roi_to_ogr_feature(roi: RegionOfInterest) -> ogr.Feature:
     feature.SetGeometry(geom)
 
     return feature
+
+
+'''
+def import_geojson_file_to_rois(filename) -> List[RegionOfInterest]:
+    dataset = gdal.OpenEx(filename,
+        nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+        allowed_drivers=['GeoJSON'])
+
+    layer =
+'''

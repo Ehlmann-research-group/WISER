@@ -215,16 +215,15 @@ class MainViewWidget(RasterPane):
 
     def _on_export_regions_of_interest(self, rasterview):
         selected = QFileDialog.getSaveFileName(self,
-            self.tr("Export All Regions of Interest"),
+            self.tr('Export All Regions of Interest'),
             self._app_state.get_current_dir(),
-            self.tr('GeoJSON files (*.geojson)'))
+            self.tr('GeoJSON files (*.geojson);;All Files (*)'))
 
         if selected[0]:
             all_rois = self._app_state.get_rois()
             # TODO(donnie):  Find all ROIs compatible with the rasterview's
             #     current data-set.
-            roi_export.export_roi_list_to_file(all_rois, selected[0],
-                    pretty=True)
+            roi_export.export_roi_list_to_geojson_file(all_rois, selected[0])
 
 
     def _on_export_image_visible_area(self, rasterview):
