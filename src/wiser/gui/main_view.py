@@ -21,6 +21,8 @@ from .plugin_utils import add_plugin_context_menu_items
 
 from wiser import plugins
 
+from wiser.raster import roi_export
+
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +135,16 @@ class MainViewWidget(RasterPane):
         # When listening for these actions, pass in the rasterview that
         # generated the event.
 
+        # Import and export ROIs
+
+        act = menu.addAction(self.tr('Import Regions of Interest...'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._on_import_regions_of_interest(rv))
+
+        act = menu.addAction(self.tr('Export Regions of Interest...'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._on_export_regions_of_interest(rv))
+
         # Submenu for RGB image export
 
         submenu = menu.addMenu(self.tr('Export RGB image'))
@@ -195,6 +207,24 @@ class MainViewWidget(RasterPane):
         '''
         super()._on_dataset_added(ds_id)
         self._set_dataset_tools_button_state()
+
+
+    def _on_import_regions_of_interest(self, rasterview):
+        pass
+
+
+    def _on_export_regions_of_interest(self, rasterview):
+        selected = QFileDialog.getSaveFileName(self,
+            self.tr("Export All Regions of Interest"),
+            self._app_state.get_current_dir(),
+            self.tr('GeoJSON files (*.geojson)'))
+
+        if selected[0]:
+            all_rois = self._app_state.get_rois()
+            # TODO(donnie):  Find all ROIs compatible with the rasterview's
+            #     current data-set.
+            roi_export.export_roi_list_to_file(all_rois, selected[0],
+                    pretty=True)
 
 
     def _on_export_image_visible_area(self, rasterview):
