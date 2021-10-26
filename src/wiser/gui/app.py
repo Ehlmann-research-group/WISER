@@ -503,7 +503,7 @@ class DataVisualizerApp(QMainWindow):
         ]
 
         selected = QFileDialog.getSaveFileName(self,
-            self.tr("Open WISER Project File"),
+            self.tr("Save WISER Project File"),
             self._app_state.get_current_dir(), ';;'.join(supported_formats))
         # print(selected)
 
