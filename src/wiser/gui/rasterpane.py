@@ -18,6 +18,7 @@ from .plugin_utils import add_plugin_context_menu_items
 
 from wiser import plugins
 
+from wiser.raster import roi_export
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset import find_display_bands, find_truecolor_bands
 from wiser.raster.roi import RegionOfInterest
@@ -778,14 +779,18 @@ class RasterPane(QWidget):
             for (roi, picked_sels) in picked_rois:
                 roi_menu = menu.addMenu(roi.get_name())
 
-                # TODO(donnie):  Set up handlers for the actions
-
                 act = roi_menu.addAction(self.tr('Edit ROI information...'))
                 act.triggered.connect(lambda checked : self._on_edit_roi_info(roi=roi))
 
                 act = roi_menu.addAction(self.tr('Show ROI average spectrum'))
                 act.triggered.connect(
                     lambda checked : self._on_show_roi_avg_spectrum(roi=roi, rasterview=rasterview))
+
+                roi_menu.addSeparator()
+
+                act = roi_menu.addAction(self.tr('Export ROI...'))
+                act.triggered.connect(
+                    lambda checked : self._on_export_region_of_interest(roi=roi, rasterview=rasterview))
 
                 act = roi_menu.addAction(self.tr('Export all spectra in ROI...'))
                 act.triggered.connect(
@@ -1494,6 +1499,16 @@ class RasterPane(QWidget):
         # TODO(donnie):  Need to get the default average mode from somewhere
         spectrum = ROIAverageSpectrum(rasterview.get_raster_data(), roi)
         self._app_state.set_active_spectrum(spectrum)
+
+
+    def _on_export_region_of_interest(self, roi: RegionOfInterest, rasterview: RasterView) -> None:
+        selected = QFileDialog.getSaveFileName(self,
+            self.tr('Export Region of Interest:  {0}').format(roi.get_name()),
+            self._app_state.get_current_dir(),
+            self.tr('GeoJSON files (*.geojson);;All Files (*)'))
+
+        if selected[0]:
+            roi_export.export_roi_to_geojson_file(roi, selected[0])
 
 
     def _on_export_roi_pixel_spectra(self, roi: RegionOfInterest, rasterview: RasterView) -> None:
