@@ -1,10 +1,17 @@
 import json
+import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from osgeo import gdal, ogr
+from PySide2.QtCore import *
+
+from osgeo import gdal, gdalconst, ogr
 
 from .roi import RegionOfInterest
-from .selection import SelectionType
+from .selection import (SelectionType, SinglePixelSelection, MultiPixelSelection,
+    RectangleSelection, PolygonSelection)
+
+
+logger = logging.getLogger(__name__)
 
 
 def export_roi_list_to_geojson_file(roi_list: List[RegionOfInterest], filename,
@@ -142,19 +149,149 @@ def roi_to_ogr_feature(roi: RegionOfInterest) -> ogr.Feature:
                 geom = poly
 
         else:
-            raise ValueError(f'ROI contains a selection of type {sel_type},' +
+            raise ValueError(f'ROI contains a selection of type {sel_type}, ' +
                 'but WISER doesn\'t know how to export this.')
 
+    geom.FlattenTo2D()
     feature.SetGeometry(geom)
 
     return feature
 
 
-'''
 def import_geojson_file_to_rois(filename) -> List[RegionOfInterest]:
+    print(f'Opening dataset from file {filename}')
     dataset = gdal.OpenEx(filename,
         nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
         allowed_drivers=['GeoJSON'])
 
-    layer =
-'''
+    rois = []
+    while True:
+        (feature, layer) = dataset.GetNextFeature()
+        if feature is None:
+            break
+
+        print(f'Feature:  {feature}\tLayer:  {layer}')
+
+        roi = ogr_feature_to_roi(feature)
+        rois.append(roi)
+
+    return rois
+
+
+def ogr_feature_to_roi(feature: ogr.Feature) -> RegionOfInterest:
+    '''
+    This function converts a GDAL/OGR Feature object into a Region of Interest.
+    '''
+
+    # Try to fetch the ROI's custom attributes off of the OGR Feature.  If this
+    # fails, no biggie - we will auto-generate them.
+
+    def try_get_attr(feature, attr, default=None):
+        # This is basically the dict.get() function, but we are working against
+        # GDAL Feature objects, and they don't provide get().
+        try:
+            return feature[attr]
+        except:
+            return default
+
+    name = try_get_attr(feature, 'name', 'unnamed')
+    color = try_get_attr(feature, 'color')
+    description = try_get_attr(feature, 'description')
+
+    # Get all leaf Geometry objects in the Feature; each will become a ROI
+    # selection.
+
+    def all_leaf_geometries(geom):
+        # A helper function to find all leaf-geometries in the OGR Feature.
+        all = []
+        if geom.GetGeometryType() == ogr.wkbGeometryCollection:
+            logger.debug(f'Looking for child geometries in geometry:  {geom}')
+            for i in range(geom.GetGeometryCount()):
+                child_geom = geom.GetGeometryRef(i)
+                all.extend(all_leaf_geometries(child_geom))
+        else:
+            logger.debug(f'Found leaf geometry:  {geom}')
+            all.append(geom)
+
+        return all
+
+    geometry = feature.geometry()
+    geometry.FlattenTo2D()
+    leaf_geoms = all_leaf_geometries(geometry)
+
+    roi = RegionOfInterest(name, color)
+    roi.set_description(description)
+    for geom in leaf_geoms:
+        geom_type = geom.GetGeometryType()
+
+        logger.debug(f'Converting geometry {geom} of type {geom_type}')
+
+        if geom_type == ogr.wkbPoint:
+            # Single-point selection
+            point = QPoint(geom.GetX(), geom.GetY())
+            sel = SinglePixelSelection(point)
+            roi.add_selection(sel)
+
+        elif geom_type == ogr.wkbMultiPoint:
+            # Multi-point selection
+            points = []
+            for i in range(geom.GetPointCount()):
+                point = QPoint(geom.GetX(i), geom.GetY(i))
+                points.append(point)
+
+            sel = MultiPixelSelection(points)
+            roi.add_selection(sel)
+
+        elif geom_type == ogr.wkbPolygon:
+            # Either a polygon or a rectangle.
+
+            # Get the points in the polygon so we can analyze them.  GDAL/OGR
+            # puts polygon points into a linear-ring sub-geometry, so we have to
+            # pull that out.
+
+            if geom.GetGeometryCount() > 1:
+                raise ValueError('WISER doesn\'t know how to handle polygons ' +
+                                 'with multiple sub-geometries.')
+
+            geom = geom.GetGeometryRef(0)
+
+            points = []
+            for i in range(geom.GetPointCount()):
+                point = QPoint(geom.GetX(i), geom.GetY(i))
+                points.append(point)
+
+            rect = get_rectangle_from_points(points)
+            if rect:
+                sel = RectangleSelection(rect[0], rect[1])
+            else:
+                sel = PolygonSelection(points)
+
+            roi.add_selection(sel)
+
+        else:
+            raise ValueError(f'Feature contains a geometry of type ' +
+                f'{geom_type}, but WISER doesn\'t know how to import this.')
+
+    return roi
+
+
+def get_rectangle_from_points(points):
+    '''
+    Given a list of points, this function determines if the points form a
+    rectangle.  If so, the function returns two opposite corners of the
+    rectangle; if not, it returns ``None``.
+    '''
+
+    if len(points) != 4:
+        return None
+
+    if (points[0].x() == points[1].x() and points[2].x() == points[3].x() and
+        points[1].y() == points[2].y() and points[3].y() == points[0].y()):
+        return (points[0], points[2])
+
+    elif (points[0].y() == points[1].y() and points[2].y() == points[3].y() and
+          points[1].x() == points[2].x() and points[3].x() == points[0].x()):
+        return (points[0], points[2])
+
+    else:
+        return None

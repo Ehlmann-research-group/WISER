@@ -137,13 +137,15 @@ class MainViewWidget(RasterPane):
 
         # Import and export ROIs
 
-        act = menu.addAction(self.tr('Import Regions of Interest...'))
+        act = menu.addAction(self.tr('Import ROIs...'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_import_regions_of_interest(rv))
 
-        act = menu.addAction(self.tr('Export Regions of Interest...'))
+        act = menu.addAction(self.tr('Export all ROIs...'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_export_regions_of_interest(rv))
+
+        menu.addSeparator()
 
         # Submenu for RGB image export
 
@@ -210,7 +212,15 @@ class MainViewWidget(RasterPane):
 
 
     def _on_import_regions_of_interest(self, rasterview):
-        pass
+        selected = QFileDialog.getOpenFileName(self,
+            self.tr('Import Regions of Interest'),
+            self._app_state.get_current_dir(),
+            self.tr('GeoJSON files (*.geojson);;All Files (*)'))
+
+        if selected[0]:
+            rois = roi_export.import_geojson_file_to_rois(selected[0])
+            for roi in rois:
+                self._app_state.add_roi(roi, make_name_unique=True)
 
 
     def _on_export_regions_of_interest(self, rasterview):
