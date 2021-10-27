@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple
 from PySide2.QtCore import *
 
 from .app_config import ApplicationConfig, PixelReticleType
+from .util import get_random_matplotlib_color
 
 from wiser.plugins import Plugin
 
@@ -423,17 +424,47 @@ class ApplicationState(QObject):
         self._config.set(option, value)
 
 
-    def add_roi(self, roi: RegionOfInterest) -> None:
+    def add_roi(self, roi: RegionOfInterest, make_name_unique=False) -> None:
         '''
         Add a Region of Interest to WISER's state.  A ``ValueError`` is raised
         if the ROI does not have a unique name.
         '''
+
+        if roi is None:
+            raise ValueError('ROI cannot be None')
+
+        if roi.get_name() is None:
+            raise ValueError('ROI name cannot be None')
+        
         # Verify that the ROI's name is unique.
-        name = roi.get_name()
+        names_in_use = set()
         for existing_roi in self._regions_of_interest.values():
-            if name == existing_roi.get_name():
+            names_in_use.add(existing_roi.get_name())
+
+        name = roi.get_name()
+        if name in names_in_use:
+            if make_name_unique:
+                i = 2
+                while True:
+                    u_name = name + '_' + str(i)
+                    if u_name not in names_to_use:
+                        roi.set_name(u_name)
+                        break
+                    i += 1
+
+            else:
                 raise ValueError(
                     f'A region of interest named "{name}" already exists.')
+
+        # If the ROI doesn't have a color, choose a random color for the ROI
+        # that isn't already used.
+        if roi.get_color() is None:
+            colors_in_use = set()
+            for existing_roi in self._regions_of_interest.values():
+                colors_in_use.add(existing_roi.get_color())
+
+            color = get_random_matplotlib_color(colors_in_use)
+            roi.set_color(color)
 
         roi_id = self._take_next_id()
         roi.set_id(roi_id)

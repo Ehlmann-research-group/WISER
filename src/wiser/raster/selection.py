@@ -216,6 +216,10 @@ class RectangleSelection(Selection):
 class PolygonSelection(Selection):
     def __init__(self, points):
         super().__init__(SelectionType.POLYGON)
+
+        if points is None or len(points) < 3:
+            raise ValueError('points list must contain at least 3 points')
+
         self._points = list(points)
 
     def num_points(self):
@@ -244,7 +248,7 @@ class PolygonSelection(Selection):
         return rasterized.get_set()
 
     def __str__(self):
-        return f'PolygonSelection[{self._points}]'
+        return f'PolygonSelection[points={self._points}]'
 
     def to_pyrep(self):
         '''
