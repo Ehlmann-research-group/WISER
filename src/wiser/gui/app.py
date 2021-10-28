@@ -156,7 +156,7 @@ class DataVisualizerApp(QMainWindow):
         self._main_view.viewport_change.connect(self._on_mainview_viewport_change)
         self._main_view.click_pixel.connect(self._on_mainview_raster_pixel_select)
         self._main_view.display_bands_change.connect(self._on_display_bands_change)
-        self._main_view.create_selection.connect(self._on_create_selection)
+        self._main_view.roi_selection_changed.connect(self._on_roi_selection_changed)
 
         self._main_view.get_stretch_builder().stretch_changed.connect(self._on_stretch_changed)
 
@@ -164,7 +164,7 @@ class DataVisualizerApp(QMainWindow):
         self._zoom_pane.click_pixel.connect(self._on_zoom_raster_pixel_select)
         self._zoom_pane.visibility_change.connect(self._on_zoom_visibility_changed)
         self._zoom_pane.display_bands_change.connect(self._on_display_bands_change)
-        self._zoom_pane.create_selection.connect(self._on_create_selection)
+        self._zoom_pane.roi_selection_changed.connect(self._on_roi_selection_changed)
 
         #=======================================
         # EVENTS
@@ -468,19 +468,19 @@ class DataVisualizerApp(QMainWindow):
             self.tr('All files (*)'),
         ]
 
-        selected = QFileDialog.getOpenFileName(self,
+        # Let the user select one or more files to open.
+        selected = QFileDialog.getOpenFileNames(self,
             self.tr("Open Spectal Data File"),
             self._app_state.get_current_dir(), ';;'.join(supported_formats))
-        # print(selected)
 
-        if len(selected[0]) > 0:
+        for filename in selected[0]:
             try:
                 # Open the file on the application state.
-                self._app_state.open_file(selected[0])
+                self._app_state.open_file(filename)
             except Exception as e:
                 mbox = QMessageBox(QMessageBox.Critical,
                     self.tr('Could not open file'),
-                    self.tr('The file {0} could not be opened.').format(selected[0]),
+                    self.tr('The file {0} could not be opened.').format(filename),
                     QMessageBox.Ok, parent=self)
 
                 mbox.setInformativeText(str(e))
@@ -773,8 +773,12 @@ class DataVisualizerApp(QMainWindow):
             self._zoom_pane.set_display_bands(ds_id, bands, colormap=colormap)
 
 
-    def _on_create_selection(self, selection):
-        self._app_state.add_selection(selection)
+    def _on_roi_selection_changed(self, roi, selection):
+        # To be simple, we just refresh all rasterviews.  We could be more
+        # clever in the future if this turns out to be prohibitively slow.
+        self._context_pane.update_all_rasterviews()
+        self._main_view.update_all_rasterviews()
+        self._zoom_pane.update_all_rasterviews()
 
 
     def _on_context_raster_pixel_select(self, rasterview_position, ds_point):

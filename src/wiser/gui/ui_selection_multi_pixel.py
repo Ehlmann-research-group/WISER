@@ -128,16 +128,17 @@ class MultiPixelSelectionCreator(MultiPixelSelectionManipulator):
         roi = self._rasterpane.get_current_roi()
         roi.add_selection(sel)
 
-        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
-        #     everyone can be notified.
+        # Signal that the ROI changed, so that everyone can be notified.
+        self._rasterpane.roi_selection_changed.emit(roi, sel)
 
         self._app_state.clear_status_text()
 
 
 class MultiPixelSelectionEditor(MultiPixelSelectionManipulator):
 
-    def __init__(self, mp_sel, rasterpane, rasterview=None):
+    def __init__(self, roi, mp_sel, rasterpane, rasterview=None):
         super().__init__(mp_sel.get_pixels(), rasterpane, rasterview)
+        self._roi = roi
         self._mp_sel = mp_sel
         self._app_state.show_status_text(
             'Left-click on pixels to toggle their inclusion in the selection.' +
@@ -149,7 +150,7 @@ class MultiPixelSelectionEditor(MultiPixelSelectionManipulator):
             #     multi-pixel selection, which is no good!
             pass
 
-        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
-        #     everyone can be notified.
+        # Signal that the ROI changed, so that everyone can be notified.
+        self._rasterpane.roi_selection_changed.emit(self._roi, self._mp_sel)
 
         self._app_state.clear_status_text()
