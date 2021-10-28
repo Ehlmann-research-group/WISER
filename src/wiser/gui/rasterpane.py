@@ -253,9 +253,10 @@ class RasterPane(QWidget):
     click_pixel = Signal(tuple, QPoint)
 
 
-    # Signal:  the user created a selection in the pane.  The created selection
-    # is passed as an argument.
-    create_selection = Signal(Selection)
+    # Signal:  a Region of Interest's selection was added/removed/changed.  The
+    # ROI (arg1) and the selection (arg2) are passed as arguments.  Note that
+    # if a selection is deleted, then the second argument will be None.
+    roi_selection_changed = Signal(object, object)
 
 
     # Signal:  one or more raster-views changed their display viewport.  The
@@ -903,8 +904,6 @@ class RasterPane(QWidget):
             self._task_delegate.finish()
             self._task_delegate = None
 
-        # TODO(donnie):  Is it possible the rasterview is None here?
-        # td_rasterview.update()
         self.update_all_rasterviews()
 
 
@@ -1373,6 +1372,8 @@ class RasterPane(QWidget):
 
     def _on_roi_removed(self, roi):
         self._populate_roi_combobox()
+        # Force a repaint of all raster-views.
+        self.update_all_rasterviews()
 
     def _populate_roi_combobox(self, choose_roi_id=None):
         if choose_roi_id is None:
@@ -1459,15 +1460,15 @@ class RasterPane(QWidget):
 
         if selection_type == SelectionType.RECTANGLE:
             self._task_delegate = \
-                RectangleSelectionEditor(sel, self, rasterview)
+                RectangleSelectionEditor(roi, sel, self, rasterview)
 
         elif selection_type == SelectionType.POLYGON:
             self._task_delegate = \
-                PolygonSelectionEditor(sel, self, rasterview)
+                PolygonSelectionEditor(roi, sel, self, rasterview)
 
         elif selection_type == SelectionType.MULTI_PIXEL:
             self._task_delegate = \
-                MultiPixelSelectionEditor(sel, self, rasterview)
+                MultiPixelSelectionEditor(roi, sel, self, rasterview)
 
         else:
             QMessageBox.warning(self, self.tr('Unsupported Feature'),
@@ -1486,8 +1487,8 @@ class RasterPane(QWidget):
         if result == QMessageBox.Yes:
             roi.del_selection(sel_index)
 
-            # TODO(donnie):  Somehow the app-state needs to notify everyone that
-            #     the ROI was edited.
+            # Signal that the ROI changed, so that everyone can be notified.
+            self.roi_selection_changed.emit(roi, None)
 
             # Report to the user that the ROI was deleted.
             self._app_state.show_status_text(
