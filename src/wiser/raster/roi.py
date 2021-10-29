@@ -81,6 +81,12 @@ class RegionOfInterest:
 
         return all_pixels
 
+    def pprint(self):
+        print(f'RegionOfInterest[{self._name}, {self._color}, {self._description}')
+        for sel in self._selections:
+            print(f' * {sel}')
+        print(']')
+
 
 def roi_to_pyrep(roi):
     data = {

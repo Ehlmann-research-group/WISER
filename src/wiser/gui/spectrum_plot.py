@@ -56,8 +56,9 @@ MATPLOTLIB_LEGEND_ARGS = {
     LegendPlacement.OUTSIDE_LOWER_CENTER : {'loc':'upper center', 'bbox_to_anchor':(0.5, -0.05)},
 }
 
-
 TICK_THRESHOLD = 100
+
+SHOW_LIBRARY_SPECTRA_THRESHOLD = 20
 
 
 def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
@@ -265,6 +266,18 @@ class SpectrumPointDisplayInfo:
         assert self._label is None
 
         y_value = self._spectrum.get_spectrum()[self._band_index]
+        y_value_str:str = None
+        elem_type = self._spectrum.get_elem_type()
+        if elem_type == np.float16:
+            y_value_str = f'{y_value:.3f}'
+        elif elem_type == np.float32:
+            y_value_str = f'{y_value:.7f}'
+        elif elem_type == np.float64:
+            y_value_str = f'{y_value:.15f}'
+        elif elem_type == np.float128:
+            y_value_str = f'{y_value:.34f}'
+        else:
+            y_value_str = f'{y_value}'
 
         label:str = None
         if self._use_wavelength:
@@ -273,10 +286,10 @@ class SpectrumPointDisplayInfo:
             if self._band_units is not None:
                 x_value = raster_utils.convert_spectral(x_value, self._band_units)
 
-            label = f'{x_value} = {y_value}'
+            label = f'{x_value} = {y_value_str}'
         else:
             x_value = self._band_index * u.dimensionless_unscaled
-            label = f'Band {self._band_index} = {y_value}'
+            label = f'Band {self._band_index} = {y_value_str}'
 
         if self._crosshair:
             self._point_vline = axes.axvline(x=x_value.value,
@@ -290,10 +303,12 @@ class SpectrumPointDisplayInfo:
 
         # Put some text in the top left corner - use the axis coordinate system
         # to achieve this.
+        # NOTE:  in_layout is false because this text can cause the Axes to
+        #     resize if it extends outside the plot.  It gets super annoying.
         selection_font = get_font_properties(font_name, font_size)
         self._label = axes.text(0.02, 0.98, label, fontproperties=selection_font,
             bbox={'pad':1, 'color':'white', 'alpha':0.8, 'fill':True},
-            horizontalalignment='left', verticalalignment='top',
+            horizontalalignment='left', verticalalignment='top', in_layout=False,
             transform=axes.transAxes)
 
 
@@ -914,6 +929,7 @@ class SpectrumPlot(QWidget):
             (spectrum, index) = self._find_spectrum_point_nearest_selection(
                 pick_location[0], pick_location[1])
 
+
         # If the picked location isn't near a spectrum, or if there was no pick
         # location and no previous picked spectrum, return.
         if spectrum is None:
@@ -1110,6 +1126,10 @@ class SpectrumPlot(QWidget):
             treeitem_spectrum.setData(0, Qt.UserRole, spectrum)
 
             treeitem_library.addChild(treeitem_spectrum)
+
+        # If the library doesn't contain too many spectra, show all the spectra.
+        if spectral_library.num_spectra() < SHOW_LIBRARY_SPECTRA_THRESHOLD:
+            self._on_show_all_spectra(treeitem_library)
 
 
     def _on_spectral_library_removed(self, lib_id: int):

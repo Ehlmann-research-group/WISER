@@ -77,13 +77,24 @@ def get_wiser_config_dir() -> str:
         wiser_dir = os.path.expanduser('~/Library/WISER')
 
     else:
-        # Use the
+        # Use the standard UNIX/Linux approach of a dot-filename in the user's
+        # home directory.
         if sys_name != 'Linux':
             warnings.warn(f'Unrecognized platform name "{sys_name}"')
 
         wiser_dir = os.path.expanduser('~/.wiser')
 
     return wiser_dir
+
+
+def check_create_wiser_config_dir():
+    '''
+    This helper function creates the WISER config directory if it doesn't
+    already exist.
+    '''
+    path = get_wiser_config_dir()
+    if not os.path.isdir(path):
+        os.makedirs(path)
 
 """
 def get_path_to_wiser_conf(*subpaths: List[str]):
