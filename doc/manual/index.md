@@ -2,7 +2,7 @@ Welcome to WISER, the Workbench for Imaging Spectroscopy Exploration and
 Research.  WISER makes it easy to load and analyze spectral imaging data sets
 with a variety of helpful features.
 
-**IMPORTANT NOTE:  WISER is currently in beta, which means that this
+**IMPORTANT NOTE:  WISER is currently in alpha, which means that this
 documentation may be incomplete and/or out of date.**  Feel free to email
 [wiser@caltech.edu](mailto:wiser@caltech.edu) if you have any questions or
 comments.
@@ -34,6 +34,9 @@ interacting with spectral data.  These buttons are as follows:
 <img class="img_center" src="images/display_toggles.png" width="40%">
 
 These tools are described in subsequent sections.
+
+**NOTE:**  WISER can also be extended with custom functionality through its
+[plugin API](../API).
 
 ## WISER Configuration
 

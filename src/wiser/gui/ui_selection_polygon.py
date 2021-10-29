@@ -43,7 +43,7 @@ class PolygonSelectionCreator(TaskDelegate):
 
     # This variable tunes the sensitivity of closing the polygon.  Lower values
     # require the start and end points to be closer together to close a polygon.
-    SENSITIVITY = 3
+    SENSITIVITY = 10
 
     def __init__(self, rasterpane, rasterview=None):
         super().__init__(rasterpane, rasterview)
@@ -173,16 +173,17 @@ class PolygonSelectionCreator(TaskDelegate):
         roi = self._rasterpane.get_current_roi()
         roi.add_selection(sel)
 
-        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
-        #     everyone can be notified.
+        # Signal that the ROI changed, so that everyone can be notified.
+        self._rasterpane.roi_selection_changed.emit(roi, sel)
 
         self._app_state.clear_status_text()
 
 
 
 class PolygonSelectionEditor(TaskDelegate):
-    def __init__(self, poly_sel, rasterpane, rasterview=None):
+    def __init__(self, roi, poly_sel, rasterpane, rasterview=None):
         super().__init__(rasterpane, rasterview)
+        self._roi = roi
         self._poly_sel = poly_sel
         self._editing_cp_index = None
 
@@ -280,8 +281,8 @@ class PolygonSelectionEditor(TaskDelegate):
                              CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
 
     def finish(self):
-        # TODO(donnie):  Signal to the app-state that the ROI changed, so that
-        #     everyone can be notified.
+        # Signal that the ROI changed, so that everyone can be notified.
+        self._rasterpane.roi_selection_changed.emit(self._roi, self._poly_sel)
 
         self._app_state.clear_status_text()
 
