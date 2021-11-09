@@ -222,6 +222,8 @@ class MainViewWidget(RasterPane):
             for roi in rois:
                 self._app_state.add_roi(roi, make_name_unique=True)
 
+            self.roi_selection_changed.emit(None, None)
+
 
     def _on_export_regions_of_interest(self, rasterview):
         selected = QFileDialog.getSaveFileName(self,
