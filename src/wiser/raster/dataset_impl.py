@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 
-from .utils import make_spectral_value, convert_spectral
+from .utils import make_spectral_value, convert_spectral, get_spectral_unit
 from .loaders import envi
 
 import numpy as np
@@ -58,6 +58,9 @@ class RasterDataImpl(abc.ABC):
         pass
 
     def read_description(self) -> Optional[str]:
+        pass
+
+    def read_band_unit(self) -> Optional[u.Unit]:
         pass
 
     def read_band_info(self) -> List[Dict[str, Any]]:
@@ -428,6 +431,15 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         return desc
 
+    def read_band_unit(self) -> Optional[u.Unit]:
+        band = self.gdal_dataset.GetRasterBand(1)
+        gdal_metadata = band.GetMetadata()
+        wl_units = gdal_metadata.get('wavelength_units')
+        if wl_units:
+            return get_spectral_unit(wl_units)
+        else:
+            return None
+
     def read_band_info(self) -> List[Dict[str, Any]]:
         '''
         A helper function to retrieve details about the raster bands.  The
@@ -460,7 +472,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
                 try:
                     wl_value = float(wl_str)
                     wavelength = make_spectral_value(wl_value, wl_units)
-                    wavelength = convert_spectral(wavelength, u.nm)
+                    # TODO(donnie):  Why is everything converted to nanometers?
+                    # wavelength = convert_spectral(wavelength, u.nm)
                     info['wavelength'] = wavelength
                 except:
                     # Log this error in case anyone needs to debug it.

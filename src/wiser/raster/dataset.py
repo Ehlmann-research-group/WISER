@@ -63,6 +63,8 @@ class RasterDataSet:
         # Optional description for the raster data set
         self._description: Optional[str] = impl.read_description()
 
+        self._band_unit: Optional[u.Unit] = impl.read_band_unit()
+
         self._band_info: List[Dict[str, Any]] = impl.read_band_info()
 
         self._bad_bands: Optional[List[int]] = impl.read_bad_bands()
@@ -190,6 +192,14 @@ class RasterDataSet:
         Returns the element-type of the raster data set.
         '''
         return self._impl.get_elem_type()
+
+
+    def get_band_unit(self) -> Optional[u.Unit]:
+        '''
+        Returns the units used for all bands' wavelengths, or ``None`` if bands
+        do not specify units.
+        '''
+        return self._impl.read_band_unit()
 
 
     def band_list(self) -> List[Dict[str, Any]]:
