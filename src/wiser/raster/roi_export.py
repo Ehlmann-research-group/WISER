@@ -159,7 +159,7 @@ def roi_to_ogr_feature(roi: RegionOfInterest) -> ogr.Feature:
 
 
 def import_geojson_file_to_rois(filename) -> List[RegionOfInterest]:
-    print(f'Opening dataset from file {filename}')
+    logger.info(f'Opening dataset from file {filename}')
     dataset = gdal.OpenEx(filename,
         nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
         allowed_drivers=['GeoJSON'])
@@ -170,7 +170,7 @@ def import_geojson_file_to_rois(filename) -> List[RegionOfInterest]:
         if feature is None:
             break
 
-        print(f'Feature:  {feature}\tLayer:  {layer}')
+        logger.info(f'Feature:  {feature}\tLayer:  {layer}')
 
         roi = ogr_feature_to_roi(feature)
         rois.append(roi)
@@ -234,9 +234,17 @@ def ogr_feature_to_roi(feature: ogr.Feature) -> RegionOfInterest:
 
         elif geom_type == ogr.wkbMultiPoint:
             # Multi-point selection
+
+            # Get the points in the multi-point geometry so we can store them.
+            # GDAL/OGR puts multi-point points into sub-geometries in the parent
+            # geometry.
+
             points = []
-            for i in range(geom.GetPointCount()):
-                point = QPoint(geom.GetX(i), geom.GetY(i))
+            for i in range(geom.GetGeometryCount()):
+                child_geom = geom.GetGeometryRef(i)
+                # child_type = child_geom.GetGeometryType() # Should be ogr.wkbPoint
+
+                point = QPoint(child_geom.GetX(), child_geom.GetY())
                 points.append(point)
 
             sel = MultiPixelSelection(points)
