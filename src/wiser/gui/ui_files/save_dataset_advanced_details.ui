@@ -278,20 +278,17 @@ filename.img</string>
        <string>Bands</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_2">
-       <item row="1" column="0">
-        <widget class="QLabel" name="lbl_wavelength_units">
+       <item row="0" column="0">
+        <widget class="QToolButton" name="tbtn_include_all_bands">
          <property name="text">
-          <string>Wavelength units:</string>
-         </property>
-         <property name="buddy">
-          <cstring>cbox_wavelength_units</cstring>
+          <string>Include All Bands</string>
          </property>
         </widget>
        </item>
-       <item row="1" column="1">
+       <item row="2" column="2">
         <widget class="QComboBox" name="cbox_wavelength_units"/>
        </item>
-       <item row="0" column="0" colspan="2">
+       <item row="1" column="0" colspan="3">
         <widget class="QTableWidget" name="tbl_bands">
          <property name="columnCount">
           <number>3</number>
@@ -322,9 +319,26 @@ filename.img</string>
          </column>
         </widget>
        </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="lbl_wavelength_units">
+         <property name="text">
+          <string>Wavelength units:</string>
+         </property>
+         <property name="buddy">
+          <cstring>cbox_wavelength_units</cstring>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QToolButton" name="tbtn_exclude_all_bands">
+         <property name="text">
+          <string>Exclude All Bands</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="tab">
+     <widget class="QWidget" name="tab_display_bands">
       <attribute name="title">
        <string>Display Bands</string>
       </attribute>
@@ -358,7 +372,7 @@ filename.img</string>
           <item row="1" column="0" colspan="2">
            <widget class="QStackedWidget" name="stk_default_bands">
             <property name="currentIndex">
-             <number>0</number>
+             <number>1</number>
             </property>
             <widget class="QWidget" name="page_rgb_bands">
              <layout class="QGridLayout" name="gridLayout_9" columnstretch="0,1">
