@@ -1,3 +1,5 @@
+import re
+
 from typing import List, Optional, Union
 
 import numpy as np
@@ -5,7 +7,7 @@ from astropy import units as u
 
 from .dataset import RasterDataSet
 from .roi import RegionOfInterest
-from .spectrum import Spectrum, get_all_spectra_in_roi
+from .spectrum import Spectrum, NumPyArraySpectrum, get_all_spectra_in_roi
 from .utils import convert_spectral, get_band_values, make_spectral_value
 
 
@@ -258,7 +260,8 @@ class ImportedSpectrumData:
         return np.array(self.value2_list)
 
     def wavelengths_as_unit_values(self):
-        return [make_spectral_value(value) for value in self.value1_list]
+        unit_str = self.get_wavelength_units()
+        return [make_spectral_value(value, unit_str) for value in self.value1_list]
 
 
 def import_spectrum_list(filename: str) -> List[Spectrum]:
@@ -269,6 +272,8 @@ def import_spectrum_list(filename: str) -> List[Spectrum]:
     with open(filename) as f:
         # Read the header line
         header_line = f.readline()
+        if len(header_line) > 0 and header_line[-1] == '\n':
+            header_line = header_line[:-1]
 
         header_parts = header_line.split('\t')
 
@@ -276,15 +281,27 @@ def import_spectrum_list(filename: str) -> List[Spectrum]:
             raise ValueError(f'Import spectra from {filename}:  ' +
                 f'file contains an odd number of columns:  {len(header_parts)}')
 
-        num_spectra = len(header_parts) / 2
+        # print(f'len(header_parts) = {len(header_parts)}')
+        num_spectra = len(header_parts) // 2
+        # print(f'num_spectra = {num_spectra}')
+
         imported_spectra = []
         for i in range(num_spectra):
             spectrum_data = ImportedSpectrumData(header_parts[i * 2 + 1], header_parts[i * 2])
             imported_spectra.append(spectrum_data)
 
+            # print(f'Spectrum {i}:  name="{spectrum_data.spectrum_name}" ' +
+            #       f'allbands_name="{spectrum_data.allbands_name}"')
+
         line_no = 2
         while True:
             line = f.readline()
+            if not line:
+                break
+
+            if len(line) > 0 and line[-1] == '\n':
+                line = line[:-1]
+
             line_parts = line.split('\t')
             if len(line_parts) != len(header_parts):
                 raise ValueError(f'Line {line_no}:  Row doesn\'t contain ' +
@@ -308,4 +325,3 @@ def import_spectrum_list(filename: str) -> List[Spectrum]:
         spectra.append(spectrum)
 
     return spectra
-    

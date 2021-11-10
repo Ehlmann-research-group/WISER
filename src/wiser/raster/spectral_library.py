@@ -97,6 +97,12 @@ class ListSpectralLibrary(SpectralLibrary):
         if kwargs:
             raise ValueError(f'Unrecognized arguments:  {kwargs.keys()}')
 
+    def set_id(self, id: int) -> None:
+        # Go through and set the ID of every spectrum in the library as well.
+        super().set_id(id)
+        for (index, s) in enumerate(self._spectra):
+            s.set_id( (self._id, index) )
+
     def get_description(self):
         '''
         Returns a description of the spectral library that might be specified
