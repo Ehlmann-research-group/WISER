@@ -48,6 +48,8 @@ from wiser import bandmath
 from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
     NumPyArraySpectrum)
+from wiser.raster.spectral_library import ListSpectralLibrary
+from wiser.raster import spectra_export
 
 
 logger = logging.getLogger(__name__)
