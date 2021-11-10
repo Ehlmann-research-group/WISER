@@ -23,7 +23,7 @@ from wiser import plugins
 
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectra_export import export_spectrum_list
-from wiser.raster.spectrum import Spectrum, LibrarySpectrum
+from wiser.raster.spectrum import Spectrum
 from wiser.raster import utils as raster_utils
 
 import matplotlib
@@ -1121,7 +1121,7 @@ class SpectrumPlot(QWidget):
 
         # Create a tree-item for every spectrum in the library.
         for i in range(spectral_library.num_spectra()):
-            spectrum = LibrarySpectrum(spectral_library, i)
+            spectrum = spectral_library.get_spectrum(i)
             treeitem_spectrum = QTreeWidgetItem([spectrum.get_name()])
             treeitem_spectrum.setData(0, Qt.UserRole, spectrum)
 
@@ -1356,7 +1356,7 @@ class SpectrumPlot(QWidget):
             act.triggered.connect(lambda *args, treeitem=treeitem :
                                   self._on_toggle_spectrum_visible(treeitem))
 
-            if not isinstance(spectrum, LibrarySpectrum):
+            if spectrum.is_editable():
                 act = menu.addAction(self.tr('Edit...'))
                 act.triggered.connect(lambda *args, treeitem=treeitem :
                                       self._on_edit_spectrum(treeitem))
@@ -1366,7 +1366,7 @@ class SpectrumPlot(QWidget):
                 plugins.ContextMenuType.SPECTRUM_PICK, menu,
                 spectrum=spectrum)
 
-            if not isinstance(spectrum, LibrarySpectrum):
+            if spectrum.is_discardable():
                 menu.addSeparator()
 
                 act = menu.addAction(self.tr('Discard...'))

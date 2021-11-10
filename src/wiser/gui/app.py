@@ -212,6 +212,14 @@ class DataVisualizerApp(QMainWindow):
 
         self._file_menu.addSeparator()
 
+        act = self._file_menu.addAction(self.tr('Import Regions of Interest...'))
+        act.triggered.connect(self.import_spectra_from_textfile)
+
+        act = self._file_menu.addAction(self.tr('Import spectra from text file...'))
+        act.triggered.connect(self.import_spectra_from_textfile)
+
+        self._file_menu.addSeparator()
+
         self._save_dataset_menu = self._file_menu.addMenu(self.tr('Save dataset as...'))
         self._save_dataset_menu.setStatusTip(self.tr('Save a dataset or spectral library'))
         self._save_dataset_menu.setEnabled(False)
@@ -664,6 +672,33 @@ class DataVisualizerApp(QMainWindow):
         settings = QSettings('Caltech', 'WISER')
         self.restoreGeometry(settings.value('geometry'))
         self.restoreState(settings.value('window-state'))
+
+
+    def import_regions_of_interest(self):
+        selected = QFileDialog.getOpenFileName(self,
+            self.tr('Import Regions of Interest'),
+            self._app_state.get_current_dir(),
+            self.tr('GeoJSON files (*.geojson);;All Files (*)'))
+
+        if selected[0]:
+            rois = roi_export.import_geojson_file_to_rois(selected[0])
+            for roi in rois:
+                self._app_state.add_roi(roi, make_name_unique=True)
+
+            self.roi_selection_changed.emit(None, None)
+
+
+    def import_spectra_from_textfile(self):
+        selected = QFileDialog.getOpenFileName(self,
+            self.tr('Import Spectra from Text File'),
+            self._app_state.get_current_dir(),
+            self.tr('Text files (*.txt);;All Files (*)'))
+
+        if selected[0]:
+            path = selected[0]
+            spectra = spectra_export.import_spectrum_list(path)
+            library = ListSpectralLibrary(spectra, path=path)
+            self._app_state.add_spectral_library(library)
 
 
     def show_bandmath_dialog(self):
