@@ -6,7 +6,7 @@ from astropy import units as u
 from .dataset import RasterDataSet
 from .roi import RegionOfInterest
 from .spectrum import Spectrum, get_all_spectra_in_roi
-from .utils import convert_spectral, get_band_values
+from .utils import convert_spectral, get_band_values, make_spectral_value
 
 
 def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,
@@ -194,3 +194,118 @@ def export_spectrum_list(filename: str, spectra: List[Spectrum],
                     f.write(f'{missing_value}\t{missing_value}')
 
             f.write('\n')
+
+
+class ImportedSpectrumData:
+    def __init__(self, spectrum_name: str, allbands_name: str):
+        self.spectrum_name = spectrum_name
+        self.allbands_name = allbands_name
+        self.value1_list = []
+        self.value2_list = []
+
+        self.finished = False
+
+
+    def has_wavelengths(self):
+        # TODO(donnie):  Regular expression?
+        return (self.get_wavelength_units() is not None)
+
+
+    def get_wavelength_units(self):
+        # Try to match the
+        m = re.fullmatch('Wavelength \(([^)]*)\)', self.allbands_name)
+        if m:
+            return m.group(1).strip()
+
+        return None
+
+
+    def add_value(self, value1_str, value2_str):
+        value1_str = value1_str.strip()
+        value2_str = value2_str.strip()
+
+        # This is the case when the spectrum doesn't have anymore values in the
+        # input file.
+        if value1_str == '' and value2_str == '':
+            self.finished = True
+            return
+
+        # If we get here and we have actual values, then that means the data
+        # being imported is suspect.
+        if self.finished:
+            raise ValueError('Spectrum is already finished; it cannot accept new values')
+
+        value1 = float(value1_str)
+
+        if value2_str.lower() == 'nan':
+            value2 = np.nan
+        else:
+            value2 = float(value2_str)
+
+        self.value1_list.append(value1)
+        self.value2_list.append(value2)
+
+    def verify_band_values(self):
+        if self.has_wavelengths():
+            return
+
+        for i in range(len(self.value1_list)):
+            value = self.value1_list[i]
+            if (not value.is_integer()) or value != i:
+                raise ValueError(f'Band {i} has unexpected value {value}')
+
+    def values_as_ndarray(self):
+        return np.array(self.value2_list)
+
+    def wavelengths_as_unit_values(self):
+        return [make_spectral_value(value) for value in self.value1_list]
+
+
+def import_spectrum_list(filename: str) -> List[Spectrum]:
+    '''
+    TODO
+    '''
+
+    with open(filename) as f:
+        # Read the header line
+        header_line = f.readline()
+
+        header_parts = header_line.split('\t')
+
+        if len(header_parts) % 2 != 0:
+            raise ValueError(f'Import spectra from {filename}:  ' +
+                f'file contains an odd number of columns:  {len(header_parts)}')
+
+        num_spectra = len(header_parts) / 2
+        imported_spectra = []
+        for i in range(num_spectra):
+            spectrum_data = ImportedSpectrumData(header_parts[i * 2 + 1], header_parts[i * 2])
+            imported_spectra.append(spectrum_data)
+
+        line_no = 2
+        while True:
+            line = f.readline()
+            line_parts = line.split('\t')
+            if len(line_parts) != len(header_parts):
+                raise ValueError(f'Line {line_no}:  Row doesn\'t contain ' +
+                                 'same number of parts as header row.')
+
+            for i in range(num_spectra):
+                imported_spectra[i].add_value(line_parts[i * 2], line_parts[i * 2 + 1])
+
+            line_no += 1
+
+    spectra = []
+    for spectrum_data in imported_spectra:
+        values = spectrum_data.values_as_ndarray()
+        wavelengths = None
+        if spectrum_data.has_wavelengths():
+            wavelengths = spectrum_data.wavelengths_as_unit_values()
+
+        spectrum = NumPyArraySpectrum(values, spectrum_data.spectrum_name,
+             wavelengths=wavelengths)
+
+        spectra.append(spectrum)
+
+    return spectra
+    
