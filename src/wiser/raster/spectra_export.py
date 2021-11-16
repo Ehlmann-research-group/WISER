@@ -1,3 +1,4 @@
+import enum
 import re
 
 from typing import List, Optional, Union
@@ -8,7 +9,15 @@ from astropy import units as u
 from .dataset import RasterDataSet
 from .roi import RegionOfInterest
 from .spectrum import Spectrum, NumPyArraySpectrum, get_all_spectra_in_roi
-from .utils import convert_spectral, get_band_values, make_spectral_value
+from .utils import get_spectral_unit, convert_spectral, get_band_values, make_spectral_value
+
+
+class WavelengthCols(enum.Enum):
+    NO_WAVELENGTHS = 0
+
+    FIRST_COL = 1
+
+    ODD_COLS = 2
 
 
 def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,
@@ -199,36 +208,58 @@ def export_spectrum_list(filename: str, spectra: List[Spectrum],
 
 
 class ImportedSpectrumData:
-    def __init__(self, spectrum_name: str, allbands_name: str):
+    def __init__(self, spectrum_name: str, allbands_name: Optional[str]):
+        if spectrum_name is None:
+            raise ValueError('Spectrum name must be specified')
+
         self.spectrum_name = spectrum_name
         self.allbands_name = allbands_name
-        self.value1_list = []
-        self.value2_list = []
 
+        # Try to get the wavelength unit from the "all-bands name" from any
+        # header row.
+        self.wavelength_unit = self.get_wavelength_unit()
+
+        self.wavelength_values = []
+        self.spectrum_values = []
+
+        self.ignore_value = None
         self.finished = False
 
 
     def has_wavelengths(self):
-        # TODO(donnie):  Regular expression?
-        return (self.get_wavelength_units() is not None)
+        return (self.wavelength_unit is not None)
 
+    def get_wavelength_unit(self):
+        if self.allbands_name is None:
+            return None
 
-    def get_wavelength_units(self):
-        # Try to match the
+        # Try to match the "all-bands name" pattern that WISER outputs.  This is
+        # likely not present in other sources of spectral data.
         m = re.fullmatch('Wavelength \(([^)]*)\)', self.allbands_name)
         if m:
             return m.group(1).strip()
 
         return None
 
+    def set_wavelength_unit(self, wavelength_unit):
+        if wavelength_unit is not None:
+            # Verify that the unit is recognized.  This will throw a KeyError
+            # if the unit is unrecognized.
+            get_spectral_unit(wavelength_unit)
 
-    def add_value(self, value1_str, value2_str):
-        value1_str = value1_str.strip()
-        value2_str = value2_str.strip()
+        self.wavelength_unit = wavelength_unit
+
+
+    def add_value(self, wavelength_value_str, spectrum_value_str):
+        # Wavelength value-string may be None
+        if wavelength_value_str:
+            wavelength_value_str = wavelength_value_str.strip()
+
+        spectrum_value_str = spectrum_value_str.strip()
 
         # This is the case when the spectrum doesn't have anymore values in the
         # input file.
-        if value1_str == '' and value2_str == '':
+        if spectrum_value_str == '':
             self.finished = True
             return
 
@@ -237,89 +268,148 @@ class ImportedSpectrumData:
         if self.finished:
             raise ValueError('Spectrum is already finished; it cannot accept new values')
 
-        value1 = float(value1_str)
+        wl_value = None
+        if wavelength_value_str is not None:
+            wl_value = float(wavelength_value_str)
+            if self.wavelength_unit:
+                wl_value = make_spectral_value(wl_value, self.wavelength_unit)
 
-        if value2_str.lower() == 'nan':
-            value2 = np.nan
+        if spectrum_value_str.lower() == 'nan':
+            s_value = np.nan
         else:
-            value2 = float(value2_str)
+            s_value = float(spectrum_value_str)
+            if self.ignore_value is not None and s_value == self.ignore_value:
+                # TODO(donnie) - what to do in this instance?
+                return
 
-        self.value1_list.append(value1)
-        self.value2_list.append(value2)
+        self.wavelength_values.append(wl_value)
+        self.spectrum_values.append(s_value)
 
-    def verify_band_values(self):
-        if self.has_wavelengths():
-            return
-
-        for i in range(len(self.value1_list)):
-            value = self.value1_list[i]
-            if (not value.is_integer()) or value != i:
-                raise ValueError(f'Band {i} has unexpected value {value}')
-
-    def values_as_ndarray(self):
-        return np.array(self.value2_list)
-
-    def wavelengths_as_unit_values(self):
-        unit_str = self.get_wavelength_units()
-        return [make_spectral_value(value, unit_str) for value in self.value1_list]
+    def spectral_values_as_ndarray(self):
+        return np.array(self.spectrum_values)
 
 
-def import_spectrum_list(filename: str) -> List[Spectrum]:
+def import_spectra_textfile(filename: str, delim='\t', has_header=True,
+        wavelength_cols=WavelengthCols.ODD_COLS, ignore_value=None) -> List[Spectrum]:
     '''
     TODO
     '''
-
     with open(filename) as f:
-        # Read the header line
-        header_line = f.readline()
-        if len(header_line) > 0 and header_line[-1] == '\n':
-            header_line = header_line[:-1]
+        lines = f.readlines()
+        lines = [line[:-1] for line in lines]
 
-        header_parts = header_line.split('\t')
+    return import_spectra_text(lines, delim=delim, has_header=has_header,
+        wavelength_cols=wavelength_cols, ignore_value=ignore_value)
 
-        if len(header_parts) % 2 != 0:
-            raise ValueError(f'Import spectra from {filename}:  ' +
-                f'file contains an odd number of columns:  {len(header_parts)}')
 
-        # print(f'len(header_parts) = {len(header_parts)}')
-        num_spectra = len(header_parts) // 2
-        # print(f'num_spectra = {num_spectra}')
+def import_spectra_text(lines: List[str], delim='\t', has_header=True,
+        wavelength_cols=WavelengthCols.ODD_COLS, ignore_value=None) -> List[Spectrum]:
 
-        imported_spectra = []
-        for i in range(num_spectra):
-            spectrum_data = ImportedSpectrumData(header_parts[i * 2 + 1], header_parts[i * 2])
-            imported_spectra.append(spectrum_data)
+    def make_spectrum_names(n):
+        return [f'Spectrum {i}' for i in range(1, n+1)]
 
-            # print(f'Spectrum {i}:  name="{spectrum_data.spectrum_name}" ' +
-            #       f'allbands_name="{spectrum_data.allbands_name}"')
+    if wavelength_cols not in WavelengthCols:
+        raise ValueError('wavelength_cols must be a value from WavelengthCols')
 
+    num_cols = len(lines[0].split(delim))
+    if wavelength_cols == WavelengthCols.ODD_COLS and num_cols % 2 != 0:
+        raise ValueError(f'Input has odd number of columns ({num_cols}), ' +
+                         'so wavelengths cannot be in the odd columns.')
+
+    line_no = 1
+    header_line = None
+    header_parts = None
+    if has_header:
+        header_line = lines[0]
+        lines = lines[1:]
         line_no = 2
-        while True:
-            line = f.readline()
-            if not line:
-                break
 
-            if len(line) > 0 and line[-1] == '\n':
-                line = line[:-1]
+        header_parts = header_line.split(delim)
 
-            line_parts = line.split('\t')
-            if len(line_parts) != len(header_parts):
-                raise ValueError(f'Line {line_no}:  Row doesn\'t contain ' +
-                                 'same number of parts as header row.')
+    spectrum_names = []
+    wavelength_names = []
 
-            for i in range(num_spectra):
-                imported_spectra[i].add_value(line_parts[i * 2], line_parts[i * 2 + 1])
+    if wavelength_cols == WavelengthCols.ODD_COLS:
+        num_spectra = num_cols // 2
+        if has_header:
+            spectrum_names = [header_parts[i] for i in range(1, num_spectra, 2)]
+            wavelength_names = [header_parts[i] for i in range(0, num_spectra, 2)]
+        else:
+            spectrum_names = make_spectrum_names(num_spectra)
+            wavelength_names = [None] * num_spectra
 
-            line_no += 1
+    elif wavelength_cols == WavelengthCols.FIRST_COL:
+        num_spectra = num_cols - 1
+        if has_header:
+            spectrum_names = header_parts[1:]
+            wavelength_names = [header_parts[0]] * num_spectra
+        else:
+            spectrum_names = make_spectrum_names(num_spectra)
+            wavelength_names = [None] * num_spectra
+    else:
+        assert wavelength_cols == WavelengthCols.NO_WAVELENGTHS
+        num_spectra = num_cols
+        if has_header:
+            spectrum_names = header_parts
+        else:
+            spectrum_names = make_spectrum_names(num_spectra)
+        wavelength_names = [None] * num_spectra
+
+    imported_spectra = []
+    for i in range(num_spectra):
+        spectrum_data = ImportedSpectrumData(spectrum_names[i], wavelength_names[i])
+        if ignore_value is not None:
+            spectrum_data.set_ignore_value(ignore_value)
+
+        imported_spectra.append(spectrum_data)
+
+        # print(f'Spectrum {i}:  name="{spectrum_data.spectrum_name}" ' +
+        #       f'allbands_name="{spectrum_data.allbands_name}"')
+
+    for line in lines:
+        # Remove any newline off the end of the line.
+        if len(line) > 0 and line[-1] == '\n':
+            line = line[:-1]
+
+        # Split apart the line with the delimiter.  If we know the # of columns
+        # by now, complain if this line has a different # of columns.
+        line_parts = line.split(delim)
+        # print(f'Line {line_no} parts:  {line_parts}')
+
+        if num_cols is not None:
+            if len(line_parts) != num_cols:
+                raise ValueError(f'Line {line_no} has {len(line_parts)} columns, ' +
+                    f'but first line has {num_cols} columns.')
+        else:
+            num_cols = len(line_parts)
+
+        # Update each spectrum we are importing.
+        for i in range(num_spectra):
+            if wavelength_cols == WavelengthCols.ODD_COLS:
+                wavelength = line_parts[i * 2]
+                value = line_parts[i * 2 + 1]
+
+            elif wavelength_cols == WavelengthCols.FIRST_COL:
+                wavelength = line_parts[0]
+                value = line_parts[i + 1]
+
+            else:
+                assert wavelength_cols == WavelengthCols.NO_WAVELENGTHS
+                wavelength = None
+                value = line_parts[i]
+
+            imported_spectra[i].add_value(wavelength, value)
+
+        line_no += 1
 
     spectra = []
     for spectrum_data in imported_spectra:
-        values = spectrum_data.values_as_ndarray()
+        values = spectrum_data.spectral_values_as_ndarray()
         wavelengths = None
         if spectrum_data.has_wavelengths():
-            wavelengths = spectrum_data.wavelengths_as_unit_values()
+            wavelengths = spectrum_data.wavelength_values
 
-        spectrum = NumPyArraySpectrum(values, spectrum_data.spectrum_name,
+        spectrum = NumPyArraySpectrum(values, name=spectrum_data.spectrum_name,
              wavelengths=wavelengths)
 
         spectra.append(spectrum)

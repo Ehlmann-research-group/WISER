@@ -43,13 +43,17 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
 }
 
 
+def get_spectral_unit(unit_str: str) -> u.Unit:
+    return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
+
+
 def make_spectral_value(value: Number, unit_str: str) -> u.Quantity:
     '''
     Given a numeric value and a string representation of the units, this
     function returns an astropy.units.Quantity object to represent the value
     with units.
     '''
-    return value * KNOWN_SPECTRAL_UNITS[unit_str.lower()]
+    return value * get_spectral_unit(unit_str)
 
 
 def convert_spectral(value: u.Quantity, to_unit: u.Unit) -> u.Quantity:
