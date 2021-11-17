@@ -308,6 +308,11 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
         wavelength_cols=WavelengthCols.ODD_COLS, wavelength_unit=None,
         ignore_value=None) -> List[Spectrum]:
 
+    def remove_trailing_newline(line):
+        if len(line) > 0 and line[-1] == '\n':
+            line = line[:-1]
+        return line
+
     def make_spectrum_names(n):
         return [f'Spectrum {i}' for i in range(1, n+1)]
 
@@ -315,9 +320,18 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
         raise ValueError('wavelength_cols must be a value from WavelengthCols')
 
     num_cols = len(lines[0].split(delim))
-    if wavelength_cols == WavelengthCols.ODD_COLS and num_cols % 2 != 0:
-        raise ValueError(f'Input has odd number of columns ({num_cols}), ' +
-                         'so wavelengths cannot be in the odd columns.')
+    if wavelength_cols == WavelengthCols.ODD_COLS:
+        if num_cols < 2:
+            raise ValueError('Input has fewer than two columns, so ' +
+                             'wavelengths cannot be in the odd columns.')
+
+        if num_cols % 2 != 0:
+            raise ValueError(f'Input has odd number of columns ({num_cols}), ' +
+                             'so wavelengths cannot be in the odd columns.')
+
+    if wavelength_cols == WavelengthCols.FIRST_COL and num_cols <= 1:
+        raise ValueError('Input has only one column, so wavelengths ' +
+                         'cannot be in the first column.')
 
     line_no = 1
     header_line = None
@@ -327,6 +341,7 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
         lines = lines[1:]
         line_no = 2
 
+        header_line = remove_trailing_newline(header_line)
         header_parts = header_line.split(delim)
 
     spectrum_names = []
@@ -375,8 +390,7 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
 
     for line in lines:
         # Remove any newline off the end of the line.
-        if len(line) > 0 and line[-1] == '\n':
-            line = line[:-1]
+        line = remove_trailing_newline(line)
 
         # Split apart the line with the delimiter.  If we know the # of columns
         # by now, complain if this line has a different # of columns.
@@ -405,6 +419,7 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
                 wavelength = None
                 value = line_parts[i]
 
+            # print(f' * Wavelength:  {wavelength}\t\tValue:  {value}')
             imported_spectra[i].add_value(wavelength, value)
 
         line_no += 1
