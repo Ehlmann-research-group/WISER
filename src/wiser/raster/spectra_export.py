@@ -290,7 +290,8 @@ class ImportedSpectrumData:
 
 
 def import_spectra_textfile(filename: str, delim='\t', has_header=True,
-        wavelength_cols=WavelengthCols.ODD_COLS, ignore_value=None) -> List[Spectrum]:
+        wavelength_cols=WavelengthCols.ODD_COLS,
+        wavelength_unit=None, ignore_value=None) -> List[Spectrum]:
     '''
     TODO
     '''
@@ -299,11 +300,13 @@ def import_spectra_textfile(filename: str, delim='\t', has_header=True,
         lines = [line[:-1] for line in lines]
 
     return import_spectra_text(lines, delim=delim, has_header=has_header,
-        wavelength_cols=wavelength_cols, ignore_value=ignore_value)
+        wavelength_cols=wavelength_cols, wavelength_unit=wavelength_unit,
+        ignore_value=ignore_value)
 
 
 def import_spectra_text(lines: List[str], delim='\t', has_header=True,
-        wavelength_cols=WavelengthCols.ODD_COLS, ignore_value=None) -> List[Spectrum]:
+        wavelength_cols=WavelengthCols.ODD_COLS, wavelength_unit=None,
+        ignore_value=None) -> List[Spectrum]:
 
     def make_spectrum_names(n):
         return [f'Spectrum {i}' for i in range(1, n+1)]
@@ -358,8 +361,12 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
     imported_spectra = []
     for i in range(num_spectra):
         spectrum_data = ImportedSpectrumData(spectrum_names[i], wavelength_names[i])
+
         if ignore_value is not None:
             spectrum_data.set_ignore_value(ignore_value)
+
+        if wavelength_unit is not None:
+            spectrum_data.set_wavelength_unit(wavelength_unit)
 
         imported_spectra.append(spectrum_data)
 

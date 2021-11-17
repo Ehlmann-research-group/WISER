@@ -50,16 +50,16 @@ class ImportSpectraTextDialog(QDialog):
         self._ui.cbox_delimiter.addItem(self.tr('Space'), ' ')
 
         self._ui.cbox_wavelength_units.addItem(self.tr('No units'   ), None        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Meters'     ), u.m         )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Centimeters'), u.cm        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Millimeters'), u.mm        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Micrometers'), u.micrometer)
-        self._ui.cbox_wavelength_units.addItem(self.tr('Nanometers' ), u.nm        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Microns'    ), u.micron    )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Angstroms'  ), u.angstrom  )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Wavenumber' ), u.cm ** -1  )
-        self._ui.cbox_wavelength_units.addItem(self.tr('MHz'        ), u.MHz       )
-        self._ui.cbox_wavelength_units.addItem(self.tr('GHz'        ), u.GHz       )
+        self._ui.cbox_wavelength_units.addItem(self.tr('Meters'     ), 'm'         )
+        self._ui.cbox_wavelength_units.addItem(self.tr('Centimeters'), 'cm'        )
+        self._ui.cbox_wavelength_units.addItem(self.tr('Millimeters'), 'mm'        )
+        self._ui.cbox_wavelength_units.addItem(self.tr('Micrometers'), 'um'        )
+        self._ui.cbox_wavelength_units.addItem(self.tr('Nanometers' ), 'nm'        )
+        self._ui.cbox_wavelength_units.addItem(self.tr('Microns'    ), 'microns'   )
+        self._ui.cbox_wavelength_units.addItem(self.tr('Angstroms'  ), 'angstroms' )
+        self._ui.cbox_wavelength_units.addItem(self.tr('Wavenumber' ), 'wavenumber')
+        self._ui.cbox_wavelength_units.addItem(self.tr('MHz'        ), 'mhz'       )
+        self._ui.cbox_wavelength_units.addItem(self.tr('GHz'        ), 'ghz'       )
 
         self._ui.rb_wavelengths_none.setChecked(True)
 
@@ -71,6 +71,8 @@ class ImportSpectraTextDialog(QDialog):
         self._ui.rb_wavelengths_1st_col.clicked.connect(lambda checked=False: self.update_results())
         self._ui.rb_wavelengths_odd_cols.clicked.connect(lambda checked=False: self.update_results())
         self._ui.rb_wavelengths_none.clicked.connect(lambda checked=False: self.update_results())
+
+        self._ui.cbox_wavelength_units.activated.connect(lambda s: self.update_results())
 
         # Make some initial guesses
 
@@ -142,9 +144,12 @@ class ImportSpectraTextDialog(QDialog):
         elif self._ui.rb_wavelengths_odd_cols.isChecked():
             wavelength_cols = spectra_export.WavelengthCols.ODD_COLS
 
+        wavelength_units = self._ui.cbox_wavelength_units.currentData()
+
         try:
             spectra = spectra_export.import_spectra_text(self._spectra_text,
-                delim=delim, has_header=has_header, wavelength_cols=wavelength_cols)
+                delim=delim, has_header=has_header,
+                wavelength_cols=wavelength_cols, wavelength_unit=wavelength_units)
 
             msg = self.tr('Successfully parsed text into {0} spectra:')
             msg = msg.format(len(spectra))
