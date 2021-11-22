@@ -30,6 +30,7 @@ from .zoom_pane import ZoomPane
 from .spectrum_plot import SpectrumPlot
 from .infoview import DatasetInfoView
 
+from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
 
 from .util import *
@@ -47,6 +48,8 @@ from wiser import bandmath
 from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
     NumPyArraySpectrum)
+from wiser.raster.spectral_library import ListSpectralLibrary
+from wiser.raster import spectra_export
 
 
 logger = logging.getLogger(__name__)
@@ -208,6 +211,14 @@ class DataVisualizerApp(QMainWindow):
         act = self._file_menu.addAction(self.tr('Save &project file...'))
         act.setStatusTip(self.tr('Save the current project configuration'))
         act.triggered.connect(self.show_save_project_dialog)
+
+        self._file_menu.addSeparator()
+
+        act = self._file_menu.addAction(self.tr('Import Regions of Interest...'))
+        act.triggered.connect(self.import_spectra_from_textfile)
+
+        act = self._file_menu.addAction(self.tr('Import spectra from text file...'))
+        act.triggered.connect(self.import_spectra_from_textfile)
 
         self._file_menu.addSeparator()
 
@@ -663,6 +674,43 @@ class DataVisualizerApp(QMainWindow):
         settings = QSettings('Caltech', 'WISER')
         self.restoreGeometry(settings.value('geometry'))
         self.restoreState(settings.value('window-state'))
+
+
+    def import_regions_of_interest(self):
+        selected = QFileDialog.getOpenFileName(self,
+            self.tr('Import Regions of Interest'),
+            self._app_state.get_current_dir(),
+            self.tr('GeoJSON files (*.geojson);;All Files (*)'))
+
+        if selected[0]:
+            rois = roi_export.import_geojson_file_to_rois(selected[0])
+            for roi in rois:
+                self._app_state.add_roi(roi, make_name_unique=True)
+
+            self.roi_selection_changed.emit(None, None)
+
+
+    def import_spectra_from_textfile(self):
+        selected = QFileDialog.getOpenFileName(self,
+            self.tr('Import Spectra from Text File'),
+            self._app_state.get_current_dir(),
+            self.tr('Text files (*.txt);;All Files (*)'))
+
+        if selected[0]:
+            # The user selected a file to import.  Load it, then show the dialog
+            # for interpreting/understanding the spectral data.
+
+            path = selected[0]
+
+            with open(path) as f:
+                lines = f.readlines()
+                dialog = ImportSpectraTextDialog(lines, parent=self)
+
+                result = dialog.exec()
+                if result == QDialog.Accepted:
+                    spectra = dialog.get_spectra()
+                    library = ListSpectralLibrary(spectra, path=path)
+                    self._app_state.add_spectral_library(library)
 
 
     def show_bandmath_dialog(self):

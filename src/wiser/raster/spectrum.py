@@ -200,74 +200,13 @@ class Spectrum(abc.ABC):
         self._color = color
         self._icon = None
 
-#===============================================================================
-# LIBRARY SPECTRA
-#===============================================================================
+    def is_editable(self) -> bool:
+        # By default, spectra are editable.
+        return True
 
-class LibrarySpectrum(Spectrum):
-    '''
-    This class represents a spectrum that is taken from a spectral library.
-    '''
-
-    def __init__(self, spectral_library, index):
-        super().__init__()
-
-        self._spectral_library = spectral_library
-        self._spectrum_index = index
-
-        self.set_id( (spectral_library.get_id(), index) )
-
-    def __str__(self) -> str:
-        return (f'LibrarySpectrum[{self.get_source_name()}, ' +
-                f'name={self.get_name()}, index={self._spectrum_index}]')
-
-    def get_name(self) -> str:
-        return self._spectral_library.get_spectrum_name(self._spectrum_index)
-
-    def set_name(self, name: str):
-        '''
-        It is currently not possible to set spectrum names on library spectra.
-        '''
-        raise NotImplementedError('Setting names on library spectra is not yet supported')
-
-    def get_source_name(self):
-        filenames = self._spectral_library.get_filepaths()
-        if filenames is not None and len(filenames) > 0:
-            ds_name = os.path.basename(filenames[0])
-        else:
-            ds_name = 'unknown'
-
-        return ds_name
-
-    def num_bands(self) -> int:
-        ''' Returns the number of spectral bands in the raster data. '''
-        return self._spectral_library.num_bands()
-
-    def get_elem_type(self) -> np.dtype:
-        '''
-        Returns the element-type of the spectrum.
-        '''
-        return self._spectral_library.get_elem_type()
-
-    def has_wavelengths(self) -> bool:
-        '''
-        Returns True if this spectrum has wavelength units for all bands, False
-        otherwise.
-        '''
-        return self._spectral_library.has_wavelengths()
-
-    def get_wavelengths(self) -> List[u.Quantity]:
-        '''
-        Returns a list of wavelength values corresponding to each band.  The
-        individual values are astropy values-with-units.
-        '''
-        return [b['wavelength'] for b in self._spectral_library.band_list()]
-
-    def get_spectrum(self) -> np.ndarray:
-        '''
-        Return the spectrum data as a 1D NumPy array.
-        '''
-        return self._spectral_library.get_spectrum(self._spectrum_index)
+    def is_discardable(self) -> bool:
+        # By default, spectra are discardable.
+        return True
 
 
 #===============================================================================
@@ -281,7 +220,8 @@ class NumPyArraySpectrum(Spectrum):
     '''
     def __init__(self, arr: np.ndarray, name: Optional[str] = None,
                  source_name: Optional[str] = None,
-                 wavelengths: Optional[List[u.Quantity]] = None):
+                 wavelengths: Optional[List[u.Quantity]] = None,
+                 editable=True, discardable=True):
         super().__init__()
 
         self._arr = arr
@@ -292,6 +232,9 @@ class NumPyArraySpectrum(Spectrum):
             self._source_name = source_name
 
         self._wavelengths = wavelengths
+
+        self._editable = editable
+        self._discardable = discardable
 
     def get_name(self) -> Optional[str]:
         '''
@@ -363,6 +306,12 @@ class NumPyArraySpectrum(Spectrum):
         Return the spectrum data as a 1D NumPy array.
         '''
         return self._arr
+
+    def is_editable(self):
+        return self._editable
+
+    def is_discardable(self):
+        return self._discardable
 
 
 #===============================================================================

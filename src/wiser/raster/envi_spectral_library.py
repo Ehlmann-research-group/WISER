@@ -3,6 +3,7 @@ import os
 import pprint
 import warnings
 
+from .spectrum import NumPyArraySpectrum
 from .spectral_library import SpectralLibrary
 from .loaders.envi import *
 from .utils import make_spectral_value, convert_spectral
@@ -89,6 +90,9 @@ class ENVISpectralLibrary(SpectralLibrary):
 
         logger.info('Spectra names:\n' + pprint.pformat(self._spectra_names))
 
+        # Use a map to lazily initialize and hold Spectrum wrapper-objects
+        self._spectra: Dict[int, Spectrum] = {}
+
 
     def _init_band_list(self):
         wavelengths = self._metadata.get('wavelength')
@@ -136,29 +140,40 @@ class ENVISpectralLibrary(SpectralLibrary):
         '''
         return self._num_spectra
 
-    def band_list(self):
-        '''
-        Returns a description of all bands in the data set.  The description is
-        formulated as a list of dictionaries, where each dictionary provides
-        details about the band.  The list of dictionaries is in the same order
-        as the bands in the raster dataset, so that the dictionary at index i in
-        the list describes band i.
+    def get_wavelengths(self):
+        wavelengths = []
+        for info in self._band_list:
+            if 'wavelength' not in info:
+                return None
 
-        Dictionaries may (but are not required to) contain these keys:
+            wavelengths.append(info['wavelength'])
 
-        *   'index' - the integer index of the band (always present)
-        *   'description' - the string description of the band
-        *   'wavelength' - a value-with-units for the spectral wavelength of
-            the band.  astropy.units is used to represent the values-with-units.
-        *   'wavelength_str' - the string version of the band's wavelength
-        *   'wavelength_units' - the string version of the band's
-            wavelength-units value
+        return wavelengths
 
-        Note that since both lists and dictionaries are mutable, care must be
-        taken not to mutate the return-value of this method, as it will affect
-        the data-set's internal state.
-        '''
-        return self._band_list
+
+    # def band_list(self):
+    #     '''
+    #     Returns a description of all bands in the data set.  The description is
+    #     formulated as a list of dictionaries, where each dictionary provides
+    #     details about the band.  The list of dictionaries is in the same order
+    #     as the bands in the raster dataset, so that the dictionary at index i in
+    #     the list describes band i.
+
+    #     Dictionaries may (but are not required to) contain these keys:
+
+    #     *   'index' - the integer index of the band (always present)
+    #     *   'description' - the string description of the band
+    #     *   'wavelength' - a value-with-units for the spectral wavelength of
+    #         the band.  astropy.units is used to represent the values-with-units.
+    #     *   'wavelength_str' - the string version of the band's wavelength
+    #     *   'wavelength_units' - the string version of the band's
+    #         wavelength-units value
+
+    #     Note that since both lists and dictionaries are mutable, care must be
+    #     taken not to mutate the return-value of this method, as it will affect
+    #     the data-set's internal state.
+    #     '''
+    #     return self._band_list
 
     def get_spectrum_name(self, index):
         '''
@@ -171,4 +186,18 @@ class ENVISpectralLibrary(SpectralLibrary):
         Returns a numpy 1D array of the specified spectrum in the spectral
         library.
         '''
-        return self._data[index]
+        # Lazily create Spectrum objects to wrap the spectra.
+        if index not in self._spectra:
+            spectrum = NumPyArraySpectrum(self._data[index],
+                name=self.get_spectrum_name(index),
+                source_name='ENVI',  # TODO(donnie):  Source name?
+                wavelengths=self.get_wavelengths(),
+                editable=False, discardable=False)
+
+            # The spectrum's ID is a 2-tuple containing the library's ID and
+            # the spectrum's index in the library.
+            spectrum.set_id( (self.get_id(), index) )
+
+            self._spectra[index] = spectrum
+
+        return self._spectra[index]

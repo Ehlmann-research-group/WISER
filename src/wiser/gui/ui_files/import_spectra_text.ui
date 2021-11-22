@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ImportSpectraTextDialog</class>
+ <widget class="QDialog" name="ImportSpectraTextDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>404</width>
+    <height>411</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Import Spectra from Text</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,1,0">
+   <item row="0" column="0">
+    <widget class="QGroupBox" name="gbox_general">
+     <property name="title">
+      <string>General</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0">
+       <widget class="QLabel" name="lbl_delimiter">
+        <property name="text">
+         <string>Column delimiter:</string>
+        </property>
+        <property name="buddy">
+         <cstring>cbox_delimiter</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="cbox_delimiter"/>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QCheckBox" name="ckbox_header_row">
+        <property name="text">
+         <string>File has header row</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QGroupBox" name="gbox_wavelengths">
+     <property name="title">
+      <string>Wavelengths</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <item row="3" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Wavelength units:</string>
+        </property>
+        <property name="buddy">
+         <cstring>cbox_wavelength_units</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QComboBox" name="cbox_wavelength_units"/>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QRadioButton" name="rb_wavelengths_none">
+        <property name="text">
+         <string>No wavelengths in input data</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QRadioButton" name="rb_wavelengths_odd_cols">
+        <property name="text">
+         <string>Odd columns specify wavelength values</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0" colspan="2">
+       <widget class="QRadioButton" name="rb_wavelengths_1st_col">
+        <property name="text">
+         <string>First column specifies wavelength values</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QGroupBox" name="gbox_results">
+     <property name="title">
+      <string>Results</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_4">
+      <item row="0" column="0">
+       <widget class="QTextEdit" name="txtedit_results">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>cbox_delimiter</tabstop>
+  <tabstop>ckbox_header_row</tabstop>
+  <tabstop>rb_wavelengths_1st_col</tabstop>
+  <tabstop>rb_wavelengths_odd_cols</tabstop>
+  <tabstop>rb_wavelengths_none</tabstop>
+  <tabstop>cbox_wavelength_units</tabstop>
+  <tabstop>txtedit_results</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>ImportSpectraTextDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>ImportSpectraTextDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
