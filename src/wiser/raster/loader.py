@@ -78,9 +78,10 @@ class RasterDataLoader:
             raise ValueError(f'Unsupported format "{format}"')
 
 
-    def save_dataset_as(self, dataset: RasterDataSet, path: str, format: str) -> None:
+    def save_dataset_as(self, dataset: RasterDataSet, path: str, format: str,
+            config: Dict[str, Any]) -> None:
         if format == 'ENVI':
-            return ENVI_GDALRasterDataImpl.save_dataset_as(dataset, path)
+            return ENVI_GDALRasterDataImpl.save_dataset_as(dataset, path, config)
         else:
             raise ValueError(f'Unsupported format "{format}"')
 

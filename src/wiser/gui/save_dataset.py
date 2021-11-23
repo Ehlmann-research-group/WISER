@@ -205,8 +205,7 @@ class SaveDatasetDetails(QWidget):
         self._update_save_filenames()
 
 
-
-    def get_config():
+    def get_config(self) -> Dict[str, Any]:
         return {
             'source_ds_id': self._ui.cbox_dataset.currentData(),
             'path': self._ui.ledit_filename.text().strip(),
@@ -312,7 +311,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
 
     def _show_dataset_in_ui(self):
-        (width, height, bands) = self._dataset.get_shape()
+        (bands, height, width) = self._dataset.get_shape()
         defaults = self._dataset.default_display_bands()
 
         # General information
@@ -566,17 +565,17 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
             output_width = self._ui.sbox_width.value()
             output_height = self._ui.sbox_height.value()
 
-            config['spatial_subset'] = {
-                'left': output_left,
-                'top': output_top,
-                'width': output_width,
-                'height': output_height,
-            }
+            config.update({
+                    'left': output_left,
+                    'top': output_top,
+                    'width': output_width,
+                    'height': output_height,
+                })
 
         #========================================
         # Bands tab
 
-        config['bands'] = self._get_ui_band_info()
+        config.update(self._get_ui_band_info())
 
         #========================================
         # Display Bands tab
@@ -593,7 +592,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
                 assert self._ui.rb_gray_default_bands.isChecked()
                 defaults = (self._ui.cbox_default_gray_band.currentIndex(), )
 
-            config['default_bands'] = defaults
+            config['default_display_bands'] = defaults
 
         #========================================
         # Projection tab
@@ -604,19 +603,30 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
 
     def _get_ui_band_info(self):
+        '''
+        This helper function retrieves the band-configuration information from
+        the advanced user interface, and returns it as a dictionary of key-value
+        pairs.
+        '''
+
+        band_config = {}
 
         band_unit: Optional[u.Unit] = self._ui.cbox_wavelength_units.currentData()
+        names_key: str = 'names'
+        if band_unit is not None:
+            names_key = 'wavelengths'
+            band_config['wavelength_units'] = band_unit
+
         include_bands: List[bool] = []
         bad_bands: List[bool] = []
         band_names: List[str] = []
 
-        names_key = 'names'
-        if band_unit is not None:
-            names_key = 'wavelengths'
-
-        for i in self._ui.tbl_bands.rowCount():
+        need_includes = False
+        for i in range(self._ui.tbl_bands.rowCount()):
             include_band = (self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked)
             include_bands.append(include_band)
+            if not include_band:
+                need_includes = True
 
             bad_band = (self._ui.tbl_bands.item(i, 1).checkState() == Qt.Checked)
             bad_bands.append(bad_band)
@@ -629,12 +639,12 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
             band_names.append(band_name)
 
-        return {
-            'include': include_bands,
-            'bad': bad_bands,
-            'unit': band_unit,
-            names_key: band_names,
-        }
+        band_config[names_key] = band_names
+        band_config['bad_bands'] = bad_bands
+        if need_includes:
+            band_config['include_bands'] = include_bands
+
+        return band_config
 
 
 class SaveDatasetDialog(QDialog):
@@ -767,15 +777,11 @@ class SaveDatasetDialog(QDialog):
         return self._current_detail_widget().get_config()
 
 
-    '''
     def get_save_path(self) -> Optional[str]:
-        path = self._ui.ledit_filename.text().strip()
-        if path:
-            return path
-
-        return None
+        config = self.get_config()
+        return config['path']
 
 
     def get_save_format(self) -> str:
-        return self._ui.cbox_save_format.currentText()
-    '''
+        config = self.get_config()
+        return config['format']

@@ -244,7 +244,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
     @staticmethod
     def save_dataset_as(src_dataset: 'RasterDataSet', path: str,
-                        options: Optional[Dict] = None) -> 'ENVI_GDALRasterDataImpl':
+                        options: Optional[Dict[str, Any]] = None) -> 'ENVI_GDALRasterDataImpl':
 
         if options is None:
             options = {}
@@ -257,6 +257,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         #     "options" argument is also specified, use that to override the
         #     source dataset's values.
 
+        src_description = src_dataset.get_description()
+
         src_width = src_dataset.get_width()
         src_height = src_dataset.get_height()
         src_bands = src_dataset.num_bands()
@@ -266,11 +268,41 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         src_bad_bands = src_dataset.get_bad_bands()
         src_data_ignore = src_dataset.get_data_ignore_value()
 
+        dst_description = options.get('description', src_description)
+
         dst_width = options.get('width', src_width)
         dst_height = options.get('height', src_height)
 
-        src_offset_x = options.get('offset_x', 0)
-        src_offset_y = options.get('offset_y', 0)
+        src_offset_x = options.get('left', 0)
+        src_offset_y = options.get('top', 0)
+
+        # Make sure the "width" and "left" values make sense
+
+        if src_offset_x < 0 or src_offset_x >= src_width:
+            raise ValueError(f'"left" value {src_offset_x} is outside source image width {src_width}')
+
+        if dst_width < 0:
+            raise ValueError(f'"width" value {dst_width} cannot be negative')
+
+        if src_offset_x + dst_width > src_width:
+            raise ValueError(f'Sum of "left" value {src_offset_x} and ' +
+                             f'"width" value {dst_width} is outside of ' +
+                             f'source image-width {src_width}')
+
+        # Make sure the "height" and "top" values make sense
+
+        if src_offset_y < 0 or src_offset_y >= src_height:
+            raise ValueError(f'"top" value {src_offset_y} is outside source image height {src_height}')
+
+        if dst_height < 0:
+            raise ValueError(f'"height" value {dst_height} cannot be negative')
+
+        if src_offset_y + dst_height > src_height:
+            raise ValueError(f'Sum of "top" value {src_offset_y} and ' +
+                             f'"height" value {dst_height} is outside of ' +
+                             f'source image-height {src_height}')
+
+        # Display-bands
 
         dst_default_display_bands = options.get('default_display_bands',
             src_default_display_bands)
@@ -339,12 +371,19 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
             # If band is to be excluded, continue.
             if not dst_include_bands[src_index]:
+                print(f'Skipping source-band {src_index}; excluded from destination.')
                 continue
 
             dst_band = dst_gdal_dataset.GetRasterBand(dst_index)
             src_data = src_dataset.get_band_data(src_index)
-            # TODO(donnie):  Apply any spatial subsetting here
-            dst_band.WriteArray(src_data, 0, 0)
+
+            # Apply spatial subsetting here
+
+            # print(f'Source-array shape:  {src_data.shape}')
+            dst_data = src_data[src_offset_y:src_offset_y+dst_height,
+                                src_offset_x:src_offset_x+dst_width]
+            # print(f'Destination-array shape:  {dst_data.shape}')
+            dst_band.WriteArray(dst_data, 0, 0)
 
             # Metadata for the band
 
@@ -383,6 +422,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             dst_metadata[name] = gdal_metadata[name]
 
         # If the value is None, the ENVI header-writer will skip them.
+        dst_metadata['description'] = dst_description
         dst_metadata['default bands'] = dst_default_display_bands
         dst_metadata['data ignore value'] = dst_data_ignore
 
