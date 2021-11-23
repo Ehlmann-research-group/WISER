@@ -391,9 +391,13 @@ class DataVisualizerApp(QMainWindow):
             # to be the one that GDAL needs for the specified format.
             path = dialog.get_save_path()
             format = dialog.get_save_format()
+            config = dialog.get_config()
+
+            print('Save-Dataset Config:')
+            pprint.pprint(config)
 
             dataset = self._app_state.get_dataset(ds_id)
-            loader.save_dataset_as(dataset, path, format)
+            loader.save_dataset_as(dataset, path, format, config)
 
             # Mark dataset as unmodified.
             dataset.set_dirty(False)
