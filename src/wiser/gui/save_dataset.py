@@ -191,8 +191,20 @@ class SaveDatasetDetails(QWidget):
     def set_config(self, config: Dict):
         source_ds_id = config.get('source_ds_id')
         if source_ds_id:
-            # TODO(donnie):  Update the dataset display/config.
-            pass
+            # Update the dataset display/config.
+
+            if self._ds_id != source_ds_id:
+                self._ds_id = source_ds_id
+                self._dataset = self._app_state.get_dataset(source_ds_id)
+
+                index = self._ui.cbox_dataset.findData(source_ds_id)
+                if index != -1:
+                    self._ui.cbox_dataset.setCurrentIndex(index)
+                else:
+                    # Hmm weird that the dataset wouldn't already be somewhere
+                    # in the combobox.  Just add it.
+                    self._ui.cbox_dataset.addItem(dataset.get_name(), dataset.get_id())
+                    self._ui.cbox_dataset.setCurrentIndex(self._ui.cbox_dataset.count())
 
         self._ui.ledit_filename.setText(config.get('path'))
 
@@ -676,6 +688,9 @@ class SaveDatasetDialog(QDialog):
 
 
     def _on_toggle_advanced(self, checked=False):
+        old_widget = self._current_detail_widget()
+        config = old_widget.get_config()
+
         self._ui.wgt_details.setCurrentIndex(1 - self._ui.wgt_details.currentIndex())
         self._basic_mode = not self._basic_mode
         if self._basic_mode:
@@ -687,6 +702,9 @@ class SaveDatasetDialog(QDialog):
             self._ui.btn_toggle_advanced.setText(self.tr('Show Basic...'))
 
         # self.adjustSize()
+
+        new_widget = self._current_detail_widget()
+        new_widget.set_config(config)
 
 
     def _configure_ui(self):
