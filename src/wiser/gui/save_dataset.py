@@ -13,6 +13,7 @@ from .generated.save_dataset_basic_details_ui import Ui_SaveDatasetBasicDetails
 from .generated.save_dataset_advanced_details_ui import Ui_SaveDatasetAdvancedDetails
 
 from wiser.raster.dataset import RasterDataSet, find_truecolor_bands
+from wiser.raster.utils import spectral_unit_to_string
 
 
 def get_boolean_tablewidgetitem(value: bool) -> QTableWidgetItem:
@@ -274,6 +275,9 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         self._ui.cbox_wavelength_units.addItem(self.tr('MHz'        ), u.MHz       )
         self._ui.cbox_wavelength_units.addItem(self.tr('GHz'        ), u.GHz       )
 
+        # TODO(donnie):  Add back in the future
+        self._ui.tabWidget.setTabVisible(self._ui.tabWidget.indexOf(self._ui.tab_projection), False)
+
         # Hook up event handlers
 
         self._ui.cbox_dataset.activated.connect(self._on_dataset_changed)
@@ -385,8 +389,8 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
         # Band units
 
-        band_unit = self._dataset.get_band_unit()
-        index = self._ui.cbox_wavelength_units.findData(band_unit)
+        band_units = self._dataset.get_band_unit()
+        index = self._ui.cbox_wavelength_units.findData(band_units)
         if index == -1:
             index = 0
 
@@ -428,6 +432,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         else:
             # Make sure at least one of the radio-buttons is checked.
             self._ui.rb_rgb_default_bands.setChecked(True)
+            self._ui.stk_default_bands.setCurrentIndex(0)
 
         truecolor_bands = find_truecolor_bands(self._dataset,
             red=self._app_state.get_config('general.red_wavelength_nm') * u.nm,
@@ -464,7 +469,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
         if self._ui.gbox_spatial_subset.isChecked():
             # Input dimensions
-            (width, height, bands) = self._dataset.get_shape()
+            (bands, height, width) = self._dataset.get_shape()
 
             output_left = self._ui.sbox_left.value()
             output_top = self._ui.sbox_top.value()
@@ -498,10 +503,15 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         #========================================
         # Bands tab
 
-        band_unit: Optional[u.Unit] = self._ui.cbox_wavelength_units.currentData()
-        if band_unit is not None:
-            for i in range(self._ui.tbl_bands.rowCount()):
-                include_band = (self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked)
+        band_units: Optional[u.Unit] = self._ui.cbox_wavelength_units.currentData()
+
+        count_included = 0
+        for i in range(self._ui.tbl_bands.rowCount()):
+            include_band = (self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked)
+            if include_band:
+                count_included += 1
+
+            if band_units is not None:
                 band_name = self._ui.tbl_bands.item(i, 2).text()
                 try:
                     wl = float(band_name)
@@ -513,6 +523,13 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
                     QMessageBox.warning(self, self.tr('Bad Band-Wavelength'),
                         self.tr(f'Band {i+1} name must be a number'))
                     return False
+
+        if count_included == 0:
+            self._ui.tabWidget.setCurrentWidget(self._ui.tab_bands)
+            QMessageBox.warning(self, self.tr('No Bands Included'),
+                self.tr('No bands are included in the output.\n' +
+                        'Please mark at least one band to be included.'))
+            return False
 
         #========================================
         # Display Bands tab
@@ -570,7 +587,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         # Dimensions tab
 
         if self._ui.gbox_spatial_subset.isChecked():
-            (width, height, bands) = self._dataset.get_shape()
+            (bands, height, width) = self._dataset.get_shape()
 
             output_left = self._ui.sbox_left.value()
             output_top = self._ui.sbox_top.value()
@@ -593,7 +610,9 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         # Display Bands tab
 
         if self._ui.gbox_default_bands.isChecked():
-            # Pull out the default display bands
+            # Pull out the default display bands.  Note that the indexes are
+            # relative to the original image's bands, not the target image's
+            # bands, as some bands may not be included in the target image.
             defaults = None
             if self._ui.rb_rgb_default_bands.isChecked():
                 defaults = (self._ui.cbox_default_red_band.currentIndex(),
@@ -623,11 +642,13 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
         band_config = {}
 
-        band_unit: Optional[u.Unit] = self._ui.cbox_wavelength_units.currentData()
+        band_units: Optional[u.Unit] = self._ui.cbox_wavelength_units.currentData()
+        band_units_str: Optional[str] = spectral_unit_to_string(band_units)
+
         names_key: str = 'names'
-        if band_unit is not None:
+        if band_units is not None:
             names_key = 'wavelengths'
-            band_config['wavelength_units'] = band_unit
+            band_config['wavelength_units'] = band_units_str
 
         include_bands: List[bool] = []
         bad_bands: List[bool] = []
@@ -645,7 +666,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
             band_name = self._ui.tbl_bands.item(i, 2).text()
 
-            if band_unit is not None:
+            if band_units is not None:
                 # Try to parse the band-name into a number.
                 band_name = float(band_name)
 

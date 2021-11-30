@@ -246,6 +246,21 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
     def save_dataset_as(src_dataset: 'RasterDataSet', path: str,
                         options: Optional[Dict[str, Any]] = None) -> 'ENVI_GDALRasterDataImpl':
 
+        def map_default_display_bands(display_bands, include_bands):
+            # Build a mapping of source-image band-indexes to
+            # destination-image band-indexes
+            src_to_dst_mapping = []
+            dst_i = 0
+            for include_band in include_bands:
+                src_to_dst_mapping.append(dst_i)
+                if include_band:
+                    dst_i += 1
+
+            # Use the mapping to map each band to the appropriate result band.
+            display_bands = [src_to_dst_mapping[b] for b in display_bands]
+            return display_bands
+
+
         if options is None:
             options = {}
 
@@ -302,11 +317,6 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
                              f'"height" value {dst_height} is outside of ' +
                              f'source image-height {src_height}')
 
-        # Display-bands
-
-        dst_default_display_bands = options.get('default_display_bands',
-            src_default_display_bands)
-
         dst_data_ignore = options.get('data_ignore', src_data_ignore)
 
         dst_bands = src_bands
@@ -318,6 +328,19 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         else:
             # Make a simple "include bands" array that includes all source bands
             dst_include_bands = [True] * src_bands
+
+        # Note:  At this point, the display-bands values are in terms of the
+        # source image's bands, not the destination image's bands, as some bands
+        # may be excluded from the destination image.  We will resolve that next.
+
+        dst_default_display_bands = options.get('default_display_bands',
+            src_default_display_bands)
+
+        if dst_default_display_bands is not None and dst_bands != src_bands:
+            # Some bands are excluded from the destination image.  Recompute the
+            # default display bands with the proper indexes.
+            dst_default_display_bands = map_default_display_bands(
+                dst_default_display_bands, dst_include_bands)
 
         elem_type = src_dataset.get_elem_type()
         gdal_elem_type = gdal_array.NumericTypeCodeToGDALTypeCode(elem_type)
@@ -363,7 +386,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         #     dst_gdal_dataset.SetMetadataItem('data_ignore_value', f'{dst_data_ignore}', 'ENVI')
 
         dst_wavelengths = []
-        dst_wavelength_units = None
+        dst_wavelength_units = options.get('wavelength_units')
         dst_bad_bands = []
         dst_index = 1
         for band_info in src_dataset.band_list():
@@ -371,7 +394,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
             # If band is to be excluded, continue.
             if not dst_include_bands[src_index]:
-                print(f'Skipping source-band {src_index}; excluded from destination.')
+                # print(f'Skipping source-band {src_index}; excluded from destination.')
                 continue
 
             dst_band = dst_gdal_dataset.GetRasterBand(dst_index)
@@ -396,9 +419,14 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
                 if dst_wavelength_units is None:
                     dst_wavelength_units = band_info['wavelength_units']
-                else:
-                    if band_info['wavelength_units'] != dst_wavelength_units:
-                        print('WARNING:  wavelength_units differs across bands')
+
+                # TODO(donnie):  This check doesn't play well when we are
+                #     _changing_ the unit-type from the source dataset's unit-
+                #     type to some other unit-type.  Not sure of the best
+                #     solution
+                # else:
+                #     if band_info['wavelength_units'] != dst_wavelength_units:
+                #         print('WARNING:  wavelength_units differs across bands')
 
             dst_bad_bands.append(src_bad_bands[src_index])
 
@@ -429,7 +457,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         # If we have wavelengths, store the wavelength metadata
         if len(dst_wavelengths) == dst_bands:
             dst_metadata['wavelength'] = dst_wavelengths
-            dst_metadata['wavelength units'] = dst_wavelength_units
+            dst_metadata['wavelength units'] = \
+                envi.wiser_unitstr_to_envi_str(dst_wavelength_units)
 
         else:
             print(f'WARNING:  # bands with wavelengths {len(dst_wavelengths)}' +

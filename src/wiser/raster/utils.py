@@ -51,6 +51,14 @@ def get_spectral_unit(unit_str: str) -> u.Unit:
     return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
 
 
+def spectral_unit_to_string(unit: u.Unit) -> str:
+    for k, v in KNOWN_SPECTRAL_UNITS.items():
+        if unit == v:
+            return k
+
+    return None
+
+
 def make_spectral_value(value: Number, unit_str: str) -> u.Quantity:
     '''
     Given a numeric value and a string representation of the units, this

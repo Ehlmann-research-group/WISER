@@ -393,8 +393,7 @@ class DataVisualizerApp(QMainWindow):
             format = dialog.get_save_format()
             config = dialog.get_config()
 
-            print('Save-Dataset Config:')
-            pprint.pprint(config)
+            logger.debug(f'Save-Dataset Config:\n{pprint.pformat(config)}')
 
             dataset = self._app_state.get_dataset(ds_id)
             loader.save_dataset_as(dataset, path, format, config)
