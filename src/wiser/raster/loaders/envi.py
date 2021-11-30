@@ -1,9 +1,10 @@
 import os
 import textwrap
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+from astropy import units as u
 
 
 class EnviFileFormatError(Exception):
@@ -17,6 +18,54 @@ class EnviFileFormatError(Exception):
 
     def __str__(self) -> str:
         return self.message
+
+
+ENVI_UNIT_STRS: Dict[u.Unit, str] = {
+    u.cm         : 'Centimeters',
+    u.m          : 'Meters',
+    u.micrometer : 'Micrometers',
+    u.millimeter : 'Millimeters',
+    u.nanometer  : 'Nanometers',
+    u.cm ** -1   : 'Wavenumber',
+    u.angstrom   : 'Angstroms',
+    u.GHz        : 'GHz',
+    u.MHz        : 'MHz',
+}
+
+
+ENVI_UNIT_CAPITALIZATIONS: Dict[str, str] = {
+    'centimeters' : 'Centimeters',
+    'meters'      : 'Meters',
+    'micrometers' : 'Micrometers',
+    'millimeters' : 'Millimeters',
+    'nanometers'  : 'Nanometers',
+    'wavenumber'  : 'Wavenumber',
+    'angstroms'   : 'Angstroms',
+    'ghz'         : 'GHz',
+    'mhz'         : 'MHz',
+}
+
+
+def astropy_unit_to_envi_str(astropy_unit: u.Unit) -> Optional[str]:
+    '''
+    Map an astropy unit-value to an ENVI unit-string.
+    '''
+    return ENVI_UNIT_STRS.get(astropy_unit)
+
+
+def wiser_unitstr_to_envi_str(wiser_str: str) -> str:
+    '''
+    Make sure to follow the string capitalization that ENVI specifies for its
+    header files.
+    '''
+    if wiser_str is None:
+        return None
+
+    s = wiser_str.lower()
+    if s in ENVI_UNIT_CAPITALIZATIONS:
+        return ENVI_UNIT_CAPITALIZATIONS[s]
+
+    return wiser_str
 
 
 def normalize_envi_header_property_name(name: str) -> str:
