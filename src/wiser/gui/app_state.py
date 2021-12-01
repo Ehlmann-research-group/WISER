@@ -435,7 +435,7 @@ class ApplicationState(QObject):
 
         if roi.get_name() is None:
             raise ValueError('ROI name cannot be None')
-        
+
         # Verify that the ROI's name is unique.
         names_in_use = set()
         for existing_roi in self._regions_of_interest.values():
@@ -447,7 +447,7 @@ class ApplicationState(QObject):
                 i = 2
                 while True:
                     u_name = name + '_' + str(i)
-                    if u_name not in names_to_use:
+                    if u_name not in names_in_use:
                         roi.set_name(u_name)
                         break
                     i += 1
