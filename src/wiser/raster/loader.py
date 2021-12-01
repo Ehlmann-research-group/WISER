@@ -1,3 +1,4 @@
+import logging
 import os
 
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -7,9 +8,13 @@ import numpy as np
 from osgeo import gdal, gdalconst, gdal_array
 
 from .dataset import RasterDataSet
-from .dataset_impl import RasterDataImpl, ENVI_GDALRasterDataImpl, NumPyRasterDataImpl
+from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
+    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl)
 
 from .spectrum import Spectrum
+
+
+logger = logging.getLogger(__name__)
 
 
 class RasterDataLoader:
@@ -19,6 +24,12 @@ class RasterDataLoader:
     '''
 
     def __init__(self):
+        # File formats that we recognize.
+        self._formats = {
+            'ENVI': ENVI_GDALRasterDataImpl,
+            'GTiff': GTiff_GDALRasterDataImpl,
+        }
+
         # This is a counter so we can generate names for unnamed datasets.
         self._unnamed_datasets: int = 0
 
@@ -29,36 +40,19 @@ class RasterDataLoader:
         :class:`RasterDataSet` object.
         '''
 
-        # TODO(donnie):  For now, assume we have a file path.
-        # TODO(donnie):  Use urllib.parse.urlparse(urlstring) to parse URLs.
-
-        # ENVI files:  GDAL doesn't like dealing with the ".hdr" files, so if we
-        # are given a ".hdr" file, try to find the corresponding data file.
-        if path.endswith('.hdr'):
-            s = path[:-4]
-            if os.path.isfile(s):
-                path = s
-            else:
-                s = s + '.img'
-                if os.path.isfile(s):
-                    path = s
-                else:
-                    raise ValueError('Can\'t find raster file corresponding ' +
-                                     f'to ENVI header file {path}')
-
-        # Turn on exceptions when calling into GDAL
-        gdal.UseExceptions()
-
-        gdal_dataset = gdal.OpenEx(path,
-            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
-            allowed_drivers=['ENVI', 'GTiff', 'PDS', 'PDS4'])
-
+        # Iterate through all supported formats, and try to use each one to
+        # load the raster data.
         impl = None
-        driver_name = gdal_dataset.GetDriver().ShortName
-        if driver_name == 'ENVI':
-            impl = ENVI_GDALRasterDataImpl(gdal_dataset)
-        else:
-            raise ValueError(f'Unsupported format "{driver_name}"')
+        for (driver_name, impl_type) in self._formats.items():
+            try:
+                impl = impl_type.try_load_file(path)
+
+            except Exception as e:
+                logger.debug(f'Couldn\'t load file {path} with driver ' +
+                             f'{driver_name} and implementation {impl_type}.', e)
+
+        if impl is None:
+            raise Exception(f'Couldn\'t load file {path}:  unsupported format')
 
         ds = RasterDataSet(impl)
         files = ds.get_filepaths()

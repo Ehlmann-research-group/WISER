@@ -58,19 +58,22 @@ class RasterDataImpl(abc.ABC):
         pass
 
     def read_description(self) -> Optional[str]:
-        pass
+        return None
 
     def read_band_unit(self) -> Optional[u.Unit]:
-        pass
+        return None
 
     def read_band_info(self) -> List[Dict[str, Any]]:
         pass
 
-    def read_default_display_bands(self) -> Union[Tuple[int], Tuple[int, int, int]]:
-        pass
+    def read_default_display_bands(self) -> Optional[Union[Tuple[int], Tuple[int, int, int]]]:
+        return None
 
-    def read_data_ignore_value(self) -> Number:
-        pass
+    def read_data_ignore_value(self) -> Optional[Number]:
+        return None
+
+    def read_bad_bands(self) -> List[int]:
+        return [1] * self.num_bands()
 
 
 class GDALRasterDataImpl(RasterDataImpl):
@@ -206,11 +209,62 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return np_array
 
+    def read_band_info(self) -> List[Dict[str, Any]]:
+        '''
+        A default implementation of read_band_info() for GDAL datasets.
+        Specific formats may be able to report more detailed band info by
+        reading the driver-specific metadata for the format.
+        '''
+        band_info = []
+        for band_index in range(1, self.gdal_dataset.RasterCount + 1):
+            band = self.gdal_dataset.GetRasterBand(band_index)
+            info = {'index':band_index - 1, 'description':band.GetDescription()}
+            band_info.append(info)
+        return band_info
+
+
+
+class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
+    @classmethod
+    def get_load_filename(cls, path: str) -> str:
+        '''
+        GeoTIFF files are sometimes accompanied by a .tfw file.  If we were
+        passed the .tfw file, try to find a corresponding .tif file.
+        '''
+        if path.endswith('.tfw'):
+            s = path[:-4] + '.tif'
+            if os.path.isfile(s):
+                path = s
+            else:
+                raise ValueError('Can\'t find raster file corresponding ' +
+                                 f'to .tfw file {path}')
+
+        return path
+
+
+    @classmethod
+    def try_load_file(cls, path: str) -> 'GTiff_GDALRasterDataImpl':
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+
+        load_path = cls.get_load_filename(path)
+        gdal_dataset = gdal.OpenEx(load_path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['GTiff'])
+
+        return cls(gdal_dataset)
+
+
+    def __init__(self, gdal_dataset):
+        super().__init__(gdal_dataset)
+
+
+
 
 class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
-    @staticmethod
-    def get_load_filename(path: str) -> str:
+    @classmethod
+    def get_load_filename(cls, path: str) -> str:
         if path.endswith('.hdr'):
             s = path[:-4]
             if os.path.isfile(s):
@@ -222,6 +276,22 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
                 else:
                     raise ValueError('Can\'t find raster file corresponding ' +
                                      f'to ENVI header file {path}')
+
+        return path
+
+
+    @classmethod
+    def try_load_file(cls, path: str) -> 'GTiff_ENVIRasterDataImpl':
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+
+        load_path = cls.get_load_filename(path)
+        gdal_dataset = gdal.OpenEx(load_path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['ENVI'])
+
+        return cls(gdal_dataset)
+
 
     @staticmethod
     def get_save_filenames(path: str) -> List[str]:
