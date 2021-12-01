@@ -81,6 +81,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__()
         self.gdal_dataset = gdal_dataset
+        self.data_ignore: Optional[Union[float, int]] = None
         self._validate_dataset()
 
     def _validate_dataset(self):
@@ -93,6 +94,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         x_size = None
         y_size = None
         self.gdal_data_type = None
+        self.data_ignore = None
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
             band = self.gdal_dataset.GetRasterBand(band_index)
 
@@ -109,6 +111,14 @@ class GDALRasterDataImpl(RasterDataImpl):
                         'of different dimensions or types!  Band-1 values:  ' +
                         f'{x_size} {y_size} {data_type}  Band-{band_index} ' +
                         f'values:  {band.XSize} {band.YSize} {band.DataType}')
+
+            data_ignore = band.GetNoDataValue()
+            if self.data_ignore is None:
+                self.data_ignore = data_ignore
+            elif data_ignore is not None and self.data_ignore != data_ignore:
+                raise ValueError('Cannot handle raster data with bands that ' +
+                    'have different data-ignore values per band.')
+
 
     def get_format(self) -> str:
         return self.gdal_dataset.GetDriver().ShortName
@@ -221,6 +231,9 @@ class GDALRasterDataImpl(RasterDataImpl):
             info = {'index':band_index - 1, 'description':band.GetDescription()}
             band_info.append(info)
         return band_info
+
+    def read_data_ignore_value(self) -> Optional[Number]:
+        return self.data_ignore
 
 
 
