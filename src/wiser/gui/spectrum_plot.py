@@ -11,6 +11,7 @@ import wiser.gui.generated.resources
 
 from .app_config import LegendPlacement
 from .app_state import ApplicationState, StateChange
+from .dataset_chooser import DatasetChooser
 from .export_plot_image import ExportPlotImageDialog
 from .spectrum_plot_config import SpectrumPlotConfigDialog
 from .spectrum_info_editor import SpectrumInfoEditor
@@ -21,6 +22,7 @@ from .plugin_utils import add_plugin_context_menu_items
 
 from wiser import plugins
 
+from wiser.raster import RasterDataSet
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectra_export import export_spectrum_list
 from wiser.raster.spectrum import Spectrum
@@ -330,6 +332,43 @@ class SpectrumPointDisplayInfo:
             self._label = None
 
 
+class SpectrumPlotDatasetChooser(DatasetChooser):
+    def __init__(self, app_state):
+        super().__init__(None, app_state)
+
+
+    def _add_dataset_menu_items(self, menu, rasterview_pos=(0, 0)):
+        '''
+        Override the parent-class implementation to add a "use clicked dataset"
+        option.
+        '''
+
+        # Find the action that is currently selected (if any)
+        current_data = None
+        for act in self._dataset_menu.actions():
+            if act.isChecked():
+                current_data = act.data()
+
+        act = menu.addAction(self.tr('Use clicked dataset'))
+        act.setCheckable(True)
+        act.setChecked(True)
+        act.setData( (None, -1) )
+
+        menu.addSeparator()
+
+        # Add an action for each dataset
+        for dataset in self._app_state.get_datasets():
+            # TODO(donnie):  Eventually, include the path if the name isn't unique.
+            act = QAction(dataset.get_name(), parent=menu)
+            act.setCheckable(True)
+            act_data = (rasterview_pos, dataset.get_id())
+            act.setData(act_data)
+            if act_data == current_data:
+                act.setChecked(True)
+
+            menu.addAction(act)
+
+
 class SpectrumPlot(QWidget):
     '''
     This widget provides a spectrum-plot window in the user interface.
@@ -344,6 +383,9 @@ class SpectrumPlot(QWidget):
 
         #=====================================================================
         # General configuration for the spectrum plot
+
+        # What dataset are we showing spectra from on new mouse-clicks?
+        self._dataset = None
 
         # Are we displaying a legend?
         self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
@@ -416,6 +458,12 @@ class SpectrumPlot(QWidget):
 
         self._toolbar = QToolBar(self.tr('Spectrum Toolbar'), parent=self)
         self._toolbar.setIconSize(QSize(20, 20))
+
+        self._dataset_chooser = SpectrumPlotDatasetChooser(self._app_state)
+        self._toolbar.addWidget(self._dataset_chooser)
+        self._dataset_chooser.triggered.connect(self._on_dataset_changed)
+
+        self._toolbar.addSeparator()
 
         self._act_collect_spectrum = add_toolbar_action(self._toolbar,
             ':/icons/collect-spectrum.svg', self.tr('Collect spectrum'), self)
@@ -735,6 +783,19 @@ class SpectrumPlot(QWidget):
     def set_selection_crosshair(self, crosshair: bool) -> None:
         self._selection_crosshair = crosshair
         self._update_spectrum_mouse_click()
+
+
+    def _on_dataset_changed(self, act):
+        (_, ds_id) = act.data()
+        # print(f'Received on-dataset-changed event:  {ds_id}')
+        if ds_id != -1:
+            self._dataset = self._app_state.get_dataset(ds_id)
+        else:
+            self._dataset = None
+
+
+    def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
+        return self._dataset
 
 
     def _add_spectrum_to_plot(self, spectrum, treeitem):

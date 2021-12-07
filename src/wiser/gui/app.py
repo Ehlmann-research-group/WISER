@@ -886,6 +886,13 @@ class DataVisualizerApp(QMainWindow):
             # The clicked-on rasterview has no dataset loaded; ignore.
             return
 
+        # If the spectrum-plot window has a specific dataset to pull spectra
+        # from, use that dataset instead of the raster-view's dataset.
+        # Otherwise, just use the raster-view's dataset.
+        spectrum_ds = self._spectrum_plot.get_spectrum_dataset()
+        if spectrum_ds is None:
+            spectrum_ds = ds
+
         # App behavior varies when we are in linked mode vs. not in linked mode
         if self._main_view.is_scrolling_linked():
             # Linked scrolling:  Don't change the dataset of any other panes;
@@ -896,16 +903,9 @@ class DataVisualizerApp(QMainWindow):
             self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
             self._zoom_pane.set_pixel_highlight(sel)
 
-            # Set the active spectrum to be from the selected dataset and pixel.
-            # TODO(donnie):  If the Spectrum Plot window has a "current dataset"
-            #     set, get the spectrum from there instead.
-
-            area = (self._app_state.get_config('spectra.default_area_avg_x', as_type=int),
-                    self._app_state.get_config('spectra.default_area_avg_y', as_type=int))
-            mode = self._app_state.get_config('spectra.default_area_avg_mode', as_type=lambda s : SpectrumAverageMode[s])
-            spectrum = SpectrumAtPoint(ds, ds_point.toTuple(), area, mode)
-            self._app_state.set_active_spectrum(spectrum)
-
+            # Set the "active spectrum" based on the current config and the
+            # appropriate dataset
+            self._update_active_spectrum(spectrum_ds, ds_point)
 
         else:
             # Non-linked scrolling:  Change the dataset of other panes before
@@ -920,13 +920,9 @@ class DataVisualizerApp(QMainWindow):
             self._zoom_pane.show_dataset(ds)
             self._zoom_pane.set_pixel_highlight(sel)
 
-            # Set the active spectrum to be from the selected dataset and pixel.
-
-            area = (self._app_state.get_config('spectra.default_area_avg_x', as_type=int),
-                    self._app_state.get_config('spectra.default_area_avg_y', as_type=int))
-            mode = self._app_state.get_config('spectra.default_area_avg_mode', as_type=lambda s : SpectrumAverageMode[s])
-            spectrum = SpectrumAtPoint(ds, ds_point.toTuple(), area, mode)
-            self._app_state.set_active_spectrum(spectrum)
+            # Set the "active spectrum" based on the current config and the
+            # appropriate dataset
+            self._update_active_spectrum(spectrum_ds, ds_point)
 
 
     def _on_stretch_changed(self, ds_id: int, bands: Tuple, stretches: List):
@@ -986,6 +982,13 @@ class DataVisualizerApp(QMainWindow):
             # The clicked-on rasterview has no dataset loaded; ignore.
             return
 
+        # If the spectrum-plot window has a specific dataset to pull spectra
+        # from, use that dataset instead of the raster-view's dataset.
+        # Otherwise, just use the raster-view's dataset.
+        spectrum_ds = self._spectrum_plot.get_spectrum_dataset()
+        if spectrum_ds is None:
+            spectrum_ds = ds
+
         # App behavior varies when we are in linked mode vs. not in linked mode
         if self._main_view.is_scrolling_linked():
             # Linked scrolling:  Don't change the dataset of any other panes;
@@ -997,12 +1000,9 @@ class DataVisualizerApp(QMainWindow):
             self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
             self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
-            # Set the active spectrum to be from the selected dataset and pixel.
-            # TODO(donnie):  Need to include the default area and average mode too!
-            # TODO(donnie):  If the Spectrum Plot window has a "current dataset"
-            #     set, get the spectrum from there instead.
-            spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
-            self._app_state.set_active_spectrum(spectrum)
+            # Set the "active spectrum" based on the current config and the
+            # appropriate dataset
+            self._update_active_spectrum(spectrum_ds, ds_point)
 
         else:
             # Non-linked scrolling:  Change the dataset of other panes before
@@ -1022,7 +1022,18 @@ class DataVisualizerApp(QMainWindow):
 
             self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
-            # Set the active spectrum to be from the selected dataset and pixel.
-            # TODO(donnie):  Need to include the default area and average mode too!
-            spectrum = SpectrumAtPoint(ds, ds_point.toTuple())
-            self._app_state.set_active_spectrum(spectrum)
+            # Set the "active spectrum" based on the current config and the
+            # appropriate dataset
+            self._update_active_spectrum(spectrum_ds, ds_point)
+
+
+    def _update_active_spectrum(self, dataset, ds_point):
+        '''
+        Set the "active spectrum" based on the current config, and the
+        specified dataset and coordinate.
+        '''
+        area = (self._app_state.get_config('spectra.default_area_avg_x', as_type=int),
+                self._app_state.get_config('spectra.default_area_avg_y', as_type=int))
+        mode = self._app_state.get_config('spectra.default_area_avg_mode', as_type=lambda s : SpectrumAverageMode[s])
+        spectrum = SpectrumAtPoint(dataset, ds_point.toTuple(), area, mode)
+        self._app_state.set_active_spectrum(spectrum)
