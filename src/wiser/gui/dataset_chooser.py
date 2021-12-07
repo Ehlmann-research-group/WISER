@@ -35,7 +35,6 @@ class DatasetChooser(QToolButton):
         self._app_state = app_state
 
         self._dataset_menu = QMenu()
-        self._action_list = []
 
         self.setIcon(QIcon(':/icons/stack.svg'))
         self.setToolTip(self.tr('Select dataset to view'))
@@ -60,7 +59,6 @@ class DatasetChooser(QToolButton):
         '''
 
         # Remove all existing actions
-        self._action_list = []
         self._dataset_menu.clear()
 
         if self._rasterpane is not None:
@@ -87,18 +85,23 @@ class DatasetChooser(QToolButton):
 
 
     def _add_dataset_menu_items(self, menu, rasterview_pos=(0, 0)):
+        # Find the action that is currently selected (if any)
+        current_data = None
+        for act in menu.actions():
+            if act.isChecked():
+                current_data = act.data()
+
         # Add an action for each dataset
         for dataset in self._app_state.get_datasets():
             # TODO(donnie):  Eventually, include the path if the name isn't unique.
             act = QAction(dataset.get_name(), parent=menu)
             act.setCheckable(True)
-            act.setData( (rasterview_pos, dataset.get_id()) )
+            act_data = (rasterview_pos, dataset.get_id())
+            act.setData(act_data)
+            if act_data == current_data:
+                act.setChecked(True)
 
             menu.addAction(act)
-            # self._action_list.append(act)
-
-        # if len(self._action_list) > 0:
-        #     self._action_list[0].setChecked(True)
 
 
     def _on_dataset_changed(self, act: QAction):
@@ -107,9 +110,10 @@ class DatasetChooser(QToolButton):
         has a check-mark by it; all other datasets will be (or become)
         deselected.
         '''
-        for oact in self._action_list:
-            if oact != act and oact.isChecked():
-                oact.setChecked(False)
+        # print(f'Selected action:  {act}')
+        for oact in self._dataset_menu.actions():
+            # print(f'Action:  {oact}\t\tChecked?  {oact == act}')
+            oact.setChecked(oact == act)
 
 
     def _on_dataset_added(self, ds_id: int):
