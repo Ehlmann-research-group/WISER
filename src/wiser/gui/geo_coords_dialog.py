@@ -90,7 +90,7 @@ class GeoCoordsDialog(QDialog):
             elif spatial_ref.IsGeographic():
                 unit_name = spatial_ref.GetAngularUnitsName()
 
-            self._ui.lbl_axis_units.setText(self.tr('Unit is:  {0}').format(unit_name))
+            self._ui.lbl_axis_units.setText(unit_name)
 
 
     def _get_current_config(self):
