@@ -39,7 +39,7 @@ def to_deg_min_sec_str(value, axis):
 
 
 class ImageCoordsWidget(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, app, parent=None):
         super().__init__(parent=parent)
 
         # Set up the UI state
@@ -48,7 +48,12 @@ class ImageCoordsWidget(QDialog):
 
         self._ui.tbtn_geo_goto.setIcon(QIcon(':/icons/geo-coords.svg'))
 
-        self._deg_min_sec = False
+        # Initially, hide everything but the "geo-config" button.  Make the
+        # button disabled.
+        self._set_all_visible(False)
+        self._ui.tbtn_geo_goto.setEnabled(False)
+
+        self._app = app
 
         # The current dataset and pixel-coordinates being shown in the widget.
         # We record these because when the config changes, we need to update
@@ -60,10 +65,13 @@ class ImageCoordsWidget(QDialog):
 
         self._ui.tbtn_geo_goto.clicked.connect(self._on_geo_dialog)
 
-
+    def _set_all_visible(self, visible):
+        for w in [self._ui.lbl_pixel, self._ui.lbl_pixel_coords,
+                  self._ui.lbl_geo, self._ui.lbl_geo_coords]:
+            w.setVisible(visible)
 
     def _set_geo_visible(self, visible):
-        for w in [self._ui.lbl_geo, self._ui.lbl_geo_coords, self._ui.tbtn_geo_goto]:
+        for w in [self._ui.lbl_geo, self._ui.lbl_geo_coords]:
             w.setVisible(visible)
 
     def _set_pixel_coords_text(self, pixel_coords):
@@ -77,17 +85,23 @@ class ImageCoordsWidget(QDialog):
         xform = dataset.get_geo_transform()
         ds_spatial_ref = dataset.get_spatial_ref()
 
-        print(f'Geo Transform = {xform}')
-        geo_coords = gdal.ApplyGeoTransform(xform, pixel_coords[0], pixel_coords[1])
-        print(f'Geo Coords = {geo_coords}')
+        # print(f'Geo Transform = {xform}')
+        # Add 0.5 to the pixel coordinates to give the geographic coordinates of
+        # the pixel's center.
+        geo_coords = gdal.ApplyGeoTransform(xform, pixel_coords[0] + 0.5, pixel_coords[1] + 0.5)
+        # print(f'Geo Coords = {geo_coords}')
 
+        # print(f'Display Axis-Mapping Strategy is {config.spatial_ref.GetAxisMappingStrategy()}')
+        # print(f' * OAMS_TRADITIONAL_GIS_ORDER = {osr.OAMS_TRADITIONAL_GIS_ORDER}')
+        # print(f' * OAMS_AUTHORITY_COMPLIANT = {osr.OAMS_AUTHORITY_COMPLIANT}')
+        # print(f' * OAMS_CUSTOM = {osr.OAMS_CUSTOM}')
         if not config.spatial_ref.IsSame(ds_spatial_ref):
             xform2 = osr.CoordinateTransformation(ds_spatial_ref, config.spatial_ref)
-            print(f'Geo Transform 2 = {xform2}')
+            # print(f'Geo Transform 2 = {xform2}')
             geo_coords = xform2.TransformPoint(geo_coords[0], geo_coords[1])
             # TransformPoint() returns a 3-tuple, so convert back to a 2-list.
             geo_coords = [geo_coords[0], geo_coords[1]]
-            print(f'Geo Coords 2 = {geo_coords}')
+            # print(f'Geo Coords 2 = {geo_coords}')
 
         if config.spatial_ref.IsGeographic():
             # Latitude/longitude.  Longitude comes out first, so flip 'em.
@@ -97,7 +111,7 @@ class ImageCoordsWidget(QDialog):
                 ew_axis = 'E'
 
                 if not config.use_negative_degrees:
-                    print('Fixing negative degree values')
+                    # print('Fixing negative degree values')
                     if geo_coords[1] < 0:
                         geo_coords[1] = -geo_coords[1]
                         ns_axis = 'S'
@@ -107,7 +121,7 @@ class ImageCoordsWidget(QDialog):
                         ew_axis = 'W'
 
                 if config.use_deg_min_sec:
-                    print('Going to degrees/minutes/seconds')
+                    # print('Going to degrees/minutes/seconds')
                     v1 = to_deg_min_sec_str(geo_coords[1], ns_axis)
                     v2 = to_deg_min_sec_str(geo_coords[0], ew_axis)
 
@@ -151,11 +165,20 @@ class ImageCoordsWidget(QDialog):
 
 
     def _update_internal(self):
-        if self._dataset is None or self._pixel_coords is None:
-            self.setVisible(False)
-            return
+        # Figure out what state we are currently in.
 
-        self.setVisible(True)
+        has_ds_and_point = (self._dataset is not None and
+            self._pixel_coords is not None)
+
+        dataset_has_geo_srs = (self._dataset is not None and
+            self._dataset.get_spatial_ref() is not None)
+
+        # Update UI elements based on the current state.
+
+        self._ui.tbtn_geo_goto.setEnabled(dataset_has_geo_srs)
+        self._set_all_visible(has_ds_and_point)
+        if not has_ds_and_point:
+            return
 
         config = self._get_config_for_dataset(self._dataset)
 
@@ -186,10 +209,10 @@ class ImageCoordsWidget(QDialog):
 
 
     def _on_display_config_changed(self, ds_id, config):
-        print(f'Received display-config changed notification:  {ds_id}, {config}')
+        # print(f'Received display-config changed notification:  {ds_id}, {config}')
         self._display_config[ds_id] = config
         self._update_internal()
 
 
-    def _on_goto_coordinate(self, ds_id, coord):
-        print(f'TODO:  Go-to-coordinate {coord} on dataset {ds_id}')
+    def _on_goto_coordinate(self, dataset, coord):
+        self._app.show_dataset_coords(dataset, coord)

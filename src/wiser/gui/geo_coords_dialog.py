@@ -1,3 +1,7 @@
+import logging
+
+from typing import Any, Dict, List, Optional, Tuple
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -9,12 +13,104 @@ from .generated.geo_coords_dialog_ui import Ui_GeoCoordsDialog
 from .geo_coords_config import *
 
 
+logger = logging.getLogger(__name__)
+
+
+def split_str_into_numbers(s) -> List[str]:
+    parts = []
+
+    start = 0
+    index = 0
+    while index < len(s):
+        ch = s[index]
+        # print(f'OUTER start = {start}\tindex = {index}\tch = "{ch}"')
+        if ch not in '+-0123456789.':
+            # Found a non-number character
+            parts.append(s[start:index])
+
+            # Skip over non-number characters
+            while index < len(s):
+                # print(f'INNER start = {start}\tindex = {index}\tch = "{ch}"')
+                ch = s[index]
+                if ch in '+-0123456789.':
+                    start = index
+                    break
+                index += 1
+
+        index += 1
+
+    # Need a special case for if the entire string is a number.
+    if len(parts) == 0 and s[0] in '+-0123456789.':
+        # print('Special case for entire string is a number!')
+        parts.append(s)
+
+    return parts
+
+
+def parse_deg_min_sec_str(s) -> float:
+    s = s.strip().upper()
+    if not s:
+        raise ValueError('Empty input string')
+
+    parts = split_str_into_numbers(s)
+    # print(f'parts = {parts}')
+
+    if len(parts) == 0 or len(parts[0]) == 0:
+        raise ValueError(f'Cannot parse "{s}":  invalid leading characters')
+
+    if len(parts) > 3:
+        raise ValueError(f'Cannot parse "{s}":  more than 3 numbers')
+
+    value = float(parts[0])
+    if len(parts) >= 2:
+        value += float(parts[1]) / 60.0
+        if len(parts) == 3:
+            value += float(parts[2]) / (60.0 * 60.0)
+
+    ch = s[-1]
+    if ch not in '+-0123456789.' and ch not in 'NSEW':
+        raise ValueError(f'Cannot parse "{s}":  unrecognized direction character "{ch}" at end')
+
+    if s[-1] in 'SW':
+        value = -value
+
+    return value
+
+
+def parse_northing_easting_str(s) -> float:
+    s = s.strip().upper()
+    if not s:
+        raise ValueError('Empty input string')
+
+    parts = split_str_into_numbers(s)
+    # print(f'parts = {parts}')
+
+    if len(parts) == 0 or len(parts[0]) == 0:
+        raise ValueError(f'Cannot parse "{s}":  invalid leading characters')
+
+    if len(parts) > 1:
+        raise ValueError(f'Cannot parse "{s}":  more than 1 number')
+
+    value = float(parts[0])
+
+    # It's possible this is a unit, but we will ignore that for now.
+    ch = s[-1]
+    if ch not in '+-0123456789.' and ch not in 'NSEW':
+        raise ValueError(f'Cannot parse "{s}":  unrecognized direction character "{ch}" at end')
+
+    # Unlikely for Northing/Easting.
+    if s[-1] in 'SW':
+        value = -value
+
+    return value
+
+
 class GeoCoordsDialog(QDialog):
     # Signal:  The user changed the configuration
     config_changed = Signal(int, object)
 
     # Signal:  Go to a specific coordinate (arg 2) on a specific dataset (arg 1).
-    goto_coord = Signal(int, tuple)
+    goto_coord = Signal(object, tuple)
 
 
     def __init__(self, dataset, config, parent=None):
@@ -82,8 +178,13 @@ class GeoCoordsDialog(QDialog):
     def _update_goto_coords_ui(self):
         spatial_ref = self._ui.cbox_goto_coords.currentData()
         if spatial_ref is not None:
-            for i in range(spatial_ref.GetAxesCount()):
-                print(f'Axis {i} name is "{spatial_ref.GetAxisName(None, i)}"')
+            # print(f'Goto Axis-Mapping Strategy is {spatial_ref.GetAxisMappingStrategy()}')
+            # print(f' * OAMS_TRADITIONAL_GIS_ORDER = {osr.OAMS_TRADITIONAL_GIS_ORDER}')
+            # print(f' * OAMS_AUTHORITY_COMPLIANT = {osr.OAMS_AUTHORITY_COMPLIANT}')
+            # print(f' * OAMS_CUSTOM = {osr.OAMS_CUSTOM}')
+            #
+            # for i in range(spatial_ref.GetAxesCount()):
+            #     print(f'Axis {i} name is "{spatial_ref.GetAxisName(None, i)}"')
 
             # TODO(donnie):  What to do if not 2 axes?
             self._ui.lbl_axis_1.setText(spatial_ref.GetAxisName(None, 0) + ':')
@@ -125,36 +226,46 @@ class GeoCoordsDialog(QDialog):
         self._update_goto_coords_ui()
 
     def _on_goto_coordinates(self, checked=False):
-        print('TODO:  Goto coordinates ' +
+        logger.debug('Goto coordinates ' +
               f'({self._ui.ledit_axis_1.text()}, {self._ui.ledit_axis_2.text()}), ' +
               f'SRS = \n{self._ui.cbox_goto_coords.currentData()}')
 
         ds_spatial_ref = self._dataset.get_spatial_ref()
         coords_ref = self._ui.cbox_goto_coords.currentData()
 
-        # TODO(donnie):  This.
-        geo_x = float(self._ui.ledit_axis_1.text())
-        geo_y = float(self._ui.ledit_axis_2.text())
-        print(f'Geo Coords = {geo_x}, {geo_y}')
+        logger.debug(f'Inputs = "{self._ui.ledit_axis_1.text()}", "{self._ui.ledit_axis_2.text()}"')
+        try:
+            if coords_ref.IsGeographic():
+                geo_x = parse_deg_min_sec_str(self._ui.ledit_axis_1.text())
+                geo_y = parse_deg_min_sec_str(self._ui.ledit_axis_2.text())
+            else:
+                geo_x = parse_northing_easting_str(self._ui.ledit_axis_1.text())
+                geo_y = parse_northing_easting_str(self._ui.ledit_axis_2.text())
+        except ValueError as e:
+            QMessageBox.warning(self, self.tr('Couldn\'t Parse Coordinate'),
+                self.tr('Couldn\'t parse coordinate.  Reason:\n\n{0}').format(e))
+            return
+
+        logger.debug(f'Geo Coords = {geo_x}, {geo_y}')
 
         if not coords_ref.IsSame(ds_spatial_ref):
             xform2 = osr.CoordinateTransformation(coords_ref, ds_spatial_ref)
-            print(f'Inv Geo Transform 2 = {xform2}')
+            logger.debug(f'Inv Geo Transform 2 = {xform2}')
             geo_coords = xform2.TransformPoint(geo_x, geo_y)
             # TransformPoint() returns a 3-tuple, so convert back to a 2-list.
             geo_x = geo_coords[0]
             geo_y = geo_coords[1]
-            print(f'Geo Coords 2 = {geo_x}, {geo_y}')
+            logger.debug(f'Geo Coords 2 = {geo_x}, {geo_y}')
 
         xform = self._dataset.get_geo_transform()
-        print(f'Geo Transform = {xform}')
+        logger.debug(f'Geo Transform = {xform}')
         xform = gdal.InvGeoTransform(xform)
-        print(f'Inv Geo Transform = {xform}')
+        logger.debug(f'Inv Geo Transform = {xform}')
         result = gdal.ApplyGeoTransform(xform, geo_x, geo_y)
         pixel_x = result[0]
         pixel_y = result[1]
 
-        print(f'Pixel Coords = {pixel_x}, {pixel_y}')
+        logger.debug(f'Pixel Coords = {pixel_x}, {pixel_y}')
 
         if (pixel_x < 0 or pixel_x >= self._dataset.get_width() or
             pixel_y < 0 or pixel_y >= self._dataset.get_height()):
@@ -162,7 +273,7 @@ class GeoCoordsDialog(QDialog):
                 self.tr('The specified coordinates are outside the current image.'))
 
         else:
-            self.goto_coord.emit(self._dataset.get_id(), (pixel_x, pixel_y) )
+            self.goto_coord.emit(self._dataset, QPoint(int(pixel_x), int(pixel_y)) )
 
 
     def reject(self):

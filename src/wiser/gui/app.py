@@ -96,9 +96,8 @@ class DataVisualizerApp(QMainWindow):
 
         # Status bar
 
-        self._image_coords = ImageCoordsWidget()
+        self._image_coords = ImageCoordsWidget(self)
         self.statusBar().addPermanentWidget(self._image_coords)
-        self._image_coords.setVisible(False)
 
         self.statusBar().showMessage(
             self.tr('Welcome to WISER - the Workbench for Imaging Spectroscopy Exploration and Research'), 10000)
@@ -362,9 +361,11 @@ class DataVisualizerApp(QMainWindow):
 
     def _on_dataset_added(self, ds_id: int):
         self._update_dataset_menus()
+        self._image_coords.update_coords(self._app_state.get_dataset(ds_id), None)
 
     def _on_dataset_removed(self, ds_id: int):
         self._update_dataset_menus()
+        self._image_coords.update_coords(None, None)
 
 
     def _update_dataset_menus(self):
@@ -815,8 +816,24 @@ class DataVisualizerApp(QMainWindow):
                 return
 
 
+    def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
+        '''
+        Show a specific point in the specified dataset.  This method uses the
+        internal WISER main-view pixel-select mechanism so that all the other
+        peripheral things also happen correctly.
+        '''
+        rv_pos = self._main_view.is_showing_dataset(dataset)
+        if rv_pos is None:
+            rv_pos = (0, 0)
+            self._main_view.show_dataset(dataset)
+
+        self._on_mainview_raster_pixel_select(rv_pos, ds_point)
+
+
     def _update_image_coords(self, dataset: Optional[RasterDataSet], ds_point):
-        self._image_coords.setVisible(dataset is not None)
+        '''
+        Update the image-coordinates widget in the status bar.
+        '''
         if dataset is None:
             return
 
