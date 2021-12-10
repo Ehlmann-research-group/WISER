@@ -8,12 +8,43 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from astropy import units as u
 
+from osgeo import osr
+
 from .dataset_impl import RasterDataImpl
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength
 
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
+
+
+def pixel_coord_to_geo_coord(pixel_coord: Tuple[Number, Number],
+        geo_transform: Tuple[Number, Number, Number, Number, Number, Number]) -> Tuple[Number, Number]:
+    '''
+    A helper function to translate a pixel-coordinate into a linear geographic
+    coordinate using the geographic transform from GDAL.
+
+    The geo_transform argument is a 6-tuple that specifies a 2D affine
+    transformation, using the method exposed by GDAL.  See this URL for more
+    details:  https://gdal.org/tutorials/geotransforms_tut.html
+    '''
+    (pixel_x, pixel_y) = pixel_coord
+    geo_x = geo_transform[0] + pixel_x * geo_transform[1] + pixel_y * geo_transform[2]
+    geo_y = geo_transform[3] + pixel_x * geo_transform[4] + pixel_y * geo_transform[5]
+    return (geo_x, geo_y)
+
+def geo_coord_to_angular_coord(geo_coord: Tuple[Number, Number], spatial_ref) -> Tuple[Number, Number]:
+    '''
+    A helper function to translate a linear geographic coordinate into an
+    angular (lat, lon) geographic coordinate using the spatial-reference system
+    from GDAL.
+
+    See this URL for more details:  https://gdal.org/tutorials/osr_api_tut.html
+    '''
+    (geo_x, geo_y) = geo_coord
+    ang_spatial_ref = spatial_ref.CloneGeogCS()
+    coord_xform = osr.CoordinateTransformation(spatial_ref, ang_spatial_ref)
+    return coord_xform.TransformPoint(geo_x, geo_y)
 
 
 class BandStats:
@@ -73,6 +104,13 @@ class RasterDataSet:
         self._default_display_bands: Optional[DisplayBands] = impl.read_default_display_bands()
 
         self._data_ignore_value: Optional[Number] = impl.read_data_ignore_value()
+
+        # The affine geographic transform.  Default is "identity".
+        self._geo_transform: Tuple = impl.read_geo_transform()
+
+        # The Spatial Reference System for the dataset.  Only present if this
+        # dataset is geographic.
+        self._spatial_ref: Optional[osr.SpatialReference] = impl.read_spatial_ref()
 
         # True if the dataset has wavelengths (or units that can be converted to
         # wavelengths) for ALL bands.
@@ -381,6 +419,28 @@ class RasterDataSet:
                     arr[i] = np.nan
 
         return arr
+
+
+    def get_geo_transform(self) -> Tuple:
+        return self._geo_transform
+        
+
+    def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        return self._spatial_ref
+
+    '''
+    def has_geographic_info(self) -> bool:
+        return self._spatial_ref is not None
+    '''
+
+    def to_geographic_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
+        if self._spatial_ref is None:
+            return None
+
+        geo_coord = pixel_coord_to_geo_coord(pixel_coord, self._geo_transform)
+        ang_coord = geo_coord_to_angular_coord(geo_coord, self._spatial_ref)
+        return ang_coord
+
 
     def copy_metadata_from(self, dataset: 'RasterDataSet') -> None:
         if dataset.num_bands() != self.num_bands():

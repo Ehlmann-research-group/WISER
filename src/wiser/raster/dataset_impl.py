@@ -13,7 +13,7 @@ from .loaders import envi
 
 import numpy as np
 from astropy import units as u
-from osgeo import gdal, gdalconst, gdal_array
+from osgeo import gdal, gdalconst, gdal_array, osr
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,13 @@ class RasterDataImpl(abc.ABC):
 
     def read_bad_bands(self) -> List[int]:
         return [1] * self.num_bands()
+
+    def read_geo_transform(self) -> Tuple:
+        # Default implementation returns an identity transform.
+        return (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+
+    def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        return None
 
 
 class GDALRasterDataImpl(RasterDataImpl):
@@ -235,6 +242,11 @@ class GDALRasterDataImpl(RasterDataImpl):
     def read_data_ignore_value(self) -> Optional[Number]:
         return self.data_ignore
 
+    def read_geo_transform(self) -> Tuple:
+        return self.gdal_dataset.GetGeoTransform()
+
+    def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        return self.gdal_dataset.GetSpatialRef()
 
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):

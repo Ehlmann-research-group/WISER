@@ -333,6 +333,11 @@ class SpectrumPointDisplayInfo:
 
 
 class SpectrumPlotDatasetChooser(DatasetChooser):
+    '''
+    A customized subclass of the DatasetChooser toolbar-button/widget for the
+    Spectrum Plot window to use to "lock" the dataset that spectra are taken
+    from.
+    '''
     def __init__(self, app_state):
         super().__init__(None, app_state)
 

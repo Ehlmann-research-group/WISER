@@ -30,6 +30,8 @@ from .zoom_pane import ZoomPane
 from .spectrum_plot import SpectrumPlot
 from .infoview import DatasetInfoView
 
+from .image_coords_widget import ImageCoordsWidget
+
 from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
 
@@ -49,7 +51,7 @@ from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
     NumPyArraySpectrum)
 from wiser.raster.spectral_library import ListSpectralLibrary
-from wiser.raster import spectra_export
+from wiser.raster import RasterDataSet, spectra_export
 
 
 logger = logging.getLogger(__name__)
@@ -93,6 +95,11 @@ class DataVisualizerApp(QMainWindow):
         self._init_plugins()
 
         # Status bar
+
+        self._image_coords = ImageCoordsWidget()
+        self.statusBar().addPermanentWidget(self._image_coords)
+        self._image_coords.setVisible(False)
+
         self.statusBar().showMessage(
             self.tr('Welcome to WISER - the Workbench for Imaging Spectroscopy Exploration and Research'), 10000)
 
@@ -808,6 +815,15 @@ class DataVisualizerApp(QMainWindow):
                 return
 
 
+    def _update_image_coords(self, dataset: Optional[RasterDataSet], ds_point):
+        self._image_coords.setVisible(dataset is not None)
+        if dataset is None:
+            return
+
+        pixel_coord = ds_point.toTuple()
+        self._image_coords.update_coords(dataset, pixel_coord)
+
+
     def _on_display_bands_change(self, ds_id: int, bands: Tuple,
                                  colormap: Optional[str], is_global: bool):
         '''
@@ -885,6 +901,8 @@ class DataVisualizerApp(QMainWindow):
         if ds is None:
             # The clicked-on rasterview has no dataset loaded; ignore.
             return
+
+        self._update_image_coords(ds, ds_point)
 
         # If the spectrum-plot window has a specific dataset to pull spectra
         # from, use that dataset instead of the raster-view's dataset.
@@ -981,6 +999,8 @@ class DataVisualizerApp(QMainWindow):
         if ds is None:
             # The clicked-on rasterview has no dataset loaded; ignore.
             return
+
+        self._update_image_coords(ds, ds_point)
 
         # If the spectrum-plot window has a specific dataset to pull spectra
         # from, use that dataset instead of the raster-view's dataset.
