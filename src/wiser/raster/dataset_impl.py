@@ -246,7 +246,10 @@ class GDALRasterDataImpl(RasterDataImpl):
         return self.gdal_dataset.GetGeoTransform()
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
-        return self.gdal_dataset.GetSpatialRef()
+        spatial_ref = self.gdal_dataset.GetSpatialRef()
+        if spatial_ref is not None:
+            spatial_ref.SetAxisMappingStrategy(osr.OAMS_AUTHORITY_COMPLIANT)
+        return spatial_ref
 
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
