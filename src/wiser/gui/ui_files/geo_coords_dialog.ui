@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>411</width>
-    <height>295</height>
+    <width>425</width>
+    <height>277</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -34,36 +34,10 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="1" colspan="2">
-        <widget class="QStackedWidget" name="stackedWidget">
-         <property name="currentIndex">
-          <number>1</number>
-         </property>
-         <widget class="QWidget" name="page_proj"/>
-         <widget class="QWidget" name="page_geog">
-          <layout class="QGridLayout" name="gridLayout_2">
-           <item row="0" column="0">
-            <widget class="QCheckBox" name="ckbox_deg_min_sec">
-             <property name="text">
-              <string>Display degrees/minutes/seconds</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QCheckBox" name="ckbox_neg_degrees">
-             <property name="text">
-              <string>Display negative latitudes and longitudes</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </widget>
-       </item>
        <item row="0" column="2">
         <widget class="QComboBox" name="cbox_display_coords"/>
        </item>
-       <item row="4" column="1" colspan="2">
+       <item row="5" column="1" colspan="2">
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -75,6 +49,20 @@
           </size>
          </property>
         </spacer>
+       </item>
+       <item row="4" column="1" colspan="2">
+        <widget class="QCheckBox" name="ckbox_neg_degrees">
+         <property name="text">
+          <string>Display negative latitudes and longitudes</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1" colspan="2">
+        <widget class="QCheckBox" name="ckbox_deg_min_sec">
+         <property name="text">
+          <string>Display degrees/minutes/seconds</string>
+         </property>
+        </widget>
        </item>
       </layout>
      </widget>
@@ -175,8 +163,6 @@
  <tabstops>
   <tabstop>tabWidget</tabstop>
   <tabstop>cbox_display_coords</tabstop>
-  <tabstop>ckbox_deg_min_sec</tabstop>
-  <tabstop>ckbox_neg_degrees</tabstop>
   <tabstop>cbox_goto_coords</tabstop>
   <tabstop>ledit_axis_1</tabstop>
   <tabstop>ledit_axis_2</tabstop>
