@@ -8,7 +8,7 @@ from osgeo import gdal, osr
 
 from .generated.image_coords_widget_ui import Ui_ImageCoordsWidget
 
-from .geo_coords_config import CoordinateDisplayConfig
+from .geo_coords_config import *
 from .geo_coords_dialog import GeoCoordsDialog
 
 from wiser.raster import RasterDataSet
@@ -92,7 +92,7 @@ class ImageCoordsWidget(QDialog):
         if config.spatial_ref.IsGeographic():
             # Latitude/longitude.  Longitude comes out first, so flip 'em.
 
-            if config.spatial_ref.GetAngularUnitsName().lower().startswith('degree'):
+            if srs_has_degrees(config.spatial_ref):
                 ns_axis = 'N'
                 ew_axis = 'E'
 
@@ -191,5 +191,5 @@ class ImageCoordsWidget(QDialog):
         self._update_internal()
 
 
-    def _on_goto_coordinate(self, ds_id, coord, spatial_ref):
-        print(f'TODO:  Go-to-coordinate {coord} with spatial reference:\n{spatial_ref}')
+    def _on_goto_coordinate(self, ds_id, coord):
+        print(f'TODO:  Go-to-coordinate {coord} on dataset {ds_id}')
