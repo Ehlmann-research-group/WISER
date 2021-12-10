@@ -85,6 +85,8 @@ class ImageCoordsWidget(QDialog):
             xform2 = osr.CoordinateTransformation(ds_spatial_ref, config.spatial_ref)
             print(f'Geo Transform 2 = {xform2}')
             geo_coords = xform2.TransformPoint(geo_coords[0], geo_coords[1])
+            # TransformPoint() returns a 3-tuple, so convert back to a 2-list.
+            geo_coords = [geo_coords[0], geo_coords[1]]
             print(f'Geo Coords 2 = {geo_coords}')
 
         if config.spatial_ref.IsGeographic():
@@ -95,6 +97,7 @@ class ImageCoordsWidget(QDialog):
                 ew_axis = 'E'
 
                 if not config.use_negative_degrees:
+                    print('Fixing negative degree values')
                     if geo_coords[1] < 0:
                         geo_coords[1] = -geo_coords[1]
                         ns_axis = 'S'
@@ -104,21 +107,24 @@ class ImageCoordsWidget(QDialog):
                         ew_axis = 'W'
 
                 if config.use_deg_min_sec:
+                    print('Going to degrees/minutes/seconds')
                     v1 = to_deg_min_sec_str(geo_coords[1], ns_axis)
                     v2 = to_deg_min_sec_str(geo_coords[0], ew_axis)
 
                 else:
-                    v1 = f'{geo_coords[1]}\N{DEGREE SIGN}{ns_axis}'
-                    v2 = f'{geo_coords[0]}\N{DEGREE SIGN}{ew_axis}'
+                    # Use straight degrees
+                    v1 = f'{geo_coords[1]:.6f}\N{DEGREE SIGN}{ns_axis}'
+                    v2 = f'{geo_coords[0]:.6f}\N{DEGREE SIGN}{ew_axis}'
 
             else:
-                v1 = f'{geo_coords[1]}'
-                v2 = f'{geo_coords[0]}'
+                # Unknown units.
+                v1 = f'{geo_coords[1]:.6f}'
+                v2 = f'{geo_coords[0]:.6f}'
 
         else:
             # Northing/Easting.
-            v1 = f'{geo_coords[0]}'
-            v2 = f'{geo_coords[1]}'
+            v1 = f'{geo_coords[0]:.2f}E'
+            v2 = f'{geo_coords[1]:.2f}N'
 
         self._ui.lbl_geo_coords.setText(f'({v1}, {v2})')
 
@@ -170,6 +176,7 @@ class ImageCoordsWidget(QDialog):
         config = self._get_config_for_dataset(self._dataset)
         dialog = GeoCoordsDialog(self._dataset, config, parent=self)
         dialog.config_changed.connect(self._on_display_config_changed)
+        dialog.goto_coord.connect(self._on_goto_coordinate)
 
         # corner = self.mapToGlobal(QPoint(self.width(), 0.0))
         # corner = QPoint(corner.x() - dialog.width(), corner.y() - dialog.height())
@@ -182,3 +189,7 @@ class ImageCoordsWidget(QDialog):
         print(f'Received display-config changed notification:  {ds_id}, {config}')
         self._display_config[ds_id] = config
         self._update_internal()
+
+
+    def _on_goto_coordinate(self, ds_id, coord, spatial_ref):
+        print(f'TODO:  Go-to-coordinate {coord} with spatial reference:\n{spatial_ref}')
