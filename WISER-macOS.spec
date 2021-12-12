@@ -42,7 +42,7 @@ coll = COLLECT(exe,
                name='WISER')
 app = BUNDLE(coll,
              name='WISER.app',
-             icon=None,
+             icon='icons/wiser.icns',
              bundle_identifier='edu.caltech.gps.WISER',
              info_plist={
                  'NSPrincipalClass': 'NSApplication',
