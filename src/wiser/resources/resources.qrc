@@ -1,6 +1,8 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
   <qresource prefix="icons">
+    <file>wiser.ico</file>
+
     <file>add-roi.svg</file>
     <file>bug.svg</file>
     <file>choose-bands.svg</file>
