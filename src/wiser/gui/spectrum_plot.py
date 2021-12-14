@@ -379,12 +379,13 @@ class SpectrumPlot(QWidget):
     This widget provides a spectrum-plot window in the user interface.
     '''
 
-    def __init__(self, app_state, parent=None):
+    def __init__(self, app, parent=None):
         super().__init__(parent=parent)
 
         # Initialize widget's internal state
 
-        self._app_state = app_state
+        self._app = app
+        self._app_state = app._app_state
 
         #=====================================================================
         # General configuration for the spectrum plot
@@ -474,9 +475,26 @@ class SpectrumPlot(QWidget):
             ':/icons/collect-spectrum.svg', self.tr('Collect spectrum'), self)
         self._act_collect_spectrum.triggered.connect(self._on_collect_spectrum)
 
-        self._act_load_spectral_library = add_toolbar_action(self._toolbar,
-            ':/icons/load-spectra.svg', self.tr('Load spectral library'), self)
-        self._act_load_spectral_library.triggered.connect(self._on_load_spectral_library)
+        # Menu for importing spectra or loading SLIs
+
+        tbtn_load_spectra = QToolButton()
+        tbtn_load_spectra.setIcon(QIcon(':/icons/load-spectra.svg'))
+        tbtn_load_spectra.setToolTip(self.tr('Load or import spectra'))
+
+        # Without the parent= argument, the chooser doesn't show the menu.
+        menu = QMenu(parent=tbtn_load_spectra)
+        tbtn_load_spectra.setMenu(menu)
+        tbtn_load_spectra.setPopupMode(QToolButton.InstantPopup)
+
+        act = menu.addAction(self.tr('Load spectral library...'))
+        act.triggered.connect(self._on_load_spectral_library)
+
+        act = menu.addAction(self.tr('Import ASCII spectral data...'))
+        act.triggered.connect(self._app.import_spectra_from_textfile)
+
+        self._toolbar.addWidget(tbtn_load_spectra)
+
+        # Plot-configuration button on the right
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
