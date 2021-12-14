@@ -45,16 +45,23 @@ requirements manually, so that you get the most recent versions of everything.
 ```
 pip install numpy
 pip install astropy
-pip install matplotlib==3.2.2
-pip install GDAL
+pip install matplotlib
+pip install GDAL==3.3.1
 pip install PySide2
+pip install pillow
+pip install lark
+pip install bugsnag
 ```
 
 >   NOTE 1:  PyInstaller 4.0 has a bug in its support of matplotlib 3.3.0.  This
 >   is why we must install matplotlib 3.2.2 for the time being.  The bug
 >   manifests as an inability to start the packaged Mac distributable.
 
->   NOTE 2:  If you get an error like "no module \_gdal_array" after setting up
+>   NOTE 2:  The GDAL Python bindings must currently be fixed to version 3.3.1,
+>   as the most recent GDAL Python bindings refer to #defines that aren't in
+>   the GDAL headers installed by MacPorts.
+
+>   NOTE 3:  If you get an error like "no module \_gdal_array" after setting up
 >   WISER, a common cause is that the GDAL Python library was installed _before_
 >   NumPy was installed.  To further complicate the matter, `pip` may have
 >   cached the GDAL library without the `_gdal_array` module.  Thus, to fix the
