@@ -134,7 +134,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Spectrum plot
 
-        self._spectrum_plot = SpectrumPlot(self._app_state)
+        self._spectrum_plot = SpectrumPlot(self)
         dockable = self._make_dockable_pane(self._spectrum_plot, name='spectrum_plot',
             title=self.tr('Spectrum Plot'), icon=':/icons/spectrum-pane.svg',
             tooltip=self.tr('Show/hide the spectrum pane'),
