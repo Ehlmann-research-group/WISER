@@ -17,6 +17,8 @@ Name "Workbench for Imaging Spectroscopy Exploration and Research"
 Unicode True
 ManifestDPIAware True
 
+!define MUI_ICON "icons\wiser.ico"
+
 ; TODO(donnie):  Currently we build a 64-bit Python frozen app.
 InstallDir "$PROGRAMFILES64\WISER"
 
@@ -48,7 +50,7 @@ InstallDir "$PROGRAMFILES64\WISER"
   ; Good.  Now we can carry on writing the real installer.
 
   ; TODO(donnie):  Get version from external file.
-  OutFile "Install-WISER-1.1a6.exe"
+  OutFile "Install-WISER-1.1a7-dev0.exe"
   ; SetCompressor /SOLID lzma
 !endif
 

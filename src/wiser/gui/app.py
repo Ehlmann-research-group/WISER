@@ -72,6 +72,7 @@ class DataVisualizerApp(QMainWindow):
         '''
         super().__init__(None)
         self.setWindowTitle(self.tr('Workbench for Imaging Spectroscopy Exploration and Research'))
+        self.setWindowIcon(QIcon(':/icons/wiser.ico'))
 
         # Internal state
 

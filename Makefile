@@ -77,6 +77,7 @@ dist-mac : build-mac
 # show up in the frozen UI.
 dist-win : generated
 	pyinstaller --name $(APP_NAME) --noconfirm \
+	    --icon icons\wiser.ico \
 		--add-binary C:\ProgramData\Miniconda3\Library\plugins\platforms;platforms \
 		--add-binary C:\ProgramData\Miniconda3\Library\plugins\iconengines;iconengines \
 		--add-data C:\ProgramData\Miniconda3\Library\bin\libiomp5md.dll;. \
