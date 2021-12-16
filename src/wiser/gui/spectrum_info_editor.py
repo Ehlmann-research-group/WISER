@@ -54,7 +54,11 @@ class SpectrumInfoEditor(QDialog):
 
         autogen_name = False
         if isinstance(self._spectrum, RasterDataSetSpectrum):
+            self._ui.ckbox_autogen_name.setEnabled(True)
             autogen_name = self._spectrum.use_generated_name()
+        else:
+            self._ui.ckbox_autogen_name.setEnabled(False)
+
         self._ui.ckbox_autogen_name.setChecked(autogen_name)
 
         # Location
@@ -153,7 +157,10 @@ class SpectrumInfoEditor(QDialog):
 
         # Name
 
-        use_autogen_name = self._ui.ckbox_autogen_name.isChecked()
+        use_autogen_name = False  # RasterDataSetSpectrum-specific field
+        if isinstance(self._spectrum, RasterDataSetSpectrum):
+            use_autogen_name = self._ui.ckbox_autogen_name.isChecked()
+
         name = self._ui.lineedit_name.text().strip()
 
         if not use_autogen_name and len(name) == 0:
@@ -188,7 +195,9 @@ class SpectrumInfoEditor(QDialog):
 
         # Name
 
-        self._spectrum.set_use_generated_name(use_autogen_name)
+        if isinstance(self._spectrum, RasterDataSetSpectrum):
+            self._spectrum.set_use_generated_name(use_autogen_name)
+
         if not use_autogen_name:
             self._spectrum.set_name(name)
 

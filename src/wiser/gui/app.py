@@ -386,19 +386,21 @@ class DataVisualizerApp(QMainWindow):
 
 
     def _on_save_dataset(self, ds_id: int):
-        # TODO(donnie):  Show save/save-as dialog.
-
         dialog = SaveDatasetDialog(self._app_state, ds_id, parent=self)
         result = dialog.exec()
         # print(f'Save dialog result = {result}')
 
         if result == QDialog.Accepted:
-            # TODO(donnie):  Save the dataset to the specified file.
+            # Save the dataset to the specified file.
+
             loader = self._app_state.get_loader()
 
             # The chosen format may create multiple files; this path is expected
             # to be the one that GDAL needs for the specified format.
+
             path = dialog.get_save_path()
+            self._app_state.update_cwd_from_path(path)
+
             format = dialog.get_save_format()
             config = dialog.get_config()
 
@@ -713,16 +715,15 @@ class DataVisualizerApp(QMainWindow):
             # for interpreting/understanding the spectral data.
 
             path = selected[0]
+            self._app_state.update_cwd_from_path(path)
 
-            with open(path) as f:
-                lines = f.readlines()
-                dialog = ImportSpectraTextDialog(lines, parent=self)
+            dialog = ImportSpectraTextDialog(path, parent=self)
 
-                result = dialog.exec()
-                if result == QDialog.Accepted:
-                    spectra = dialog.get_spectra()
-                    library = ListSpectralLibrary(spectra, path=path)
-                    self._app_state.add_spectral_library(library)
+            result = dialog.exec()
+            if result == QDialog.Accepted:
+                spectra = dialog.get_spectra()
+                library = ListSpectralLibrary(spectra, path=path)
+                self._app_state.add_spectral_library(library)
 
 
     def show_bandmath_dialog(self):

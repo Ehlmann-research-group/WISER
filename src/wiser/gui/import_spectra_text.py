@@ -1,4 +1,5 @@
 import math
+import os
 import sys
 import traceback
 
@@ -35,12 +36,15 @@ class ImportSpectraTextDialog(QDialog):
     and for spectrum collection.
     '''
 
-    def __init__(self, spectra_text: List[str], parent=None):
+    def __init__(self, filepath: str, parent=None):
         super().__init__(parent=parent)
         self._ui = Ui_ImportSpectraTextDialog()
         self._ui.setupUi(self)
 
-        self._spectra_text: List[str] = spectra_text
+        self._filepath = filepath
+        with open(filepath) as f:
+            self._spectra_text: List[str] = f.readlines()
+
         self._spectra: Optional[List[Spectrum]] = None
 
         # Configure the UI widgets
@@ -55,7 +59,6 @@ class ImportSpectraTextDialog(QDialog):
         self._ui.cbox_wavelength_units.addItem(self.tr('Millimeters'), 'mm'        )
         self._ui.cbox_wavelength_units.addItem(self.tr('Micrometers'), 'um'        )
         self._ui.cbox_wavelength_units.addItem(self.tr('Nanometers' ), 'nm'        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Microns'    ), 'microns'   )
         self._ui.cbox_wavelength_units.addItem(self.tr('Angstroms'  ), 'angstroms' )
         self._ui.cbox_wavelength_units.addItem(self.tr('Wavenumber' ), 'wavenumber')
         self._ui.cbox_wavelength_units.addItem(self.tr('MHz'        ), 'mhz'       )
@@ -112,6 +115,8 @@ class ImportSpectraTextDialog(QDialog):
         header_row = self._spectra_text[0]
         parts = header_row.split(self._ui.cbox_delimiter.currentData())
 
+        # If we can parse everything in the first row as a number then we
+        # definitely don't have a header row.
         has_header = False
         for p in parts:
             try:
@@ -121,6 +126,26 @@ class ImportSpectraTextDialog(QDialog):
                 break
 
         self._ui.ckbox_header_row.setChecked(has_header)
+
+        # If we have a header row and certain columns have "wavelength" at the
+        # start of the name, we can make more guesses about the file format.
+        if has_header and len(parts) > 0:
+            # See how many parts of the header start with the word "wavelength"
+            wavelength_parts = [p.lower().startswith('wavelength') for p in parts]
+
+            if (len(wavelength_parts) % 2 == 0 and
+                sum(wavelength_parts) == wavelength_parts // 2):
+                # There are an even number of columns, and the odd columns all
+                # start with "wavelength", so guess "odd-column wavelengths"
+                self._ui.rb_wavelengths_odd_cols.setChecked(True)
+
+            elif len(parts) > 1 and wavelength_parts[0]:
+                # Seems like the first column may be wavelengths
+                self._ui.rb_wavelengths_1st_col.setChecked(True)
+
+            else:
+                # No wavelength columns, I guess
+                self._ui.rb_wavelengths_none.setChecked(True)
 
     def update_results(self):
         '''
@@ -149,6 +174,7 @@ class ImportSpectraTextDialog(QDialog):
         try:
             spectra = spectra_export.import_spectra_text(self._spectra_text,
                 delim=delim, has_header=has_header,
+                source_name=os.path.basename(self._filepath),
                 wavelength_cols=wavelength_cols, wavelength_unit=wavelength_units)
 
             msg = self.tr('Successfully parsed text into {0} spectra:')
