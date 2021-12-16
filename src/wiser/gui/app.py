@@ -494,7 +494,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Let the user select one or more files to open.
         selected = QFileDialog.getOpenFileNames(self,
-            self.tr("Open Spectal Data File"),
+            self.tr("Open Spectral Data File"),
             self._app_state.get_current_dir(), ';;'.join(supported_formats))
 
         for filename in selected[0]:
