@@ -257,6 +257,9 @@ class NumPyArraySpectrum(Spectrum):
         '''
         return self._source_name
 
+    def set_source_name(self, name: str):
+        self._source_name = name
+
     def get_elem_type(self) -> np.dtype:
         '''
         Returns the element-type of the spectrum.

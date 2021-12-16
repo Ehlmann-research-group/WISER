@@ -1,4 +1,5 @@
 import enum
+import os
 import re
 
 from typing import List, Optional, Union
@@ -293,22 +294,28 @@ def import_spectra_textfile(filename: str, delim='\t', has_header=True,
         wavelength_cols=WavelengthCols.ODD_COLS,
         wavelength_unit=None, ignore_value=None) -> List[Spectrum]:
     '''
-    TODO
+    TODO - write docs
     '''
     with open(filename) as f:
         lines = f.readlines()
-        lines = [line[:-1] for line in lines]
 
     return import_spectra_text(lines, delim=delim, has_header=has_header,
         wavelength_cols=wavelength_cols, wavelength_unit=wavelength_unit,
-        ignore_value=ignore_value)
+        ignore_value=ignore_value, source_name=os.path.basename(filename))
 
 
 def import_spectra_text(lines: List[str], delim='\t', has_header=True,
         wavelength_cols=WavelengthCols.ODD_COLS, wavelength_unit=None,
-        ignore_value=None) -> List[Spectrum]:
+        ignore_value=None, source_name=None) -> List[Spectrum]:
+    '''
+    TODO - write docs
+    '''
 
     def remove_trailing_newline(line):
+        '''
+        Helper function to remove trailing "\n" newline character from lines,
+        where present.
+        '''
         if len(line) > 0 and line[-1] == '\n':
             line = line[:-1]
         return line
@@ -432,7 +439,7 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
             wavelengths = spectrum_data.wavelength_values
 
         spectrum = NumPyArraySpectrum(values, name=spectrum_data.spectrum_name,
-             wavelengths=wavelengths)
+            source_name=source_name, wavelengths=wavelengths)
 
         spectra.append(spectrum)
 
