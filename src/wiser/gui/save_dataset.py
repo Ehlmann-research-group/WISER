@@ -276,7 +276,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         self._ui.cbox_wavelength_units.addItem(self.tr('GHz'        ), u.GHz       )
 
         # TODO(donnie):  Add back in the future
-        self._ui.tabWidget.setTabVisible(self._ui.tabWidget.indexOf(self._ui.tab_projection), False)
+        self._ui.tabWidget.removeTab(self._ui.tabWidget.indexOf(self._ui.tab_projection))
 
         # Hook up event handlers
 
