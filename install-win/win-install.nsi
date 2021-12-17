@@ -19,6 +19,10 @@ ManifestDPIAware True
 
 !define MUI_ICON "icons\wiser.ico"
 
+!ifndef WISER_VERSION
+  !error "ERROR:  WISER_VERSION must be defined on NSIS command-line with /D option"
+!endif
+
 ; TODO(donnie):  Currently we build a 64-bit Python frozen app.
 InstallDir "$PROGRAMFILES64\WISER"
 
@@ -26,16 +30,17 @@ InstallDir "$PROGRAMFILES64\WISER"
 
 
 !ifdef INNER
-  !echo "Inner invocation"                  ; just to see what's going on
+  !echo "--- Inner Invocation ---"          ; just to see what's going on
   OutFile "$%TEMP%\tempinstaller.exe"       ; not really important where this is
   SetCompress off                           ; for speed
 !else
-  !echo "Outer invocation"
+  !echo "--- Outer Invocation ---"
 
   ; Call makensis again against current file, defining INNER.  This writes an installer for us which, when
   ; it is invoked, will just write the uninstaller to some location, and then exit.
 
-  !makensis '/NOCD /DINNER "install-win\win-install.nsi"' = 0
+  !echo "Performing inner invocation..."
+  !makensis '/NOCD /DINNER /DWISER_VERSION="${WISER_VERSION}" "install-win\win-install.nsi"' = 0
 
   ; So now run that installer we just created as %TEMP%\tempinstaller.exe.  Since it
   ; calls quit the return value isn't zero.
@@ -49,8 +54,7 @@ InstallDir "$PROGRAMFILES64\WISER"
 
   ; Good.  Now we can carry on writing the real installer.
 
-  ; TODO(donnie):  Get version from external file.
-  OutFile "Install-WISER-1.1a7-dev1.exe"
+  OutFile "Install-WISER-${WISER_VERSION}.exe"
   ; SetCompressor /SOLID lzma
 !endif
 
@@ -101,6 +105,7 @@ Section "Install"
   SetOutPath "$INSTDIR"
 
   File /r dist\WISER\*.*
+  File icons\wiser.ico
 
   ; Create uninstaller
   ; WriteUninstaller "$INSTDIR\Uninstall WISER.exe"
@@ -116,6 +121,11 @@ Section "Install"
   ; Write registry keys to uninstall app through Windows system console
 
   WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayName" "WISER"
+  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "Publisher" "California Institute of Technology"
+  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "RegCompany" "California Institute of Technology"
+  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayVersion" "${WISER_VERSION}"
+  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayIcon" "$\"$INSTDIR\wiser.ico$\""
+
   WriteRegStr HKLM "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\""
 
   WriteRegStr HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\" /S"
