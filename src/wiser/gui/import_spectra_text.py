@@ -130,11 +130,12 @@ class ImportSpectraTextDialog(QDialog):
         # If we have a header row and certain columns have "wavelength" at the
         # start of the name, we can make more guesses about the file format.
         if has_header and len(parts) > 0:
-            # See how many parts of the header start with the word "wavelength"
+            # See how many parts of the header start with the word "wavelength".
+            # This generates an array of bool values.
             wavelength_parts = [p.lower().startswith('wavelength') for p in parts]
 
             if (len(wavelength_parts) % 2 == 0 and
-                sum(wavelength_parts) == wavelength_parts // 2):
+                sum(wavelength_parts) == len(wavelength_parts) // 2):
                 # There are an even number of columns, and the odd columns all
                 # start with "wavelength", so guess "odd-column wavelengths"
                 self._ui.rb_wavelengths_odd_cols.setChecked(True)
