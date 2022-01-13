@@ -51,7 +51,7 @@ from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
     NumPyArraySpectrum)
 from wiser.raster.spectral_library import ListSpectralLibrary
-from wiser.raster import RasterDataSet, spectra_export
+from wiser.raster import RasterDataSet, roi_export, spectra_export
 
 
 logger = logging.getLogger(__name__)
@@ -212,17 +212,20 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._file_menu.addAction(self.tr('&Open...'))
         act.setShortcuts(QKeySequence.Open)
-        act.setStatusTip(self.tr('Open an existing project or file'))
+        # act.setStatusTip(self.tr('Open an existing project or file'))
+        act.setStatusTip(self.tr('Open a raster dataset or spectral library'))
         act.triggered.connect(self.show_open_file_dialog)
 
-        act = self._file_menu.addAction(self.tr('Save &project file...'))
-        act.setStatusTip(self.tr('Save the current project configuration'))
-        act.triggered.connect(self.show_save_project_dialog)
+        # TODO(donnie):  Commented out until project-file code is updated for
+        #     current version of WISER.  (Same with line commented-out above.)
+        # act = self._file_menu.addAction(self.tr('Save &project file...'))
+        # act.setStatusTip(self.tr('Save the current project configuration'))
+        # act.triggered.connect(self.show_save_project_dialog)
 
         self._file_menu.addSeparator()
 
-        act = self._file_menu.addAction(self.tr('Import Regions of Interest...'))
-        act.triggered.connect(self.import_spectra_from_textfile)
+        act = self._file_menu.addAction(self.tr('Import regions of interest...'))
+        act.triggered.connect(self.import_regions_of_interest)
 
         act = self._file_menu.addAction(self.tr('Import spectra from text file...'))
         act.triggered.connect(self.import_spectra_from_textfile)
@@ -488,7 +491,7 @@ class DataVisualizerApp(QMainWindow):
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
             # self.tr('PDS raster files (*.PDS *.IMG)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
-            self.tr('WISER project files (*.wiser)'),
+            # self.tr('WISER project files (*.wiser)'),
             self.tr('All files (*)'),
         ]
 
@@ -701,7 +704,7 @@ class DataVisualizerApp(QMainWindow):
             for roi in rois:
                 self._app_state.add_roi(roi, make_name_unique=True)
 
-            self.roi_selection_changed.emit(None, None)
+            # self.roi_selection_changed.emit(None, None)
 
 
     def import_spectra_from_textfile(self):
