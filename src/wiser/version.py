@@ -1,5 +1,5 @@
-VERSION="1.1a8"
-RELEASE_DATE="2021-12-16"
+VERSION="1.1a9"
+RELEASE_DATE="2022-01-13"
 
 if __name__ == '__main__':
     print(f'{VERSION}')
