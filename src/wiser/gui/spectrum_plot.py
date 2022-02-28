@@ -838,7 +838,7 @@ class SpectrumPlot(QWidget):
 
         if use_wavelengths == self._plot_uses_wavelengths:
             # Nothing has changed, so just generate a plot for the new spectrum
-            display_info.generate_plot(self._axes, use_wavelengths)
+            display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
 
         else:
             # Need to regenerate all plots with the new "use wavelengths" value
@@ -853,7 +853,7 @@ class SpectrumPlot(QWidget):
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
 
             for other_info in self._spectrum_display_info.values():
-                other_info.generate_plot(self._axes, use_wavelengths)
+                other_info.generate_plot(self._axes, use_wavelengths, self._x_units)
 
             self._plot_uses_wavelengths = use_wavelengths
 
