@@ -519,8 +519,6 @@ class StretchBuilderDialog(QDialog):
         self._enable_stretch_changed_events = True
 
         layout = QGridLayout()
-        layout.setContentsMargins(QMargins(0, 0, 0, 0))
-        layout.setSpacing(0)
 
         # Widget for the general stretch configuration
         self._stretch_config = StretchConfigWidget(parent=self)
@@ -536,14 +534,32 @@ class StretchBuilderDialog(QDialog):
 
         # Widgets for the channels themselves
 
-        self._channel_widgets = [ChannelStretchWidget(i, parent=self) for i in range(3)]
+        scrollarea = QScrollArea(parent=self)
+        scrollarea.setFrameShape(QFrame.NoFrame)
+        scrollarea.setWidgetResizable(True)
+        scrollarea.setSizeAdjustPolicy(QScrollArea.AdjustToContents)
+        scrollarea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        scrollarea_contents = QWidget(parent=scrollarea)
+        scrollarea_layout = QVBoxLayout()
+        scrollarea_layout.setContentsMargins(0, 0, 0, 0)
+        scrollarea_layout.setSpacing(0)
+        scrollarea_layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
+
+        self._channel_widgets = [ChannelStretchWidget(i) for i in range(3)]
 
         for i in range(3):
-            layout.addWidget(self._channel_widgets[i], i + 1, 0)
+            scrollarea_layout.addWidget(self._channel_widgets[i])
 
             self._channel_widgets[i].min_max_changed.connect(self._on_channel_minmax_changed)
             self._channel_widgets[i].stretch_low_changed.connect(self._on_channel_stretch_low_changed)
             self._channel_widgets[i].stretch_high_changed.connect(self._on_channel_stretch_high_changed)
+
+        scrollarea_contents.setLayout(scrollarea_layout)
+        scrollarea.setWidget(scrollarea_contents)
+        layout.addWidget(scrollarea, 1, 0)
+
+        self._channels_scrollarea = scrollarea
 
         # Miscellaneous configuration options
         self._cb_link_sliders = QCheckBox(self.tr('Link sliders across all channels'))
@@ -564,6 +580,31 @@ class StretchBuilderDialog(QDialog):
         layout.addWidget(buttons)
 
         self.setLayout(layout)
+
+
+    def showEvent(self, event: QShowEvent):
+        # The scroll-area that contains the channels won't take up its full
+        # size, since it doesn't have to.  Also, the full size of the channels
+        # may in fact go beyond the screen height.  What we want to do is to
+        # size the dialog so that the channels are all visible, IF that fits on
+        # the screen, or if not, then shrink the dialog height to take up what
+        # is actually available.  That is what we do here, every time the dialog
+        # is shown.
+
+        screen_height = self.screen().size().height()
+        dialog_height = self.size().height()
+        scroll_height = self._channels_scrollarea.size().height()
+        channels_minheight = self._channels_scrollarea.widget().minimumSize().height()
+
+        # Compute the "ideal height" (i.e. the height that would make all
+        # channels visible) by taking the current dialog height, subtract out
+        # the current scroll-area height, and then add in the "minimum height"
+        # that the channels require.
+        ideal_height = dialog_height - scroll_height + channels_minheight
+
+        # The "ideal height" may still be beyond the screen height, so choose
+        # the smaller of the two heights.
+        self.resize(QSize(self.size().width(), min(screen_height, ideal_height)))
 
 
     def _get_channel_stretch(self, channel_no):
