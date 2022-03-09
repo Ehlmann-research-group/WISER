@@ -10,6 +10,12 @@
     <height>240</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="minimumSize">
    <size>
     <width>570</width>
@@ -19,142 +25,150 @@
   <property name="windowTitle">
    <string>Channel Stretch Widget</string>
   </property>
-  <widget class="QGroupBox" name="groupbox_channel">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>571</width>
-     <height>241</height>
-    </rect>
-   </property>
-   <property name="title">
-    <string>Channel Name</string>
-   </property>
-   <widget class="QWidget" name="gridLayoutWidget">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>30</y>
-      <width>551</width>
-      <height>201</height>
-     </rect>
-    </property>
-    <layout class="QGridLayout" name="grid_layout" rowstretch="0,0,0,0,10,0,0" columnstretch="0,0,10" columnminimumwidth="0,0,0">
-     <property name="spacing">
-      <number>4</number>
+  <layout class="QHBoxLayout" name="horizontalLayout">
+   <item>
+    <widget class="QGroupBox" name="groupbox_channel">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
      </property>
-     <item row="6" column="1">
-      <widget class="QLineEdit" name="lineedit_stretch_high"/>
-     </item>
-     <item row="5" column="1">
-      <widget class="QLineEdit" name="lineedit_stretch_low"/>
-     </item>
-     <item row="2" column="1">
-      <widget class="QPushButton" name="button_apply_bounds">
-       <property name="toolTip">
-        <string>Filter band data using min/max bounds before computing histogram</string>
-       </property>
-       <property name="text">
-        <string>Apply</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="2">
-      <widget class="QSlider" name="slider_stretch_low">
-       <property name="toolTip">
-        <string>Drag to adjust low boundary of stretch</string>
-       </property>
-       <property name="maximum">
-        <number>100</number>
-       </property>
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="invertedAppearance">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="label_stretch_high">
-       <property name="text">
-        <string>Stretch High</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0" colspan="2">
-      <spacer name="verticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="0" column="2" rowspan="5">
-      <widget class="QWidget" name="histogram_widget" native="true"/>
-     </item>
-     <item row="6" column="2">
-      <widget class="QSlider" name="slider_stretch_high">
-       <property name="toolTip">
-        <string>Drag to adjust high boundary of stretch</string>
-       </property>
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1">
-      <widget class="QPushButton" name="button_reset_bounds">
-       <property name="toolTip">
-        <string>Reset min/max bounds to min/max values from band data</string>
-       </property>
-       <property name="text">
-        <string>Reset</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QLineEdit" name="lineedit_max_bound"/>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="label_stretch_low">
-       <property name="text">
-        <string>Stretch Low</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="lineedit_min_bound"/>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_max_bound">
-       <property name="text">
-        <string>Maximum</string>
-       </property>
-       <property name="buddy">
-        <cstring>lineedit_max_bound</cstring>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="label_min_bound">
-       <property name="text">
-        <string>Minimum</string>
-       </property>
-       <property name="buddy">
-        <cstring>lineedit_min_bound</cstring>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </widget>
-  </widget>
+     <property name="title">
+      <string>Channel Name</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,0,0,1,0,0" columnstretch="0,0,1">
+      <item row="2" column="1">
+       <widget class="QPushButton" name="button_apply_bounds">
+        <property name="toolTip">
+         <string>Filter band data using min/max bounds before computing histogram</string>
+        </property>
+        <property name="text">
+         <string>Apply</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_min_bound">
+        <property name="text">
+         <string>Minimum</string>
+        </property>
+        <property name="buddy">
+         <cstring>lineedit_min_bound</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QLineEdit" name="lineedit_stretch_high"/>
+      </item>
+      <item row="3" column="1">
+       <widget class="QPushButton" name="button_reset_bounds">
+        <property name="toolTip">
+         <string>Reset min/max bounds to min/max values from band data</string>
+        </property>
+        <property name="text">
+         <string>Reset</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="2">
+       <widget class="QSlider" name="slider_stretch_high">
+        <property name="toolTip">
+         <string>Drag to adjust high boundary of stretch</string>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QLineEdit" name="lineedit_stretch_low"/>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="label_stretch_low">
+        <property name="text">
+         <string>Stretch Low</string>
+        </property>
+        <property name="buddy">
+         <cstring>lineedit_stretch_low</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_max_bound">
+        <property name="text">
+         <string>Maximum</string>
+        </property>
+        <property name="buddy">
+         <cstring>lineedit_max_bound</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="lineedit_min_bound"/>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="lineedit_max_bound"/>
+      </item>
+      <item row="5" column="2">
+       <widget class="QSlider" name="slider_stretch_low">
+        <property name="toolTip">
+         <string>Drag to adjust low boundary of stretch</string>
+        </property>
+        <property name="maximum">
+         <number>100</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="invertedAppearance">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="0" column="2" rowspan="5">
+       <widget class="QWidget" name="histogram_widget" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>180</width>
+          <height>80</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QLabel" name="label_stretch_high">
+        <property name="text">
+         <string>Stretch High</string>
+        </property>
+        <property name="buddy">
+         <cstring>lineedit_stretch_high</cstring>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections/>
