@@ -591,7 +591,13 @@ class StretchBuilderDialog(QDialog):
         # is actually available.  That is what we do here, every time the dialog
         # is shown.
 
-        screen_height = self.screen().size().height()
+        try:
+            # Qt 5.14 introduces the QWidget.screen() attribute
+            screen_height = self.screen().size().height()
+        except AttributeError:
+            # Fallback for <Qt 5.14
+            screen_height = self.window().windowHandle().screen().size().height()
+
         dialog_height = self.size().height()
         scroll_height = self._channels_scrollarea.size().height()
         channels_minheight = self._channels_scrollarea.widget().minimumSize().height()
