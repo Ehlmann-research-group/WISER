@@ -302,7 +302,7 @@ class NumPyArraySpectrum(Spectrum):
             # Make a copy of the incoming list
             wavelengths = list(wavelengths)
 
-        self._wavelengths = list(wavelengths)
+        self._wavelengths = wavelengths
 
     def get_spectrum(self) -> np.ndarray:
         '''
