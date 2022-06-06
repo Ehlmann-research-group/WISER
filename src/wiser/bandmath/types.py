@@ -1,6 +1,7 @@
+import abc
 import enum
 
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -41,6 +42,16 @@ class BandMathExprInfo:
 
         # If the result is an array, this is the shape of the array.
         self.shape: Tuple = None
+
+        # If the result should have spatial metadata (e.g. geographic projection
+        # info or spatial reference system) associated with it, this is the
+        # source of that metadata.
+        self.spatial_metadata_source: Any = None
+
+        # If the result should have spectral metadata (e.g. band wavelengths)
+        # associated with it, this is the source of that metadata.
+        self.spectral_metadata_source: Any = None
+
 
     def result_size(self):
         ''' Returns an estimate of this result's size in bytes. '''
@@ -158,12 +169,12 @@ class BandMathValue:
                         f'value {self.value} into a NumPy array')
 
 
-class BandMathFunction:
+class BandMathFunction(abc.ABC):
     '''
-    The abstract base-class for all band-math functions.  Functions must be able
-    to report useful documentation, as well as the type of the result based on
-    their input types, so that the user interface can provide useful feedback to
-    users.
+    The abstract base-class for all band-math functions and built-in operators.
+    Functions must be able to report useful documentation, as well as the type
+    of the result based on their input types, so that the user interface can
+    provide useful feedback to users.
     '''
 
     def get_description(self):
@@ -172,7 +183,8 @@ class BandMathFunction:
         '''
         return self.__doc__
 
-    def get_result_type(self, arg_types: List[VariableType]) -> VariableType:
+    def analyze(self, arg_types: List[VariableType],
+            options: Dict[str, Any] = None) -> BandMathExprInfo:
         '''
         Given the indicated argument types, this function reports the
         result-type of the function.

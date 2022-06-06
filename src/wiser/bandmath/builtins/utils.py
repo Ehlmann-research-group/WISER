@@ -148,7 +148,7 @@ def check_image_band_compatible(arg: BandMathExprInfo,
 
 
 def check_spectrum_compatible(arg: BandMathExprInfo,
-                             spectrum_shape: Tuple[int]) -> None:
+                              spectrum_shape: Tuple[int]) -> None:
     '''
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on a spectrum with the specified shape.
@@ -236,7 +236,7 @@ def make_image_cube_compatible(arg: BandMathValue,
         result = arg.as_numpy_array()
         assert result.ndim == 1
 
-        if result.shape != cube_shape[0]:
+        if result.shape != (cube_shape[0],):
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.shape)
 
@@ -335,3 +335,7 @@ def make_spectrum_compatible(arg: BandMathValue,
         result = arg.value
 
     return result
+
+
+def check_metadata_compatible():
+    pass

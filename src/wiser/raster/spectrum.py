@@ -304,6 +304,22 @@ class NumPyArraySpectrum(Spectrum):
 
         self._wavelengths = wavelengths
 
+
+    def copy_spectral_metadata(self, source):
+        if isinstance(source, RasterDataSet):
+            src_wavelengths = None
+            if source.has_wavelengths():
+                src_wavelengths = [b['wavelength'] for b in source.band_list()]
+
+            self.set_wavelengths(src_wavelengths)
+
+        elif isinstance(source, Spectrum):
+            self.set_wavelengths(source.get_wavelengths())
+
+        else:
+            raise ValueError(f'Don\'t know how to get spectral metadata from type {type(source)}.')
+
+
     def get_spectrum(self) -> np.ndarray:
         '''
         Return the spectrum data as a 1D NumPy array.

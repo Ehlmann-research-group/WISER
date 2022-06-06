@@ -428,7 +428,10 @@ class RasterView(QWidget):
         Returns a copy of the display-band list, which will have one element for
         grayscale, or three elements for RGB.
         '''
-        return tuple(self._display_bands)
+        if self._display_bands is not None:
+            return tuple(self._display_bands)
+        else:
+            return None
 
 
     def set_display_bands(self, display_bands: Tuple, stretches: List = None,
