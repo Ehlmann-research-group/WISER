@@ -28,6 +28,7 @@ class OperatorUnaryNegate(BandMathFunction):
             self._report_type_error(arg_type)
 
         # Unary negation returns the same kind of input that it is given.
+        # The metadata-source of the result will also be the same as the input.
         return arg
 
 

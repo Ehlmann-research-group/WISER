@@ -62,6 +62,12 @@ class OperatorCompare(BandMathFunction):
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
             info.elem_type = np.byte
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spatial_metadata_source = lhs.spatial_metadata_source
+            info.spectral_metadata_source = lhs.spectral_metadata_source
+
             return info
 
         elif rhs.result_type == VariableType.IMAGE_CUBE:
@@ -73,6 +79,12 @@ class OperatorCompare(BandMathFunction):
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = rhs.shape
             info.elem_type = np.byte
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spatial_metadata_source = rhs.spatial_metadata_source
+            info.spectral_metadata_source = rhs.spectral_metadata_source
+
             return info
 
         elif lhs.result_type == VariableType.IMAGE_BAND:
@@ -84,6 +96,11 @@ class OperatorCompare(BandMathFunction):
             info = BandMathExprInfo(VariableType.IMAGE_BAND)
             info.shape = lhs.shape
             info.elem_type = np.byte
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spatial_metadata_source = lhs.spatial_metadata_source
+
             return info
 
         elif rhs.result_type == VariableType.IMAGE_BAND:
@@ -95,6 +112,11 @@ class OperatorCompare(BandMathFunction):
             info = BandMathExprInfo(VariableType.IMAGE_BAND)
             info.shape = rhs.shape
             info.elem_type = np.byte
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spatial_metadata_source = rhs.spatial_metadata_source
+
             return info
 
         elif lhs.result_type == VariableType.SPECTRUM:
@@ -106,6 +128,11 @@ class OperatorCompare(BandMathFunction):
             info = BandMathExprInfo(VariableType.SPECTRUM)
             info.shape = lhs.shape
             info.elem_type = np.byte
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spectral_metadata_source = lhs.spectral_metadata_source
+
             return info
 
         elif rhs.result_type == VariableType.SPECTRUM:
@@ -117,6 +144,11 @@ class OperatorCompare(BandMathFunction):
             info = BandMathExprInfo(VariableType.SPECTRUM)
             info.shape = rhs.shape
             info.elem_type = np.byte
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spectral_metadata_source = rhs.spectral_metadata_source
+
             return info
 
         # If we get here, we don't know how to multiply the two types.

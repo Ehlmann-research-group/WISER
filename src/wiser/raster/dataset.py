@@ -422,10 +422,28 @@ class RasterDataSet:
 
 
     def get_geo_transform(self) -> Tuple:
+        '''
+        Returns the geographic transform for this dataset as a 6-tuple of
+        floats.  The geographic transform is used to map pixel coordinates to
+        linear geographic coordinates, and is always an affine transformation.
+        To map linear geographic coordinates into angular geographic
+        coordinates, see the ``get_spatial_ref()`` method.
+
+        This value is always present; if the underlying data file doesn't
+        specify a geographic transform then an identity transformation
+        is returned.
+
+        See https://gdal.org/tutorials/geotransforms_tut.html for more details
+        on how to interpret this value.
+        '''
         return self._geo_transform
-        
+
 
     def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        '''
+        Returns the GDAL spatial reference system used for this dataset, or
+        ``None`` if the dataset doesn't have a spatial reference system.
+        '''
         return self._spatial_ref
 
     '''
@@ -455,6 +473,64 @@ class RasterDataSet:
         self._data_ignore_value = dataset._data_ignore_value
 
         self._has_wavelengths = self._compute_has_wavelengths()
+
+        self.set_dirty()
+
+
+    def copy_spatial_metadata(self, source: Union['RasterDataSet', 'RasterDataBand']) -> None:
+        '''
+        Copy the spatial metadata from the source object.  The source must
+        either be a RasterDataSet or a RasterDataBand object.
+
+        The spatial metadata includes the geographical transform, and the
+        spatial reference system, if the raster has one.  Any mutable values are
+        deep-copied so that changes to the source's information do not affect
+        this object.
+        '''
+
+        if isinstance(source, RasterDataBand):
+            # Get the dataset out of the band object.
+            source = source.get_dataset()
+
+        if not isinstance(source, RasterDataSet):
+            raise TypeError(f'Unhandled source-type {type(source)}')
+
+        self._geo_transform = source._geo_transform
+
+        if source._spatial_ref is not None:
+            self._spatial_ref = source._spatial_ref.Clone()
+        else:
+            self._spatial_ref = None
+
+        self.set_dirty()
+
+
+    def copy_spectral_metadata(self, source: Union['RasterDataSet', 'Spectrum']) -> None:
+        if isinstance(source, RasterDataSet):
+            self._band_info = copy.deepcopy(source._band_info)
+            self._bad_bands = list(source._bad_bands)
+            self._default_display_bands = source._default_display_bands
+            # self._data_ignore_value = dataset._data_ignore_value
+
+            self._has_wavelengths = self._compute_has_wavelengths()
+
+        elif isinstance(source, Spectrum):
+            self._band_info = []
+            if source.has_wavelengths():
+                for (band_index, wavelength) in enumerate(source.get_wavelengths()):
+                    info = {'index':band_index - 1, 'description':band.GetDescription()}
+                    self._band_info.append(info)
+
+            else:
+                pass    # No spectral metadata to copy
+
+            self._bad_bands
+            self._default_display_bands = None
+
+            self._has_wavelengths = self._compute_has_wavelengths()
+
+        else:
+            raise TypeError(f'Unhandled source-type {type(source)}')
 
         self.set_dirty()
 

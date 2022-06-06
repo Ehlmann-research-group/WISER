@@ -121,6 +121,16 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             info.elem_type = bmv.get_elem_type()
             info.shape = bmv.get_shape()
 
+            # These types also may have metadata we want to reproduce in the
+            # result.
+            # TODO(donnie):  What about raster bands?
+
+            if type in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND]:
+                info.spatial_metadata_source = bmv
+
+            if type in [VariableType.IMAGE_CUBE, VariableType.SPECTRUM]:
+                info.spectral_metadata_source = bmv
+
         logger.debug(f'Variable "{name}":  {info}')
 
         return info
@@ -151,8 +161,8 @@ def get_bandmath_expr_info(bandmath_expr: str,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None) -> BandMathExprInfo:
     '''
-    Determine the return-type of a band-math expression using the specified
-    variable and function definitions.
+    Analyze a band-math expression using the specified variable and function
+    definitions, and generate an information object containing the analysis.
 
     Variables are passed in a dictionary of string names that map to 2-tuples:
     (VariableType, value).  The VariableType enum-value specifies the high-level

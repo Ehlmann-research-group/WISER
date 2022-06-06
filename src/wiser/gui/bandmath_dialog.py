@@ -269,6 +269,9 @@ class BandMathDialog(QDialog):
         # expressions" list.
         self._saved_exprs_modified: bool = False
 
+        # Expression-info from the most recenly completed expression
+        self._expr_info: Optional[bandmath.BandMathExprInfo] = None
+
         # Set up the UI state
         self._ui = Ui_BandMathDialog()
         self._ui.setupUi(self)
@@ -342,6 +345,7 @@ class BandMathDialog(QDialog):
         method also analyzes the expression to predict the type, shape and size
         of the expression's result, and displays this information in the UI.
         '''
+        self._expr_info = None
         expr = self.get_expression()
         if not expr:
             return
@@ -370,6 +374,8 @@ class BandMathDialog(QDialog):
                     'expression that produces an image cube, band, or spectrum'))
                 self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
                 return
+
+            self._expr_info = expr_info
 
             type_str = self._variable_types_text.get(expr_info.result_type,
                 self.tr('Unrecognized type'))
@@ -698,6 +704,10 @@ class BandMathDialog(QDialog):
         lowercase.
         '''
         return self._ui.ledit_expression.text().strip().casefold()
+
+
+    def get_expression_info(self) -> Optional[bandmath.BandMathExprInfo]:
+        return self._expr_info
 
 
     def get_variable_bindings(self) -> Dict[str, Tuple[bandmath.VariableType, Any]]:

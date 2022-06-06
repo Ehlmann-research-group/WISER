@@ -44,6 +44,12 @@ class OperatorDivide(BandMathFunction):
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
             info.elem_type = lhs.elem_type
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spatial_metadata_source = lhs.spatial_metadata_source
+            info.spectral_metadata_source = lhs.spectral_metadata_source
+
             return info
 
         elif lhs.result_type == VariableType.IMAGE_BAND:
@@ -55,6 +61,11 @@ class OperatorDivide(BandMathFunction):
             info = BandMathExprInfo(VariableType.IMAGE_BAND)
             info.shape = lhs.shape
             info.elem_type = lhs.elem_type
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spatial_metadata_source = lhs.spatial_metadata_source
+
             return info
 
         elif lhs.result_type == VariableType.SPECTRUM:
@@ -66,6 +77,11 @@ class OperatorDivide(BandMathFunction):
             info = BandMathExprInfo(VariableType.SPECTRUM)
             info.shape = lhs.shape
             info.elem_type = lhs.elem_type
+
+            # TODO(donnie):  Check that metadata are compatible, and maybe
+            #     generate warnings if they aren't.
+            info.spectral_metadata_source = lhs.spectral_metadata_source
+            
             return info
 
         # If we get here, we don't know how to divide the two types.

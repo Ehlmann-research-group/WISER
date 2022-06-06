@@ -733,12 +733,16 @@ class DataVisualizerApp(QMainWindow):
         dialog = BandMathDialog(self._app_state)
         if dialog.exec() == QDialog.Accepted:
             expression = dialog.get_expression()
+            expr_info = dialog.get_expression_info()
             variables = dialog.get_variable_bindings()
             result_name = dialog.get_result_name()
 
             logger.info(f'Evaluating band-math expression:  {expression}\n' +
                         f'Variable bindings:\n{pprint.pformat(variables)}\n' +
                         f'Result name:  {result_name}')
+
+            # print(f'Spatial metadata comes from {expr_info.spatial_metadata_source}')
+            # print(f'Spectral metadata comes from {expr_info.spectral_metadata_source}')
 
             # Collect functions from all plugins.
             functions = {}
@@ -785,6 +789,12 @@ class DataVisualizerApp(QMainWindow):
                     new_dataset.set_description(
                         f'Computed image-cube:  {expression} ({timestamp})')
 
+                    if expr_info.spatial_metadata_source:
+                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+
+                    if expr_info.spectral_metadata_source:
+                        new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
+
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.IMAGE_BAND:
@@ -800,6 +810,9 @@ class DataVisualizerApp(QMainWindow):
                     new_dataset.set_description(
                         f'Computed image-band:  {expression} ({timestamp})')
 
+                    if expr_info.spatial_metadata_source:
+                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.SPECTRUM:
@@ -810,6 +823,9 @@ class DataVisualizerApp(QMainWindow):
                                                          timestamp=timestamp)
 
                     new_spectrum = NumPyArraySpectrum(result, name=result_name)
+
+                    if expr_info.spectral_metadata_source:
+                        new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
 
                     self._app_state.set_active_spectrum(new_spectrum)
 
