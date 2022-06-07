@@ -181,6 +181,11 @@ def load_envi_header(filename: str) -> Dict[str, Any]:
         if len(line) == 0:
             continue
 
+        # If the line is a comment, skip it.  (Note that the line's whitespace
+        # was already stripped earlier.)
+        if line[0] == ';':
+            continue
+
         # Try to parse a "name = value" line, which may span multiple lines
         # if the value is wrapped in curly-braces {} .
 
