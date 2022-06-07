@@ -183,8 +183,7 @@ class BandMathFunction(abc.ABC):
         '''
         return self.__doc__
 
-    def analyze(self, arg_types: List[VariableType],
-            options: Dict[str, Any] = None) -> BandMathExprInfo:
+    def analyze(self, args: List[BandMathExprInfo]) -> BandMathExprInfo:
         '''
         Given the indicated argument types, this function reports the
         result-type of the function.
