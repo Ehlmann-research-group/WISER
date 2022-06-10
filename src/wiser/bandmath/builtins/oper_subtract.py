@@ -5,10 +5,22 @@ import numpy as np
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
 
-from .utils import (
+from wiser.bandmath.utils import (
+    reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
 )
+
+
+def _apply_sign(sign, value):
+    '''
+    A helper function to apply a sign to a value.  If ``sign`` < 0 then
+    ``-value`` is returned.  If ``sign`` >= 0 then ``value`` is returned.
+    '''
+    if sign < 0:
+        return -value
+    else:
+        return value
 
 
 class OperatorSubtract(BandMathFunction):
@@ -20,25 +32,34 @@ class OperatorSubtract(BandMathFunction):
         raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for -')
 
 
-    def analyze(self, infos: List[BandMathExprInfo]):
+    def analyze(self, infos: List[BandMathExprInfo],
+            options: Dict[str, Any] = None) -> BandMathExprInfo:
 
         if len(infos) != 2:
-            raise Exception(f'Binary subtraction requires exactly two arguments')
+            raise ValueError('Binary subtraction requires exactly two arguments')
 
         lhs = infos[0]
         rhs = infos[1]
 
-        # Take care of the simple case first, where it's just two numbers.
+        # Take care of the simple case first.
         if (lhs.result_type == VariableType.NUMBER and
             rhs.result_type == VariableType.NUMBER):
             return BandMathExprInfo(VariableType.NUMBER)
 
-        # If we got here, we are comparing more complex data types.
+        # If we got here, we are subtracting more complex data types.
+
+        # Subtraction is not commutative, but we can still swap LHS and RHS
+        # based on the types, to make the analysis logic easier
+
+        (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
+
+        # Analyze the input types to determine the result type
+        # TODO(donnie):  This code assumes the result's element-type will be the
+        #     same as the LHS element-type, but this is not guaranteed.  Best
+        #     way to do this is to ask NumPy what the result element-type will
+        #     be.
 
         if lhs.result_type == VariableType.IMAGE_CUBE:
-            # Dimensions:  [band][y][x]
-
-            # See if we can actually subtract RHS from LHS.
             check_image_cube_compatible(rhs, lhs.shape)
 
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
@@ -53,9 +74,6 @@ class OperatorSubtract(BandMathFunction):
             return info
 
         elif lhs.result_type == VariableType.IMAGE_BAND:
-            # Dimensions:  [y][x]
-
-            # See if we can actually subtract RHS from LHS.
             check_image_band_compatible(rhs, lhs.shape)
 
             info = BandMathExprInfo(VariableType.IMAGE_BAND)
@@ -69,9 +87,6 @@ class OperatorSubtract(BandMathFunction):
             return info
 
         elif lhs.result_type == VariableType.SPECTRUM:
-            # Dimensions:  [band]
-
-            # See if we can actually subtract RHS from LHS.
             check_spectrum_compatible(rhs, lhs.shape)
 
             info = BandMathExprInfo(VariableType.SPECTRUM)
@@ -84,7 +99,6 @@ class OperatorSubtract(BandMathFunction):
 
             return info
 
-        # If we get here, we don't know how to multiply the two types.
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
@@ -103,7 +117,10 @@ class OperatorSubtract(BandMathFunction):
         if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
             return BandMathValue(VariableType.NUMBER, lhs.value - rhs.value)
 
-        # If we got here, we are subtracting more complex data types.
+        # Subtraction is not commutative, but it's still easier to arrange the
+        # arguments to make the calculation logic easier.
+        ((lsign, lhs), (rsign, rhs)) = \
+            reorder_args(lhs.type, rhs.type, (1, lhs), (-1, rhs))
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
@@ -111,7 +128,7 @@ class OperatorSubtract(BandMathFunction):
             assert lhs_value.ndim == 3
 
             rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value - rhs_value
+            result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
 
             # The result array should have the same dimensions as the LHS input
             # array.
@@ -125,7 +142,7 @@ class OperatorSubtract(BandMathFunction):
             assert lhs_value.ndim == 2
 
             rhs_value = make_image_band_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value - rhs_value
+            result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
 
             # The result array should have the same dimensions as the LHS input
             # array.
@@ -139,7 +156,7 @@ class OperatorSubtract(BandMathFunction):
             assert lhs_value.ndim == 1
 
             rhs_value = make_spectrum_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value - rhs_value
+            result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
 
             # The result array should have the same dimensions as the LHS input
             # array.
