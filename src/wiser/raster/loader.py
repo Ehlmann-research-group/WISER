@@ -9,7 +9,7 @@ from osgeo import gdal, gdalconst, gdal_array
 
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl)
+    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, MastcamZMultispectralDataImpl)
 
 from .spectrum import Spectrum
 
@@ -28,6 +28,7 @@ class RasterDataLoader:
         self._formats = {
             'ENVI': ENVI_GDALRasterDataImpl,
             'GTiff': GTiff_GDALRasterDataImpl,
+            'IMG': MastcamZMultispectralDataImpl
         }
 
         # This is a counter so we can generate names for unnamed datasets.

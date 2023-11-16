@@ -3,6 +3,8 @@
 **/.mypy_cache/
 venv/
 
+.idea/
+.idea/*
 # These are local directories that hold data for experimentation
 data/
 bigdata/

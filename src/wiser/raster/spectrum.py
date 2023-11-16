@@ -73,10 +73,10 @@ def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
     if len(spectra) > 1:
         # Need to compute mean/median/... of the collection of spectra
         if mode == SpectrumAverageMode.MEAN:
-            spectrum = np.mean(spectra, axis=0)
+            spectrum = np.nanmean(spectra, axis=0)
 
         elif mode == SpectrumAverageMode.MEDIAN:
-            spectrum = np.median(spectra, axis=0)
+            spectrum = np.nanmedian(spectra, axis=0)
 
         else:
             raise ValueError(f'Unrecognized average type {mode}')

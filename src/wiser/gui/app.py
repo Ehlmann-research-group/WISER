@@ -489,7 +489,7 @@ class DataVisualizerApp(QMainWindow):
         supported_formats = [
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
-            # self.tr('PDS raster files (*.PDS *.IMG)'),
+            self.tr('PDS raster files (*.IMG)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
             # self.tr('WISER project files (*.wiser)'),
             self.tr('All files (*)'),

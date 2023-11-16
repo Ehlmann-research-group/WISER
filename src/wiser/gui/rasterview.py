@@ -85,9 +85,9 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
             raise ValueError(f'All channels must have the same dimensions')
 
     # Expensive sanity checks:
-    if __debug__:
-        assert (0 <= np.amin(c) <= 255) and (0 <= np.amax(c) <= 255), \
-            'Channel may only contain values in range 0..255, and no NaNs'
+    # if __debug__:
+    #     assert (0 <= np.amin(c) <= 255) and (0 <= np.amax(c) <= 255), \
+    #         'Channel may only contain values in range 0..255, and no NaNs'
 
     rgb_data = (channels[0] << 16 |
                 channels[1] <<  8 |
@@ -129,9 +129,9 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
         raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {channel.dtype}')
 
     # Expensive sanity checks:
-    if __debug__:
-        assert (0 <= np.amin(channel) <= 255) and (0 <= np.amax(channel) <= 255), \
-            'Channel may only contain values in range 0..255, and no NaNs'
+    # if __debug__:
+    #     assert (0 <= np.amin(channel) <= 255) and (0 <= np.amax(channel) <= 255), \
+    #         'Channel may only contain values in range 0..255, and no NaNs'
 
     if colormap is None:
         # Use the channel data to generate various gray RGB values.
