@@ -797,51 +797,51 @@ class NumPyRasterDataImpl(RasterDataImpl):
 zcam_b_to_b = xcam.BAND_TO_BAYER['ZCAM']
 
 zcam_filter_to_name = {
-                "L0": "L0 (530nm)",
-                "LF": "L0 (530nm)",
-                "L1": "L1 (800nm)",
-                "L2": "L2 (754nm)",
-                "L3": "L3 (677nm)",
-                "L4": "L4 (605nm)",
-                "L5": "L5 (528nm)",
-                "L6": "L6 (442nm)",
-                "L7": "L7 (Solar)",
-                "R0": "R0 (530nm)",
-                "RF": "R0 (530nm)",
-                "R1": "R1 (800nm)",
-                "R2": "R2 (866nm)",
-                "R3": "R3 (910nm)",
-                "R4": "R4 (939nm)",
-                "R5": "R5 (978nm)",
-                "R6": "R6 (1022nm)",
-                "R7": "R7 (Solar)",
+                "ZL0": "L0 (530nm)",
+                "ZLF": "L0 (530nm)",
+                "ZL1": "L1 (800nm)",
+                "ZL2": "L2 (754nm)",
+                "ZL3": "L3 (677nm)",
+                "ZL4": "L4 (605nm)",
+                "ZL5": "L5 (528nm)",
+                "ZL6": "L6 (442nm)",
+                "ZL7": "L7 (Solar)",
+                "ZR0": "R0 (530nm)",
+                "ZRF": "R0 (530nm)",
+                "ZR1": "R1 (800nm)",
+                "ZR2": "R2 (866nm)",
+                "ZR3": "R3 (910nm)",
+                "ZR4": "R4 (939nm)",
+                "ZR5": "R5 (978nm)",
+                "ZR6": "R6 (1022nm)",
+                "ZR7": "R7 (Solar)",
         }
 
 zcam_filter_to_wavelength = {
-                "LF": 530 * u.nm,
-                "L0": 530 * u.nm,
+                "ZLF": 530 * u.nm,
+                "ZL0": 530 * u.nm,
                 #"L0_1": 630 * u.nm,
                 #"L0_2": 544 * u.nm,
                 #"L0_3": 480 * u.nm,
-                "L1": 800 * u.nm,
-                "L2": 754 * u.nm,
-                "L3": 677 * u.nm,
-                "L4": 605 * u.nm,
-                "L5": 528 * u.nm,
-                "L6": 442 * u.nm,
-                "L7": 590 * u.nm,
-                "RF": 530 * u.nm,
-                "R0": 530 * u.nm,
+                "ZL1": 800 * u.nm,
+                "ZL2": 754 * u.nm,
+                "ZL3": 677 * u.nm,
+                "ZL4": 605 * u.nm,
+                "ZL5": 528 * u.nm,
+                "ZL6": 442 * u.nm,
+                "ZL7": 590 * u.nm,
+                "ZRF": 530 * u.nm,
+                "ZR0": 530 * u.nm,
                 #"R0_1": 630 * u.nm,
                 #"R0_2": 544 * u.nm,
                 #"R0_3": 480 * u.nm,
-                "R1": 800 * u.nm,
-                "R2": 866 * u.nm,
-                "R3": 910 * u.nm,
-                "R4": 939 * u.nm,
-                "R5": 978 * u.nm,
-                "R6": 1022 * u.nm,
-                "R7": 880 * u.nm,
+                "ZR1": 800 * u.nm,
+                "ZR2": 866 * u.nm,
+                "ZR3": 910 * u.nm,
+                "ZR4": 939 * u.nm,
+                "ZR5": 978 * u.nm,
+                "ZR6": 1022 * u.nm,
+                "ZR7": 880 * u.nm,
         }
 
 zcam_filter_to_wavelength = dict(sorted(zcam_filter_to_wavelength.items(), key=operator.itemgetter(1)))
@@ -940,7 +940,7 @@ class MastcamZMultispectralDataImpl(RasterDataImpl):
         parent = Path(path).parent
         seqid = sequence(Path(path).name)
         # get all possible mspec frames in the directory
-        mspec_file_paths = [list(parent.glob(f'Z{bn}*IOF*{seqid}*.IMG')) for bn in zcam_filter_to_wavelength.keys()]
+        mspec_file_paths = [list(parent.glob(f'{bn}*IOF*{seqid}*.IMG')) for bn in zcam_filter_to_wavelength.keys()]
         # filter down to those that exist on the file system
         mspec_files = [str(_[0]) for _ in mspec_file_paths if len(_) > 0 and _[0].exists()]
         # disparity file is either a ZL?*_DSP or ZR*_DSP file in that directory
