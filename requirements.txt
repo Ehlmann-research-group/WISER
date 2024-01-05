@@ -2,7 +2,6 @@ altgraph==0.17
 astropy==4.0.1.post1
 bugsnag==3.7.1
 cycler==0.10.0
-GDAL==3.1.2
 kiwisolver==1.2.0
 macholib==1.14
 matplotlib==3.2.2
@@ -16,3 +15,4 @@ python-dateutil==2.8.1
 shiboken2==5.15.0
 six==1.15.0
 WebOb==1.8.6
+scipy=1.11.3

@@ -4,8 +4,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from units import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from gui.rasterview import RasterView
+#from wiser.units import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
+from wiser.gui.rasterview import RasterView
 
 
 def find_band_near_wavelength(raster_data, wavelength, max_distance=None):
@@ -69,6 +69,6 @@ if __name__ == '__main__':
         print('This program takes one optional argument, the name of a raster data file.')
         sys.exit(1)
 
-    ui.set_raster_data(raster_data, rgb_bands)
+    #ui.set_raster_data(raster_data, rgb_bands)
 
     sys.exit(app.exec_())

@@ -43,6 +43,17 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
 }
 
 
+def ensure_3d_with_band_first(image: np.ndarray):
+    """
+    Ensures that the input image is a 3D numpy array with the band dimension first.
+    :param image: A 2D or 3D numpy array representing an image.
+    :return: A 3D numpy array with the band dimension first.
+    """
+    if image.ndim == 2:
+        # For a 2D image, add a new axis at the front
+        image = np.expand_dims(image, axis=0)
+    return image
+
 def get_spectral_unit(unit_str: str) -> u.Unit:
     '''
     Given a string representation of the units, this function returns an
@@ -109,7 +120,7 @@ def find_band_near_wavelength(bands: List[Dict],
     If no suitable band is found, the function returns None.
     '''
 
-    wavelengths = [b.get('wavelength') for b in bands]
+    wavelengths = [b.get('wavelength') for b in bands if 'hidden' not in b]
     if None in wavelengths:
         raise ValueError('Not all bands specify a wavelength')
 

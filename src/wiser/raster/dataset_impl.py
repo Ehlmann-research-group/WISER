@@ -3,18 +3,29 @@ import logging
 import math
 import os
 import pprint
+import operator
+from pathlib import Path
+
+import pandas as pd
+from scipy.ndimage import map_coordinates
 from urllib.parse import urlparse
+from enum import Enum, auto
+
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 
-from .utils import make_spectral_value, convert_spectral, get_spectral_unit
+from .utils import make_spectral_value, convert_spectral, get_spectral_unit, ensure_3d_with_band_first
 from .loaders import envi
 
 import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
-
+from osgeo.gdal import Dataset
+from marslab.bandset import mastcamz
+import marslab.compat.xcam as xcam
+from marslab.imgops.debayer import RGGB_PATTERN, make_bayer
+from marslab.parse import color_filter, sequence
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +246,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         band_info = []
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
             band = self.gdal_dataset.GetRasterBand(band_index)
-            info = {'index':band_index - 1, 'description':band.GetDescription()}
+            info = {'index': band_index - 1, 'description':band.GetDescription()}
             band_info.append(info)
         return band_info
 
@@ -285,8 +296,6 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
-
-
 
 
 class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
@@ -722,7 +731,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
 class NumPyRasterDataImpl(RasterDataImpl):
 
-    def __init__(self, arr: np.ndarray):
+    def __init__(self, arr: np.ndarray | np.ma.masked_array):
         self._arr = arr
 
     def get_format(self) -> str:
@@ -752,13 +761,13 @@ class NumPyRasterDataImpl(RasterDataImpl):
     def get_elem_type(self) -> np.dtype:
         return self._arr.dtype
 
-    def get_image_data(self) -> np.ndarray:
+    def get_image_data(self) -> np.ndarray | np.ma.masked_array:
         return self._arr
 
-    def get_band_data(self, band_index) -> np.ndarray:
+    def get_band_data(self, band_index) -> np.ndarray | np.ma.masked_array:
         return self._arr[band_index]
 
-    def get_all_bands_at(self, x, y) -> np.ndarray:
+    def get_all_bands_at(self, x, y) -> np.ndarray | np.ma.masked_array:
         return self._arr[:, y, x]
 
     def read_description(self) -> Optional[str]:
@@ -786,3 +795,399 @@ class NumPyRasterDataImpl(RasterDataImpl):
     def read_bad_bands(self) -> List[int]:
         # We don't have a bad-band list, so just make one up with all 1s.
         return [1] * self.num_bands()
+
+# Zcam Band to Bayer filter map, for each filter we have a different bayer filter to apply
+zcam_b_to_b = xcam.BAND_TO_BAYER['ZCAM']
+
+zcam_filter_to_name = {
+                "ZL0": "L0 (530nm)",
+                "ZLF": "L0 (530nm)",
+                "ZL1": "L1 (800nm)",
+                "ZL2": "L2 (754nm)",
+                "ZL3": "L3 (677nm)",
+                "ZL4": "L4 (605nm)",
+                "ZL5": "L5 (528nm)",
+                "ZL6": "L6 (442nm)",
+                "ZL7": "L7 (Solar)",
+                "ZR0": "R0 (530nm)",
+                "ZRF": "R0 (530nm)",
+                "ZR1": "R1 (800nm)",
+                "ZR2": "R2 (866nm)",
+                "ZR3": "R3 (910nm)",
+                "ZR4": "R4 (939nm)",
+                "ZR5": "R5 (978nm)",
+                "ZR6": "R6 (1022nm)",
+                "ZR7": "R7 (Solar)",
+        }
+
+zcam_filter_to_wavelength = {
+                "ZLF": 530 * u.nm,
+                "ZL0": 530 * u.nm,
+                #"L0_R": 630 * u.nm,
+                #"L0_G": 544 * u.nm,
+                #"L0_B": 480 * u.nm,
+                "ZL1": 800 * u.nm,
+                "ZL2": 754 * u.nm,
+                "ZL3": 677 * u.nm,
+                "ZL4": 605 * u.nm,
+                "ZL5": 528 * u.nm,
+                "ZL6": 442 * u.nm,
+                "ZL7": 590 * u.nm,
+                "ZRF": 530 * u.nm,
+                "ZR0": 530 * u.nm,
+                #"R0_R": 630 * u.nm,
+                #"R0_G": 544 * u.nm,
+                #"R0_B": 480 * u.nm,
+                "ZR1": 800 * u.nm,
+                "ZR2": 866 * u.nm,
+                "ZR3": 910 * u.nm,
+                "ZR4": 939 * u.nm,
+                "ZR5": 978 * u.nm,
+                "ZR6": 1022 * u.nm,
+                "ZR7": 880 * u.nm,
+        }
+
+zcam_filter_to_wavelength = dict(sorted(zcam_filter_to_wavelength.items(), key=operator.itemgetter(1)))
+
+class ZCamCameraPrefix(Enum):
+    ZL1 = auto()
+    ZR1 = auto()
+    ZLF = auto()
+    ZRF = auto()
+
+
+class MastcamZMultispectralDataImpl(RasterDataImpl):
+    """
+    Mastcam-Z multispectral dataset class
+
+    Mastcam-Z multispectral data is split into separate images for each band,
+    except for the L0/R0 bands which are RGB color and 1 file each
+    """
+
+    @classmethod
+    def get_load_filename(cls, path: str) -> str:
+        """
+        return the path of the file to be loaded into the dataset
+        but raise a RuntimeError if the path is not an IOF product from ZCAM
+
+        :param path: the path of the file to be loaded
+        """
+        path_lower = path.lower()
+        if path_lower.endswith('.img') and 'IOF' in path_lower and path_lower.startswith('z') and os.path.isfile(path):
+            pass
+        else:
+            raise RuntimeError(f'{path} is not a valid RAD ZCAM product.')
+        return path
+
+    @staticmethod
+    def _load_img_file(path):
+        """
+        Load an image from a given file path and return it
+
+        :param path: the path of the file to be loaded
+        """
+        return gdal.OpenEx(str(path),
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['PDS', 'PDS4', 'VICAR'])
+
+    @staticmethod
+    def _load_dsp_file(parent: Path, kind: ZCamCameraPrefix, filled=''):
+        """
+        Given a parent directory for a mastcam-z multispectral observation,
+        Find a corresponding DSP file for left to right or right to left depending on the kind
+        parameter (ZL or ZR). By default, we look for "filled" IMG files which have been processed by surffit
+        to interpolate missing disparity pixels.
+
+        We load the first candidate by default (normally only 1 would be found)
+
+        param kind: Prefix of the DSP file (ZL1, ZR1, ZLF, ZRF) using the ZCamCameraPrefix Enum
+        """
+        w_filled = filled + '*' if filled != '' else ''
+        disp_cand = list(parent.glob(f'{kind.name}*DSP*{w_filled}.IMG'))
+        disparity = None
+        if len(disp_cand) > 0:
+            disparity = MastcamZMultispectralDataImpl._load_img_file(str(disp_cand[0]))
+        return disparity
+
+    @staticmethod
+    def _load_mcz_frame(file: Path) -> NumPyRasterDataImpl:
+        """
+        Given a file ZCAM Path, load the file into a NumPyRasterDataImpl, applying the ZCam Bayer filter masks first
+
+        TODO: more components from marslab xcam.py and bandset.py may be needed here to incorporate complex logic for Zcam
+        """
+        # will have shape bands, y, x
+        frame = ensure_3d_with_band_first(MastcamZMultispectralDataImpl._load_img_file(file).ReadAsArray())
+        # get filter name from file path
+        filter_name = file.stem[1:3]
+        # get bayer filter mask for image
+        # TODO there may be certain cases where the data is already debayered so we'd not want to do the following
+        bayer_masks = make_bayer(frame.shape[1:], RGGB_PATTERN)
+        bayer_filter_pattern = xcam.make_detector_mask(bayer_masks, zcam_b_to_b, filter_name, frame[0])
+        # TODO may need to use marslab debayer.debayer_upsample here for certain filters
+        # create the masked numpy array
+        masked_frame = np.ma.masked_array(frame, mask=bayer_filter_pattern)
+        # return the final dataset
+        return NumPyRasterDataImpl(masked_frame)
+
+    @classmethod
+    def load_bandset(cls, parent_path: Path, seq_id: Optional[str] = None):
+        """
+        use marslab to preprocess and debayer images
+        """
+        # load all zcam products in the parent folder, optionally filtering on seq_id and removing L0/R0
+        df = mastcamz.ls_zcam(parent_path)
+        # select only iofs in case any other filers are in there
+        iofs = df.loc[df['PRODUCT_TYPE'] == 'IOF', :]
+        # remove L0/R0 filters
+        iofs = iofs.loc[~iofs['FILTER'].str.contains('0'), :]
+        # filter on the seqid
+        if seq_id is not None:
+            iofs = iofs.loc[iofs['SEQ_ID'] == seq_id, :]
+        # clean up the indexes
+        iofs = iofs.reset_index(drop=True)
+        # load the dataframe into a marslab zcam bandset
+        zcam_bandset = mastcamz.ZcamBandSet(iofs)
+        # load and debayer the products
+        zcam_bandset.load('all', quiet=True)
+        zcam_bandset.bulk_debayer('all')
+        return zcam_bandset
+
+    @classmethod
+    def try_load_file(cls, path: str, filled: str = '') -> 'MastcamZMultispectralDataImpl':
+        """
+        Given an image file path for a mastcam-Z multispectral observation,
+        find all the other frames in that directory which share the
+        same sequence id (are part of the same observation) and are I/F (IOF)
+        images.
+
+        Also locate the left to right and optionaly the right to left disparity files
+        """
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        # get the other zcam frames in the current directory if they exist and load them in gdal datasets
+        parent = Path(path).parent
+        seqid = sequence(Path(path).name)
+        # get all possible mspec frames in the directory
+        mspec_file_paths = [list(parent.glob(f'{bn}*IOF*{seqid}*.IMG')) for bn in zcam_filter_to_wavelength.keys()]
+        # filter down to those that exist on the file system
+        mspec_files = [str(_[0]) for _ in mspec_file_paths if len(_) > 0 and _[0].exists()]
+        # disparity file is either a ZL?*_DSP or ZR*_DSP file in that directory
+        left_disparity = MastcamZMultispectralDataImpl._load_dsp_file(parent, ZCamCameraPrefix.ZL1, filled=filled)
+        right_disparity = MastcamZMultispectralDataImpl._load_dsp_file(parent, ZCamCameraPrefix.ZR1, filled=filled)
+        return cls(*mspec_files, left_disparity=left_disparity, right_disparity=right_disparity)
+
+    def __init__(self, *mspec_images, left_disparity=None, right_disparity=None):
+        """
+        Init method for a MastcamZMultispectralData object
+
+        :param mspec_images: list of mspec image files to consider
+        :param left_disparity: Optional left disparity map
+        :param right_disparity: Optional right disparity map
+        """
+        self._left_vis: GDALRasterDataImpl = None
+        self._right_vis: GDALRasterDataImpl = None
+        self._filepaths: list[str] = list(mspec_images)
+        self.parent = Path(self._filepaths[0]).parent
+        self.seq_id = sequence(Path(self._filepaths[0]).name)
+        self.zcam_band_set = self.load_bandset(self.parent, seq_id=self.seq_id)
+        for image_path in mspec_images:
+            key = Path(image_path).stem[0:3]
+            if key == 'ZLF' or key == 'ZL0':
+                self._left_vis = GDALRasterDataImpl(MastcamZMultispectralDataImpl._load_img_file(image_path))
+                # todo each ZL0/ZR0 raster needs to be split into independent bands
+            elif key == 'ZRF' or key == 'ZR0':
+                self._right_vis = GDALRasterDataImpl(MastcamZMultispectralDataImpl._load_img_file(image_path))
+                # todo each ZL0/ZR0 raster needs to be split into independent bands
+            else:
+                pass
+                # a more normal ZCAM frame to load
+                #self.bands[key] = self._load_mcz_frame(Path(image_path))
+        # load the disparity maps
+        self.left_disparity = None if left_disparity is None else left_disparity.ReadAsArray()
+        self.right_disparity = None if right_disparity is None else right_disparity.ReadAsArray()
+        if self.left_disparity is None and self.right_disparity is None:
+            raise RuntimeError('No left disparity or right disparity file found, at least one is needed')
+
+    def get_width(self) -> int:
+        """
+        Returns the width of the image
+        """
+        return self._left_vis.get_width()
+
+    def get_height(self) -> int:
+        """
+        Returns the height of the image
+        """
+        return self._left_vis.get_height()
+
+    def get_format(self) -> str:
+        """
+        Returns the format of the image
+        """
+        return self._left_vis.get_format()
+
+    def get_filepaths(self) -> List[str]:
+        """
+        Returns the list of filepaths associated with the ZCam Mspec observation
+        """
+        return self._filepaths
+
+    def num_bands(self) -> int:
+        """
+        Get the number of spectral bands in the ZCam Mspec observation
+        """
+        return len(self._get_band_keys(with_hidden=False))
+
+    def read_bad_bands(self) -> List[int]:
+        return [1 if 'hidden' not in b else 0 for b in self.read_band_info(with_hidden=False)]
+
+    def get_elem_type(self) -> np.dtype:
+        """
+        Returns the element type of the ZCam Mspec observation
+        """
+        return self._left_vis.get_elem_type()
+
+    def _get_band_keys(self, with_hidden: bool = False):
+        """
+        get the list of supported bands, optionally adding
+        hidden bands as bands that can be viewed in the UI
+        but do not contribute spectral information
+        """
+        band_keys = self.zcam_band_set.metadata.sort_values('WAVELENGTH')['FILTER']
+        if with_hidden:
+            hidden_bands = []
+            if self.left_disparity is not None:
+                hidden_bands.append('L1_DSP_X')
+                hidden_bands.append('L1_DSP_Y')
+            if self.right_disparity is not None:
+                hidden_bands.append('R1_DSP_X')
+                hidden_bands.append('R1_DSP_Y')
+            # todo: to get vis to work need to debayer L0/R0
+            #if self._left_vis is not None:
+            #    hidden_bands.extend(('L0_R', 'L0_G', 'L0_B'))
+            #if self._right_vis is not None:
+            #    hidden_bands.extend(('R0_R', 'R0_G', 'R0_B'))
+            band_keys = pd.concat([band_keys, pd.Series(hidden_bands)])
+        return band_keys
+
+    def read_band_info(self, with_hidden=True) -> List[Dict[str, Any]]:
+        """
+        Returns the bands information for each band of the ZCam Mspec observation
+        as a list of dictionaries containing filter name, wavelength, and wavelength units
+        """
+        band_info = []
+        for i, key in enumerate('Z'+self._get_band_keys(with_hidden=with_hidden), start=1):
+            wavelength = zcam_filter_to_wavelength.get(key, None)
+            info = dict(
+                index=i - 1,
+                description=zcam_filter_to_name.get(key, key),
+            )
+            if wavelength is not None:
+                info['wavelength'] = wavelength
+                info['wavelength_str'] = str(wavelength)
+                info['wavelength_units'] = u.nm
+            else:
+                info['hidden'] = True
+            band_info.append(info)
+        return band_info
+
+    def get_all_bands_at(self, x, y) -> np.ndarray:
+        """
+        For each available band, get the corresponding value at location x,y
+        using the disparity map of the ZCam Mspec observation to correct the position per band
+        returning the result as a numpy array
+
+        todo: the way WISER currently extracts spectra from multiple positions is inefficient.
+        For example when a kernel of pixels is used to produce a spectral plot this method
+        is called once per coordinate of the box around the user selected point. It would
+        be better if get_all_bands_at accepted numpy arrays instead of individual x/y coordinates
+
+        :param x: the x coordinate to extract spectra from
+        :param y: the y coordinate to extract spectra from
+        """
+        res = []
+        use_left = self.left_disparity is not None
+        for key in self._get_band_keys():
+            img = self.zcam_band_set.get_band(key)
+            if key in {'LF', 'L0', 'R0', 'RF'}:
+                # todo: do work here to load multispectral information from the bayer filtered vis images
+                continue
+            if 'L' in key:
+                if use_left:
+                    data = img[y, x]
+                else:
+                    lx, ly = self.right_to_left([x, y])
+                    data = img[ly, lx]
+            else:
+                # this is a right image
+                if use_left:
+                    rx, ry = self.left_to_right([x, y])
+                    data = img[ry, rx]
+                else:
+                    data = img[y, x]
+            res.append(data)
+        return np.stack(res, axis=0)
+
+    def get_band_data(self, band_index: int) -> np.ndarray:
+        """
+        Get all data for a given band index as a numpy array
+        """
+        band_key = list(self._get_band_keys(with_hidden=True))[band_index]
+        if band_key == 'L1_DSP_X':
+            return self.left_disparity[1]
+        elif band_key == 'L1_DSP_Y':
+            return self.left_disparity[0]
+        elif band_key == 'R1_DSP_X':
+            return self.right_disparity[1]
+        elif band_key == 'R1_DSP_Y':
+            return self.right_disparity[0]
+        elif band_key == 'L0_R':
+            return self._left_vis.get_band_data(0)
+        elif band_key == 'L0_G':
+            return self._left_vis.get_band_data(1)
+        elif band_key == 'L0_B':
+            return self._left_vis.get_band_data(2)
+        elif band_key == 'R0_R':
+            return self._right_vis.get_band_data(0)
+        elif band_key == 'R0_G':
+            return self._right_vis.get_band_data(1)
+        elif band_key == 'R0_B':
+            return self._right_vis.get_band_data(2)
+        else:
+            return self.zcam_band_set.get_band(band_key)
+
+    @staticmethod
+    def _map_coords(disp: np.ndarray, xy):
+        """
+        Perform the mapping of the coordinates from one camera to another using the disparity map
+        """
+        xy = np.array([xy[::-1]]).T
+        # band 1 is y position (bottom is 1200, top is 0), band 2 is x
+        y = np.floor(map_coordinates(disp[0], xy, mode='grid-constant', order=1)).astype(int)
+        x = np.floor(map_coordinates(disp[1], xy, mode='grid-constant', order=1)).astype(int)
+        return int(x), int(y)
+
+    def left_to_right(self, xy):
+        """
+        given a set of points in the left image
+        get the corresponding right image coordinates
+
+        shape of xy needs to be 2,n
+        :param xy: ndarray of points in the left image coordinates
+        """
+        assert self.left_disparity is not None
+        rx, ry = self._map_coords(self.left_disparity, xy)
+        return rx, ry
+
+    def right_to_left(self, xy):
+        """
+        given a set of points in the right image
+        get the corresponding left image coordinates
+
+        shape of xy needs to be 2,n
+        :param xy: ndarray of points in the right image coordinates
+        """
+        assert self.right_disparity is not None
+        lx, ly = self._map_coords(self.right_disparity, xy)
+        return lx, ly
