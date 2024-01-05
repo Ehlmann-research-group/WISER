@@ -128,7 +128,7 @@ class RasterDataSet:
 
     def _compute_has_wavelengths(self):
         for b in self._band_info:
-            if 'wavelength' not in b:
+            if 'wavelength' not in b and 'hidden' not in b:
                 return False
 
         return True

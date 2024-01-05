@@ -120,7 +120,7 @@ def find_band_near_wavelength(bands: List[Dict],
     If no suitable band is found, the function returns None.
     '''
 
-    wavelengths = [b.get('wavelength') for b in bands]
+    wavelengths = [b.get('wavelength') for b in bands if 'hidden' not in b]
     if None in wavelengths:
         raise ValueError('Not all bands specify a wavelength')
 
