@@ -1,0 +1,54 @@
+         7571 function calls in 8.580 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        2    7.819    3.909    7.819    3.909 {built-in method osgeo._gdal_array.DatasetIONumPy}
+        1    0.756    0.756    8.580    8.580 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\bandmath\builtins\oper_add.py:94(apply)
+      576    0.001    0.000    0.001    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\shiboken2\files.dir\shibokensupport\feature.py:105(_import)
+        2    0.001    0.000    7.823    3.911 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:396(DatasetReadAsArray)
+      572    0.001    0.000    0.002    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:5638(_add_child_ref)
+      572    0.000    0.000    0.003    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:4159(GetRasterBand)
+      572    0.000    0.000    0.000    0.000 {built-in method osgeo._gdal.Dataset_GetRasterBand}
+      572    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\_weakrefset.py:85(add)
+        2    0.000    0.000    0.000    0.000 {built-in method builtins.print}
+      572    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\_weakrefset.py:39(_remove)
+      576    0.000    0.000    0.000    0.000 {built-in method builtins.__import__}
+     1152    0.000    0.000    0.000    0.000 {method 'get' of 'dict' objects}
+      600    0.000    0.000    0.000    0.000 {built-in method builtins.hasattr}
+        2    0.000    0.000    0.000    0.000 {built-in method osgeo._gdal.Dataset_GetVirtualMem}
+      572    0.000    0.000    0.000    0.000 {method 'add' of 'set' objects}
+      572    0.000    0.000    0.000    0.000 {method 'discard' of 'set' objects}
+        2    0.000    0.000    0.000    0.000 {built-in method numpy.empty}
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:5455(GetVirtualMemArray)
+      576    0.000    0.000    0.000    0.000 {built-in method sys._getframe}
+        2    0.000    0.000    7.823    3.911 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\dataset_impl.py:162(get_image_data)
+        2    0.000    0.000    7.823    3.911 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:5213(ReadAsArray)
+        1    0.000    0.000    3.824    3.824 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\bandmath\utils.py:226(make_image_cube_compatible)
+       12    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:377(_to_primitive_type)
+        2    0.000    0.000    7.823    3.911 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\bandmath\types.py:144(as_numpy_array)
+        4    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:325(flip_code)
+        2    0.000    0.000    7.823    3.911 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\dataset.py:342(get_image_data)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\bandmath\types.py:87(__init__)
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\logging\__init__.py:1734(isEnabledFor)
+       16    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}
+        2    0.000    0.000    7.819    3.909 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:254(DatasetIONumPy)
+        4    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:1207(_handle_fromlist)
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\logging\__init__.py:1467(debug)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\enum.py:726(__contains__)
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:4561(GetVirtualMem)
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:347(GDALTypeCodeToNumericTypeCode)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\logging\__init__.py:228(_acquireLock)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\logging\__init__.py:1720(getEffectiveLevel)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:342(NumericTypeCodeToGDALTypeCode)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\bandmath\utils.py:64(reorder_args)
+        3    0.000    0.000    0.000    0.000 {built-in method builtins.len}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\logging\__init__.py:237(_releaseLock)
+        1    0.000    0.000    0.000    0.000 {method 'acquire' of '_thread.RLock' objects}
+        2    0.000    0.000    0.000    0.000 {method 'lower' of 'str' objects}
+        2    0.000    0.000    0.000    0.000 {method 'items' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\logging\__init__.py:1319(disable)
+        1    0.000    0.000    0.000    0.000 {method 'release' of '_thread.RLock' objects}
+
+

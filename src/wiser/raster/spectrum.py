@@ -47,7 +47,7 @@ def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverage
     '''
     points = [(rect.left() + dx, rect.top() + dy)
               for dx, dy in np.ndindex(rect.width(), rect.height())]
-
+    print('rect: ', rect)
     return calc_spectrum(dataset, points, mode)
 
 
@@ -69,10 +69,12 @@ def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
         n += 1
         s = dataset.get_all_bands_at(p[0], p[1])
         spectra.append(s)
-
+    # print('Done!!!!!!!!')
     if len(spectra) > 1:
         # Need to compute mean/median/... of the collection of spectra
         if mode == SpectrumAverageMode.MEAN:
+            # Note (JoshuaGK) Where mean of spectra is computed
+            print("Spectra: ", type(spectra))
             spectrum = np.mean(spectra, axis=0)
 
         elif mode == SpectrumAverageMode.MEDIAN:

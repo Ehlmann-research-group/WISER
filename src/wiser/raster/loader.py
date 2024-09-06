@@ -36,7 +36,7 @@ class RasterDataLoader:
 
     def load_from_file(self, path):
         '''
-        Load a raster data-set from the specified path.  Returns a
+        Load a raster data-set from the specified path. Returns a
         :class:`RasterDataSet` object.
         '''
 
