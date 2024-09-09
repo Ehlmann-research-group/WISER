@@ -30,14 +30,11 @@ def profile(dataset_path: str):
     # Save the profiling stats to a file
     with open("output/bandmath_add_stats.txt", "w") as f:
         ps = pstats.Stats(profiler, stream=f)
-        ps.sort_stats("tottime")  # Sort by cumulative time (you can choose other sorts too)
+        ps.sort_stats("tottime") 
         ps.print_stats()
-
-    print(res.get_shape())
 
 
 if __name__ == '__main__':
-    # print(sys.path)
     dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     profile(dataset_path)
-    print('Done with calculation')
+    print('Done with profiling')

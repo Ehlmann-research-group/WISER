@@ -1,46 +1,41 @@
 import sys
 sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser")
 sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src")
-from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.roi import RegionOfInterest
-from wiser.raster.selection import RectangleSelection
-from wiser.raster.spectrum import calc_roi_spectrum
-from PySide2.QtCore import *
+from wiser.gui.app import DataVisualizerApp
+
+from wiser.gui.stretch_builder import StretchBuilderDialog
+
+from PySide2.QtWidgets import QApplication
 import cProfile
 import pstats
 
 # Load in a raster dataset, a list of QPoints and spectrum.py
-def profile(dataset_path: str):
+def profile(dataset_path: str, output_path: str) -> None:
     loader = RasterDataLoader()
     dataset = loader.load_from_file(dataset_path)
-    roi = RegionOfInterest(name='testing_roi')
-    roi.add_selection(RectangleSelection(QPoint(10,800), QPoint(310, 1100)))
 
+    # stretch_builder_dialog = StretchBuilderDialog()
+    app = QApplication([])
+    app = DataVisualizerApp()
+    app._app_state.open_file(dataset_path)
+    app._main_view._on_stretch_builder()
     profiler = cProfile.Profile()
     profiler.enable()
     print('================Enabled Profile================')
-    spectrum = calc_roi_spectrum(dataset, roi)
+    app._main_view._stretch_builder._stretch_config._ui.rb_stretch_linear.click()
     profiler.disable()
     print('================Disabled Profile================')
 
+    # TODO(donnie):  Pass Qt arguments
     # Save the profiling stats to a file
-    with open("output/profile_stats3.txt", "w") as f:
+    with open(output_path, "w") as f:
         ps = pstats.Stats(profiler, stream=f)
         ps.sort_stats("tottime")
         ps.print_stats()
 
 if __name__ == '__main__':
     dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
-    profile(dataset_path)
+    output_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser\\profiling\\output\\constrast_stretch_stats.txt'
+    profile(dataset_path, output_path)
     print('Done with profiling')
-
-'''
-Commands:
-- py-spy, sample profiler
-    - From src/wiser/profiling
-    - py-spy record -o output/profile.svg -- python -m spectra_mean.py
-- cProfile
-    - From src/wiser/profiling
-    - python -m cProfile spectra_mean.py > output/profile_output.txt
-'''
