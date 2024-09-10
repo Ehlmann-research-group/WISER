@@ -123,7 +123,7 @@ def main(hdr_file, factor):
     new_wavelengths = wavelengths
 
     driver = gdal.GetDriverByName('ENVI')
-    out_file = f"{base_name}_expanded_lines_samples_{factor}"
+    out_file = f"{base_name}_expanded_lines_and_samples_{factor}"
 
     # Create the new output dataset
     out_dataset = driver.Create(out_file, xsize=image_cube_expanded.shape[2],
@@ -152,6 +152,7 @@ def main(hdr_file, factor):
     print(f"Output written to {out_file} and {out_hdr_file}")
 
 if __name__ == "__main__":
-    hdr_file = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
+    # hdr_file = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
+    hdr_file = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr"
     factor = 2 
     main(hdr_file, factor)

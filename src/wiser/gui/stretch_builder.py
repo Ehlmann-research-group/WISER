@@ -486,7 +486,6 @@ class StretchConfigWidget(QWidget):
 
 
 class StretchBuilderDialog(QDialog):
-
     # Signal:  When the stretch is changed in the Stretch Builder, the dialog
     # will notify any listeners that the stretch has changed.  The signal values
     # are as follows:

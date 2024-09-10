@@ -35,6 +35,9 @@ def profile(dataset_path: str):
 
 
 if __name__ == '__main__':
+    '''
+    It is okay for this profile to use an image that is not incredibly big because the sampler profile takes a long time to run
+    '''
     dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     profile(dataset_path)
     print('Done with profiling')

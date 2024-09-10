@@ -25,13 +25,13 @@ def profile(dataset_path: str):
     print('================Disabled Profile================')
 
     # Save the profiling stats to a file
-    with open("output/profile_stats3.txt", "w") as f:
+    with open(f"output/roi_profile.txt", "w") as f:
         ps = pstats.Stats(profiler, stream=f)
         ps.sort_stats("tottime")
         ps.print_stats()
 
 if __name__ == '__main__':
-    dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
+    dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.2_Slow_ROI_Mean_5gb_285_spectra\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr'
     profile(dataset_path)
     print('Done with profiling')
 

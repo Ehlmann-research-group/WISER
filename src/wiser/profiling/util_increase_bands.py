@@ -138,7 +138,7 @@ def multiply_band_dimension(image_cube, factor, metadata):
 
 def assert_slices_equal(image_cube):
     bands, samples, lines = image_cube.shape
-    print('AASERTING')
+    print('ASSERTING')
     for i in range(0, bands - 1, 2):  # Go through every other band
         assert np.array_equal(image_cube[i, :, :], image_cube[i + 1, :, :]), f"Slice {i} is not equal to slice {i + 1}"
 
@@ -220,7 +220,7 @@ def main(hdr_file, factor):
 
     # Multiply the L dimension by stacking each slice N times
     image_cube_expanded = multiply_band_dimension(image_cube, factor, metadata)
-    assert_slices_equal(image_cube_expanded)
+    # assert_slices_equal(image_cube_expanded)
     # Now all the data is in BSQ
     samples = image_cube_expanded.shape[1]
     lines = image_cube_expanded.shape[2]
@@ -234,7 +234,7 @@ def main(hdr_file, factor):
 
     # Get metadata for writing the new file
     driver = gdal.GetDriverByName('ENVI')
-    out_file = f"{base_name}_expanded_bands_by_{factor}"
+    out_file = f"{base_name}_increased_bands_by_{factor}"
 
     # Create a new output dataset
     out_dataset = driver.Create(out_file, xsize=lines,
@@ -271,5 +271,5 @@ def main(hdr_file, factor):
 
 if __name__ == "__main__":
     hdr_file = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
-    factor = 2
+    factor = 5
     main(hdr_file, factor)
