@@ -49,7 +49,6 @@ class SpectrumInfoEditor(QDialog):
 
     def configure_ui(self, spectrum: Spectrum):
         self._spectrum = spectrum
-        self._should_plot_update = False
 
         #========================================
         # Constants:
@@ -140,7 +139,6 @@ class SpectrumInfoEditor(QDialog):
     def _on_choose_color(self, checked):
         initial_color = QColor(self._ui.lineedit_plot_color.text())
         color = QColorDialog.getColor(parent=self, initial=initial_color)
-        print("COLOR PRESSED")
         if color.isValid():
             # self._spectrum.set_color(color.name())
             self._ui.lineedit_plot_color.setText(color.name())
@@ -150,7 +148,6 @@ class SpectrumInfoEditor(QDialog):
         '''
         If the user edits the spectrum name, clear the "auto-generate name" flag
         '''
-        print("NAME EDITED")
         self._ui.ckbox_autogen_name.setChecked(False)
 
 
@@ -162,9 +159,6 @@ class SpectrumInfoEditor(QDialog):
         self._maybe_regenerate_name()
 
     def _on_aavg_mode_changed(self, index):
-        print("Average mode changed!!!")
-        print("self._ui.combobox_avg_mode.currentIndex(): ", self._ui.combobox_avg_mode.currentIndex())
-        print("self._initial_avg_mode: ", self._initial_avg_mode)
         if self._ui.combobox_avg_mode.currentIndex() != self._initial_avg_mode:
             self._compute_values_changed['_initial_avg_mode'] = True
         else:
@@ -173,9 +167,6 @@ class SpectrumInfoEditor(QDialog):
         self._maybe_regenerate_name()
 
     def _on_finish_aavg(self):
-        print("Editing finished!!!")
-        print("self._ui.lineedit_area_avg_x.text() : ",  self._ui.lineedit_area_avg_x.text())
-        print("self._initial_area_avg_x : ", self._initial_area_avg_x)
         if (self._ui.lineedit_area_avg_x.text() != self._initial_area_avg_x):
             self._compute_values_changed['_initial_area_avg_x'] = True
         else:
@@ -194,6 +185,7 @@ class SpectrumInfoEditor(QDialog):
         # Verify UI values before making any changes.
 
         # Name
+
         use_autogen_name = False  # RasterDataSetSpectrum-specific field
         if isinstance(self._spectrum, RasterDataSetSpectrum):
             use_autogen_name = self._ui.ckbox_autogen_name.isChecked()
@@ -257,8 +249,6 @@ class SpectrumInfoEditor(QDialog):
         # Process values so object using this knows what changed
 
         self.should_recalculate = any(self._compute_values_changed.values())
-        print("In Accept")
-        print("self.should_recalculate: ", self.should_recalculate)
         #=======================================================================
         # All done!
 

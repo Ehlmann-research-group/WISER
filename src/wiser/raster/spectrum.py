@@ -453,7 +453,6 @@ class RasterDataSetSpectrum(Spectrum):
         Return the spectrum data as a 1D NumPy array.
         '''
         if self._spectrum is None:
-            print("Having to recalculate spectrum in get_spectrum")
             self._calculate_spectrum()
 
         return self._spectrum
