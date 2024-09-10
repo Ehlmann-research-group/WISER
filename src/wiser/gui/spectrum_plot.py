@@ -208,16 +208,6 @@ class SpectrumDisplayInfo:
             assert(len(lines) == 1)
             self._line2d = lines[0]
 
-    # def change_plot_color(self, axes, use_wavelengths):
-    #     # If we already have a plot, remove it.
-    #     self.remove_plot()
-
-    #     if self._values is not None:
-    #         self._values = self._spectrum.get_spectrum()
-    #     color = self._spectrum.get_color()
-    #     linewidth = 0.5
-
-
     def remove_plot(self):
         if self._line2d is not None:
             self._line2d.remove()
@@ -1506,12 +1496,11 @@ class SpectrumPlot(QWidget):
         if self._spectrum_edit_dialog.exec() != QDialog.Accepted:
             # User canceled out of the edit.
             return
-        print("!!!self._spectrum_edit_dialog!!!")
-        print(self._spectrum_edit_dialog)
+        
         # If we got here, update the tree-view item with the spectrum's info.
 
         treeitem.setText(0, spectrum.get_name())
-        print("self._spectrum_edit_dialog.should_recalculate: ", self._spectrum_edit_dialog.should_recalculate)
+        
         # Is the spectrum currently being displayed?
         display_info = self._spectrum_display_info.get(spectrum.get_id())
         if display_info is not None:
