@@ -1,0 +1,70 @@
+         363802 function calls (363800 primitive calls) in 0.739 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.573    0.573    0.573    0.573 {built-in method osgeo._gdal_array.DatasetIONumPy}
+        1    0.059    0.059    0.739    0.739 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:41(calc_rect_spectrum)
+        1    0.049    0.049    0.094    0.094 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:48(<listcomp>)
+    90001    0.026    0.000    0.033    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\index_tricks.py:684(__next__)
+    90001    0.007    0.000    0.007    0.000 {built-in method builtins.next}
+    90001    0.006    0.000    0.006    0.000 {method 'top' of 'PySide2.QtCore.QRect' objects}
+    90001    0.006    0.000    0.006    0.000 {method 'left' of 'PySide2.QtCore.QRect' objects}
+        1    0.005    0.005    0.005    0.005 {method 'reduce' of 'numpy.ufunc' objects}
+        9    0.005    0.001    0.005    0.001 {built-in method builtins.print}
+        1    0.000    0.000    0.575    0.575 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:396(DatasetReadAsArray)
+      286    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\shiboken2\files.dir\shibokensupport\feature.py:105(_import)
+      285    0.000    0.000    0.001    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:5638(_add_child_ref)
+      285    0.000    0.000    0.001    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:4159(GetRasterBand)
+      285    0.000    0.000    0.000    0.000 {built-in method osgeo._gdal.Dataset_GetRasterBand}
+      285    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\_weakrefset.py:85(add)
+      285    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\_weakrefset.py:39(_remove)
+        2    0.000    0.000    0.000    0.000 {built-in method numpy.zeros}
+        1    0.000    0.000    0.585    0.585 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:54(calc_spectrum)
+        1    0.000    0.000    0.006    0.006 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\_methods.py:163(_mean)
+      286    0.000    0.000    0.000    0.000 {built-in method builtins.__import__}
+      572    0.000    0.000    0.000    0.000 {method 'get' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\index_tricks.py:657(__init__)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\stride_tricks.py:38(as_strided)
+      4/2    0.000    0.000    0.006    0.003 {built-in method numpy.core._multiarray_umath.implement_array_function}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\_methods.py:66(_count_reduce_items)
+      298    0.000    0.000    0.000    0.000 {built-in method builtins.hasattr}
+      285    0.000    0.000    0.000    0.000 {method 'add' of 'set' objects}
+      285    0.000    0.000    0.000    0.000 {method 'discard' of 'set' objects}
+        1    0.000    0.000    0.000    0.000 {built-in method numpy.empty}
+      286    0.000    0.000    0.000    0.000 {built-in method sys._getframe}
+        1    0.000    0.000    0.006    0.006 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\fromnumeric.py:3313(mean)
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:325(flip_code)
+        6    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:377(_to_primitive_type)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\numeric.py:76(zeros_like)
+        1    0.000    0.000    0.006    0.006 <__array_function__ internals>:177(mean)
+        1    0.000    0.000    0.575    0.575 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:5213(ReadAsArray)
+        1    0.000    0.000    0.000    0.000 {built-in method numpy.asarray}
+        1    0.000    0.000    0.573    0.573 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:254(DatasetIONumPy)
+        1    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:1207(_handle_fromlist)
+        1    0.000    0.000    0.575    0.575 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\dataset_impl.py:229(get_all_bands_rect)
+        1    0.000    0.000    0.000    0.000 <__array_function__ internals>:177(zeros_like)
+        6    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}
+        2    0.000    0.000    0.000    0.000 {method 'width' of 'PySide2.QtCore.QRect' objects}
+        1    0.000    0.000    0.000    0.000 <__array_function__ internals>:177(empty_like)
+        3    0.000    0.000    0.000    0.000 {built-in method builtins.len}
+        2    0.000    0.000    0.000    0.000 {method 'height' of 'PySide2.QtCore.QRect' objects}
+        1    0.000    0.000    0.000    0.000 {built-in method numpy.core._multiarray_umath.normalize_axis_index}
+        1    0.000    0.000    0.000    0.000 <__array_function__ internals>:177(copyto)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:347(GDALTypeCodeToNumericTypeCode)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 {built-in method numpy.asanyarray}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:342(NumericTypeCodeToGDALTypeCode)
+        1    0.000    0.000    0.000    0.000 {built-in method numpy.array}
+        1    0.000    0.000    0.000    0.000 {method 'lower' of 'str' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\stride_tricks.py:25(_maybe_view_as_subclass)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\stride_tricks.py:20(__init__)
+        2    0.000    0.000    0.000    0.000 {built-in method builtins.issubclass}
+        1    0.000    0.000    0.000    0.000 {method 'items' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\numeric.py:72(_zeros_like_dispatcher)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\fromnumeric.py:3308(_mean_dispatcher)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\multiarray.py:1071(copyto)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\multiarray.py:80(empty_like)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\index_tricks.py:665(__iter__)
+
+

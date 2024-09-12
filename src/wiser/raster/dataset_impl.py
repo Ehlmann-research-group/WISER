@@ -225,6 +225,30 @@ class GDALRasterDataImpl(RasterDataImpl):
         np_array = np_array.reshape(np_array.shape[0])
 
         return np_array
+    
+    def get_all_bands_rect(self, top, left, dx, dy):
+        '''
+        Returns a numpy 1D array of the values of all bands at the specified
+        (x, y) coordinate in the raster data.
+
+        If filter_bad_values is set to True, bands that are marked as "bad" in
+        the metadata will be set to NaN, and bands with the "data ignore value"
+        will also be set to NaN.
+        '''
+
+        # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
+        #     different raster bands can have different dimensions, data types,
+        #     etc.  Should probably do some sanity checking in the initializer.
+        # TODO(donnie):  This doesn't work with a virtual-memory array, but
+        #     maybe the non-virtual-memory approach is faster.
+        # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
+        #     xsize=1, ysize=1)
+        np_array = self.gdal_dataset.ReadAsArray(xoff=left, yoff=top, xsize=dx, ysize=dy)
+
+        # The numpy array comes back as a 3D array with the shape (bands,1,1),
+        # so reshape into a 1D array with shape (bands).
+
+        return np_array
 
     def read_band_info(self) -> List[Dict[str, Any]]:
         '''

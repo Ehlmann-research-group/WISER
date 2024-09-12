@@ -13,6 +13,7 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.roi import RegionOfInterest
+from wiser.raster.selection import SelectionType
 
 
 #============================================================================
@@ -48,11 +49,77 @@ def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverage
     points = [(rect.left() + dx, rect.top() + dy)
               for dx, dy in np.ndindex(rect.width(), rect.height())]
     print('rect: ', rect)
-    return calc_spectrum(dataset, points, mode)
+    return calc_spectrum(dataset, points, mode, rect)
 
+def find_rectangles_in_row(row, y):
+    rectangles = []
+    start = None
+    
+    for x in range(len(row)):
+        if row[x] == 1 and start is None:
+            start = x  # Start of a new rectangle
+        elif row[x] == 0 and start is not None:
+            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
+            start = None
+    
+    # If the row ends and a rectangle was still open
+    if start is not None:
+        rectangles.append(np.array([start, len(row) - 1, y, y]))
+    
+    return rectangles
 
-def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
-                  mode=SpectrumAverageMode.MEAN):
+def raster_to_combined_rectangles_x_axis(raster):
+    rectangles = []
+    previous_row_rectangles = []
+
+    for y in range(raster.shape[0]):  # For each row (y-coordinate)
+        row = raster[y]
+        current_row_rectangles = find_rectangles_in_row(row, y)
+        # print("current_row_rectangles: ", current_row_rectangles)
+        new_rectangles = []
+
+        # Try to merge with rectangles from the previous row
+        for curr_rect in current_row_rectangles:
+            x_start, x_end, y_start, y_end = curr_rect
+
+            merged = False
+            for prev_rect in previous_row_rectangles:
+                # print(prev_rect)
+                prev_x_start, prev_x_end, prev_y_start, prev_y_end = prev_rect
+
+                if prev_x_start == x_start and prev_x_end == x_end and prev_y_end == y - 1:
+                    # Merge the current rectangle with the previous one
+                    # new_rectangles.append((x_start, x_end, prev_y_start, y))
+                    prev_rect[-1] = y
+                    merged = True
+                    break
+
+            if not merged:
+                new_rectangles.append(np.array([x_start, x_end, y_start, y_end]))
+
+        previous_row_rectangles = new_rectangles
+        rectangles += new_rectangles  # Accumulate merged rectangles
+
+    return np.array(rectangles)
+
+def raster_to_combined_rectangles_y_axis(raster_y: np.ndarray):
+    raster_x = raster_y.T
+    rectangles_x = raster_to_combined_rectangles_x_axis(raster_x)
+    rectangles_y = rectangles_x[:, [0, 1, 2, 3]] = rectangles_x[:, [2, 3, 0, 1]]
+    return rectangles_y
+
+def array_to_qrects(array):
+    qrects = []
+    for row in array:
+        x1, x2, y1, y2 = row
+        # QRect takes (x, y, width, height), so calculate width and height
+        width = x2 - x1 + 1
+        height = y2 - y1 + 1
+        qrects.append(QRect(x1, y1, width, height))
+    return qrects
+
+def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
+                  mode=SpectrumAverageMode.MEAN, rect=None):
     '''
     Calculate a spectrum over a collection of points from the specified dataset.
     The calculation mode can be specified with the mode argument.
@@ -65,23 +132,132 @@ def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
     spectra = []
 
     # Collect the spectra that we need for the calculation
-    for p in points:
-        n += 1
-        s = dataset.get_all_bands_at(p[0], p[1])
-        spectra.append(s)
-    # print('Done!!!!!!!!')
+    print("Collecting spectra starting")
+    for selection in roi.get_selections():
+        selection_type = selection.get_type()
+        # If the selection type is single pixel, multip pixel, or predicate we just get
+        # all pixels and add it to spectra
+        if selection_type == SelectionType.SINGLE_PIXEL or \
+            selection_type == SelectionType.MULTI_PIXEL or \
+            selection_type == SelectionType.PREDICATE:
+            for p in selection.get_all_pixels():
+                n += 1
+                s = dataset.get_all_bands_at(p[0], p[1])
+                spectra.append(s)
+        elif selection_type == SelectionType.RECTANGLE:
+            rect = selection.get_rect()
+            left = rect.left()
+            top = rect.top()
+            dx = rect.width()
+            dy = rect.height()
+            # TODO (Joshua G-K), find a way to get bad bands
+            s = dataset._impl.get_all_bands_rect(top, left, dx, dy)
+            print("s.shape: ", s.shape)
+            s = np.reshape(s, (-1, s.shape[0]))
+            print("new s.shape: ", s.shape)
+            spectra.extend(s)
+        # TODO: (Joshua G-K) Make a super cool, fast algorithm to make polygons work 
+        # better than this
+        elif selection_type == SelectionType.POLYGON:
+            rasterized_poly = selection.get_rasterized_polygon()
+            poly_arr = rasterized_poly.get_array()
+            rect_x_axis = raster_to_combined_rectangles_x_axis(poly_arr)
+            rect_y_axis = raster_to_combined_rectangles_y_axis(poly_arr)
+            rects = None
+            if len(rect_x_axis) < len(rect_y_axis):
+                rects = rect_x_axis
+            else:
+                rects = rect_y_axis
+            bbox = selection.get_bounding_box()
+            rects[:,:2] += bbox.left()
+            rects[:,2:] += bbox.top()
+            qrects = array_to_qrects(rects)
+            # print(qrects)
+            for qrect in qrects:
+                left = qrect.left()
+                top = qrect.top()
+                dx = qrect.width()
+                dy = qrect.height()
+                s = dataset._impl.get_all_bands_rect(top, left, dx, dy)
+                # print("poly before s.shape", s.shape)
+                s = np.reshape(s, (-1, s.shape[0]))
+                # print("poly s.shape", s.shape)
+                # print("left: ", left)
+                # print("top: ", top)
+                # print("dx: ", dx)
+                # print("dy: ", dy)
+                spectra.extend(s)
+
+
+        
+        
+        
+        print('spectra length: ', len(spectra))
+
     if len(spectra) > 1:
+        print("Spectra computing starting")
         # Need to compute mean/median/... of the collection of spectra
         if mode == SpectrumAverageMode.MEAN:
             # Note (JoshuaGK) Where mean of spectra is computed
             print("Spectra: ", type(spectra))
             spectrum = np.mean(spectra, axis=0)
-
         elif mode == SpectrumAverageMode.MEDIAN:
             spectrum = np.median(spectra, axis=0)
-
         else:
             raise ValueError(f'Unrecognized average type {mode}')
+        print("Spectra computing ended")
+
+    else:
+        # Only one spectrum, don't need to compute mean/median
+        spectrum = spectra[0]
+
+    return spectrum
+
+def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
+                  mode=SpectrumAverageMode.MEAN, rect=None):
+    '''
+    Calculate a spectrum over a collection of points from the specified dataset.
+    The calculation mode can be specified with the mode argument.
+
+    The points argument can be any iterable that produces coordinates for this
+    function to use.
+    '''
+
+    n = 0
+    spectra = []
+
+    # Collect the spectra that we need for the calculation
+    print("Collecting spectra starting")
+    if rect is None:
+        for p in points:
+            n += 1
+            s = dataset.get_all_bands_at(p[0], p[1])
+            spectra.append(s)
+        print("POLYGON")
+        print(s.shape)
+    else:
+        left = rect.left()
+        top = rect.top()
+        dx = rect.width()
+        dy = rect.height()
+        s = dataset._impl.get_all_bands_rect(top, left, dx, dy)
+        print("RECTANGLE")
+        print(s.shape)
+        spectra = s
+    print("len(spectra): ", len(spectra))
+    print("Collecting spectra ended")
+    if len(spectra) > 1:
+        print("Spectra computing starting")
+        # Need to compute mean/median/... of the collection of spectra
+        if mode == SpectrumAverageMode.MEAN:
+            # Note (JoshuaGK) Where mean of spectra is computed
+            print("Spectra: ", type(spectra))
+            spectrum = np.mean(spectra, axis=0)
+        elif mode == SpectrumAverageMode.MEDIAN:
+            spectrum = np.median(spectra, axis=0)
+        else:
+            raise ValueError(f'Unrecognized average type {mode}')
+        print("Spectra computing ended")
 
     else:
         # Only one spectrum, don't need to compute mean/median
@@ -118,7 +294,11 @@ def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spectr
     Calculate a spectrum over a Region of Interest from the specified dataset.
     The calculation mode can be specified with the mode argument.
     '''
-    return calc_spectrum(dataset, roi.get_all_pixels(), mode)
+    print("roi.get_selections(): ")
+    for sel in roi.get_selections():
+        print(type(sel))
+    return calc_spectrum_fast(dataset, roi, mode)
+    # return calc_spectrum(dataset, roi.get_all_pixels(), mode)
 
 
 #============================================================================

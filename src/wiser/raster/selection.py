@@ -7,6 +7,7 @@ from .dataset import RasterDataSet
 from .polygon import rasterize_polygon
 
 from wiser.gui.geom import get_rectangle, manhattan_distance
+from wiser.raster.polygon import RasterizedPolygon
 
 
 class SelectionType(Enum):
@@ -215,12 +216,14 @@ class RectangleSelection(Selection):
 
 class PolygonSelection(Selection):
     def __init__(self, points):
+        print("type(points), POLYGON SELECTION: ", type(points))
         super().__init__(SelectionType.POLYGON)
 
         if points is None or len(points) < 3:
             raise ValueError('points list must contain at least 3 points')
 
         self._points = list(points)
+        self._rasterized_poly = None
 
     def num_points(self):
         return len(self._points)
@@ -243,9 +246,15 @@ class PolygonSelection(Selection):
         # TODO(donnie):  Implement proper polygon picking
         return self.get_bounding_box().contains(coord)
 
+    def get_rasterized_polygon(self) -> RasterizedPolygon:
+        if self._rasterized_poly == None:
+            self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
+        return self._rasterized_poly
+
     def get_all_pixels(self) -> Set[Tuple[int, int]]:
-        rasterized = rasterize_polygon([p.toTuple() for p in self._points])
-        return rasterized.get_set()
+        if self._rasterized_poly == None:
+            self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
+        return self._rasterized_poly.get_set()
 
     def __str__(self):
         return f'PolygonSelection[points={self._points}]'

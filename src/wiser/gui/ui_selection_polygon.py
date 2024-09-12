@@ -169,6 +169,9 @@ class PolygonSelectionCreator(TaskDelegate):
 
 
     def finish(self):
+        print("POINTS INFORMATION:")
+        print(type(self._points))
+        print("self._points: ", self._points)
         sel = PolygonSelection(self._points)
         roi = self._rasterpane.get_current_roi()
         roi.add_selection(sel)
