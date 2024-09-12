@@ -82,6 +82,8 @@ def profile_rect(dataset_path: str):
         ps.sort_stats("tottime")
         ps.print_stats()
 
+
+
 if __name__ == '__main__':
     dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.2_Slow_ROI_Mean_5gb_285_spectra\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr'
     # profile(dataset_path)

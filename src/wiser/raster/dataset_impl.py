@@ -15,6 +15,8 @@ import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
 
+from PySide2.QtCore import QRect
+
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +228,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return np_array
     
-    def get_all_bands_rect(self, top, left, dx, dy):
+    def get_all_bands_rect(self, rect: QRect):
         '''
         Returns a numpy 1D array of the values of all bands at the specified
         (x, y) coordinate in the raster data.
@@ -243,7 +245,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        np_array = self.gdal_dataset.ReadAsArray(xoff=left, yoff=top, xsize=dx, ysize=dy)
+        np_array = self.gdal_dataset.ReadAsArray(xoff=rect.top(), yoff=rect.left(), xsize=rect.width(), ysize=rect.height())
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
         # so reshape into a 1D array with shape (bands).

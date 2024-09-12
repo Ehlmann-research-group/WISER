@@ -2,8 +2,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .selection import (
     Selection, RectangleSelection, PolygonSelection, MultiPixelSelection,
-    selection_from_pyrep
+    selection_from_pyrep, SelectionType,
     )
+
+from PySide2.QtCore import QRect
 
 
 class RegionOfInterest:
@@ -80,6 +82,18 @@ class RegionOfInterest:
             all_pixels.update(sel.get_all_pixels())
 
         return all_pixels
+
+    def get_bounding_box(self) -> QRect:
+        all_pixels = self.get_all_pixels()
+        xs = [p[0] for p in all_pixels]
+        ys = [p[1] for p in all_pixels]
+
+        x_min = min(xs)
+        x_max = max(xs)
+        y_min = min(ys)
+        y_max = max(ys)
+
+        return QRect(x_min, y_min, x_max - x_min + 1, y_max - y_min + 1)
 
     def pprint(self):
         print(f'RegionOfInterest[{self._name}, {self._color}, {self._description}')
