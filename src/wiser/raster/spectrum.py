@@ -129,6 +129,16 @@ def raster_to_combined_rectangles_y_axis(raster_y: np.ndarray):
     rectangles_y = rectangles_x[:, [0, 1, 2, 3]] = rectangles_x[:, [2, 3, 0, 1]]
     return rectangles_y
 
+def array_to_qrects(array):
+    qrects = []
+    for row in array:
+        x1, x2, y1, y2 = row
+        # QRect takes (x, y, width, height), so calculate width and height
+        width = x2 - x1 + 1
+        height = y2 - y1 + 1
+        qrects.append(QRect(x1, y1, width, height))
+    return qrects
+
 def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
     '''
     Calculate a spectrum over a rectangular area of the specified dataset.
