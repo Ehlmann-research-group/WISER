@@ -424,37 +424,34 @@ class RasterDataSet:
     
     def get_all_bands_at_rect(self, rect: QRect , filter_bad_values=True):
         '''
-        Returns a numpy 1D array of the values of all bands at the specified
-        (x, y) coordinate in the raster data.
+        Returns a numpy 2D array of the values of all bands at the specified
+        rectangle in the raster data.
 
         If filter_bad_values is set to True, bands that are marked as "bad" in
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
         '''
+
         arr = self._impl.get_all_bands_at_rect(rect)
-        # print("arr: ", arr)
-        # print("arr.shape: ", arr.shape)
         if filter_bad_values:
             # TODO: (Joshua G-K) Ask donnie if we copy here because the numpy array 
             # has direct access to the memory and we don't want to change thet memory
             arr = arr.copy()
-            # print("self.get_bad_bands()")
-            # print(self.get_bad_bands())
+
+            # Make mask for the bad band values
             mask = np.array(self.get_bad_bands())
-            assert np.all((mask == 0) | (mask == 1)), "bad bands mask contains values other than 0 or 1"
-            assert(arr.shape[0] == len(mask))
+            assert np.all((mask == 0) | (mask == 1)), "Bad bands mask contains values other than 0 or 1"
+            assert (arr.shape[0] == len(mask)), "Length of mask does not match number of spectra"
+            # In the mask, 1 means keep and 0 means get rid of, I use XOR with 1 to reverse this
+            # because np's mask operation (arr[mask]) would switch all the values where the mask is 1
             mask = np.where((mask==0)|(mask==1), mask^1, mask)
             mask = mask.astype(bool)
-            # print("mask")
-            # print(mask)
+
             for i in range(arr.shape[1]):
                 for j in range(arr.shape[2]):
                     arr[:,i,j][mask] = np.nan
-                    # if i ==0 and j==0:
-                    #     print("arr[:,i,j]: ", arr[:,i,j])
 
             if self._data_ignore_value is not None:
-                print("self._data_ignore_value: ", self._data_ignore_value)
                 mask_ignore_val = np.isclose(arr, self._data_ignore_value)
                 arr[mask_ignore_val] = np.nan
 

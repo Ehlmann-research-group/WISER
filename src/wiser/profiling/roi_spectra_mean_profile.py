@@ -5,7 +5,7 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import Selection, RectangleSelection, SinglePixelSelection, PolygonSelection, MultiPixelSelection
-from wiser.raster.spectrum import calc_rect_spectrum, calc_roi_spectrum, calc_spectrum, calc_spectrum_fast, calc_spectrum_fast2
+from wiser.raster.spectrum import calc_rect_spectrum, calc_roi_spectrum, calc_spectrum, calc_spectrum_fast
 from PySide2.QtCore import *
 import cProfile
 import pstats
@@ -45,8 +45,8 @@ def calc_rect(dataset_path: str):
     # roi.add_selection(RectangleSelection(QPoint(10,800), QPoint(310, 1100)))
     roi.add_selection(RectangleSelection(QPoint(75, 75), QPoint(125, 100)))
 
-    # spectrum_fast, spectra_fast = calc_spectrum_fast2(dataset, roi)
-    spectrum_fast = calc_spectrum_fast2(dataset, roi)
+    # spectrum_fast, spectra_fast = calc_spectrum_fast(dataset, roi)
+    spectrum_fast = calc_spectrum_fast(dataset, roi)
     print(f"fast) min: {np.nanmin(spectrum_fast)}, max: {np.nanmin(spectrum_fast)}, avg: {np.nanmean(spectrum_fast)}")
     # spectrum_normal, spectra_normal = calc_spectrum(dataset, roi.get_all_pixels())
     spectrum_normal = calc_spectrum(dataset, roi.get_all_pixels())

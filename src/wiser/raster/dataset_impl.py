@@ -233,12 +233,8 @@ class GDALRasterDataImpl(RasterDataImpl):
     
     def get_all_bands_at_rect(self, rect: QRect):
         '''
-        Returns a numpy 1D array of the values of all bands at the specified
-        (x, y) coordinate in the raster data.
-
-        If filter_bad_values is set to True, bands that are marked as "bad" in
-        the metadata will be set to NaN, and bands with the "data ignore value"
-        will also be set to NaN.
+        Returns a numpy 2D array of the values of all bands at the specified
+        rectangle in the raster data.
         '''
 
         # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
@@ -249,9 +245,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
         np_array = self.gdal_dataset.ReadAsArray(xoff=rect.left(), yoff=rect.top(), xsize=rect.width(), ysize=rect.height())
-
-        # The numpy array comes back as a 3D array with the shape (bands,1,1),
-        # so reshape into a 1D array with shape (bands).
 
         return np_array
 

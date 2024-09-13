@@ -155,7 +155,7 @@ def create_raster_from_pixels(roi: RegionOfInterest) -> np.ndarray:
         raster[pixel_index_y][pixel_index_x] = 1
     return raster
 
-def calc_spectrum_fast2(dataset: RasterDataSet, roi: RegionOfInterest,
+def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
                   mode=SpectrumAverageMode.MEAN):
     '''
     Calculate a spectrum over a collection of points from the specified dataset.
@@ -164,151 +164,38 @@ def calc_spectrum_fast2(dataset: RasterDataSet, roi: RegionOfInterest,
     The points argument can be any iterable that produces coordinates for this
     function to use.
     '''
-
-    n = 0
     spectra = []
 
-    # Collect the spectra that we need for the calculation
-    # print("Collecting spectra starting")
-    # print("All pixels: ")
-    # print(roi.get_all_pixels())
+    # We make a raster out of all of the pixels in the ROI
     raster = create_raster_from_pixels(roi)
-    out_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser\\profiling\\output\\raster'
-    # np.savetxt(out_path, raster, fmt='%d')
+
+    # We do a variant of the Run Line Encoding (RLE) algorithm in the x direction
+    # and the y direction
     rect_x_axis = raster_to_combined_rectangles_x_axis(raster)
     rect_y_axis = raster_to_combined_rectangles_y_axis(raster)
     bbox = roi.get_bounding_box()
-    # print("roi bbox")
-    # print(bbox)
+    
     rects = None
     if len(rect_x_axis) < len(rect_y_axis):
         rects = rect_x_axis
     else:
         rects = rect_y_axis
 
+    # We need to make the rectangles we got from the 'RLE' algorithm
+    # be in the image coordinate system
     rects[:,:2] += bbox.left()
     rects[:,2:] += bbox.top()
-    # print("rects")
-    # print(rects)
+
+    # Accessing by rectangular blocks is faster than accessing point by point
     qrects = array_to_qrects(rects)
-    print("qrects: ")
-    print(qrects)
     for qrect in qrects:
         s = dataset.get_all_bands_at_rect(qrect)
-        print("s.shape: ", s.shape)
-        # print("s.shape: ", s.shape)
-        # print("before")
-        print("s[:,0,0]")
-        print(s[:,0,0])
-        # s = np.reshape(s, (s.shape[0], -1), order='A')
+        
         for i in range(s.shape[1]):
             for j in range(s.shape[2]):
                 spectra.append(s[:,i,j])
-        # print(s[0])
-        # spectra.extend(s)
-    # print("first entry in spectra")
-    # print(spectra[0])
-    print('spectra length: ', len(spectra))
+                
     assert(len(spectra) == len(roi.get_all_pixels()))
-
-    if len(spectra) > 1:
-        print("Spectra computing starting")
-        # Need to compute mean/median/... of the collection of spectra
-        if mode == SpectrumAverageMode.MEAN:
-            # Note (JoshuaGK) Where mean of spectra is computed
-            print("Spectra: ", type(spectra))
-            spectrum = np.mean(spectra, axis=0)
-        elif mode == SpectrumAverageMode.MEDIAN:
-            spectrum = np.median(spectra, axis=0)
-        else:
-            raise ValueError(f'Unrecognized average type {mode}')
-        print("Spectra computing ended")
-
-    else:
-        # Only one spectrum, don't need to compute mean/median
-        spectrum = spectra[0]
-
-    return spectrum
-
-def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
-                  mode=SpectrumAverageMode.MEAN, rect=None):
-    '''
-    Calculate a spectrum over a collection of points from the specified dataset.
-    The calculation mode can be specified with the mode argument.
-
-    The points argument can be any iterable that produces coordinates for this
-    function to use.
-    '''
-
-    n = 0
-    spectra = []
-
-    # Collect the spectra that we need for the calculation
-    print("Collecting spectra starting")
-    print("All pixels: ")
-    print(roi.get_all_pixels())
-    for selection in roi.get_selections():
-        selection_type = selection.get_type()
-        # If the selection type is single pixel, multip pixel, or predicate we just get
-        # all pixels and add it to spectra
-        if selection_type == SelectionType.SINGLE_PIXEL or \
-            selection_type == SelectionType.MULTI_PIXEL or \
-            selection_type == SelectionType.PREDICATE:
-            for p in selection.get_all_pixels():
-                n += 1
-                s = dataset.get_all_bands_at(p[0], p[1])
-                spectra.append(s)
-        elif selection_type == SelectionType.RECTANGLE:
-            rect = selection.get_rect()
-            left = rect.left()
-            top = rect.top()
-            dx = rect.width()
-            dy = rect.height()
-            # TODO (Joshua G-K), find a way to get bad bands
-            s = dataset._impl.get_all_bands_at_rect(rect)
-            print("s.shape: ", s.shape)
-            s = np.reshape(s, (-1, s.shape[0]))
-            print("new s.shape: ", s.shape)
-            spectra.extend(s)
-        # TODO: (Joshua G-K) Make a super cool, fast algorithm to make polygons work 
-        # better than this
-        elif selection_type == SelectionType.POLYGON:
-            rasterized_poly = selection.get_rasterized_polygon()
-            poly_arr = rasterized_poly.get_array()
-            rect_x_axis = raster_to_combined_rectangles_x_axis(poly_arr)
-            rect_y_axis = raster_to_combined_rectangles_y_axis(poly_arr)
-            rects = None
-            if len(rect_x_axis) < len(rect_y_axis):
-                rects = rect_x_axis
-            else:
-                rects = rect_y_axis
-            bbox = selection.get_bounding_box()
-            rects[:,:2] += bbox.left()
-            rects[:,2:] += bbox.top()
-            qrects = array_to_qrects(rects)
-            print("polygon raster")
-            print(poly_arr)
-            # print(qrects)
-            for qrect in qrects:
-                left = qrect.left()
-                top = qrect.top()
-                dx = qrect.width()
-                dy = qrect.height()
-                s = dataset._impl.get_all_bands_at_rect(qrect)
-                # print("poly before s.shape", s.shape)
-                s = np.reshape(s, (-1, s.shape[0]))
-                # print("poly s.shape", s.shape)
-                # print("left: ", left)
-                # print("top: ", top)
-                # print("dx: ", dx)
-                # print("dy: ", dy)
-                spectra.extend(s)
-
-
-        
-        
-        
-        print('spectra length: ', len(spectra))
 
     if len(spectra) > 1:
         print("Spectra computing starting")
@@ -402,7 +289,7 @@ def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spectr
     print("roi.get_selections(): ")
     for sel in roi.get_selections():
         print(type(sel))
-    return calc_spectrum_fast2(dataset, roi, mode)
+    return calc_spectrum_fast(dataset, roi, mode)
     # return calc_spectrum_fast(dataset, roi, mode)
     # return calc_spectrum(dataset, roi.get_all_pixels(), mode)
 

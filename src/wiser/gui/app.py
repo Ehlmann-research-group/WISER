@@ -90,8 +90,8 @@ class DataVisualizerApp(QMainWindow):
         self._main_toolbar = self.addToolBar(self.tr('Main'))
         self._main_toolbar.setObjectName('main_toolbar') # Needed for UI persistence
         
-        # self._main_toolbar_test = self.addToolBar(self.tr('Test'))
-        # self._main_toolbar_test.setObjectName('test_toolbar') # Needed for UI persistence
+        self._main_toolbar_test = self.addToolBar(self.tr('Test'))
+        self._main_toolbar_test.setObjectName('test_toolbar') # Needed for UI persistence
         self._init_toolbars()
 
 
