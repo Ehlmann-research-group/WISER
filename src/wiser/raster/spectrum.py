@@ -190,12 +190,13 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     qrects = array_to_qrects(rects)
     for qrect in qrects:
         s = dataset.get_all_bands_at_rect(qrect)
-        
+        print(qrect)
         for i in range(s.shape[1]):
             for j in range(s.shape[2]):
                 spectra.append(s[:,i,j])
                 
     assert(len(spectra) == len(roi.get_all_pixels()))
+    # assert not np.isnan(spectra).any(), "Spectra array contains nan values"
 
     if len(spectra) > 1:
         print("Spectra computing starting")
@@ -203,9 +204,9 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
         if mode == SpectrumAverageMode.MEAN:
             # Note (JoshuaGK) Where mean of spectra is computed
             print("Spectra: ", type(spectra))
-            spectrum = np.mean(spectra, axis=0)
+            spectrum = np.nanmean(spectra, axis=0)
         elif mode == SpectrumAverageMode.MEDIAN:
-            spectrum = np.median(spectra, axis=0)
+            spectrum = np.nanmedian(spectra, axis=0)
         else:
             raise ValueError(f'Unrecognized average type {mode}')
         print("Spectra computing ended")
@@ -238,6 +239,7 @@ def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
             print("s:================================")
             print(s)
         spectra.append(s)
+    
     if len(spectra) > 1:
         print("Spectra computing starting")
         # Need to compute mean/median/... of the collection of spectra

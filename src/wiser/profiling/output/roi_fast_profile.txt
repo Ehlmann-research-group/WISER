@@ -1,0 +1,130 @@
+         25905013 function calls (25905010 primitive calls) in 65.861 seconds
+
+   Ordered by: internal time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     5321   17.395    0.003   17.401    0.003 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:56(find_rectangles_in_row)
+        6    8.270    1.378    8.270    1.378 {built-in method osgeo._gdal_array.DatasetIONumPy}
+        1    5.114    5.114   65.232   65.232 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:158(calc_spectrum_fast)
+        1    4.168    4.168    4.168    4.168 {built-in method numpy.asanyarray}
+       20    4.081    0.204    7.711    0.386 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\selection.py:191(get_all_pixels)
+        1    3.721    3.721   11.480   11.480 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:138(create_raster_from_pixels)
+ 20658374    3.625    0.000    3.625    0.000 {method 'add' of 'set' objects}
+        2    2.538    1.269    2.538    1.269 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\roi.py:88(<listcomp>)
+     6616    2.416    0.000    2.416    0.000 {built-in method numpy.array}
+        6    2.309    0.385   11.762    1.960 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\dataset.py:425(get_all_bands_at_rect)
+        2    2.278    1.139    2.278    1.139 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\roi.py:89(<listcomp>)
+        9    2.168    0.241    2.170    0.241 {method 'reduce' of 'numpy.ufunc' objects}
+       20    1.439    0.072    1.439    0.072 {method 'update' of 'set' objects}
+        1    1.326    1.326    8.183    8.183 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\nanfunctions.py:68(_replace_nan)
+    16/13    1.264    0.079   11.724    0.902 {built-in method numpy.core._multiarray_umath.implement_array_function}
+        6    1.170    0.195    1.170    0.195 {method 'copy' of 'numpy.ndarray' objects}
+        1    0.629    0.629   65.861   65.861 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:286(calc_roi_spectrum)
+        4    0.409    0.102    0.409    0.102 {built-in method builtins.min}
+        4    0.406    0.102    9.556    2.389 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\roi.py:74(get_all_pixels)
+        1    0.384    0.384   10.737   10.737 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\nanfunctions.py:952(nanmean)
+        4    0.366    0.091    0.366    0.091 {built-in method builtins.max}
+  5161858    0.334    0.000    0.334    0.000 {method 'append' of 'list' objects}
+        2    0.022    0.011   17.426    8.713 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:73(raster_to_combined_rectangles_x_axis)
+       16    0.006    0.000    0.006    0.000 {built-in method builtins.print}
+    32401    0.006    0.000    0.006    0.000 {method 'x' of 'PySide2.QtCore.QPoint' objects}
+        6    0.002    0.000    8.281    1.380 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:396(DatasetReadAsArray)
+     1717    0.002    0.000    0.003    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\shiboken2\files.dir\shibokensupport\feature.py:105(_import)
+     1710    0.002    0.000    0.006    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:5638(_add_child_ref)
+     6594    0.001    0.000    0.001    0.000 {method 'pop' of 'list' objects}
+    12719    0.001    0.000    0.001    0.000 {built-in method builtins.len}
+     1710    0.001    0.000    0.008    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:4159(GetRasterBand)
+        1    0.001    0.001    0.001    0.001 {method 'readlines' of '_io._IOBase' objects}
+     1710    0.001    0.000    0.001    0.000 {built-in method osgeo._gdal.Dataset_GetRasterBand}
+     1710    0.001    0.000    0.001    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\_weakrefset.py:85(add)
+     1710    0.001    0.000    0.001    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\_weakrefset.py:39(_remove)
+        1    0.001    0.001    0.001    0.001 {method 'write' of '_io.TextIOWrapper' objects}
+        1    0.000    0.000    0.000    0.000 {method 'readline' of '_io.BufferedReader' objects}
+     1717    0.000    0.000    0.000    0.000 {built-in method builtins.__import__}
+     3434    0.000    0.000    0.000    0.000 {method 'get' of 'dict' objects}
+        2    0.000    0.000   10.217    5.109 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\roi.py:86(get_bounding_box)
+     1788    0.000    0.000    0.000    0.000 {built-in method builtins.hasattr}
+        6    0.000    0.000    0.000    0.000 {built-in method numpy.empty}
+     1710    0.000    0.000    0.000    0.000 {method 'discard' of 'set' objects}
+     1717    0.000    0.000    0.000    0.000 {built-in method sys._getframe}
+        8    0.000    0.000    2.171    0.271 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\fromnumeric.py:69(_wrapreduction)
+        1    0.000    0.000    0.000    0.000 {built-in method nt.stat}
+        6    0.000    0.000    8.282    1.380 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal.py:5213(ReadAsArray)
+       41    0.000    0.000    0.000    0.000 {method 'y' of 'PySide2.QtCore.QPoint' objects}
+        6    0.000    0.000    8.282    1.380 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\dataset_impl.py:234(get_all_bands_at_rect)
+        1    0.000    0.000    8.664    8.664 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:122(raster_to_combined_rectangles_y_axis)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\spectrum.py:128(array_to_qrects)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\nanfunctions.py:187(_divide_by_count)
+       12    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:325(flip_code)
+        1    0.000    0.000    0.000    0.000 {built-in method io.open}
+        6    0.000    0.000    0.000    0.000 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\dataset.py:317(get_bad_bands)
+       36    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:377(_to_primitive_type)
+        6    0.000    0.000    0.000    0.000 <__array_function__ internals>:177(all)
+        6    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\fromnumeric.py:2406(all)
+        2    0.000    0.000    2.170    1.085 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\fromnumeric.py:2162(sum)
+       28    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}
+        1    0.000    0.000    0.001    0.001 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\tokenize.py:392(open)
+        1    0.000    0.000    0.000    0.000 {method '__exit__' of '_io._IOBase' objects}
+        1    0.000    0.000    0.000    0.000 {built-in method numpy.zeros}
+        6    0.000    0.000    0.000    0.000 {method 'astype' of 'numpy.ndarray' objects}
+        7    0.000    0.000    0.000    0.000 {method 'left' of 'PySide2.QtCore.QRect' objects}
+        2    0.000    0.000    2.171    1.085 <__array_function__ internals>:177(sum)
+        1    0.000    0.000    0.002    0.002 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\linecache.py:80(updatecache)
+        2    0.000    0.000    0.000    0.000 {method 'topLeft' of 'PySide2.QtCore.QRect' objects}
+       17    0.000    0.000    0.000    0.000 {built-in method _codecs.utf_8_decode}
+       17    0.000    0.000    0.000    0.000 <frozen codecs>:319(decode)
+        8    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\fromnumeric.py:70(<dictcomp>)
+        6    0.000    0.000    8.270    1.378 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:254(DatasetIONumPy)
+        1    0.000    0.000    0.002    0.002 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\warnings.py:35(_formatwarnmsg_impl)
+        1    0.000    0.000    0.003    0.003 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\warnings.py:97(_showwarnmsg)
+        6    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:1207(_handle_fromlist)
+        1    0.000    0.000   11.724   11.724 <__array_function__ internals>:177(nanmean)
+        1    0.000    0.000    0.278    0.278 <__array_function__ internals>:177(copyto)
+        1    0.000    0.000    0.002    0.002 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\linecache.py:36(getlines)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\tokenize.py:299(detect_encoding)
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\_ufunc_config.py:32(seterr)
+        1    0.000    0.000    0.003    0.003 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\astropy\logger.py:202(_showwarning)
+        6    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:347(GDALTypeCodeToNumericTypeCode)
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\warnings.py:404(__init__)
+        6    0.000    0.000    0.000    0.000 <__array_function__ internals>:177(where)
+       14    0.000    0.000    0.000    0.000 {method 'items' of 'dict' objects}
+        7    0.000    0.000    0.000    0.000 {method 'height' of 'PySide2.QtCore.QRect' objects}
+        1    0.000    0.000    0.003    0.003 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\warnings.py:20(_showwarnmsg_impl)
+        1    0.000    0.000    0.002    0.002 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\warnings.py:118(_formatwarnmsg)
+        6    0.000    0.000    0.000    0.000 {method 'lower' of 'str' objects}
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\_ufunc_config.py:131(geterr)
+        7    0.000    0.000    0.000    0.000 {method 'width' of 'PySide2.QtCore.QRect' objects}
+        6    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\osgeo\gdal_array.py:342(NumericTypeCodeToGDALTypeCode)
+        1    0.000    0.000    0.002    0.002 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\linecache.py:26(getline)
+        7    0.000    0.000    0.000    0.000 {method 'top' of 'PySide2.QtCore.QRect' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\_ufunc_config.py:429(__enter__)
+        1    0.000    0.000    0.003    0.003 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\warnings.py:10(showwarning)
+        1    0.000    0.000    0.000    0.000 {method 'any' of 'numpy.ndarray' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\tokenize.py:329(find_cookie)
+        1    0.000    0.000    0.000    0.000 <frozen codecs>:309(__init__)
+        2    0.000    0.000    0.000    0.000 {method 'match' of 're.Pattern' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\tokenize.py:323(read_or_stop)
+        1    0.000    0.000    0.000    0.000 {method 'split' of 'str' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\_ufunc_config.py:425(__init__)
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 {method 'startswith' of 'str' objects}
+        2    0.000    0.000    0.000    0.000 {built-in method numpy.seterrobj}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\_methods.py:54(_any)
+        1    0.000    0.000    0.000    0.000 {built-in method builtins.issubclass}
+        1    0.000    0.000    0.000    0.000 {method 'startswith' of 'bytes' objects}
+        4    0.000    0.000    0.000    0.000 {built-in method numpy.geterrobj}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER\src\wiser\raster\roi.py:59(get_selections)
+        1    0.000    0.000    0.000    0.000 {method 'endswith' of 'str' objects}
+        6    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\multiarray.py:341(where)
+        6    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\fromnumeric.py:2401(_all_dispatcher)
+        2    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\fromnumeric.py:2157(_sum_dispatcher)
+        1    0.000    0.000    0.000    0.000 {method 'strip' of 'str' objects}
+        1    0.000    0.000    0.000    0.000 {method 'decode' of 'bytes' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\_ufunc_config.py:434(__exit__)
+        1    0.000    0.000    0.000    0.000 <frozen codecs>:260(__init__)
+        1    0.000    0.000    0.000    0.000 {built-in method builtins.callable}
+        1    0.000    0.000    0.000    0.000 {method 'seek' of '_io.BufferedReader' objects}
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\lib\nanfunctions.py:947(_nanmean_dispatcher)
+        1    0.000    0.000    0.000    0.000 C:\Users\jgarc\anaconda3\envs\wiser-source\Lib\site-packages\numpy\core\multiarray.py:1071(copyto)
+
+
