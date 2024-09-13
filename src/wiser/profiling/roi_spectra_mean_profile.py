@@ -5,10 +5,12 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import Selection, RectangleSelection, SinglePixelSelection, PolygonSelection, MultiPixelSelection
-from wiser.raster.spectrum import calc_rect_spectrum, calc_roi_spectrum
+from wiser.raster.spectrum import calc_rect_spectrum, calc_roi_spectrum, calc_spectrum, calc_spectrum_fast, calc_spectrum_fast2
 from PySide2.QtCore import *
 import cProfile
 import pstats
+import time
+import numpy as np
 
 # Load in a raster dataset, a list of QPoints and spectrum.py
 def calc_point(dataset_path: str):
@@ -40,9 +42,22 @@ def calc_rect(dataset_path: str):
     loader = RasterDataLoader()
     dataset = loader.load_from_file(dataset_path)
     roi = RegionOfInterest(name='testing_roi')
-    roi.add_selection(RectangleSelection(QPoint(10,800), QPoint(310, 1100)))
+    # roi.add_selection(RectangleSelection(QPoint(10,800), QPoint(310, 1100)))
+    roi.add_selection(RectangleSelection(QPoint(10, 800), QPoint(60, 840)))
 
-    spectrum = calc_roi_spectrum(dataset, roi)
+    spectrum_fast, spectra_fast = calc_spectrum_fast2(dataset, roi)
+    
+    print(f"min: {min(spectrum_fast)}, max: {max(spectrum_fast)}, avg: {np.mean(spectrum_fast)}")
+    spectrum_normal, spectra_normal = calc_spectrum(dataset, roi.get_all_pixels())
+    print(f"min: {min(spectrum_normal)}, max: {max(spectrum_normal)}, avg: {np.mean(spectrum_normal)}")
+    assert(spectrum_fast.shape == spectrum_normal.shape)
+    # print(f"Equal? {np.array_equal(spectrum_fast, spectrum_normal)}")
+    equal_spectra = np.array([np.array_equal(row1, row2) for row1, row2 in zip(spectra_fast, spectra_normal)])
+    print(f"Equal? {equal_spectra}")
+    # print(spectra_fast[0])
+    # print(spectra_normal[0])
+    # print(spectra_fast[0]-spectra_normal[0])
+
 
 # Load in a raster dataset, a list of QPoints and spectrum.py
 def profile(dataset_path: str):
@@ -82,14 +97,36 @@ def profile_rect(dataset_path: str):
         ps.sort_stats("tottime")
         ps.print_stats()
 
+def speed_test(dataset_path):
+    loader = RasterDataLoader()
+    dataset = loader.load_from_file(dataset_path)
+    roi = RegionOfInterest(name='testing_roi')
+    # roi.add_selection(RectangleSelection(QPoint(10,800), QPoint(60, 850)))
+    list_obj = [QPoint(100,300), QPoint(300,500), QPoint(500, 300)]
+    poly = PolygonSelection(list_obj)
+    print("poly_length: ", len(poly.get_all_pixels()))
+    roi.add_selection(poly)
+
+    start_time_fast = time.time()
+    spectrum = calc_roi_spectrum(dataset, roi)
+    end_time_fast = time.time()
+
+    start_time_previous_method = time.time()
+    spectrum = calc_spectrum(dataset, roi.get_all_pixels())
+    end_time_previous_method = time.time()
+
+    print(f"Took {end_time_fast-start_time_fast} for new method")
+    print(f"Took {end_time_previous_method-start_time_previous_method} for previous method")
 
 
 if __name__ == '__main__':
     dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.2_Slow_ROI_Mean_5gb_285_spectra\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr'
     # profile(dataset_path)
     # profile_rect(dataset_path)
-    calc_poly(dataset_path)
+    # calc_poly(dataset_path)
     calc_rect(dataset_path)
+
+    # speed_test(dataset_path)
     print('Done with profiling')
 
 '''

@@ -169,17 +169,17 @@ def calc_spectrum_fast2(dataset: RasterDataSet, roi: RegionOfInterest,
     spectra = []
 
     # Collect the spectra that we need for the calculation
-    print("Collecting spectra starting")
-    print("All pixels: ")
-    print(roi.get_all_pixels())
+    # print("Collecting spectra starting")
+    # print("All pixels: ")
+    # print(roi.get_all_pixels())
     raster = create_raster_from_pixels(roi)
     out_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser\\profiling\\output\\raster'
-    np.savetxt(out_path, raster, fmt='%d')
+    # np.savetxt(out_path, raster, fmt='%d')
     rect_x_axis = raster_to_combined_rectangles_x_axis(raster)
     rect_y_axis = raster_to_combined_rectangles_y_axis(raster)
     bbox = roi.get_bounding_box()
-    print("roi bbox")
-    print(bbox)
+    # print("roi bbox")
+    # print(bbox)
     rects = None
     if len(rect_x_axis) < len(rect_y_axis):
         rects = rect_x_axis
@@ -188,14 +188,24 @@ def calc_spectrum_fast2(dataset: RasterDataSet, roi: RegionOfInterest,
 
     rects[:,:2] += bbox.left()
     rects[:,2:] += bbox.top()
-    print("rects")
-    print(rects)
+    # print("rects")
+    # print(rects)
     qrects = array_to_qrects(rects)
+    print("qrects: ")
+    print(qrects)
     for qrect in qrects:
         s = dataset._impl.get_all_bands_rect(qrect)
-        s = np.reshape(s, (-1, s.shape[0]))
-        spectra.extend(s)
-                
+        # print("s.shape: ", s.shape)
+        # print("before")
+        # print(s[:,0,0])
+        # s = np.reshape(s, (s.shape[0], -1), order='A')
+        for i in range(s.shape[1]):
+            for j in range(s.shape[2]):
+                spectra.append(s[:,i,j])
+        # print(s[0])
+        # spectra.extend(s)
+    # print("first entry in spectra")
+    # print(spectra[0])
     print('spectra length: ', len(spectra))
     assert(len(spectra) == len(roi.get_all_pixels()))
 
@@ -318,7 +328,7 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     return spectrum
 
 def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
-                  mode=SpectrumAverageMode.MEAN, rect=None):
+                  mode=SpectrumAverageMode.MEAN):
     '''
     Calculate a spectrum over a collection of points from the specified dataset.
     The calculation mode can be specified with the mode argument.
@@ -331,25 +341,13 @@ def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
     spectra = []
 
     # Collect the spectra that we need for the calculation
-    print("Collecting spectra starting")
-    if rect is None:
-        for p in points:
-            n += 1
-            s = dataset.get_all_bands_at(p[0], p[1])
-            spectra.append(s)
-        print("POLYGON")
-        print(s.shape)
-    else:
-        left = rect.left()
-        top = rect.top()
-        dx = rect.width()
-        dy = rect.height()
-        s = dataset._impl.get_all_bands_rect(rect)
-        print("RECTANGLE")
-        print(s.shape)
-        spectra = s
-    print("len(spectra): ", len(spectra))
-    print("Collecting spectra ended")
+    for p in points:
+        n += 1
+
+        s = dataset.get_all_bands_at(p[0], p[1])
+        # if (p[0] == 10 and p[1] == 800):
+        #     print(s)
+        spectra.append(s)
     if len(spectra) > 1:
         print("Spectra computing starting")
         # Need to compute mean/median/... of the collection of spectra
@@ -402,6 +400,7 @@ def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spectr
     for sel in roi.get_selections():
         print(type(sel))
     return calc_spectrum_fast2(dataset, roi, mode)
+    # return calc_spectrum_fast(dataset, roi, mode)
     # return calc_spectrum(dataset, roi.get_all_pixels(), mode)
 
 

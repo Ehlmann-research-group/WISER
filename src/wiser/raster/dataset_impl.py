@@ -245,7 +245,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        np_array = self.gdal_dataset.ReadAsArray(xoff=rect.top(), yoff=rect.left(), xsize=rect.width(), ysize=rect.height())
+        np_array = self.gdal_dataset.ReadAsArray(xoff=rect.left(), yoff=rect.top(), xsize=rect.width(), ysize=rect.height())
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
         # so reshape into a 1D array with shape (bands).
