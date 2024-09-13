@@ -3,6 +3,8 @@ import enum
 import os
 from typing import List, Optional, Tuple
 
+from collections import deque
+
 from PySide2.QtCore import *
 
 import numpy as np
@@ -13,6 +15,7 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.roi import RegionOfInterest
+from wiser.raster.selection import SelectionType
 
 
 #============================================================================
@@ -37,6 +40,22 @@ AVG_MODE_NAMES = {
     SpectrumAverageMode.MEDIAN : 'Median',
 }
 
+def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
+    rectangles = []
+    start = None
+
+    for x in range(len(row)):
+        if row[x] == 1 and start is None:
+            start = x  # Start of a new rectangle
+        elif row[x] == 0 and start is not None:
+            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
+            start = None
+
+    # If the row ends and a rectangle was still open
+    if start is not None:
+        rectangles.append(np.array([start, len(row) - 1, y, y]))
+
+    return rectangles
 
 def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
     '''
