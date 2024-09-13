@@ -57,6 +57,72 @@ def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
 
     return rectangles
 
+def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
+    rectangles = []
+    start = None
+
+    for x in range(len(row)):
+        if row[x] == 1 and start is None:
+            start = x  # Start of a new rectangle
+        elif row[x] == 0 and start is not None:
+            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
+            start = None
+
+    # If the row ends and a rectangle was still open
+    if start is not None:
+        rectangles.append(np.array([start, len(row) - 1, y, y]))
+
+    return rectangles
+
+def raster_to_combined_rectangles_x_axis(raster):
+    rectangles = []
+    previous_row_rectangles = deque()
+    # prev_row_rect_to_keep = []
+
+    for y in range(raster.shape[0]):  # For each row (y-coordinate)
+        row = raster[y]
+        current_row_rectangles = find_rectangles_in_row(row, y)
+
+        # Get all of the previous rectangles (from previous row or continued on from farther back rows)
+        # Since we haven't yet added the previous row's rectangles to our final set of rectangles, if there
+        # are no matches with a current rectangle then it is safe to add it in with the final set of rects
+        for i in range(len(previous_row_rectangles)):
+            prev_rect = previous_row_rectangles.pop()
+            prev_x_start, prev_x_end, prev_y_start, prev_y_end = prev_rect
+
+            merged = False
+            # Get all of the rectangles in the current row, we will compare each previous rectangle
+            # with all the rectangles in the current row. If there is a match in x and y values 
+            # between the previous rectangle and a current row rectangle, then we update the current
+            # row rectangle's size to expand. Then when we add this rectangle to previous row rectangles
+            # it will have carried over.
+            # If there isn't a merge, we add the previous rect to rectangles.
+            for curr_rect in current_row_rectangles:
+                x_start, x_end, y_start, y_end = curr_rect
+
+
+                # If the current rectangle does match with a previous rectangle
+                if prev_x_start == x_start and prev_x_end == x_end and prev_y_end == y - 1:
+                    # Merge the current rectangle with the previous one
+                    curr_rect[-2] = prev_y_start
+                    merged = True
+                    break
+
+
+            # If the previous rectangle here does not continue from a current rows, we immediately add it to rectangles
+            # which we can do because we know it won't show up again 
+            if not merged:
+                rectangles.append(np.array(prev_rect))
+
+        # We make the previous row rectangles the be the current row to "move on" from this row
+        # The current rectangles are updated to get merged into the previous ones and nothing is doubly added
+        previous_row_rectangles = current_row_rectangles
+
+    # For the last row it is never treated as a previous row (which would let it be added to rectangles), so we just add it to rectangles 
+    rectangles += list(previous_row_rectangles)  # Accumulate merged rectangles
+
+    return np.array(rectangles)
+
 def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
     '''
     Calculate a spectrum over a rectangular area of the specified dataset.
