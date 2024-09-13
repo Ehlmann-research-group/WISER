@@ -139,6 +139,21 @@ def array_to_qrects(array):
         qrects.append(QRect(x1, y1, width, height))
     return qrects
 
+def create_raster_from_pixels(roi: RegionOfInterest) -> np.ndarray:
+    bbox = roi.get_bounding_box()
+    pixels = roi.get_all_pixels()
+
+    xmin = bbox.topLeft().x()
+    ymin = bbox.topLeft().y()
+    
+    raster = np.zeros((bbox.height(), bbox.width()), dtype=np.uint8)
+    
+    for pixel in pixels:
+        pixel_x, pixel_y = pixel[0], pixel[1]
+        pixel_index_x, pixel_index_y = pixel_x - xmin, pixel_y - ymin
+        raster[pixel_index_y][pixel_index_x] = 1
+    return raster
+
 def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
     '''
     Calculate a spectrum over a rectangular area of the specified dataset.
