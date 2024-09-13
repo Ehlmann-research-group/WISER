@@ -59,6 +59,9 @@ class RasterDataImpl(abc.ABC):
     def get_all_bands_at(self, x, y) -> np.ndarray:
         pass
 
+    def get_all_bands_at_rect(self, rect: QRect) -> np.ndarray:
+        pass
+
     def read_description(self) -> Optional[str]:
         return None
 
@@ -228,7 +231,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return np_array
     
-    def get_all_bands_rect(self, rect: QRect):
+    def get_all_bands_at_rect(self, rect: QRect):
         '''
         Returns a numpy 1D array of the values of all bands at the specified
         (x, y) coordinate in the raster data.
@@ -786,6 +789,9 @@ class NumPyRasterDataImpl(RasterDataImpl):
 
     def get_all_bands_at(self, x, y) -> np.ndarray:
         return self._arr[:, y, x]
+
+    def get_all_bands_at_rect(self, rect: QRect) -> np.ndarray:
+        return self._arr[:, rect.top():rect.top()+rect.height(), rect.left():rect.left()+rect.width()] 
 
     def read_description(self) -> Optional[str]:
         return None

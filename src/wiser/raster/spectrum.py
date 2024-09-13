@@ -194,10 +194,12 @@ def calc_spectrum_fast2(dataset: RasterDataSet, roi: RegionOfInterest,
     print("qrects: ")
     print(qrects)
     for qrect in qrects:
-        s = dataset._impl.get_all_bands_rect(qrect)
+        s = dataset.get_all_bands_at_rect(qrect)
+        print("s.shape: ", s.shape)
         # print("s.shape: ", s.shape)
         # print("before")
-        # print(s[:,0,0])
+        print("s[:,0,0]")
+        print(s[:,0,0])
         # s = np.reshape(s, (s.shape[0], -1), order='A')
         for i in range(s.shape[1]):
             for j in range(s.shape[2]):
@@ -263,7 +265,7 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
             dx = rect.width()
             dy = rect.height()
             # TODO (Joshua G-K), find a way to get bad bands
-            s = dataset._impl.get_all_bands_rect(rect)
+            s = dataset._impl.get_all_bands_at_rect(rect)
             print("s.shape: ", s.shape)
             s = np.reshape(s, (-1, s.shape[0]))
             print("new s.shape: ", s.shape)
@@ -292,7 +294,7 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
                 top = qrect.top()
                 dx = qrect.width()
                 dy = qrect.height()
-                s = dataset._impl.get_all_bands_rect(qrect)
+                s = dataset._impl.get_all_bands_at_rect(qrect)
                 # print("poly before s.shape", s.shape)
                 s = np.reshape(s, (-1, s.shape[0]))
                 # print("poly s.shape", s.shape)
@@ -343,10 +345,11 @@ def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
     # Collect the spectra that we need for the calculation
     for p in points:
         n += 1
-
+        # print(p[0], p[1])
         s = dataset.get_all_bands_at(p[0], p[1])
-        # if (p[0] == 10 and p[1] == 800):
-        #     print(s)
+        if (p[0] == 125 and p[1] == 75):
+            print("s:================================")
+            print(s)
         spectra.append(s)
     if len(spectra) > 1:
         print("Spectra computing starting")
