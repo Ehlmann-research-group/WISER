@@ -61,6 +61,21 @@ def calc_rect(dataset_path: str):
     # print(spectra_normal[0])
     # print(spectra_fast[0]-spectra_normal[0])
 
+# Load in a raster dataset, a list of QPoints and spectrum.py
+def calc_multi_pixel(dataset_path: str):
+    loader = RasterDataLoader()
+    dataset = loader.load_from_file(dataset_path)
+    roi = RegionOfInterest(name='testing_roi')
+    # roi.add_selection(RectangleSelection(QPoint(10,800), QPoint(310, 1100)))
+    roi.add_selection(MultiPixelSelection([QPoint(75, 75), QPoint(125, 100)]))
+
+    # spectrum_fast, spectra_fast = calc_spectrum_fast(dataset, roi)
+    spectrum_fast = calc_spectrum_fast(dataset, roi)
+    print(f"fast) min: {np.nanmin(spectrum_fast)}, max: {np.nanmin(spectrum_fast)}, avg: {np.nanmean(spectrum_fast)}")
+    # spectrum_normal, spectra_normal = calc_spectrum(dataset, roi.get_all_pixels())
+    spectrum_normal = calc_spectrum(dataset, roi.get_all_pixels())
+    print(f"normal) min: {np.nanmin(spectrum_normal)}, max: {np.nanmin(spectrum_normal)}, avg: {np.nanmean(spectrum_normal)}")
+    assert(spectrum_fast.shape == spectrum_normal.shape)
 
 # Load in a raster dataset, a list of QPoints and spectrum.py
 def profile(dataset_path: str):

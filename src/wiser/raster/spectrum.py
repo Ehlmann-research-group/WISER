@@ -190,7 +190,6 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     qrects = array_to_qrects(rects)
     for qrect in qrects:
         s = dataset.get_all_bands_at_rect(qrect)
-        print(qrect)
         for i in range(s.shape[1]):
             for j in range(s.shape[2]):
                 spectra.append(s[:,i,j])
@@ -235,9 +234,45 @@ def calc_spectrum(dataset: RasterDataSet, points: List[QPoint],
         n += 1
         # print(p[0], p[1])
         s = dataset.get_all_bands_at(p[0], p[1])
-        if (p[0] == 125 and p[1] == 75):
-            print("s:================================")
-            print(s)
+        spectra.append(s)
+    
+    if len(spectra) > 1:
+        print("Spectra computing starting")
+        # Need to compute mean/median/... of the collection of spectra
+        if mode == SpectrumAverageMode.MEAN:
+            # Note (JoshuaGK) Where mean of spectra is computed
+            print("Spectra: ", type(spectra))
+            spectrum = np.mean(spectra, axis=0)
+        elif mode == SpectrumAverageMode.MEDIAN:
+            spectrum = np.median(spectra, axis=0)
+        else:
+            raise ValueError(f'Unrecognized average type {mode}')
+        print("Spectra computing ended")
+
+    else:
+        # Only one spectrum, don't need to compute mean/median
+        spectrum = spectra[0]
+
+    return spectrum
+
+def calc_spectrum_testing(dataset: RasterDataSet, roi: RegionOfInterest,
+                  mode=SpectrumAverageMode.MEAN):
+    '''
+    Calculate a spectrum over a collection of points from the specified dataset.
+    The calculation mode can be specified with the mode argument.
+
+    The points argument can be any iterable that produces coordinates for this
+    function to use.
+    '''
+
+    n = 0
+    spectra = []
+    points = roi.get_all_pixels()
+    # Collect the spectra that we need for the calculation
+    for p in points:
+        n += 1
+        # print(p[0], p[1])
+        s = dataset.get_all_bands_at(p[0], p[1])
         spectra.append(s)
     
     if len(spectra) > 1:
