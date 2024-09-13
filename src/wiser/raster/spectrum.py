@@ -291,7 +291,7 @@ def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spectr
     Calculate a spectrum over a Region of Interest from the specified dataset.
     The calculation mode can be specified with the mode argument.
     '''
-    return calc_spectrum(dataset, roi.get_all_pixels(), mode)
+    return calc_spectrum_fast(dataset, roi, mode)
 
 
 #============================================================================
