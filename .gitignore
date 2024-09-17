@@ -19,6 +19,6 @@ Install-WISER-*.exe
 Secret.mk
 
 # Stores temporary memmap files for bandmath calculations
-src/wiser/profiling/*.dat
 src/wiser/bandmath/builtins/temp
+src/wiser/profiling
 
