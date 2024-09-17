@@ -249,22 +249,14 @@ class GDALRasterDataImpl(RasterDataImpl):
         return np_array
     
     def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        '''
+        Returns a numpy 3D array of all the x & y values at the specified bands.
+        '''
         # Note that GDAL indexes bands from 1, not 0.
-        # print("AGAIN \n ", band_list_orig)
         band_list = [band+1 for band in band_list_orig]
-
-        # Get dataset dimensions
-        xsize = self.gdal_dataset.RasterXSize
-        ysize = self.gdal_dataset.RasterYSize
 
         # Read the specified bands
         data = self.gdal_dataset.ReadAsArray(band_list=band_list)
-
-        # bands = self.gdal_dataset.GetRasterBand(band_index + 1)
-        # try:
-        #     np_array = band.GetVirtualMemAutoArray()
-        # except RuntimeError:
-        #     np_array = band.ReadAsArray()
 
         return data
 

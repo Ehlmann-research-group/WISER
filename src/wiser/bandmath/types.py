@@ -175,7 +175,7 @@ class BandMathValue:
         function returns the value as a NumPy ``ndarray``.  If a band-math
         value is some other type, the function raises a ``TypeError``.
         '''
-        # We assume numbers are float 64
+        
         # If the value is already a NumPy array, we are done!
         if isinstance(self.value, np.ndarray):
             return self.value

@@ -303,7 +303,7 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     shape. This generally means that the return value can be broadcast against
     an image-cube to achieve the "expected" behavior. This function grabs the data
     by bands. Doing so is faster because the data is stored in bsq format. It is
-    important that band_list is in sorted order.
+    important that band_list is sorted from least to greatest and is continuous.
 
     A ``TypeError`` is raised if the input argument isn't of one of these
     ``VariableType`` values:
@@ -348,14 +348,9 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]
         result = arg.as_numpy_array()
-        print("SHAPES BEFORE")
-        print(f"result.shape {result.shape}")
         band_start = band_list[0]
-        band_end = band_list[-1]+1
-        result=result[band_start:band_end]
-        print("SHAPES")
-        print(f"result.shape {result.shape}")
-        print(f"cube_shape {cube_shape}")
+        band_end = band_list[-1]
+        result=result[band_start:band_end+1]
         assert result.ndim == 1
 
         if result.shape != (cube_shape[0],):

@@ -82,7 +82,7 @@ if __name__ == '__main__':
     dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     dataset_path = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
     profile(dataset_path)
-    # profile_cube_band(dataset_path)
-    # profile_cube_spectrum(dataset_path)
+    profile_cube_band(dataset_path)
+    profile_cube_spectrum(dataset_path)
     print('Done with profiling')
 

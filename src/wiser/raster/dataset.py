@@ -404,8 +404,8 @@ class RasterDataSet:
     
     def get_multiple_band_data(self, band_list: List[int], filter_data_ignore_value=True):
         '''
-        Returns a numpy 3D array of the specified band's data.  The first band
-        is at index 0.
+        Returns a numpy 3D array of the specified images band data for all pixels in those
+        bands.
 
         The numpy array is configured such that the pixel (x, y) for band b values are at
         element array[b][y][x].

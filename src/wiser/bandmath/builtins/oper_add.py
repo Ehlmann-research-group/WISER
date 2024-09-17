@@ -1,8 +1,7 @@
 from typing import Any, Dict, List, Optional
 
-import dask.array
 import numpy as np
-import dask
+import os
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
@@ -14,6 +13,7 @@ from wiser.bandmath.utils import (
     make_image_cube_compatible_by_bands,
 )
 
+from .constants import MAX_RAM_BYTES, SCALAR_BYTES, TEMP_FOLDER_PATH
 
 class OperatorAdd(BandMathFunction):
     '''
@@ -114,130 +114,57 @@ class OperatorAdd(BandMathFunction):
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
         # Do the addition computation.
-        # 4 GB, 15 GB max
-        # 2 GB, 9 GB max
-        # 1 GB, 5.5 GB max
         import time
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
             start = time.time()
             bands, y, x = lhs.get_shape()
-            # result_arr = dask.array.zeros(lhs.get_shape(), dtype=lhs.value.get_elem_type())
-            result_arr = np.memmap('oper_add_result.dat', dtype=lhs.value.get_elem_type(), \
-                                   mode='w+', shape=lhs.value.get_shape())
-            print(f"RESULT_ARR shape: {result_arr.shape}")
-            print(f"LHS shape: {lhs.value.get_shape()}")
-            print(result_arr.shape == lhs.value.get_shape())
-            print(lhs.value.get_shape())
-            print(f"lhs.value.get_elem_type(): {lhs.value.get_elem_type()}")
+            result_arr = np.memmap(os.path.join(TEMP_FOLDER_PATH, 'oper_add_result.dat'), \
+                                   dtype=lhs.value.get_elem_type(), mode='w+', shape=lhs.value.get_shape())
             end = time.time()
-            print(f"Get shape time: {end-start}")
-            max_ram_bytes = 4000000000
-            # max_ram_bytes = 1575206400
-            max_bytes = max_ram_bytes/4
-            go_by_band = True
-            y_start = 0
-            x_start = 0 
-            dx = 0
-            dy = 0
+            max_bytes = MAX_RAM_BYTES/SCALAR_BYTES
+            dbands = int(np.floor(max_bytes / (x*y)))
             if rhs.type == VariableType.IMAGE_CUBE:
-                print("===========IMAGE_CUBE===========")
                 start = time.time()
-                dbands = int(np.floor(max_bytes / (x*y)))
-                # sqrt_area = int(np.floor(np.sqrt(x_y_area)))
-                # dx = sqrt_area
-                # dy = sqrt_area
                 # We get by bands because the data is in bsq format (bands are the first dimension so easier
                 # to access)
-                # Before when we didn't get by bands, adding 2 out of memory arrays would take 854.712 seconds
-                # Now, when we get by bands it takes... 207.248 seconds
                 for band_start in range(0, bands, dbands):
                     if band_start + dbands > bands:
                         dbands = bands - band_start
                     band_list = [band_start + inc for inc in range(0, dbands)]
-                    print(f"band_list, min: {min(band_list)} | max {max(band_list)}")
-                    # print(f"band_list: {band_list}")
                     lhs_value = lhs.as_numpy_array_by_bands(band_list)
-                    print(f"lhs_value.shape: {lhs_value.shape}")
                     rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, band_list)
-                    print(f"rhs_value.shape: {rhs_value.shape}")
-                    print(f"lhs_value type: {type(lhs_value)}")
-                    print(f"rhs_value type: {type(rhs_value)}")
-                    print(f"band_start: {band_start}")
-                    print(f"dbands: {dbands}")
-                    print(f"num bytes, lhs: {lhs_value.nbytes} | rhs: {rhs_value.nbytes}")
                     result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
                     del lhs_value, rhs_value
                 end=time.time()
                 print(f"Took {end-start} long!")
 
             elif rhs.type == VariableType.IMAGE_BAND:
-                print("===========IMAGE_BAND===========")
                 start = time.time()
-                dbands = int(np.floor(max_bytes / (x*y)))
-                # sqrt_area = int(np.floor(np.sqrt(x_y_area)))
-                # dx = sqrt_area
-                # dy = sqrt_area
                 for band_start in range(0, bands, dbands):
                     if band_start + dbands > bands:
                         dbands = bands - band_start
                     band_list = [band_start + inc for inc in range(0, dbands)]
-                    print(f"band_list, min: {min(band_list)} | max {max(band_list)}")
                     lhs_value = lhs.as_numpy_array_by_bands(band_list)
-                    print(f"lhs_value.shape: {lhs_value.shape}")
-                    # Since we are broadcasting a singular image band, we don't have to specify what
-                    # band to get 
+                    # Since we are broadcasting a singular image band, 
+                    # we don't have to specify what band to get 
                     rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, None)
-                    # print(f"rhs_value.shape: {rhs_value.shape}")
-                    # print(f"lhs_value type: {type(lhs_value)}")
-                    # print(f"rhs_value type: {type(rhs_value)}")
-                    # print(f"band_start: {band_start}")
-                    # print(f"dbands: {dbands}")
-                    # print(f"num bytes, lhs: {lhs_value.nbytes} | rhs: {rhs_value.nbytes}")
                     result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
                     del lhs_value, rhs_value
                 end=time.time()
                 print(f"Took {end-start} long!")
-                # 15 gb max
             elif rhs.type == VariableType.SPECTRUM:
-                # 490 seconds for 15GB, slow version was 1,209.249 seconds
-                # when adding with bands it took 103.522 seconds
-                print("===========SPECTRUM===========")
                 start = time.time()
-                dbands = int(np.floor(max_bytes / (x*y)))
-                # sqrt_area = int(np.floor(np.sqrt(x_y_area)))
-                # dx = sqrt_area
-                # dy = sqrt_area
                 for band_start in range(0, bands, dbands):
                     if band_start + dbands > bands:
                         dbands = bands - band_start
                     band_list = [band_start + inc for inc in range(0, dbands)]
-                    print(f"band_list, min: {min(band_list)} | max {max(band_list)}")
                     lhs_value = lhs.as_numpy_array_by_bands(band_list)
-                    print(f"lhs_value.shape: {lhs_value.shape}")
                     rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, band_list)
-                    print(f"rhs_value.shape: {rhs_value.shape}")
-                    print(f"lhs_value type: {type(lhs_value)}")
-                    print(f"rhs_value type: {type(rhs_value)}")
-                    print(f"band_start: {band_start}")
-                    print(f"dbands: {dbands}")
-                    print(f"num bytes, lhs: {lhs_value.nbytes} | rhs: {rhs_value.nbytes}")
                     result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
                     del lhs_value, rhs_value
                 end=time.time()
                 print(f"Took {end-start} long!")
-                # # 490 seconds for 15GB, slow version was 1209.249
-    
-            # dim1_ratio = 1
-            # dim2_ratio = 1
-            # if lhs_value.shape[1] > lhs_value.shape[2]:
-            #     dim1_ratio = np.floor(lhs_value.shape[1]/lhs_value.shape[2])
-            # else:
-            #     dim2_ratio = np.floor(lhs_value.shape[2]/lhs_value.shape[1])
-            # print(dim1_ratio)
-            # print(dim2_ratio)
-            # print("shape: ", lhs_value.shape)
-            # result_arr = lhs_value_dask + rhs_value_dask
 
             # The result array should have the same dimensions as the LHS input
             # array.
