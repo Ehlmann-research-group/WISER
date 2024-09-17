@@ -15,8 +15,6 @@ import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
 
-from PySide2.QtCore import QRect
-
 logger = logging.getLogger(__name__)
 
 
@@ -58,7 +56,7 @@ class RasterDataImpl(abc.ABC):
     def get_all_bands_at(self, x, y) -> np.ndarray:
         pass
 
-    def get_all_bands_at_rect(self, rect: QRect) -> np.ndarray:
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int) -> np.ndarray:
         pass
 
     def read_description(self) -> Optional[str]:
@@ -230,7 +228,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return np_array
 
-    def get_all_bands_at_rect(self, rect: QRect):
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
         '''
         Returns a numpy 2D array of the values of all bands at the specified
         rectangle in the raster data.
@@ -243,7 +241,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        np_array = self.gdal_dataset.ReadAsArray(xoff=rect.left(), yoff=rect.top(), xsize=rect.width(), ysize=rect.height())
+        np_array = self.gdal_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 
         return np_array
 
@@ -782,8 +780,8 @@ class NumPyRasterDataImpl(RasterDataImpl):
     def get_all_bands_at(self, x, y) -> np.ndarray:
         return self._arr[:, y, x]
 
-    def get_all_bands_at_rect(self, rect: QRect) -> np.ndarray:
-        # return self._arr[:, rect.top():rect.top()+rect.height(), rect.left():rect.left()+rect.width()]
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int) -> np.ndarray:
+        # return self._arr[:, y:y+dy, x:x+dx]
         return NotImplementedError
 
     def read_description(self) -> Optional[str]:
