@@ -231,9 +231,9 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return np_array
     
-    def get_all_bands_at_rect(self, rect: QRect):
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
         '''
-        Returns a numpy 2D array of the values of all bands at the specified
+        Returns a numpy 3D array of the values of all bands at the specified
         rectangle in the raster data.
         '''
 
@@ -244,9 +244,29 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        np_array = self.gdal_dataset.ReadAsArray(xoff=rect.left(), yoff=rect.top(), xsize=rect.width(), ysize=rect.height())
+        np_array = self.gdal_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 
         return np_array
+    
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        # Note that GDAL indexes bands from 1, not 0.
+        # print("AGAIN \n ", band_list_orig)
+        band_list = [band+1 for band in band_list_orig]
+
+        # Get dataset dimensions
+        xsize = self.gdal_dataset.RasterXSize
+        ysize = self.gdal_dataset.RasterYSize
+
+        # Read the specified bands
+        data = self.gdal_dataset.ReadAsArray(band_list=band_list)
+
+        # bands = self.gdal_dataset.GetRasterBand(band_index + 1)
+        # try:
+        #     np_array = band.GetVirtualMemAutoArray()
+        # except RuntimeError:
+        #     np_array = band.ReadAsArray()
+
+        return data
 
     def read_band_info(self) -> List[Dict[str, Any]]:
         '''

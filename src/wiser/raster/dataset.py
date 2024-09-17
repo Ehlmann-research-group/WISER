@@ -6,6 +6,7 @@ import math
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import dask
 from astropy import units as u
 
 from osgeo import osr
@@ -310,7 +311,7 @@ class RasterDataSet:
 
 
     def set_data_ignore_value(self, ignore_value: Optional[Number]) -> None:
-        self._data_ignore_value = value
+        self._data_ignore_value = ignore_value
         self.set_dirty()
 
 
@@ -360,6 +361,26 @@ class RasterDataSet:
 
         return arr
 
+    def get_image_data_at_slice(self, x: int, y: int, dx: int, dy: int, filter_data_ignore_value=True):
+        '''
+        Returns a numpy 3D array of part of the image cube.
+
+        The numpy array is configured such that the pixel (x, y) values of band
+        b are at element array[b][y][x].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
+
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+            # arr = dask.array.ma.masked_values(arr, self._data_ignore_value)
+
+        return arr
+
 
     def get_band_data(self, band_index: int, filter_data_ignore_value=True):
         '''
@@ -378,6 +399,27 @@ class RasterDataSet:
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
             arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        return arr
+    
+    def get_multiple_band_data(self, band_list: List[int], filter_data_ignore_value=True):
+        '''
+        Returns a numpy 3D array of the specified band's data.  The first band
+        is at index 0.
+
+        The numpy array is configured such that the pixel (x, y) for band b values are at
+        element array[b][y][x].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        arr = self._impl.get_multiple_band_data(band_list)
+
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+            # arr = dask.array.ma.masked_values(arr, self._data_ignore_value)
 
         return arr
 

@@ -4,6 +4,7 @@ Scalar = Union[int, float, bool]
 
 
 import numpy as np
+import dask
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
 
@@ -293,6 +294,92 @@ def make_image_cube_compatible(arg: BandMathValue,
     return result
 
 
+def make_image_cube_compatible_portion(arg: BandMathValue,
+        cube_shape: Tuple[int, int, int], go_by_band: True, band_start: int, \
+        dband: int, x_start: int, dx: int, y_start: int, dy: int) \
+        -> Union[np.ndarray, Scalar]:
+    '''
+    Given a band-math value, this function converts it to a value that is
+    "compatible with" a NumPy operation on an image-cube with the specified
+    shape.  This generally means that the return value can be broadcast against
+    an image-cube to achieve the "expected" behavior.
+
+    A ``TypeError`` is raised if the input argument isn't of one of these
+    ``VariableType`` values:
+
+    *   ``IMAGE_CUBE``
+    *   ``IMAGE_BAND``
+    *   ``SPECTRUM``
+    *   ``NUMBER``
+    *   ``BOOLEAN``
+
+    A ``ValueError`` is raised if the input argument has a shape incompatible
+    with the specified image-cube shape.
+    '''
+    if arg.type not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND,
+        VariableType.SPECTRUM, VariableType.NUMBER, VariableType.BOOLEAN]:
+        raise TypeError(f'Can\'t make a {arg.type} value compatible with ' +
+                        'an image-cube')
+
+    result: Union[np.ndarray, Scalar] = None
+
+    # Dimensions:  [band][y][x]
+
+    if arg.type == VariableType.IMAGE_CUBE:
+        # Dimensions:  [band][y][x]
+        if go_by_band:
+            band_list = [band_start + inc for inc in range(0, dband)]
+            result = arg.as_numpy_array_chunk(arg, go_by_band, band_list, dband, \
+                                          x_start, dx, y_start, dy)
+
+        else:
+            result = arg.as_numpy_array_chunk(arg, go_by_band, band_start, dband, \
+                                          x_start, dx, y_start, dy)
+        assert result.ndim == 3
+
+        if result.shape != cube_shape:
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.type, arg.shape)
+
+    elif arg.type == VariableType.IMAGE_BAND:
+        # Dimensions:  [y][x]
+        # NumPy will broadcast the band across the entire image, band by band.
+        # result = dask.array.from_array(arg.as_numpy_array())
+        result = arg.as_numpy_array()
+        assert result.ndim == 2
+
+        if result.shape != cube_shape[1:]:
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.type, arg.shape)
+
+    elif arg.type == VariableType.SPECTRUM:
+        # Dimensions:  [band]
+        result = arg.as_numpy_array()
+        print("SHAPES BEFORE")
+        print(f"result.shape {result.shape}")
+        if go_by_band:
+            result=result[band_start:band_start+dband]
+        print("SHAPES")
+        print(f"result.shape {result.shape}")
+        print(f"cube_shape {cube_shape}")
+        assert result.ndim == 1
+
+        if result.shape != (cube_shape[0],):
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
+                                 arg.type, arg.shape)
+
+        # To ensure the spectrum is broadcast across the image's pixels,
+        # reshape to effectively create a 1x1 image.
+        # New dimensions:  [band][y=1][x=1]
+        result = result[:, np.newaxis, np.newaxis]
+
+    else:
+        # This is a scalar:  number or Boolean
+        assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
+        result = arg.value
+
+    return result
+
 def make_image_band_compatible(arg: BandMathValue,
         band_shape: Tuple[int, int]) -> Union[np.ndarray, Scalar]:
     '''
@@ -333,8 +420,7 @@ def make_image_band_compatible(arg: BandMathValue,
         result = arg.value
 
     return result
-
-
+        
 def make_spectrum_compatible(arg: BandMathValue,
         spectrum_shape: Tuple[int]) -> Union[np.ndarray, Scalar]:
     '''

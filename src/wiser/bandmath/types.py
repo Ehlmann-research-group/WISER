@@ -169,6 +169,57 @@ class BandMathValue:
         raise TypeError(f'Don\'t know how to convert {self.type} ' +
                         f'value {self.value} into a NumPy array')
 
+    def as_numpy_array_cube_slice(self, rhs, max_ram_bytes: int) -> np.ndarray:
+        '''
+        If a band-math value is an image cube, image band, or spectrum, this
+        function returns the value as a NumPy ``ndarray``.  If a band-math
+        value is some other type, the function raises a ``TypeError``.
+        '''
+        # We assume numbers are float 64
+        max_bytes = max_ram_bytes/8
+        # If the value is already a NumPy array, we are done!
+        if isinstance(self.value, np.ndarray):
+            return self.value
+
+        if self.type == VariableType.IMAGE_CUBE:
+            if isinstance(self.value, RasterDataSet):
+                # If it is an image cube, we just take all the bands and constraint the x, y
+                bands, y, x = self.get_shape()
+                if rhs.type == VariableType.IMAGE_CUBE:
+                    x_y_area = max_bytes / bands
+                    sqrt_area = int(np.floor(np.sqrt(x_y_area)))
+                    return self.value.get_image_data_at_slice(x, y, dx, dy)
+
+        # We only want this function to work for numpy arrays and RasterDataSets 
+        # because these can be very big 3D objects
+        raise TypeError(f'This function should only be called on numpy' +
+                        f'arrays and image cubes, not {self.type}')    
+    
+    def as_numpy_array_chunk(self, rhs, go_by_band: True, band_list: List[int], \
+                             dband: int, x_start: int, dx: int, y_start: int, \
+                             dy: int) -> np.ndarray:
+        '''
+        If a band-math value is an image cube, image band, or spectrum, this
+        function returns the value as a NumPy ``ndarray``.  If a band-math
+        value is some other type, the function raises a ``TypeError``.
+        '''
+        # We assume numbers are float 64
+        # If the value is already a NumPy array, we are done!
+        if isinstance(self.value, np.ndarray):
+            return self.value
+
+        if self.type == VariableType.IMAGE_CUBE:
+            if isinstance(self.value, RasterDataSet):
+                if go_by_band:
+                    return self.value.get_multiple_band_data(band_list)
+                else:
+                    return self.value.get_image_data_at_slice(x_start, y_start, dx, dy)
+
+        # We only want this function to work for numpy arrays and RasterDataSets 
+        # because these can be very big 3D objects
+        raise TypeError(f'This function should only be called on numpy' +
+                        f'arrays and image cubes, not {self.type}')                      
+
 
 class BandMathFunction(abc.ABC):
     '''

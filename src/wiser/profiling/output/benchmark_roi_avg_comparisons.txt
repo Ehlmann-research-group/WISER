@@ -1,0 +1,16 @@
+For rect_roi
+	New method avg: 0.8915398915608724
+	Old method avg: 23.949208617210388
+
+For poly_roi
+	New method avg: 0.8560403188069662
+	Old method avg: 6.70472006003062
+
+For multi_pix_points_connected
+	New method avg: 0.167726198832194
+	Old method avg: 1.1357053120930989
+
+For multi_pix_points_disjoint
+	New method avg: 4.380579829216003
+	Old method avg: 4.329137484232585
+
