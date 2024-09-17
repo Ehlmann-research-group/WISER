@@ -18,3 +18,4 @@ Install-WISER-*.exe
 # This file contains secrets for distribution, DO NOT CHECK IN!
 Secret.mk
 
+src/wiser/bandmath/builtins/temp/*

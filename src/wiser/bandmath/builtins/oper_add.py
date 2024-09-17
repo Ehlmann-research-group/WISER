@@ -1,6 +1,10 @@
 from typing import Any, Dict, List, Optional
 
 import numpy as np
+import dask.array as da
+import os
+import gc
+import psutil
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
@@ -9,8 +13,10 @@ from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
+    make_image_cube_compatible_by_bands,
 )
 
+from .constants import MAX_RAM_BYTES, SCALAR_BYTES, TEMP_FOLDER_PATH
 
 class OperatorAdd(BandMathFunction):
     '''
@@ -111,20 +117,36 @@ class OperatorAdd(BandMathFunction):
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
         # Do the addition computation.
-
+        file_path = os.path.join(TEMP_FOLDER_PATH, 'oper_add_result.dat')
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            lhs_value = lhs.as_numpy_array()
-            assert lhs_value.ndim == 3
+            bands, y, x = lhs.get_shape()
 
-            rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value + rhs_value
+            result_arr = da.from_array(np.memmap(file_path, \
+                                   dtype=lhs.value.get_elem_type(), mode='w+', shape=lhs.value.get_shape()))
+            max_bytes = MAX_RAM_BYTES/SCALAR_BYTES
+            dbands = int(np.floor(max_bytes / (x*y)))
+            if dbands == 0:
+                dbands = 1
+            # We get by bands since the data is in bsq format
+            for band_start in range(0, bands, dbands):
+                if band_start + dbands > bands:
+                    dbands = bands - band_start
+                band_list = [band_start + inc for inc in range(0, dbands)]
+                lhs_value = lhs.as_numpy_array_by_bands(band_list)
+
+                assert lhs_value.ndim == 3
+
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, band_list)
+                result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
+
+                del lhs_value, rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
             assert result_arr.ndim == 3
-            assert result_arr.shape == lhs_value.shape
-            return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            assert result_arr.shape == lhs.value.get_shape()
+            return BandMathValue(VariableType.IMAGE_CUBE, result_arr.compute())
 
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [y][x]

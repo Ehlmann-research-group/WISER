@@ -63,6 +63,9 @@ class RasterDataImpl(abc.ABC):
     def read_band_unit(self) -> Optional[u.Unit]:
         return None
 
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        return
+
     def read_band_info(self) -> List[Dict[str, Any]]:
         pass
 
@@ -225,6 +228,18 @@ class GDALRasterDataImpl(RasterDataImpl):
         np_array = np_array.reshape(np_array.shape[0])
 
         return np_array
+
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        '''
+        Returns a numpy 3D array of all the x & y values at the specified bands.
+        '''
+        # Note that GDAL indexes bands from 1, not 0.
+        band_list = [band+1 for band in band_list_orig]
+
+        # Read the specified bands
+        data = self.gdal_dataset.ReadAsArray(band_list=band_list)
+
+        return data
 
     def read_band_info(self) -> List[Dict[str, Any]]:
         '''
@@ -763,6 +778,11 @@ class NumPyRasterDataImpl(RasterDataImpl):
 
     def read_description(self) -> Optional[str]:
         return None
+    
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        '''Returns the bands specified by the band list. The band list is assumed
+            to be in sorted order from least to greatest.'''
+        return self._arr[band_list_orig[0]:band_list_orig[-1]+1,:,:]
 
     def read_band_info(self) -> List[Dict[str, Any]]:
         band_info = []

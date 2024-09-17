@@ -46,7 +46,7 @@ def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
 def get_memory_size(size_bytes: int) -> str:
     '''
     This helper function takes a size in bytes, and generates a human-readable
-    string versino of the size.  The size will be reported using bytes,
+    string version of the size.  The size will be reported using bytes,
     kilobytes (=2**10 bytes), megabytes (=2**20 bytes), gigabytes, or terabytes,
     depending on the most appropriate option for the input size.
     '''
