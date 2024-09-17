@@ -419,7 +419,6 @@ class RasterDataSet:
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
             arr = np.ma.masked_values(arr, self._data_ignore_value)
-            # arr = dask.array.ma.masked_values(arr, self._data_ignore_value)
 
         return arr
 
