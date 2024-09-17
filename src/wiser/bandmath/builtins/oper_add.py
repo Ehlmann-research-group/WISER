@@ -124,47 +124,22 @@ class OperatorAdd(BandMathFunction):
             end = time.time()
             max_bytes = MAX_RAM_BYTES/SCALAR_BYTES
             dbands = int(np.floor(max_bytes / (x*y)))
-            if rhs.type == VariableType.IMAGE_CUBE:
-                start = time.time()
-                # We get by bands because the data is in bsq format (bands are the first dimension so easier
-                # to access)
-                for band_start in range(0, bands, dbands):
-                    if band_start + dbands > bands:
-                        dbands = bands - band_start
-                    band_list = [band_start + inc for inc in range(0, dbands)]
-                    lhs_value = lhs.as_numpy_array_by_bands(band_list)
-                    rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, band_list)
-                    result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
-                    del lhs_value, rhs_value
-                end=time.time()
-                print(f"Took {end-start} long!")
-
-            elif rhs.type == VariableType.IMAGE_BAND:
-                start = time.time()
-                for band_start in range(0, bands, dbands):
-                    if band_start + dbands > bands:
-                        dbands = bands - band_start
-                    band_list = [band_start + inc for inc in range(0, dbands)]
-                    lhs_value = lhs.as_numpy_array_by_bands(band_list)
-                    # Since we are broadcasting a singular image band, 
-                    # we don't have to specify what band to get 
-                    rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, None)
-                    result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
-                    del lhs_value, rhs_value
-                end=time.time()
-                print(f"Took {end-start} long!")
-            elif rhs.type == VariableType.SPECTRUM:
-                start = time.time()
-                for band_start in range(0, bands, dbands):
-                    if band_start + dbands > bands:
-                        dbands = bands - band_start
-                    band_list = [band_start + inc for inc in range(0, dbands)]
-                    lhs_value = lhs.as_numpy_array_by_bands(band_list)
-                    rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, band_list)
-                    result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
-                    del lhs_value, rhs_value
-                end=time.time()
-                print(f"Took {end-start} long!")
+            if dbands == 0:
+                dbands = 1
+            start = time.time()
+            # Because the data is in bsq format
+            # (bands are the first dimension so its quicker to access)
+            for band_start in range(0, bands, dbands):
+                if band_start + dbands > bands:
+                    dbands = bands - band_start
+                band_list = [band_start + inc for inc in range(0, dbands)]
+                lhs_value = lhs.as_numpy_array_by_bands(band_list)
+                assert lhs_value.ndim == 3
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, band_list)
+                result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
+                del lhs_value, rhs_value
+            end=time.time()
+            print(f"Took {end-start} long!")
 
             # The result array should have the same dimensions as the LHS input
             # array.

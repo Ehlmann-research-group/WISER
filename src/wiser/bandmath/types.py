@@ -90,7 +90,6 @@ class BandMathValue:
 
         self.name: Optional[str] = None
         self.type: VariableType = type1
-        print('value type: ', type(value))
         self.value: Any = value
         self.computed: bool = computed
 
