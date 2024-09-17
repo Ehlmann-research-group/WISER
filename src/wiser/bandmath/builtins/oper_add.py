@@ -3,8 +3,6 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import dask.array as da
 import os
-import gc
-import psutil
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
@@ -101,7 +99,6 @@ class OperatorAdd(BandMathFunction):
         '''
         Add the LHS and RHS and return the result.
         '''
-        print("APPLY")
         if len(args) != 2:
             raise Exception('+ requires exactly two arguments')
 

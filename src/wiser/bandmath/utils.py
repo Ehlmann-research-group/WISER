@@ -4,7 +4,6 @@ Scalar = Union[int, float, bool]
 
 
 import numpy as np
-import dask
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
 
@@ -409,7 +408,8 @@ def make_image_band_compatible(arg: BandMathValue,
         result = arg.value
 
     return result
-        
+
+
 def make_spectrum_compatible(arg: BandMathValue,
         spectrum_shape: Tuple[int]) -> Union[np.ndarray, Scalar]:
     '''

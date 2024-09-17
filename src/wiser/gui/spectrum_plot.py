@@ -191,7 +191,6 @@ class SpectrumDisplayInfo:
 
             lines = axes.plot(wavelengths, values, color=color,
                 linewidth=linewidth, label=self._spectrum.get_name())
-            print("lines: ", lines)
             assert(len(lines) == 1)
             self._line2d = lines[0]
         else:
