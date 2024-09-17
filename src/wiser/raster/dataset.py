@@ -14,8 +14,6 @@ from .dataset_impl import RasterDataImpl
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength
 
-from PySide2.QtCore import QRect
-
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
@@ -422,7 +420,7 @@ class RasterDataSet:
 
         return arr
 
-    def get_all_bands_at_rect(self, rect: QRect , filter_bad_values=True):
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int, filter_bad_values=True):
         '''
         Returns a numpy 2D array of the values of all bands at the specified
         rectangle in the raster data.
@@ -431,7 +429,7 @@ class RasterDataSet:
         will also be set to NaN.
         '''
 
-        arr = self._impl.get_all_bands_at_rect(rect)
+        arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
             # TODO: (Joshua G-K) Ask donnie if we copy here because the numpy array 
             # has direct access to the memory and we don't want to change thet memory
