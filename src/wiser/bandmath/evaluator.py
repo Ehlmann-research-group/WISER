@@ -42,27 +42,9 @@ class BandMathEvaluator(lark.visitors.Transformer):
         transformer.
         '''
         logger.debug(' * add_expr')
-        # Pretty sure the arrays for lhs and rhs are not loaded into memory here, 
-        # but calling as_numpy_array loads them into memory
-        # It took 613.513 seconds to just load the data into memory, the below was with a 20GB array
-        # When I did it with a 1GB array it ook like 20 seconds
-        '''
-        Before call to as numpy array
-        The array is loaded into memory (regular NumPy array).
-        Took: 613.5137941837311 to get numpy array
-        '''
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
-        import time
-        print("Before call to as numpy array")
-        start = time.time()
-        if isinstance(lhs.as_numpy_array(), np.memmap):
-            print("The array is memory-mapped and accesses data on disk.")
-        else:
-            print("The array is loaded into memory (regular NumPy array).")
-        end=time.time()
-        print(f"Took: {end-start} to get numpy array")
 
         if oper == '+':
             return OperatorAdd().apply([lhs, rhs])
