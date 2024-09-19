@@ -186,8 +186,10 @@ class BandMathValue:
         # We only want this function to work for numpy arrays and RasterDataSets 
         # because these can be very big 3D objects
         raise TypeError(f'This function should only be called on numpy' +
-                        f'arrays and image cubes, not {self.type}')                      
+                        f'arrays and image cubes, not {self.type}')                   
 
+    def get_custom_array(self, band_list_orig: List[int], samples: int, dsamples: int, lines: int, dlines: int, filter_data_ignore_value=True) -> np.ndarray:
+        return self.value.get_custom_array(band_list_orig, samples, dsamples, lines, dlines, filter_data_ignore_value)
 
 class BandMathFunction(abc.ABC):
     '''

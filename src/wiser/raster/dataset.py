@@ -128,6 +128,7 @@ class RasterDataSet:
         # compute these values and reuse them.
         self._cached_band_stats: Dict[int, BandStats] = {}
 
+        self._interleave = self._impl.get_interleave()
 
     def _compute_has_wavelengths(self):
         for b in self._band_info:
@@ -403,6 +404,14 @@ class RasterDataSet:
         return arr
 
 
+    def get_custom_array(self, band_list_orig: List[int], samples: int, dsamples: int, lines: int, dlines: int, filter_data_ignore_value=True) -> np.ndarray:
+        arr = self._impl.get_custom_array(band_list_orig, samples, dsamples, lines, dlines)
+        
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        return arr
+
     def get_band_stats(self, band_index: int):
         '''
         Returns statistics of the specified band's data, wrapped in a
@@ -592,6 +601,8 @@ class RasterDataSet:
 
         self.set_dirty()
 
+    def get_interleave(self):
+        return self._interleave
 
 class RasterDataBand:
     '''

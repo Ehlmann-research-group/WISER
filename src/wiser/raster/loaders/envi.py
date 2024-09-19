@@ -297,7 +297,7 @@ def load_envi_data(filename, header_filename=None, metadata=None, mmap=True):
     # Figure out the shape of the 3D array, based on the interleaving.
 
     interleave = metadata['interleave']
-
+    print("ENVI LOAD_ENVI_DATA")
     if interleave == 'bsq':    # Band Sequential:  [bands, samples, lines]
         data.shape = (bands, samples, lines)
         data = np.moveaxis(data, 0, 2)

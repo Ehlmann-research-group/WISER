@@ -5,6 +5,7 @@ import os
 import pprint
 from urllib.parse import urlparse
 
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 
@@ -20,6 +21,11 @@ from PySide2.QtCore import QRect
 
 logger = logging.getLogger(__name__)
 
+class InterleaveType(Enum):
+    BSQ = 0
+    BIL = 1
+    BIP = 2
+    UNKNOWN = 3
 
 class RasterDataImpl(abc.ABC):
 
@@ -85,6 +91,9 @@ class RasterDataImpl(abc.ABC):
         return (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        return None
+
+    def get_interleave(self) -> InterleaveType:
         return None
 
 
@@ -260,6 +269,13 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return data
 
+    def get_custom_array(self, band_list_orig: List[int], x: int, dx: int, y: int, dy: int) -> np.ndarray:
+        band_list = [band+1 for band in band_list_orig]
+
+        data = self.gdal_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy, band_list=band_list)
+        # self.gdal_dataset.FlushCache()
+        return data
+
     def read_band_info(self) -> List[Dict[str, Any]]:
         '''
         A default implementation of read_band_info() for GDAL datasets.
@@ -285,6 +301,16 @@ class GDALRasterDataImpl(RasterDataImpl):
             spatial_ref.SetAxisMappingStrategy(osr.OAMS_AUTHORITY_COMPLIANT)
         return spatial_ref
 
+    def get_interleave(self) -> InterleaveType:
+        gdal_interleave = self.gdal_dataset.GetMetadata('IMAGE_STRUCTURE').get('INTERLEAVE', None)
+        if gdal_interleave == 'PIXEL':
+            return InterleaveType.BSQ
+        elif gdal_interleave == 'LINE':
+            return InterleaveType.BIL
+        elif gdal_interleave == 'PIXEL':
+            return InterleaveType.BIP
+        else:
+            return InterleaveType.UNKNOWN
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -313,7 +339,10 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
         gdal_dataset = gdal.OpenEx(load_path,
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
             allowed_drivers=['GTiff'])
-
+        
+        metadata = gdal_dataset.GetMetadata('IMAGE_STRUCTURE')
+        # print(f"GTiff INTERLEAVE: {metadata.get('interleave', 'Uknown')}")
+        # print(f"ENVI INTERLEAVE: {metadata}")
         return cls(gdal_dataset)
 
 
@@ -351,7 +380,9 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         gdal_dataset = gdal.OpenEx(load_path,
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
             allowed_drivers=['ENVI'])
-
+        metadata = gdal_dataset.GetMetadata('IMAGE_STRUCTURE')
+        # print(f"ENVI INTERLEAVE: {metadata.get('interleave', 'Uknown')}")
+        # print(f"ENVI INTERLEAVE: {metadata}")
         return cls(gdal_dataset)
 
 
@@ -823,3 +854,6 @@ class NumPyRasterDataImpl(RasterDataImpl):
     def read_bad_bands(self) -> List[int]:
         # We don't have a bad-band list, so just make one up with all 1s.
         return [1] * self.num_bands()
+    
+    def get_interleave(self) -> InterleaveType:
+        return InterleaveType.UNKNOWN
