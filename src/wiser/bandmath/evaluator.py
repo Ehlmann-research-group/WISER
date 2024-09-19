@@ -140,6 +140,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Calls the function named in args[0], passing it args[1:], and returns
         the result as a BandMathValue.
         '''
+        print("IN THAT WEIRD FUNCTION CLASS")
         logger.debug(' * function')
         func_name = args[0]
         func_args = args[1:]
@@ -235,5 +236,12 @@ def eval_bandmath_expr(bandmath_expr: str,
     logger.debug('Beginning band-math evaluation')
     eval = BandMathEvaluator(lower_variables, lower_functions)
     result_value = eval.transform(tree)
+    
+    print("===============TREE VALUE===============")
+    print(tree)
+    print("===============RESULT VALUE===============")
+    print(f"type(result_value): {type(result_value)}")
+    print(f"type(result_value.value): {type(result_value.value)}")
+
 
     return (result_value.type, result_value.value)

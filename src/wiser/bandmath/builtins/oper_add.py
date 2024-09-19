@@ -121,17 +121,19 @@ class OperatorAdd(BandMathFunction):
         # Do the addition computation.
         file_path = os.path.join(TEMP_FOLDER_PATH, 'oper_add_result.dat')
         if lhs.type == VariableType.IMAGE_CUBE:
-            useNew = 1
+            useNew = 0
             if useNew == 0:
                 print("============NEW METHOD============")
                 # Dimensions:  [y][x]
                 result_arr = perform_oper("+", lhs, rhs)
 
+                print(f"result_arr.shape: {result_arr.shape}")
+                print(f"lhs.value.get_shape(): {lhs.value.get_shape()}")
                 # The result array should have the same dimensions as the LHS input
                 # array.
                 assert result_arr.ndim == 3
                 assert result_arr.shape == lhs.value.get_shape()
-                return BandMathValue(VariableType.IMAGE_CUBE, result_arr.compute())
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             elif useNew == 1:
                 print("============'OLD' METHOD============")
                 # Dimensions:  [band][y][x]
