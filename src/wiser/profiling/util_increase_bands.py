@@ -271,5 +271,5 @@ def main(hdr_file, factor):
 
 if __name__ == "__main__":
     hdr_file = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
-    factor = 5
+    factor = 80
     main(hdr_file, factor)

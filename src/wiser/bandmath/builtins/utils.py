@@ -2,7 +2,11 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import dask.array as da
+# from dask.diagnostics import PerformanceReport
 import os
+# os.environ["OPENBLAS_NUM_THREADS"] = "1"
+# os.environ["MKL_NUM_THREADS"] = "1"
+# os.environ["OMP_NUM_THREADS"] = "1"
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
@@ -53,18 +57,49 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
         print(f"result_shape: {result_shape}")
         # result_arr = da.from_array(np.memmap(file_path, \
         #                         dtype=lhs.value.get_elem_type(), mode='w+', shape=result_shape))
-        result_arr = np.memmap(file_path, \
-                                dtype=lhs.value.get_elem_type(), mode='w+', shape=result_shape)
-        max_slots = MAX_RAM_BYTES / SCALAR_BYTES
-
+        start = time.time()
+        # result_arr = da.from_array(np.memmap(file_path, \
+        #                         dtype=lhs.value.get_elem_type(), mode='w+', shape=result_shape), chunks=result_shape)
         lhs_file = lhs.value._impl.gdal_dataset.GetFileList()[0]
+        file_size = os.path.getsize(lhs_file)
+        print(f"file_size: {file_size}")
+        chunk_bytes = 6000000000 # (600MB)
+        ratio = int(np.ceil(file_size/chunk_bytes))
+        first_dim = int(result_shape[0]/(ratio))
+        print(f"first_dim: {first_dim}")
+        chunk_size = (int(result_shape[0]/(ratio)), result_shape[1], result_shape[2])
+        print(f"chunk_size: {chunk_size}")
+        # result_arr = da.zeros(result_shape, chunks=result_shape)
+        result_arr = da.zeros(result_shape, chunks=chunk_size)
+        end = time.time()
+        print(f"Took {end-start} seconds long to load in memory mapped array!")
+        '''
+        With chunks=result_shape, it took 43 seconds, memory didn't pass 13Gb
+        With chunks=chunk_size (where we divide slowest dimension by (file size / 600 MB)) it took 175 seconds
+        '''
+        max_slots = MAX_RAM_BYTES / SCALAR_BYTES
+        import zarr.creation as zc
+        print(f"lhs_file: {lhs_file}")
         with open(lhs_file, 'rb') as f:
-            lhs_raw_numpy = np.memmap(f, np.float32, 'r', offset=0, shape=result_shape)
+            start = time.time()
+            # lhs_raw_numpy = zc.open_array(lhs_file, mode='r', shape=result_shape, compressor=None)
+            # lhs_raw_numpy = da.from_array(zc.open_array(lhs_file, mode='r', shape=result_shape, compressor=None))
+
+            # lhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=result_shape)
+            lhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=chunk_size)
+            end = time.time()
+            print(f"Took {end-start} seconds long to load in lhs memory mapped array!")
         
         rhs_file = rhs.value._impl.gdal_dataset.GetFileList()[0]
         with open(rhs_file, 'rb') as f:
-            rhs_raw_numpy = np.memmap(f, np.float32, 'r', offset=0, shape=result_shape)
+            start = time.time()
+            # rhs_raw_numpy = zc.open_array(rhs_file, mode='r', shape=result_shape, compressor=None)
+            # rhs_raw_numpy = da.from_array(zc.open_array(rhs_file, mode='r', shape=result_shape, compressor=None))
 
+            # rhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=result_shape)
+            rhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=chunk_size)
+            end = time.time()
+            print(f"Took {end-start} seconds long to load in rhs memory mapped array!")
         if rhs.type == VariableType.IMAGE_CUBE:
             rhs_interleave_type = rhs.value.get_interleave()
             if lhs_interleave_type == rhs_interleave_type:
@@ -110,27 +145,34 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
                 else: # lhs_interleave_type == InterleaveType.BSQ:
                     dbands = int(np.floor(max_slots/(lines*samples)))
                     start = time.time()
-                    for band_start in range(0, bands, dbands):
-                        if band_start + dbands > bands:
-                            dbands = bands - band_start
-                        print(f"Band start: {band_start} \t | Line end: {band_start+dbands}")
-                        partial_band_list = [band_start + inc for inc in range(0, dbands)]
-                        # lhs_value = lhs.get_custom_array(partial_band_list, 0, samples, 0, lines)
-                        # rhs_value = rhs.get_custom_array(partial_band_list, 0, samples, 0, lines)
-                        lhs_value = lhs_raw_numpy[band_start:band_start + dbands, : , :]
-                        rhs_value = rhs_raw_numpy[band_start:band_start + dbands, : , :]
-                        print(f"lhs_value: {lhs_value.shape}")
-                        print(f"rhs_value: {rhs_value.shape}")
-                        print(f"result_arr[band_start:band_start+dbands, :, :]: {result_arr[band_start:band_start+dbands, :, :].shape}")
-                        result_arr[band_start:band_start+dbands, :, :] = lhs_value + rhs_value
-                        del lhs_value, rhs_value
+                    # for band_start in range(0, bands, dbands):
+                    #     if band_start + dbands > bands:
+                    #         dbands = bands - band_start
+                    #     print(f"Band start: {band_start} \t | Line end: {band_start+dbands}")
+                    #     partial_band_list = [band_start + inc for inc in range(0, dbands)]
+                    #     # lhs_value = lhs.get_custom_array(partial_band_list, 0, samples, 0, lines)
+                    #     # rhs_value = rhs.get_custom_array(partial_band_list, 0, samples, 0, lines)
+                    #     lhs_value = lhs_raw_numpy[band_start:band_start + dbands, : , :]
+                    #     rhs_value = rhs_raw_numpy[band_start:band_start + dbands, : , :]
+                    #     print(f"lhs_value: {lhs_value.shape}")
+                    #     print(f"rhs_value: {rhs_value.shape}")
+                    #     print(f"result_arr[band_start:band_start+dbands, :, :]: {result_arr[band_start:band_start+dbands, :, :].shape}")
+                    #     result_arr[band_start:band_start+dbands, :, :] = lhs_value + rhs_value
+                    #     del lhs_value, rhs_value
+                    result_arr = lhs_raw_numpy + rhs_raw_numpy
                     end = time.time()
                     print(f"Took {end-start} seconds long!")
                 
             print(f"result_shape: {result_shape}")
-            result_arr_view = np.reshape(result_arr, lhs.get_shape())
-            print(result_arr_view.base is result_arr)
-            return result_arr_view
+            result_arr.visualize(filename='task_graph.png')
+            start = time.time()
+            res_arr = result_arr.compute()
+            end = time.time()
+            print(f"type(res_arr): {type(res_arr)}")
+            print(f"Took {end-start} seconds long to compute!")
+            # print(result_arr_view.base is result_arr)
+
+            return res_arr
         elif rhs.type == VariableType.IMAGE_BAND:
             rhs_arr = rhs.as_numpy_array()
             if lhs_interleave_type == InterleaveType.BSQ:
