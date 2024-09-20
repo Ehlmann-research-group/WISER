@@ -2,11 +2,12 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import dask.array as da
+from dask.distributed import Client, LocalCluster
 # from dask.diagnostics import PerformanceReport
 import os
-# os.environ["OPENBLAS_NUM_THREADS"] = "1"
-# os.environ["MKL_NUM_THREADS"] = "1"
-# os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
@@ -27,6 +28,10 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
 
     file_path = os.path.join(TEMP_FOLDER_PATH, 'oper_testing_result.dat')
     if lhs.type == VariableType.IMAGE_CUBE:
+        cluster = LocalCluster(name="testing", n_workers=4, threads_per_worker=4, memory_limit='2GB', processes=True)
+        print(f"cluster \n {cluster}")
+        client = Client(cluster)
+        print(f"client \n {client}")
         bands, lines, samples = lhs.get_shape()
         lhs_interleave_type = lhs.value.get_interleave()
         print(f"Metadata: ", lhs.value._impl.gdal_dataset.GetFileList())
@@ -63,7 +68,7 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
         lhs_file = lhs.value._impl.gdal_dataset.GetFileList()[0]
         file_size = os.path.getsize(lhs_file)
         print(f"file_size: {file_size}")
-        chunk_bytes = 6000000000 # (600MB)
+        chunk_bytes = 200000000 # (200 MB)
         ratio = int(np.ceil(file_size/chunk_bytes))
         first_dim = int(result_shape[0]/(ratio))
         print(f"first_dim: {first_dim}")

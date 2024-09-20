@@ -233,12 +233,13 @@ def eval_bandmath_expr(bandmath_expr: str,
     tree = parser.parse(bandmath_expr)
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
 
+    print("===============TREE VALUE===============")
+    print(tree)
+    
     logger.debug('Beginning band-math evaluation')
     eval = BandMathEvaluator(lower_variables, lower_functions)
     result_value = eval.transform(tree)
     
-    print("===============TREE VALUE===============")
-    print(tree)
     print("===============RESULT VALUE===============")
     print(f"type(result_value): {type(result_value)}")
     print(f"type(result_value.value): {type(result_value.value)}")
