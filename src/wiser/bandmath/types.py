@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
+from wiser.raster.dataset_impl import InterleaveType
 from wiser.raster.spectrum import Spectrum
 
 
@@ -51,6 +52,11 @@ class BandMathExprInfo:
         # If the result should have spectral metadata (e.g. band wavelengths)
         # associated with it, this is the source of that metadata.
         self.spectral_metadata_source: Any = None
+
+        # If the expression has image cubes, this value will store
+        # The interleave type. If there are multiple interleaves,
+        # this will store unknown. 
+        self.interleave_type: InterleaveType = None
 
 
     def result_size(self):

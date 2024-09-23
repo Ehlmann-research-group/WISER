@@ -130,7 +130,9 @@ class BandMathAnalyzer(lark.visitors.Transformer):
 
             if type in [VariableType.IMAGE_CUBE, VariableType.SPECTRUM]:
                 info.spectral_metadata_source = bmv
-
+        if type == VariableType.IMAGE_CUBE:
+            info.interleave_type = value.get_interleave()
+            
         logger.debug(f'Variable "{name}":  {info}')
 
         return info

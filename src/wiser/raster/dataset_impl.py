@@ -27,6 +27,11 @@ class InterleaveType(Enum):
     BIP = 2
     UNKNOWN = 3
 
+class InterleaveDimension(Enum):
+    BANDS = 0
+    SAMPLES = 1
+    LINES = 2
+
 class RasterDataImpl(abc.ABC):
 
     def get_format(self) -> str:
@@ -268,6 +273,23 @@ class GDALRasterDataImpl(RasterDataImpl):
         data = self.gdal_dataset.ReadAsArray(band_list=band_list)
 
         return data
+    
+    # def get_numpy_array_at(self, shape: Tuple[int, int, int], first_dim_start: int, first_dim_end: int, second_dim_start: int, \
+    #                        second_dim_end: int, third_dim_start: int, third_dim_end: int) -> np.ndarray:
+    #     filepath = self.get_filepaths()[0]
+    #     mem_arr = np.memmap(filepath, dtype=self.get_elem_type(), mode='r', shape=shape)
+    #     res_arr = mem_arr[first_dim_start:first_dim_end, second_dim_start:second_dim_end, third_dim_start:third_dim_end].copy()
+    #     print(f"res_arr: {res_arr}")
+    #     return res_arr
+    
+    def get_numpy_array_at(self, shape: Tuple[int, int, int], first_dim_start: int, first_dim_end: int) -> np.ndarray:
+        filepath = self.get_filepaths()[0]
+        mem_arr = np.memmap(filepath, dtype=self.get_elem_type(), mode='r', shape=shape)
+        res_arr = mem_arr[first_dim_start:first_dim_end, :, :]
+        res_arr = np.array(res_arr)
+        # print(f"memmap shape: {shape}")
+        # print(f"res_arr: {res_arr.shape}")
+        return res_arr
 
     def get_custom_array(self, band_list_orig: List[int], x: int, dx: int, y: int, dy: int) -> np.ndarray:
         band_list = [band+1 for band in band_list_orig]

@@ -7,6 +7,8 @@ import numpy as np
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
 
+from wiser.raster.dataset_impl import InterleaveType, InterleaveDimension
+
 
 def get_dimensions(type: VariableType, shape: Tuple) -> str:
     '''
@@ -150,6 +152,21 @@ def check_image_cube_compatible(arg: BandMathExprInfo,
         # This is a scalar:  number or Boolean
         assert arg.result_type in [VariableType.NUMBER, VariableType.BOOLEAN]
 
+def find_interleave_type(lhs: BandMathExprInfo, rhs: BandMathExprInfo) -> InterleaveType:
+    '''
+    lhs is assumed to be an image cube and rhs is anything 'less', but we check anyways
+    '''
+    res = InterleaveType.UNKNOWN
+    if lhs.result_type != VariableType.IMAGE_CUBE:
+        return res
+
+    if rhs.result_type == VariableType.IMAGE_CUBE:
+        if rhs.interleave_type == lhs.interleave_type:
+            res = lhs.interleave_type
+    else:
+        res = lhs.interleave_type
+
+    return res
 
 def check_image_band_compatible(arg: BandMathExprInfo,
                                 band_shape: Tuple[int, int]) -> None:
@@ -291,6 +308,79 @@ def make_image_cube_compatible(arg: BandMathValue,
         result = arg.value
 
     return result
+
+def make_image_cube_compatible_inter_index(arg: BandMathValue,
+        cube_shape: Tuple[int, int, int], index: int, interleave: InterleaveType,
+        lhs_interleave: InterleaveType) -> Union[np.ndarray, Scalar]:
+    '''
+    Given a band-math value, this function converts it to a value that is
+    "compatible with" a NumPy operation on an image-cube with the specified
+    shape.  This generally means that the return value can be broadcast against
+    an image-cube to achieve the "expected" behavior.
+
+    A ``TypeError`` is raised if the input argument isn't of one of these
+    ``VariableType`` values:
+
+    *   ``IMAGE_CUBE``
+    *   ``IMAGE_BAND``
+    *   ``SPECTRUM``
+    *   ``NUMBER``
+    *   ``BOOLEAN``
+
+    A ``ValueError`` is raised if the input argument has a shape incompatible
+    with the specified image-cube shape.
+    '''
+    if arg.type not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND,
+        VariableType.SPECTRUM, VariableType.NUMBER, VariableType.BOOLEAN]:
+        raise TypeError(f'Can\'t make a {arg.type} value compatible with ' +
+                        'an image-cube')
+
+    result: Union[np.ndarray, Scalar] = None
+    
+    if arg.type == VariableType.IMAGE_CUBE:
+        result = arg.value._impl.get_numpy_array_at(cube_shape, index, index+1)
+        assert result.ndim == 3
+    return result
+        # dimension = None
+        # # If  the interleave type is unknown, we go along the 
+        # if interleave == InterleaveType.UNKNOWN:
+        #     # Then we got to get the closest dimension
+        #     # TODO: Make it so we type check value to make sure it has get_interleave()
+        #     dimension = get_best_traversal_dim(arg.value.get_interleave())
+        # else:
+
+
+def get_best_traversal_dim(interleave1: InterleaveType, interleave2: InterleaveType):
+    if interleave1 == InterleaveType.BSQ:
+        if interleave2 == InterleaveType.BSQ:
+            return InterleaveDimension.BANDS
+        elif interleave2 == InterleaveType.BIL:
+            return InterleaveDimension.LINES
+        elif interleave2 == InterleaveType.BIP:
+            return InterleaveDimension.SAMPLES
+        else:
+            return InterleaveDimension.LINES
+    elif interleave1 == InterleaveType.BIL:
+        if interleave2 == InterleaveType.BSQ:
+            return InterleaveDimension.BANDS
+        elif interleave2 == InterleaveType.BIL:
+            return InterleaveDimension.LINES
+        elif interleave2 == InterleaveType.BIP:
+            return InterleaveDimension.LINES
+        else:
+            return InterleaveDimension.LINES
+    elif interleave1 == InterleaveType.BIP:
+        if interleave2 == InterleaveType.BSQ:
+            return InterleaveDimension.SAMPLES
+        elif interleave2 == InterleaveType.BIL:
+            return InterleaveDimension.LINES
+        elif interleave2 == InterleaveType.BIP:
+            return InterleaveDimension.SAMPLES
+        else:
+            return InterleaveDimension.LINES
+    else:
+        return InterleaveDimension.LINES
+
 
 
 def make_image_cube_compatible_by_bands(arg: BandMathValue,

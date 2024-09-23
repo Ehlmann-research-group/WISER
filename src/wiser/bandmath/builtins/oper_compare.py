@@ -8,6 +8,7 @@ from wiser.bandmath.functions import BandMathFunction
 from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
+    find_interleave_type,
 )
 
 
@@ -67,6 +68,7 @@ class OperatorCompare(BandMathFunction):
             #     generate warnings if they aren't.
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
+            info.interleave_type = find_interleave_type(lhs, rhs)
 
             return info
 

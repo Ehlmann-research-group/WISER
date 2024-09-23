@@ -97,8 +97,10 @@ class DatasetInfoView(QTreeWidget):
         default_bands = dataset.default_display_bands()
         if default_bands is None:
             default_bands = []
-
+        print(f"info dataset num_bands(): {dataset.num_bands()}")
+        print(f"info dataset band_list(): {len(dataset.band_list())}")
         for i in range(dataset.num_bands()):
+            # print(f"i: {i}")
             band_info = band_list[i]
             bad = bad_bands[i]
 

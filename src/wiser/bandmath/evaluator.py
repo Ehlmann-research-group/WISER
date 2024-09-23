@@ -6,8 +6,10 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import lark
 import numpy as np
 
-from .types import VariableType, BandMathValue, BandMathEvalError
+from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
+
+from wiser.raster.dataset_impl import InterleaveType
 
 from .builtins import (
     OperatorCompare,
@@ -24,9 +26,15 @@ class BandMathEvaluator(lark.visitors.Transformer):
     A Lark Transformer for evaluating band-math expressions.
     '''
     def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
-                       functions: Dict[str, Callable]):
+                       functions: Dict[str, Callable],
+                       interleave_type: InterleaveType,
+                       shape: Tuple[int, int, int]):
         self._variables = variables
         self._functions = functions
+        self.index = 0
+        self._interleave = interleave_type
+        self._shape = shape
+
 
     def comparison(self, args):
         logger.debug(' * comparison')
@@ -47,7 +55,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = values[2]
 
         if oper == '+':
-            return OperatorAdd().apply([lhs, rhs])
+            return OperatorAdd().apply([lhs, rhs], self.index, self._interleave)
 
         elif oper == '-':
             return OperatorSubtract().apply([lhs, rhs])
@@ -187,7 +195,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
 
 
-def eval_bandmath_expr(bandmath_expr: str,
+def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None) -> BandMathValue:
     '''
@@ -219,6 +227,9 @@ def eval_bandmath_expr(bandmath_expr: str,
     # of variables and functions are lowercase.
     # TODO(donnie):  Can also make sure they are valid, trimmed of whitespace,
     #     etc.
+    print("!!!!!!!!!!!!!!!INFO!!!!!!!!!!!!!")
+    print(f"expr_info.interleave_type: {expr_info.interleave_type}")
+    print(f"expr_info.shape: {expr_info.shape}")
 
     lower_variables = {}
     for name, value in variables.items():
@@ -237,12 +248,63 @@ def eval_bandmath_expr(bandmath_expr: str,
     print(tree)
     
     logger.debug('Beginning band-math evaluation')
-    eval = BandMathEvaluator(lower_variables, lower_functions)
-    result_value = eval.transform(tree)
+    expr_interleave = expr_info.interleave_type
+    eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.interleave_type, expr_info.shape)
+    # Now I need logic to call transform multiple times on the tree and update index each time its called
+    # then combine everything into the right form
+    index_max = -1
+    result_shape = None
+    bands, lines, samples = expr_info.shape
+    if expr_interleave == InterleaveType.BSQ:
+        result_shape = (bands, samples, lines)
+    elif expr_interleave == InterleaveType.BIL:
+        result_shape = (lines, bands, samples)
+    elif expr_interleave == InterleaveType.BIP:
+        result_shape = (samples, lines, bands)
+    else:
+        result_shape = (bands, samples, lines)
+    index_max = result_shape[0]
+    # result_memmap = np.memmap(f"result_oper_add_{result_name}.bat", mode='w+', dtype=expr_info.elem_type, shape=result_shape)
+    result_memmap = np.zeros(result_shape, dtype=expr_info.elem_type)
+    result_type = None
+    for index in range(index_max):
+        eval.index = index
+        result_value = eval.transform(tree)
+        result_type = result_value.type
+        if index % 50 == 0:
+            print(f"Evaluator index: {index}")
+        result_memmap[index:index+1,:,:] = result_value.value
+        del result_value
     
+    # print("===============RESULT VALUE===============")
+    # print(f"type(result_value): {type(result_value)}")
+    # print(f"type(result_value.value): {type(result_value.value)}")
+    # print(f"result_value.value.shape: {result_value.value.shape}")
+
     print("===============RESULT VALUE===============")
-    print(f"type(result_value): {type(result_value)}")
-    print(f"type(result_value.value): {type(result_value.value)}")
+    print(f"type(result_memmap): {type(np.array(result_memmap))}")
+    print(f"result_memmap.shape: {result_memmap.shape}")
+    lhs = eval.variable(['a'])
+    filepath = lhs.value._impl.get_filepaths()[0]
+    print(f"filepath: {filepath}")
+    lhs_value_memmap = np.memmap(filepath, np.float32, 'r', offset=0, shape=result_shape)
+    print(f"all close: {np.allclose(result_memmap, lhs_value_memmap)}")
+    result_arr = np.array(result_memmap)
+    result_arr_1 = np.zeros((bands, lines, samples), dtype=expr_info.elem_type)
+    if expr_interleave == InterleaveType.BSQ:
+        pass
+    elif expr_interleave == InterleaveType.BIL:
+        print("DOING FOR LOOPAGE")
+        for line_index in range(result_arr.shape[0]):
+            arr_to_add = result_arr[line_index:line_index+1,:,:].reshape((425, 1, 680))
+            result_arr_1[:,line_index:line_index+1,:] = arr_to_add
+        result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
+    elif expr_interleave == InterleaveType.BIP:
+        result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
+    else:
+        result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
 
-
-    return (result_value.type, result_value.value)
+    print("==================IS VIEW?==================")
+    print(f"{result_arr_1.base is result_arr}")
+    print(f"Final shape: {result_arr_1.shape}")
+    return (result_type, result_arr_1)

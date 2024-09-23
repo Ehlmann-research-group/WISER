@@ -24,7 +24,7 @@ def profile(dataset_path: str):
     # profiler = cProfile.Profile()
     # profiler.enable()
     # print('================Enabled Profile================')
-    res = OperatorAdd().apply([lhs, rhs])
+    res = OperatorAdd().apply([lhs, rhs], 0, lhs.value.get_interleave())
     # profiler.disable()
     # print('================Disabled Profile================')
     # # Save the profiling stats to a file
@@ -79,10 +79,10 @@ if __name__ == '__main__':
     '''
     It is okay for this profile to use an image that is not incredibly big because the sampler profile takes a long time to run
     '''
-    # dataset_path = "c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
+    dataset_path = "c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
     # dataset_path = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     # dataset_path = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
-    dataset_path = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
+    # dataset_path = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
     # dataset_path = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_increased_bands_by_80.hdr"
     profile(dataset_path)
     # profile_cube_band(dataset_path)

@@ -7,11 +7,13 @@ import os
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
 
+from wiser.raster.dataset_impl import InterleaveType
+
 from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    make_image_cube_compatible_by_bands,
+    make_image_cube_compatible_by_bands, find_interleave_type, make_image_cube_compatible_inter_index,
 )
 
 from .constants import MAX_RAM_BYTES, SCALAR_BYTES, TEMP_FOLDER_PATH
@@ -67,6 +69,7 @@ class OperatorAdd(BandMathFunction):
             #     generate warnings if they aren't.
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
+            info.interleave_type = find_interleave_type(lhs, rhs)
 
             return info
 
@@ -100,7 +103,7 @@ class OperatorAdd(BandMathFunction):
 
 
 
-    def apply(self, args: List[BandMathValue]):
+    def apply(self, args: List[BandMathValue], index: int, interleave: InterleaveType):
         '''
         Add the LHS and RHS and return the result.
         '''
@@ -123,17 +126,49 @@ class OperatorAdd(BandMathFunction):
         if lhs.type == VariableType.IMAGE_CUBE:
             useNew = 0
             if useNew == 0:
-                print("============NEW METHOD============")
-                # Dimensions:  [y][x]
-                result_arr = perform_oper("+", lhs, rhs)
+                # Depending on interleave type we either get the band, sample, or line from a memmap and we return it as a numpy array
 
-                print(f"result_arr.shape: {result_arr.shape}")
-                print(f"lhs.value.get_shape(): {lhs.value.get_shape()}")
-                # The result array should have the same dimensions as the LHS input
-                # array.
+                bands, lines, samples = lhs.get_shape()
+                lhs_interleave_type = lhs.value.get_interleave()
+                result_shape = None
+                if lhs_interleave_type == InterleaveType.BSQ:
+                    result_shape = (bands, samples, lines)
+                elif lhs_interleave_type == InterleaveType.BIL:
+                    result_shape = (lines, bands, samples)
+                elif lhs_interleave_type == InterleaveType.BIP:
+                    result_shape = (samples, lines, bands)
+                else:
+                    result_shape = (bands, samples, lines)
+                lhs_value = lhs.value._impl.get_numpy_array_at(result_shape, index, index+1)
+                assert lhs_value.ndim == 3
+
+
+                rhs_value = make_image_cube_compatible_inter_index(rhs, result_shape, index, interleave, lhs_interleave = lhs_interleave_type)
+
+                # print(f"type(lhs_value): {type(lhs_value)}")
+                result_arr = lhs_value + 0
+                lhs_gdal_arr = lhs.value._impl.gdal_dataset.ReadAsArray(yoff=index, ysize=1)
+                lhs_gdal_arr = lhs_gdal_arr.reshape((1, bands, samples))
+                # result_arr = result_arr.reshape((bands, 1, samples))
+                # print(f"lhs_gdal_arr.shape: {lhs_gdal_arr.shape}")
+                # print(np.isclose(lhs_gdal_arr, lhs_value).all())
+                np.testing.assert_allclose(lhs_value, lhs_gdal_arr)
+                # print(f"result_arr.shape: {result_arr.shape}")
                 assert result_arr.ndim == 3
-                assert result_arr.shape == lhs.value.get_shape()
+                # assert result_arr.shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+
+                # print("============NEW METHOD============")
+                # # Dimensions:  [y][x]
+                # result_arr = perform_oper("+", lhs, rhs)
+
+                # print(f"result_arr.shape: {result_arr.shape}")
+                # print(f"lhs.value.get_shape(): {lhs.value.get_shape()}")
+                # # The result array should have the same dimensions as the LHS input
+                # # array.
+                # assert result_arr.ndim == 3
+                # assert result_arr.shape == lhs.value.get_shape()
+                # return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             elif useNew == 1:
                 print("============'OLD' METHOD============")
                 # Dimensions:  [band][y][x]

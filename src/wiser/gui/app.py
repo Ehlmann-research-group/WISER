@@ -767,9 +767,9 @@ class DataVisualizerApp(QMainWindow):
                     functions.update(plugin_fns)
 
             try:
-                (result_type, result) = bandmath.eval_bandmath_expr(expression,
+                (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name,
                     variables, functions)
-
+                print("We evaluates the expression!!")
                 logger.debug(f'Result of band-math evaluation is type ' +
                              f'{result_type}, value:\n{result}')
 
@@ -779,8 +779,13 @@ class DataVisualizerApp(QMainWindow):
                 loader = self._app_state.get_loader()
 
                 if result_type == bandmath.VariableType.IMAGE_CUBE:
+                    print("result type is image cube!")
                     new_dataset = loader.dataset_from_numpy_array(result)
-
+                    # The result must be copying information from one of the parents that made it
+                    print(f"new dataset: {new_dataset}")
+                    print(f"new dataset.num_bands(): {new_dataset.num_bands()}")
+                    print(f"new dataset.band_list(): {new_dataset.band_list()}")
+                    print(f"new dataset.band_list(): {len(new_dataset.band_list())}")
                     if not result_name:
                         result_name = self.tr('Computed')
 
@@ -828,7 +833,7 @@ class DataVisualizerApp(QMainWindow):
                         new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
 
                     self._app_state.set_active_spectrum(new_spectrum)
-
+                print("out of the dialog!")
             except Exception as e:
                 logger.exception('Couldn\'t evaluate band-math expression')
                 QMessageBox.critical(self, self.tr('Bandmath Evaluation Error'),
