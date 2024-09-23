@@ -5,9 +5,9 @@ import dask.array as da
 from dask.distributed import Client, LocalCluster
 # from dask.diagnostics import PerformanceReport
 import os
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["OMP_NUM_THREADS"] = "1"
+# os.environ["OPENBLAS_NUM_THREADS"] = "1"
+# os.environ["MKL_NUM_THREADS"] = "1"
+# os.environ["OMP_NUM_THREADS"] = "1"
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
@@ -28,10 +28,10 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
 
     file_path = os.path.join(TEMP_FOLDER_PATH, 'oper_testing_result.dat')
     if lhs.type == VariableType.IMAGE_CUBE:
-        cluster = LocalCluster(name="testing", n_workers=4, threads_per_worker=4, memory_limit='2GB', processes=True)
-        print(f"cluster \n {cluster}")
-        client = Client(cluster)
-        print(f"client \n {client}")
+        # cluster = LocalCluster(name="testing", n_workers=2, threads_per_worker=1, memory_limit='2GB', processes=True)
+        # print(f"cluster \n {cluster}")
+        # client = Client(cluster)
+        # print(f"client \n {client}")
         bands, lines, samples = lhs.get_shape()
         lhs_interleave_type = lhs.value.get_interleave()
         print(f"Metadata: ", lhs.value._impl.gdal_dataset.GetFileList())
@@ -74,8 +74,8 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
         print(f"first_dim: {first_dim}")
         chunk_size = (int(result_shape[0]/(ratio)), result_shape[1], result_shape[2])
         print(f"chunk_size: {chunk_size}")
-        # result_arr = da.zeros(result_shape, chunks=result_shape)
-        result_arr = da.zeros(result_shape, chunks=chunk_size)
+        result_arr = da.zeros(result_shape, chunks=result_shape)
+        # result_arr = da.zeros(result_shape, chunks=chunk_size)
         end = time.time()
         print(f"Took {end-start} seconds long to load in memory mapped array!")
         '''
@@ -90,8 +90,9 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
             # lhs_raw_numpy = zc.open_array(lhs_file, mode='r', shape=result_shape, compressor=None)
             # lhs_raw_numpy = da.from_array(zc.open_array(lhs_file, mode='r', shape=result_shape, compressor=None))
 
-            # lhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=result_shape)
-            lhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=chunk_size)
+            lhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=result_shape)
+            # lhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape)) 
+            # lhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=chunk_size)
             end = time.time()
             print(f"Took {end-start} seconds long to load in lhs memory mapped array!")
         
@@ -101,8 +102,9 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
             # rhs_raw_numpy = zc.open_array(rhs_file, mode='r', shape=result_shape, compressor=None)
             # rhs_raw_numpy = da.from_array(zc.open_array(rhs_file, mode='r', shape=result_shape, compressor=None))
 
-            # rhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=result_shape)
-            rhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=chunk_size)
+            rhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=result_shape)
+            # rhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape))
+            # rhs_raw_numpy = da.from_array(np.memmap(f, np.float32, 'r', offset=0, shape=result_shape), chunks=chunk_size)
             end = time.time()
             print(f"Took {end-start} seconds long to load in rhs memory mapped array!")
         if rhs.type == VariableType.IMAGE_CUBE:
@@ -166,18 +168,21 @@ def perform_oper(operation: str, lhs: BandMathValue, rhs: BandMathValue):
                     #     del lhs_value, rhs_value
                     result_arr = lhs_raw_numpy + rhs_raw_numpy
                     end = time.time()
-                    print(f"Took {end-start} seconds long!")
+                    print(f"bil Took {end-start} seconds long!")
                 
+            store_array = np.memmap('testing_store', np.float32, mode='w+', shape=result_shape)
             print(f"result_shape: {result_shape}")
             result_arr.visualize(filename='task_graph.png')
             start = time.time()
-            res_arr = result_arr.compute()
+            # res_arr = result_arr.compute()
+            da.store(result_arr, store_array)
             end = time.time()
-            print(f"type(res_arr): {type(res_arr)}")
+            # print(f"type(res_arr): {type(res_arr)}")
             print(f"Took {end-start} seconds long to compute!")
             # print(result_arr_view.base is result_arr)
 
-            return res_arr
+            # return res_arr
+            return None
         elif rhs.type == VariableType.IMAGE_BAND:
             rhs_arr = rhs.as_numpy_array()
             if lhs_interleave_type == InterleaveType.BSQ:
