@@ -139,21 +139,25 @@ class OperatorAdd(BandMathFunction):
                     result_shape = (samples, lines, bands)
                 else:
                     result_shape = (bands, samples, lines)
-                lhs_value = lhs.value.get_numpy_array_at(result_shape, index, index+1)
-                assert lhs_value.ndim == 3
+                lhs_value = lhs.value.get_band_data(index)
+                assert lhs_value.ndim == 2
 
 
-                rhs_value = make_image_cube_compatible_inter_index(rhs, result_shape, index, interleave, lhs_interleave = lhs_interleave_type)
-
+                # rhs_value = make_image_cube_compatible_inter_index(rhs, result_shape, index, interleave, lhs_interleave = lhs_interleave_type)
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
+                # print(f"lhs_value: .shape {lhs_value.shape}")
+                # print(f"rhs_value: .shape {rhs_value.shape}")
                 # print(f"type(lhs_value) in oper_add: {type(lhs_value)}")
                 result_arr = lhs_value + rhs_value
-                lhs_gdal_arr = lhs.value._impl.gdal_dataset.ReadAsArray(yoff=index, ysize=1)
-                lhs_gdal_arr = lhs_gdal_arr.reshape((1, bands, samples))
-                result_arr = result_arr.reshape((bands, 1, samples))
+                # lhs_gdal_arr = lhs.value._impl.gdal_dataset.ReadAsArray(yoff=index, ysize=1)
+                # lhs_gdal_arr = lhs_gdal_arr.reshape((1, bands, samples))
+                # result_arr = result_arr.reshape((bands, 1, samples))
                 # print(f"lhs_gdal_arr.shape: {lhs_gdal_arr.shape}")
                 # print(np.isclose(lhs_gdal_arr, lhs_value).all())
-                np.testing.assert_allclose(lhs_value, lhs_gdal_arr)
+                # np.testing.assert_allclose(lhs_value, lhs_gdal_arr)
                 # print(f"result_arr.shape: {result_arr.shape}")
+                result_arr = result_arr[np.newaxis, :]
+                # print(result_arr.shape)
                 assert result_arr.ndim == 3
                 # assert result_arr.shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)

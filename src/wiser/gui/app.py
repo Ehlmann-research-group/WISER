@@ -778,8 +778,24 @@ class DataVisualizerApp(QMainWindow):
                 timestamp = datetime.datetime.now().isoformat()
 
                 loader = self._app_state.get_loader()
+                if result_type == "TEST":
+                    new_dataset = loader.dataset_from_gdal_dataset(result)
+                    if not result_name:
+                        result_name = self.tr('Computed')
 
-                if result_type == bandmath.VariableType.IMAGE_CUBE:
+                    new_dataset.set_name(
+                        self._app_state.unique_dataset_name(result_name))
+                    new_dataset.set_description(
+                        f'Computed image-cube:  {expression} ({timestamp})')
+
+                    if expr_info.spatial_metadata_source:
+                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+
+                    if expr_info.spectral_metadata_source:
+                        new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
+
+                    self._app_state.add_dataset(new_dataset)
+                elif result_type == bandmath.VariableType.IMAGE_CUBE:
                     print("result type is image cube!")
                     new_dataset = loader.dataset_from_numpy_array(result)
 

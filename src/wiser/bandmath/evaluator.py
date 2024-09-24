@@ -11,6 +11,8 @@ from .functions import BandMathFunction, get_builtin_functions
 
 from wiser.raster.dataset_impl import InterleaveType
 
+from osgeo import gdal
+
 from .builtins import (
     OperatorCompare,
     OperatorAdd, OperatorSubtract, OperatorMultiply, OperatorDivide,
@@ -194,7 +196,6 @@ class BandMathEvaluator(lark.visitors.Transformer):
         return str(token)[1:-1]
 
 
-
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None) -> BandMathValue:
@@ -255,73 +256,37 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         # Now I need logic to call transform multiple times on the tree and update index each time its called
         # then combine everything into the right form
         index_max = -1
-        result_shape = None
+        
         bands, lines, samples = expr_info.shape
-        if expr_interleave == InterleaveType.BSQ:
-            result_shape = (bands, samples, lines)
-        elif expr_interleave == InterleaveType.BIL:
-            result_shape = (lines, bands, samples)
-        elif expr_interleave == InterleaveType.BIP:
-            result_shape = (samples, lines, bands)
-        else:
-            result_shape = (bands, samples, lines)
-        index_max = result_shape[0]
-        result_memmap = None
-        # result_memmap = np.zeros(expr_info.shape, dtype=expr_info.elem_type)
-        result_memmap = np.memmap(f"result_oper_add_{result_name}.bat", mode='r+', dtype=expr_info.elem_type, shape=expr_info.shape)
+        index_max = bands
+
+        out_dataset = gdal.GetDriverByName('ENVI').Create('output.bil', samples, lines, bands, gdal.GDT_CFloat32)
+        print(f"expr_info.shape: {expr_info.shape}")
         result_type = None
         for index in range(index_max):
-            
             eval.index = index
             result_value = eval.transform(tree)
             result_type = result_value.type
+            # res = result_value.value
+            # if isinstance(result_value.value, np.ma.MaskedArray):
+            #     print("=========MASKED=========")
+                # res[result_value.value.mask] = np.nan
+            # result_memmap[index:index+1,:,:] = result_value.value
+            temp_result_arr = np.squeeze(result_value.value, axis=0)
             if index % 50 == 0:
-                del result_memmap
-                result_memmap = np.memmap(f"result_oper_add_{result_name}.bat", mode='r+', dtype=expr_info.elem_type, shape=expr_info.shape)
-                print(f"Evaluator index: {index}")
-            # mask = np.isclose(result_value.value, -9999.0)
-            # print(f"ANY FOR MASK: {np.any(result_value.value.mask)}")
-            res = result_value.value
-            if isinstance(result_value.value, np.ma.MaskedArray):
-                res[result_value.value.mask] = np.nan
-            result_memmap[:,index:index+1,:] = res
-            # result_memmap.flush()
-            # result_memmap.mask[:,index:index+1,:] = result_value.value.mask
-            del result_value
-            del res
+                print(f"Index: {index}")
+            # print(f"temp_result_arr.shape: {temp_result_arr.shape}")
+            band = out_dataset.GetRasterBand(index+1)
+            band.WriteArray(temp_result_arr)
+            band.FlushCache()
         
-        # print("===============RESULT VALUE===============")
-        # print(f"type(result_value): {type(result_value)}")
-        # print(f"type(result_value.value): {type(result_value.value)}")
-        # print(f"result_value.value.shape: {result_value.value.shape}")
-
+        # result_arr = out_dataset.ReadAsArray()
         print("===============RESULT VALUE===============")
-        print(f"type(result_memmap): {type(result_memmap)}")
-        print(f"result_memmap.shape: {result_memmap.shape}")
         lhs = eval.variable(['a'])
         filepath = lhs.value._impl.get_filepaths()[0]
         print(f"filepath: {filepath}")
-        # lhs_value_memmap = np.memmap(filepath, np.float32, 'r', offset=0, shape=result_shape)
-        # print(f"all close: {np.allclose(result_memmap, lhs_value_memmap)}")
-        result_arr = result_memmap
-        # result_arr_1 = np.zeros((bands, lines, samples), dtype=expr_info.elem_type)
-        # if expr_interleave == InterleaveType.BSQ:
-        #     pass
-        # elif expr_interleave == InterleaveType.BIL:
-        #     print("DOING FOR LOOPAGE")
-        #     for line_index in range(result_arr.shape[0]):
-        #         arr_to_add = result_arr[line_index:line_index+1,:,:].reshape((425, 1, 680))
-        #         result_arr_1[:,line_index:line_index+1,:] = arr_to_add
-        #     result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
-        # elif expr_interleave == InterleaveType.BIP:
-        #     result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
-        # else:
-        #     result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
 
-        print("==================IS VIEW?==================")
-        # print(f"{result_arr_1.base is result_arr}")
-        print(f"Final shape: {result_memmap.shape}")
-        return (result_type, result_arr)
+        return ("TEST", out_dataset)
     else:
         result_value = eval.transform(tree)
         print("===============RESULT VALUE===============")

@@ -95,6 +95,11 @@ class RasterDataLoader:
 
         impl = NumPyRasterDataImpl(arr)
         return RasterDataSet(impl)
+    
+    def dataset_from_gdal_dataset(self, dataset: gdal.Dataset):
+        impl = ENVI_GDALRasterDataImpl(dataset)
+        return RasterDataSet(impl)
+
 
 
     # TODO(donnie):  Not presently needed - can instantiate a NumPyArraySpectrum

@@ -418,7 +418,7 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     if arg.type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         result = arg.as_numpy_array_by_bands(band_list)
-        assert result.ndim == 3
+        assert result.ndim == 3 or (result.ndim == 2 and len(band_list) == 1)
 
         if result.shape != cube_shape:
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
