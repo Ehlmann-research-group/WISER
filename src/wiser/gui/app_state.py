@@ -267,6 +267,8 @@ class ApplicationState(QObject):
             raise TypeError('dataset must be a RasterDataSet')
 
         ds_id = self._take_next_id()
+        print(f"Dataset ID for {dataset.get_name()} is: {ds_id}")
+        # So its just closing the dataset with the highest ID
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
