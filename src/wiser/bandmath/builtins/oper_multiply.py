@@ -116,6 +116,7 @@ class OperatorMultiply(BandMathFunction):
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
             lhs_value = lhs.as_numpy_array()
+            print(f"lhs_value in mult: {type(lhs_value)}")
             assert lhs_value.ndim == 3
 
             rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)

@@ -249,62 +249,84 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     
     logger.debug('Beginning band-math evaluation')
     expr_interleave = expr_info.interleave_type
+
     eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.interleave_type, expr_info.shape)
-    # Now I need logic to call transform multiple times on the tree and update index each time its called
-    # then combine everything into the right form
-    index_max = -1
-    result_shape = None
-    bands, lines, samples = expr_info.shape
-    if expr_interleave == InterleaveType.BSQ:
-        result_shape = (bands, samples, lines)
-    elif expr_interleave == InterleaveType.BIL:
-        result_shape = (lines, bands, samples)
-    elif expr_interleave == InterleaveType.BIP:
-        result_shape = (samples, lines, bands)
+    if True:
+        # Now I need logic to call transform multiple times on the tree and update index each time its called
+        # then combine everything into the right form
+        index_max = -1
+        result_shape = None
+        bands, lines, samples = expr_info.shape
+        if expr_interleave == InterleaveType.BSQ:
+            result_shape = (bands, samples, lines)
+        elif expr_interleave == InterleaveType.BIL:
+            result_shape = (lines, bands, samples)
+        elif expr_interleave == InterleaveType.BIP:
+            result_shape = (samples, lines, bands)
+        else:
+            result_shape = (bands, samples, lines)
+        index_max = result_shape[0]
+        result_memmap = None
+        # result_memmap = np.zeros(expr_info.shape, dtype=expr_info.elem_type)
+        result_memmap = np.memmap(f"result_oper_add_{result_name}.bat", mode='r+', dtype=expr_info.elem_type, shape=expr_info.shape)
+        result_type = None
+        for index in range(index_max):
+            
+            eval.index = index
+            result_value = eval.transform(tree)
+            result_type = result_value.type
+            if index % 50 == 0:
+                del result_memmap
+                result_memmap = np.memmap(f"result_oper_add_{result_name}.bat", mode='r+', dtype=expr_info.elem_type, shape=expr_info.shape)
+                print(f"Evaluator index: {index}")
+            # mask = np.isclose(result_value.value, -9999.0)
+            # print(f"ANY FOR MASK: {np.any(result_value.value.mask)}")
+            res = result_value.value
+            if isinstance(result_value.value, np.ma.MaskedArray):
+                res[result_value.value.mask] = np.nan
+            result_memmap[:,index:index+1,:] = res
+            # result_memmap.flush()
+            # result_memmap.mask[:,index:index+1,:] = result_value.value.mask
+            del result_value
+            del res
+        
+        # print("===============RESULT VALUE===============")
+        # print(f"type(result_value): {type(result_value)}")
+        # print(f"type(result_value.value): {type(result_value.value)}")
+        # print(f"result_value.value.shape: {result_value.value.shape}")
+
+        print("===============RESULT VALUE===============")
+        print(f"type(result_memmap): {type(result_memmap)}")
+        print(f"result_memmap.shape: {result_memmap.shape}")
+        lhs = eval.variable(['a'])
+        filepath = lhs.value._impl.get_filepaths()[0]
+        print(f"filepath: {filepath}")
+        # lhs_value_memmap = np.memmap(filepath, np.float32, 'r', offset=0, shape=result_shape)
+        # print(f"all close: {np.allclose(result_memmap, lhs_value_memmap)}")
+        result_arr = result_memmap
+        # result_arr_1 = np.zeros((bands, lines, samples), dtype=expr_info.elem_type)
+        # if expr_interleave == InterleaveType.BSQ:
+        #     pass
+        # elif expr_interleave == InterleaveType.BIL:
+        #     print("DOING FOR LOOPAGE")
+        #     for line_index in range(result_arr.shape[0]):
+        #         arr_to_add = result_arr[line_index:line_index+1,:,:].reshape((425, 1, 680))
+        #         result_arr_1[:,line_index:line_index+1,:] = arr_to_add
+        #     result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
+        # elif expr_interleave == InterleaveType.BIP:
+        #     result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
+        # else:
+        #     result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
+
+        print("==================IS VIEW?==================")
+        # print(f"{result_arr_1.base is result_arr}")
+        print(f"Final shape: {result_memmap.shape}")
+        return (result_type, result_arr)
     else:
-        result_shape = (bands, samples, lines)
-    index_max = result_shape[0]
-    # result_memmap = np.memmap(f"result_oper_add_{result_name}.bat", mode='w+', dtype=expr_info.elem_type, shape=result_shape)
-    result_memmap = np.zeros(result_shape, dtype=expr_info.elem_type)
-    result_type = None
-    for index in range(index_max):
-        eval.index = index
         result_value = eval.transform(tree)
-        result_type = result_value.type
-        if index % 50 == 0:
-            print(f"Evaluator index: {index}")
-        result_memmap[index:index+1,:,:] = result_value.value
-        del result_value
-    
-    # print("===============RESULT VALUE===============")
-    # print(f"type(result_value): {type(result_value)}")
-    # print(f"type(result_value.value): {type(result_value.value)}")
-    # print(f"result_value.value.shape: {result_value.value.shape}")
+        print("===============RESULT VALUE===============")
+        print(f"result_value.type: {type(result_value)}")
+        print(f"result_value.type: {type(result_value.value)}")
+        print(f"result_value.value.shape: {result_value.value.shape}")
+        return (result_value.type, result_value.value)
 
-    print("===============RESULT VALUE===============")
-    print(f"type(result_memmap): {type(np.array(result_memmap))}")
-    print(f"result_memmap.shape: {result_memmap.shape}")
-    lhs = eval.variable(['a'])
-    filepath = lhs.value._impl.get_filepaths()[0]
-    print(f"filepath: {filepath}")
-    lhs_value_memmap = np.memmap(filepath, np.float32, 'r', offset=0, shape=result_shape)
-    print(f"all close: {np.allclose(result_memmap, lhs_value_memmap)}")
-    result_arr = np.array(result_memmap)
-    result_arr_1 = np.zeros((bands, lines, samples), dtype=expr_info.elem_type)
-    if expr_interleave == InterleaveType.BSQ:
-        pass
-    elif expr_interleave == InterleaveType.BIL:
-        print("DOING FOR LOOPAGE")
-        for line_index in range(result_arr.shape[0]):
-            arr_to_add = result_arr[line_index:line_index+1,:,:].reshape((425, 1, 680))
-            result_arr_1[:,line_index:line_index+1,:] = arr_to_add
-        result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
-    elif expr_interleave == InterleaveType.BIP:
-        result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
-    else:
-        result_arr_1 = result_arr.reshape((bands, lines, samples), order='F')
-
-    print("==================IS VIEW?==================")
-    print(f"{result_arr_1.base is result_arr}")
-    print(f"Final shape: {result_arr_1.shape}")
-    return (result_type, result_arr_1)

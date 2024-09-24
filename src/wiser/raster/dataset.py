@@ -403,6 +403,13 @@ class RasterDataSet:
 
         return arr
 
+    def get_numpy_array_at(self, shape: Tuple[int, int, int], first_dim_start: int, first_dim_end: int, filter_data_ignore_value=True) -> np.ndarray:
+        arr = self._impl.get_numpy_array_at(shape, first_dim_start, first_dim_end)
+
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        return arr
 
     def get_custom_array(self, band_list_orig: List[int], samples: int, dsamples: int, lines: int, dlines: int, filter_data_ignore_value=True) -> np.ndarray:
         arr = self._impl.get_custom_array(band_list_orig, samples, dsamples, lines, dlines)
@@ -565,6 +572,7 @@ class RasterDataSet:
         self._geo_transform = source._geo_transform
 
         if source._spatial_ref is not None:
+            print("Copying _spatial_ref metadata")
             self._spatial_ref = source._spatial_ref.Clone()
         else:
             self._spatial_ref = None
@@ -574,6 +582,7 @@ class RasterDataSet:
 
     def copy_spectral_metadata(self, source: Union['RasterDataSet', 'Spectrum']) -> None:
         if isinstance(source, RasterDataSet):
+            print("Copying spectral metadata")
             self._band_info = copy.deepcopy(source._band_info)
             self._bad_bands = list(source._bad_bands)
             self._default_display_bands = source._default_display_bands

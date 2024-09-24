@@ -30,8 +30,13 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     '''
     # Extract the raw band data and associated statistics from the data set.
     raw_data = dataset.get_band_data(band)
+    print(f"=== Band Number: {band} ===")
+    print(f"raw_data type: {type(raw_data)}")
+    print(f"raw_data shape: {raw_data.shape}")
+    print(f"raw_data[200, 200]: {raw_data[200, 200]}")
+    print(f"raw_data[250, 350]: {raw_data[250, 350]}")
     stats = dataset.get_band_stats(band)
-
+    print(f"band states: {stats}")
     # Normalize the raw band data.
     band_data = normalize_ndarray(raw_data,
         minval=stats.get_min(), maxval=stats.get_max())
@@ -92,12 +97,19 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     rgb_data = (channels[0] << 16 |
                 channels[1] <<  8 |
                 channels[2]) | 0xff000000
+    print(f"RGB_DATA type: {type(rgb_data)}")
+    print(f"RGB_DATA shape: {rgb_data.shape}")
     if isinstance(rgb_data, np.ma.MaskedArray):
         rgb_data.fill_value = 0xff000000
 
     # Qt5/PySide2 complains if the array is not contiguous.
     if not rgb_data.flags['C_CONTIGUOUS']:
+        print("!!!!!!!!!!!!!CONTINGUOUS COMPLAINT!!!!!!!!!!!!!")
         rgb_data = np.ascontiguousarray(rgb_data)
+
+    print(f"RGB_DATA dtype: {rgb_data.dtype}")
+    print(f"RGB_DATA continguous [300, 300]: {rgb_data[300, 300]}")
+    print(f"RGB_DATA continguous [450, 250]: {rgb_data[450, 250]}")
 
     return rgb_data
 
@@ -279,6 +291,13 @@ class ImageWidget(QWidget):
                 painter.drawPixmap(0, 0,
                     self._scaled_size.width(), self._scaled_size.height(), pixmap,
                     0, 0, 0, 0)
+
+                # # Draw a circle at a specific position (e.g., at the center of the image).
+                # painter.setPen(QPen(Qt.red, 3))  # Set the circle's pen with a red color and width of 3
+                # center_x = self._scaled_size.width() // 2
+                # center_y = self._scaled_size.height() // 2
+                # radius = 50  # You can adjust the radius as needed
+                # painter.drawEllipse(center_x - radius, center_y - radius, radius * 2, radius * 2)
 
                 if 'paintEvent' in self._forward:
                     self._forward['paintEvent'](self._rasterview, self, paint_event)
@@ -493,9 +512,14 @@ class RasterView(QWidget):
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
             for i in range(len(self._display_bands)):
                 if self._display_data[i] is None or color_indexes[i] in colors:
+                    print("!!!!!!!!!!!!HAVE A DISPLAY BAND!!!!!!!!!!!!")
                     # Compute the contents of this color channel.
                     self._display_data[i] = make_channel_image(self._raster_data,
                         self._display_bands[i], self._stretches[i])
+                    print(f"self._display_data[i] type: {type(self._display_data[i])}")
+                    print(f"self._display_data[i] shape: {self._display_data[i].shape}")
+                    print(f"self._display_data[i][200, 200]: {self._display_data[i][200, 200]}")
+                    print(f"self._display_data[i][250, 350]: {self._display_data[i][250, 350]}")
 
             time_2 = time.perf_counter()
 

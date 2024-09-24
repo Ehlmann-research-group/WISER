@@ -379,7 +379,7 @@ class DataVisualizerApp(QMainWindow):
 
     def _update_dataset_menu(self, menu, handler):
         menu.clear()
-
+        print("_updating dataset menu!")
         for ds in self._app_state.get_datasets():
             act = menu.addAction(ds.get_name())
             act.setData(ds.get_id())
@@ -418,6 +418,7 @@ class DataVisualizerApp(QMainWindow):
 
     def _on_close_dataset(self, ds_id: int):
         # If dataset is modified, ask user if they want to save it.
+        print(f"ds_id: {ds_id}")
         dataset = self._app_state.get_dataset(ds_id)
         if dataset.is_dirty():
             response = QMessageBox.question(self,
@@ -781,10 +782,12 @@ class DataVisualizerApp(QMainWindow):
                 if result_type == bandmath.VariableType.IMAGE_CUBE:
                     print("result type is image cube!")
                     new_dataset = loader.dataset_from_numpy_array(result)
+
                     # The result must be copying information from one of the parents that made it
                     print(f"new dataset: {new_dataset}")
+                    print(f"type(new dataset): {type(new_dataset)}")
                     print(f"new dataset.num_bands(): {new_dataset.num_bands()}")
-                    print(f"new dataset.band_list(): {new_dataset.band_list()}")
+                    # print(f"new dataset.band_list(): {new_dataset.band_list()}")
                     print(f"new dataset.band_list(): {len(new_dataset.band_list())}")
                     if not result_name:
                         result_name = self.tr('Computed')

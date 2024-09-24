@@ -287,6 +287,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         mem_arr = np.memmap(filepath, dtype=self.get_elem_type(), mode='r', shape=shape)
         res_arr = mem_arr[first_dim_start:first_dim_end, :, :]
         res_arr = np.array(res_arr)
+        
         # print(f"memmap shape: {shape}")
         # print(f"res_arr: {res_arr.shape}")
         return res_arr

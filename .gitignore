@@ -22,3 +22,5 @@ Secret.mk
 src/wiser/bandmath/builtins/temp
 src/wiser/profiling
 
+*.bat
+
