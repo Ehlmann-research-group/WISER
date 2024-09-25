@@ -228,9 +228,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     # of variables and functions are lowercase.
     # TODO(donnie):  Can also make sure they are valid, trimmed of whitespace,
     #     etc.
-    print("!!!!!!!!!!!!!!!INFO!!!!!!!!!!!!!")
-    print(f"expr_info.interleave_type: {expr_info.interleave_type}")
-    print(f"expr_info.shape: {expr_info.shape}")
 
     lower_variables = {}
     for name, value in variables.items():
@@ -245,79 +242,27 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     tree = parser.parse(bandmath_expr)
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
 
-    print("===============TREE VALUE===============")
-    print(tree)
-    
-    logger.debug('Beginning band-math evaluation')
-    expr_interleave = expr_info.interleave_type
-    result_type = expr_info.result_type
-
-    if result_type == VariableType.IMAGE_CUBE:
+    if expr_info.result_type == VariableType.IMAGE_CUBE:
         eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.interleave_type, expr_info.shape)
 
         bands, lines, samples = expr_info.shape
-        index_max = bands
-        # ext = 'hdr'
-        result_shape = (bands, samples, lines)
-        if expr_interleave == InterleaveType.BIL:
-            result_shape = (lines, bands, samples)
-        elif expr_interleave == InterleaveType.BIP:
-            result_shape = (samples, lines, bands)
-        filename = result_name#  + "." + ext
 
-        print(f'filename: {filename}')
         out_dataset = gdal.GetDriverByName('ENVI').Create(result_name, samples, lines, bands, gdal.GDT_CFloat32)
-        print(f"expr_info.shape: {expr_info.shape}")
-        print(f"result_shape: {result_shape}")
-        result_type = None
-        from memory_profiler import memory_usage
-        mem_initial = memory_usage()[0]
-        mem_before = memory_usage()[0]
-        import gc
-        for index in range(index_max):
-            eval.index = index
-            # mem_after = memory_usage()[0]
-            # print(f"Memory usage before transform: {mem_after - mem_before} MB")
-            # mem_before = mem_after
+
+        for band_index in range(bands):
+            eval.index = band_index
             result_value = eval.transform(tree)
-            # mem_after = memory_usage()[0]
-            # print(f"Memory usage after transform: {mem_after - mem_before} MB")
-            # mem_before = mem_after
-            
-            # mem_after = memory_usage()[0]
-            # print(f"Memory usage before result_value & res: {mem_after - mem_before} MB")
-            # mem_before = mem_after
-            result_type = result_value.type
             res = result_value.value
-            # mem_after = memory_usage()[0]
-            # print(f"Memory usage after result_value & res: {mem_after - mem_before} MB")
-            # mem_before = mem_after
             if isinstance(result_value.value, np.ma.MaskedArray):
                 res[result_value.value.mask] = np.nan
             
-                
-            band = out_dataset.GetRasterBand(index+1)
+            band = out_dataset.GetRasterBand(band_index+1)
             band.WriteArray(res)
             band.FlushCache()
-            if index % 50 == 0:
-                print(f"Index: {index}")
-                # mem_after = memory_usage()[0]
-                # print(f"Memory usage at index {index}: {mem_after - mem_before} MB")
-                # mem_before = mem_after
-            del res
-            del result_value
-            del band
-            gc.collect()
-        mem_end = memory_usage()[0]
-        print(f"Total memory used: {mem_end - mem_initial} ")
 
         return (RasterDataImpl, out_dataset)
     else:
         eval = BandMathEvaluator(lower_variables, lower_functions)
         result_value = eval.transform(tree)
-        print("===============RESULT VALUE===============")
-        print(f"result_value.type: {type(result_value)}")
-        print(f"result_value.type: {type(result_value.value)}")
-        print(f"result_value.value.shape: {result_value.value.shape}")
         return (result_value.type, result_value.value)
 
