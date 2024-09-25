@@ -32,7 +32,7 @@ class OperatorUnaryNegate(BandMathFunction):
         return arg
 
 
-    def apply(self, args: List[BandMathValue]):
+    def apply(self, args: List[BandMathValue], index: int):
         '''
         Perform unary negation on the argument and return the result.
         '''
@@ -47,7 +47,7 @@ class OperatorUnaryNegate(BandMathFunction):
 
         elif arg.type in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND,
                           VariableType.SPECTRUM]:
-            arr = arg.as_numpy_array()
+            arr = arg.as_numpy_array_by_bands([index])
             result_arr = -arr
             return BandMathValue(arg.type, result_arr)
 

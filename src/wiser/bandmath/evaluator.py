@@ -1,4 +1,4 @@
-import enum
+import os
 import logging
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
@@ -6,8 +6,13 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import lark
 import numpy as np
 
-from .types import VariableType, BandMathValue, BandMathEvalError
+from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
+from .utils import TEMP_FOLDER_PATH
+
+from wiser.raster.dataset_impl import RasterDataImpl
+
+from osgeo import gdal
 
 from .builtins import (
     OperatorCompare,
@@ -24,16 +29,20 @@ class BandMathEvaluator(lark.visitors.Transformer):
     A Lark Transformer for evaluating band-math expressions.
     '''
     def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
-                       functions: Dict[str, Callable]):
+                       functions: Dict[str, Callable],
+                       shape: Tuple[int, int, int] = None):
         self._variables = variables
         self._functions = functions
+        self.index = 0
+        self._shape = shape
+
 
     def comparison(self, args):
         logger.debug(' * comparison')
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
-        return OperatorCompare(oper).apply([lhs, rhs])
+        return OperatorCompare(oper).apply([lhs, rhs], self.index)
 
 
     def add_expr(self, values):
@@ -47,10 +56,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = values[2]
 
         if oper == '+':
-            return OperatorAdd().apply([lhs, rhs])
+            return OperatorAdd().apply([lhs, rhs], self.index)
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs])
+            return OperatorSubtract().apply([lhs, rhs], self.index)
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -66,10 +75,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs])
+            return OperatorMultiply().apply([lhs, rhs], self.index)
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs])
+            return OperatorDivide().apply([lhs, rhs], self.index)
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -79,7 +88,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
-        return OperatorPower().apply([args[0], args[1]])
+        return OperatorPower().apply([args[0], args[1]], self.index)
 
 
     def unary_negate_expr(self, args):
@@ -88,7 +97,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * unary_negate_expr')
         # args[0] is the '-' character
-        return OperatorUnaryNegate().apply([args[1]])
+        return OperatorUnaryNegate().apply([args[1]], self.index)
 
 
     def true(self, args):
@@ -186,7 +195,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
 
 
-def eval_bandmath_expr(bandmath_expr: str,
+def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None) -> BandMathValue:
     '''
@@ -233,7 +242,30 @@ def eval_bandmath_expr(bandmath_expr: str,
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
 
     logger.debug('Beginning band-math evaluation')
-    eval = BandMathEvaluator(lower_variables, lower_functions)
-    result_value = eval.transform(tree)
+    if expr_info.result_type == VariableType.IMAGE_CUBE:
+        eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.interleave_type, expr_info.shape)
 
-    return (result_value.type, result_value.value)
+        bands, lines, samples = expr_info.shape
+        result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
+        count = 2
+        while (os.path.exists(result_path)):
+            result_path+=f" {count}"
+            count+=1
+        out_dataset = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
+
+        for band_index in range(bands):
+            eval.index = band_index
+            result_value = eval.transform(tree)
+            res = result_value.value
+            if isinstance(result_value.value, np.ma.MaskedArray):
+                res[result_value.value.mask] = np.nan
+
+            band = out_dataset.GetRasterBand(band_index+1)
+            band.WriteArray(res)
+            band.FlushCache()
+
+        return (RasterDataImpl, out_dataset)
+    else:
+        eval = BandMathEvaluator(lower_variables, lower_functions)
+        result_value = eval.transform(tree)
+        return (result_value.type, result_value.value)

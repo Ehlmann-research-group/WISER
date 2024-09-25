@@ -8,6 +8,7 @@ from wiser.bandmath.functions import BandMathFunction
 from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
+    make_image_cube_compatible_by_bands,
 )
 
 
@@ -155,7 +156,7 @@ class OperatorCompare(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    def apply(self, args: List[BandMathValue]):
+    def apply(self, args: List[BandMathValue], index: int):
         '''
         Perform a comparison between the LHS and RHS, and return the result.
         '''
@@ -182,16 +183,16 @@ class OperatorCompare(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            lhs_value = lhs.as_numpy_array()
-            rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+            lhs_value = lhs.as_numpy_array_by_bands([index])
+            rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
             result_arr = compare_fn(lhs_value, rhs_value)
             result_arr = result_arr.astype(np.byte)
             return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
         elif rhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            rhs_value = rhs.as_numpy_array()
-            lhs_value = make_image_cube_compatible(lhs, rhs_value.shape)
+            rhs_value = rhs.as_numpy_array_by_bands([index])
+            lhs_value = make_image_cube_compatible_by_bands(lhs, rhs_value.shape, [index])
             result_arr = compare_fn(lhs_value, rhs_value)
             result_arr = result_arr.astype(np.byte)
             return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
