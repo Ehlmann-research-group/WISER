@@ -53,6 +53,8 @@ from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export, spectra_export
 
+from wiser.raster.dataset_impl import RasterDataImpl
+from wiser.raster.dataset import SaveState
 
 logger = logging.getLogger(__name__)
 
@@ -383,7 +385,7 @@ class DataVisualizerApp(QMainWindow):
         for ds in self._app_state.get_datasets():
             act = menu.addAction(ds.get_name())
             act.setData(ds.get_id())
-            act.triggered.connect(lambda checked=False: handler(ds_id=ds.get_id()))
+            act.triggered.connect(lambda checked=False, ds_id=ds.get_id(): handler(ds_id=ds_id))
 
         menu.setEnabled(self._app_state.num_datasets() > 0)
 
@@ -777,8 +779,26 @@ class DataVisualizerApp(QMainWindow):
                 timestamp = datetime.datetime.now().isoformat()
 
                 loader = self._app_state.get_loader()
+                if result_type == RasterDataImpl:
+                    new_dataset = loader.dataset_from_gdal_dataset(result)
+                    new_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+                    new_dataset.set_dirty()
+                    if not result_name:
+                        result_name = self.tr('Computed')
 
-                if result_type == bandmath.VariableType.IMAGE_CUBE:
+                    new_dataset.set_name(
+                        self._app_state.unique_dataset_name(result_name))
+                    new_dataset.set_description(
+                        f'Computed image-cube:  {expression} ({timestamp})')
+                    if expr_info.spatial_metadata_source:
+                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+
+                    if expr_info.spectral_metadata_source:
+                        new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
+
+                    self._app_state.add_dataset(new_dataset)
+
+                elif result_type == bandmath.VariableType.IMAGE_CUBE:
                     new_dataset = loader.dataset_from_numpy_array(result)
 
                     if not result_name:
