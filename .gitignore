@@ -21,6 +21,6 @@ Secret.mk
 # Stores temporary memmap files for bandmath calculations
 src/wiser/bandmath/builtins/temp
 src/wiser/profiling
-
+src/wiser/bandmath/temp_output/*
 *.bat
 

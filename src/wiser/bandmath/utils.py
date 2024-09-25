@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
+import os
 
 import numpy as np
 
@@ -9,6 +10,7 @@ from .types import VariableType, BandMathExprInfo, BandMathValue
 
 from wiser.raster.dataset_impl import InterleaveType, InterleaveDimension
 
+TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
 def get_dimensions(type: VariableType, shape: Tuple) -> str:
     '''

@@ -1,4 +1,4 @@
-import enum
+import os
 import logging
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
@@ -8,6 +8,7 @@ import numpy as np
 
 from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
+from .utils import TEMP_FOLDER_PATH
 
 from wiser.raster.dataset_impl import InterleaveType, RasterDataImpl
 
@@ -246,8 +247,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.interleave_type, expr_info.shape)
 
         bands, lines, samples = expr_info.shape
-
-        out_dataset = gdal.GetDriverByName('ENVI').Create(result_name, samples, lines, bands, gdal.GDT_CFloat32)
+        result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
+        out_dataset = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
 
         for band_index in range(bands):
             eval.index = band_index
