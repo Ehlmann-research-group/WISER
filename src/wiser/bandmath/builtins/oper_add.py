@@ -127,38 +127,18 @@ class OperatorAdd(BandMathFunction):
             useNew = 0
             if useNew == 0:
                 # Depending on interleave type we either get the band, sample, or line from a memmap and we return it as a numpy array
-
-                bands, lines, samples = lhs.get_shape()
-                lhs_interleave_type = lhs.value.get_interleave()
-                result_shape = None
-                if lhs_interleave_type == InterleaveType.BSQ:
-                    result_shape = (bands, samples, lines)
-                elif lhs_interleave_type == InterleaveType.BIL:
-                    result_shape = (lines, bands, samples)
-                elif lhs_interleave_type == InterleaveType.BIP:
-                    result_shape = (samples, lines, bands)
-                else:
-                    result_shape = (bands, samples, lines)
                 lhs_value = lhs.value.get_band_data(index)
                 assert lhs_value.ndim == 2
 
-
-                # rhs_value = make_image_cube_compatible_inter_index(rhs, result_shape, index, interleave, lhs_interleave = lhs_interleave_type)
                 rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
-                # print(f"lhs_value: .shape {lhs_value.shape}")
-                # print(f"rhs_value: .shape {rhs_value.shape}")
-                # print(f"type(lhs_value) in oper_add: {type(lhs_value)}")
+                # print(f"lhs_value: {lhs_value.shape}")
+                # print(f"rhs_value: {rhs_value.shape}")
                 result_arr = lhs_value + rhs_value
-                # lhs_gdal_arr = lhs.value._impl.gdal_dataset.ReadAsArray(yoff=index, ysize=1)
-                # lhs_gdal_arr = lhs_gdal_arr.reshape((1, bands, samples))
-                # result_arr = result_arr.reshape((bands, 1, samples))
-                # print(f"lhs_gdal_arr.shape: {lhs_gdal_arr.shape}")
-                # print(np.isclose(lhs_gdal_arr, lhs_value).all())
-                # np.testing.assert_allclose(lhs_value, lhs_gdal_arr)
+
                 # print(f"result_arr.shape: {result_arr.shape}")
-                result_arr = result_arr[np.newaxis, :]
-                # print(result_arr.shape)
-                assert result_arr.ndim == 3
+                
+                # The dimension should be two because we are slicing by band
+                assert result_arr.ndim == 2
                 # assert result_arr.shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 

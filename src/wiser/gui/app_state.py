@@ -299,6 +299,13 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was removed.
         '''
+        dataset_to_remove = self._datasets[ds_id]
+        if dataset_to_remove.get_save_state() == SaveState.IN_DISK_NOT_SAVED:
+            print("====IN DISK NOT SAVE=====")
+            print(f"going to delete {dataset_to_remove.get_filepaths()[0]}")
+            # dataset_to_remove.delete_underlying_data()
+            # driverName = dataset_to_remove
+            # dataset_path = dataset_to_remove.get_filepaths()[0]
         del self._datasets[ds_id]
 
         # Remove all stretches that are associated with this data set

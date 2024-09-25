@@ -428,9 +428,12 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         # Dimensions:  [y][x]
         # NumPy will broadcast the band across the entire image, band by band.
         result = arg.as_numpy_array()
+        # print(f"result.shape: {result.shape}")
+        # print(f"cube_shape: {cube_shape}")
         assert result.ndim == 2
 
-        if result.shape != cube_shape[1:]:
+        if (result.shape != cube_shape[1:]) and (result.shape != cube_shape and len(band_list) == 1):
+            print("AHHH MISMATCH")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
@@ -440,16 +443,18 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         band_start = band_list[0]
         band_end = band_list[-1]
         result=result[band_start:band_end+1]
+        # print(f"result.shape: {result.shape}")
+        # print(f"cube_shape: {cube_shape}")
         assert result.ndim == 1
 
-        if result.shape != (cube_shape[0],):
+        if (result.shape != (cube_shape[0],)) and len(band_list) != 1:
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
         # To ensure the spectrum is broadcast across the image's pixels,
         # reshape to effectively create a 1x1 image.
         # New dimensions:  [band][y=1][x=1]
-        result = result[:, np.newaxis, np.newaxis]
+        result = result[:, np.newaxis]
 
     else:
         # This is a scalar:  number or Boolean

@@ -21,6 +21,13 @@ from PySide2.QtCore import QRect
 
 logger = logging.getLogger(__name__)
 
+class SaveState(Enum):
+    IN_DISK_NOT_SAVED = 0
+    IN_MEMORY_NOT_SAVED = 1
+    IN_DISK_SAVED = 2
+    IN_MEMORY_SAVE = 3
+    UNKNOWN = 4
+
 class InterleaveType(Enum):
     BSQ = 0
     BIL = 1
@@ -100,6 +107,12 @@ class RasterDataImpl(abc.ABC):
 
     def get_interleave(self) -> InterleaveType:
         return None
+    
+    def get_save_state(self) -> SaveState:
+        return SaveState.UNKNOWN
+    
+    def set_save_state(self, save_state: SaveState):
+        pass
 
 
 class GDALRasterDataImpl(RasterDataImpl):
@@ -109,6 +122,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         self.gdal_dataset = gdal_dataset
         self.data_ignore: Optional[Union[float, int]] = None
         self._validate_dataset()
+        self._save_state = SaveState.UNKNOWN
 
     def _validate_dataset(self):
         '''
@@ -334,6 +348,32 @@ class GDALRasterDataImpl(RasterDataImpl):
             return InterleaveType.BIP
         else:
             return InterleaveType.UNKNOWN
+    
+    def get_save_state(self) -> SaveState:
+        return self._save_state
+
+    def set_save_state(self, save_state: SaveState):
+        self._save_state = save_state
+
+    def delete_dataset(self) -> None:
+        driver = self.gdal_dataset.GetDriver()
+        print(f"filepath to delete: {self.get_filepaths()[0]}.hdr")
+        try:
+            filepath = self.get_filepaths()[0]
+            if self.gdal_dataset:
+                print("Destroying dataset >:]")
+                self.gdal_dataset.FlushCache()
+                self.gdal_dataset = None
+            driver.Delete(filepath)
+        except Exception as e:
+            print(f"Couldn't delete dataset. Error: \n {e}")
+        print("Deleted")
+
+    def __del__(self):
+        print("__del__ called!")
+        if self._save_state == SaveState.IN_DISK_NOT_SAVED:
+            print("Deleting in disk not saved!")
+            self.delete_dataset()
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod

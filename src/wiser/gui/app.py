@@ -53,6 +53,8 @@ from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export, spectra_export
 
+from wiser.raster.dataset_impl import RasterDataImpl
+from wiser.raster.dataset import SaveState
 
 logger = logging.getLogger(__name__)
 
@@ -423,7 +425,7 @@ class DataVisualizerApp(QMainWindow):
         if dataset.is_dirty():
             response = QMessageBox.question(self,
                 self.tr('Save modified dataset?'),
-                self.tr('Dataset has unsaved changes.  Save it?'))
+                self.tr('Dataset has unsaved changes.  Save it?=='))
 
             if response == QMessageBox.Yes:
                 # User wants to save the dataset, so let them do so.
@@ -778,8 +780,10 @@ class DataVisualizerApp(QMainWindow):
                 timestamp = datetime.datetime.now().isoformat()
 
                 loader = self._app_state.get_loader()
-                if result_type == "TEST":
+                if result_type == RasterDataImpl:
                     new_dataset = loader.dataset_from_gdal_dataset(result)
+                    new_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+                    new_dataset.set_dirty()
                     if not result_name:
                         result_name = self.tr('Computed')
 

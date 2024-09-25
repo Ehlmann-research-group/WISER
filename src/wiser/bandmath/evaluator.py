@@ -9,7 +9,7 @@ import numpy as np
 from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
 
-from wiser.raster.dataset_impl import InterleaveType
+from wiser.raster.dataset_impl import InterleaveType, RasterDataImpl
 
 from osgeo import gdal
 
@@ -29,8 +29,8 @@ class BandMathEvaluator(lark.visitors.Transformer):
     '''
     def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
                        functions: Dict[str, Callable],
-                       interleave_type: InterleaveType,
-                       shape: Tuple[int, int, int]):
+                       interleave_type: InterleaveType = None,
+                       shape: Tuple[int, int, int] = None):
         self._variables = variables
         self._functions = functions
         self.index = 0
@@ -250,44 +250,43 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     
     logger.debug('Beginning band-math evaluation')
     expr_interleave = expr_info.interleave_type
+    result_type = expr_info.result_type
 
-    eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.interleave_type, expr_info.shape)
-    if True:
-        # Now I need logic to call transform multiple times on the tree and update index each time its called
-        # then combine everything into the right form
-        index_max = -1
-        
+    if result_type == VariableType.IMAGE_CUBE:
+        eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.interleave_type, expr_info.shape)
+
         bands, lines, samples = expr_info.shape
         index_max = bands
+        # ext = 'hdr'
+        result_shape = (bands, samples, lines)
+        if expr_interleave == InterleaveType.BIL:
+            result_shape = (lines, bands, samples)
+        elif expr_interleave == InterleaveType.BIP:
+            result_shape = (samples, lines, bands)
+        filename = result_name#  + "." + ext
 
-        out_dataset = gdal.GetDriverByName('ENVI').Create('output.bil', samples, lines, bands, gdal.GDT_CFloat32)
+        print(f'filename: {filename}')
+        out_dataset = gdal.GetDriverByName('ENVI').Create(filename, samples, lines, bands, gdal.GDT_CFloat32)
         print(f"expr_info.shape: {expr_info.shape}")
+        print(f"result_shape: {result_shape}")
         result_type = None
         for index in range(index_max):
             eval.index = index
             result_value = eval.transform(tree)
             result_type = result_value.type
-            # res = result_value.value
-            # if isinstance(result_value.value, np.ma.MaskedArray):
-            #     print("=========MASKED=========")
-                # res[result_value.value.mask] = np.nan
-            # result_memmap[index:index+1,:,:] = result_value.value
-            temp_result_arr = np.squeeze(result_value.value, axis=0)
+            if isinstance(result_value.value, np.ma.MaskedArray):
+                result_value.value[result_value.value.mask] = np.nan
+            
             if index % 50 == 0:
                 print(f"Index: {index}")
-            # print(f"temp_result_arr.shape: {temp_result_arr.shape}")
+                
             band = out_dataset.GetRasterBand(index+1)
-            band.WriteArray(temp_result_arr)
+            band.WriteArray(result_value.value)
             band.FlushCache()
-        
-        # result_arr = out_dataset.ReadAsArray()
-        print("===============RESULT VALUE===============")
-        lhs = eval.variable(['a'])
-        filepath = lhs.value._impl.get_filepaths()[0]
-        print(f"filepath: {filepath}")
 
-        return ("TEST", out_dataset)
+        return (RasterDataImpl, out_dataset)
     else:
+        eval = BandMathEvaluator(lower_variables, lower_functions)
         result_value = eval.transform(tree)
         print("===============RESULT VALUE===============")
         print(f"result_value.type: {type(result_value)}")

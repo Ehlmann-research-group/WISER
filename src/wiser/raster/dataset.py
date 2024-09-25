@@ -2,6 +2,7 @@ import abc
 from abc import abstractmethod
 import copy
 import math
+import enum
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -11,7 +12,7 @@ from astropy import units as u
 
 from osgeo import osr
 
-from .dataset_impl import RasterDataImpl
+from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength
 
@@ -75,7 +76,6 @@ class BandStats:
     def __str__(self):
         return f'BandStats[index={self._band_index}, min={self._min_value}, max={self._max_value}]'
 
-
 class RasterDataSet:
     '''
     A 2D raster data-set for imaging spectroscopy, possibly with many bands of
@@ -128,6 +128,7 @@ class RasterDataSet:
         # compute these values and reuse them.
         self._cached_band_stats: Dict[int, BandStats] = {}
 
+        # Gets the interleave type, may be used in the future to speed up computation
         self._interleave = self._impl.get_interleave()
 
     def _compute_has_wavelengths(self):
@@ -139,6 +140,7 @@ class RasterDataSet:
 
 
     def set_dirty(self, dirty: bool = True):
+        print(f"Setting dataset: {self._id} to dirty")
         self._dirty = dirty
         # TODO(donnie):  Notify someone?
 
@@ -610,8 +612,17 @@ class RasterDataSet:
 
         self.set_dirty()
 
+    def delete_underlying_data(self):
+        self._impl.delete_dataset()
+
     def get_interleave(self):
         return self._interleave
+
+    def get_save_state(self):
+        return self._impl.get_save_state()
+    
+    def set_save_state(self, save_state: SaveState):
+        self._impl.set_save_state(save_state)
 
 class RasterDataBand:
     '''
