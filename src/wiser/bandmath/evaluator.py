@@ -248,6 +248,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
         bands, lines, samples = expr_info.shape
         result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
+        count = 2
+        while (os.path.exists(result_path)):
+            result_path+=f" {count}"
+            count+=1
         out_dataset = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
 
         for band_index in range(bands):
