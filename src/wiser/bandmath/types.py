@@ -168,6 +168,50 @@ class BandMathValue:
         raise TypeError(f'Don\'t know how to convert {self.type} ' +
                         f'value {self.value} into a NumPy array')
 
+    def as_numpy_array_by_bands(self, band_list: List[int]) -> np.ndarray:
+            '''
+            If a band-math value is an image cube, image band, or spectrum, this
+            function returns the value as a NumPy ``ndarray``.  If a band-math
+            value is some other type, the function raises a ``TypeError``.
+            This function should really only be called on image_cubes unless its 
+            called through make_image_cube_compatible_by_bands
+            '''
+
+            # If the value is already a NumPy array, we are done!
+            if isinstance(self.value, np.ndarray):
+                if self.type == VariableType.IMAGE_CUBE:
+                    return self.value
+                elif self.type == VariableType.IMAGE_BAND:
+                    return self.value
+                elif self.type == VariableType.SPECTRUM:
+                    band_start = band_list[0]
+                    band_end = band_list[-1]
+                    arr = self.value[band_start:band_end+1]
+                    arr = arr[:, np.newaxis]
+                    return arr
+                raise TypeError(f'Type value is incorrect, should be' +
+                                f'IMAGE_CUBE, IMAGE_BAND, OR SPECTRUM' + 
+                                f'but got {type(self.value)}')
+
+            if self.type == VariableType.IMAGE_CUBE:
+                if isinstance(self.value, RasterDataSet):
+                    return self.value.get_multiple_band_data(band_list)
+
+            elif self.type == VariableType.IMAGE_BAND:
+                if isinstance(self.value, RasterDataBand):
+                    return self.value.get_data()
+
+            elif self.type == VariableType.SPECTRUM:
+                if isinstance(self.value, Spectrum):
+                    arr = self.value.get_spectrum()
+                    band_start = band_list[0]
+                    band_end = band_list[-1]
+                    arr=arr[band_start:band_end+1]
+                    return arr
+            # We only want this function to work for numpy arrays and RasterDataSets 
+            # because these can be very big 3D objects
+            raise TypeError(f'This function should only be called on numpy' +
+                            f'arrays and image cubes, not {self.type}')  
 
 class BandMathFunction(abc.ABC):
     '''
