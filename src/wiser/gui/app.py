@@ -379,6 +379,7 @@ class DataVisualizerApp(QMainWindow):
 
     def _update_dataset_menu(self, menu, handler):
         menu.clear()
+
         for ds in self._app_state.get_datasets():
             act = menu.addAction(ds.get_name())
             act.setData(ds.get_id())
