@@ -8,7 +8,7 @@ from wiser.bandmath.functions import BandMathFunction
 from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    find_interleave_type,
+    find_interleave_type, make_image_cube_compatible_by_bands,
 )
 
 
@@ -90,7 +90,7 @@ class OperatorDivide(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    def apply(self, args: List[BandMathValue]):
+    def apply(self, args: List[BandMathValue], index: int):
         '''
         Divide the LHS by the RHS and return the result.
         '''
@@ -109,17 +109,26 @@ class OperatorDivide(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
-            lhs_value = lhs.as_numpy_array()
-            assert lhs_value.ndim == 3
+            lhs_value = lhs.as_numpy_array_by_bands([index])
+            assert lhs_value.ndim == 2
 
-            rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+            rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
             result_arr = lhs_value / rhs_value
 
-            # The result array should have the same dimensions as the LHS input
-            # array.
-            assert result_arr.ndim == 3
+            assert result_arr.ndim == 2
             assert result_arr.shape == lhs_value.shape
             return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            # lhs_value = lhs.as_numpy_array()
+            # assert lhs_value.ndim == 3
+
+            # rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+            # result_arr = lhs_value / rhs_value
+
+            # # The result array should have the same dimensions as the LHS input
+            # # array.
+            # assert result_arr.ndim == 3
+            # assert result_arr.shape == lhs_value.shape
+            # return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [x][y]

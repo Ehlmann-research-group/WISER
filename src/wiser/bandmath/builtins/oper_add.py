@@ -103,7 +103,7 @@ class OperatorAdd(BandMathFunction):
 
 
 
-    def apply(self, args: List[BandMathValue], index: int, interleave: InterleaveType):
+    def apply(self, args: List[BandMathValue], index: int):
         '''
         Add the LHS and RHS and return the result.
         '''
@@ -122,87 +122,34 @@ class OperatorAdd(BandMathFunction):
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
         # Do the addition computation.
-        file_path = os.path.join(TEMP_FOLDER_PATH, 'oper_add_result.dat')
         if lhs.type == VariableType.IMAGE_CUBE:
-            useNew = 0
-            if useNew == 0:
-                # Depending on interleave type we either get the band, sample, or line from a memmap and we return it as a numpy array
-                lhs_value = lhs.value.get_band_data(index)
-                assert lhs_value.ndim == 2
+            # Depending on interleave type we either get the band, sample, or line from a memmap and we return it as a numpy array
+            lhs_value = lhs.as_numpy_array_by_bands([index])
+            assert lhs_value.ndim == 2
 
-                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
-                # print(f"lhs_value: {lhs_value.shape}")
-                # print(f"rhs_value: {rhs_value.shape}")
-                result_arr = lhs_value + rhs_value
+            rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
+            # print(f"lhs_value: {lhs_value.shape}")
+            # print(f"rhs_value: {rhs_value.shape}")
+            result_arr = lhs_value + rhs_value
 
-                # print(f"result_arr.shape: {result_arr.shape}")
-                
-                # The dimension should be two because we are slicing by band
-                assert result_arr.ndim == 2
-                # assert result_arr.shape == lhs_value.shape
-                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            # print(f"result_arr.shape: {result_arr.shape}")
+            
+            # The dimension should be two because we are slicing by band
+            assert result_arr.ndim == 2
+            assert result_arr.shape == lhs_value.shape
+            return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
-                # print("============NEW METHOD============")
-                # # Dimensions:  [y][x]
-                # result_arr = perform_oper("+", lhs, rhs)
+            # print("============NEW METHOD============")
+            # # Dimensions:  [y][x]
+            # result_arr = perform_oper("+", lhs, rhs)
 
-                # print(f"result_arr.shape: {result_arr.shape}")
-                # print(f"lhs.value.get_shape(): {lhs.value.get_shape()}")
-                # # The result array should have the same dimensions as the LHS input
-                # # array.
-                # assert result_arr.ndim == 3
-                # assert result_arr.shape == lhs.value.get_shape()
-                # return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
-            elif useNew == 1:
-                print("============'OLD' METHOD============")
-                # Dimensions:  [band][y][x]
-                bands, y, x = lhs.get_shape()
-                print(f"lhs.get+shape(): {lhs.get_shape()}")
-                result_arr = da.from_array(np.memmap(file_path, \
-                                    dtype=lhs.value.get_elem_type(), mode='w+', shape=lhs.value.get_shape()))
-                max_bytes = MAX_RAM_BYTES/SCALAR_BYTES
-                dbands = int(np.floor(max_bytes / (x*y)))
-                if dbands == 0:
-                    dbands = 1
-                # We get by bands since the data is in bsq format
-                start = time.time()
-                for band_start in range(0, bands, dbands):
-                    if band_start + dbands > bands:
-                        dbands = bands - band_start
-                    print(f"Band start: {band_start} \t | Line end: {band_start+dbands}")
-                    band_list = [band_start + inc for inc in range(0, dbands)]
-                    lhs_value = lhs.as_numpy_array_by_bands(band_list)
-
-                    assert lhs_value.ndim == 3
-
-                    rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, band_list)
-                    result_arr[band_start:band_start+dbands,:,:] = lhs_value + rhs_value
-
-                    del lhs_value, rhs_value
-                end = time.time()
-                print(f"Took {end-start} seconds long!")
-                # The result array should have the same dimensions as the LHS input
-                # array.
-                assert result_arr.ndim == 3
-                assert result_arr.shape == lhs.value.get_shape()
-                return BandMathValue(VariableType.IMAGE_CUBE, result_arr.compute())
-            else:
-                print("============ORIGINAL METHOD============")
-                # Dimensions:  [band][y][x]
-                start = time.time()
-                lhs_value = lhs.as_numpy_array()
-                assert lhs_value.ndim == 3
-
-                rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
-                result_arr = lhs_value + rhs_value
-                end = time.time()
-                print(f"Took {end-start} seconds long!")
-
-                # The result array should have the same dimensions as the LHS input
-                # array.
-                assert result_arr.ndim == 3
-                assert result_arr.shape == lhs_value.shape
-                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            # print(f"result_arr.shape: {result_arr.shape}")
+            # print(f"lhs.value.get_shape(): {lhs.value.get_shape()}")
+            # # The result array should have the same dimensions as the LHS input
+            # # array.
+            # assert result_arr.ndim == 3
+            # assert result_arr.shape == lhs.value.get_shape()
+            # return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
 
         elif lhs.type == VariableType.IMAGE_BAND:

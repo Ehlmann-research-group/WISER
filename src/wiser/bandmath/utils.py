@@ -414,7 +414,6 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     result: Union[np.ndarray, Scalar] = None
 
     # Dimensions:  [band][y][x]
-
     if arg.type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         result = arg.as_numpy_array_by_bands(band_list)
@@ -427,7 +426,7 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     elif arg.type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
         # NumPy will broadcast the band across the entire image, band by band.
-        result = arg.as_numpy_array()
+        result = arg.as_numpy_array_by_bands(band_list)
         # print(f"result.shape: {result.shape}")
         # print(f"cube_shape: {cube_shape}")
         assert result.ndim == 2
@@ -439,10 +438,10 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
 
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]
-        result = arg.as_numpy_array()
-        band_start = band_list[0]
-        band_end = band_list[-1]
-        result=result[band_start:band_end+1]
+        result = arg.as_numpy_array_by_bands(band_list)
+        # band_start = band_list[0]
+        # band_end = band_list[-1]
+        # result=result[band_start:band_end+1]
         # print(f"result.shape: {result.shape}")
         # print(f"cube_shape: {cube_shape}")
         assert result.ndim == 1

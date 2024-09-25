@@ -24,7 +24,7 @@ def profile(dataset_path: str):
     # profiler = cProfile.Profile()
     # profiler.enable()
     # print('================Enabled Profile================')
-    res = OperatorAdd().apply([lhs, rhs], 0, lhs.value.get_interleave())
+    res = OperatorAdd().apply([lhs, rhs], 0)
     # profiler.disable()
     # print('================Disabled Profile================')
     # # Save the profiling stats to a file

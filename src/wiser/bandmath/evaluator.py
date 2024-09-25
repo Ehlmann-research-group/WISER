@@ -43,7 +43,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
-        return OperatorCompare(oper).apply([lhs, rhs])
+        return OperatorCompare(oper).apply([lhs, rhs], self.index)
 
 
     def add_expr(self, values):
@@ -57,10 +57,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = values[2]
 
         if oper == '+':
-            return OperatorAdd().apply([lhs, rhs], self.index, self._interleave)
+            return OperatorAdd().apply([lhs, rhs], self.index)
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs])
+            return OperatorSubtract().apply([lhs, rhs], self.index)
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -76,10 +76,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs])
+            return OperatorMultiply().apply([lhs, rhs], self.index)
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs])
+            return OperatorDivide().apply([lhs, rhs], self.index)
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -89,7 +89,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
-        return OperatorPower().apply([args[0], args[1]])
+        return OperatorPower().apply([args[0], args[1]], self.index)
 
 
     def unary_negate_expr(self, args):
@@ -98,7 +98,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * unary_negate_expr')
         # args[0] is the '-' character
-        return OperatorUnaryNegate().apply([args[1]])
+        return OperatorUnaryNegate().apply([args[1]], self.index)
 
 
     def true(self, args):
@@ -266,23 +266,50 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         filename = result_name#  + "." + ext
 
         print(f'filename: {filename}')
-        out_dataset = gdal.GetDriverByName('ENVI').Create(filename, samples, lines, bands, gdal.GDT_CFloat32)
+        out_dataset = gdal.GetDriverByName('ENVI').Create(result_name, samples, lines, bands, gdal.GDT_CFloat32)
         print(f"expr_info.shape: {expr_info.shape}")
         print(f"result_shape: {result_shape}")
         result_type = None
+        from memory_profiler import memory_usage
+        mem_initial = memory_usage()[0]
+        mem_before = memory_usage()[0]
+        import gc
         for index in range(index_max):
             eval.index = index
+            # mem_after = memory_usage()[0]
+            # print(f"Memory usage before transform: {mem_after - mem_before} MB")
+            # mem_before = mem_after
             result_value = eval.transform(tree)
-            result_type = result_value.type
-            if isinstance(result_value.value, np.ma.MaskedArray):
-                result_value.value[result_value.value.mask] = np.nan
+            # mem_after = memory_usage()[0]
+            # print(f"Memory usage after transform: {mem_after - mem_before} MB")
+            # mem_before = mem_after
             
-            if index % 50 == 0:
-                print(f"Index: {index}")
+            # mem_after = memory_usage()[0]
+            # print(f"Memory usage before result_value & res: {mem_after - mem_before} MB")
+            # mem_before = mem_after
+            result_type = result_value.type
+            res = result_value.value
+            # mem_after = memory_usage()[0]
+            # print(f"Memory usage after result_value & res: {mem_after - mem_before} MB")
+            # mem_before = mem_after
+            if isinstance(result_value.value, np.ma.MaskedArray):
+                res[result_value.value.mask] = np.nan
+            
                 
             band = out_dataset.GetRasterBand(index+1)
-            band.WriteArray(result_value.value)
+            band.WriteArray(res)
             band.FlushCache()
+            if index % 50 == 0:
+                print(f"Index: {index}")
+                # mem_after = memory_usage()[0]
+                # print(f"Memory usage at index {index}: {mem_after - mem_before} MB")
+                # mem_before = mem_after
+            del res
+            del result_value
+            del band
+            gc.collect()
+        mem_end = memory_usage()[0]
+        print(f"Total memory used: {mem_end - mem_initial} ")
 
         return (RasterDataImpl, out_dataset)
     else:
