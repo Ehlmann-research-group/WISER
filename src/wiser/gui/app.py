@@ -381,9 +381,11 @@ class DataVisualizerApp(QMainWindow):
         menu.clear()
         print(f"_update_dataset_menu CALLED")
         for ds in self._app_state.get_datasets():
+            print(f"ds.get_id(): {ds.get_id()}")
+            print(f"ds.get_name(): {ds.get_name()}")
             act = menu.addAction(ds.get_name())
             act.setData(ds.get_id())
-            act.triggered.connect(lambda checked=False: handler(ds_id=ds.get_id()))
+            act.triggered.connect(lambda checked=False, ds_id=ds.get_id(): handler(ds_id=ds_id))
 
         menu.setEnabled(self._app_state.num_datasets() > 0)
 

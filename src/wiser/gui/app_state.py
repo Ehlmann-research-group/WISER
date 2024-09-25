@@ -301,6 +301,7 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was removed.
         '''
+        print(f"Dataset to delete: {self._datasets[ds_id].get_filepaths()} w/ ID: {ds_id}")
         del self._datasets[ds_id]
 
         # Remove all stretches that are associated with this data set
