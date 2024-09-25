@@ -379,10 +379,7 @@ class DataVisualizerApp(QMainWindow):
 
     def _update_dataset_menu(self, menu, handler):
         menu.clear()
-        print(f"_update_dataset_menu CALLED")
         for ds in self._app_state.get_datasets():
-            print(f"ds.get_id(): {ds.get_id()}")
-            print(f"ds.get_name(): {ds.get_name()}")
             act = menu.addAction(ds.get_name())
             act.setData(ds.get_id())
             act.triggered.connect(lambda checked=False, ds_id=ds.get_id(): handler(ds_id=ds_id))
@@ -420,7 +417,6 @@ class DataVisualizerApp(QMainWindow):
 
     def _on_close_dataset(self, ds_id: int):
         # If dataset is modified, ask user if they want to save it.
-        print(f"_on_close_dataset ds_id: {ds_id}")
         dataset = self._app_state.get_dataset(ds_id)
         if dataset.is_dirty():
             response = QMessageBox.question(self,
