@@ -5,6 +5,7 @@ import os
 import pprint
 from urllib.parse import urlparse
 
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 
@@ -18,6 +19,12 @@ from osgeo import gdal, gdalconst, gdal_array, osr
 
 logger = logging.getLogger(__name__)
 
+class SaveState(Enum):
+    IN_DISK_NOT_SAVED = 0
+    IN_MEMORY_NOT_SAVED = 1
+    IN_DISK_SAVED = 2
+    IN_MEMORY_SAVE = 3
+    UNKNOWN = 4
 
 class RasterDataImpl(abc.ABC):
 
@@ -82,6 +89,11 @@ class RasterDataImpl(abc.ABC):
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         return None
 
+    def get_save_state(self) -> SaveState:
+        return SaveState.UNKNOWN
+
+    def set_save_state(self, save_state: SaveState):
+        pass
 
 class GDALRasterDataImpl(RasterDataImpl):
 
@@ -90,6 +102,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         self.gdal_dataset = gdal_dataset
         self.data_ignore: Optional[Union[float, int]] = None
         self._validate_dataset()
+        self._save_state = SaveState.UNKNOWN
 
     def _validate_dataset(self):
         '''
@@ -226,6 +239,18 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return np_array
 
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        '''
+        Returns a numpy 3D array of all the x & y values at the specified bands.
+        '''
+        # Note that GDAL indexes bands from 1, not 0.
+        band_list = [band+1 for band in band_list_orig]
+
+        # Read the specified bands
+        data = self.gdal_dataset.ReadAsArray(band_list=band_list)
+
+        return data
+
     def read_band_info(self) -> List[Dict[str, Any]]:
         '''
         A default implementation of read_band_info() for GDAL datasets.
@@ -251,6 +276,27 @@ class GDALRasterDataImpl(RasterDataImpl):
             spatial_ref.SetAxisMappingStrategy(osr.OAMS_AUTHORITY_COMPLIANT)
         return spatial_ref
 
+    def get_save_state(self) -> SaveState:
+        return self._save_state
+
+    def set_save_state(self, save_state: SaveState):
+        self._save_state = save_state
+
+    def delete_dataset(self) -> None:
+        driver = self.gdal_dataset.GetDriver()
+        try:
+            filepath = self.get_filepaths()[0]
+            if self.gdal_dataset:
+                self.gdal_dataset.FlushCache()
+                self.gdal_dataset = None
+            driver.Delete(filepath)
+            print(f"Delete: {self.get_filepaths()[0]}.hdr")
+        except Exception as e:
+            print(f"Couldn't delete dataset. Error: \n {e}")
+
+    def __del__(self):
+        if self._save_state == SaveState.IN_DISK_NOT_SAVED:
+            self.delete_dataset()
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
