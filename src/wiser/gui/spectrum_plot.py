@@ -151,6 +151,7 @@ class SpectrumDisplayInfo:
 
         self._icon: Optional[QIcon] = None
         self._line2d = None
+        self._values = None
 
     def reset(self) -> None:
         self._icon = None
@@ -168,15 +169,18 @@ class SpectrumDisplayInfo:
         return self._spectrum
 
 
-    def generate_plot(self, axes, use_wavelengths, wavelength_units=u.nm):
+    def generate_plot(self, axes, use_wavelengths, wavelength_units=u.nm, should_recalculate=True):
         # If we already have a plot, remove it.
         self.remove_plot()
 
-        values = self._spectrum.get_spectrum()
+        if should_recalculate or self._values is None:
+            self._values = self._spectrum.get_spectrum()
+
         color = self._spectrum.get_color()
         linewidth = 0.5
 
         if use_wavelengths:
+            print("use_Wavelengths is happening")
             # We should only be told to use wavelengths if all displayed spectra
             # have wavelengths for the bands.
             assert(self._spectrum.has_wavelengths())
@@ -189,7 +193,7 @@ class SpectrumDisplayInfo:
             wavelengths = raster_utils.get_band_values(
                 self._spectrum.get_wavelengths(), wavelength_units)
 
-            lines = axes.plot(wavelengths, values, color=color,
+            lines = axes.plot(wavelengths, self._values, color=color,
                 linewidth=linewidth, label=self._spectrum.get_name())
             assert(len(lines) == 1)
             self._line2d = lines[0]
@@ -199,11 +203,10 @@ class SpectrumDisplayInfo:
             # will be meaningful if there are multiple plots from different
             # datasets to display.
 
-            lines = axes.plot(values, color=color, linewidth=linewidth,
+            lines = axes.plot(self._values, color=color, linewidth=linewidth,
                 label=self._spectrum.get_name())
             assert(len(lines) == 1)
             self._line2d = lines[0]
-
 
     def remove_plot(self):
         if self._line2d is not None:
@@ -1493,16 +1496,16 @@ class SpectrumPlot(QWidget):
         if self._spectrum_edit_dialog.exec() != QDialog.Accepted:
             # User canceled out of the edit.
             return
-
+        
         # If we got here, update the tree-view item with the spectrum's info.
 
         treeitem.setText(0, spectrum.get_name())
-
+        
         # Is the spectrum currently being displayed?
         display_info = self._spectrum_display_info.get(spectrum.get_id())
         if display_info is not None:
             display_info.reset()
-            display_info.generate_plot(self._axes, self._plot_uses_wavelengths)
+            display_info.generate_plot(self._axes, self._plot_uses_wavelengths, should_recalculate=self._spectrum_edit_dialog.should_recalculate)
             treeitem.setIcon(0, display_info.get_icon())
 
         # Are we showing a point on this spectrum?

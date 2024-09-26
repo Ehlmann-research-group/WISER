@@ -34,6 +34,17 @@ class SpectrumInfoEditor(QDialog):
         self._ui.combobox_avg_mode.activated.connect(self._on_aavg_mode_changed)
         self._ui.lineedit_area_avg_x.editingFinished.connect(self._on_finish_aavg)
         self._ui.lineedit_area_avg_y.editingFinished.connect(self._on_finish_aavg)
+    
+        self._initial_area_avg_x = None
+        self._initial_area_avg_y = None
+        self._initial_avg_mode = None
+        self._compute_values_changed = {
+            '_initial_area_avg_x' : False,
+            '_initial_area_avg_y' : False,
+            '_initial_avg_mode' : False
+        }
+
+        self.should_recalculate = False
 
 
     def configure_ui(self, spectrum: Spectrum):
@@ -93,6 +104,7 @@ class SpectrumInfoEditor(QDialog):
             avg_mode = self._spectrum.get_avg_mode()
             i = self._ui.combobox_avg_mode.findData(avg_mode)
             self._ui.combobox_avg_mode.setCurrentIndex(i)
+            self._initial_avg_mode = i
 
             self._ui.combobox_avg_mode.setEnabled(True)
 
@@ -107,6 +119,8 @@ class SpectrumInfoEditor(QDialog):
 
             self._ui.lineedit_area_avg_x.setText(str(area_avg_x))
             self._ui.lineedit_area_avg_y.setText(str(area_avg_y))
+            self._initial_area_avg_y = str(area_avg_y)
+            self._initial_area_avg_x = str(area_avg_x)
 
             # Enable the area-average line edit widgets.
             for le in [self._ui.lineedit_area_avg_x, self._ui.lineedit_area_avg_y]:
@@ -145,9 +159,24 @@ class SpectrumInfoEditor(QDialog):
         self._maybe_regenerate_name()
 
     def _on_aavg_mode_changed(self, index):
+        if self._ui.combobox_avg_mode.currentIndex() != self._initial_avg_mode:
+            self._compute_values_changed['_initial_avg_mode'] = True
+        else:
+            self._compute_values_changed['_initial_avg_mode'] = False
+            
         self._maybe_regenerate_name()
 
     def _on_finish_aavg(self):
+        if (self._ui.lineedit_area_avg_x.text() != self._initial_area_avg_x):
+            self._compute_values_changed['_initial_area_avg_x'] = True
+        else:
+            self._compute_values_changed['_initial_area_avg_x'] = False
+
+        if (self._ui.lineedit_area_avg_y.text() != self._initial_area_avg_y):
+            self._compute_values_changed['_initial_area_avg_y'] = True
+        else:
+            self._compute_values_changed['_initial_area_avg_y'] = False
+
         self._maybe_regenerate_name()
 
 
@@ -215,6 +244,11 @@ class SpectrumInfoEditor(QDialog):
 
         self._spectrum.set_color(color_name)
 
+        
+        #=======================================================================
+        # Process values so object using this knows what changed
+
+        self.should_recalculate = any(self._compute_values_changed.values())
         #=======================================================================
         # All done!
 
