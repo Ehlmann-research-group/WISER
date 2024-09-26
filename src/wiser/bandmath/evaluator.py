@@ -260,6 +260,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             result_value = eval.transform(tree)
             res = result_value.value
             if isinstance(result_value.value, np.ma.MaskedArray):
+                if not np.issubdtype(res.dtype, np.floating):
+                    res = res.astype(np.float32)
                 res[result_value.value.mask] = np.nan
 
             band = out_dataset.GetRasterBand(band_index+1)
