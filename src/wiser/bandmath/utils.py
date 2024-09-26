@@ -10,24 +10,6 @@ from .types import VariableType, BandMathExprInfo, BandMathValue
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
-def have_compatible_dims(lhs_value: np.ndarray, rhs_value: np.ndarray) -> bool:
-    if lhs_value.ndim == rhs_value.ndim:
-        return True
-    elif lhs_value.ndim == 3 and lhs_value.shape[0] == 1 and rhs_value.ndim == 2:
-        return True
-    elif rhs_value.ndim == 3 and rhs_value.shape[0] == 1 and lhs_value.ndim == 2:
-        return True
-    return False
-
-def have_compatible_shapes(lhs_value: np.ndarray, rhs_value: np.ndarray) -> bool:
-    if lhs_value.ndim == rhs_value.ndim and lhs_value.shape == rhs_value.shape:
-        return True
-    elif lhs_value.ndim == 3 and rhs_value.ndim == 2:
-        return True
-    elif rhs_value.ndim == 3 and rhs_value.shape[0] == 1 and lhs_value.ndim == 2:
-        return True
-    return False
-
 def get_dimensions(type: VariableType, shape: Tuple) -> str:
     '''
     This helper function takes a band-math value-type with a specified shape,

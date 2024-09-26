@@ -313,9 +313,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             print(f"Couldn't delete dataset. Error: \n {e}")
 
     def __del__(self):
-        print("__del__ called")
         if self._save_state == SaveState.IN_DISK_NOT_SAVED:
-            print("Full deletion")
             self.delete_dataset()
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):

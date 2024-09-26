@@ -202,8 +202,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
         variables: Dict[str, Tuple[VariableType, Any]],
-        functions: Dict[str, BandMathFunction] = None,
-        useMemory = False) -> BandMathValue:
+        functions: Dict[str, BandMathFunction] = None) -> BandMathValue:
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -248,7 +247,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
 
     logger.debug('Beginning band-math evaluation')
-    if expr_info.result_type == VariableType.IMAGE_CUBE and not useMemory:
+    if expr_info.result_type == VariableType.IMAGE_CUBE:
         eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
 
         bands, lines, samples = expr_info.shape
