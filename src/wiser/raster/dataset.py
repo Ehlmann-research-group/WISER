@@ -551,6 +551,12 @@ class RasterDataSet:
 
         self.set_dirty()
 
+    def get_save_state(self):
+        return self._impl.get_save_state()
+
+    def set_save_state(self, save_state: SaveState):
+        self._impl.set_save_state(save_state)
+
 
 class RasterDataBand:
     '''
@@ -614,12 +620,6 @@ class RasterDataBand:
         object.
         '''
         return self._dataset.get_band_stats(self._band_index)
-
-    def get_save_state(self):
-        return self._impl.get_save_state()
-
-    def set_save_state(self, save_state: SaveState):
-        self._impl.set_save_state(save_state)
 
 def find_truecolor_bands(dataset: RasterDataSet,
                          red: u.Quantity = RED_WAVELENGTH,
