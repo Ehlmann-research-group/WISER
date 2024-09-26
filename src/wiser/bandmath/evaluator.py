@@ -10,7 +10,7 @@ from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprI
 from .functions import BandMathFunction, get_builtin_functions
 from .utils import TEMP_FOLDER_PATH
 
-from wiser.raster.dataset_impl import RasterDataImpl
+from wiser.raster.dataset import RasterDataSet
 
 from osgeo import gdal
 
@@ -19,6 +19,9 @@ from .builtins import (
     OperatorAdd, OperatorSubtract, OperatorMultiply, OperatorDivide,
     OperatorUnaryNegate, OperatorPower,
     )
+
+from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset_impl import SaveState
 
 
 logger = logging.getLogger(__name__)
@@ -199,7 +202,8 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
         variables: Dict[str, Tuple[VariableType, Any]],
-        functions: Dict[str, BandMathFunction] = None) -> BandMathValue:
+        functions: Dict[str, BandMathFunction] = None,
+        useMemory = False) -> BandMathValue:
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -244,7 +248,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
 
     logger.debug('Beginning band-math evaluation')
-    if expr_info.result_type == VariableType.IMAGE_CUBE:
+    if expr_info.result_type == VariableType.IMAGE_CUBE and not useMemory:
         eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
 
         bands, lines, samples = expr_info.shape
@@ -253,7 +257,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         while (os.path.exists(result_path)):
             result_path+=f" {count}"
             count+=1
-        out_dataset = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
+        folder_path = os.path.dirname(result_path)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
 
         for band_index in range(bands):
             eval.index = band_index
@@ -264,11 +271,15 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                     res = res.astype(np.float32)
                 res[result_value.value.mask] = np.nan
 
-            band = out_dataset.GetRasterBand(band_index+1)
+            band = out_dataset_gdal.GetRasterBand(band_index+1)
             band.WriteArray(res)
             band.FlushCache()
 
-        return (RasterDataImpl, out_dataset)
+        out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
+        out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+        out_dataset.set_dirty()
+
+        return (RasterDataSet, out_dataset)
     else:
         eval = BandMathEvaluator(lower_variables, lower_functions)
         result_value = eval.transform(tree)

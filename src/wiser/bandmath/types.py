@@ -179,8 +179,9 @@ class BandMathValue:
 
             # If the value is already a NumPy array, we are done!
             if isinstance(self.value, np.ndarray):
+                # Assuems all numpy arrays have band as the first dimension
                 if self.type == VariableType.IMAGE_CUBE:
-                    return self.value
+                    return np.squeeze(self.value[band_list, : , :], axis=0)
                 elif self.type == VariableType.IMAGE_BAND:
                     return self.value
                 elif self.type == VariableType.SPECTRUM:

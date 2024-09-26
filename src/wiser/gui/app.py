@@ -781,10 +781,8 @@ class DataVisualizerApp(QMainWindow):
                 timestamp = datetime.datetime.now().isoformat()
 
                 loader = self._app_state.get_loader()
-                if result_type == RasterDataImpl:
-                    new_dataset = loader.dataset_from_gdal_dataset(result)
-                    new_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
-                    new_dataset.set_dirty()
+                if result_type == RasterDataSet:
+                    new_dataset = result
                     if not result_name:
                         result_name = self.tr('Computed')
 

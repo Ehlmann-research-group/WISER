@@ -188,7 +188,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         try:
             np_array = self.gdal_dataset.GetVirtualMemArray(band_sequential=True)
-        except RuntimeError:
+        except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
             np_array = self.gdal_dataset.ReadAsArray()
 
@@ -313,7 +313,9 @@ class GDALRasterDataImpl(RasterDataImpl):
             print(f"Couldn't delete dataset. Error: \n {e}")
 
     def __del__(self):
+        print("__del__ called")
         if self._save_state == SaveState.IN_DISK_NOT_SAVED:
+            print("Full deletion")
             self.delete_dataset()
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
