@@ -42,6 +42,8 @@ class BandMathEvaluator(lark.visitors.Transformer):
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
+        # It is okay if we don't want to use index with bands or spectrum 
+        # because in each operator, index is only used with image cubes
         return OperatorCompare(oper).apply([lhs, rhs], self.index)
 
 
@@ -243,7 +245,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
     logger.debug('Beginning band-math evaluation')
     if expr_info.result_type == VariableType.IMAGE_CUBE:
-        eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.interleave_type, expr_info.shape)
+        eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
 
         bands, lines, samples = expr_info.shape
         result_path = os.path.join(TEMP_FOLDER_PATH, result_name)

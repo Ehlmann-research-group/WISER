@@ -17,6 +17,8 @@ from PySide2.QtWidgets import *
 
 from .app_config import PixelReticleType
 
+from wiser.bandmath.utils import TEMP_FOLDER_PATH
+
 from .about_dialog import AboutDialog
 
 from .rasterpane import RecenterMode
@@ -451,7 +453,7 @@ class DataVisualizerApp(QMainWindow):
         #     we must detect unsaved state.)
 
         # TODO(donnie):  Maybe save Qt state?
-
+        delete_all_files_in_folder(TEMP_FOLDER_PATH)
         super().closeEvent(event)
 
 
@@ -769,7 +771,7 @@ class DataVisualizerApp(QMainWindow):
                     functions.update(plugin_fns)
 
             try:
-                (result_type, result) = bandmath.eval_bandmath_expr(expression,
+                (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name,
                     variables, functions)
 
                 logger.debug(f'Result of band-math evaluation is type ' +
