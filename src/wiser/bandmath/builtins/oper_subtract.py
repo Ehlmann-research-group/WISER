@@ -103,7 +103,7 @@ class OperatorSubtract(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    def apply(self, args: List[BandMathValue], index: int):
+    def apply(self, args: List[BandMathValue], index_list: List[int]):
         '''
         Subtract the RHS from the LHS and return the result.
         '''
@@ -125,17 +125,17 @@ class OperatorSubtract(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
-            if index != -1:
-                lhs_value = lhs.as_numpy_array_by_bands([index])
-                assert lhs_value.ndim == 2
+            if index_list is not None:
+                lhs_value = lhs.as_numpy_array_by_bands(index_list)
+                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list) == 1)
         
-                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
                 result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
 
                 # The result array should have the same dimensions as the LHS input
                 # array.
-                assert result_arr.ndim == 2
-                assert result_arr.shape == lhs_value.shape
+                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list) == 1)
+                assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             else:
                 lhs_value = lhs.as_numpy_array()

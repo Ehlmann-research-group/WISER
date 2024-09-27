@@ -23,6 +23,8 @@ from .builtins import (
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset_impl import SaveState
 
+from .builtins.constants import MAX_RAM_BYTES, SCALAR_BYTES
+
 
 logger = logging.getLogger(__name__)
 
@@ -280,12 +282,13 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             os.makedirs(folder_path)
         out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
 
-        bytes_per_scalar = None
-        if expr_info.elem_type is not None:
-            bytes_per_scalar = expr_info.elem_type.itemsize
-        else:
-            bytes_per_scalar = SCALAR_BYTES
-        max_bytes = MAX_RAM_BYTES/expr_info.elem_type.nb
+        bytes_per_scalar = SCALAR_BYTES
+        # if expr_info.elem_type is not None:
+        #     print("itemsize setting")
+        #     bytes_per_scalar = expr_info.elem_type.itemsize
+        # else:
+        #     bytes_per_scalar = SCALAR_BYTES
+        max_bytes = MAX_RAM_BYTES/bytes_per_scalar
         num_bands = int(np.floor(max_bytes / (lines*samples)))
         for band_index in range(0, bands, num_bands):
             print(f"bands: {bands}")
