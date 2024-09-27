@@ -325,9 +325,10 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     if arg.type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         result = arg.as_numpy_array_by_bands(band_list)
+        print(f"utils, make_image_cube_compatible variabletype image_cube: {result.shape}, cube shape: {cube_shape}")
         assert result.ndim == 3 or (result.ndim == 2 and len(band_list) == 1)
 
-        if result.shape != cube_shape:
+        if not are_shapes_equivalent(result.shape, cube_shape):
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
@@ -335,6 +336,7 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         # Dimensions:  [y][x]
         # NumPy will broadcast the band across the entire image, band by band.
         result = arg.as_numpy_array_by_bands(band_list)
+        print(f"utils, make_image_cube_compatible variabletype IMAGE_BAND: {result.shape}, cube shape: {cube_shape}")
         assert result.ndim == 2
 
         if (result.shape != cube_shape[1:]) and (result.shape != cube_shape and len(band_list) == 1):
@@ -367,6 +369,14 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         result = arg.value
 
     return result
+
+def are_shapes_equivalent(shape1, shape2):
+    # Remove leading 1s from both shapes
+    trimmed_shape1 = tuple(dim for dim in shape1 if dim != 1)
+    trimmed_shape2 = tuple(dim for dim in shape2 if dim != 1)
+    
+    # Compare the resulting shapes
+    return trimmed_shape1 == trimmed_shape2
 
 def make_image_band_compatible(arg: BandMathValue,
         band_shape: Tuple[int, int]) -> Union[np.ndarray, Scalar]:

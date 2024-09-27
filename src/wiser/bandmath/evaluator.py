@@ -289,7 +289,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         # else:
         #     bytes_per_scalar = SCALAR_BYTES
         max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-        num_bands = int(np.floor(max_bytes / (lines*samples)))
+        num_bands = 2#int(np.floor(max_bytes / (lines*samples)))
         for band_index in range(0, bands, num_bands):
             print(f"bands: {bands}")
             band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
@@ -307,7 +307,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 print(f"res.shape: {res.shape}")
                 band_to_write = None
                 if len(band_index_list) == 1:
-                    band_to_write = res
+                    band_to_write = np.squeeze(res)
                 else:
                     band_to_write = res[gdal_band_index-band_index]
                 band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
