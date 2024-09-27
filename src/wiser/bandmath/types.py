@@ -180,7 +180,11 @@ class BandMathValue:
             # If the value is already a NumPy array, we are done!
             if isinstance(self.value, np.ndarray):
                 # Assuems all numpy arrays have band as the first dimension
+                min_band = min(band_list)
+                band_list = [band-min_band for band in band_list]
                 if self.type == VariableType.IMAGE_CUBE:
+                    print(f"bandmathvalue, as-numpy-array-by-bands, numpy array, value: {self.value.shape}")
+                    print(f"band_list: {band_list}")
                     if self.value.ndim == 3 and len(band_list) == 1:
                         return np.squeeze(self.value[band_list, : , :], axis=0)
                     elif self.value.ndim == 2:
@@ -191,6 +195,7 @@ class BandMathValue:
                 elif self.type == VariableType.SPECTRUM:
                     band_start = band_list[0]
                     band_end = band_list[-1]
+                    print(f"numpy arr as_numpy-by-bands band_list: {band_list}")
                     arr = self.value[band_start:band_end+1]
                     arr = arr[:, np.newaxis]
                     return arr
@@ -200,6 +205,7 @@ class BandMathValue:
 
             if self.type == VariableType.IMAGE_CUBE:
                 if isinstance(self.value, RasterDataSet):
+                    print(f"types, image cube, band_list: {band_list}")
                     return self.value.get_multiple_band_data(band_list)
 
             elif self.type == VariableType.IMAGE_BAND:
@@ -211,6 +217,7 @@ class BandMathValue:
                     arr = self.value.get_spectrum()
                     band_start = band_list[0]
                     band_end = band_list[-1]
+                    print(f"as_num-By_bands bandlist: {band_list}")
                     arr=arr[band_start:band_end+1]
                     return arr
             # We only want this function to work for numpy arrays and RasterDataSets 

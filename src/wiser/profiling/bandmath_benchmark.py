@@ -210,8 +210,8 @@ if __name__ == '__main__':
     dataset_list = [dataset_500mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     
-    # benchmark_addition(dataset_list)
-    benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=True)
+    benchmark_addition(dataset_list)
+    # benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=True)
     print('Done with profiling')
 
 '''
