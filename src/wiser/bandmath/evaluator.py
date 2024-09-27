@@ -36,7 +36,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
                        shape: Tuple[int, int, int] = None):
         self._variables = variables
         self._functions = functions
-        self.index = -1
+        self.index_list = None
         self._shape = shape
 
 
@@ -47,7 +47,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = args[2]
         # It is okay if we don't want to use index with bands or spectrum 
         # because in each operator, index is only used with image cubes
-        return OperatorCompare(oper).apply([lhs, rhs], self.index)
+        return OperatorCompare(oper).apply([lhs, rhs], self.index_list)
 
 
     def add_expr(self, values):
@@ -61,10 +61,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = values[2]
 
         if oper == '+':
-            return OperatorAdd().apply([lhs, rhs], self.index)
+            return OperatorAdd().apply([lhs, rhs], self.index_list)
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs], self.index)
+            return OperatorSubtract().apply([lhs, rhs], self.index_list)
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -80,10 +80,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs], self.index)
+            return OperatorMultiply().apply([lhs, rhs], self.index_list)
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs], self.index)
+            return OperatorDivide().apply([lhs, rhs], self.index_list)
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -93,7 +93,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
-        return OperatorPower().apply([args[0], args[1]], self.index)
+        return OperatorPower().apply([args[0], args[1]], self.index_list)
 
 
     def unary_negate_expr(self, args):
@@ -102,7 +102,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * unary_negate_expr')
         # args[0] is the '-' character
-        return OperatorUnaryNegate().apply([args[1]], self.index)
+        return OperatorUnaryNegate().apply([args[1]], self.index_list)
 
 
     def true(self, args):
@@ -280,8 +280,12 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             os.makedirs(folder_path)
         out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
 
-        for band_index in range(bands):
-            eval.index = band_index
+        num_bands = 10
+        for band_index in range(0, bands, num_bands):
+            print(f"bands: {bands}")
+            band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
+            print(f"band_index_list : {band_index_list}")
+            eval.index_list = band_index_list
             result_value = eval.transform(tree)
             res = result_value.value
             if isinstance(result_value.value, np.ma.MaskedArray):
@@ -289,9 +293,17 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                     res = res.astype(np.float32)
                 res[result_value.value.mask] = np.nan
 
-            band = out_dataset_gdal.GetRasterBand(band_index+1)
-            band.WriteArray(res)
-            band.FlushCache()
+            for gdal_band_index in band_index_list:
+                print(f"gdal_band_index-band_index: {gdal_band_index-band_index}")
+                print(f"res.shape: {res.shape}")
+                band_to_write = None
+                if len(band_index_list) == 1:
+                    band_to_write = res
+                else:
+                    band_to_write = res[gdal_band_index-band_index]
+                band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
+                band.WriteArray(band_to_write)
+                band.FlushCache()
 
         out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
         out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
