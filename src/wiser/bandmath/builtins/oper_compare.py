@@ -156,7 +156,7 @@ class OperatorCompare(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    def apply(self, args: List[BandMathValue], index: int):
+    def apply(self, args: List[BandMathValue], index_list: List[int]):
         '''
         Perform a comparison between the LHS and RHS, and return the result.
         '''
@@ -183,9 +183,11 @@ class OperatorCompare(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            if index != -1:
-                lhs_value = lhs.as_numpy_array_by_bands([index])
-                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
+            if index_list is not None:
+                if isinstance(index_list, int):
+                    index_list = [index_list] 
+                lhs_value = lhs.as_numpy_array_by_bands(index_list)
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
                 result_arr = compare_fn(lhs_value, rhs_value)
                 result_arr = result_arr.astype(np.byte)
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
@@ -199,9 +201,11 @@ class OperatorCompare(BandMathFunction):
 
         elif rhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            if index != -1:
-                rhs_value = rhs.as_numpy_array_by_bands([index])
-                lhs_value = make_image_cube_compatible_by_bands(lhs, rhs_value.shape, [index])
+            if index_list is not None:
+                if isinstance(index_list, int):
+                    index_list = [index_list] 
+                rhs_value = rhs.as_numpy_array_by_bands(index_list)
+                lhs_value = make_image_cube_compatible_by_bands(lhs, rhs_value.shape, index_list)
                 result_arr = compare_fn(lhs_value, rhs_value)
                 result_arr = result_arr.astype(np.byte)
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)

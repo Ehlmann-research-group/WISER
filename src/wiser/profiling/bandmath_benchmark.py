@@ -100,7 +100,7 @@ results_new_method = {
 
 def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False):
     equation_dict = {
-        "+": '(a+b)+(c+d)',
+        # "+": '(a+b)+(c+d)',
         "*": '(a*b)*(c*d)',
         "/": '(a/b)/(c/d)',
         "-": '(a-b)-(c-d)',
@@ -210,8 +210,8 @@ if __name__ == '__main__':
     dataset_list = [dataset_500mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     
-    benchmark_addition(dataset_list)
-    # benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=True)
+    # benchmark_addition(dataset_list)
+    benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=False)
     print('Done with profiling')
 
 '''
@@ -298,24 +298,21 @@ RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr:
 My method, not out of core
 ==========File Time Benchmarks==========
 ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 8.055899786949158
-                         Std: 3.8432576125161955
+                         Mean: 7.553817027807236
+                         Std: 2.1903186266950794
 ==========Oper File Time Benchmarks==========
-+: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 11.478492259979248
-                         Std: 6.287420749664307
 *: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 5.676210880279541
-                         Std: 0.19897794723510742
+                         Mean: 5.738137745857239
+                         Std: 0.5395997628516592
 /: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 10.82387363910675
-                         Std: 0.45317161083221436
+                         Mean: 11.153445172309876
+                         Std: 0.38876079517795353
 -: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 5.841169118881226
-                         Std: 0.5575947761535645
+                         Mean: 6.615255737304688
+                         Std: 0.6748620085989032
 <: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 6.459753036499023
-                         Std: 1.1287882328033447
+                         Mean: 6.708429455757141
+                         Std: 0.6653192305938764
 
 Old method not out of core:
 ==========File Time Benchmarks==========
