@@ -36,7 +36,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
                        shape: Tuple[int, int, int] = None):
         self._variables = variables
         self._functions = functions
-        self.index = 0
+        self.index = -1
         self._shape = shape
 
 
@@ -198,11 +198,25 @@ class BandMathEvaluator(lark.visitors.Transformer):
         # Chop the quotes off of the string value
         return str(token)[1:-1]
 
-
+import re
+def remove_trailing_number(filepath):
+    # Regular expression pattern to match " space followed by digits" at the end of the path
+    pattern = r"(.*)\s\d+$"
+    
+    # Use re.match to see if the pattern matches the filepath
+    match = re.match(pattern, filepath)
+    
+    # If a match is found, return the group without the trailing space and number
+    if match:
+        return match.group(1)
+    
+    # Otherwise, return the original filepath
+    return filepath
 
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
         variables: Dict[str, Tuple[VariableType, Any]],
-        functions: Dict[str, BandMathFunction] = None) -> BandMathValue:
+        functions: Dict[str, BandMathFunction] = None,
+        use_old_method = False) -> BandMathValue:
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -245,15 +259,20 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     parser = lark.Lark.open('bandmath.lark', rel_to=__file__, start='expression')
     tree = parser.parse(bandmath_expr)
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
-
+    '''
+    Okay so I think to make this parallel, in the tree when a data piece is retrieve we actually retrieve that data piece from the queue. But where is the queue? The queue could be stored in the evaluator and passed
+    in to any of the Operators. Also we could have a processor class in BandMathEvaluator that spawns a ProcessPoolExecutor where we can run the operations on. Everytime a node of the tree is processed, we will add that Operator
+    to the process, maybe wrapped in a function. Then writing to disk we can simply do as is done in the chatpgt code.
+    '''
     logger.debug('Beginning band-math evaluation')
-    if expr_info.result_type == VariableType.IMAGE_CUBE:
+    if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
 
         bands, lines, samples = expr_info.shape
         result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
         count = 2
         while (os.path.exists(result_path)):
+            result_path = remove_trailing_number(result_path)
             result_path+=f" {count}"
             count+=1
         folder_path = os.path.dirname(result_path)
@@ -280,6 +299,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
         return (RasterDataSet, out_dataset)
     else:
+        print("OLD METHOD")
         eval = BandMathEvaluator(lower_variables, lower_functions)
         result_value = eval.transform(tree)
         return (result_value.type, result_value.value)

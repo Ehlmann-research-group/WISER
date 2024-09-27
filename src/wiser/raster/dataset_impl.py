@@ -308,7 +308,6 @@ class GDALRasterDataImpl(RasterDataImpl):
                 self.gdal_dataset.FlushCache()
                 self.gdal_dataset = None
             driver.Delete(filepath)
-            print(f"Delete: {filepath}.hdr")
         except Exception as e:
             print(f"Couldn't delete dataset. Error: \n {e}")
 
