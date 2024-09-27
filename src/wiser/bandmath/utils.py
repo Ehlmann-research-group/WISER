@@ -202,6 +202,8 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]
         result = arg.as_numpy_array_by_bands(band_list)
+        if result.shape[0] == 1:
+            result = np.squeeze(result, axis=0)
         assert result.ndim == 1
 
         if (result.shape != (cube_shape[0],)) and len(band_list) != 1:

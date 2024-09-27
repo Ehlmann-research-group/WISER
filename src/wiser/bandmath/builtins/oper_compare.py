@@ -183,19 +183,35 @@ class OperatorCompare(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            lhs_value = lhs.as_numpy_array_by_bands([index])
-            rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
-            result_arr = compare_fn(lhs_value, rhs_value)
-            result_arr = result_arr.astype(np.byte)
-            return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            if index != -1:
+                lhs_value = lhs.as_numpy_array_by_bands([index])
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
+                result_arr = compare_fn(lhs_value, rhs_value)
+                result_arr = result_arr.astype(np.byte)
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            else:
+                lhs_value = lhs.as_numpy_array()
+                rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+                result_arr = compare_fn(lhs_value, rhs_value)
+                result_arr = result_arr.astype(np.byte)
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+
 
         elif rhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            rhs_value = rhs.as_numpy_array_by_bands([index])
-            lhs_value = make_image_cube_compatible_by_bands(lhs, rhs_value.shape, [index])
-            result_arr = compare_fn(lhs_value, rhs_value)
-            result_arr = result_arr.astype(np.byte)
-            return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            if index != -1:
+                rhs_value = rhs.as_numpy_array_by_bands([index])
+                lhs_value = make_image_cube_compatible_by_bands(lhs, rhs_value.shape, [index])
+                result_arr = compare_fn(lhs_value, rhs_value)
+                result_arr = result_arr.astype(np.byte)
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            else:
+                rhs_value = rhs.as_numpy_array()
+                lhs_value = make_image_cube_compatible(lhs, rhs_value.shape)
+                result_arr = compare_fn(lhs_value, rhs_value)
+                result_arr = result_arr.astype(np.byte)
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+
 
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [y][x]

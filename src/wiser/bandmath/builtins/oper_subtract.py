@@ -125,17 +125,30 @@ class OperatorSubtract(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
-            lhs_value = lhs.as_numpy_array_by_bands([index])
-            assert lhs_value.ndim == 2
-    
-            rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
-            result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
+            if index != -1:
+                lhs_value = lhs.as_numpy_array_by_bands([index])
+                assert lhs_value.ndim == 2
+        
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
+                result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
 
-            # The result array should have the same dimensions as the LHS input
-            # array.
-            assert result_arr.ndim == 2
-            assert result_arr.shape == lhs_value.shape
-            return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+                # The result array should have the same dimensions as the LHS input
+                # array.
+                assert result_arr.ndim == 2
+                assert result_arr.shape == lhs_value.shape
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            else:
+                lhs_value = lhs.as_numpy_array()
+                assert lhs_value.ndim == 3
+
+                rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+                result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
+
+                # The result array should have the same dimensions as the LHS input
+                # array.
+                assert result_arr.ndim == 3
+                assert result_arr.shape == lhs_value.shape
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [x][y]
