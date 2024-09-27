@@ -280,7 +280,13 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             os.makedirs(folder_path)
         out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
 
-        num_bands = 10
+        bytes_per_scalar = None
+        if expr_info.elem_type is not None:
+            bytes_per_scalar = expr_info.elem_type.itemsize
+        else:
+            bytes_per_scalar = SCALAR_BYTES
+        max_bytes = MAX_RAM_BYTES/expr_info.elem_type.nb
+        num_bands = int(np.floor(max_bytes / (lines*samples)))
         for band_index in range(0, bands, num_bands):
             print(f"bands: {bands}")
             band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
