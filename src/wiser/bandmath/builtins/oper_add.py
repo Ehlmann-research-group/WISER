@@ -91,7 +91,22 @@ class OperatorAdd(BandMathFunction):
 
         self._report_type_error(lhs.result_type, rhs.result_type)
 
+    # If there is no data on the queue
 
+    # We pop the data off the queue and add it to the processor thread
+    # then we queue in the next piece of data to be added to the queue
+    # for the next iteration of the tree.
+    # We await the processor thread (which I think will let the other 
+    # nodes in the tree run), then return the result
+    # In evaluator, once everything is returned, then we add the result
+    # to the queue to be written.
+    # We add a function to the 
+    # thread pool executor (that we can just define in that function's
+    # if statement) that pops stuff from the to-be-written queue
+    # and then writes everything to disk  asynchronously
+    #  
+
+    # We then await the executor thread
     def apply(self, args: List[BandMathValue], index_list: List[int]):
         '''
         Add the LHS and RHS and return the result.
