@@ -302,6 +302,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                     res = res.astype(np.float32)
                 res[result_value.value.mask] = np.nan
 
+            # print("Starting writing")
             for gdal_band_index in band_index_list:
                 # print(f"gdal_band_index-band_index: {gdal_band_index-band_index}")
                 # print(f"res.shape: {res.shape}")
@@ -312,9 +313,14 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                     band_to_write = res[gdal_band_index-band_index]
                 band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
                 band.WriteArray(band_to_write)
-                # band.FlushCache()
+                # print("Flushing to cache")
+                band.FlushCache()
+                # print("Finished flushing to cache")
+            # print("Finishing writing")
         
-        out_dataset_gdal.FlushCache()
+        # print("Flushing to cache")
+        # out_dataset_gdal.FlushCache()
+        # print("Finished flushing to cache")
 
         out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
         out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)

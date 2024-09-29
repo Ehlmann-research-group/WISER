@@ -102,9 +102,9 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     equation_dict = {
         "+": '(a+b)+(c+d)',
         "*": '(a*b)*(c*d)',
-        "/": '(a/b)/(c/d)',
-        "-": '(a-b)-(c-d)',
-        "<": '((a-b)-d)<c'
+        # "/": '(a/b)/(c/d)',
+        # "-": '(a-b)-(c-d)',
+        # "<": '((a-b)-d)<c'
     }
 
     oper_file_time_dict = {}
