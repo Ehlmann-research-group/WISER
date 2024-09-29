@@ -289,11 +289,11 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         # else:
         #     bytes_per_scalar = SCALAR_BYTES
         max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-        num_bands = 2#int(np.floor(max_bytes / (lines*samples)))
+        num_bands = int(np.floor(max_bytes / (lines*samples)))
         for band_index in range(0, bands, num_bands):
-            print(f"bands: {bands}")
+            # print(f"bands: {bands}")
             band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
-            print(f"band_index_list : {band_index_list}")
+            # print(f"band_index_list : {band_index_list}")
             eval.index_list = band_index_list
             result_value = eval.transform(tree)
             res = result_value.value
@@ -303,8 +303,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 res[result_value.value.mask] = np.nan
 
             for gdal_band_index in band_index_list:
-                print(f"gdal_band_index-band_index: {gdal_band_index-band_index}")
-                print(f"res.shape: {res.shape}")
+                # print(f"gdal_band_index-band_index: {gdal_band_index-band_index}")
+                # print(f"res.shape: {res.shape}")
                 band_to_write = None
                 if len(band_index_list) == 1:
                     band_to_write = np.squeeze(res)
@@ -312,7 +312,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                     band_to_write = res[gdal_band_index-band_index]
                 band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
                 band.WriteArray(band_to_write)
-                band.FlushCache()
+                # band.FlushCache()
+        
+        out_dataset_gdal.FlushCache()
 
         out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
         out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)

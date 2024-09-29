@@ -101,10 +101,10 @@ results_new_method = {
 def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False):
     equation_dict = {
         "+": '(a+b)+(c+d)',
-        # "*": '(a*b)*(c*d)',
-        # "/": '(a/b)/(c/d)',
-        # "-": '(a-b)-(c-d)',
-        # "<": '((a-b)-d)<c'
+        "*": '(a*b)*(c*d)',
+        "/": '(a/b)/(c/d)',
+        "-": '(a-b)-(c-d)',
+        "<": '((a-b)-d)<c'
     }
 
     oper_file_time_dict = {}
@@ -112,7 +112,7 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     file_time_dict = {}
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
-    N = 10
+    N = 1
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
@@ -133,7 +133,7 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
             print(f"operations: {key}")
             print(f"equation: {value}")
             for _ in range(N):
-                print(f"iter: {_}")
+                # print(f"iter: {_}")
                 time_outer = None
                 if use_both_methods:
                     print(f"results new method calculating")
@@ -207,13 +207,24 @@ if __name__ == '__main__':
     dataset_500mb = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_500mb]
+    dataset_list = [dataset_900mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     
     # benchmark_addition(dataset_list)
-    benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=False)
+    use_old_method = False
+    profiler = cProfile.Profile()
+    profiler.enable()
+    print('================Enabled Profile================')
+    benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=use_old_method)
+    profiler.disable()
+    print('================Disabled Profile================')
     print('Done with profiling')
 
+    # Save the profiling stats to a file
+    with open(f"output/bandmath_menmark_old_method_{use_old_method}.txt", "w+") as f:
+        ps = pstats.Stats(profiler, stream=f)
+        ps.sort_stats("tottime")
+        ps.print_stats()
 '''
 My method, not out of core memory
 ==========File Time Benchmarks==========
@@ -298,43 +309,46 @@ RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr:
 My method, not out of core
 ==========File Time Benchmarks==========
 ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 7.553817027807236
-                         Std: 2.1903186266950794
+                         Mean: 6.877469959259034
+                         Std: 2.6801841444979897
 ==========Oper File Time Benchmarks==========
++: ang20171108t184227_corr_v2p13_subset_bil.hdr:
+                         Mean: 5.1696594715118405
+                         Std: 0.4378767794464763
 *: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 5.738137745857239
-                         Std: 0.5395997628516592
+                         Mean: 5.110408473014831
+                         Std: 0.1849520397889482
 /: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 11.153445172309876
-                         Std: 0.38876079517795353
+                         Mean: 12.023122239112855
+                         Std: 0.6437421777592739
 -: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 6.615255737304688
-                         Std: 0.6748620085989032
+                         Mean: 6.22693452835083
+                         Std: 0.8877227970632332
 <: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 6.708429455757141
-                         Std: 0.6653192305938764
+                         Mean: 5.85722508430481
+                         Std: 0.7124463910432807
 
 Old method not out of core:
 ==========File Time Benchmarks==========
 ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 3.6751036739349363
-                         Std: 2.1291596821606737
+                         Mean: 3.7085764360427858
+                         Std: 2.1897731021880555
 ==========Oper File Time Benchmarks==========
 +: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 2.6323692321777346
-                         Std: 0.30737778636724084
+                         Mean: 2.6810461282730103
+                         Std: 0.35526421572213307
 *: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 2.481278729438782
-                         Std: 0.038514671852865896
+                         Mean: 2.5091066360473633
+                         Std: 0.07491073803559681
 /: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 7.919213986396789
-                         Std: 0.13509954030408053
+                         Mean: 8.068095517158508
+                         Std: 0.24763072493266286
 -: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 2.6504650831222536
-                         Std: 0.047461862172893304
+                         Mean: 2.6754376888275146
+                         Std: 0.0556550159616684
 <: ang20171108t184227_corr_v2p13_subset_bil.hdr:
-                         Mean: 2.6921913385391236
-                         Std: 0.09565251545364144
+                         Mean: 2.6091962099075316
+                         Std: 0.05764504523467106
 Done with profiling
 
 My method, out of core memory:

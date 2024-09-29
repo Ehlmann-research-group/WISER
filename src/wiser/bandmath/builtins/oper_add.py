@@ -116,23 +116,23 @@ class OperatorAdd(BandMathFunction):
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
             if index_list is not None:
-                print(f"index_list: {index_list}")
+                # print(f"index_list: {index_list}")
                 if isinstance(index_list, int):
                     index_list = [index_list] 
                 lhs_value = lhs.as_numpy_array_by_bands(index_list)
-                print(f"oper_add, lhs_value.shape: {lhs_value.shape}")
+                # print(f"oper_add, lhs_value.shape: {lhs_value.shape}")
                 assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list) == 1)
                 rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
-                print(f"oper_add, rhs_value.shape: {rhs_value.shape}")
+                # print(f"oper_add, rhs_value.shape: {rhs_value.shape}")
                 result_arr = lhs_value + rhs_value
-                print(f"result_arr, result_arr.shape: {result_arr.shape}")
+                # print(f"result_arr, result_arr.shape: {result_arr.shape}")
                 # The dimension should be two because we are slicing by band
                 assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             else:
                 # Dimensions:  [band][y][x]
-                print("USING OLD METHOD OF OPER ADD")
+                # print("USING OLD METHOD OF OPER ADD")
                 lhs_value = lhs.as_numpy_array()
                 assert lhs_value.ndim == 3
 
