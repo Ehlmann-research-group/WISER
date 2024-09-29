@@ -40,6 +40,12 @@ class BandMathEvaluator(lark.visitors.Transformer):
         self._functions = functions
         self.index_list = None
         self._shape = shape
+        # Dictionary that maps position in tree to queue
+        # position so we don't have to have different queues for
+        # different trees. The node in the tree wil be able to 
+        # access the data it needs from the dictionary. The 
+        # data will be the queue and the thread or process pool executor
+
 
 
     def comparison(self, args):
@@ -62,6 +68,11 @@ class BandMathEvaluator(lark.visitors.Transformer):
         oper = values[1]
         rhs = values[2]
 
+        # You pass in the dictionary to the Operator then the operator
+        # gets the queue, thread pool exector (for reading data) and
+        # process pool executor (for performing operations).
+        # Or we get those three things here and pass them into the 
+        # operator 
         if oper == '+':
             return OperatorAdd().apply([lhs, rhs], self.index_list)
 
@@ -302,6 +313,13 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                     res = res.astype(np.float32)
                 res[result_value.value.mask] = np.nan
 
+            # once everything is returned, then we add the result
+            # to the queue to be written.
+            # We add a function to the 
+            # thread pool executor (that we can just define in that function's
+            # if statement) that pops stuff from the to-be-written queue
+            # and then writes everything to disk  asynchronously
+            
             # print("Starting writing")
             for gdal_band_index in band_index_list:
                 # print(f"gdal_band_index-band_index: {gdal_band_index-band_index}")
