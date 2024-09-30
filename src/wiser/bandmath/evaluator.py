@@ -35,6 +35,9 @@ class UniqueIDAssigner(Visitor):
         tree.meta.unique_id = self.current_id
         print(f"Giving unique ID: {self.current_id}")
 
+    def comparison(self, tree):
+        self._assign_id(tree)
+
     def add_expr(self, tree):
         self._assign_id(tree)
 
@@ -49,7 +52,6 @@ class UniqueIDAssigner(Visitor):
 
 logger = logging.getLogger(__name__)
 
-# @v_args(inline=True)
 class BandMathEvaluator(lark.visitors.Transformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
@@ -80,8 +82,12 @@ class BandMathEvaluator(lark.visitors.Transformer):
 
         return self.node_ids[node_key]
 
-    def comparison(self, args):
+    @v_args(meta=True)
+    def comparison(self, meta, args):
         logger.debug(' * comparison')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id:
+            print(f"Node id <: {node_id}")
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
@@ -96,10 +102,9 @@ class BandMathEvaluator(lark.visitors.Transformer):
         transformer.
         '''
         logger.debug(' * add_expr')
-        print(f"!!!!!!!!!!!Values: {values}")
         node_id = getattr(meta, 'unique_id', None)
         if node_id:
-            print(f"!!!!!!!!!!!!!!!!!NODE ID: {node_id}")
+            print(f"Node id +: {node_id}")
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
@@ -118,12 +123,16 @@ class BandMathEvaluator(lark.visitors.Transformer):
         raise RuntimeError(f'Unexpected operator {oper}')
 
 
-    def mul_expr(self, args):
+    @v_args(meta=True)
+    def mul_expr(self, meta, args):
         '''
         Implementation of multiplication and division operations in the
         transformer.
         '''
         logger.debug(' * mul_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id:
+            print(f"Node id *: {node_id}")
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
@@ -137,19 +146,27 @@ class BandMathEvaluator(lark.visitors.Transformer):
         raise RuntimeError(f'Unexpected operator {oper}')
 
 
-    def power_expr(self, args):
+    @v_args(meta=True)
+    def power_expr(self, meta, args):
         '''
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id:
+            print(f"Node id **: {node_id}")
         return OperatorPower().apply([args[0], args[1]], self.index_list)
 
 
-    def unary_negate_expr(self, args):
+    @v_args(meta=True)
+    def unary_negate_expr(self, meta, args):
         '''
         Implementation of unary negation in the transformer.
         '''
         logger.debug(' * unary_negate_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id:
+            print(f"Node id -: {node_id}")
         # args[0] is the '-' character
         return OperatorUnaryNegate().apply([args[1]], self.index_list)
 
@@ -308,7 +325,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     parser = lark.Lark.open('bandmath.lark', rel_to=__file__, start='expression', 
                             propagate_positions=True)
     tree = parser.parse(bandmath_expr)
-    print(f"TREE: \n {tree.pretty()}")
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
     '''
     Okay so I think to make this parallel, in the tree when a data piece is retrieve we actually retrieve that data piece from the queue. But where is the queue? The queue could be stored in the evaluator and passed
@@ -337,17 +353,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
 
         bytes_per_scalar = SCALAR_BYTES
-        # if expr_info.elem_type is not None:
-        #     print("itemsize setting")
-        #     bytes_per_scalar = expr_info.elem_type.itemsize
-        # else:
-        #     bytes_per_scalar = SCALAR_BYTES
         max_bytes = MAX_RAM_BYTES/bytes_per_scalar
         num_bands = int(np.floor(max_bytes / (lines*samples)))
         for band_index in range(0, bands, num_bands):
-            # print(f"bands: {bands}")
             band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
-            # print(f"band_index_list : {band_index_list}")
             eval.index_list = band_index_list
             result_value = eval.transform(tree)
             res = result_value.value
@@ -363,10 +372,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             # if statement) that pops stuff from the to-be-written queue
             # and then writes everything to disk  asynchronously
             
-            # print("Starting writing")
             for gdal_band_index in band_index_list:
-                # print(f"gdal_band_index-band_index: {gdal_band_index-band_index}")
-                # print(f"res.shape: {res.shape}")
                 band_to_write = None
                 if len(band_index_list) == 1:
                     band_to_write = np.squeeze(res)
@@ -374,14 +380,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                     band_to_write = res[gdal_band_index-band_index]
                 band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
                 band.WriteArray(band_to_write)
-                # print("Flushing to cache")
                 band.FlushCache()
-                # print("Finished flushing to cache")
-            # print("Finishing writing")
-        
-        # print("Flushing to cache")
-        # out_dataset_gdal.FlushCache()
-        # print("Finished flushing to cache")
 
         out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
         out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
@@ -400,7 +399,7 @@ def print_tree_with_meta(tree, indent=0):
         # Print the node type and its meta information if present
         meta_info = ""
         if hasattr(tree, 'meta') and tree.meta is not None:
-            meta_info = f"(line: {getattr(tree.meta, 'line', 'N/A')}, column: {getattr(tree.meta, 'column', 'N/A')}, unique_id: {getattr(tree.meta, 'unique_id', 'N/A')})"
+            meta_info = f"(unique_id: {getattr(tree.meta, 'unique_id', 'N/A')})"
         print(f"{indent_str}{tree.data} {meta_info}")
         # Recursively print children nodes
         for child in tree.children:
@@ -408,6 +407,6 @@ def print_tree_with_meta(tree, indent=0):
     else:
         # If it's a terminal node (e.g., a token), print its value and its meta if available
         meta_info = ""
-        if hasattr(tree, 'line') and hasattr(tree, 'column'):
-            meta_info = f"(line: {getattr(tree, 'line', 'N/A')}, column: {getattr(tree, 'column', 'N/A')}, unique_id: {getattr(tree, 'unique_id', 'N/A')})"
+        if hasattr(tree, 'unique_id'):
+            meta_info = f"(unique_id: {getattr(tree, 'unique_id', 'N/A')})"
         print(f"{indent_str}{tree} {meta_info} (Terminal)")

@@ -100,11 +100,11 @@ results_new_method = {
 
 def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False):
     equation_dict = {
-        "+": '(a+b)+(c+d)+(e+f)+(g+h)',
-        # "*": '(a*b)*(c*d)',
-        # "/": '(a/b)/(c/d)',
-        # "-": '(a-b)-(c-d)',
-        # "<": '((a-b)-d)<c'
+        "+": '(a+b)+(c+d)',
+        "*": '(a*b)*(c*d)',
+        "/": '(a/b)/(c/d)',
+        "-": '(a-b)-(c-d)',
+        "<": '((a-b)-d)<c'
     }
 
     oper_file_time_dict = {}
@@ -211,24 +211,24 @@ if __name__ == '__main__':
     dataset_500mb = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_900mb]
+    dataset_list = [dataset_500mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     
     # benchmark_addition(dataset_list)
     use_old_method = False
-    profiler = cProfile.Profile()
-    profiler.enable()
-    print('================Enabled Profile================')
+    # profiler = cProfile.Profile()
+    # profiler.enable()
+    # print('================Enabled Profile================')
     benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=use_old_method)
-    profiler.disable()
-    print('================Disabled Profile================')
-    print('Done with profiling')
+    # profiler.disable()
+    # print('================Disabled Profile================')
+    # print('Done with profiling')
 
-    # Save the profiling stats to a file
-    with open(f"output/bandmath_menmark_old_method_{use_old_method}.txt", "w+") as f:
-        ps = pstats.Stats(profiler, stream=f)
-        ps.sort_stats("tottime")
-        ps.print_stats()
+    # # Save the profiling stats to a file
+    # with open(f"output/bandmath_menmark_old_method_{use_old_method}.txt", "w+") as f:
+    #     ps = pstats.Stats(profiler, stream=f)
+    #     ps.sort_stats("tottime")
+    #     ps.print_stats()
 '''
 My method, not out of core memory
 ==========File Time Benchmarks==========
