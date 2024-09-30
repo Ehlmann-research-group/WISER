@@ -100,8 +100,8 @@ results_new_method = {
 
 def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False):
     equation_dict = {
-        "+": '(a+b)+(c+d)',
-        "*": '(a*b)*(c*d)',
+        "+": '(a+b)+(c+d)+(e+f)+(g+h)',
+        # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
         # "-": '(a-b)-(c-d)',
         # "<": '((a-b)-d)<c'
@@ -122,7 +122,11 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
         variables = {'a':(VariableType.IMAGE_CUBE, dataset),
                     'c':(VariableType.IMAGE_CUBE, dataset),
                     'b':(VariableType.IMAGE_BAND, band),
-                    'd':(VariableType.SPECTRUM, spectrum)}
+                    'd':(VariableType.SPECTRUM, spectrum),
+                    'e':(VariableType.IMAGE_CUBE, dataset),
+                    'f':(VariableType.IMAGE_CUBE, dataset),
+                    'g':(VariableType.IMAGE_CUBE, dataset),
+                    'h':(VariableType.IMAGE_CUBE, dataset)}
         file_times = []
         file_times_new_method = []
         file_times_old_method = []

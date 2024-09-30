@@ -4,6 +4,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import lark
+from lark import Visitor, Tree, v_args
 import numpy as np
 
 from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
@@ -25,10 +26,30 @@ from wiser.raster.dataset_impl import SaveState
 
 from .builtins.constants import MAX_RAM_BYTES, SCALAR_BYTES
 
+class UniqueIDAssigner(Visitor):
+    def __init__(self):
+        self.current_id = 0
+
+    def _assign_id(self, tree):
+        self.current_id += 1
+        tree.meta.unique_id = self.current_id
+        print(f"Giving unique ID: {self.current_id}")
+
+    def add_expr(self, tree):
+        self._assign_id(tree)
+
+    def mul_expr(self, tree):
+        self._assign_id(tree)
+
+    def unary_negate_expr(self, tree):
+        self._assign_id(tree)
+
+    def power_expr(self, tree):
+        self._assign_id(tree)
 
 logger = logging.getLogger(__name__)
 
-
+# @v_args(inline=True)
 class BandMathEvaluator(lark.visitors.Transformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
@@ -46,7 +67,18 @@ class BandMathEvaluator(lark.visitors.Transformer):
         # access the data it needs from the dictionary. The 
         # data will be the queue and the thread or process pool executor
 
+    def get_node_id(self, node_meta):
+        '''
+        Generates a unique ID for a given node based on its meta attribute (position in the tree).
+        '''
+        # Create a unique key based on the line and column position in the source
+        node_key = (node_meta.line, node_meta.column)
+        
+        # If the node doesn't have an ID, create one and store it
+        if node_key not in self.node_ids:
+            self.node_ids[node_key] = len(self.node_ids) + 1
 
+        return self.node_ids[node_key]
 
     def comparison(self, args):
         logger.debug(' * comparison')
@@ -57,17 +89,21 @@ class BandMathEvaluator(lark.visitors.Transformer):
         # because in each operator, index is only used with image cubes
         return OperatorCompare(oper).apply([lhs, rhs], self.index_list)
 
-
-    def add_expr(self, values):
+    @v_args(meta=True)
+    def add_expr(self, meta, values):
         '''
         Implementation of addition and subtraction operations in the
         transformer.
         '''
         logger.debug(' * add_expr')
+        print(f"!!!!!!!!!!!Values: {values}")
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id:
+            print(f"!!!!!!!!!!!!!!!!!NODE ID: {node_id}")
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
-
+        
         # You pass in the dictionary to the Operator then the operator
         # gets the queue, thread pool exector (for reading data) and
         # process pool executor (for performing operations).
@@ -269,8 +305,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         for name, function in functions.items():
             lower_functions[name.lower()] = function
 
-    parser = lark.Lark.open('bandmath.lark', rel_to=__file__, start='expression')
+    parser = lark.Lark.open('bandmath.lark', rel_to=__file__, start='expression', 
+                            propagate_positions=True)
     tree = parser.parse(bandmath_expr)
+    print(f"TREE: \n {tree.pretty()}")
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
     '''
     Okay so I think to make this parallel, in the tree when a data piece is retrieve we actually retrieve that data piece from the queue. But where is the queue? The queue could be stored in the evaluator and passed
@@ -278,7 +316,12 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     to the process, maybe wrapped in a function. Then writing to disk we can simply do as is done in the chatpgt code.
     '''
     logger.debug('Beginning band-math evaluation')
+    id_assigner = UniqueIDAssigner()
+    id_assigner.visit(tree)
+    print(f"TREE:")
+    print_tree_with_meta(tree)
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
+        
         eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
 
         bands, lines, samples = expr_info.shape
@@ -350,3 +393,21 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         eval = BandMathEvaluator(lower_variables, lower_functions)
         result_value = eval.transform(tree)
         return (result_value.type, result_value.value)
+
+def print_tree_with_meta(tree, indent=0):
+    indent_str = "  " * indent
+    if isinstance(tree, Tree):
+        # Print the node type and its meta information if present
+        meta_info = ""
+        if hasattr(tree, 'meta') and tree.meta is not None:
+            meta_info = f"(line: {getattr(tree.meta, 'line', 'N/A')}, column: {getattr(tree.meta, 'column', 'N/A')}, unique_id: {getattr(tree.meta, 'unique_id', 'N/A')})"
+        print(f"{indent_str}{tree.data} {meta_info}")
+        # Recursively print children nodes
+        for child in tree.children:
+            print_tree_with_meta(child, indent + 1)
+    else:
+        # If it's a terminal node (e.g., a token), print its value and its meta if available
+        meta_info = ""
+        if hasattr(tree, 'line') and hasattr(tree, 'column'):
+            meta_info = f"(line: {getattr(tree, 'line', 'N/A')}, column: {getattr(tree, 'column', 'N/A')}, unique_id: {getattr(tree, 'unique_id', 'N/A')})"
+        print(f"{indent_str}{tree} {meta_info} (Terminal)")
