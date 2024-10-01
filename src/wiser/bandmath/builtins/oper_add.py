@@ -2,6 +2,10 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
+import queue
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
 
@@ -9,7 +13,7 @@ from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    make_image_cube_compatible_by_bands,
+    make_image_cube_compatible_by_bands, should_continue_reading_bands,
 )
 
 
@@ -103,11 +107,13 @@ class OperatorAdd(BandMathFunction):
     # We add a function to the 
     # thread pool executor (that we can just define in that function's
     # if statement) that pops stuff from the to-be-written queue
-    # and then writes everything to disk  asynchronously
+    # and then writes everything to disk asynchronously
     #  
 
     # We then await the executor thread
-    def apply(self, args: List[BandMathValue], index_list: List[int]):
+    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
+              index_list_next: List[int], read_task_queue: queue.Queue, \
+              read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
         '''
         Add the LHS and RHS and return the result.
         '''
@@ -126,28 +132,70 @@ class OperatorAdd(BandMathFunction):
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
-        # Do the addition computation.
+        # def get_array_and_add_to_queue(index_list_current):
+        #     arr = lhs.as_numpy_array_by_bands(index_list_current)
+        #     read_task_queue.put(arr)
 
+        async def async_read_gdal_data_onto_queue(index_list_current: List[int]):
+            # loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands(index_list_current))
+            future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list_current)
+            read_task_queue.put(future)
+    
+        async def async_read_gdal_data(index_list: List[int]):
+            result = await event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
+            return result
+        # Do the addition computation.
+        # print("BEFORE TYPE THING")
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            if index_list is not None:
-                # print(f"index_list: {index_list}")
-                if isinstance(index_list, int):
-                    index_list = [index_list] 
-                lhs_value = lhs.as_numpy_array_by_bands(index_list)
+            lhs_future = None
+            if index_list_current is not None:
+                # print(f"index_list_current: {index_list_current}")
+                if isinstance(index_list_current, int):
+                    index_list_current = [index_list_current]
+                # Check to see if queue is empty. 
+                if read_task_queue.empty():
+                    print ("QUEUE IS EMPTY")
+                    # should_keep_reading = should_continue_reading_bands(index_list_current, lhs)
+                    # if should_keep_reading:
+                    #     await async_read_gdal_data_onto_queue(index_list_current)
+                    #     lhs_future = read_task_queue.get()
+                    # else:
+                    #     # TODO: Delete this line later by tightening up logic
+                    #     raise ValueError("SHOULD NEVER REACH HERE")
+                    await async_read_gdal_data_onto_queue(index_list_current)
+                    lhs_future = read_task_queue.get()
+                # If queue is not empty we pop from it
+                else:
+                    print ("QUEUE IS NOT EMPTY")
+                    lhs_future = read_task_queue.get()
+                # should_read_next = should_continue_reading_bands(index_list_next, lhs)
+                # if should_read_next:
+                #     asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
+                print("About to await")
+                lhs_value = await lhs_future # await asyncio.wrap_future(lhs_future)
+                print(f"========lhs_value.type: {type(lhs_value)}===========")
+                        # We add a function and await it
+                    # If it is, then check to see if we should add stuff to it
+                    # If we should not, then we don't add stuff to it
+                # If Queue is not empty, then we pop off the queue and add a read task to it
+                # We await the reading task
+
+                # Once the read task is done, we will just process the data and return
+                # lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
                 # print(f"oper_add, lhs_value.shape: {lhs_value.shape}")
-                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list) == 1)
-                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
+                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
                 # print(f"oper_add, rhs_value.shape: {rhs_value.shape}")
                 result_arr = lhs_value + rhs_value
                 # print(f"result_arr, result_arr.shape: {result_arr.shape}")
                 # The dimension should be two because we are slicing by band
-                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list) == 1)
+                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             else:
                 # Dimensions:  [band][y][x]
-                # print("USING OLD METHOD OF OPER ADD")
+                print("USING OLD METHOD OF OPER ADD")
                 lhs_value = lhs.as_numpy_array()
                 assert lhs_value.ndim == 3
 

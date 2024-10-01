@@ -7,6 +7,11 @@ import lark
 from lark import Visitor, Tree, v_args
 import numpy as np
 
+import queue
+import asyncio
+import threading
+import concurrent.futures
+
 from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
 from .utils import TEMP_FOLDER_PATH
@@ -24,7 +29,7 @@ from .builtins import (
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset_impl import SaveState
 
-from .builtins.constants import MAX_RAM_BYTES, SCALAR_BYTES
+from .builtins.constants import MAX_RAM_BYTES, SCALAR_BYTES, NUM_READERS, NUM_PROCESSORS, NUM_WRITERS
 
 class UniqueIDAssigner(Visitor):
     def __init__(self):
@@ -58,11 +63,25 @@ class BandMathEvaluator(lark.visitors.Transformer):
     '''
     def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
                        functions: Dict[str, Callable],
-                       shape: Tuple[int, int, int] = None):
+                       shape: Tuple[int, int, int] = None,
+                       use_parallelization = True):
         self._variables = variables
         self._functions = functions
-        self.index_list = None
+        self.index_list_current = None
+        self.index_list_next = None
         self._shape = shape
+        if use_parallelization:
+            self._read_data_queue_dict = {}
+            self._write_data_queue = queue.Queue()
+            self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
+            self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
+            self._event_loop = asyncio.new_event_loop()
+            self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
+            self._loop_thread.start()
+        else:
+            self._read_data_queue = None
+            self._write_data_queue = None
+
         # Dictionary that maps position in tree to queue
         # position so we don't have to have different queues for
         # different trees. The node in the tree wil be able to 
@@ -86,14 +105,18 @@ class BandMathEvaluator(lark.visitors.Transformer):
     def comparison(self, meta, args):
         logger.debug(' * comparison')
         node_id = getattr(meta, 'unique_id', None)
-        if node_id:
-            print(f"Node id <: {node_id}")
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id <: {node_id}")
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
         # It is okay if we don't want to use index with bands or spectrum 
         # because in each operator, index is only used with image cubes
-        return OperatorCompare(oper).apply([lhs, rhs], self.index_list)
+        return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
 
     @v_args(meta=True)
     def add_expr(self, meta, values):
@@ -103,11 +126,19 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * add_expr')
         node_id = getattr(meta, 'unique_id', None)
-        if node_id:
-            print(f"Node id +: {node_id}")
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id +: {node_id}")
+        # print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
+
+        # if isinstance(lhs, (concurrent.futures.Future, asyncio.Future)):
+        #     lhs = lhs.result()
+        # if isinstance(rhs, (concurrent.futures.Future, asyncio.Future)):
+        #     rhs = rhs.result()
         
         # You pass in the dictionary to the Operator then the operator
         # gets the queue, thread pool exector (for reading data) and
@@ -115,10 +146,15 @@ class BandMathEvaluator(lark.visitors.Transformer):
         # Or we get those three things here and pass them into the 
         # operator 
         if oper == '+':
-            return OperatorAdd().apply([lhs, rhs], self.index_list)
+            # return asyncio.run(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+            #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
+            #                             self._event_loop))
+            return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
+                                        self._event_loop), loop=self._event_loop).result()
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs], self.index_list)
+            return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -131,17 +167,19 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * mul_expr')
         node_id = getattr(meta, 'unique_id', None)
-        if node_id:
-            print(f"Node id *: {node_id}")
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id *: {node_id}")
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs], self.index_list)
+            return OperatorMultiply().apply([lhs, rhs], self.index_list_current)
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs], self.index_list)
+            return OperatorDivide().apply([lhs, rhs], self.index_list_current)
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -153,9 +191,11 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * power_expr')
         node_id = getattr(meta, 'unique_id', None)
-        if node_id:
-            print(f"Node id **: {node_id}")
-        return OperatorPower().apply([args[0], args[1]], self.index_list)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id **: {node_id}")
+        return OperatorPower().apply([args[0], args[1]], self.index_list_current)
 
 
     @v_args(meta=True)
@@ -165,10 +205,12 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * unary_negate_expr')
         node_id = getattr(meta, 'unique_id', None)
-        if node_id:
-            print(f"Node id -: {node_id}")
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id -: {node_id}")
         # args[0] is the '-' character
-        return OperatorUnaryNegate().apply([args[1]], self.index_list)
+        return OperatorUnaryNegate().apply([args[1]], self.index_list_current)
 
 
     def true(self, args):
@@ -263,6 +305,16 @@ class BandMathEvaluator(lark.visitors.Transformer):
         logger.debug(' * STRING')
         # Chop the quotes off of the string value
         return str(token)[1:-1]
+    def stop(self):
+        """Gracefully stop the event loop and wait for the thread to finish."""
+        if self._event_loop.is_running():
+            self._event_loop.call_soon_threadsafe(self._event_loop.stop)  # Safely stop the loop
+        self._loop_thread.join()  # Wait for the thread to finish
+
+    def __del__(self):
+        print("Destructor called, cleaning up event loop and thread...")
+        self.stop()  # Ensure the loop and thread are stopped
+        print("Event loop and thread cleaned up")
 
 import re
 def remove_trailing_number(filepath):
@@ -336,6 +388,18 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     id_assigner.visit(tree)
     print(f"TREE:")
     print_tree_with_meta(tree)
+
+    def write_band(out_dataset_gdal, gdal_band_index, band_index, res):
+        band_to_write = None
+        if len(band_index_list_current) == 1:
+            band_to_write = np.squeeze(res)
+        else:
+            band_to_write = res[gdal_band_index-band_index]
+        band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
+        band.WriteArray(band_to_write)
+        band.FlushCache()
+        return True
+
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         
         eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
@@ -355,9 +419,21 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         bytes_per_scalar = SCALAR_BYTES
         max_bytes = MAX_RAM_BYTES/bytes_per_scalar
         num_bands = int(np.floor(max_bytes / (lines*samples)))
+        writing_futures = []
         for band_index in range(0, bands, num_bands):
-            band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
-            eval.index_list = band_index_list
+            band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
+            band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
+            eval.index_list_current = band_index_list_current
+            eval.index_list_next = band_index_list_next
+            print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)}, max: {max(band_index_list_current)} ")
+            # try:
+            #     result_value = eval.transform(tree)
+            # except Exception as e:
+            #     print('=============Deleting value=============')
+            #     print(f"Error: {e}")
+            #     del eval
+            # result_value = result_value.result()
+            # res = result_value.value
             result_value = eval.transform(tree)
             res = result_value.value
             if isinstance(result_value.value, np.ma.MaskedArray):
@@ -372,16 +448,21 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             # if statement) that pops stuff from the to-be-written queue
             # and then writes everything to disk  asynchronously
             
-            for gdal_band_index in band_index_list:
-                band_to_write = None
-                if len(band_index_list) == 1:
-                    band_to_write = np.squeeze(res)
-                else:
-                    band_to_write = res[gdal_band_index-band_index]
-                band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
-                band.WriteArray(band_to_write)
-                band.FlushCache()
-
+            # Loop through band index list and add a write task to the executor
+            for gdal_band_index in band_index_list_current:
+                future = eval._write_thread_pool.submit(write_band, \
+                                                 out_dataset_gdal, gdal_band_index, band_index, res)
+                writing_futures.append(future)
+            concurrent.futures.wait(writing_futures)
+                # band_to_write = None
+                # if len(band_index_list_current) == 1:
+                #     band_to_write = np.squeeze(res)
+                # else:
+                #     band_to_write = res[gdal_band_index-band_index]
+                # band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
+                # band.WriteArray(band_to_write)
+                # band.FlushCache()
+        eval.stop()
         out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
         out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
         out_dataset.set_dirty()
