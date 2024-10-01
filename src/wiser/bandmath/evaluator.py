@@ -460,11 +460,11 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             # if statement) that pops stuff from the to-be-written queue
             # and then writes everything to disk  asynchronously
 
-            print("Writing")
+            # print("Writing")
             assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                     res.shape[1] == out_dataset_gdal.RasterYSize)
-            # gdal_band_list_current = [band+1 for band in band_index_list_current]
             # # Write queue data to be written all at once
+            # gdal_band_list_current = [band+1 for band in band_index_list_current]
             # out_dataset_gdal.WriteRaster(
             #     0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
             #     res.tobytes(),
