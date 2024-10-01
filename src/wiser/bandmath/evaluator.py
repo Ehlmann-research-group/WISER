@@ -400,6 +400,18 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         band.FlushCache()
         return True
 
+    def write_raster(out_dataset_gdal, band_index_list_current, result):
+        gdal_band_list_current = [band+1 for band in band_index_list_current]
+        # Write queue data to be written all at once
+        out_dataset_gdal.WriteRaster(
+            0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
+            result.tobytes(),
+            buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
+            buf_type=gdal.GDT_Float32,
+            band_list=gdal_band_list_current
+        )
+        out_dataset_gdal.FlushCache()
+
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         
         eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
@@ -447,13 +459,33 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             # thread pool executor (that we can just define in that function's
             # if statement) that pops stuff from the to-be-written queue
             # and then writes everything to disk  asynchronously
-            
+
+            print("Writing")
+            assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
+                    res.shape[1] == out_dataset_gdal.RasterYSize)
+            # gdal_band_list_current = [band+1 for band in band_index_list_current]
+            # # Write queue data to be written all at once
+            # out_dataset_gdal.WriteRaster(
+            #     0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
+            #     res.tobytes(),
+            #     buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
+            #     buf_type=gdal.GDT_Float32,
+            #     band_list=gdal_band_list_current
+            # )
+            # out_dataset_gdal.FlushCache()
+
+            future = eval._write_thread_pool.submit(write_raster, \
+                                                out_dataset_gdal, band_index_list_current, \
+                                                band_index_list_current, res)
+            writing_futures.append(future)
+        concurrent.futures.wait(writing_futures)
+    
             # Loop through band index list and add a write task to the executor
-            for gdal_band_index in band_index_list_current:
-                future = eval._write_thread_pool.submit(write_band, \
-                                                 out_dataset_gdal, gdal_band_index, band_index, res)
-                writing_futures.append(future)
-            concurrent.futures.wait(writing_futures)
+            # for gdal_band_index in band_index_list_current:
+            #     future = eval._write_thread_pool.submit(write_band, \
+            #                                      out_dataset_gdal, gdal_band_index, band_index, res)
+            #     writing_futures.append(future)
+            # concurrent.futures.wait(writing_futures)
                 # band_to_write = None
                 # if len(band_index_list_current) == 1:
                 #     band_to_write = np.squeeze(res)
