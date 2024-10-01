@@ -100,11 +100,18 @@ results_new_method = {
 
 def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False):
     equation_dict = {
+        "+": '(a+b)+(c+d)'
+        # "*": '(a*b)*(c*d)',
+        # "/": '(a/b)/(c/d)',
+        # "-": '(a-b)-(c-d)',
+        # "<": '((a-b)-d)<c'
+    }
+    equation_dict = {
         "+": '(a+b)+(c+d)',
-        "*": '(a*b)*(c*d)',
-        "/": '(a/b)/(c/d)',
-        "-": '(a-b)-(c-d)',
-        "<": '((a-b)-d)<c'
+        # "*": '(a*b)*(c*d)',
+        # "/": '(a/b)/(c/d)',
+        # "-": '(a-b)-(c-d)',
+        # "<": '((a-b)-d)<c'
     }
 
     oper_file_time_dict = {}
@@ -112,7 +119,7 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     file_time_dict = {}
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
-    N = 1
+    N = 5
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
@@ -216,19 +223,19 @@ if __name__ == '__main__':
     
     # benchmark_addition(dataset_list)
     use_old_method = False
-    # profiler = cProfile.Profile()
-    # profiler.enable()
-    # print('================Enabled Profile================')
+    profiler = cProfile.Profile()
+    profiler.enable()
+    print('================Enabled Profile================')
     benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=use_old_method)
-    # profiler.disable()
-    # print('================Disabled Profile================')
-    # print('Done with profiling')
+    profiler.disable()
+    print('================Disabled Profile================')
+    print('Done with profiling')
 
-    # # Save the profiling stats to a file
-    # with open(f"output/bandmath_menmark_old_method_{use_old_method}.txt", "w+") as f:
-    #     ps = pstats.Stats(profiler, stream=f)
-    #     ps.sort_stats("tottime")
-    #     ps.print_stats()
+    # Save the profiling stats to a file
+    with open(f"output/bandmath_menmark_old_method_{use_old_method}_900mb_bandflush_memory_no_future_io.txt", "w+") as f:
+        ps = pstats.Stats(profiler, stream=f)
+        ps.sort_stats("tottime")
+        ps.print_stats()
 '''
 My method, not out of core memory
 ==========File Time Benchmarks==========
