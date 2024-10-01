@@ -169,9 +169,9 @@ class OperatorAdd(BandMathFunction):
                 else:
                     print ("QUEUE IS NOT EMPTY")
                     lhs_future = read_task_queue.get()
-                # should_read_next = should_continue_reading_bands(index_list_next, lhs)
-                # if should_read_next:
-                #     asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
+                should_read_next = should_continue_reading_bands(index_list_next, lhs)
+                if should_read_next:
+                    asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
                 print("About to await")
                 lhs_value = await lhs_future # await asyncio.wrap_future(lhs_future)
                 print(f"========lhs_value.type: {type(lhs_value)}===========")
