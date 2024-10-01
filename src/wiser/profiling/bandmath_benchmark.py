@@ -119,7 +119,7 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     file_time_dict = {}
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
-    N = 10
+    N = 1
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
@@ -218,11 +218,11 @@ if __name__ == '__main__':
     dataset_500mb = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_500mb]
+    dataset_list = [dataset_20GB]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     
     # benchmark_addition(dataset_list)
-    use_old_method = False
+    use_old_method = True
     profiler = cProfile.Profile()
     profiler.enable()
     print('================Enabled Profile================')
@@ -232,7 +232,7 @@ if __name__ == '__main__':
     print('Done with profiling')
 
     # Save the profiling stats to a file
-    with open(f"output/bandmath_menmark_old_method_{use_old_method}_500mb_future_random.txt", "w+") as f:
+    with open(f"output/bandmath_menmark_old_method_{use_old_method}_20GB.txt", "w+") as f:
         ps = pstats.Stats(profiler, stream=f)
         ps.sort_stats("tottime")
         ps.print_stats()
