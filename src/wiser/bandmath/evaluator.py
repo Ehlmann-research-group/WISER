@@ -359,11 +359,9 @@ class AsyncTransformer(lark.visitors.Transformer):
                     return await f.visit_wrapper(f, tree.data, children, tree.meta)
                 else:
                     # Check if the transformation method is async or sync
-                    if inspect.iscoroutinefunction(f):
-                        print(f"IS COROUTINE: {f}")
+                    if inspect.isawaitable(f):
                         return await f(children)
                     else:
-                        print(f"IS NOT COROUTINE : {f}")
                         return f(children)
             except GrammarError:
                 raise
@@ -381,11 +379,9 @@ class AsyncTransformer(lark.visitors.Transformer):
             return await self.__default_token__(token)  # Ensure we await the default token method if overridden
         else:
             try:
-                if inspect.iscoroutinefunction(f):
-                    print(f"IS COROUTINE TOKEN: {f}")
+                if inspect.isawaitable(f):
                     return await f(token)
                 else:
-                    print(f"IS NOT COROUTINE TOKEN: {f}")
                     return f(token)
             except GrammarError:
                 raise
@@ -421,43 +417,18 @@ class AsyncTransformer(lark.visitors.Transformer):
         """
         # task_list = [child async for child in self._transform_children(tree.children)]
         children_tasks = [asyncio.create_task(self._transform_children(tree.children))]# for c in tree.children] #  [child async for child in self._transform_children(tree.children)]
-        
-        children = asyncio.gather(*children_tasks)
-        # Collect the results one by one
-        children_results = []
-        for task in children_tasks:
-            # Await each task's result
-            print(f"TYPE OF AWAIT TASK: {type(task)}")
-            result = await task
-
-            # Append the result to the results list
-            children_results += result
-        print(f"not REGULAR children results >:] {children_results}")
-        return await self._call_userfunc(tree, children_results)
+        children = await asyncio.gather(*children_tasks)
+        flattened_children = [item for sublist in children for item in sublist]
+        return await self._call_userfunc(tree, flattened_children)
 
     async def transform(self, tree):
         """
         Asynchronously transform the given tree and return the final result.
         """
-        # res = [child async for child in self._transform_children([tree])]
-        # if not res:
-        #     return None
-        # assert len(res) == 1
-        # print(f"IN TRANSFORM. Type of res items: {type(res[0])}")
-        # return await res[0]
-        
-        # res = [child for child in asyncio.create_task(self._transform_children([tree]))]
-        # if not res:
-        #     return None
-        # assert len(res) == 1
-        # print(f"IN TRANSFORM. Type of res items: {type(res[0])}")
-        # return await res[0]
-        # Create a top-level task for the tree transformation
         root_task = asyncio.create_task(self._transform_tree(tree))
         
         # Await the top-level task and get the result
         result = await root_task
-        print(f"IN TRANSFORM. Type of result items: {type(result)}")
         return result
 
     async def __default__(self, data, children, meta):
@@ -559,16 +530,16 @@ class BandMathEvaluator(AsyncTransformer):
         if self._event_loop.is_running():
             print("Event loop is running!")
 
-        if isinstance(lhs, (concurrent.futures.Future, asyncio.Future, Coroutine)):
-            print("passed up await!!")
-            # lhs = asyncio.run_coroutine_threadsafe(lhs, self._event_loop).result()
-            # lhs = asyncio.run(lhs)
-            lhs = await lhs
-        if isinstance(rhs, (concurrent.futures.Future, asyncio.Future, Coroutine)):
-            print("passed up await!!")
-            # rhs = asyncio.run_coroutine_threadsafe(rhs, self._event_loop).result()
-            # rhs = asyncio.run(rhs)
-            rhs = await rhs
+        # if isinstance(lhs, (concurrent.futures.Future, asyncio.Future, Coroutine)):
+        #     print("passed up await!!")
+        #     # lhs = asyncio.run_coroutine_threadsafe(lhs, self._event_loop).result()
+        #     # lhs = asyncio.run(lhs)
+        #     lhs = await lhs
+        # if isinstance(rhs, (concurrent.futures.Future, asyncio.Future, Coroutine)):
+        #     print("passed up await!!")
+        #     # rhs = asyncio.run_coroutine_threadsafe(rhs, self._event_loop).result()
+        #     # rhs = asyncio.run(rhs)
+        #     rhs = await rhs
         
         # if isinstance(lhs, (concurrent.futures.Future, asyncio.Future)):
         #     lhs = lhs.result()
@@ -581,6 +552,15 @@ class BandMathEvaluator(AsyncTransformer):
         # Or we get those three things here and pass them into the 
         # operator 
         if oper == '+':
+            # return OperatorAdd().apply(
+            #     [lhs, rhs],
+            #     self.index_list_current,
+            #     self.index_list_next,
+            #     self._read_data_queue_dict[node_id],
+            #     self._read_thread_pool,
+            #     self._event_loop,
+            #     node_id=node_id
+            # )
             # Schedule this operation as a background task
             addition_task = asyncio.ensure_future(OperatorAdd().apply(
                 [lhs, rhs],
