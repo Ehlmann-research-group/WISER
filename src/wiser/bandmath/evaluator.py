@@ -944,6 +944,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         print("OLD METHOD")
         eval = BandMathEvaluator(lower_variables, lower_functions)
         result_value = eval.transform(tree)
+        if isinstance(result_value, Coroutine): 
+            result_value = \
+                asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
+        eval.stop()
         return (result_value.type, result_value.value)
 
 def print_tree_with_meta(tree, indent=0):
