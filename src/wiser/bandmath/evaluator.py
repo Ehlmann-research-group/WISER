@@ -360,8 +360,10 @@ class AsyncTransformer(lark.visitors.Transformer):
                 else:
                     # Check if the transformation method is async or sync
                     if inspect.iscoroutinefunction(f):
+                        print(f"IS COROUTINE: {f}")
                         return await f(children)
                     else:
+                        print(f"IS NOT COROUTINE : {f}")
                         return f(children)
             except GrammarError:
                 raise
@@ -380,8 +382,10 @@ class AsyncTransformer(lark.visitors.Transformer):
         else:
             try:
                 if inspect.iscoroutinefunction(f):
+                    print(f"IS COROUTINE TOKEN: {f}")
                     return await f(token)
                 else:
+                    print(f"IS NOT COROUTINE TOKEN: {f}")
                     return f(token)
             except GrammarError:
                 raise
@@ -393,35 +397,68 @@ class AsyncTransformer(lark.visitors.Transformer):
         Asynchronously transform a list of children, yielding transformed children.
         Handles both Tree nodes and Token nodes.
         """
+        child_tasks = []
+
         for c in children:
             if isinstance(c, Tree):
-                res = await self._transform_tree(c)
+                # Create a separate task to transform each subtree
+                child_tasks.append(asyncio.create_task(self._transform_tree(c)))
             elif self.__visit_tokens__ and isinstance(c, Token):
-                res = await self._call_userfunc_token(c)
+                # Create a separate task for transforming tokens if `visit_tokens` is set to True
+                child_tasks.append(asyncio.create_task(self._call_userfunc_token(c)))
             else:
-                res = c
+                # Directly append non-tree, non-token objects without a task
+                child_tasks.append(asyncio.create_task(asyncio.sleep(0, c)))  # Wrap raw values as completed tasks
 
-            if res is not Discard:
-                yield res
+        # Await all child tasks concurrently and gather results into a list
+        transformed_children = await asyncio.gather(*child_tasks)
+        return transformed_children
 
     async def _transform_tree(self, tree):
         """
         Asynchronously transform a tree node.
         This function recursively transforms the children first, and then calls the transformation method for the node.
         """
-        children = [child async for child in self._transform_children(tree.children)]
-        return await self._call_userfunc(tree, children)
+        # task_list = [child async for child in self._transform_children(tree.children)]
+        children_tasks = [asyncio.create_task(self._transform_children(tree.children))]# for c in tree.children] #  [child async for child in self._transform_children(tree.children)]
+        
+        children = asyncio.gather(*children_tasks)
+        # Collect the results one by one
+        children_results = []
+        for task in children_tasks:
+            # Await each task's result
+            print(f"TYPE OF AWAIT TASK: {type(task)}")
+            result = await task
+
+            # Append the result to the results list
+            children_results += result
+        print(f"not REGULAR children results >:] {children_results}")
+        return await self._call_userfunc(tree, children_results)
 
     async def transform(self, tree):
         """
         Asynchronously transform the given tree and return the final result.
         """
-        res = [child async for child in self._transform_children([tree])]
-        if not res:
-            return None
-        assert len(res) == 1
-        print(f"IN TRANSFORM. Type of res items: {type(res[0])}")
-        return await res[0]
+        # res = [child async for child in self._transform_children([tree])]
+        # if not res:
+        #     return None
+        # assert len(res) == 1
+        # print(f"IN TRANSFORM. Type of res items: {type(res[0])}")
+        # return await res[0]
+        
+        # res = [child for child in asyncio.create_task(self._transform_children([tree]))]
+        # if not res:
+        #     return None
+        # assert len(res) == 1
+        # print(f"IN TRANSFORM. Type of res items: {type(res[0])}")
+        # return await res[0]
+        # Create a top-level task for the tree transformation
+        root_task = asyncio.create_task(self._transform_tree(tree))
+        
+        # Await the top-level task and get the result
+        result = await root_task
+        print(f"IN TRANSFORM. Type of result items: {type(result)}")
+        return result
 
     async def __default__(self, data, children, meta):
         """
@@ -544,9 +581,20 @@ class BandMathEvaluator(AsyncTransformer):
         # Or we get those three things here and pass them into the 
         # operator 
         if oper == '+':
-            return OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
-                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
-                                        self._event_loop)
+            # Schedule this operation as a background task
+            addition_task = asyncio.ensure_future(OperatorAdd().apply(
+                [lhs, rhs],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id=node_id
+            ))
+            return await addition_task
+            # return OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+            #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
+            #                             self._event_loop, node_id=node_id)
             # return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
             #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
             #                             self._event_loop), loop=self._event_loop).result()
@@ -787,12 +835,12 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     logger.debug('Beginning band-math evaluation')
     child_assigner = PositionVisitor()
     child_assigner.visit(tree)
+    id_assigner = UniqueIDAssigner()
+    id_assigner.visit(tree)
     print(f"TREE: \n")
     print_tree_with_positions(tree)
     print('========')
     print_tree_with_meta(tree)
-    id_assigner = UniqueIDAssigner()
-    id_assigner.visit(tree)
 
     numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
     number_of_intermediates = numInterFinder.transform(tree)
@@ -912,14 +960,16 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                                                     out_dataset_gdal, band_index_list_current, \
                                                     band_index_list_current, res)
                 writing_futures.append(future)
-        except KeyboardInterrupt as e:
-            print("KEYBOARD INTERRUPTED!!!!!!!!!!!!")
-        finally:
+        except BaseException as e:
+            print("SOME EXCEPTION !!!!!!!!!!!!")
+            print
             if eval is not None:
                 eval.stop()
-        print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
+                raise e
+        finally:
+            print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
         concurrent.futures.wait(writing_futures)
-    
+        print(f"DONE WRITING FUTURES")
             # Loop through band index list and add a write task to the executor
             # for gdal_band_index in band_index_list_current:
             #     future = eval._write_thread_pool.submit(write_band, \
