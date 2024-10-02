@@ -7,6 +7,8 @@ import lark
 from lark import Visitor, Tree, v_args
 import numpy as np
 
+import atexit
+
 import queue
 import asyncio
 import threading
@@ -55,7 +57,279 @@ class UniqueIDAssigner(Visitor):
     def power_expr(self, tree):
         self._assign_id(tree)
 
+# Define the Visitor class to traverse the tree
+class PositionVisitor(Visitor):
+    def __init__(self):
+        # Track if this is the first node being visited
+        self.is_root = True
+    def _update_metadata(self, node, rule_name):
+        # Iterate over the children of the node, which is a Tree object
+        for i, child in enumerate(node.children):
+            # Only add metadata if the child has the 'meta' attribute (typically for Tree objects)
+            if hasattr(child, 'meta'):
+                if i == 0:
+                    child.meta.position = 'LEFT'
+                else:
+                    child.meta.position = 'RIGHT'
+            
+            # Add rule_name only if it's a Tree node, not a Token
+            if isinstance(child, Tree):
+                child.rule_name = rule_name
+
+            # Mark this node as root if it's the first node visited
+        if self.is_root:
+            node.meta.position = 'ROOT'
+            self.is_root = False
+
+        return node
+
+    def comparison(self, node):
+        return self._update_metadata(node, 'comparison')
+
+    def add_expr(self, node):
+        return self._update_metadata(node, 'add_expr')
+
+    def mul_expr(self, node):
+        return self._update_metadata(node, 'mul_expr')
+
+    def unary_negate_expr(self, node):
+        return self._update_metadata(node, 'unary_negate_expr')
+
+    def power_expr(self, node):
+        return self._update_metadata(node, 'power_expr')
+
 logger = logging.getLogger(__name__)
+
+def trace_lock_event(frame, event, arg):
+    if event == 'lock':
+        print(f"Thread {threading.current_thread().name} is attempting to acquire a lock")
+    elif event == 'acquire':
+        print(f"Thread {threading.current_thread().name} acquired a lock")
+    elif event == 'release':
+        print(f"Thread {threading.current_thread().name} released a lock")
+
+class NumberOfIntermediatesFinder(lark.visitors.Transformer):
+    '''
+    A Lark Transformer for evaluating band-math expressions.
+    '''
+    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
+                       functions: Dict[str, Callable],
+                       shape: Tuple[int, int, int] = None):
+        self._variables = variables
+        self._functions = functions
+        self._shape = shape
+        self._intermediate_running_total = 0
+        self._max_intermediates = 0
+    
+    def increment_interm_running_total(self):
+        self._intermediate_running_total += 1
+        if self._intermediate_running_total > self._max_intermediates:
+            self._max_intermediates = self._intermediate_running_total
+    
+    def decrement_interm_running_total(self):
+        self._intermediate_running_total -= 1
+
+
+    @v_args(meta=True)
+    def comparison(self, meta, args):
+        logger.debug(' * comparison')
+        # if node_id:
+        #     print(f"Node id <: {node_id}")
+        lhs = args[0]
+        oper = args[1]
+        rhs = args[2]
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # It is okay if we don't want to use index with bands or spectrum 
+        # because in each operator, index is only used with image cubes
+        return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
+
+    @v_args(meta=True)
+    def add_expr(self, meta, values):
+        '''
+        Implementation of addition and subtraction operations in the
+        transformer.
+        '''
+        logger.debug(' * add_expr')
+        # print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
+        print("====New add expr===")
+        child_type = getattr(meta, 'position', None)
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id:
+            print(f"node_id: {node_id}")
+        if child_type:
+            print(f"child_type +: {child_type}")
+        lhs = values[0]
+        oper = values[1]
+        rhs = values[2]
+
+        if isinstance(lhs, BandMathValue):
+            if lhs.type == VariableType.IMAGE_CUBE:
+                self.increment_interm_running_total()
+            if rhs.type == VariableType.IMAGE_CUBE:
+                self.increment_interm_running_total()
+            print(f"!!!!!!!!!There's Bandmath value at node: {node_id}")
+        else:
+            assert(isinstance(lhs, int))
+            assert(isinstance(rhs, int))
+            # self.decrement_interm_running_total()
+            print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
+            self._intermediate_running_total -= 1
+            self._intermediate_running_total -= 1
+            print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
+        print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
+        return self._max_intermediates
+            
+        
+            
+
+        # raise RuntimeError(f'Unexpected operator {oper}')
+
+
+    @v_args(meta=True)
+    def mul_expr(self, meta, args):
+        '''
+        Implementation of multiplication and division operations in the
+        transformer.
+        '''
+        logger.debug(' * mul_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        lhs = args[0]
+        oper = args[1]
+        rhs = args[2]
+
+        if oper == '*':
+            return OperatorMultiply().apply([lhs, rhs], self.index_list_current)
+
+        elif oper == '/':
+            return OperatorDivide().apply([lhs, rhs], self.index_list_current)
+
+        raise RuntimeError(f'Unexpected operator {oper}')
+
+
+    @v_args(meta=True)
+    def power_expr(self, meta, args):
+        '''
+        Implementation of power operation in the transformer.
+        '''
+        logger.debug(' * power_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id **: {node_id}")
+        return OperatorPower().apply([args[0], args[1]], self.index_list_current)
+
+
+    @v_args(meta=True)
+    def unary_negate_expr(self, meta, args):
+        '''
+        Implementation of unary negation in the transformer.
+        '''
+        logger.debug(' * unary_negate_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id -: {node_id}")
+        # args[0] is the '-' character
+        return OperatorUnaryNegate().apply([args[1]], self.index_list_current)
+
+
+    def true(self, args):
+        ''' Returns a BandMathValue of True. '''
+        logger.debug(' * true')
+        return BandMathValue(VariableType.BOOLEAN, True, computed=False)
+
+    def false(self, args):
+        ''' Returns a BandMathValue of False. '''
+        logger.debug(' * false')
+        return BandMathValue(VariableType.BOOLEAN, False, computed=False)
+
+    def number(self, args):
+        ''' Returns a BandMathValue containing a specific number. '''
+        logger.debug(f' * number {args[0]}')
+        return args[0]
+
+    def string(self, args):
+        ''' Returns a BandMathValue containing a specific string. '''
+        logger.debug(f' * string "{args[0]}"')
+        return args[0]
+
+    def variable(self, args) -> BandMathValue:
+        '''
+        Returns a BandMathValue containing the value of the specified variable.
+        '''
+        logger.debug(' * variable')
+        name = args[0]
+        if name not in self._variables or self._variables[name][1] is None:
+            raise BandMathEvalError(f'Variable "{name}" is unspecified')
+
+        (type, value) = self._variables[name]
+        return BandMathValue(type, value, computed=False)
+
+    def named_expression(self, args) -> BandMathValue:
+        '''
+        Named expressions can appear in function arguments.
+        '''
+        logger.debug(' * named_expression')
+        # The first argument is the name, and the second argument is a
+        # BandMathValue object holding the result of the expression evaluation.
+        # Set the name and return the object.
+        value = args[1]
+        value.set_name(args[0])
+        return value
+
+    def function(self, args) -> BandMathValue:
+        '''
+        Calls the function named in args[0], passing it args[1:], and returns
+        the result as a BandMathValue.
+        '''
+        logger.debug(' * function')
+        func_name = args[0]
+        func_args = args[1:]
+
+        has_named_args = False
+        for fa in func_args:
+            if fa.name is None:
+                if has_named_args:
+                    raise BandMathEvalError('Named arguments must be '
+                        'specified after all positional arguments')
+            else:
+                has_named_args = True
+
+        if func_name not in self._functions:
+            raise BandMathEvalError(f'Unrecognized function "{func_name}"')
+
+        func_impl = self._functions[func_name]
+        return func_impl.apply(func_args)
+
+    def NAME(self, token) -> str:
+        '''
+        Parse a token as a string variable name.  The variable name is converted
+        to lowercase.
+        '''
+        logger.debug(' * NAME')
+        return str(token).lower()
+
+    def NUMBER(self, token) -> BandMathValue:
+        '''
+        Parse a token as a number.  The number is represented as a Python float,
+        and is wrapped in a BandMathValue object.
+        '''
+        logger.debug(' * NUMBER')
+        return BandMathValue(VariableType.NUMBER, float(token), computed=False)
+
+    def STRING(self, token) -> str:
+        '''
+        Parse a token as a string literal.  The variable name is converted
+        to lowercase.
+        '''
+        logger.debug(' * STRING')
+        # Chop the quotes off of the string value
+        return str(token)[1:-1]
 
 class BandMathEvaluator(lark.visitors.Transformer):
     '''
@@ -76,11 +350,13 @@ class BandMathEvaluator(lark.visitors.Transformer):
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
             self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
             self._event_loop = asyncio.new_event_loop()
+            threading.setprofile(trace_lock_event)
             self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
             self._loop_thread.start()
         else:
             self._read_data_queue = None
             self._write_data_queue = None
+        atexit.register(self.__del__)
 
         # Dictionary that maps position in tree to queue
         # position so we don't have to have different queues for
@@ -128,8 +404,8 @@ class BandMathEvaluator(lark.visitors.Transformer):
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
             self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id +: {node_id}")
+        if node_id:
+            print(f"Node id +: {node_id}")
         # print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
         lhs = values[0]
         oper = values[1]
@@ -310,9 +586,11 @@ class BandMathEvaluator(lark.visitors.Transformer):
         if self._event_loop.is_running():
             self._event_loop.call_soon_threadsafe(self._event_loop.stop)  # Safely stop the loop
         self._loop_thread.join()  # Wait for the thread to finish
+        self._read_thread_pool.shutdown(wait=False, cancel_futures=True)
+        self._write_thread_pool.shutdown(wait=False, cancel_futures=True)
 
     def __del__(self):
-        print("Destructor called, cleaning up event loop and thread...")
+        print("!!!!!!!!!!!!!!!!!!!Destructor called, cleaning up event loop and thread...!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.stop()  # Ensure the loop and thread are stopped
         print("Event loop and thread cleaned up")
 
@@ -365,6 +643,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     # TODO(donnie):  Can also make sure they are valid, trimmed of whitespace,
     #     etc.
 
+    print(f"GDAL Python Version: {gdal.__version__}")
     lower_variables = {}
     for name, value in variables.items():
         lower_variables[name.lower()] = value
@@ -384,10 +663,21 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     to the process, maybe wrapped in a function. Then writing to disk we can simply do as is done in the chatpgt code.
     '''
     logger.debug('Beginning band-math evaluation')
+    child_assigner = PositionVisitor()
+    child_assigner.visit(tree)
+    print(f"TREE: \n")
+    print_tree_with_positions(tree)
+    print('========')
+    print_tree_with_meta(tree)
     id_assigner = UniqueIDAssigner()
     id_assigner.visit(tree)
-    print(f"TREE:")
-    print_tree_with_meta(tree)
+
+    numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
+    number_of_intermediates = numInterFinder.transform(tree)
+    print(f"Number of intermediates: {number_of_intermediates}")
+    # print(f"TREE: \n {tree}")
+    # print_tree_with_positions(tree)
+    # print_tree_with_meta(tree)
 
     def write_band(out_dataset_gdal, gdal_band_index, band_index, res):
         band_to_write = None
@@ -411,73 +701,100 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             band_list=gdal_band_list_current
         )
         out_dataset_gdal.FlushCache()
-
+    from memory_profiler import memory_usage
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
-        
-        eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
+        eval = None
+        try:
+            eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
 
-        bands, lines, samples = expr_info.shape
-        result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
-        count = 2
-        while (os.path.exists(result_path)):
-            result_path = remove_trailing_number(result_path)
-            result_path+=f" {count}"
-            count+=1
-        folder_path = os.path.dirname(result_path)
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
-
-        bytes_per_scalar = SCALAR_BYTES
-        max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-        num_bands = int(np.floor(max_bytes / (lines*samples)))
-        writing_futures = []
-        for band_index in range(0, bands, num_bands):
-            band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
-            band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
-            eval.index_list_current = band_index_list_current
-            eval.index_list_next = band_index_list_next
-            print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)}, max: {max(band_index_list_current)} ")
-            # try:
-            #     result_value = eval.transform(tree)
-            # except Exception as e:
-            #     print('=============Deleting value=============')
-            #     print(f"Error: {e}")
-            #     del eval
-            # result_value = result_value.result()
-            # res = result_value.value
-            result_value = eval.transform(tree)
-            res = result_value.value
-            if isinstance(result_value.value, np.ma.MaskedArray):
-                if not np.issubdtype(res.dtype, np.floating):
-                    res = res.astype(np.float32)
-                res[result_value.value.mask] = np.nan
-
-            # once everything is returned, then we add the result
-            # to the queue to be written.
-            # We add a function to the 
-            # thread pool executor (that we can just define in that function's
-            # if statement) that pops stuff from the to-be-written queue
-            # and then writes everything to disk  asynchronously
-
-            # print("Writing")
-            assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
-                    res.shape[1] == out_dataset_gdal.RasterYSize)
-            # # Write queue data to be written all at once
-            # gdal_band_list_current = [band+1 for band in band_index_list_current]
-            # out_dataset_gdal.WriteRaster(
-            #     0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
-            #     res.tobytes(),
-            #     buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
-            #     buf_type=gdal.GDT_Float32,
-            #     band_list=gdal_band_list_current
-            # )
+            bands, lines, samples = expr_info.shape
+            result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
+            count = 2
+            while (os.path.exists(result_path)):
+                result_path = remove_trailing_number(result_path)
+                result_path+=f" {count}"
+                count+=1
+            folder_path = os.path.dirname(result_path)
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
+            out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
             # out_dataset_gdal.FlushCache()
+            # out_dataset_gdal = None
 
-            future = eval._write_thread_pool.submit(write_raster, \
-                                                out_dataset_gdal, band_index_list_current, \
-                                                band_index_list_current, res)
-            writing_futures.append(future)
+            # flags = gdal.OF_RASTER | gdal.OF_READONLY
+            # out_dataset_gdal = gdal.OpenEx(result_path, flags)
+            # if out_dataset_gdal is not None:
+            #     is_thread_safe = out_dataset_gdal.GetMetadataItem("THREAD_SAFE", "OPEN_CONFIG")
+            #     print(f"GDAL Dataset is thread-safe? {is_thread_safe}")
+            # else:
+            #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
+            bytes_per_scalar = SCALAR_BYTES
+            max_bytes = MAX_RAM_BYTES/bytes_per_scalar
+            max_bytes_per_intermediate = max_bytes /number_of_intermediates
+            num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
+            writing_futures = []
+            memory_before = memory_usage()[0]
+            max_memory_used = 0
+            for band_index in range(0, bands, num_bands):
+                band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
+                band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
+                eval.index_list_current = band_index_list_current
+                eval.index_list_next = band_index_list_next
+                memory_usage_during = memory_usage()[0]
+                curr_memory_used = memory_usage_during-memory_before
+                if curr_memory_used > max_memory_used:
+                    max_memory_used = curr_memory_used
+                    print(f"==========NEW MAX MEMORY USED: {max_memory_used} MB============")
+                print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)}, max: {max(band_index_list_current)} ")
+                # try:
+                #     result_value = eval.transform(tree)
+                # except Exception as e:
+                #     print('=============Deleting value=============')
+                #     print(f"Error: {e}")
+                #     del eval
+                # result_value = result_value.result()
+                # res = result_value.value
+                result_value = eval.transform(tree)
+                res = result_value.value
+                if isinstance(result_value.value, np.ma.MaskedArray):
+                    if not np.issubdtype(res.dtype, np.floating):
+                        res = res.astype(np.float32)
+                    res[result_value.value.mask] = np.nan
+
+                # once everything is returned, then we add the result
+                # to the queue to be written.
+                # We add a function to the 
+                # thread pool executor (that we can just define in that function's
+                # if statement) that pops stuff from the to-be-written queue
+                # and then writes everything to disk  asynchronously
+
+                # print("Writing")
+                assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
+                        res.shape[1] == out_dataset_gdal.RasterYSize)
+                # # Write queue data to be written all at once
+                # gdal_band_list_current = [band+1 for band in band_index_list_current]
+                # out_dataset_gdal.WriteRaster(
+                #     0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
+                #     res.tobytes(),
+                #     buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
+                #     buf_type=gdal.GDT_Float32,
+                #     band_list=gdal_band_list_current
+                # )
+                # out_dataset_gdal.FlushCache()
+
+                future = eval._write_thread_pool.submit(write_raster, \
+                                                    out_dataset_gdal, band_index_list_current, \
+                                                    band_index_list_current, res)
+                writing_futures.append(future)
+        except KeyboardInterrupt as e:
+            print("KEYBOARD INTERRUPTED!!!!!!!!!!!!")
+        finally:
+            if eval is not None:
+                print("eval is none!?")
+                eval.stop()
+            print(f"eval: {eval}")
+            print("FINALLY!!!!!!!!!!!!!")
+        print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
         concurrent.futures.wait(writing_futures)
     
             # Loop through band index list and add a write task to the executor
@@ -520,6 +837,26 @@ def print_tree_with_meta(tree, indent=0):
     else:
         # If it's a terminal node (e.g., a token), print its value and its meta if available
         meta_info = ""
-        if hasattr(tree, 'unique_id'):
+        if hasattr(tree, 'unique_id') or hasattr(tree, 'LEFT'):
             meta_info = f"(unique_id: {getattr(tree, 'unique_id', 'N/A')})"
         print(f"{indent_str}{tree} {meta_info} (Terminal)")
+from lark import Token
+def print_tree_with_positions(node, indent=0):
+    """
+    Recursively prints the tree with position metadata for each node.
+    """
+    # Determine the metadata for the current node
+    meta_info = ""
+    if hasattr(node, 'meta') and hasattr(node.meta, 'position'):
+        meta_info = f" [position={node.meta.position}]"
+        
+    # Display node information
+    if isinstance(node, Tree):
+        rule_info = f" ({node.rule_name})" if hasattr(node, 'rule_name') else ""
+        print("  " * indent + f"Tree: {node.data}{rule_info}{meta_info}")
+        
+        # Print children nodes
+        for child in node.children:
+            print_tree_with_positions(child, indent + 1)
+    elif isinstance(node, Token):
+        print("  " * indent + f"Token: {node.type}='{node}'{meta_info}")

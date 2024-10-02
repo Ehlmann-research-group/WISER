@@ -84,7 +84,8 @@ class BandMathValue:
     :ivar value: The value itself.
     :ivar computed: If True, the value was computed from an expression.
     '''
-    def __init__(self, type: VariableType, value: Any, computed: bool = True):
+    def __init__(self, type: VariableType, value: Any, computed: bool = True,
+                 is_intermediate=False):
         if type not in VariableType:
             raise ValueError(f'Unrecognized variable-type {type}')
 
@@ -92,6 +93,7 @@ class BandMathValue:
         self.type: VariableType = type
         self.value: Any = value
         self.computed: bool = computed
+        self.is_intermediate = is_intermediate
 
 
     def set_name(self, name: Optional[str]) -> None:

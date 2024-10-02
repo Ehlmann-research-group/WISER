@@ -172,9 +172,10 @@ class OperatorAdd(BandMathFunction):
                 should_read_next = should_continue_reading_bands(index_list_next, lhs)
                 if should_read_next:
                     asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
-                print("About to await")
+                print("About to await for data")
                 lhs_value = await lhs_future # await asyncio.wrap_future(lhs_future)
-                print(f"========lhs_value.type: {type(lhs_value)}===========")
+                print("Got data")
+                # print(f"========lhs_value.type: {type(lhs_value)}===========")
                         # We add a function and await it
                     # If it is, then check to see if we should add stuff to it
                     # If we should not, then we don't add stuff to it
