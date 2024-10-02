@@ -219,7 +219,7 @@ if __name__ == '__main__':
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_900mb]
+    dataset_list = [dataset_15gb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     
     # benchmark_addition(dataset_list)
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     print('Done with profiling')
 
     # Save the profiling stats to a file
-    with open(f"output/bandmath_menmark_old_method_{use_old_method}_900MB.txt", "w+") as f:
+    with open(f"output/bandmath_menmark_old_method_{use_old_method}_900MB_random.txt", "w+") as f:
         ps = pstats.Stats(profiler, stream=f)
         ps.sort_stats("tottime")
         ps.print_stats()

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 import queue
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import asyncio
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
@@ -113,11 +113,11 @@ class OperatorAdd(BandMathFunction):
     # We then await the executor thread
     async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
               index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
+              read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop, node_id: int):
         '''
         Add the LHS and RHS and return the result.
         '''
-
+        print(f"========== ENTERED NODE: {node_id} ===========")
         if len(args) != 2:
             raise Exception('+ requires exactly two arguments')
 
