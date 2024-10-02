@@ -379,7 +379,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         load_path = cls.get_load_filename(path)
         gdal_dataset = gdal.OpenEx(load_path,
-            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR ,
             allowed_drivers=['ENVI'])
 
         return cls(gdal_dataset)
