@@ -1,10 +1,14 @@
 import os
 import logging
 
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Coroutine
+
+
 
 import lark
-from lark import Visitor, Tree, v_args
+from lark import Visitor, Tree, Token, v_args, Discard
+from lark.exceptions import VisitError, GrammarError
+import inspect
 import numpy as np
 
 import atexit
@@ -152,13 +156,13 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
         '''
         logger.debug(' * add_expr')
         # print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
-        print("====New add expr===")
+        # print("====New add expr===")
         child_type = getattr(meta, 'position', None)
         node_id = getattr(meta, 'unique_id', None)
-        if node_id:
-            print(f"node_id: {node_id}")
-        if child_type:
-            print(f"child_type +: {child_type}")
+        # if node_id:
+        #     print(f"node_id: {node_id}")
+        # if child_type:
+        #     print(f"child_type +: {child_type}")
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
@@ -168,16 +172,16 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
                 self.increment_interm_running_total()
             if rhs.type == VariableType.IMAGE_CUBE:
                 self.increment_interm_running_total()
-            print(f"!!!!!!!!!There's Bandmath value at node: {node_id}")
+            # print(f"!!!!!!!!!There's Bandmath value at node: {node_id}")
         else:
             assert(isinstance(lhs, int))
             assert(isinstance(rhs, int))
             # self.decrement_interm_running_total()
-            print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
+            # print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
             self._intermediate_running_total -= 1
             self._intermediate_running_total -= 1
-            print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
-        print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
+            # print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
+        # print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
         return self._max_intermediates
             
         
@@ -331,7 +335,109 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
         # Chop the quotes off of the string value
         return str(token)[1:-1]
 
-class BandMathEvaluator(lark.visitors.Transformer):
+class AsyncTransformer(lark.visitors.Transformer):
+    """
+    Custom Transformer class that supports asynchronous methods.
+    This class mirrors the functionality of Lark's `Transformer` class,
+    but allows the use of `async` methods for transforming tree nodes.
+    """
+
+    async def _call_userfunc(self, tree, new_children=None):
+        """
+        Call the appropriate transformation method for a given tree node.
+        Handles both asynchronous and synchronous transformation methods.
+        """
+        children = new_children if new_children is not None else tree.children
+        try:
+            f = getattr(self, tree.data)
+        except AttributeError:
+            return await self.__default__(tree.data, children, tree.meta)  # Ensure we await the default method if overridden
+        else:
+            try:
+                wrapper = getattr(f, 'visit_wrapper', None)
+                if wrapper is not None:
+                    return await f.visit_wrapper(f, tree.data, children, tree.meta)
+                else:
+                    # Check if the transformation method is async or sync
+                    if inspect.iscoroutinefunction(f):
+                        return await f(children)
+                    else:
+                        return f(children)
+            except GrammarError:
+                raise
+            except Exception as e:
+                raise VisitError(tree.data, tree, e)
+
+    async def _call_userfunc_token(self, token):
+        """
+        Call the appropriate transformation method for a given token.
+        Handles both asynchronous and synchronous methods.
+        """
+        try:
+            f = getattr(self, token.type)
+        except AttributeError:
+            return await self.__default_token__(token)  # Ensure we await the default token method if overridden
+        else:
+            try:
+                if inspect.iscoroutinefunction(f):
+                    return await f(token)
+                else:
+                    return f(token)
+            except GrammarError:
+                raise
+            except Exception as e:
+                raise VisitError(token.type, token, e)
+
+    async def _transform_children(self, children):
+        """
+        Asynchronously transform a list of children, yielding transformed children.
+        Handles both Tree nodes and Token nodes.
+        """
+        for c in children:
+            if isinstance(c, Tree):
+                res = await self._transform_tree(c)
+            elif self.__visit_tokens__ and isinstance(c, Token):
+                res = await self._call_userfunc_token(c)
+            else:
+                res = c
+
+            if res is not Discard:
+                yield res
+
+    async def _transform_tree(self, tree):
+        """
+        Asynchronously transform a tree node.
+        This function recursively transforms the children first, and then calls the transformation method for the node.
+        """
+        children = [child async for child in self._transform_children(tree.children)]
+        return await self._call_userfunc(tree, children)
+
+    async def transform(self, tree):
+        """
+        Asynchronously transform the given tree and return the final result.
+        """
+        res = [child async for child in self._transform_children([tree])]
+        if not res:
+            return None
+        assert len(res) == 1
+        print(f"IN TRANSFORM. Type of res items: {type(res[0])}")
+        return await res[0]
+
+    async def __default__(self, data, children, meta):
+        """
+        Default function called if no attribute matches `data`.
+        This function can be overridden in subclasses if needed.
+        """
+        return Tree(data, children, meta)
+
+    async def __default_token__(self, token):
+        """
+        Default function called if no attribute matches `token.type`.
+        This function can be overridden in subclasses if needed.
+        """
+        return token
+
+class BandMathEvaluator(AsyncTransformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
     '''
@@ -395,7 +501,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
 
     @v_args(meta=True)
-    def add_expr(self, meta, values):
+    async def add_expr(self, meta, values):
         '''
         Implementation of addition and subtraction operations in the
         transformer.
@@ -406,11 +512,27 @@ class BandMathEvaluator(lark.visitors.Transformer):
             self._read_data_queue_dict[node_id] = queue.Queue()
         if node_id:
             print(f"Node id +: {node_id}")
-        # print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
+        print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
+        print(f"type(lhs): {type(lhs)}")
+        print(f"type(rhs): {type(rhs)}")
 
+        if self._event_loop.is_running():
+            print("Event loop is running!")
+
+        if isinstance(lhs, (concurrent.futures.Future, asyncio.Future, Coroutine)):
+            print("passed up await!!")
+            # lhs = asyncio.run_coroutine_threadsafe(lhs, self._event_loop).result()
+            # lhs = asyncio.run(lhs)
+            lhs = await lhs
+        if isinstance(rhs, (concurrent.futures.Future, asyncio.Future, Coroutine)):
+            print("passed up await!!")
+            # rhs = asyncio.run_coroutine_threadsafe(rhs, self._event_loop).result()
+            # rhs = asyncio.run(rhs)
+            rhs = await rhs
+        
         # if isinstance(lhs, (concurrent.futures.Future, asyncio.Future)):
         #     lhs = lhs.result()
         # if isinstance(rhs, (concurrent.futures.Future, asyncio.Future)):
@@ -422,12 +544,12 @@ class BandMathEvaluator(lark.visitors.Transformer):
         # Or we get those three things here and pass them into the 
         # operator 
         if oper == '+':
-            # return asyncio.run(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
-            #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
-            #                             self._event_loop))
-            return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+            return OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
-                                        self._event_loop), loop=self._event_loop).result()
+                                        self._event_loop)
+            # return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+            #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
+            #                             self._event_loop), loop=self._event_loop).result()
 
         elif oper == '-':
             return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
@@ -755,6 +877,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 # result_value = result_value.result()
                 # res = result_value.value
                 result_value = eval.transform(tree)
+                print(f';;;;;;;;;;;;;;; type of result_value before: {type(result_value)}')
+                result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
+                print(f';;;;;;;;;;;;;;; type of result_value: {type(result_value)}')
+                result_value = result_value
                 res = result_value.value
                 if isinstance(result_value.value, np.ma.MaskedArray):
                     if not np.issubdtype(res.dtype, np.floating):
@@ -790,10 +916,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             print("KEYBOARD INTERRUPTED!!!!!!!!!!!!")
         finally:
             if eval is not None:
-                print("eval is none!?")
                 eval.stop()
-            print(f"eval: {eval}")
-            print("FINALLY!!!!!!!!!!!!!")
         print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
         concurrent.futures.wait(writing_futures)
     
@@ -840,7 +963,7 @@ def print_tree_with_meta(tree, indent=0):
         if hasattr(tree, 'unique_id') or hasattr(tree, 'LEFT'):
             meta_info = f"(unique_id: {getattr(tree, 'unique_id', 'N/A')})"
         print(f"{indent_str}{tree} {meta_info} (Terminal)")
-from lark import Token
+        
 def print_tree_with_positions(node, indent=0):
     """
     Recursively prints the tree with position metadata for each node.
