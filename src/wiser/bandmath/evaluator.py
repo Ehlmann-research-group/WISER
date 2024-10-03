@@ -1037,18 +1037,18 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     to the process, maybe wrapped in a function. Then writing to disk we can simply do as is done in the chatpgt code.
     '''
     logger.debug('Beginning band-math evaluation')
-    child_assigner = PositionVisitor()
-    child_assigner.visit(tree)
+    # child_assigner = PositionVisitor()
+    # child_assigner.visit(tree)
     id_assigner = UniqueIDAssigner()
     id_assigner.visit(tree)
     print(f"TREE: \n")
-    print_tree_with_positions(tree)
-    print('========')
+    # print_tree_with_positions(tree)
+    # print('========')
     print_tree_with_meta(tree)
 
-    numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
-    number_of_intermediates = numInterFinder.transform(tree)
-    print(f"Number of intermediates: {number_of_intermediates}")
+    # numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
+    # number_of_intermediates = numInterFinder.transform(tree)
+    # print(f"Number of intermediates: {number_of_intermediates}")
     # print(f"TREE: \n {tree}")
     # print_tree_with_positions(tree)
     # print_tree_with_meta(tree)
@@ -1107,18 +1107,18 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             max_bytes_per_intermediate = max_bytes / 1 #number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
-            memory_before = memory_usage()[0]
+            # memory_before = memory_usage()[0]
             max_memory_used = 0
             for band_index in range(0, bands, num_bands):
                 band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
                 band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
                 eval.index_list_current = band_index_list_current
                 eval.index_list_next = band_index_list_next
-                memory_usage_during = memory_usage()[0]
-                curr_memory_used = memory_usage_during-memory_before
-                if curr_memory_used > max_memory_used:
-                    max_memory_used = curr_memory_used
-                    print(f"==========NEW MAX MEMORY USED: {max_memory_used} MB============")
+                # memory_usage_during = memory_usage()[0]
+                # curr_memory_used = memory_usage_during-memory_before
+                # if curr_memory_used > max_memory_used:
+                #     max_memory_used = curr_memory_used
+                #     print(f"==========NEW MAX MEMORY USED: {max_memory_used} MB============")
                 print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)}, max: {max(band_index_list_current)} ")
                 # try:
                 #     result_value = eval.transform(tree)
@@ -1130,10 +1130,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 # res = result_value.value
                 result_value = eval.transform(tree)
                 print(f';;;;;;;;;;;;;;; type of result_value before: {type(result_value)}')
-                if isinstance(result_value, asyncio.Future):
-                    result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
+                # if isinstance(result_value, asyncio.Future):
+                #     result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
                 print(f';;;;;;;;;;;;;;; type of result_value: {type(result_value)}')
-                result_value = result_value
+                # result_value = result_value
                 res = result_value.value
                 if isinstance(result_value.value, np.ma.MaskedArray):
                     if not np.issubdtype(res.dtype, np.floating):
@@ -1171,8 +1171,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             if eval is not None:
                 eval.stop()
                 raise e
-        finally:
-            print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
+        # finally:
+        #     print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
         concurrent.futures.wait(writing_futures)
         print(f"DONE WRITING FUTURES")
             # Loop through band index list and add a write task to the executor
