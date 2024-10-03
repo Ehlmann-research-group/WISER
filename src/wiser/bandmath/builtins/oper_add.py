@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -8,7 +8,7 @@ import asyncio
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
-
+from .constants import LHS_KEY, RHS_KEY
 from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
@@ -134,7 +134,13 @@ class OperatorAdd(BandMathFunction):
 
         async def async_read_gdal_data_onto_queue(index_list_current: List[int]):
             future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list_current)
-            read_task_queue.put(future)
+            read_task_queue[LHS_KEY].put(future)
+
+        async def async_read_rhs_onto_queue(rhs: BandMathValue, 
+                                            lhs_value_shape: Tuple[int], index_list_current: List[int]):
+            future = event_loop.run_in_executor(read_thread_pool, \
+                                                make_image_cube_compatible_by_bands, rhs, lhs_value_shape, index_list_current)
+            read_task_queue[RHS_KEY].put(future)
 
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
@@ -144,26 +150,39 @@ class OperatorAdd(BandMathFunction):
                 if isinstance(index_list_current, int):
                     index_list_current = [index_list_current]
                 # Check to see if queue is empty. 
-                if read_task_queue.empty():
+                if read_task_queue[LHS_KEY].empty():
                     print(f"READING IO FUTURES QUEUE FOR NODE {node_id} IS EMPTY")
                     await async_read_gdal_data_onto_queue(index_list_current)
-                    lhs_future = read_task_queue.get()
+                    lhs_future = read_task_queue[LHS_KEY].get()
                 # If queue is not empty we pop from it
                 else:
                     print (f"READING IO FUTURES QUEUE FOR NODE {node_id} IS NOT EMPTY")
-                    lhs_future = read_task_queue.get()
+                    lhs_future = read_task_queue[LHS_KEY].get()
                 should_read_next = should_continue_reading_bands(index_list_next, lhs)
                 if should_read_next:
                     asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
                 print(f"About to await for data for node {node_id}")
+                print(f"LHS FUTURE TYPE: {type(lhs_future)}")
                 lhs_value = await lhs_future # await asyncio.wrap_future(lhs_future)
                 print(f"Got data for node {node_id}")
 
                 # Once the read task is done, we will just process the data and return like normal
                 # The processing does not take long enough to warrant creating a ProcessPoolExecutor
                 assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
-                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
-    
+                
+                if read_task_queue[RHS_KEY].empty():
+                    print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
+                    await async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_current)
+                    rhs_future = read_task_queue[RHS_KEY].get()
+                else:
+                    print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
+                    rhs_future = read_task_queue[RHS_KEY].get()
+                if should_read_next:
+                    asyncio.create_task(async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_next))
+                print(f"RHS FUTURE TYPE: {type(rhs_future)}")
+                assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
+                rhs_value = await rhs_future
+                print(f"we awaited rhs value and got: {type(rhs_value)}")
                 result_arr = lhs_value + rhs_value
 
                 # The dimension should be two because we are slicing by band

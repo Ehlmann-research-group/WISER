@@ -119,7 +119,7 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     file_time_dict = {}
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
-    N = 1
+    N = 2
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     print('Done with profiling')
 
     # Save the profiling stats to a file
-    with open(f"output/bandmath_menmark_old_method_{use_old_method}_900MB_random.txt", "w+") as f:
+    with open(f"output/bandmath_menmark_old_method_{use_old_method}_500MB_future_random.txt", "w+") as f:
         ps = pstats.Stats(profiler, stream=f)
         ps.sort_stats("tottime")
         ps.print_stats()
