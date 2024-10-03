@@ -113,7 +113,7 @@ class OperatorAdd(BandMathFunction):
     # We then await the executor thread
     async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
               index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
+              read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop, node_id: int):
         '''
         Add the LHS and RHS and return the result.
         '''
@@ -155,7 +155,7 @@ class OperatorAdd(BandMathFunction):
                     index_list_current = [index_list_current]
                 # Check to see if queue is empty. 
                 if read_task_queue.empty():
-                    print ("QUEUE IS EMPTY")
+                    print (f"QUEUE IS EMPTY for node: {node_id}")
                     # should_keep_reading = should_continue_reading_bands(index_list_current, lhs)
                     # if should_keep_reading:
                     #     await async_read_gdal_data_onto_queue(index_list_current)
@@ -167,7 +167,7 @@ class OperatorAdd(BandMathFunction):
                     lhs_future = read_task_queue.get()
                 # If queue is not empty we pop from it
                 else:
-                    print ("QUEUE IS NOT EMPTY")
+                    print (f"QUEUE IS NOT EMPTY for node: {node_id}")
                     lhs_future = read_task_queue.get()
                 should_read_next = should_continue_reading_bands(index_list_next, lhs)
                 if should_read_next:

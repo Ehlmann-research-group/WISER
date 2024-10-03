@@ -151,7 +151,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
             #                             self._event_loop))
             return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
-                                        self._event_loop), loop=self._event_loop).result()
+                                        self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
         elif oper == '-':
             return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
