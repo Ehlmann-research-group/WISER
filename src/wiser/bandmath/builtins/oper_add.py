@@ -13,7 +13,7 @@ from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    make_image_cube_compatible_by_bands, should_continue_reading_bands,
+    make_image_cube_compatible_by_bands,
 )
 
 
@@ -133,6 +133,8 @@ class OperatorAdd(BandMathFunction):
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
         async def async_read_gdal_data_onto_queue(index_list: List[int]):
+            if isinstance(lhs.value, np.ndarray):
+                print(f"RUH ROH RAGGY: \n lhs.value is {type(lhs.value)} with shape {lhs.value.shape}")
             future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
             read_task_queue[LHS_KEY].put(future)
 
@@ -141,6 +143,23 @@ class OperatorAdd(BandMathFunction):
             future = event_loop.run_in_executor(read_thread_pool, \
                                                 make_image_cube_compatible_by_bands, rhs, lhs_value_shape, index_list)
             read_task_queue[RHS_KEY].put(future)
+
+        def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMathValue):
+            ''' 
+            lhs is assumed to have variable type ImageCube, 
+            band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]'''
+            total_num_bands, _, _ = lhs.get_shape()
+            if lhs.is_intermediate:
+                print(f"LHS IS AN INTERMEDIATE VALUEEEEEEEEEEEEEE")
+                return False
+            else:
+                print("LHS IS NOT AN INTERMEDIATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+            if band_index_list_sorted == [] or band_index_list_sorted is None:
+                print("Was false")
+                return False
+            # max_curr_band = band_index_list_sorted[-1]
+            # print(f"result {max_curr_band} < {total_num_bands}: {max_curr_band < total_num_bands}")
+            return True
 
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
@@ -197,7 +216,7 @@ class OperatorAdd(BandMathFunction):
                 # The dimension should be two because we are slicing by band
                 assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
-                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
             else:
                 # Dimensions:  [band][y][x]
                 print("USING OLD METHOD OF OPER ADD")

@@ -10,18 +10,6 @@ from .types import VariableType, BandMathExprInfo, BandMathValue
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
-def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMathValue):
-    ''' 
-    lhs is assumed to have variable type ImageCube, 
-    band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]'''
-    total_num_bands, _, _ = lhs.get_shape()
-    if band_index_list_sorted == [] or band_index_list_sorted is None:
-        print("Was false")
-        return False
-    # max_curr_band = band_index_list_sorted[-1]
-    # print(f"result {max_curr_band} < {total_num_bands}: {max_curr_band < total_num_bands}")
-    return True
-
 def get_dimensions(type: VariableType, shape: Tuple) -> str:
     '''
     This helper function takes a band-math value-type with a specified shape,
