@@ -1079,7 +1079,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
         try:
-            eval = BandMathEvaluatorSync(lower_variables, lower_functions, expr_info.shape)
+            eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
             result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
@@ -1104,7 +1104,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / 1 #number_of_intermediates
+            max_bytes_per_intermediate = max_bytes * 1 #number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
@@ -1114,11 +1114,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
                 eval.index_list_current = band_index_list_current
                 eval.index_list_next = band_index_list_next
-                memory_usage_during = memory_usage()[0]
-                curr_memory_used = memory_usage_during-memory_before
-                if curr_memory_used > max_memory_used:
-                    max_memory_used = curr_memory_used
-                    print(f"==========NEW MAX MEMORY USED: {max_memory_used} MB============")
                 print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)} & len: {len(band_index_list_current)}, max: {max(band_index_list_current)}  & len: {len(band_index_list_next)}")
                 # try:
                 #     result_value = eval.transform(tree)
@@ -1129,10 +1124,15 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 # result_value = result_value.result()
                 # res = result_value.value
                 result_value = eval.transform(tree)
+                memory_usage_during = memory_usage()[0]
+                curr_memory_used = memory_usage_during-memory_before
+                if curr_memory_used > max_memory_used:
+                    max_memory_used = curr_memory_used
+                    print(f"==========NEW MAX MEMORY USED: {max_memory_used} MB============")
                 print(f';;;;;;;;;;;;;;; type of result_value before: {type(result_value)}')
-                # if isinstance(result_value, (asyncio.Future, Coroutine)):
-                #     result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
-                print(f';;;;;;;;;;;;;;; type of result_value: {type(result_value)}')
+                if isinstance(result_value, (asyncio.Future, Coroutine)):
+                    result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
+                print(f';;;;;;;;;;;;;;; type of result_value after: {type(result_value)}')
                 # result_value = result_value
                 res = result_value.value
                 if isinstance(result_value.value, np.ma.MaskedArray):
