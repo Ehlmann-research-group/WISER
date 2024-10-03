@@ -132,14 +132,14 @@ class OperatorAdd(BandMathFunction):
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
-        async def async_read_gdal_data_onto_queue(index_list_current: List[int]):
-            future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list_current)
+        async def async_read_gdal_data_onto_queue(index_list: List[int]):
+            future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
             read_task_queue[LHS_KEY].put(future)
 
         async def async_read_rhs_onto_queue(rhs: BandMathValue, 
-                                            lhs_value_shape: Tuple[int], index_list_current: List[int]):
+                                            lhs_value_shape: Tuple[int], index_list: List[int]):
             future = event_loop.run_in_executor(read_thread_pool, \
-                                                make_image_cube_compatible_by_bands, rhs, lhs_value_shape, index_list_current)
+                                                make_image_cube_compatible_by_bands, rhs, lhs_value_shape, index_list)
             read_task_queue[RHS_KEY].put(future)
 
         # Do the addition computation.
@@ -147,6 +147,9 @@ class OperatorAdd(BandMathFunction):
             # Dimensions:  [band][y][x]
             lhs_future = None
             if index_list_current is not None:
+                if lhs.type == rhs.type:
+                    print(f"TYPES ARE EQUAL< ASSERTING: {lhs.get_shape()}, {rhs.get_shape()}")
+                    assert(lhs.get_shape() == rhs.get_shape())
                 if isinstance(index_list_current, int):
                     index_list_current = [index_list_current]
                 # Check to see if queue is empty. 
@@ -162,7 +165,7 @@ class OperatorAdd(BandMathFunction):
                 if should_read_next:
                     asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
                 print(f"About to await for data for node {node_id}")
-                print(f"LHS FUTURE TYPE: {type(lhs_future)}")
+                # print(f"LHS FUTURE TYPE: {type(lhs_future)}")
                 lhs_value = await lhs_future # await asyncio.wrap_future(lhs_future)
                 print(f"Got data for node {node_id}")
 
@@ -170,20 +173,25 @@ class OperatorAdd(BandMathFunction):
                 # The processing does not take long enough to warrant creating a ProcessPoolExecutor
                 assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
                 
-                # if read_task_queue[RHS_KEY].empty():
-                #     print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
-                #     await async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_current)
-                #     rhs_future = read_task_queue[RHS_KEY].get()
-                # else:
-                #     print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
-                #     rhs_future = read_task_queue[RHS_KEY].get()
-                # if should_read_next:
-                #     asyncio.create_task(async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_next))
+                if read_task_queue[RHS_KEY].empty():
+                    # print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
+                    # print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Reading next next type(rhs): {rhs.type}")
+                    await async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_current)
+                    rhs_future = read_task_queue[RHS_KEY].get()
+                else:
+                    # print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
+                    rhs_future = read_task_queue[RHS_KEY].get()
+                if should_read_next:
+                    # print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Should read next type(rhs): {rhs.type}, type(lhs): {lhs.type}")
+                    next_lhs_shape = list(lhs_value.shape)
+                    next_lhs_shape[0] = len(index_list_next)
+                    next_lhs_shape = tuple(next_lhs_shape)
+                    asyncio.create_task(async_read_rhs_onto_queue(rhs, next_lhs_shape, index_list_next))
                 # print(f"RHS FUTURE TYPE: {type(rhs_future)}")
-                # assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
-                # rhs_value = await rhs_future
-                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
-                print(f"we awaited rhs value and got: {type(rhs_value)}")
+                assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
+                rhs_value = await rhs_future
+                # rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
+                # print(f"we awaited rhs value and got: {type(rhs_value)}")
                 result_arr = lhs_value + rhs_value
 
                 # The dimension should be two because we are slicing by band

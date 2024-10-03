@@ -201,6 +201,7 @@ class BandMathValue:
                         return self.value
                     # print("================ IMAGE CUBE SHAPE ARRAY================")
                     # print(f"image cube shape: {self.value[band_list, : , :].shape}")
+                    # print(f"len(band_list): {len(band_list)}")
                     return self.value[band_list, : , :]
                 elif self.type == VariableType.IMAGE_BAND:
                     return self.value
