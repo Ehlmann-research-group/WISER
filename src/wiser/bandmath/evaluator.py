@@ -444,7 +444,7 @@ class AsyncTransformer(lark.visitors.Transformer):
         """
         return token
 
-class BandMathEvaluator(AsyncTransformer):
+class BandMathEvaluatorAsync(AsyncTransformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
     '''
@@ -719,6 +719,270 @@ def remove_trailing_number(filepath):
     # Otherwise, return the original filepath
     return filepath
 
+class BandMathEvaluatorSync(lark.visitors.Transformer):
+    '''
+    A Lark Transformer for evaluating band-math expressions.
+    '''
+    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
+                       functions: Dict[str, Callable],
+                       shape: Tuple[int, int, int] = None,
+                       use_parallelization = True):
+        self._variables = variables
+        self._functions = functions
+        self.index_list_current = None
+        self.index_list_next = None
+        self._shape = shape
+        if use_parallelization:
+            self._read_data_queue_dict = {}
+            self._write_data_queue = queue.Queue()
+            self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
+            self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
+            self._event_loop = asyncio.new_event_loop()
+            self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
+            self._loop_thread.start()
+        else:
+            self._read_data_queue = None
+            self._write_data_queue = None
+
+        # Dictionary that maps position in tree to queue
+        # position so we don't have to have different queues for
+        # different trees. The node in the tree wil be able to 
+        # access the data it needs from the dictionary. The 
+        # data will be the queue and the thread or process pool executor
+
+    def get_node_id(self, node_meta):
+        '''
+        Generates a unique ID for a given node based on its meta attribute (position in the tree).
+        '''
+        # Create a unique key based on the line and column position in the source
+        node_key = (node_meta.line, node_meta.column)
+        
+        # If the node doesn't have an ID, create one and store it
+        if node_key not in self.node_ids:
+            self.node_ids[node_key] = len(self.node_ids) + 1
+
+        return self.node_ids[node_key]
+
+    @v_args(meta=True)
+    def comparison(self, meta, args):
+        logger.debug(' * comparison')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id <: {node_id}")
+        lhs = args[0]
+        oper = args[1]
+        rhs = args[2]
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # It is okay if we don't want to use index with bands or spectrum 
+        # because in each operator, index is only used with image cubes
+        return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
+
+    @v_args(meta=True)
+    def add_expr(self, meta, values):
+        '''
+        Implementation of addition and subtraction operations in the
+        transformer.
+        '''
+        logger.debug(' * add_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id +: {node_id}")
+        # print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
+        lhs = values[0]
+        oper = values[1]
+        rhs = values[2]
+
+        # if isinstance(lhs, (concurrent.futures.Future, asyncio.Future)):
+        #     lhs = lhs.result()
+        # if isinstance(rhs, (concurrent.futures.Future, asyncio.Future)):
+        #     rhs = rhs.result()
+        
+        # You pass in the dictionary to the Operator then the operator
+        # gets the queue, thread pool exector (for reading data) and
+        # process pool executor (for performing operations).
+        # Or we get those three things here and pass them into the 
+        # operator 
+        if oper == '+':
+            # return asyncio.run(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+            #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
+            #                             self._event_loop))
+            return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
+                                        self._event_loop, node_id=node_id), loop=self._event_loop).result()
+
+        elif oper == '-':
+            return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
+
+        raise RuntimeError(f'Unexpected operator {oper}')
+
+
+    @v_args(meta=True)
+    def mul_expr(self, meta, args):
+        '''
+        Implementation of multiplication and division operations in the
+        transformer.
+        '''
+        logger.debug(' * mul_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id *: {node_id}")
+        lhs = args[0]
+        oper = args[1]
+        rhs = args[2]
+
+        if oper == '*':
+            return OperatorMultiply().apply([lhs, rhs], self.index_list_current)
+
+        elif oper == '/':
+            return OperatorDivide().apply([lhs, rhs], self.index_list_current)
+
+        raise RuntimeError(f'Unexpected operator {oper}')
+
+
+    @v_args(meta=True)
+    def power_expr(self, meta, args):
+        '''
+        Implementation of power operation in the transformer.
+        '''
+        logger.debug(' * power_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id **: {node_id}")
+        return OperatorPower().apply([args[0], args[1]], self.index_list_current)
+
+
+    @v_args(meta=True)
+    def unary_negate_expr(self, meta, args):
+        '''
+        Implementation of unary negation in the transformer.
+        '''
+        logger.debug(' * unary_negate_expr')
+        node_id = getattr(meta, 'unique_id', None)
+        if node_id not in self._read_data_queue_dict:
+            self._read_data_queue_dict[node_id] = queue.Queue()
+        # if node_id:
+        #     print(f"Node id -: {node_id}")
+        # args[0] is the '-' character
+        return OperatorUnaryNegate().apply([args[1]], self.index_list_current)
+
+
+    def true(self, args):
+        ''' Returns a BandMathValue of True. '''
+        logger.debug(' * true')
+        return BandMathValue(VariableType.BOOLEAN, True, computed=False)
+
+    def false(self, args):
+        ''' Returns a BandMathValue of False. '''
+        logger.debug(' * false')
+        return BandMathValue(VariableType.BOOLEAN, False, computed=False)
+
+    def number(self, args):
+        ''' Returns a BandMathValue containing a specific number. '''
+        logger.debug(f' * number {args[0]}')
+        return args[0]
+
+    def string(self, args):
+        ''' Returns a BandMathValue containing a specific string. '''
+        logger.debug(f' * string "{args[0]}"')
+        return args[0]
+
+    def variable(self, args) -> BandMathValue:
+        '''
+        Returns a BandMathValue containing the value of the specified variable.
+        '''
+        logger.debug(' * variable')
+        name = args[0]
+        if name not in self._variables or self._variables[name][1] is None:
+            raise BandMathEvalError(f'Variable "{name}" is unspecified')
+
+        (type, value) = self._variables[name]
+        return BandMathValue(type, value, computed=False)
+
+    def named_expression(self, args) -> BandMathValue:
+        '''
+        Named expressions can appear in function arguments.
+        '''
+        logger.debug(' * named_expression')
+        # The first argument is the name, and the second argument is a
+        # BandMathValue object holding the result of the expression evaluation.
+        # Set the name and return the object.
+        value = args[1]
+        value.set_name(args[0])
+        return value
+
+    def function(self, args) -> BandMathValue:
+        '''
+        Calls the function named in args[0], passing it args[1:], and returns
+        the result as a BandMathValue.
+        '''
+        logger.debug(' * function')
+        func_name = args[0]
+        func_args = args[1:]
+
+        has_named_args = False
+        for fa in func_args:
+            if fa.name is None:
+                if has_named_args:
+                    raise BandMathEvalError('Named arguments must be '
+                        'specified after all positional arguments')
+            else:
+                has_named_args = True
+
+        if func_name not in self._functions:
+            raise BandMathEvalError(f'Unrecognized function "{func_name}"')
+
+        func_impl = self._functions[func_name]
+        return func_impl.apply(func_args)
+
+    def NAME(self, token) -> str:
+        '''
+        Parse a token as a string variable name.  The variable name is converted
+        to lowercase.
+        '''
+        logger.debug(' * NAME')
+        return str(token).lower()
+
+    def NUMBER(self, token) -> BandMathValue:
+        '''
+        Parse a token as a number.  The number is represented as a Python float,
+        and is wrapped in a BandMathValue object.
+        '''
+        logger.debug(' * NUMBER')
+        return BandMathValue(VariableType.NUMBER, float(token), computed=False)
+
+    def STRING(self, token) -> str:
+        '''
+        Parse a token as a string literal.  The variable name is converted
+        to lowercase.
+        '''
+        logger.debug(' * STRING')
+        # Chop the quotes off of the string value
+        return str(token)[1:-1]
+
+    def stop(self):
+        """Gracefully stop the event loop and wait for the thread to finish."""
+        if self._event_loop.is_running():
+            self._event_loop.call_soon_threadsafe(self._event_loop.stop)  # Safely stop the loop
+        self._loop_thread.join()  # Wait for the thread to finish
+        self._read_thread_pool.shutdown(wait=False, cancel_futures=True)
+        self._write_thread_pool.shutdown(wait=False, cancel_futures=True)
+
+    def __del__(self):
+        print("!!!!!!!!!!!!!!!!!!!Destructor called, cleaning up event loop and thread...!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        self.stop()  # Ensure the loop and thread are stopped
+        print("Event loop and thread cleaned up")
+
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None,
@@ -815,7 +1079,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
         try:
-            eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
+            eval = BandMathEvaluatorSync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
             result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
@@ -840,7 +1104,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / 1 #number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
@@ -866,7 +1130,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 # res = result_value.value
                 result_value = eval.transform(tree)
                 print(f';;;;;;;;;;;;;;; type of result_value before: {type(result_value)}')
-                result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
+                if isinstance(result_value, asyncio.Future):
+                    result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
                 print(f';;;;;;;;;;;;;;; type of result_value: {type(result_value)}')
                 result_value = result_value
                 res = result_value.value
@@ -932,7 +1197,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         return (RasterDataSet, out_dataset)
     else:
         print("OLD METHOD")
-        eval = BandMathEvaluator(lower_variables, lower_functions)
+        eval = BandMathEvaluatorSync(lower_variables, lower_functions)
         result_value = eval.transform(tree)
         if isinstance(result_value, Coroutine): 
             result_value = \
