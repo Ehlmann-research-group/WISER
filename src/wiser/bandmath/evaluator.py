@@ -305,11 +305,14 @@ class BandMathEvaluator(lark.visitors.Transformer):
         logger.debug(' * STRING')
         # Chop the quotes off of the string value
         return str(token)[1:-1]
+
     def stop(self):
         """Gracefully stop the event loop and wait for the thread to finish."""
         if self._event_loop.is_running():
             self._event_loop.call_soon_threadsafe(self._event_loop.stop)  # Safely stop the loop
         self._loop_thread.join()  # Wait for the thread to finish
+        self._read_thread_pool.shutdown(wait=False, cancel_futures=True)
+        self._write_thread_pool.shutdown(wait=False, cancel_futures=True)
 
     def __del__(self):
         print("Destructor called, cleaning up event loop and thread...")
@@ -414,70 +417,74 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         
-        eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
+        try:
+            eval = BandMathEvaluator(lower_variables, lower_functions, expr_info.shape)
 
-        bands, lines, samples = expr_info.shape
-        result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
-        count = 2
-        while (os.path.exists(result_path)):
-            result_path = remove_trailing_number(result_path)
-            result_path+=f" {count}"
-            count+=1
-        folder_path = os.path.dirname(result_path)
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
+            bands, lines, samples = expr_info.shape
+            result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
+            count = 2
+            while (os.path.exists(result_path)):
+                result_path = remove_trailing_number(result_path)
+                result_path+=f" {count}"
+                count+=1
+            folder_path = os.path.dirname(result_path)
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
+            out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
 
-        bytes_per_scalar = SCALAR_BYTES
-        max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-        num_bands = int(np.floor(max_bytes / (lines*samples)))
-        writing_futures = []
-        for band_index in range(0, bands, num_bands):
-            band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
-            band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
-            eval.index_list_current = band_index_list_current
-            eval.index_list_next = band_index_list_next
-            print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)}, max: {max(band_index_list_current)} ")
-            # try:
-            #     result_value = eval.transform(tree)
-            # except Exception as e:
-            #     print('=============Deleting value=============')
-            #     print(f"Error: {e}")
-            #     del eval
-            # result_value = result_value.result()
-            # res = result_value.value
-            result_value = eval.transform(tree)
-            res = result_value.value
-            if isinstance(result_value.value, np.ma.MaskedArray):
-                if not np.issubdtype(res.dtype, np.floating):
-                    res = res.astype(np.float32)
-                res[result_value.value.mask] = np.nan
+            bytes_per_scalar = SCALAR_BYTES
+            max_bytes = MAX_RAM_BYTES/bytes_per_scalar
+            num_bands = int(np.floor(max_bytes / (lines*samples)))
+            writing_futures = []
+            for band_index in range(0, bands, num_bands):
+                band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
+                band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
+                eval.index_list_current = band_index_list_current
+                eval.index_list_next = band_index_list_next
+                print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)}, max: {max(band_index_list_current)} ")
+                # try:
+                #     result_value = eval.transform(tree)
+                # except Exception as e:
+                #     print('=============Deleting value=============')
+                #     print(f"Error: {e}")
+                #     del eval
+                # result_value = result_value.result()
+                # res = result_value.value
+                result_value = eval.transform(tree)
+                res = result_value.value
+                if isinstance(result_value.value, np.ma.MaskedArray):
+                    if not np.issubdtype(res.dtype, np.floating):
+                        res = res.astype(np.float32)
+                    res[result_value.value.mask] = np.nan
 
-            # once everything is returned, then we add the result
-            # to the queue to be written.
-            # We add a function to the 
-            # thread pool executor (that we can just define in that function's
-            # if statement) that pops stuff from the to-be-written queue
-            # and then writes everything to disk  asynchronously
+                # once everything is returned, then we add the result
+                # to the queue to be written.
+                # We add a function to the 
+                # thread pool executor (that we can just define in that function's
+                # if statement) that pops stuff from the to-be-written queue
+                # and then writes everything to disk  asynchronously
 
-            print("Writing")
-            assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
-                    res.shape[1] == out_dataset_gdal.RasterYSize)
-            # gdal_band_list_current = [band+1 for band in band_index_list_current]
-            # # Write queue data to be written all at once
-            # out_dataset_gdal.WriteRaster(
-            #     0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
-            #     res.tobytes(),
-            #     buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
-            #     buf_type=gdal.GDT_Float32,
-            #     band_list=gdal_band_list_current
-            # )
-            # out_dataset_gdal.FlushCache()
+                print("Writing")
+                assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
+                        res.shape[1] == out_dataset_gdal.RasterYSize)
+                # gdal_band_list_current = [band+1 for band in band_index_list_current]
+                # # Write queue data to be written all at once
+                # out_dataset_gdal.WriteRaster(
+                #     0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
+                #     res.tobytes(),
+                #     buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
+                #     buf_type=gdal.GDT_Float32,
+                #     band_list=gdal_band_list_current
+                # )
+                # out_dataset_gdal.FlushCache()
 
-            future = eval._write_thread_pool.submit(write_raster, \
-                                                out_dataset_gdal, band_index_list_current, \
-                                                band_index_list_current, res)
-            writing_futures.append(future)
+                future = eval._write_thread_pool.submit(write_raster, \
+                                                    out_dataset_gdal, band_index_list_current, \
+                                                    band_index_list_current, res)
+                writing_futures.append(future)
+        except BaseException as e:
+            print(f"ERROR: \n {e}")
+            eval.stop()
         concurrent.futures.wait(writing_futures)
     
             # Loop through band index list and add a write task to the executor
