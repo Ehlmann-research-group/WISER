@@ -132,64 +132,40 @@ class OperatorAdd(BandMathFunction):
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
-        # def get_array_and_add_to_queue(index_list_current):
-        #     arr = lhs.as_numpy_array_by_bands(index_list_current)
-        #     read_task_queue.put(arr)
-
         async def async_read_gdal_data_onto_queue(index_list_current: List[int]):
-            # loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands(index_list_current))
             future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list_current)
             read_task_queue.put(future)
-    
-        async def async_read_gdal_data(index_list: List[int]):
-            result = await event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
-            return result
+
         # Do the addition computation.
-        # print("BEFORE TYPE THING")
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
             lhs_future = None
             if index_list_current is not None:
-                # print(f"index_list_current: {index_list_current}")
                 if isinstance(index_list_current, int):
                     index_list_current = [index_list_current]
                 # Check to see if queue is empty. 
                 if read_task_queue.empty():
-                    print ("QUEUE IS EMPTY")
-                    # should_keep_reading = should_continue_reading_bands(index_list_current, lhs)
-                    # if should_keep_reading:
-                    #     await async_read_gdal_data_onto_queue(index_list_current)
-                    #     lhs_future = read_task_queue.get()
-                    # else:
-                    #     # TODO: Delete this line later by tightening up logic
-                    #     raise ValueError("SHOULD NEVER REACH HERE")
+                    print(f"READING IO FUTURES QUEUE FOR NODE {node_id} IS EMPTY")
                     await async_read_gdal_data_onto_queue(index_list_current)
                     lhs_future = read_task_queue.get()
                 # If queue is not empty we pop from it
                 else:
-                    print ("QUEUE IS NOT EMPTY")
+                    print (f"READING IO FUTURES QUEUE FOR NODE {node_id} IS NOT EMPTY")
                     lhs_future = read_task_queue.get()
                 should_read_next = should_continue_reading_bands(index_list_next, lhs)
                 if should_read_next:
                     asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
-                print("About to await for data")
+                print(f"About to await for data for node {node_id}")
                 lhs_value = await lhs_future # await asyncio.wrap_future(lhs_future)
-                print("Got data")
-                # print(f"========lhs_value.type: {type(lhs_value)}===========")
-                        # We add a function and await it
-                    # If it is, then check to see if we should add stuff to it
-                    # If we should not, then we don't add stuff to it
-                # If Queue is not empty, then we pop off the queue and add a read task to it
-                # We await the reading task
+                print(f"Got data for node {node_id}")
 
-                # Once the read task is done, we will just process the data and return
-                # lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
-                # print(f"oper_add, lhs_value.shape: {lhs_value.shape}")
+                # Once the read task is done, we will just process the data and return like normal
+                # The processing does not take long enough to warrant creating a ProcessPoolExecutor
                 assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
                 rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
-                # print(f"oper_add, rhs_value.shape: {rhs_value.shape}")
+    
                 result_arr = lhs_value + rhs_value
-                # print(f"result_arr, result_arr.shape: {result_arr.shape}")
+
                 # The dimension should be two because we are slicing by band
                 assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape

@@ -464,13 +464,11 @@ class BandMathEvaluator(AsyncTransformer):
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
             self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
             self._event_loop = asyncio.new_event_loop()
-            threading.setprofile(trace_lock_event)
             self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
             self._loop_thread.start()
         else:
             self._read_data_queue = None
             self._write_data_queue = None
-        atexit.register(self.__del__)
 
         # Dictionary that maps position in tree to queue
         # position so we don't have to have different queues for
@@ -518,49 +516,16 @@ class BandMathEvaluator(AsyncTransformer):
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
             self._read_data_queue_dict[node_id] = queue.Queue()
-        if node_id:
-            print(f"Node id +: {node_id}")
-        print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
+        # if node_id:
+        #     print(f"Node id <: {node_id}")
+
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
-        print(f"type(lhs): {type(lhs)}")
-        print(f"type(rhs): {type(rhs)}")
+        print(f"type(lhs): {type(lhs)} for node {node_id}")
+        print(f"type(rhs): {type(rhs)} for node {node_id}")
 
-        if self._event_loop.is_running():
-            print("Event loop is running!")
-
-        # if isinstance(lhs, (concurrent.futures.Future, asyncio.Future, Coroutine)):
-        #     print("passed up await!!")
-        #     # lhs = asyncio.run_coroutine_threadsafe(lhs, self._event_loop).result()
-        #     # lhs = asyncio.run(lhs)
-        #     lhs = await lhs
-        # if isinstance(rhs, (concurrent.futures.Future, asyncio.Future, Coroutine)):
-        #     print("passed up await!!")
-        #     # rhs = asyncio.run_coroutine_threadsafe(rhs, self._event_loop).result()
-        #     # rhs = asyncio.run(rhs)
-        #     rhs = await rhs
-        
-        # if isinstance(lhs, (concurrent.futures.Future, asyncio.Future)):
-        #     lhs = lhs.result()
-        # if isinstance(rhs, (concurrent.futures.Future, asyncio.Future)):
-        #     rhs = rhs.result()
-        
-        # You pass in the dictionary to the Operator then the operator
-        # gets the queue, thread pool exector (for reading data) and
-        # process pool executor (for performing operations).
-        # Or we get those three things here and pass them into the 
-        # operator 
         if oper == '+':
-            # return OperatorAdd().apply(
-            #     [lhs, rhs],
-            #     self.index_list_current,
-            #     self.index_list_next,
-            #     self._read_data_queue_dict[node_id],
-            #     self._read_thread_pool,
-            #     self._event_loop,
-            #     node_id=node_id
-            # )
             # Schedule this operation as a background task
             addition_task = asyncio.ensure_future(OperatorAdd().apply(
                 [lhs, rhs],
@@ -572,12 +537,6 @@ class BandMathEvaluator(AsyncTransformer):
                 node_id=node_id
             ))
             return await addition_task
-            # return OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
-            #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
-            #                             self._event_loop, node_id=node_id)
-            # return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
-            #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
-            #                             self._event_loop), loop=self._event_loop).result()
 
         elif oper == '-':
             return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
