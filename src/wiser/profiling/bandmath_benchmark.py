@@ -119,7 +119,7 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     file_time_dict = {}
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
-    N = 2
+    N = 1
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")

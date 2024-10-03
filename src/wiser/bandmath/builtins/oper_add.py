@@ -170,18 +170,19 @@ class OperatorAdd(BandMathFunction):
                 # The processing does not take long enough to warrant creating a ProcessPoolExecutor
                 assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
                 
-                if read_task_queue[RHS_KEY].empty():
-                    print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
-                    await async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_current)
-                    rhs_future = read_task_queue[RHS_KEY].get()
-                else:
-                    print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
-                    rhs_future = read_task_queue[RHS_KEY].get()
-                if should_read_next:
-                    asyncio.create_task(async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_next))
-                print(f"RHS FUTURE TYPE: {type(rhs_future)}")
-                assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
-                rhs_value = await rhs_future
+                # if read_task_queue[RHS_KEY].empty():
+                #     print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
+                #     await async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_current)
+                #     rhs_future = read_task_queue[RHS_KEY].get()
+                # else:
+                #     print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
+                #     rhs_future = read_task_queue[RHS_KEY].get()
+                # if should_read_next:
+                #     asyncio.create_task(async_read_rhs_onto_queue(rhs, lhs_value.shape, index_list_next))
+                # print(f"RHS FUTURE TYPE: {type(rhs_future)}")
+                # assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
+                # rhs_value = await rhs_future
+                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
                 print(f"we awaited rhs value and got: {type(rhs_value)}")
                 result_arr = lhs_value + rhs_value
 

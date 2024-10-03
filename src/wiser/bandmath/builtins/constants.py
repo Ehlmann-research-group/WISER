@@ -1,6 +1,6 @@
 import os
 
-MAX_RAM_BYTES = 4000000000 # 500000000 # 100000000 
+MAX_RAM_BYTES = 100000000 # 4000000000 # 500000000 # 100000000 
 SCALAR_BYTES = 4
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
 
