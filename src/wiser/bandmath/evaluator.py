@@ -523,8 +523,8 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
-        print(f"type(lhs): {type(lhs)} for node {node_id}")
-        print(f"type(rhs): {type(rhs)} for node {node_id}")
+        # print(f"type(lhs): {type(lhs)} for node {node_id}")
+        # print(f"type(rhs): {type(rhs)} for node {node_id}")
 
         if oper == '+':
             # Schedule this operation as a background task
@@ -1107,19 +1107,19 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             max_bytes_per_intermediate = max_bytes / 1 #number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
-            # memory_before = memory_usage()[0]
+            memory_before = memory_usage()[0]
             max_memory_used = 0
             for band_index in range(0, bands, num_bands):
                 band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
                 band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
                 eval.index_list_current = band_index_list_current
                 eval.index_list_next = band_index_list_next
-                # memory_usage_during = memory_usage()[0]
-                # curr_memory_used = memory_usage_during-memory_before
-                # if curr_memory_used > max_memory_used:
-                #     max_memory_used = curr_memory_used
-                #     print(f"==========NEW MAX MEMORY USED: {max_memory_used} MB============")
-                print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)}, max: {max(band_index_list_current)} ")
+                memory_usage_during = memory_usage()[0]
+                curr_memory_used = memory_usage_during-memory_before
+                if curr_memory_used > max_memory_used:
+                    max_memory_used = curr_memory_used
+                    print(f"==========NEW MAX MEMORY USED: {max_memory_used} MB============")
+                print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)} & len: {len(band_index_list_current)}, max: {max(band_index_list_current)}  & len: {len(band_index_list_next)}")
                 # try:
                 #     result_value = eval.transform(tree)
                 # except Exception as e:
@@ -1130,7 +1130,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 # res = result_value.value
                 result_value = eval.transform(tree)
                 print(f';;;;;;;;;;;;;;; type of result_value before: {type(result_value)}')
-                # if isinstance(result_value, asyncio.Future):
+                # if isinstance(result_value, (asyncio.Future, Coroutine)):
                 #     result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
                 print(f';;;;;;;;;;;;;;; type of result_value: {type(result_value)}')
                 # result_value = result_value
@@ -1171,8 +1171,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             if eval is not None:
                 eval.stop()
                 raise e
-        # finally:
-        #     print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
+        finally:
+            print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
         concurrent.futures.wait(writing_futures)
         print(f"DONE WRITING FUTURES")
             # Loop through band index list and add a write task to the executor

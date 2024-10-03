@@ -98,7 +98,7 @@ results_new_method = {
         "<": None 
 }
 
-def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False):
+def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False, N = 1):
     equation_dict = {
         "+": '(a+b)+(c+d)'
         # "*": '(a*b)*(c*d)',
@@ -119,7 +119,6 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     file_time_dict = {}
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
-    N = 1
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
@@ -219,21 +218,21 @@ if __name__ == '__main__':
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_500mb]
+    dataset_list = [dataset_15gb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
-    
+    N = 3
     # benchmark_addition(dataset_list)
     use_old_method = False
     profiler = cProfile.Profile()
     profiler.enable()
     print('================Enabled Profile================')
-    benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=use_old_method)
+    benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=use_old_method, N=N)
     profiler.disable()
     print('================Disabled Profile================')
     print('Done with profiling')
 
     # Save the profiling stats to a file
-    with open(f"output/bandmath_menmark_old_method_{use_old_method}_500MB_future_random.txt", "w+") as f:
+    with open(f"output/bandmath_menmark_old_method_{use_old_method}_N-{N}_15GB_future_random.txt", "w+") as f:
         ps = pstats.Stats(profiler, stream=f)
         ps.sort_stats("tottime")
         ps.print_stats()

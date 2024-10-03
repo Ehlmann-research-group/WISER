@@ -341,6 +341,8 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         assert result.ndim == 3 or (result.ndim == 2 and len(band_list) == 1)
 
         if not are_shapes_equivalent(result.shape, cube_shape):
+            print(f"RAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR: \n \
+                  result.shape : {result.shape} || cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
@@ -352,6 +354,8 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         assert result.ndim == 2
 
         if (result.shape != cube_shape[1:]) and (result.shape != cube_shape and len(band_list) == 1):
+            print(f"PPPPPPPPPPPPPPPPPPPPOOOOOOOOOOOOOOOOOPPPPPPPPPPPPPPPPPPPPPPPP: \n \
+                  image band shape: {result.shape}, cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
@@ -367,6 +371,8 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         assert result.ndim == 1
 
         if (result.shape != (cube_shape[0],)) and len(band_list) != 1:
+            print(f"WWWWWWWWWWWWWWEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEWWWWWWWWWWWWWWWWWWWWWWW: \n \
+                  spectrum shape: {result.shape}, cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
