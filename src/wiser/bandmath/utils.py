@@ -379,7 +379,7 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         # This is a scalar:  number or Boolean
         assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
         result = arg.value
-
+    
     return result
 
 def are_shapes_equivalent(shape1, shape2):

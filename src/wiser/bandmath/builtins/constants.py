@@ -7,3 +7,6 @@ TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tem
 NUM_READERS = 4
 NUM_PROCESSORS = 4
 NUM_WRITERS = 8
+
+LHS_KEY = 'lhs'
+RHS_KEY = 'rhs'

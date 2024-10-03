@@ -3,8 +3,6 @@ import logging
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Coroutine
 
-
-
 import lark
 from lark import Visitor, Tree, Token, v_args, Discard
 from lark.exceptions import VisitError, GrammarError
@@ -35,7 +33,8 @@ from .builtins import (
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset_impl import SaveState
 
-from .builtins.constants import MAX_RAM_BYTES, SCALAR_BYTES, NUM_READERS, NUM_PROCESSORS, NUM_WRITERS
+from .builtins.constants import MAX_RAM_BYTES, SCALAR_BYTES, NUM_READERS, \
+    NUM_PROCESSORS, NUM_WRITERS, LHS_KEY, RHS_KEY
 
 class UniqueIDAssigner(Visitor):
     def __init__(self):
@@ -515,7 +514,9 @@ class BandMathEvaluator(AsyncTransformer):
         logger.debug(' * add_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
         # if node_id:
         #     print(f"Node id <: {node_id}")
 
@@ -839,7 +840,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes /number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
