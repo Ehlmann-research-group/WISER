@@ -115,10 +115,12 @@ class OperatorAdd(BandMathFunction):
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
             lhs_value = lhs.as_numpy_array()
+            print(f"is lhs masked? : {np.ma.isMaskedArray(lhs_value)}")
             assert lhs_value.ndim == 3
 
             rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
             result_arr = lhs_value + rhs_value
+            print(f"is result_arr masked? : {np.ma.isMaskedArray(result_arr)}")
 
             # The result array should have the same dimensions as the LHS input
             # array.
