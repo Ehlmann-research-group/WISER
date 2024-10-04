@@ -113,7 +113,8 @@ class OperatorAdd(BandMathFunction):
     # We then await the executor thread
     async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
               index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop, node_id: int):
+              read_thread_pool: ThreadPoolExecutor, read_thread_pool_rhs: ThreadPoolExecutor, \
+                event_loop: asyncio.AbstractEventLoop, node_id: int):
         '''
         Add the LHS and RHS and return the result.
         '''
@@ -132,16 +133,16 @@ class OperatorAdd(BandMathFunction):
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
-        async def async_read_gdal_data_onto_queue(index_list: List[int]):
+        def read_lhs_future_onto_queue(index_list: List[int]):
             # if isinstance(lhs.value, np.ndarray):
             #     print(f"RUH ROH RAGGY: \n lhs.value is {type(lhs.value)} with shape {lhs.value.shape}")
             future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
             read_task_queue[LHS_KEY].put(future)
 
-        async def async_read_rhs_onto_queue(rhs: BandMathValue, 
+        def read_rhs_future_onto_queue(rhs: BandMathValue, 
                                             lhs_value_shape: Tuple[int], index_list: List[int]):
-            future = event_loop.run_in_executor(read_thread_pool, \
-                                                make_image_cube_compatible_by_bands, rhs, lhs_value_shape, index_list)
+            future = event_loop.run_in_executor(read_thread_pool_rhs, \
+                                                make_image_cube_compatible_by_bands, rhs, lhs_value_shape, index_list[:])
             read_task_queue[RHS_KEY].put(future)
 
         def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMathValue):
@@ -167,109 +168,51 @@ class OperatorAdd(BandMathFunction):
             lhs_future = None
             if index_list_current is not None:
                 if lhs.type == rhs.type:
-                    # print(f"TYPES ARE EQUAL< ASSERTING: {lhs.get_shape()}, {rhs.get_shape()}")
                     assert(lhs.get_shape() == rhs.get_shape())
                 if isinstance(index_list_current, int):
                     index_list_current = [index_list_current]
                 # Check to see if queue is empty. 
                 if read_task_queue[LHS_KEY].empty():
                     # print(f"READING IO FUTURES QUEUE FOR NODE {node_id} IS EMPTY")
-                    await async_read_gdal_data_onto_queue(index_list_current)
+                    read_lhs_future_onto_queue(index_list_current)
                     lhs_future = read_task_queue[LHS_KEY].get()
                 # If queue is not empty we pop from it
                 else:
                     # print (f"READING IO FUTURES QUEUE FOR NODE {node_id} IS NOT EMPTY")
                     lhs_future = read_task_queue[LHS_KEY].get()
-                should_read_next = should_continue_reading_bands(index_list_next, lhs)
-                if should_read_next:
-                    # asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
-                    async_read_gdal_data_onto_queue(index_list_next)
-                # print(f"About to await for data for node {node_id}")
-                # print(f"LHS FUTURE TYPE: {type(lhs_future)}")
-                lhs_value_new_method = await lhs_future # await asyncio.wrap_future(lhs_future)
-                # print(f"Got data for node {node_id}")
+                # should_read_next = should_continue_reading_bands(index_list_next, lhs)
+                # if should_read_next:
+                #     read_lhs_future_onto_queue(index_list_next)
 
+                lhs_value_new_method_shape = list(lhs.get_shape())  
+                lhs_value_new_method_shape[0] = len(index_list_current)
+                lhs_value_new_method_shape = tuple(lhs_value_new_method_shape)
+
+                # print(f"lhs_value_new_method_shape approx: {lhs_value_new_method_shape}")
+                # print(f"lhs_value_new_method.shape: {lhs_value_new_method.shape}")
+                # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
+                if read_task_queue[RHS_KEY].empty():
+                    read_rhs_future_onto_queue(rhs, lhs_value_new_method_shape, index_list_current)
+                    rhs_future = read_task_queue[RHS_KEY].get()
+                else:
+                    rhs_future = read_task_queue[RHS_KEY].get()
+                # If we should read next for lhs side, then we should for rhs side
+                # if should_read_next:
+                #     # We have to get the size of the next data to read
+                #     next_lhs_shape = list(lhs.get_shape())
+                #     next_lhs_shape[0] = len(index_list_next)
+                #     next_lhs_shape = tuple(next_lhs_shape)
+                #     read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
+
+                assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
+                lhs_value_new_method = await lhs_future
+                rhs_value_new_method = await rhs_future
+                result_value_new_method = lhs_value_new_method + rhs_value_new_method
                 # Once the read task is done, we will just process the data and return like normal
                 # The processing does not take long enough to warrant creating a ProcessPoolExecutor
                 assert lhs_value_new_method.ndim == 3 or (lhs_value_new_method.ndim == 2 and len(index_list_current) == 1)
-                
-                if read_task_queue[RHS_KEY].empty():
-                    # print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
-                    # print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Reading next next type(rhs): {rhs.type}")
-                    await async_read_rhs_onto_queue(rhs, lhs_value_new_method.shape, index_list_current)
-                    rhs_future = read_task_queue[RHS_KEY].get()
-                else:
-                    # print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
-                    rhs_future = read_task_queue[RHS_KEY].get()
-                if should_read_next:
-                    # print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Should read next type(rhs): {rhs.type}, type(lhs): {lhs.type}")
-                    next_lhs_shape = list(lhs_value_new_method.shape)
-                    next_lhs_shape[0] = len(index_list_next)
-                    next_lhs_shape = tuple(next_lhs_shape)
-                    # asyncio.create_task(async_read_rhs_onto_queue(rhs, next_lhs_shape, index_list_next))
-                    async_read_rhs_onto_queue(rhs, next_lhs_shape, index_list_next)
-                # print(f"RHS FUTURE TYPE: {type(rhs_future)}")
-                assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
-                rhs_value_new_method = await rhs_future
-                # rhs_value_new_method = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
-                # print(f"we awaited rhs value and got: {type(rhs_value_new_method)}")
-                # lhs_value_new_method = lhs_value[:,:,:].copy()#[:,100:110,100:110]
-                # rhs_value_new_method = rhs_value_new_method[:,:,:].copy()#[:,100:110,100:110]
-                print("---------------------------RESULTS---------------------------")
-                # print(f"lhs_value: {lhs_value[:,100:110,100:110]}, lhs is intermediate? {lhs.is_intermediate}")
-                # print(f"rhs_value_new_method: {rhs_value_new_method[:,100:110,100:110]}, rhs is intermediate? {rhs.is_intermediate}")
-                result_value_new_method = lhs_value_new_method + rhs_value_new_method
-                # print(f"results_arr: {result_arr[:,100:110,100:110]}")
-                # result_value_new_method = result_arr[:,:,:].copy()#100:110,100:110]
-                # result_arr_new_method_full = result_arr
-                # HERE ====================================================================
-                # The dimension should be two because we are slicing by band
                 assert result_value_new_method.ndim == 3 or (result_value_new_method.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_value_new_method).shape == lhs_value_new_method.shape
-                # return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
-                # else:
-                # # # HERE ==================================================================
-                # # Dimensions:  [band][y][x]
-                print(f"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<USING OLD METHOD OF OPER ADD, intermediate? {lhs.is_intermediate} | {rhs.is_intermediate}>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-                # lhs_value = lhs.as_numpy_array()
-                # test1 = lhs.as_numpy_array()
-                # lhs_value = np.array([[[1, 2, 3]]])
-                # assert lhs_value.ndim == 3
-
-                # rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
-                # test2 = make_image_cube_compatible(rhs, test1.shape)
-                # rhs_value = np.array([[[1, 2, 3]]])
-                # lhs_value_old_method = lhs_value[index_list_current,:,:]#,100:110,100:110]
-                # rhs_value_old_method = rhs_value[index_list_current,:,:]#,100:110,100:110]
-                # print("---------------------------RESULTS OLD METHOD---------------------------")
-                # print(f"lhs_value: {lhs_value[:,100:110,100:110]}, lhs is intermediate? {lhs.is_intermediate}")
-                # print(f"rhs_value: {rhs_value[:,100:110,100:110]}, rhs is intermediate? {rhs.is_intermediate}")
-
-                # result_arr = lhs_value + rhs_value
-                # test3 = test1+test2
-
-                # result_value_old_method = result_arr[index_list_current,:,:]#100:110,100:110]
-
-                # print(f"LHS VALUE SHAPE: {lhs_value_new_method.shape}, {lhs_value_old_method.shape}")
-                # print(f"LHS VALUE: {np.allclose(lhs_value_new_method, lhs_value_old_method)}")
-                
-                # print(f"RHS VALUE SHAPE: {rhs_value_new_method.shape}, {rhs_value_old_method.shape}")
-                # print(f"RHS VALUE: {np.allclose(rhs_value_new_method, rhs_value_old_method)}")
-
-                
-                # print(f"RESULT VALUE SHAPE: {result_value_new_method.shape}, {result_value_old_method.shape}")
-                # print(f"RESULT VALUE: {np.allclose(result_value_new_method, result_value_old_method)}")
-                # print(f"band list: min: {min(index_list_current)}, max: {max(index_list_current)}")
-                # assert np.allclose(result_value_new_method, result_value_old_method)
-
-                # print(f"results_arr: {result_arr[:,100:110,100:110]}")
-
-                # The result array should have the same dimensions as the LHS input
-                # array.
-                # assert result_arr.ndim == 3
-                # assert result_arr.shape == lhs_value.shape
-                # return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
-                # # HERE =================================================================
                 return BandMathValue(VariableType.IMAGE_CUBE, result_value_new_method, is_intermediate=True)
             else:
                 lhs_value = lhs.as_numpy_array()
