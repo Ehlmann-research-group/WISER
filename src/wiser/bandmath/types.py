@@ -186,7 +186,7 @@ class BandMathValue:
             if isinstance(self.value, np.ndarray):
                 # Assuems all numpy arrays have band as the first dimension
                 min_band = min(band_list)
-                band_list = [band-min_band for band in band_list]
+                band_list_base = [band-min_band for band in band_list]
                 if self.type == VariableType.IMAGE_CUBE:
                     
                     # print(f"bandmathvalue, as-numpy-array-by-bands, numpy array, value: {self.value.shape}")
@@ -195,14 +195,14 @@ class BandMathValue:
                     #     return np.squeeze(self.value[band_list, : , :], axis=0)
                     # elif self.value.ndim == 2:
                     #     return self.value
-                    if len(band_list) == 1:
+                    if len(band_list_base) == 1:
                         # print("================ IMAGE CUBE SHAPE ARRAY, 2dims================")
                         # print(f"image cube shape: {self.value.shape}")
                         return self.value
                     # print("================ IMAGE CUBE SHAPE ARRAY================")
                     # print(f"image cube shape: {self.value[band_list, : , :].shape}")
                     # print(f"len(band_list): {len(band_list)}")
-                    return self.value[band_list, : , :]
+                    return self.value[band_list_base, : , :]
                 elif self.type == VariableType.IMAGE_BAND:
                     return self.value
                 elif self.type == VariableType.SPECTRUM:

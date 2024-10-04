@@ -272,6 +272,7 @@ def test_both_methods(hdr_paths, N=1):
             time_old_method, result_old_method = measure_bandmath_time(value, variables, use_old_method=True)
             arr_new_method = result_new_method.get_image_data()
             arr_old_method = result_old_method
+            original_arr = dataset.get_image_data()
             # print(f"type of arr_new_method: {arr_new_method}")
             # print(f"type of arr_old_method: {arr_old_method}")
             print(f"np.assertequal: {np.allclose(arr_new_method, arr_old_method)}")
@@ -302,6 +303,11 @@ def test_both_methods(hdr_paths, N=1):
                     # Unpack all dimensions dynamically
                     # index_str = ", ".join(map(str, index))
                     # print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
+                    if amt_not_close == 0:
+                        print(f"original arr[10:11,100:105,100:101] = \n {original_arr[tuple(index)]}")
+                        print(f"arr_new_method[10:11,100:105,100:101] = \n {arr_new_method[tuple(index)]}")
+                        print(f"arr_old_method[10:11,100:105,100:101] = \n {arr_old_method[tuple(index)]}")
+                        assert arr_old_method[tuple(index)] == 2 * original_arr[tuple(index)]
                     amt_not_close += 1
             else:
                 print("All values are close within the given tolerance.")
