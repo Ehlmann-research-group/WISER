@@ -1107,7 +1107,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / 2 # number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / 4 # number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
@@ -1212,11 +1212,15 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         return (RasterDataSet, out_dataset)
     else:
         print("OLD METHOD")
-        eval = BandMathEvaluatorSync(lower_variables, lower_functions)
-        result_value = eval.transform(tree)
-        if isinstance(result_value, Coroutine): 
-            result_value = \
-                asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
+        try:
+            eval = BandMathEvaluatorSync(lower_variables, lower_functions)
+            result_value = eval.transform(tree)
+            if isinstance(result_value, Coroutine): 
+                result_value = \
+                    asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
+        except BaseException as e:
+            eval.stop()
+            raise e
         eval.stop()
         return (result_value.type, result_value.value)
 
