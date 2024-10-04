@@ -126,30 +126,22 @@ class OperatorDotProduct(BandMathFunction):
 
             img_arr = lhs.as_numpy_array()
             spectrum_arr = rhs.as_numpy_array()
-            print(f"IMAGE CUBE DOT PROD SHAPE: {img_arr.shape}")
-            print(f"is img_arr masked? : {np.ma.isMaskedArray(img_arr)}")
-            print(f"SPECTRUM DOT PROD SHAPE: {spectrum_arr.shape}")
             spectrum_arr_no_nan = np.nan_to_num(spectrum_arr, 0)
             result_arr = np.moveaxis(img_arr, 0, -1)
-            print(f"post move masked array: {result_arr.mask.shape}")
-            # result_arr = np.nansum(result_arr * spectrum_arr, axis=2)
             result_arr = np.ma.dot(result_arr, spectrum_arr_no_nan)
-            print(f"is result_arr masked? : {np.ma.isMaskedArray(result_arr)}")
-            print(f"RESULT DOT PROD SHAPE: {result_arr.shape}")
-            print(f"Masked arrays equal? {np.ma.allequal(img_arr, result_arr)}")
-            print(f"Masked array sizes: lhs: {img_arr.mask.shape}, rhs: {result_arr.mask.shape}")
     
             return BandMathValue(VariableType.IMAGE_BAND, result_arr)
 
-        elif (lhs.result_type == VariableType.SPECTRUM and
-            rhs.result_type == VariableType.SPECTRUM):
+        # elif (lhs.type == VariableType.SPECTRUM and
+        #     rhs.type == VariableType.SPECTRUM):
 
-            spectrum_arr_lhs = lhs.as_numpy_array()
-            spectrum_arr_rhs = rhs.as_numpy_array()
-            spectrum_arr_no_nan_lhs = np.nan_to_num(spectrum_arr_lhs, 0)
-            spectrum_arr_no_nan_rhs = np.nan_to_num(spectrum_arr_rhs, 0)
-            result_arr = np.dot(spectrum_arr_no_nan_lhs, spectrum_arr_no_nan_rhs)
-            return BandMathValue(VariableType.NUMBER, result_arr)
+        #     spectrum_arr_lhs = lhs.as_numpy_array()
+        #     spectrum_arr_rhs = rhs.as_numpy_array()
+        #     spectrum_arr_no_nan_lhs = np.nan_to_num(spectrum_arr_lhs, 0)
+        #     spectrum_arr_no_nan_rhs = np.nan_to_num(spectrum_arr_rhs, 0)
+        #     result_arr = np.dot(spectrum_arr_no_nan_lhs, spectrum_arr_no_nan_rhs)
+    
+        #     return BandMathValue(VariableType.NUMBER, result_arr)
 
         else:
             raise BandMathEvalError('dotprod function requires two arguments, ' +
