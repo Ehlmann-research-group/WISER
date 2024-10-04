@@ -25,7 +25,7 @@ class OperatorUnaryNegate(BandMathFunction):
         # Make sure the input type is compatible with unary negation
         if arg.result_type not in [VariableType.IMAGE_CUBE,
             VariableType.IMAGE_BAND, VariableType.SPECTRUM, VariableType.NUMBER]:
-            self._report_type_error(arg_type)
+            self._report_type_error(arg.result_type)
 
         # Unary negation returns the same kind of input that it is given.
         # The metadata-source of the result will also be the same as the input.

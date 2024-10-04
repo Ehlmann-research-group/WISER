@@ -17,7 +17,7 @@ def get_builtin_functions() -> Dict[str, BandMathFunction]:
     band-math evaluator.
     '''
     return {
-        'arccos': arccos,
+        'arccos': OperatorArcCosine(),
         'dotprod': OperatorDotProduct(),
     }
 
@@ -40,6 +40,51 @@ def arccos(args: List[BandMathValue]) -> BandMathValue:
 
     verify_function_args(args)
     return BandMathValue(args[0].type, np.arccos(args[0].as_numpy_array()))
+
+from typing import List
+
+class OperatorArcCosine(BandMathFunction):
+    def _report_type_error(self, arg_type):
+        raise TypeError(f'Operand {arg_type} not compatible for ArcCosine operation.')
+
+    def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
+        # ArcCosine should only take one argument
+        if len(infos) != 1:
+            raise ValueError('ArcCosine requires exactly one argument.')
+
+        arg_info = infos[0]
+
+        if arg_info.result_type not in [VariableType.IMAGE_CUBE,
+            VariableType.IMAGE_BAND, VariableType.SPECTRUM, VariableType.NUMBER]:
+            self._report_type_error(arg_info.result_type)
+
+        # Output type will be the same as the input type
+        info = BandMathExprInfo(arg_info.result_type)
+        info.shape = arg_info.shape
+        info.elem_type = arg_info.elem_type
+
+        # Propagate metadata
+        info.spatial_metadata_source = arg_info.spatial_metadata_source
+        info.spectral_metadata_source = arg_info.spectral_metadata_source
+        return info
+
+    def apply(self, args: List[BandMathValue]) -> BandMathValue:
+        if len(args) != 1:
+            raise BandMathEvalError('ArcCosine function requires exactly one argument.')
+
+        verify_function_args(args)
+
+        arg = args[0]
+
+        # Get the underlying NumPy array
+        input_arr = arg.as_numpy_array()
+
+        # Compute the arccosine, using np.arccos which works element-wise
+        result_arr = np.ma.arccos(input_arr)
+
+        # Return a new BandMathValue with the same type and the computed array
+        return BandMathValue(arg.type, result_arr)
+
 
 class OperatorDotProduct(BandMathFunction):
 
