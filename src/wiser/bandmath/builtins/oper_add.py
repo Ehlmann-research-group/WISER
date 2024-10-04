@@ -133,8 +133,8 @@ class OperatorAdd(BandMathFunction):
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
         async def async_read_gdal_data_onto_queue(index_list: List[int]):
-            if isinstance(lhs.value, np.ndarray):
-                print(f"RUH ROH RAGGY: \n lhs.value is {type(lhs.value)} with shape {lhs.value.shape}")
+            # if isinstance(lhs.value, np.ndarray):
+            #     print(f"RUH ROH RAGGY: \n lhs.value is {type(lhs.value)} with shape {lhs.value.shape}")
             future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
             read_task_queue[LHS_KEY].put(future)
 
@@ -150,12 +150,12 @@ class OperatorAdd(BandMathFunction):
             band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]'''
             total_num_bands, _, _ = lhs.get_shape()
             if lhs.is_intermediate:
-                print(f"LHS IS AN INTERMEDIATE VALUEEEEEEEEEEEEEE")
+                # print(f"LHS IS AN INTERMEDIATE VALUEEEEEEEEEEEEEE")
                 return False
-            else:
-                print("LHS IS NOT AN INTERMEDIATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+            # else:
+                # print("LHS IS NOT AN INTERMEDIATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
             if band_index_list_sorted == [] or band_index_list_sorted is None:
-                print("Was false")
+                # print("Was false")
                 return False
             # max_curr_band = band_index_list_sorted[-1]
             # print(f"result {max_curr_band} < {total_num_bands}: {max_curr_band < total_num_bands}")
@@ -167,26 +167,26 @@ class OperatorAdd(BandMathFunction):
             lhs_future = None
             if index_list_current is not None:
                 if lhs.type == rhs.type:
-                    print(f"TYPES ARE EQUAL< ASSERTING: {lhs.get_shape()}, {rhs.get_shape()}")
+                    # print(f"TYPES ARE EQUAL< ASSERTING: {lhs.get_shape()}, {rhs.get_shape()}")
                     assert(lhs.get_shape() == rhs.get_shape())
                 if isinstance(index_list_current, int):
                     index_list_current = [index_list_current]
                 # Check to see if queue is empty. 
                 if read_task_queue[LHS_KEY].empty():
-                    print(f"READING IO FUTURES QUEUE FOR NODE {node_id} IS EMPTY")
+                    # print(f"READING IO FUTURES QUEUE FOR NODE {node_id} IS EMPTY")
                     await async_read_gdal_data_onto_queue(index_list_current)
                     lhs_future = read_task_queue[LHS_KEY].get()
                 # If queue is not empty we pop from it
                 else:
-                    print (f"READING IO FUTURES QUEUE FOR NODE {node_id} IS NOT EMPTY")
+                    # print (f"READING IO FUTURES QUEUE FOR NODE {node_id} IS NOT EMPTY")
                     lhs_future = read_task_queue[LHS_KEY].get()
                 should_read_next = should_continue_reading_bands(index_list_next, lhs)
                 if should_read_next:
                     asyncio.create_task(async_read_gdal_data_onto_queue(index_list_next))
-                print(f"About to await for data for node {node_id}")
+                # print(f"About to await for data for node {node_id}")
                 # print(f"LHS FUTURE TYPE: {type(lhs_future)}")
                 lhs_value = await lhs_future # await asyncio.wrap_future(lhs_future)
-                print(f"Got data for node {node_id}")
+                # print(f"Got data for node {node_id}")
 
                 # Once the read task is done, we will just process the data and return like normal
                 # The processing does not take long enough to warrant creating a ProcessPoolExecutor
@@ -211,7 +211,11 @@ class OperatorAdd(BandMathFunction):
                 rhs_value = await rhs_future
                 # rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
                 # print(f"we awaited rhs value and got: {type(rhs_value)}")
+                print("---------------------------RESULTS---------------------------")
+                print(f"lhs_value: {lhs_value[:,100:110,100:110]}, lhs is intermediate? {lhs.is_intermediate}")
+                print(f"rhs_value: {rhs_value[:,100:110,100:110]}, rhs is intermediate? {rhs.is_intermediate}")
                 result_arr = lhs_value + rhs_value
+                print(f"results_arr: {result_arr[:,100:110,100:110]}")
 
                 # The dimension should be two because we are slicing by band
                 assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
@@ -224,7 +228,11 @@ class OperatorAdd(BandMathFunction):
                 assert lhs_value.ndim == 3
 
                 rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+                print("---------------------------RESULTS OLD METHOD---------------------------")
+                print(f"lhs_value: {lhs_value[:,100:110,100:110]}, lhs is intermediate? {lhs.is_intermediate}")
+                print(f"rhs_value: {rhs_value[:,100:110,100:110]}, rhs is intermediate? {rhs.is_intermediate}")
                 result_arr = lhs_value + rhs_value
+                print(f"results_arr: {result_arr[:,100:110,100:110]}")
 
                 # The result array should have the same dimensions as the LHS input
                 # array.

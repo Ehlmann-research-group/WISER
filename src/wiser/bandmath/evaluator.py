@@ -1046,9 +1046,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     # print('========')
     print_tree_with_meta(tree)
 
-    # numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
-    # number_of_intermediates = numInterFinder.transform(tree)
-    # print(f"Number of intermediates: {number_of_intermediates}")
+    numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
+    number_of_intermediates = numInterFinder.transform(tree)
+    print(f"Number of intermediates: {number_of_intermediates}")
     # print(f"TREE: \n {tree}")
     # print_tree_with_positions(tree)
     # print_tree_with_meta(tree)
@@ -1065,6 +1065,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         return True
 
     def write_raster(out_dataset_gdal, band_index_list_current, result):
+        print("[[[[[[[[[[[[[[[[[[[AOBUT TO WRITE]]]]]]]]]]]]]]]]]]]")
         gdal_band_list_current = [band+1 for band in band_index_list_current]
         # Write queue data to be written all at once
         out_dataset_gdal.WriteRaster(
@@ -1075,6 +1076,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             band_list=gdal_band_list_current
         )
         out_dataset_gdal.FlushCache()
+        print("(((((((((((((((((((((FINISHED FLUSHING)))))))))))))))))))))")
+
     from memory_profiler import memory_usage
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
@@ -1091,7 +1094,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             folder_path = os.path.dirname(result_path)
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
-            out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_CFloat32)
+            out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_Float32)
             # out_dataset_gdal.FlushCache()
             # out_dataset_gdal = None
 
@@ -1104,7 +1107,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes * 1 #number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / 2 # number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
@@ -1135,6 +1138,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 print(f';;;;;;;;;;;;;;; type of result_value after: {type(result_value)}')
                 # result_value = result_value
                 res = result_value.value
+                # print("---------------------------EVAL RESULTS---------------------------")
+                # print(f"eval res: \n {res}")
                 if isinstance(result_value.value, np.ma.MaskedArray):
                     if not np.issubdtype(res.dtype, np.floating):
                         res = res.astype(np.float32)
@@ -1161,10 +1166,18 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 # )
                 # out_dataset_gdal.FlushCache()
 
+                # future = eval._event_loop.run_in_executor(eval._write_thread_pool, write_raster, \
+                #                                     out_dataset_gdal, band_index_list_current, res)
                 future = eval._write_thread_pool.submit(write_raster, \
                                                     out_dataset_gdal, band_index_list_current, \
-                                                    band_index_list_current, res)
+                                                    res)
                 writing_futures.append(future)
+            concurrent.futures.wait(writing_futures)
+            # for future in writing_futures:
+            #     print("waiting for future")
+            #     waiting_result = future.result()
+            # concurrent.futures.wait(writing_futures)
+            # eval._event_loop.run_until_complete(asyncio.gather(*writing_futures))
         except BaseException as e:
             print("SOME EXCEPTION !!!!!!!!!!!!")
             print
@@ -1175,6 +1188,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
         concurrent.futures.wait(writing_futures)
         print(f"DONE WRITING FUTURES")
+        print(f"---------------------------Out dataset data:---------------------------")
+        print(f"{out_dataset_gdal.ReadAsArray()}")
             # Loop through band index list and add a write task to the executor
             # for gdal_band_index in band_index_list_current:
             #     future = eval._write_thread_pool.submit(write_band, \
