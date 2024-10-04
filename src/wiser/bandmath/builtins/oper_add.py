@@ -211,34 +211,66 @@ class OperatorAdd(BandMathFunction):
                 rhs_value = await rhs_future
                 # rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list_current)
                 # print(f"we awaited rhs value and got: {type(rhs_value)}")
+                lhs_value_new_method = lhs_value[:,:,:].copy()#[:,100:110,100:110]
+                rhs_value_new_method = rhs_value[:,:,:].copy()#[:,100:110,100:110]
                 print("---------------------------RESULTS---------------------------")
-                print(f"lhs_value: {lhs_value[:,100:110,100:110]}, lhs is intermediate? {lhs.is_intermediate}")
-                print(f"rhs_value: {rhs_value[:,100:110,100:110]}, rhs is intermediate? {rhs.is_intermediate}")
+                # print(f"lhs_value: {lhs_value[:,100:110,100:110]}, lhs is intermediate? {lhs.is_intermediate}")
+                # print(f"rhs_value: {rhs_value[:,100:110,100:110]}, rhs is intermediate? {rhs.is_intermediate}")
                 result_arr = lhs_value + rhs_value
-                print(f"results_arr: {result_arr[:,100:110,100:110]}")
-
+                # print(f"results_arr: {result_arr[:,100:110,100:110]}")
+                result_value_new_method = result_arr[:,:,:].copy()#100:110,100:110]
+                result_arr_new_method_full = result_arr
                 # The dimension should be two because we are slicing by band
                 assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
-                return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
-            else:
+                # return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
+                # else:
                 # Dimensions:  [band][y][x]
-                print("USING OLD METHOD OF OPER ADD")
+                print(f"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<USING OLD METHOD OF OPER ADD, intermediate? {lhs.is_intermediate} | {rhs.is_intermediate}>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
                 lhs_value = lhs.as_numpy_array()
                 assert lhs_value.ndim == 3
 
                 rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+                lhs_value_old_method = lhs_value[index_list_current,:,:]#,100:110,100:110]
+                rhs_value_old_method = rhs_value[index_list_current,:,:]#,100:110,100:110]
                 print("---------------------------RESULTS OLD METHOD---------------------------")
-                print(f"lhs_value: {lhs_value[:,100:110,100:110]}, lhs is intermediate? {lhs.is_intermediate}")
-                print(f"rhs_value: {rhs_value[:,100:110,100:110]}, rhs is intermediate? {rhs.is_intermediate}")
+                # print(f"lhs_value: {lhs_value[:,100:110,100:110]}, lhs is intermediate? {lhs.is_intermediate}")
+                # print(f"rhs_value: {rhs_value[:,100:110,100:110]}, rhs is intermediate? {rhs.is_intermediate}")
                 result_arr = lhs_value + rhs_value
-                print(f"results_arr: {result_arr[:,100:110,100:110]}")
+                result_value_old_method = result_arr[index_list_current,:,:]#100:110,100:110]
+
+                print(f"LHS VALUE SHAPE: {lhs_value_new_method.shape}, {lhs_value_old_method.shape}")
+                print(f"LHS VALUE: {np.allclose(lhs_value_new_method, lhs_value_old_method)}")
+                
+                print(f"RHS VALUE SHAPE: {rhs_value_new_method.shape}, {rhs_value_old_method.shape}")
+                print(f"RHS VALUE: {np.allclose(rhs_value_new_method, rhs_value_old_method)}")
+
+                
+                print(f"RESULT VALUE SHAPE: {result_value_new_method.shape}, {result_value_old_method.shape}")
+                print(f"RESULT VALUE: {np.allclose(result_value_new_method, result_value_old_method)}")
+
+                # print(f"results_arr: {result_arr[:,100:110,100:110]}")
 
                 # The result array should have the same dimensions as the LHS input
                 # array.
                 assert result_arr.ndim == 3
                 assert result_arr.shape == lhs_value.shape
-                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+                # return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr_new_method_full, is_intermediate=True)
+            else:
+                lhs_value = lhs.as_numpy_array()
+                assert lhs_value.ndim == 3
+
+                rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+                result_arr = lhs_value + rhs_value
+
+                # The result array should have the same dimensions as the LHS input
+                # array.
+                assert result_arr.ndim == 3
+                assert result_arr.shape == lhs_value.shape
+                # return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
+
 
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [y][x]
