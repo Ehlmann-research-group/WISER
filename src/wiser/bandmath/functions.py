@@ -22,7 +22,7 @@ def get_builtin_functions() -> Dict[str, BandMathFunction]:
         'cos': OperatorTrigFunction(np.ma.cos),
         'arctan2': OperatorTrigFunction(np.ma.arctan2),
         'arctan': OperatorTrigFunction(np.ma.arctan),
-        'arcsine': OperatorTrigFunction(np.ma.arcsin),
+        'arcsin': OperatorTrigFunction(np.ma.arcsin),
         'arccos': OperatorTrigFunction(np.ma.arccos),
         'dotprod': OperatorDotProduct(),
     }
