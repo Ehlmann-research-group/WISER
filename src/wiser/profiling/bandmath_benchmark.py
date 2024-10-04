@@ -217,7 +217,98 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
             # print(f"old_value: {result_old_value[:,100:110,100:110]}")
             assert(result_new_value.shape == result_old_value.shape)
             # np.testing.assert_allclose(result_new_value, result_old_value)
-            
+
+
+def test_both_methods(hdr_paths, N=1):
+    equation_dict = {
+        "+": 'a+c'
+        # "+": '(a+b)+((c+d)+(e+f)+(g+h))',
+        # "*": '(a*b)*(c*d)',
+        # "/": '(a/b)/(c/d)',
+        # "-": '(a-b)-(c-d)',
+        # "neg": '-a+1',
+        # "<": '((a-b)-d)<c',
+        # "/-*+" : '(a/b)-(c*d)+a',
+        # "--<*": "(((a-b)-d)<c)*a",
+        # "**": "a**b-(a**0.5)",
+        # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
+    }
+
+    hdr_files = get_hdr_files(hdr_paths)
+    loader = RasterDataLoader()
+    for hdr_file in hdr_files:
+        base_name = os.path.basename(hdr_file)
+        print(f"Going through file: {base_name}")
+        dataset = loader.load_from_file(hdr_file)
+        print(f"Bad bands: {len(dataset._bad_bands)}")
+        print(f"Shape: {dataset.get_shape()}")
+        band = dataset.get_band_data(0)
+        spectrum = dataset.get_all_bands_at(100, 100)
+        spectrum2 = dataset.get_all_bands_at(120, 120)
+        spectrum3 = dataset.get_all_bands_at(140, 140)
+        variables = {'a':(VariableType.IMAGE_CUBE, dataset),
+                    'c':(VariableType.IMAGE_CUBE, dataset),
+                    'b':(VariableType.IMAGE_BAND, band),
+                    'd':(VariableType.SPECTRUM, spectrum),
+                    'e':(VariableType.IMAGE_CUBE, dataset),
+                    'f':(VariableType.IMAGE_CUBE, dataset),
+                    'g':(VariableType.IMAGE_CUBE, dataset),
+                    'h':(VariableType.IMAGE_CUBE, dataset),
+                    'i':(VariableType.SPECTRUM, spectrum2),
+                    'j':(VariableType.SPECTRUM, spectrum3)}
+    
+        for key, value in equation_dict.items():
+            # oper_times_new_method = []
+            # oper_times_old_method = []
+            print(f"operations: {key}")
+            print(f"equation: {value}")
+            # print(f"iter: {_}")
+            time_outer = None
+            print(f"results new method calculating")
+            time_new_method, result_new_method = measure_bandmath_time(value, variables, use_old_method=False)
+            if results_new_method[key] is None:
+                results_new_method[key] = result_new_method
+            print(f"results old method calculating!")
+            time_old_method, result_old_method = measure_bandmath_time(value, variables, use_old_method=True)
+            arr_new_method = result_new_method.get_image_data()
+            arr_old_method = result_old_method
+            # print(f"type of arr_new_method: {arr_new_method}")
+            # print(f"type of arr_old_method: {arr_old_method}")
+            print(f"np.assertequal: {np.allclose(arr_new_method, arr_old_method)}")
+            print(f"arr_new_shape: {arr_new_method.shape}")
+            print(f"arr_old_shape: {arr_old_method.shape}")
+            print(f"arr_new_method[69, 82, 573] = {arr_new_method[69, 82, 573]}")
+            print(f"arr_old_method[69, 82, 573] = {arr_old_method[69, 82, 573]}")
+            print(f"results old method done!")
+            # print(f"key: {key}")
+            # print(f"results_old_method[key]: {results_old_method[key]}")
+            if results_old_method[key] is None:
+                results_old_method[key] = result_old_method
+            # oper_times_new_method.append(time_new_method)
+            # oper_times_old_method.append(time_old_method)
+            # Use np.allclose to check if arrays are close
+            # Use np.allclose to check if arrays are close
+            are_close = np.allclose(arr_new_method, arr_old_method, rtol=1e-4, equal_nan=True)
+            print(f"Are the arrays close: {are_close}")
+
+            # Find elements that are not close
+            not_close = ~np.isclose(arr_new_method, arr_old_method, rtol=1e-4)
+
+            # Print indices and values that are not close
+            amt_not_close = 0
+            if np.any(not_close):
+                print("Pairs of values that are not close:")
+                for index in np.argwhere(not_close):
+                    # Unpack all dimensions dynamically
+                    # index_str = ", ".join(map(str, index))
+                    # print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
+                    amt_not_close += 1
+            else:
+                print("All values are close within the given tolerance.")
+            print(f"Amount not close: \n {amt_not_close}")
+            assert np.allclose(arr_new_method, arr_old_method, equal_nan=True)
+    return results_new_method, results_old_method
+
 
 if __name__ == '__main__':
     '''
@@ -228,24 +319,26 @@ if __name__ == '__main__':
     dataset_6GB = '"C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2"'
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_20GB]
+    dataset_list = [dataset_500mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     N = 1
-    # benchmark_addition(dataset_list)
-    use_old_method = False
-    profiler = cProfile.Profile()
-    profiler.enable()
-    print('================Enabled Profile================')
-    benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=use_old_method, N=N)
-    profiler.disable()
-    print('================Disabled Profile================')
-    print('Done with profiling')
 
-    # Save the profiling stats to a file
-    with open(f"output/bandmath_menmark_old_method_{use_old_method}_N-{N}_20GB_future_random.txt", "w+") as f:
-        ps = pstats.Stats(profiler, stream=f)
-        ps.sort_stats("tottime")
-        ps.print_stats()
+    test_both_methods(dataset_list)
+    # # benchmark_addition(dataset_list)
+    # use_old_method = False
+    # profiler = cProfile.Profile()
+    # profiler.enable()
+    # print('================Enabled Profile================')
+    # benchmark_all_bandmath(dataset_list, use_both_methods=False, use_old_method=use_old_method, N=N)
+    # profiler.disable()
+    # print('================Disabled Profile================')
+    # print('Done with profiling')
+
+    # # Save the profiling stats to a file
+    # with open(f"output/bandmath_menmark_old_method_{use_old_method}_N-{N}_20GB_future_random.txt", "w+") as f:
+    #     ps = pstats.Stats(profiler, stream=f)
+    #     ps.sort_stats("tottime")
+    #     ps.print_stats()
 '''
 My method, not out of core memory
 ==========File Time Benchmarks==========
