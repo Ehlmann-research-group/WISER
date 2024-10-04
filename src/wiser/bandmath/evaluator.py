@@ -461,6 +461,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
             self._read_data_queue_dict = {}
             self._write_data_queue = queue.Queue()
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
+            self._read_thread_pool_rhs = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
             self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
             self._event_loop = asyncio.new_event_loop()
             self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
@@ -534,6 +535,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
                 self.index_list_next,
                 self._read_data_queue_dict[node_id],
                 self._read_thread_pool,
+                self._read_thread_pool_rhs,
                 self._event_loop,
                 node_id=node_id
             ))
@@ -736,6 +738,7 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
             self._read_data_queue_dict = {}
             self._write_data_queue = queue.Queue()
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
+            self._read_thread_pool_rhs = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
             self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
             self._event_loop = asyncio.new_event_loop()
             self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
@@ -815,7 +818,8 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
             #                             self._event_loop))
             return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
-                                        self._event_loop, node_id=node_id), loop=self._event_loop).result()
+                                        self._read_thread_pool_rhs, \
+                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
         elif oper == '-':
             return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
@@ -1107,7 +1111,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / 2 # number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / 4 # number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
