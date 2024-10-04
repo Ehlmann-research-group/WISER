@@ -17,10 +17,15 @@ def get_builtin_functions() -> Dict[str, BandMathFunction]:
     band-math evaluator.
     '''
     return {
-        'arccos': OperatorArcCosine(),
+        'tan': OperatorTrigFunction(np.ma.tan),
+        'sin': OperatorTrigFunction(np.ma.sin),
+        'cos': OperatorTrigFunction(np.ma.cos),
+        'arctan2': OperatorTrigFunction(np.ma.arctan2),
+        'arctan': OperatorTrigFunction(np.ma.arctan),
+        'arcsine': OperatorTrigFunction(np.ma.arcsin),
+        'arccos': OperatorTrigFunction(np.ma.arccos),
         'dotprod': OperatorDotProduct(),
     }
-
 
 def verify_function_args(args):
     '''
@@ -33,29 +38,25 @@ def verify_function_args(args):
         if not isinstance(arg, BandMathValue):
             raise TypeError('All arguments must be of type BandMathValue')
 
+class OperatorTrigFunction(BandMathFunction):
 
-def arccos(args: List[BandMathValue]) -> BandMathValue:
-    if len(args) != 1:
-        raise BandMathEvalError('arccos function requires one argument')
+    def __init__(self, func: np.ufunc):
+        self._func = func
 
-    verify_function_args(args)
-    return BandMathValue(args[0].type, np.arccos(args[0].as_numpy_array()))
-
-from typing import List
-
-class OperatorArcCosine(BandMathFunction):
     def _report_type_error(self, arg_type):
-        raise TypeError(f'Operand {arg_type} not compatible for ArcCosine operation.')
+        raise TypeError(f'Operand {arg_type} not compatible for ArcTangent operation.')
 
     def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
-        # ArcCosine should only take one argument
+        # ArcTangent should only take one argument
         if len(infos) != 1:
-            raise ValueError('ArcCosine requires exactly one argument.')
+            raise ValueError('ArcTangent requires exactly one argument.')
 
         arg_info = infos[0]
 
         if arg_info.result_type not in [VariableType.IMAGE_CUBE,
-            VariableType.IMAGE_BAND, VariableType.SPECTRUM, VariableType.NUMBER]:
+                                        VariableType.IMAGE_BAND, 
+                                        VariableType.SPECTRUM, 
+                                        VariableType.NUMBER]:
             self._report_type_error(arg_info.result_type)
 
         # Output type will be the same as the input type
@@ -70,7 +71,7 @@ class OperatorArcCosine(BandMathFunction):
 
     def apply(self, args: List[BandMathValue]) -> BandMathValue:
         if len(args) != 1:
-            raise BandMathEvalError('ArcCosine function requires exactly one argument.')
+            raise BandMathEvalError('ArcTangent function requires exactly one argument.')
 
         verify_function_args(args)
 
@@ -79,12 +80,11 @@ class OperatorArcCosine(BandMathFunction):
         # Get the underlying NumPy array
         input_arr = arg.as_numpy_array()
 
-        # Compute the arccosine, using np.arccos which works element-wise
-        result_arr = np.ma.arccos(input_arr)
+        # Compute the arctangent, using np.arctan which works element-wise
+        result_arr = self._func(input_arr)
 
         # Return a new BandMathValue with the same type and the computed array
         return BandMathValue(arg.type, result_arr)
-
 
 class OperatorDotProduct(BandMathFunction):
 
