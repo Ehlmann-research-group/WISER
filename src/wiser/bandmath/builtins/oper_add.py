@@ -228,34 +228,34 @@ class OperatorAdd(BandMathFunction):
                 # print(f"lhs_value_new_method_shape approx: {lhs_value_new_method_shape}")
                 # print(f"lhs_value_new_method.shape: {lhs_value_new_method.shape}")
                 # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-                # if read_task_queue[RHS_KEY].empty():
-                #     print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
-                #     read_rhs_future_onto_queue(rhs, lhs_value_new_method_shape, index_list_current.copy())
-                #     print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
-                #     rhs_future = read_task_queue[RHS_KEY].get()[0]
-                # else:
-                #     print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
-                #     print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
-                #     rhs_future = read_task_queue[RHS_KEY].get()[0]
-                # # If we should read next for lhs side, then we should for rhs side
-                # if should_read_next:
-                #     # We have to get the size of the next data to read
-                #     next_lhs_shape = list(lhs.get_shape())
-                #     next_lhs_shape[0] = len(index_list_next)
-                #     next_lhs_shape = tuple(next_lhs_shape)
+                if read_task_queue[RHS_KEY].empty():
+                    print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
+                    read_rhs_future_onto_queue(rhs, lhs_value_new_method_shape, index_list_current.copy())
+                    print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
+                    rhs_future = read_task_queue[RHS_KEY].get()[0]
+                else:
+                    print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
+                    print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
+                    rhs_future = read_task_queue[RHS_KEY].get()[0]
+                # If we should read next for lhs side, then we should for rhs side
+                if should_read_next:
+                    # We have to get the size of the next data to read
+                    next_lhs_shape = list(lhs.get_shape())
+                    next_lhs_shape[0] = len(index_list_next)
+                    next_lhs_shape = tuple(next_lhs_shape)
                 #     read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
 
                 # assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
                 print(f"About to await for rhs data for node {node_id}")
-                # rhs_value_new_method = await rhs_future
-                rhs_value_new_method = make_image_cube_compatible_by_bands(rhs, lhs_value_new_method.shape, index_list_current)
+                rhs_value_new_method = await rhs_future
+                # rhs_value_new_method = make_image_cube_compatible_by_bands(rhs, lhs_value_new_method.shape, index_list_current)
                 print(f"lhs_value: {lhs_value_new_method[10:11,100:105,100:101]}, lhs is intermediate? {lhs.is_intermediate}")
                 print(f"rhs_value: {rhs_value_new_method[10:11,100:105,100:101]}, rhs is intermediate? {rhs.is_intermediate}")
                 print(f"Got rhs data for node {node_id}")
                 result_value_new_method = lhs_value_new_method + rhs_value_new_method
-                print(f"np.mean(lhs_value_new_method): {np.mean(lhs_value_new_method)}")#, nan count: {get_nan_count(lhs_value_new_method)}")
-                print(f"np.mean(rhs_value_new_method): {np.mean(rhs_value_new_method)}")#, nan count: {get_nan_count(rhs_value_new_method)}")
-                # print(f"How many different between lhs and rhs: {count_arr_differences(lhs_value_new_method, rhs_value_new_method)}")
+                print(f"np.mean(lhs_value_new_method): {np.mean(lhs_value_new_method)}, nan count: {get_nan_count(lhs_value_new_method)}")
+                print(f"np.mean(rhs_value_new_method): {np.mean(rhs_value_new_method)}, nan count: {get_nan_count(rhs_value_new_method)}")
+                print(f"How many different between lhs and rhs: {count_arr_differences(lhs_value_new_method, rhs_value_new_method)}")
                 print(f"np.mean(result_value_new_method) before: {np.mean(result_value_new_method)}")
                 if np.isnan(np.mean(result_value_new_method)):
                     result_value_new_method = np.zeros_like(result_value_new_method)
