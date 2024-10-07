@@ -139,9 +139,11 @@ class OperatorAdd(BandMathFunction):
 
         def read_lhs_future_onto_queue(lhs:BandMathValue, \
                                        index_list: List[int]):
+            # future = read_thread_pool.submit(lhs.as_numpy_array_by_bands, index_list)
             # if isinstance(lhs.value, np.ndarray):
             #     print(f"RUH ROH RAGGY: \n lhs.value is {type(lhs.value)} with shape {lhs.value.shape}")
-            future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
+            future = asyncio.to_thread(lhs.as_numpy_array_by_bands, index_list)
+            # future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
             read_task_queue[LHS_KEY].put((future, (min(index_list), max(index_list))))
 
         def read_rhs_future_onto_queue(rhs: BandMathValue, \
@@ -202,76 +204,89 @@ class OperatorAdd(BandMathFunction):
             # Dimensions:  [band][y][x]
             lhs_future = None
             if index_list_current is not None:
+                result_value_new_method = None
                 if lhs.type == rhs.type:
                     assert(lhs.get_shape() == rhs.get_shape())
                 if isinstance(index_list_current, int):
                     index_list_current = [index_list_current]
-                # Check to see if queue is empty. 
-                if read_task_queue[LHS_KEY].empty():
-                    print(f"READING IO FUTURES LHS QUEUE FOR NODE {node_id} IS EMPTY")
-                    read_lhs_future_onto_queue(lhs, index_list_current)
-                    print(f"LHS TASK QUEUE: \n {list(read_task_queue[LHS_KEY].queue)} for node {node_id}")
-                    lhs_future = read_task_queue[LHS_KEY].get()[0]
-                # If queue is not empty we pop from it
-                else:
-                    print (f"READING IO FUTURES LHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
-                    print(f"LHS TASK QUEUE: \n {list(read_task_queue[LHS_KEY].queue)} for node {node_id}")
-                    lhs_future = read_task_queue[LHS_KEY].get()[0]
-                should_read_next = should_continue_reading_bands(index_list_next, lhs)
-                # if should_read_next:
-                #     read_lhs_future_onto_queue(lhs, index_list_next)
-                print(f"About to await for lhs data for node {node_id}")
-                lhs_value_new_method = await lhs_future
-                print(f"Got lhs data for node {node_id}")
-
-                lhs_value_new_method_shape = list(lhs.get_shape())  
-                lhs_value_new_method_shape[0] = len(index_list_current)
-                lhs_value_new_method_shape = tuple(lhs_value_new_method_shape)
-
-                # print(f"lhs_value_new_method_shape approx: {lhs_value_new_method_shape}")
-                # print(f"lhs_value_new_method.shape: {lhs_value_new_method.shape}")
-                # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-                rhs_value_new_method = None
-                if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
-                    rhs_value_new_method = lhs_value_new_method
-                else:
-                    if read_task_queue[RHS_KEY].empty():
-                        print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
-                        read_rhs_future_onto_queue(rhs, lhs_value_new_method_shape, index_list_current.copy())
-                        print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
-                        rhs_future = read_task_queue[RHS_KEY].get()[0]
+                # Check to see if queue is empty.
+                lhs_value_new_method = None
+                if not isinstance(lhs.value, np.ndarray):
+                    print(f"LHS IS GOING THE SUPER COOL WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
+                    if read_task_queue[LHS_KEY].empty():
+                        # print(f"READING IO FUTURES LHS QUEUE FOR NODE {node_id} IS EMPTY")
+                        # print(f"LHS value type is: {type(lhs.value)} for node: {node_id}")
+                        read_lhs_future_onto_queue(lhs, index_list_current)
+                        # print(f"LHS TASK QUEUE: \n {list(read_task_queue[LHS_KEY].queue)} for node {node_id}")
+                        lhs_future = read_task_queue[LHS_KEY].get()[0]
+                    # If queue is not empty we pop from it
                     else:
-                        print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
-                        print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
-                        rhs_future = read_task_queue[RHS_KEY].get()[0]
-                    # If we should read next for lhs side, then we should for rhs side
-                    if should_read_next:
-                        # We have to get the size of the next data to read
-                        next_lhs_shape = list(lhs.get_shape())
-                        next_lhs_shape[0] = len(index_list_next)
-                        next_lhs_shape = tuple(next_lhs_shape)
-                        read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
+                        # print (f"READING IO FUTURES LHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
+                        # print(f"LHS TASK QUEUE: \n {list(read_task_queue[LHS_KEY].queue)} for node {node_id}")
+                        lhs_future = read_task_queue[LHS_KEY].get()[0]
+                    should_read_next = should_continue_reading_bands(index_list_next, lhs)
+                    # if should_read_next:
+                    #     read_lhs_future_onto_queue(lhs, index_list_next)
+                    # print(f"About to await for lhs data for node {node_id}")
+                    lhs_value_new_method = await lhs_future
+                    # print(f"Got lhs data for node {node_id}")
+                else:
+                    print(f"LHS IS GOING THE REGULAR WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
+                    lhs_value_new_method = lhs.as_numpy_array_by_bands(index_list_current)
 
-                    # assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
-                    print(f"About to await for rhs data for node {node_id}")
-                    rhs_value_new_method = await rhs_future
-                # rhs_value_new_method = make_image_cube_compatible_by_bands(rhs, lhs_value_new_method.shape, index_list_current)
-                # print(f"lhs_value: {lhs_value_new_method[10:11,100:105,100:101]}, lhs is intermediate? {lhs.is_intermediate}")
-                # print(f"rhs_value: {rhs_value_new_method[10:11,100:105,100:101]}, rhs is intermediate? {rhs.is_intermediate}")
-                print(f"Got rhs data for node {node_id}")
+                    lhs_value_new_method_shape = list(lhs.get_shape())  
+                    lhs_value_new_method_shape[0] = len(index_list_current)
+                    lhs_value_new_method_shape = tuple(lhs_value_new_method_shape)
+
+                rhs_value_new_method = None
+                if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray) and False:
+                    print(f"RHS IS GOING THE SUPER COOL WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
+                    # print(f"lhs_value_new_method_shape approx: {lhs_value_new_method_shape}")
+                    # print(f"lhs_value_new_method.shape: {lhs_value_new_method.shape}")
+                    # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
+                    rhs_future = None
+                    if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
+                        rhs_value_new_method = lhs_value_new_method
+                    else:
+                        if read_task_queue[RHS_KEY].empty():
+                            print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
+                            read_rhs_future_onto_queue(rhs, lhs_value_new_method_shape, index_list_current.copy())
+                            print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
+                            rhs_future = read_task_queue[RHS_KEY].get()[0]
+                        else:
+                            print (f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS NOT EMPTY")
+                            print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
+                            rhs_future = read_task_queue[RHS_KEY].get()[0]
+                        # If we should read next for lhs side, then we should for rhs side
+                        # if should_read_next:
+                        #     # We have to get the size of the next data to read
+                        #     next_lhs_shape = list(lhs.get_shape())
+                        #     next_lhs_shape[0] = len(index_list_next)
+                        #     next_lhs_shape = tuple(next_lhs_shape)
+                        #     read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
+                        rhs_value_new_method = await rhs_future
+                else:
+                    print(f"RHS IS GOING THE REGULAR WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
+                    #     # assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
+                    #     print(f"About to await for rhs data for node {node_id}")
+                    rhs_value_new_method = make_image_cube_compatible_by_bands(rhs, lhs_value_new_method.shape, index_list_current)
+                    # print(f"lhs_value: {lhs_value_new_method[10:11,100:105,100:101]}, lhs is intermediate? {lhs.is_intermediate}")
+                    # print(f"rhs_value: {rhs_value_new_method[10:11,100:105,100:101]}, rhs is intermediate? {rhs.is_intermediate}")
+                    # print(f"Got rhs data for node {node_id}")
                 result_value_new_method = lhs_value_new_method + rhs_value_new_method
                 print(f"np.mean(lhs_value_new_method): {np.mean(lhs_value_new_method)}, nan count: {get_nan_count(lhs_value_new_method)} for node {node_id}")
                 print(f"np.mean(rhs_value_new_method): {np.mean(rhs_value_new_method)}, nan count: {get_nan_count(rhs_value_new_method)} for node {node_id}")
                 print(f"How many different between lhs and rhs: {count_arr_differences(lhs_value_new_method, rhs_value_new_method)}")
                 print(f"np.mean(result_value_new_method) before: {np.mean(result_value_new_method)}")
                 print(f"is lhs masked? {np.ma.is_masked(lhs_value_new_method)} || is rhs masked? {np.ma.is_masked(rhs_value_new_method)}")
-                if np.isnan(np.mean(result_value_new_method)):
-                    result_value_new_method = np.zeros_like(result_value_new_method)
+                # if np.isnan(np.mean(result_value_new_method)):
+                #     result_value_new_method = np.zeros_like(result_value_new_method)
                 print(f"np.mean(result_value_new_method) after: {np.mean(result_value_new_method)}")
                 # Once the read task is done, we will just process the data and return like normal
                 # The processing does not take long enough to warrant creating a ProcessPoolExecutor
                 print(f"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<USING OLD METHOD OF OPER ADD, intermediate? {lhs.is_intermediate} | {rhs.is_intermediate}>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-                
+
+
                 # # # # HERE ==================================================================
                 # # # Dimensions:  [band][y][x]
                 # lhs_value = lhs.as_numpy_array()
