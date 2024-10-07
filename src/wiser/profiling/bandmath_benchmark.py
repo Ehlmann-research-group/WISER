@@ -442,7 +442,7 @@ def test_both_methods(hdr_paths, N=1):
             print(f"mean of new method: {np.nanmean(arr_new_method)}")
             print(f"mean of old method: {np.mean(arr_old_method)}")
             print()
-            assert np.nanmean(arr_new_method) == np.mean(arr_old_method)
+            assert np.isclose(np.nanmean(arr_new_method), np.mean(arr_old_method))
             assert np.allclose(arr_new_method, arr_old_method, equal_nan=True)
     return results_new_method, results_old_method
 

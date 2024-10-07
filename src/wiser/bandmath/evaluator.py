@@ -1117,7 +1117,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / 4 # number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / 6 # 4 # number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
@@ -1199,7 +1199,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         concurrent.futures.wait(writing_futures)
         print(f"DONE WRITING FUTURES")
         print(f"---------------------------Out dataset data:---------------------------")
-        print(f"{out_dataset_gdal.ReadAsArray()}")
+        # print(f"{out_dataset_gdal.ReadAsArray()}")
             # Loop through band index list and add a write task to the executor
             # for gdal_band_index in band_index_list_current:
             #     future = eval._write_thread_pool.submit(write_band, \
