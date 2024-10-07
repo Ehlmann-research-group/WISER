@@ -1086,7 +1086,13 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
         try:
-            eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
+            print("TEST \n  \
+                  TEST \n \
+                  TEST \n \
+                  TEST \n \
+                  TEST \n \
+                  TEST \n")
+            eval = BandMathEvaluatorSync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
             result_path = os.path.join(TEMP_FOLDER_PATH, result_name)

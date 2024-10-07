@@ -97,6 +97,131 @@ results_new_method = {
         "-": None,
         "<": None 
 }
+def stresstest_benchmark(hdr_paths: str, use_both_methods = False, use_old_method = False, N = 1):
+    equation_dict = {
+        "+": '(a+b)+(c+d)'
+        # "*": '(a*b)*(c*d)',
+        # "/": '(a/b)/(c/d)',
+        # "-": '(a-b)-(c-d)',
+        # "<": '((a-b)-d)<c'
+    }
+    stressing_equation_dict = {
+        "A": '1.0 - 2.0*a/(c+e)',
+        "B": 'a / (d*(d>0.2)+d<0.2)'
+        # "+": '(a+b)+((c+d)+(e+f)+(g+h))',
+        # "*": '(a*b)*(c*d)',
+        # "/": '(a/b)/(c/d)',
+        # "-": '(a-b)-(c-d)',
+        # "neg": '-a+1',
+        # "<": '((a-b)-d)<c',
+        # "/-*+" : '(a/b)-(c*d)+a',
+        # "--<*": "(((a-b)-d)<c)*a",
+        # "**": "a**b-(a**0.5)",
+        # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
+    }
+
+    oper_file_time_dict = {}
+
+    file_time_dict = {}
+    hdr_files = get_hdr_files(hdr_paths)
+    loader = RasterDataLoader()
+    for hdr_file in hdr_files:
+        base_name = os.path.basename(hdr_file)
+        print(f"Going through file: {base_name}")
+        dataset = loader.load_from_file(hdr_file)
+        band1 = dataset.get_band_data(0)
+        band2 = dataset.get_band_data(1)
+        band3 = dataset.get_band_data(2)
+        spectrum1 = dataset.get_all_bands_at(100, 100)
+        spectrum2 = dataset.get_all_bands_at(120, 120)
+        spectrum3 = dataset.get_all_bands_at(140, 140)
+        variables = {'a':(VariableType.IMAGE_CUBE, dataset),
+                    'c':(VariableType.IMAGE_CUBE, dataset),
+                    'b':(VariableType.IMAGE_BAND, band1),
+                    'd':(VariableType.SPECTRUM, spectrum1),
+                    'e':(VariableType.IMAGE_CUBE, dataset),
+                    'f':(VariableType.IMAGE_CUBE, dataset),
+                    'g':(VariableType.IMAGE_CUBE, dataset),
+                    'h':(VariableType.IMAGE_CUBE, dataset),
+                    'i':(VariableType.SPECTRUM, spectrum2),
+                    'j':(VariableType.SPECTRUM, spectrum3),
+                    'k':(VariableType.SPECTRUM, band2),
+                    'l':(VariableType.SPECTRUM, band3)}
+        file_times = []
+        file_times_new_method = []
+        file_times_old_method = []
+        for key, value in stressing_equation_dict.items():
+            oper_times = []
+            # oper_times_new_method = []
+            # oper_times_old_method = []
+            print(f"operations: {key}")
+            print(f"equation: {value}")
+            for _ in range(N):
+                # print(f"iter: {_}")
+                time_outer = None
+                if use_both_methods:
+                    print(f"results new method calculating")
+                    time_new_method, result_new_method = measure_bandmath_time(value, variables, use_old_method=False)
+                    if results_new_method[key] is None:
+                        results_new_method[key] = result_new_method
+                    print(f"results old method calculating!")
+                    time_old_method, result_old_method = measure_bandmath_time(value, variables, use_old_method=True)
+                    print(f"results old method done!")
+                    # print(f"key: {key}")
+                    # print(f"results_old_method[key]: {results_old_method[key]}")
+                    if results_old_method[key] is None:
+                        results_old_method[key] = result_old_method
+                    # oper_times_new_method.append(time_new_method)
+                    # oper_times_old_method.append(time_old_method)
+                    time_outer = time_new_method
+                elif use_old_method:
+                    print(f"results old method calculating!")
+                    time, result = measure_bandmath_time(value, variables, use_old_method=use_old_method)
+                    print(f"results old method done!")
+                    time_outer = time
+                else:
+                    print(f"results new method calculating!")
+                    time, result = measure_bandmath_time(value, variables)
+                    print(f"results new method done!")
+                    time_outer = time
+
+                oper_times.append(time_outer)
+            oper_file_time_dict[f"{key}: {base_name}"] = oper_times
+            file_times += (oper_times)
+        file_time_dict[base_name] = file_times
+    
+    print(f"oper_file_time_dict: {oper_file_time_dict}")
+    print(f"file_time_dict: {file_time_dict}")
+
+    print("==========File Time Benchmarks==========")
+    for file in file_time_dict.keys():
+        print(f"{file}:\n \
+                \t Mean: {np.mean(file_time_dict[file])} \n \
+                \t Std: {np.std(file_time_dict[file])}")
+        
+    print("==========Oper File Time Benchmarks==========")
+    for oper_file in oper_file_time_dict.keys():
+        print(f"{oper_file}:\n \
+                \t Mean: {np.mean(oper_file_time_dict[oper_file])} \n \
+                \t Std: {np.std(oper_file_time_dict[oper_file])}")
+    
+    if use_both_methods:
+        print("Using both methods")
+        for key, value in results_new_method.items():
+            result_new_method = value
+            result_old_method = results_old_method[key]
+
+            result_new_value = result_new_method.get_image_data()
+            result_old_value = result_old_method
+            # result_new_value = result_new_method.reshape(result_new_method.get_shape())
+            # result_old_value = result_old_value.reshape(result_old_method.get_shape())
+            # print(f"OPERATION: {key}")
+            # print(f"result_new_value.shape) {result_new_value.shape} ?==? {result_old_value.shape} (result_old_value.shape")
+            # print(f"all close? {np.allclose(result_new_value, result_old_value, rtol=1e-4)}")
+            # print(f"new_value: {result_new_value[:,100:110,100:110]}")
+            # print(f"old_value: {result_old_value[:,100:110,100:110]}")
+            assert(result_new_value.shape == result_old_value.shape)
+            # np.testing.assert_allclose(result_new_value, result_old_value)
 
 def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False, N = 1):
     equation_dict = {
@@ -307,11 +432,17 @@ def test_both_methods(hdr_paths, N=1):
                         print(f"original arr[10:11,100:105,100:101] = \n {original_arr[tuple(index)]}")
                         print(f"arr_new_method[10:11,100:105,100:101] = \n {arr_new_method[tuple(index)]}")
                         print(f"arr_old_method[10:11,100:105,100:101] = \n {arr_old_method[tuple(index)]}")
+                        
                         assert arr_old_method[tuple(index)] == 2 * original_arr[tuple(index)]
+                    # print(f" new method : {arr_new_method[tuple(index)]}")
                     amt_not_close += 1
             else:
                 print("All values are close within the given tolerance.")
             print(f"Amount not close: \n {amt_not_close}")
+            print(f"mean of new method: {np.nanmean(arr_new_method)}")
+            print(f"mean of old method: {np.mean(arr_old_method)}")
+            print()
+            assert np.nanmean(arr_new_method) == np.mean(arr_old_method)
             assert np.allclose(arr_new_method, arr_old_method, equal_nan=True)
     return results_new_method, results_old_method
 
