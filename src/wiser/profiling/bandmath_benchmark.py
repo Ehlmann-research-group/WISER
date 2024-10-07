@@ -359,12 +359,17 @@ def test_both_methods(hdr_paths, N=1):
         # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
     }
 
+    caltech1 = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
+    caltech2 = "c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\caltech-pic-copy.hdr"
+
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
         dataset = loader.load_from_file(hdr_file)
+        # caltech1_dataset = loader.load_from_file(caltech1)
+        # caltech2_dataset = loader.load_from_file(caltech2)
         print(f"Bad bands: {len(dataset._bad_bands)}")
         print(f"Shape: {dataset.get_shape()}")
         band = dataset.get_band_data(0)
@@ -452,6 +457,7 @@ if __name__ == '__main__':
     It is okay for this profile to use an image that is not incredibly big because the sampler profile takes a long time to run
     '''
     dataset_500mb = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
+    dataset_500mb_copy = "c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\caltech-pic-copy.hdr"
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     dataset_6GB = '"C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2"'
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
