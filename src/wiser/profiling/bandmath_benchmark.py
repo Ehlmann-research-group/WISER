@@ -107,7 +107,9 @@ def stresstest_benchmark(hdr_paths: str, use_both_methods = False, use_old_metho
     }
     stressing_equation_dict = {
         "A": '1.0 - 2.0*a/(c+e)',
-        "B": 'a / (d*(d>0.2)+d<0.2)'
+        "B": 'a / (d*(d>0.2)+d<0.2)',
+        "C": 'dotprod(a, d)',
+        "D": 'a*(2.718)**0.2', #Atmospheric corection
         # "+": '(a+b)+((c+d)+(e+f)+(g+h))',
         # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
