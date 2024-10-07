@@ -243,7 +243,7 @@ class OperatorAdd(BandMathFunction):
                     next_lhs_shape = list(lhs.get_shape())
                     next_lhs_shape[0] = len(index_list_next)
                     next_lhs_shape = tuple(next_lhs_shape)
-                #     read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
+                    read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
 
                 # assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
                 print(f"About to await for rhs data for node {node_id}")
