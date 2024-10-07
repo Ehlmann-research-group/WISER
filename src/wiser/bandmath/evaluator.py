@@ -176,7 +176,7 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
             assert(isinstance(lhs, int))
             assert(isinstance(rhs, int))
             # self.decrement_interm_running_total()
-            # print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
+            print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
             self._intermediate_running_total -= 1
             self._intermediate_running_total -= 1
             # print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
@@ -1282,7 +1282,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / 1 # 4 # number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / 1 # number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
