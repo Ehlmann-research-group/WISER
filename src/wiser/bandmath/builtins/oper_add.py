@@ -224,6 +224,10 @@ class OperatorAdd(BandMathFunction):
                 print(f"rhs_value: {rhs_value_new_method[10:11,100:105,100:101]}, rhs is intermediate? {rhs.is_intermediate}")
                 print(f"Got rhs data for node {node_id}")
                 result_value_new_method = lhs_value_new_method + rhs_value_new_method
+                print(f"np.mean(result_value_new_method) before: {np.mean(result_value_new_method)}")
+                if np.isnan(np.mean(result_value_new_method)):
+                    result_value_new_method = np.zeros_like(result_value_new_method)
+                print(f"np.mean(result_value_new_method) after: {np.mean(result_value_new_method)}")
                 # Once the read task is done, we will just process the data and return like normal
                 # The processing does not take long enough to warrant creating a ProcessPoolExecutor
                 print(f"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<USING OLD METHOD OF OPER ADD, intermediate? {lhs.is_intermediate} | {rhs.is_intermediate}>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
