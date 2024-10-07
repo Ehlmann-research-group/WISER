@@ -586,6 +586,20 @@ class RasterDataSet:
     def set_save_state(self, save_state: SaveState):
         self._impl.set_save_state(save_state)
 
+    def __eq__(self, other) -> bool:
+        if isinstance(other, RasterDataSet):
+            our_filepaths = self.get_filepaths()
+            other_filepaths = other.get_filepaths()
+            if our_filepaths != other_filepaths:
+                return False
+            if self.get_data_ignore_value() != other.get_data_ignore_value():
+                return False
+            if self.get_bad_bands() != other.get_bad_bands():
+                return False
+        else:
+            return False
+        return True
+
 
 class RasterDataBand:
     '''

@@ -345,6 +345,7 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
 
 
 def test_both_methods(hdr_paths, N=1):
+    loader = RasterDataLoader()
     equation_dict = {
         "+": 'a+c'
         # "+": '(a+b)+((c+d)+(e+f)+(g+h))',
@@ -361,15 +362,14 @@ def test_both_methods(hdr_paths, N=1):
 
     caltech1 = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
     caltech2 = "c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\caltech-pic-copy.hdr"
+    caltech1_dataset = loader.load_from_file(caltech1)
+    caltech2_dataset = loader.load_from_file(caltech2)
 
     hdr_files = get_hdr_files(hdr_paths)
-    loader = RasterDataLoader()
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
         dataset = loader.load_from_file(hdr_file)
-        # caltech1_dataset = loader.load_from_file(caltech1)
-        # caltech2_dataset = loader.load_from_file(caltech2)
         print(f"Bad bands: {len(dataset._bad_bands)}")
         print(f"Shape: {dataset.get_shape()}")
         band = dataset.get_band_data(0)
@@ -444,6 +444,7 @@ def test_both_methods(hdr_paths, N=1):
             else:
                 print("All values are close within the given tolerance.")
             print(f"Amount not close: \n {amt_not_close}")
+            print(f"mean of original array: {np.mean(original_arr)}")
             print(f"mean of new method: {np.nanmean(arr_new_method)}")
             print(f"mean of old method: {np.mean(arr_old_method)}")
             print()
@@ -462,7 +463,7 @@ if __name__ == '__main__':
     dataset_6GB = '"C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2"'
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_500mb]
+    dataset_list = [dataset_500mb_copy]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     N = 1
 
