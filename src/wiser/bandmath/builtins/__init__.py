@@ -5,3 +5,4 @@ from .oper_multiply import OperatorMultiply
 from .oper_divide import OperatorDivide
 from .oper_negate import OperatorUnaryNegate
 from .oper_power import OperatorPower
+from .oper_add_orig import OperatorAddOrig

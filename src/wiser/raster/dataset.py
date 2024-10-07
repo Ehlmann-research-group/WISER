@@ -395,7 +395,7 @@ class RasterDataSet:
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
             arr = np.ma.masked_values(arr, self._data_ignore_value)
-
+        print(f"is masked array in multiple band data: {np.ma.is_masked(arr)}? \n data ignore value:{ self._data_ignore_value}")
         return arr
 
     def get_band_stats(self, band_index: int):

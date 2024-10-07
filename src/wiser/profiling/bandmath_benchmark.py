@@ -343,12 +343,15 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
             assert(result_new_value.shape == result_old_value.shape)
             # np.testing.assert_allclose(result_new_value, result_old_value)
 
+def get_nan_count(arr: np.ndarray):
+    nan_count = np.isnan(arr).sum()
+    return nan_count
 
 def test_both_methods(hdr_paths, N=1):
     loader = RasterDataLoader()
     equation_dict = {
-        "+": 'a+c'
-        # "+": '(a+b)+((c+d)+(e+f)+(g+h))',
+        # "+": 'a+c'
+        "+": '(a+c)+((c+a)+(e+f)+(g+h))',
         # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
         # "-": '(a-b)-(c-d)',
@@ -430,7 +433,7 @@ def test_both_methods(hdr_paths, N=1):
             if np.any(not_close):
                 print("Pairs of values that are not close:")
                 for index in np.argwhere(not_close):
-                    # Unpack all dimensions dynamically
+                    # # Unpack all dimensions dynamically
                     # index_str = ", ".join(map(str, index))
                     # print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
                     if amt_not_close == 0:
@@ -438,15 +441,17 @@ def test_both_methods(hdr_paths, N=1):
                         print(f"arr_new_method[10:11,100:105,100:101] = \n {arr_new_method[tuple(index)]}")
                         print(f"arr_old_method[10:11,100:105,100:101] = \n {arr_old_method[tuple(index)]}")
                         
-                        assert arr_old_method[tuple(index)] == 2 * original_arr[tuple(index)]
+                        # assert arr_old_method[tuple(index)] == 2 * original_arr[tuple(index)]
                     # print(f" new method : {arr_new_method[tuple(index)]}")
                     amt_not_close += 1
             else:
                 print("All values are close within the given tolerance.")
             print(f"Amount not close: \n {amt_not_close}")
+            print(f"Amount nan in each: \n new method: {get_nan_count(arr_new_method)} " +
+                  f"\n old method: {get_nan_count(arr_old_method)}")
             print(f"mean of original array: {np.mean(original_arr)}")
             print(f"mean of new method: {np.nanmean(arr_new_method)}")
-            print(f"mean of old method: {np.mean(arr_old_method)}")
+            print(f"mean of old method: {np.nanmean(arr_old_method)}")
             print()
             assert np.isclose(np.nanmean(arr_new_method), np.mean(arr_old_method))
             assert np.allclose(arr_new_method, arr_old_method, equal_nan=True)
@@ -463,7 +468,7 @@ if __name__ == '__main__':
     dataset_6GB = '"C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2"'
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_500mb_copy]
+    dataset_list = [dataset_500mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     N = 1
 
