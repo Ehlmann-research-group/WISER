@@ -382,7 +382,7 @@ def test_both_methods(hdr_paths, N=1):
         spectrum2 = dataset.get_all_bands_at(120, 120)
         spectrum3 = dataset.get_all_bands_at(140, 140)
         variables = {'a':(VariableType.IMAGE_CUBE, dataset),
-                    'c':(VariableType.IMAGE_CUBE, dataset),
+                    'c':(VariableType.IMAGE_CUBE, caltech2_dataset),
                     'b':(VariableType.IMAGE_BAND, band),
                     'd':(VariableType.SPECTRUM, spectrum),
                     'e':(VariableType.IMAGE_CUBE, dataset),
