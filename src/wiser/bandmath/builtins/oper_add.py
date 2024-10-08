@@ -202,7 +202,6 @@ class OperatorAdd(BandMathFunction):
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            lhs_future = None
             if index_list_current is not None:
                 result_value_new_method = None
                 if lhs.type == rhs.type:
@@ -211,10 +210,11 @@ class OperatorAdd(BandMathFunction):
                     index_list_current = [index_list_current]
                 # Check to see if queue is empty.
                 lhs_value_new_method = None
+                lhs_future = None
                 if not isinstance(lhs.value, np.ndarray):
                     print(f"LHS IS GOING THE SUPER COOL WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
                     if read_task_queue[LHS_KEY].empty():
-                        # print(f"READING IO FUTURES LHS QUEUE FOR NODE {node_id} IS EMPTY")
+                        print(f"READING IO FUTURES LHS QUEUE FOR NODE {node_id} IS EMPTY")
                         # print(f"LHS value type is: {type(lhs.value)} for node: {node_id}")
                         read_lhs_future_onto_queue(lhs, index_list_current)
                         # print(f"LHS TASK QUEUE: \n {list(read_task_queue[LHS_KEY].queue)} for node {node_id}")
@@ -228,9 +228,8 @@ class OperatorAdd(BandMathFunction):
                     if should_read_next:
                         print("READING NEXT ONTO QUEUE^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^LHS")
                         read_lhs_future_onto_queue(lhs, index_list_next)
-                    # print(f"About to await for lhs data for node {node_id}")
-                    lhs_value_new_method = await lhs_future
-                    # print(f"Got lhs data for node {node_id}")
+                    print(f"About to await for lhs data for node {node_id}")
+                    print(f"Got lhs data for node {node_id}")
                 else:
                     print(f"LHS IS GOING THE REGULAR WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
                     lhs_value_new_method = lhs.as_numpy_array_by_bands(index_list_current)
@@ -240,15 +239,18 @@ class OperatorAdd(BandMathFunction):
                 lhs_value_new_method_shape = tuple(lhs_value_new_method_shape)
 
                 rhs_value_new_method = None
+                rhs_future = None
+                should_be_the_same = False
                 if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
                     print(f"RHS IS GOING THE SUPER COOL WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
                     # print(f"lhs_value_new_method_shape approx: {lhs_value_new_method_shape}")
                     # print(f"lhs_value_new_method.shape: {lhs_value_new_method.shape}")
                     # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-                    rhs_future = None
                     if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
-                        rhs_value_new_method = lhs_value_new_method
+                        print("RHS WILL be set to AN ARRAY")
+                        should_be_the_same = True
                     else:
+                        print("RHS WILL be set to A FUTURE")
                         if read_task_queue[RHS_KEY].empty():
                             print(f"READING IO FUTURES RHS QUEUE FOR NODE {node_id} IS EMPTY")
                             read_rhs_future_onto_queue(rhs, lhs_value_new_method_shape, index_list_current.copy())
@@ -266,7 +268,8 @@ class OperatorAdd(BandMathFunction):
                             next_lhs_shape[0] = len(index_list_next)
                             next_lhs_shape = tuple(next_lhs_shape)
                             read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
-                        rhs_value_new_method = await rhs_future
+                        print(f"About to await for rhs data for node {node_id}")
+                        print(f"Got rhs data for node {node_id}")
                 else:
                     print(f"RHS IS GOING THE REGULAR WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
                     #     # assert isinstance(rhs_future, asyncio.Future), f"Expected Future but got something else"
@@ -275,6 +278,17 @@ class OperatorAdd(BandMathFunction):
                     # print(f"lhs_value: {lhs_value_new_method[10:11,100:105,100:101]}, lhs is intermediate? {lhs.is_intermediate}")
                     # print(f"rhs_value: {rhs_value_new_method[10:11,100:105,100:101]}, rhs is intermediate? {rhs.is_intermediate}")
                     # print(f"Got rhs data for node {node_id}")
+                if rhs_future is not None:
+                    print("in not none if rhs")
+                    rhs_value_new_method = await rhs_future
+                print(f"type of rhs after not none if: {type(rhs_value_new_method)}")
+                if lhs_future is not None:
+                    print("in not none if lhs")
+                    lhs_value_new_method = await lhs_future
+                if should_be_the_same:
+                    rhs_value_new_method = lhs_value_new_method
+                print(f"type of lhs after not none if: {type(lhs_value_new_method)}")
+    
                 result_value_new_method = lhs_value_new_method + rhs_value_new_method
                 print(f"np.mean(lhs_value_new_method): {np.mean(lhs_value_new_method)}, nan count: {get_nan_count(lhs_value_new_method)} for node {node_id}")
                 print(f"np.mean(rhs_value_new_method): {np.mean(rhs_value_new_method)}, nan count: {get_nan_count(rhs_value_new_method)} for node {node_id}")
