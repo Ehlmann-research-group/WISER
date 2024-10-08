@@ -142,8 +142,8 @@ class OperatorAdd(BandMathFunction):
             # future = read_thread_pool.submit(lhs.as_numpy_array_by_bands, index_list)
             # if isinstance(lhs.value, np.ndarray):
             #     print(f"RUH ROH RAGGY: \n lhs.value is {type(lhs.value)} with shape {lhs.value.shape}")
-            future = asyncio.to_thread(lhs.as_numpy_array_by_bands, index_list)
-            # future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
+            # future = asyncio.to_thread(lhs.as_numpy_array_by_bands, index_list)
+            future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
             read_task_queue[LHS_KEY].put((future, (min(index_list), max(index_list))))
 
         def read_rhs_future_onto_queue(rhs: BandMathValue, \
@@ -225,8 +225,9 @@ class OperatorAdd(BandMathFunction):
                         # print(f"LHS TASK QUEUE: \n {list(read_task_queue[LHS_KEY].queue)} for node {node_id}")
                         lhs_future = read_task_queue[LHS_KEY].get()[0]
                     should_read_next = should_continue_reading_bands(index_list_next, lhs)
-                    # if should_read_next:
-                    #     read_lhs_future_onto_queue(lhs, index_list_next)
+                    if should_read_next:
+                        print("READING NEXT ONTO QUEUE^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^LHS")
+                        read_lhs_future_onto_queue(lhs, index_list_next)
                     # print(f"About to await for lhs data for node {node_id}")
                     lhs_value_new_method = await lhs_future
                     # print(f"Got lhs data for node {node_id}")
@@ -234,12 +235,12 @@ class OperatorAdd(BandMathFunction):
                     print(f"LHS IS GOING THE REGULAR WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
                     lhs_value_new_method = lhs.as_numpy_array_by_bands(index_list_current)
 
-                    lhs_value_new_method_shape = list(lhs.get_shape())  
-                    lhs_value_new_method_shape[0] = len(index_list_current)
-                    lhs_value_new_method_shape = tuple(lhs_value_new_method_shape)
+                lhs_value_new_method_shape = list(lhs.get_shape())  
+                lhs_value_new_method_shape[0] = len(index_list_current)
+                lhs_value_new_method_shape = tuple(lhs_value_new_method_shape)
 
                 rhs_value_new_method = None
-                if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray) and False:
+                if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
                     print(f"RHS IS GOING THE SUPER COOL WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
                     # print(f"lhs_value_new_method_shape approx: {lhs_value_new_method_shape}")
                     # print(f"lhs_value_new_method.shape: {lhs_value_new_method.shape}")
@@ -258,12 +259,13 @@ class OperatorAdd(BandMathFunction):
                             print(f"RHS TASK QUEUE: \n {list(read_task_queue[RHS_KEY].queue)} for node {node_id}")
                             rhs_future = read_task_queue[RHS_KEY].get()[0]
                         # If we should read next for lhs side, then we should for rhs side
-                        # if should_read_next:
-                        #     # We have to get the size of the next data to read
-                        #     next_lhs_shape = list(lhs.get_shape())
-                        #     next_lhs_shape[0] = len(index_list_next)
-                        #     next_lhs_shape = tuple(next_lhs_shape)
-                        #     read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
+                        if should_read_next:
+                            # We have to get the size of the next data to read
+                            print("READING NEXT ONTO QUEUE^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^RHS")
+                            next_lhs_shape = list(lhs.get_shape())
+                            next_lhs_shape[0] = len(index_list_next)
+                            next_lhs_shape = tuple(next_lhs_shape)
+                            read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next)
                         rhs_value_new_method = await rhs_future
                 else:
                     print(f"RHS IS GOING THE REGULAR WAY! Value: {type(lhs.value)}, Type: {lhs.type} || Node id: {node_id}")
