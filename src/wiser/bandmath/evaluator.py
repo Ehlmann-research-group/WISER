@@ -1282,7 +1282,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / 3 # number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
@@ -1293,14 +1293,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 eval.index_list_current = band_index_list_current
                 eval.index_list_next = band_index_list_next
                 print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)} & len: {len(band_index_list_current)}, max: {max(band_index_list_current)}  & len: {len(band_index_list_next)}")
-                # try:
-                #     result_value = eval.transform(tree)
-                # except Exception as e:
-                #     print('=============Deleting value=============')
-                #     print(f"Error: {e}")
-                #     del eval
-                # result_value = result_value.result()
-                # res = result_value.value
                 result_value = eval.transform(tree)
                 memory_usage_during = memory_usage()[0]
                 curr_memory_used = memory_usage_during-memory_before
@@ -1310,7 +1302,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 print(f';;;;;;;;;;;;;;; type of result_value before: {type(result_value)}')
                 if isinstance(result_value, (asyncio.Future, Coroutine)):
                     result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
-                print(f';;;;;;;;;;;;;;; type of result_value after: {type(result_value)}')
+                # print(f';;;;;;;;;;;;;;; type of result_vZalue after: {type(result_value)}')
                 # result_value = result_value
                 res = result_value.value
                 # print("---------------------------EVAL RESULTS---------------------------")
@@ -1354,8 +1346,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             # concurrent.futures.wait(writing_futures)
             # eval._event_loop.run_until_complete(asyncio.gather(*writing_futures))
         except BaseException as e:
-            print("SOME EXCEPTION !!!!!!!!!!!!")
-            print
             if eval is not None:
                 eval.stop()
                 raise e
@@ -1363,7 +1353,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
         concurrent.futures.wait(writing_futures)
         print(f"DONE WRITING FUTURES")
-        print(f"---------------------------Out dataset data:---------------------------")
+        # print(f"---------------------------Out dataset data:---------------------------")
         # print(f"{out_dataset_gdal.ReadAsArray()}")
             # Loop through band index list and add a write task to the executor
             # for gdal_band_index in band_index_list_current:
@@ -1388,15 +1378,17 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     else:
         print("OLD METHOD")
         try:
+            memory_before = memory_usage()[0]
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
+            memory_usage_during = memory_usage()[0]
+            memory_used = memory_usage_during-memory_before
+            print(f"OLD METHOD MEMORY USED: {memory_used}")
             if isinstance(result_value, Coroutine): 
                 result_value = \
                     asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
         except BaseException as e:
-            # eval.stop()
             raise e
-        # eval.stop()
         return (result_value.type, result_value.value)
 
 def print_tree_with_meta(tree, indent=0):
