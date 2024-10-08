@@ -82,22 +82,8 @@ def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType
     end_time = time.time()
     return end_time-start_time, result_dataset
 
-results_old_method = {
-        "+": None,
-        "*": None,
-        "/": None,
-        "-": None,
-        "<": None 
-}
 
-results_new_method = {
-        "+": None,
-        "*": None,
-        "/": None,
-        "-": None,
-        "<": None 
-}
-def stresstest_benchmark(hdr_paths: str, use_both_methods = False, use_old_method = False, N = 1):
+def stress_test_benchmark(hdr_paths: str, use_both_methods = False, use_old_method = False, N = 1):
     equation_dict = {
         "+": '(a+b)+(c+d)'
         # "*": '(a*b)*(c*d)',
@@ -127,6 +113,21 @@ def stresstest_benchmark(hdr_paths: str, use_both_methods = False, use_old_metho
     file_time_dict = {}
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
+    results_old_method = {
+        "+": None,
+        "*": None,
+        "/": None,
+        "-": None,
+        "<": None 
+    }
+
+    results_new_method = {
+            "+": None,
+            "*": None,
+            "/": None,
+            "-": None,
+            "<": None 
+    }
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
@@ -225,7 +226,7 @@ def stresstest_benchmark(hdr_paths: str, use_both_methods = False, use_old_metho
             assert(result_new_value.shape == result_old_value.shape)
             # np.testing.assert_allclose(result_new_value, result_old_value)
 
-def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_method = False, N = 1):
+def benchmark_all_bandmath(hdr_paths: List[str], use_both_methods = False, use_old_method = False, N = 1):
     equation_dict = {
         "+": '(a+b)+(c+d)'
         # "*": '(a*b)*(c*d)',
@@ -251,6 +252,22 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     file_time_dict = {}
     hdr_files = get_hdr_files(hdr_paths)
     loader = RasterDataLoader()
+    results_old_method = {
+        "+": None,
+        "*": None,
+        "/": None,
+        "-": None,
+        "<": None 
+    }
+
+    results_new_method = {
+            "+": None,
+            "*": None,
+            "/": None,
+            "-": None,
+            "<": None 
+    }
+    oper_file_time_dict_both = {}
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
@@ -274,8 +291,8 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
         file_times_old_method = []
         for key, value in equation_dict.items():
             oper_times = []
-            # oper_times_new_method = []
-            # oper_times_old_method = []
+            oper_times_new_method = []
+            oper_times_old_method = []
             print(f"operations: {key}")
             print(f"equation: {value}")
             for _ in range(N):
@@ -293,8 +310,8 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
                     # print(f"results_old_method[key]: {results_old_method[key]}")
                     if results_old_method[key] is None:
                         results_old_method[key] = result_old_method
-                    # oper_times_new_method.append(time_new_method)
-                    # oper_times_old_method.append(time_old_method)
+                    oper_times_new_method.append(time_new_method)
+                    oper_times_old_method.append(time_old_method)
                     time_outer = time_new_method
                 elif use_old_method:
                     print(f"results old method calculating!")
@@ -309,6 +326,9 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
 
                 oper_times.append(time_outer)
             oper_file_time_dict[f"{key}: {base_name}"] = oper_times
+            oper_file_time_dict_both[f"{key}: {base_name}"] = {}
+            oper_file_time_dict_both[f"{key}: {base_name}"]["new"] = oper_times_new_method
+            oper_file_time_dict_both[f"{key}: {base_name}"]["old"] = oper_times_old_method
             file_times += (oper_times)
         file_time_dict[base_name] = file_times
     
@@ -330,20 +350,31 @@ def benchmark_all_bandmath(hdr_paths: str, use_both_methods = False, use_old_met
     if use_both_methods:
         print("Using both methods")
         for key, value in results_new_method.items():
-            result_new_method = value
-            result_old_method = results_old_method[key]
+            if value is not None:
+                result_new_method = value
+                result_old_method = results_old_method[key]
 
-            result_new_value = result_new_method.get_image_data()
-            result_old_value = result_old_method
-            # result_new_value = result_new_method.reshape(result_new_method.get_shape())
-            # result_old_value = result_old_value.reshape(result_old_method.get_shape())
-            # print(f"OPERATION: {key}")
-            # print(f"result_new_value.shape) {result_new_value.shape} ?==? {result_old_value.shape} (result_old_value.shape")
-            # print(f"all close? {np.allclose(result_new_value, result_old_value, rtol=1e-4)}")
-            # print(f"new_value: {result_new_value[:,100:110,100:110]}")
-            # print(f"old_value: {result_old_value[:,100:110,100:110]}")
-            assert(result_new_value.shape == result_old_value.shape)
-            # np.testing.assert_allclose(result_new_value, result_old_value)
+                print(f"Type of result new method: {type(result_new_method)}")
+                result_new_value = result_new_method.get_image_data()
+                result_old_value = result_old_method
+                # result_new_value = result_new_method.reshape(result_new_method.get_shape())
+                # result_old_value = result_old_value.reshape(result_old_method.get_shape())
+                # print(f"OPERATION: {key}")
+                # print(f"result_new_value.shape) {result_new_value.shape} ?==? {result_old_value.shape} (result_old_value.shape")
+                # print(f"all close? {np.allclose(result_new_value, result_old_value, rtol=1e-4)}")
+                # print(f"new_value: {result_new_value[:,100:110,100:110]}")
+                # print(f"old_value: {result_old_value[:,100:110,100:110]}")
+                assert(result_new_value.shape == result_old_value.shape)
+                # np.testing.assert_allclose(result_new_value, result_old_value)
+        for oper_file in oper_file_time_dict_both:
+            new_times = oper_file_time_dict_both[oper_file]['new']
+            old_times = oper_file_time_dict_both[oper_file]['old']
+            print(f"{oper_file}: \n \
+                  New times: \n \
+                  \t Mean: {np.mean(new_times):.6f} \t Std: {np.std(new_times):.6f} \n \
+                  Old times: \n \
+                  \t Mean: {np.mean(old_times):.6f} \t Std: {np.std(old_times):.6f}")
+
 
 def get_nan_count(arr: np.ndarray):
     nan_count = np.isnan(arr).sum()
@@ -363,6 +394,21 @@ def test_both_methods(hdr_paths, N=1):
         # "--<*": "(((a-b)-d)<c)*a",
         # "**": "a**b-(a**0.5)",
         # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
+    }
+    results_old_method = {
+        "+": None,
+        "*": None,
+        "/": None,
+        "-": None,
+        "<": None 
+    }
+
+    results_new_method = {
+            "+": None,
+            "*": None,
+            "/": None,
+            "-": None,
+            "<": None 
     }
 
     caltech1 = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
@@ -467,7 +513,7 @@ if __name__ == '__main__':
     dataset_500mb = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
     dataset_500mb_copy = "c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\caltech-pic-copy.hdr"
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
-    dataset_6GB = '"C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2"'
+    dataset_6GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr"
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
     dataset_list = [dataset_500mb]
@@ -475,6 +521,7 @@ if __name__ == '__main__':
     N = 1
 
     test_both_methods(dataset_list)
+    # benchmark_all_bandmath(dataset_list, use_both_methods=False, N=N)
     # # benchmark_addition(dataset_list)
     # use_old_method = False
     # profiler = cProfile.Profile()

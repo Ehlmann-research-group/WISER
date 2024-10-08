@@ -10,6 +10,35 @@ from .types import VariableType, BandMathExprInfo, BandMathValue
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
+def read_lhs_future_onto_queue(lhs:BandMathValue, \
+                                index_list: List[int], event_loop, read_thread_pool, read_task_queue):
+    future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
+    read_task_queue.put((future, (min(index_list), max(index_list))))
+
+def read_rhs_future_onto_queue(rhs: BandMathValue, \
+                                    lhs_value_shape: Tuple[int], index_list: List[int], \
+                                    event_loop, read_thread_pool, read_task_queue):
+    future = event_loop.run_in_executor(read_thread_pool, \
+                                        make_image_cube_compatible_by_bands, rhs, lhs_value_shape, index_list)
+    read_task_queue.put((future, (min(index_list), max(index_list))))
+
+def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMathValue):
+    ''' 
+    lhs is assumed to have variable type ImageCube, 
+    band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]
+    We shouldn't have to check if the max band is greater than lhs because 
+    evaluator should take care of handing us the correct bands
+    '''
+    total_num_bands, _, _ = lhs.get_shape()
+    if lhs.is_intermediate:
+        return False
+    if band_index_list_sorted == [] or band_index_list_sorted is None:
+        return False
+    max_curr_band = band_index_list_sorted[-1]
+    min_curr_band = band_index_list_sorted[0]
+    assert (max_curr_band-min_curr_band) < total_num_bands
+    return True
+
 def get_dimensions(type: VariableType, shape: Tuple) -> str:
     '''
     This helper function takes a band-math value-type with a specified shape,
