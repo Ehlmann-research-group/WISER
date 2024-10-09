@@ -27,7 +27,8 @@ from osgeo import gdal
 from .builtins import (
     OperatorCompare,
     OperatorAdd, OperatorSubtract, OperatorMultiply, OperatorDivide,
-    OperatorUnaryNegate, OperatorPower, OperatorAddOrig
+    OperatorUnaryNegate, OperatorPower, OperatorCompareOrig, OperatorAddOrig, OperatorSubtractOrig,
+    OperatorMultiplyOrig, OperatorDivideOrig, OperatorUnaryNegateOrig, OperatorPowerOrig, 
     )
 
 from wiser.raster.loader import RasterDataLoader
@@ -141,20 +142,6 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
     def get_max_intermediates(self):
         return self._max_intermediates
 
-    @v_args(meta=True)
-    def comparison(self, meta, args):
-        logger.debug(' * comparison')
-        # if node_id:
-        #     print(f"Node id <: {node_id}")
-        lhs = args[0]
-        oper = args[1]
-        rhs = args[2]
-        if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # It is okay if we don't want to use index with bands or spectrum 
-        # because in each operator, index is only used with image cubes
-        return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
-
     '''
     The running total signifies how many intermediates there are at that exact point in time. 
 
@@ -239,81 +226,56 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
         #     # print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
         # # print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
 
+    def comparison(self, args):
+        logger.debug(' * comparison')
+        lhs = args[0]
+        oper = args[1]
+        rhs = args[2]
+        return self.find_current_interm_and_update_max(lhs, rhs)
 
-    @v_args(meta=True)
-    def add_expr(self, meta, values):
+    def add_expr(self, values):
         '''
         Implementation of addition and subtraction operations in the
         transformer.
         '''
         logger.debug(' * add_expr')
-        # print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
-        # print("====New add expr===")
-        child_type = getattr(meta, 'position', None)
-        node_id = getattr(meta, 'unique_id', None)
-        # if node_id:
-        #     print(f"node_id: {node_id}")
-        # if child_type:
-        #     print(f"child_type +: {child_type}")
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
 
+        if oper != '+' and oper != '-':
+            raise RuntimeError(f'Unexpected operator {oper}')
+
         return self.find_current_interm_and_update_max(lhs, rhs)
 
-        # raise RuntimeError(f'Unexpected operator {oper}')
-
-
-    @v_args(meta=True)
-    def mul_expr(self, meta, args):
+    def mul_expr(self, args):
         '''
         Implementation of multiplication and division operations in the
         transformer.
         '''
         logger.debug(' * mul_expr')
-        node_id = getattr(meta, 'unique_id', None)
-        if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
 
-        if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs], self.index_list_current)
+        if oper != '*' and oper != '/':
+            raise RuntimeError(f'Unexpected operator {oper}')
+        
+        return self.find_current_interm_and_update_max(lhs, rhs)
 
-        elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs], self.index_list_current)
-
-        raise RuntimeError(f'Unexpected operator {oper}')
-
-
-    @v_args(meta=True)
-    def power_expr(self, meta, args):
+    def power_expr(self, args):
         '''
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
-        node_id = getattr(meta, 'unique_id', None)
-        if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id **: {node_id}")
-        return OperatorPower().apply([args[0], args[1]], self.index_list_current)
+        return self.find_current_interm_and_update_max(args[0], args[1])
 
-
-    @v_args(meta=True)
-    def unary_negate_expr(self, meta, args):
+    def unary_negate_expr(self, args):
         '''
         Implementation of unary negation in the transformer.
         '''
         logger.debug(' * unary_negate_expr')
-        node_id = getattr(meta, 'unique_id', None)
-        if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id -: {node_id}")
-        # args[0] is the '-' character
-        return OperatorUnaryNegate().apply([args[1]], self.index_list_current)
+        return self.find_current_interm_and_update_max(args[1], 0)
 
 
     def true(self, args):
@@ -836,17 +798,16 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         logger.debug(' * comparison')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id <: {node_id}")
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
-        if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # It is okay if we don't want to use index with bands or spectrum 
-        # because in each operator, index is only used with image cubes
-        return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
+
+        return asyncio.run_coroutine_threadsafe(OperatorCompare(oper).apply([lhs, rhs], self.index_list_current, self.index_list_next,
+                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
+                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
     @v_args(meta=True)
     def add_expr(self, meta, values):
@@ -870,7 +831,9 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
                                         event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
+            return asyncio.run_coroutine_threadsafe(OperatorSubtract().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
+                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -894,12 +857,12 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         if oper == '*':
             return asyncio.run_coroutine_threadsafe(OperatorMultiply().apply([lhs, rhs], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
-                                        event_loop=self._event_loop), loop=self._event_loop).result()
+                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
         elif oper == '/':
             return asyncio.run_coroutine_threadsafe(OperatorDivide().apply([lhs, rhs], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
-                                        event_loop=self._event_loop), loop=self._event_loop).result()
+                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -912,10 +875,12 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         logger.debug(' * power_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id **: {node_id}")
-        return OperatorPower().apply([args[0], args[1]], self.index_list_current)
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
+        return asyncio.run_coroutine_threadsafe( OperatorPower().apply([args[0], args[1]], self.index_list_current, self.index_list_next,
+                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
+                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
 
     @v_args(meta=True)
@@ -926,10 +891,9 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         logger.debug(' * unary_negate_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id -: {node_id}")
-        # args[0] is the '-' character
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
         return OperatorUnaryNegate().apply([args[1]], self.index_list_current)
 
 
@@ -1053,7 +1017,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
-        return OperatorCompare(oper).apply([lhs, rhs])
+        return OperatorCompareOrig(oper).apply([lhs, rhs])
 
 
     def add_expr(self, values):
@@ -1070,7 +1034,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
             return OperatorAddOrig().apply([lhs, rhs])
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs])
+            return OperatorSubtractOrig().apply([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -1086,10 +1050,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs])
+            return OperatorMultiplyOrig().apply([lhs, rhs])
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs])
+            return OperatorDivideOrig().apply([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -1099,7 +1063,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
-        return OperatorPower().apply([args[0], args[1]])
+        return OperatorPowerOrig().apply([args[0], args[1]])
 
 
     def unary_negate_expr(self, args):
@@ -1108,7 +1072,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * unary_negate_expr')
         # args[0] is the '-' character
-        return OperatorUnaryNegate().apply([args[1]])
+        return OperatorUnaryNegateOrig().apply([args[1]])
 
 
     def true(self, args):
@@ -1329,7 +1293,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / 2
+            max_bytes_per_intermediate = max_bytes / number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]

@@ -102,7 +102,7 @@ class OperatorAdd(BandMathFunction):
     async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
               index_list_next: List[int], read_task_queue: queue.Queue, \
               read_thread_pool: ThreadPoolExecutor, \
-                event_loop: asyncio.AbstractEventLoop, node_id):
+                event_loop: asyncio.AbstractEventLoop, node_id: int):
         '''
         Add the LHS and RHS and return the result.
         '''
@@ -130,9 +130,6 @@ class OperatorAdd(BandMathFunction):
             rhs_value = None
             rhs_future = None
             should_be_the_same = False
-        
-            if lhs.type == rhs.type:
-                assert(lhs.get_shape() == rhs.get_shape())
 
             # Lets us handle when the band index list just has one band
             if isinstance(index_list_current, int):

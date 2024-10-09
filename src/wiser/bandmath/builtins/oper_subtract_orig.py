@@ -2,23 +2,14 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-import queue
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
-
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
-from .constants import LHS_KEY, RHS_KEY
 
 from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    make_image_cube_compatible_by_bands, read_lhs_future_onto_queue, read_rhs_future_onto_queue,
-    should_continue_reading_bands,
 )
-from wiser.raster.dataset import RasterDataSet
-import time
 
 
 def _apply_sign(sign, value):
@@ -32,7 +23,7 @@ def _apply_sign(sign, value):
         return value
 
 
-class OperatorSubtract(BandMathFunction):
+class OperatorSubtractOrig(BandMathFunction):
     '''
     Binary subtraction operator.
     '''
@@ -111,14 +102,11 @@ class OperatorSubtract(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
-              index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, \
-                event_loop: asyncio.AbstractEventLoop, node_id: int):
+    def apply(self, args: List[BandMathValue]):
         '''
         Subtract the RHS from the LHS and return the result.
         '''
-        print(f"NODE ID: {node_id}")
+
         if len(args) != 2:
             raise Exception('Binary subtraction requires exactly two arguments')
 
@@ -136,70 +124,16 @@ class OperatorSubtract(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
-            result_arr = None
-            lhs_value = None
-            lhs_future = None
-            rhs_value = None
-            rhs_future = None
-            should_be_the_same = False
+            lhs_value = lhs.as_numpy_array()
+            assert lhs_value.ndim == 3
 
-            # Lets us handle when the band index list just has one band
-            if isinstance(index_list_current, int):
-                index_list_current = [index_list_current]
-            if not isinstance(lhs.value, np.ndarray):
-                # Check to see if queue is empty. If it's not, then we can immediately get the data
-                if read_task_queue[LHS_KEY].empty():
-                    read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-                    lhs_future = read_task_queue[LHS_KEY].get()[0]
-                else:
-                    lhs_future = read_task_queue[LHS_KEY].get()[0]
-                should_read_next = should_continue_reading_bands(index_list_next, lhs)
-                # Allows us to read data into the future so there's little down time in between I/O
-                if should_read_next:
-                    read_lhs_future_onto_queue(lhs, index_list_next, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-            else:
-                lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
-
-            # We need to get lhs_value's shape since we may not have the actual array by this time
-            lhs_value_shape = list(lhs.get_shape())  
-            lhs_value_shape[0] = len(index_list_current)
-            lhs_value_shape = tuple(lhs_value_shape)
-
-            if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
-                # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-                if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
-                    should_be_the_same = True
-                else:
-                    if read_task_queue[RHS_KEY].empty():
-                        read_rhs_future_onto_queue(rhs, lhs_value_shape, index_list_current, \
-                                                   event_loop, read_thread_pool, read_task_queue[RHS_KEY])
-                        rhs_future = read_task_queue[RHS_KEY].get()[0]
-                    else:
-                        rhs_future = read_task_queue[RHS_KEY].get()[0]
-                    if should_read_next:
-                        # We have to get the size of the next data to read
-                        next_lhs_shape = list(lhs.get_shape())
-                        next_lhs_shape[0] = len(index_list_next)
-                        next_lhs_shape = tuple(next_lhs_shape)
-                        read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next, \
-                                                   event_loop, read_thread_pool, read_task_queue[RHS_KEY])
-            else:
-                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
-    
-            if rhs_future is not None:
-                rhs_value = await rhs_future
-            if lhs_future is not None:
-                lhs_value = await lhs_future
-            if should_be_the_same:
-                rhs_value = lhs_value
-            time.sleep(1)
+            rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
             result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
 
             # The result array should have the same dimensions as the LHS input
             # array.
-            assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
-            assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
-            assert np.squeeze(result_arr).shape == lhs_value.shape
+            assert result_arr.ndim == 3
+            assert result_arr.shape == lhs_value.shape
             return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
         elif lhs.type == VariableType.IMAGE_BAND:
