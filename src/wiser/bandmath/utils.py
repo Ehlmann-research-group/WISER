@@ -16,7 +16,7 @@ from .builtins.constants import LHS_KEY, RHS_KEY
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
-async def get_rhs_lhs_async(lhs: BandMathValue, rhs: BandMathValue, index_list_current: List[int], \
+async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index_list_current: List[int], \
                       index_list_next: List[int], read_task_queue: queue.Queue, \
                       read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
     lhs_value = None
@@ -72,6 +72,29 @@ async def get_rhs_lhs_async(lhs: BandMathValue, rhs: BandMathValue, index_list_c
         rhs_value = lhs_value
     
     return lhs_value, rhs_value
+
+async def get_lhs_value_async(lhs: BandMathValue, index_list_current: List[int], \
+                       index_list_next: List[int], read_task_queue: queue.Queue, \
+                        read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
+    lhs_value = None
+    lhs_future = None
+    if not isinstance(lhs.value, np.ndarray):
+        # Check to see if queue is empty. If it's not, then we can immediately get the data
+        if read_task_queue[LHS_KEY].empty():
+            read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
+            lhs_future = read_task_queue[LHS_KEY].get()[0]
+        else:
+            lhs_future = read_task_queue[LHS_KEY].get()[0]
+        should_read_next = should_continue_reading_bands(index_list_next, lhs)
+        # Allows us to read data into the future so there's little down time in between I/O
+        if should_read_next:
+            read_lhs_future_onto_queue(lhs, index_list_next, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
+    else:
+        lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
+    if lhs_future is not None:
+        lhs_value = await lhs_future
+    return lhs_value
+    
             
 
 def read_lhs_future_onto_queue(lhs:BandMathValue, \

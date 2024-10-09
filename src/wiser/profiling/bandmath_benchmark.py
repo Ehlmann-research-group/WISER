@@ -388,10 +388,10 @@ def test_both_methods(hdr_paths, N=1):
         # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
         # "-": '(a-b)-(c-d)',
-        # "neg": '-a+1',
+        "neg": '-a+1',
         # "<": '((a-b)-d)<c',
         # "/-*+" : '(a/b)-(c*d)+a',
-        "--<*": "(((a-b)-d)<c)*a",
+        # "-+<*": "(((a-b)+d)<c)*a",
         # "**": "a**b-(a**0.5)",
         # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
     }
@@ -416,7 +416,7 @@ def test_both_methods(hdr_paths, N=1):
         "neg": None,
         "<": None,
         "/-*+": None,
-        "--<*": None,
+        "-+<*": None,
         "**": None,
         "formula": None
     }

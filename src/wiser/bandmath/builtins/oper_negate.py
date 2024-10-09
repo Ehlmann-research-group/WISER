@@ -2,9 +2,15 @@ from typing import List
 
 import numpy as np
 
+import queue
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
 
+from ..utils import get_lhs_value_async
+import time
 
 class OperatorUnaryNegate(BandMathFunction):
     '''
@@ -25,18 +31,21 @@ class OperatorUnaryNegate(BandMathFunction):
         # Make sure the input type is compatible with unary negation
         if arg.result_type not in [VariableType.IMAGE_CUBE,
             VariableType.IMAGE_BAND, VariableType.SPECTRUM, VariableType.NUMBER]:
-            self._report_type_error(arg_type)
+            self._report_type_error(arg.result_type)
 
         # Unary negation returns the same kind of input that it is given.
         # The metadata-source of the result will also be the same as the input.
         return arg
 
 
-    def apply(self, args: List[BandMathValue], index_list: List[int]):
+    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
+              index_list_next: List[int], read_task_queue: queue.Queue, \
+              read_thread_pool: ThreadPoolExecutor, \
+                event_loop: asyncio.AbstractEventLoop, node_id: int):
         '''
         Perform unary negation on the argument and return the result.
         '''
-
+        print(f"NODE ID: {node_id}")
         if len(args) != 1:
             raise Exception('Unary negation requires exactly one operand')
 
@@ -45,16 +54,15 @@ class OperatorUnaryNegate(BandMathFunction):
         if arg.type == VariableType.NUMBER:
             return BandMathValue(VariableType.NUMBER, -arg.value)
         elif arg.type == VariableType.IMAGE_CUBE:
-            if index_list is not None:
-                if isinstance(index_list, int):
-                    index_list = [index_list] 
-                arr = arg.as_numpy_array_by_bands(index_list)
-                result_arr = -arr
-                return BandMathValue(arg.type, result_arr)
-            else:
-                arr = arg.as_numpy_array()
-                result_arr = -arr
-                return BandMathValue(arg.type, result_arr)
+            if isinstance(index_list_current, int):
+                index_list_current = [index_list_current]
+            if isinstance(index_list_next, int):
+                index_list_next = [index_list_next]
+            arr = await get_lhs_value_async(arg, index_list_current, index_list_next, \
+                                        read_task_queue, read_thread_pool, event_loop)
+            time.sleep(1)
+            result_arr = -arr
+            return BandMathValue(arg.type, result_arr)
         elif arg.type in [VariableType.IMAGE_BAND,
                           VariableType.SPECTRUM]:
             arr = arg.as_numpy_array()
