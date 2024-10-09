@@ -878,7 +878,7 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
             self._read_data_queue_dict[node_id] = {}
             self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
             self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
-        return asyncio.run_coroutine_threadsafe( OperatorPower().apply([args[0], args[1]], self.index_list_current, self.index_list_next,
+        return asyncio.run_coroutine_threadsafe(OperatorPower().apply([args[0], args[1]], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
                                         event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
@@ -894,7 +894,9 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
             self._read_data_queue_dict[node_id] = {}
             self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
             self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
-        return OperatorUnaryNegate().apply([args[1]], self.index_list_current)
+        return asyncio.run_coroutine_threadsafe(OperatorUnaryNegate().apply([args[1]], self.index_list_current, self.index_list_next,
+                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
+                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
 
     def true(self, args):

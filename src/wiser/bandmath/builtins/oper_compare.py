@@ -13,7 +13,7 @@ from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
     make_image_cube_compatible_by_bands, read_lhs_future_onto_queue, read_rhs_future_onto_queue,
-    should_continue_reading_bands,
+    should_continue_reading_bands, get_lhs_rhs_values_async,
 )
 from wiser.raster.dataset import RasterDataSet
 import time
@@ -193,62 +193,17 @@ class OperatorCompare(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            result_arr = None
-            lhs_value = None
-            lhs_future = None
-            rhs_value = None
-            rhs_future = None
-            should_be_the_same = False
 
             # Lets us handle when the band index list just has one band
             if isinstance(index_list_current, int):
                 index_list_current = [index_list_current]
-            if not isinstance(lhs.value, np.ndarray):
-                # Check to see if queue is empty. If it's not, then we can immediately get the data
-                if read_task_queue[LHS_KEY].empty():
-                    read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-                    lhs_future = read_task_queue[LHS_KEY].get()[0]
-                else:
-                    lhs_future = read_task_queue[LHS_KEY].get()[0]
-                should_read_next = should_continue_reading_bands(index_list_next, lhs)
-                # Allows us to read data into the future so there's little down time in between I/O
-                if should_read_next:
-                    read_lhs_future_onto_queue(lhs, index_list_next, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-            else:
-                lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
+            if isinstance(index_list_next, int):
+                index_list_next = [index_list_next]
 
-            # We need to get lhs_value's shape since we may not have the actual array by this time
-            lhs_value_shape = list(lhs.get_shape())  
-            lhs_value_shape[0] = len(index_list_current)
-            lhs_value_shape = tuple(lhs_value_shape)
+            lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
+                                                           index_list_next, read_task_queue, \
+                                                            read_thread_pool, event_loop)
 
-            if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
-                # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-                if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
-                    should_be_the_same = True
-                else:
-                    if read_task_queue[RHS_KEY].empty():
-                        read_rhs_future_onto_queue(rhs, lhs_value_shape, index_list_current, \
-                                                   event_loop, read_thread_pool, read_task_queue[RHS_KEY])
-                        rhs_future = read_task_queue[RHS_KEY].get()[0]
-                    else:
-                        rhs_future = read_task_queue[RHS_KEY].get()[0]
-                    if should_read_next:
-                        # We have to get the size of the next data to read
-                        next_lhs_shape = list(lhs.get_shape())
-                        next_lhs_shape[0] = len(index_list_next)
-                        next_lhs_shape = tuple(next_lhs_shape)
-                        read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next, \
-                                                   event_loop, read_thread_pool, read_task_queue[RHS_KEY])
-            else:
-                rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
-    
-            if rhs_future is not None:
-                rhs_value = await rhs_future
-            if lhs_future is not None:
-                lhs_value = await lhs_future
-            if should_be_the_same:
-                rhs_value = lhs_value
             time.sleep(1)
             result_arr = compare_fn(lhs_value, rhs_value)
             result_arr = result_arr.astype(np.byte)
