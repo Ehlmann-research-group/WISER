@@ -404,11 +404,11 @@ def test_both_methods(hdr_paths, N=1):
     }
 
     results_new_method = {
-            "+": None,
-            "*": None,
-            "/": None,
-            "-": None,
-            "<": None 
+        "+": None,
+        "*": None,
+        "/": None,
+        "-": None,
+        "<": None 
     }
 
     caltech1 = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
