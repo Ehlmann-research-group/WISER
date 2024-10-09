@@ -138,6 +138,9 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
         if self._intermediate_running_total > self._max_intermediates:
             self._max_intermediates = self._intermediate_running_total
 
+    def get_max_intermediates(self):
+        return self._max_intermediates
+
     @v_args(meta=True)
     def comparison(self, meta, args):
         logger.debug(' * comparison')
@@ -152,45 +155,89 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
         # because in each operator, index is only used with image cubes
         return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
 
-    def update_max_intermediates(self, lhs, rhs):
-        current_intermediates = 0
-        if isinstance(lhs, BandMathValue) and isinstance(rhs, BandMathValue):
-            # Lhs and rhs should never be an intermediate
-            if lhs.is_intermediate and rhs.is_intermediate:
-                self.decrement_interm_running_total()
-            elif lhs.is_intermediate or rhs.is_intermediate:
-                self.decrement_interm_running_total()
-            else:
-                if lhs.type == VariableType.IMAGE_CUBE and rhs.type == VariableType.IMAGE_CUBE:
-                    self.increment_interm_running_total()
-                    self.increment_interm_running_total()
-                elif lhs.type == VariableType.IMAGE_CUBE or rhs.type == VariableType.IMAGE_CUBE:
-                    self.increment_interm_running_total()
-        # Then one of them is an int
-        elif isinstance(lhs, BandMathValue) and isinstance(rhs, int):
-            if lhs.type != VariableType.IMAGE_CUBE:
-                self.increment_interm_running_total()
+    '''
+    The running total signifies how many intermediates there are at that exact point in time. 
 
-        elif isinstance(lhs, BandMathValue) or isinstance(rhs, BandMathValue):
-            x = 1
-        if isinstance(lhs, BandMathValue):
-            if lhs.is_intermediate:
+    The return value signifies if that node should be considered as taking up space in memory. 
+    We assume that when we are at a node, the running total represents the running total BEFORE
+    we got to that node. We update the running total to be what it would be as that node is running
+    and then have it finish being what it is after that node has run
+
+    If both instances are band math value we incrememnt the running total twice then decrement it
+
+    If one instance is a bandmath value and the other is an int we increment the running total then
+    decrement it.
+
+    If both instances are ints then we only decrement it if both ints are greater than 0
+    '''
+
+    def find_current_interm_and_update_max(self, lhs, rhs):
+        has_intermediate = 0
+        if isinstance(lhs, BandMathValue) and isinstance(rhs, BandMathValue):
+            # If both lhs and rhs are bandmath value image cubes then we are at a leaf node so we want
+            # to incrememnt the running total and we will currently have two intermediates
+            if lhs.type == VariableType.IMAGE_CUBE and rhs.type == VariableType.IMAGE_CUBE:
+                self.increment_interm_running_total()
+                self.increment_interm_running_total()
                 self.decrement_interm_running_total()
+                has_intermediate = 1
+            # If either lhs and rhs are image cubes, then we will incrememnt the counter by one
+            # and make current intermediates = 1
+            elif lhs.type == VariableType.IMAGE_CUBE or rhs.type == VariableType.IMAGE_CUBE:
+                self.increment_interm_running_total()
+                has_intermediate = 1
+        # The case when we just got up the tree from an expression node and we have a 
+        # band math value. If lhs is an image cube we want to increment curr intermediates.
+        # If rhs is an int that is not zero, then we 
+        elif isinstance(lhs, BandMathValue) and isinstance(rhs, int):
+            # In this case, both things are counted as intermediates
+            if lhs.type == VariableType.IMAGE_CUBE and rhs > 0:
+                self.increment_interm_running_total()  # Because lhs is new since it is an image cube bandmath value
+                self.decrement_interm_running_total()
+                has_intermediate = 1
+            # elif rhs > 0: # This intermediate has already been added to the running total so we do nothing in this case
+            
             elif lhs.type == VariableType.IMAGE_CUBE:
+                self.increment_interm_running_total() # We don't decrement because we aren't combining two values
+                has_intermediate = 1
+        elif isinstance(lhs, int) and isinstance(rhs, BandMathValue):
+            if rhs.type == VariableType.IMAGE_CUBE and lhs > 0:
                 self.increment_interm_running_total()
-        if isinstance(rhs, BandMathValue):
-            if rhs.is_intermediate:
                 self.decrement_interm_running_total()
+                has_intermediate = 1
             elif rhs.type == VariableType.IMAGE_CUBE:
-                self.increment_interm_running_total()
+                self.increment_interm_running_total() # We don't decrement because we aren't combining two values
+                has_intermediate = 1
+        elif isinstance(lhs, int) and isinstance(rhs, int):
+            if lhs > 0 and rhs > 0:
+                self.decrement_interm_running_total()
+                has_intermediate = 1
         else:
-            assert(isinstance(lhs, int))
-            assert(isinstance(rhs, int))
-            print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
-            self.decrement_interm_running_total()
-            self.decrement_interm_running_total()
-            # print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
-        # print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
+            raise TypeError(f' Got wrong type in either argument. Arg1 {lhs}, arg2: {rhs}')
+
+        return has_intermediate
+            
+
+        # elif isinstance(lhs, BandMathValue) or isinstance(rhs, BandMathValue):
+        #     x = 1
+        # if isinstance(lhs, BandMathValue):
+        #     if lhs.is_intermediate:
+        #         self.decrement_interm_running_total()
+        #     elif lhs.type == VariableType.IMAGE_CUBE:
+        #         self.increment_interm_running_total()
+        # if isinstance(rhs, BandMathValue):
+        #     if rhs.is_intermediate:
+        #         self.decrement_interm_running_total()
+        #     elif rhs.type == VariableType.IMAGE_CUBE:
+        #         self.increment_interm_running_total()
+        # else:
+        #     assert(isinstance(lhs, int))
+        #     assert(isinstance(rhs, int))
+        #     print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
+        #     self.decrement_interm_running_total()
+        #     self.decrement_interm_running_total()
+        #     # print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
+        # # print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
 
 
     @v_args(meta=True)
@@ -212,8 +259,7 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
         oper = values[1]
         rhs = values[2]
 
-        self.update_max_intermediates(lhs, rhs)
-        return self._max_intermediates
+        return self.find_current_interm_and_update_max(lhs, rhs)
 
         # raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -1222,7 +1268,8 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     print_tree_with_meta(tree)
 
     numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
-    number_of_intermediates = numInterFinder.transform(tree)
+    numInterFinder.transform(tree)
+    number_of_intermediates = numInterFinder.get_max_intermediates()
     print(f"Number of intermediates: {number_of_intermediates}")
     # print(f"TREE: \n {tree}")
     # print_tree_with_positions(tree)

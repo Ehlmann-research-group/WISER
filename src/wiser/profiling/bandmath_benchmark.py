@@ -95,7 +95,7 @@ def stress_test_benchmark(hdr_paths: str, use_both_methods = False, use_old_meth
         "A": '1.0 - 2.0*a/(c+e)',
         "B": 'a / (d*(d>0.2)+d<0.2)',
         "C": 'dotprod(a, d)',
-        "D": 'a*(2.718)**0.2', #Atmospheric corection
+        "D": 'a*(2.718)**0.2', #Atmospheric correction
         # "+": '(a+b)+((c+d)+(e+f)+(g+h))',
         # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
@@ -383,8 +383,8 @@ def get_nan_count(arr: np.ndarray):
 def test_both_methods(hdr_paths, N=1):
     loader = RasterDataLoader()
     equation_dict = {
-        # "+": 'a+c'
-        "+": '(a+c)+((c+a)+(e+f)+(g+h))',
+        "+": '(a+c)+((c+a)+((e+f)+(g+h)))'
+        # "+": '(a+c)+((c+a)+(e+f)+(g+h))',
         # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
         # "-": '(a-b)-(c-d)',
