@@ -585,6 +585,9 @@ class RasterDataSet:
 
     def set_save_state(self, save_state: SaveState):
         self._impl.set_save_state(save_state)
+    
+    def get_impl(self):
+        return self._impl
 
     def __eq__(self, other) -> bool:
         if isinstance(other, RasterDataSet):

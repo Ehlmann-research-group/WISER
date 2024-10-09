@@ -9,8 +9,6 @@ from lark.exceptions import VisitError, GrammarError
 import inspect
 import numpy as np
 
-import atexit
-
 import queue
 import asyncio
 import threading
@@ -18,7 +16,7 @@ import concurrent.futures
 
 from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
-from .utils import TEMP_FOLDER_PATH
+from .utils import TEMP_FOLDER_PATH, print_tree_with_meta, get_unused_file_path_in_folder
 
 from wiser.raster.dataset import RasterDataSet
 
@@ -32,10 +30,14 @@ from .builtins import (
     )
 
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.dataset_impl import SaveState
+from wiser.raster.dataset_impl import SaveState, GDALRasterDataImpl
 
-from .builtins.constants import MAX_RAM_BYTES, SCALAR_BYTES, NUM_READERS, \
-    NUM_PROCESSORS, NUM_WRITERS, LHS_KEY, RHS_KEY
+from .builtins.constants import (
+    MAX_RAM_BYTES, SCALAR_BYTES, NUM_READERS, \
+    NUM_WRITERS, LHS_KEY, RHS_KEY
+    )
+
+logger = logging.getLogger(__name__)
 
 class UniqueIDAssigner(Visitor):
     def __init__(self):
@@ -60,57 +62,6 @@ class UniqueIDAssigner(Visitor):
 
     def power_expr(self, tree):
         self._assign_id(tree)
-
-# Define the Visitor class to traverse the tree
-class PositionVisitor(Visitor):
-    def __init__(self):
-        # Track if this is the first node being visited
-        self.is_root = True
-    def _update_metadata(self, node, rule_name):
-        # Iterate over the children of the node, which is a Tree object
-        for i, child in enumerate(node.children):
-            # Only add metadata if the child has the 'meta' attribute (typically for Tree objects)
-            if hasattr(child, 'meta'):
-                if i == 0:
-                    child.meta.position = 'LEFT'
-                else:
-                    child.meta.position = 'RIGHT'
-            
-            # Add rule_name only if it's a Tree node, not a Token
-            if isinstance(child, Tree):
-                child.rule_name = rule_name
-
-            # Mark this node as root if it's the first node visited
-        if self.is_root:
-            node.meta.position = 'ROOT'
-            self.is_root = False
-
-        return node
-
-    def comparison(self, node):
-        return self._update_metadata(node, 'comparison')
-
-    def add_expr(self, node):
-        return self._update_metadata(node, 'add_expr')
-
-    def mul_expr(self, node):
-        return self._update_metadata(node, 'mul_expr')
-
-    def unary_negate_expr(self, node):
-        return self._update_metadata(node, 'unary_negate_expr')
-
-    def power_expr(self, node):
-        return self._update_metadata(node, 'power_expr')
-
-logger = logging.getLogger(__name__)
-
-def trace_lock_event(frame, event, arg):
-    if event == 'lock':
-        print(f"Thread {threading.current_thread().name} is attempting to acquire a lock")
-    elif event == 'acquire':
-        print(f"Thread {threading.current_thread().name} acquired a lock")
-    elif event == 'release':
-        print(f"Thread {threading.current_thread().name} released a lock")
 
 class NumberOfIntermediatesFinder(lark.visitors.Transformer):
     '''
@@ -141,22 +92,6 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
 
     def get_max_intermediates(self):
         return self._max_intermediates
-
-    '''
-    The running total signifies how many intermediates there are at that exact point in time. 
-
-    The return value signifies if that node should be considered as taking up space in memory. 
-    We assume that when we are at a node, the running total represents the running total BEFORE
-    we got to that node. We update the running total to be what it would be as that node is running
-    and then have it finish being what it is after that node has run
-
-    If both instances are band math value we incrememnt the running total twice then decrement it
-
-    If one instance is a bandmath value and the other is an int we increment the running total then
-    decrement it.
-
-    If both instances are ints then we only decrement it if both ints are greater than 0
-    '''
 
     def find_current_interm_and_update_max(self, lhs, rhs):
         has_intermediate = 0
@@ -203,28 +138,6 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
             raise TypeError(f' Got wrong type in either argument. Arg1 {lhs}, arg2: {rhs}')
 
         return has_intermediate
-            
-
-        # elif isinstance(lhs, BandMathValue) or isinstance(rhs, BandMathValue):
-        #     x = 1
-        # if isinstance(lhs, BandMathValue):
-        #     if lhs.is_intermediate:
-        #         self.decrement_interm_running_total()
-        #     elif lhs.type == VariableType.IMAGE_CUBE:
-        #         self.increment_interm_running_total()
-        # if isinstance(rhs, BandMathValue):
-        #     if rhs.is_intermediate:
-        #         self.decrement_interm_running_total()
-        #     elif rhs.type == VariableType.IMAGE_CUBE:
-        #         self.increment_interm_running_total()
-        # else:
-        #     assert(isinstance(lhs, int))
-        #     assert(isinstance(rhs, int))
-        #     print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
-        #     self.decrement_interm_running_total()
-        #     self.decrement_interm_running_total()
-        #     # print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
-        # # print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
 
     def comparison(self, args):
         logger.debug(' * comparison')
@@ -498,7 +411,6 @@ class BandMathEvaluatorAsync(AsyncTransformer):
             self._read_data_queue_dict = {}
             self._write_data_queue = queue.Queue()
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
-            self._read_thread_pool_rhs = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
             self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
             self._event_loop = asyncio.new_event_loop()
             self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
@@ -507,41 +419,30 @@ class BandMathEvaluatorAsync(AsyncTransformer):
             self._read_data_queue = None
             self._write_data_queue = None
 
-        # Dictionary that maps position in tree to queue
-        # position so we don't have to have different queues for
-        # different trees. The node in the tree wil be able to 
-        # access the data it needs from the dictionary. The 
-        # data will be the queue and the thread or process pool executor
-
-    def get_node_id(self, node_meta):
-        '''
-        Generates a unique ID for a given node based on its meta attribute (position in the tree).
-        '''
-        # Create a unique key based on the line and column position in the source
-        node_key = (node_meta.line, node_meta.column)
-        
-        # If the node doesn't have an ID, create one and store it
-        if node_key not in self.node_ids:
-            self.node_ids[node_key] = len(self.node_ids) + 1
-
-        return self.node_ids[node_key]
-
     @v_args(meta=True)
-    def comparison(self, meta, args):
+    async def comparison(self, meta, args):
         logger.debug(' * comparison')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id <: {node_id}")
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
+
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
-        if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # It is okay if we don't want to use index with bands or spectrum 
-        # because in each operator, index is only used with image cubes
-        return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
+        
+        # Schedule this operation as a background task
+        addition_task = asyncio.ensure_future(OperatorCompare(oper).apply(
+            [lhs, rhs],
+            self.index_list_current,
+            self.index_list_next,
+            self._read_data_queue_dict[node_id],
+            self._read_thread_pool,
+            self._event_loop,
+            node_id
+        ))
+        return await addition_task
 
     @v_args(meta=True)
     async def add_expr(self, meta, values):
@@ -555,14 +456,10 @@ class BandMathEvaluatorAsync(AsyncTransformer):
             self._read_data_queue_dict[node_id] = {}
             self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
             self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id <: {node_id}")
 
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
-        # print(f"type(lhs): {type(lhs)} for node {node_id}")
-        # print(f"type(rhs): {type(rhs)} for node {node_id}")
 
         if oper == '+':
             # Schedule this operation as a background task
@@ -573,17 +470,28 @@ class BandMathEvaluatorAsync(AsyncTransformer):
                 self._read_data_queue_dict[node_id],
                 self._read_thread_pool,
                 self._event_loop,
+                node_id
             ))
             return await addition_task
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
+            # Schedule this operation as a background task
+            addition_task = asyncio.ensure_future(OperatorSubtract().apply(
+                [lhs, rhs],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id
+            ))
+            return await addition_task
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
 
     @v_args(meta=True)
-    def mul_expr(self, meta, args):
+    async def mul_expr(self, meta, args):
         '''
         Implementation of multiplication and division operations in the
         transformer.
@@ -591,49 +499,88 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         logger.debug(' * mul_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id *: {node_id}")
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
+            
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs], self.index_list_current)
+            # Schedule this operation as a background task
+            addition_task = asyncio.ensure_future(OperatorMultiply().apply(
+                [lhs, rhs],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id
+            ))
+            return await addition_task
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs], self.index_list_current)
+            # Schedule this operation as a background task
+            addition_task = asyncio.ensure_future(OperatorDivide().apply(
+                [lhs, rhs],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id
+            ))
+            return await addition_task
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
 
     @v_args(meta=True)
-    def power_expr(self, meta, args):
+    async def power_expr(self, meta, args):
         '''
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id **: {node_id}")
-        return OperatorPower().apply([args[0], args[1]], self.index_list_current)
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
+
+        addition_task = asyncio.ensure_future(OperatorPower().apply(
+                [args[0], args[1]],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id
+            ))
+        return await addition_task
 
 
     @v_args(meta=True)
-    def unary_negate_expr(self, meta, args):
+    async def unary_negate_expr(self, meta, args):
         '''
         Implementation of unary negation in the transformer.
         '''
         logger.debug(' * unary_negate_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id -: {node_id}")
-        # args[0] is the '-' character
-        return OperatorUnaryNegate().apply([args[1]], self.index_list_current)
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+
+        addition_task = asyncio.ensure_future(OperatorUnaryNegate().apply(
+            [args[1]],
+            self.index_list_current,
+            self.index_list_next,
+            self._read_data_queue_dict[node_id],
+            self._read_thread_pool,
+            self._event_loop,
+            node_id
+        ))
+        return await addition_task
 
 
     def true(self, args):
@@ -728,6 +675,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         logger.debug(' * STRING')
         # Chop the quotes off of the string value
         return str(token)[1:-1]
+
     def stop(self):
         """Gracefully stop the event loop and wait for the thread to finish."""
         if self._event_loop.is_running():
@@ -739,21 +687,6 @@ class BandMathEvaluatorAsync(AsyncTransformer):
     def __del__(self):
         self.stop()  # Ensure the loop and thread are stopped
         print("Eval operator event loop and thread cleaned up")
-
-import re
-def remove_trailing_number(filepath):
-    # Regular expression pattern to match " space followed by digits" at the end of the path
-    pattern = r"(.*)\s\d+$"
-    
-    # Use re.match to see if the pattern matches the filepath
-    match = re.match(pattern, filepath)
-    
-    # If a match is found, return the group without the trailing space and number
-    if match:
-        return match.group(1)
-    
-    # Otherwise, return the original filepath
-    return filepath
 
 class BandMathEvaluatorSync(lark.visitors.Transformer):
     '''
@@ -779,19 +712,6 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         else:
             self._read_data_queue = None
             self._write_data_queue = None
-
-    def get_node_id(self, node_meta):
-        '''
-        Generates a unique ID for a given node based on its meta attribute (position in the tree).
-        '''
-        # Create a unique key based on the line and column position in the source
-        node_key = (node_meta.line, node_meta.column)
-        
-        # If the node doesn't have an ID, create one and store it
-        if node_key not in self.node_ids:
-            self.node_ids[node_key] = len(self.node_ids) + 1
-
-        return self.node_ids[node_key]
 
     @v_args(meta=True)
     def comparison(self, meta, args):
@@ -893,7 +813,6 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         if node_id not in self._read_data_queue_dict:
             self._read_data_queue_dict[node_id] = {}
             self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
-            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
         return asyncio.run_coroutine_threadsafe(OperatorUnaryNegate().apply([args[1]], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
                                         event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
@@ -1204,7 +1123,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     # TODO(donnie):  Can also make sure they are valid, trimmed of whitespace,
     #     etc.
 
-    print(f"GDAL Python Version: {gdal.__version__}")
+    # print(f"GDAL Python Version: {gdal.__version__}")
     lower_variables = {}
     for name, value in variables.items():
         lower_variables[name.lower()] = value
@@ -1217,45 +1136,25 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     parser = lark.Lark.open('bandmath.lark', rel_to=__file__, start='expression', 
                             propagate_positions=True)
     tree = parser.parse(bandmath_expr)
+
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
-    '''
-    Okay so I think to make this parallel, in the tree when a data piece is retrieve we actually retrieve that data piece from the queue. But where is the queue? The queue could be stored in the evaluator and passed
-    in to any of the Operators. Also we could have a processor class in BandMathEvaluator that spawns a ProcessPoolExecutor where we can run the operations on. Everytime a node of the tree is processed, we will add that Operator
-    to the process, maybe wrapped in a function. Then writing to disk we can simply do as is done in the chatpgt code.
-    '''
     logger.debug('Beginning band-math evaluation')
-    # child_assigner = PositionVisitor()
-    # child_assigner.visit(tree)
+
     id_assigner = UniqueIDAssigner()
     id_assigner.visit(tree)
-    print(f"TREE: \n")
-    # print_tree_with_positions(tree)
-    # print('========')
-    print_tree_with_meta(tree)
+    # print(f"TREE: \n")
+    # print_tree_with_meta(tree)
 
     numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
     numInterFinder.transform(tree)
     number_of_intermediates = numInterFinder.get_max_intermediates()
-    print(f"Number of intermediates: {number_of_intermediates}")
-    # print(f"TREE: \n {tree}")
-    # print_tree_with_positions(tree)
-    # print_tree_with_meta(tree)
+    # print(f"Number of intermediates: {number_of_intermediates}")
 
-    def write_band(out_dataset_gdal, gdal_band_index, band_index, res):
-        band_to_write = None
-        if len(band_index_list_current) == 1:
-            band_to_write = np.squeeze(res)
-        else:
-            band_to_write = res[gdal_band_index-band_index]
-        band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
-        band.WriteArray(band_to_write)
-        band.FlushCache()
-        return True
-
-    def write_raster(out_dataset_gdal, band_index_list_current, result):
-        print("[[[[[[[[[[[[[[[[[[[ABOUT TO WRITE]]]]]]]]]]]]]]]]]]]")
+    def write_raster(out_dataset_gdal, band_index_list_current: List[int], result: np.ndarray):
+        # print("ABOUT TO WRITE DATA")
         gdal_band_list_current = [band+1 for band in band_index_list_current]
-        # Write queue data to be written all at once
+        # We could check the type of out_dataset_gdal here to make sure 
+        # that it's a gdal even though we are only using this function here
         out_dataset_gdal.WriteRaster(
             0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
             result.tobytes(),
@@ -1264,180 +1163,81 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             band_list=gdal_band_list_current
         )
         out_dataset_gdal.FlushCache()
-        print("(((((((((((((((((((((FINISHED FLUSHING)))))))))))))))))))))")
+        # print("FINISHED FLUSHING DATA")
 
     from memory_profiler import memory_usage
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
         try:
-            eval = BandMathEvaluatorSync(lower_variables, lower_functions, expr_info.shape)
+            # eval = BandMathEvaluatorSync(lower_variables, lower_functions, expr_info.shape)
+            eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
-            result_path = os.path.join(TEMP_FOLDER_PATH, result_name)
-            count = 2
-            while (os.path.exists(result_path)):
-                result_path = remove_trailing_number(result_path)
-                result_path+=f" {count}"
-                count+=1
+            
+            # Gets the correct file path to make our temporary file
+            result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
             folder_path = os.path.dirname(result_path)
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
+            
             out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal.GDT_Float32)
-            # out_dataset_gdal.FlushCache()
-            # out_dataset_gdal = None
-
-            # flags = gdal.OF_RASTER | gdal.OF_READONLY
-            # out_dataset_gdal = gdal.OpenEx(result_path, flags)
-            # if out_dataset_gdal is not None:
-            #     is_thread_safe = out_dataset_gdal.GetMetadataItem("THREAD_SAFE", "OPEN_CONFIG")
-            #     print(f"GDAL Dataset is thread-safe? {is_thread_safe}")
-            # else:
-            #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
-            bytes_per_scalar = SCALAR_BYTES
+            # We declare the dataset write after so if any errors occur below,
+            # the file gets destroyed (which happens in del of RasterDataSet)
+            out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
+            out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+            out_dataset.set_dirty()
+            
+            # Based on memory limits (currently set in constants,, but we could make it more adjustable)
+            # find the number of bands that we can access without exceeding it
+            bytes_per_element = np.dtype(expr_info.elem_type).itemsize if expr_info.elem_type is not None else SCALAR_BYTES
+            bytes_per_scalar = bytes_per_element
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
             max_bytes_per_intermediate = max_bytes / number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
+
             writing_futures = []
-            memory_before = memory_usage()[0]
-            max_memory_used = 0
             for band_index in range(0, bands, num_bands):
                 band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
                 band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
+
                 eval.index_list_current = band_index_list_current
                 eval.index_list_next = band_index_list_next
-                print(f"Max/min of band_index_list_next| min: {min(band_index_list_current)} & len: {len(band_index_list_current)}, max: {max(band_index_list_current)}  & len: {len(band_index_list_next)}")
+                
                 result_value = eval.transform(tree)
-                memory_usage_during = memory_usage()[0]
-                curr_memory_used = memory_usage_during-memory_before
-                if curr_memory_used > max_memory_used:
-                    max_memory_used = curr_memory_used
-                    print(f"==========NEW MAX MEMORY USED: {max_memory_used} MB============")
-                print(f';;;;;;;;;;;;;;; type of result_value before: {type(result_value)}')
                 if isinstance(result_value, (asyncio.Future, Coroutine)):
                     result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
-                # print(f';;;;;;;;;;;;;;; type of result_vZalue after: {type(result_value)}')
-                # result_value = result_value
                 res = result_value.value
-                # print("---------------------------EVAL RESULTS---------------------------")
-                # print(f"eval res: \n {res}")
-                if isinstance(result_value.value, np.ma.MaskedArray):
+                
+                if isinstance(res, np.ma.MaskedArray):
                     if not np.issubdtype(res.dtype, np.floating):
                         res = res.astype(np.float32)
-                    res[result_value.value.mask] = np.nan
-
-                # once everything is returned, then we add the result
-                # to the queue to be written.
-                # We add a function to the 
-                # thread pool executor (that we can just define in that function's
-                # if statement) that pops stuff from the to-be-written queue
-                # and then writes everything to disk  asynchronously
-
-                # print("Writing")
+                    res[res.mask] = np.nan
+                    
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
-                # # Write queue data to be written all at once
-                # gdal_band_list_current = [band+1 for band in band_index_list_current]
-                # out_dataset_gdal.WriteRaster(
-                #     0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
-                #     res.tobytes(),
-                #     buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
-                #     buf_type=gdal.GDT_Float32,
-                #     band_list=gdal_band_list_current
-                # )
-                # out_dataset_gdal.FlushCache()
-
-                # future = eval._event_loop.run_in_executor(eval._write_thread_pool, write_raster, \
-                #                                     out_dataset_gdal, band_index_list_current, res)
+                
                 future = eval._write_thread_pool.submit(write_raster, \
                                                     out_dataset_gdal, band_index_list_current, \
                                                     res)
                 writing_futures.append(future)
             concurrent.futures.wait(writing_futures)
-            # for future in writing_futures:
-            #     print("waiting for future")
-            #     waiting_result = future.result()
-            # concurrent.futures.wait(writing_futures)
-            # eval._event_loop.run_until_complete(asyncio.gather(*writing_futures))
+            # print(f"DONE WRITING ARRAY")
         except BaseException as e:
             if eval is not None:
                 eval.stop()
                 raise e
         finally:
-            print(f"==========NEW MAX MEMORY USED: THROUGHOUT PROCESS {max_memory_used} MB============")
-        concurrent.futures.wait(writing_futures)
-        print(f"DONE WRITING FUTURES")
-        # print(f"---------------------------Out dataset data:---------------------------")
-        # print(f"{out_dataset_gdal.ReadAsArray()}")
-            # Loop through band index list and add a write task to the executor
-            # for gdal_band_index in band_index_list_current:
-            #     future = eval._write_thread_pool.submit(write_band, \
-            #                                      out_dataset_gdal, gdal_band_index, band_index, res)
-            #     writing_futures.append(future)
-            # concurrent.futures.wait(writing_futures)
-                # band_to_write = None
-                # if len(band_index_list_current) == 1:
-                #     band_to_write = np.squeeze(res)
-                # else:
-                #     band_to_write = res[gdal_band_index-band_index]
-                # band = out_dataset_gdal.GetRasterBand(gdal_band_index+1)
-                # band.WriteArray(band_to_write)
-                # band.FlushCache()
-        eval.stop()
-        out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
-        out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
-        out_dataset.set_dirty()
+            eval.stop()
 
         return (RasterDataSet, out_dataset)
     else:
-        print("OLD METHOD")
+        # print("OLD METHOD")
         try:
-            memory_before = memory_usage()[0]
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
-            memory_usage_during = memory_usage()[0]
-            memory_used = memory_usage_during-memory_before
-            print(f"OLD METHOD MEMORY USED: {memory_used}")
             if isinstance(result_value, Coroutine): 
                 result_value = \
                     asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
         except BaseException as e:
             raise e
         return (result_value.type, result_value.value)
-
-def print_tree_with_meta(tree, indent=0):
-    indent_str = "  " * indent
-    if isinstance(tree, Tree):
-        # Print the node type and its meta information if present
-        meta_info = ""
-        if hasattr(tree, 'meta') and tree.meta is not None:
-            meta_info = f"(unique_id: {getattr(tree.meta, 'unique_id', 'N/A')})"
-        print(f"{indent_str}{tree.data} {meta_info}")
-        # Recursively print children nodes
-        for child in tree.children:
-            print_tree_with_meta(child, indent + 1)
-    else:
-        # If it's a terminal node (e.g., a token), print its value and its meta if available
-        meta_info = ""
-        if hasattr(tree, 'unique_id') or hasattr(tree, 'LEFT'):
-            meta_info = f"(unique_id: {getattr(tree, 'unique_id', 'N/A')})"
-        print(f"{indent_str}{tree} {meta_info} (Terminal)")
-        
-def print_tree_with_positions(node, indent=0):
-    """
-    Recursively prints the tree with position metadata for each node.
-    """
-    # Determine the metadata for the current node
-    meta_info = ""
-    if hasattr(node, 'meta') and hasattr(node.meta, 'position'):
-        meta_info = f" [position={node.meta.position}]"
-        
-    # Display node information
-    if isinstance(node, Tree):
-        rule_info = f" ({node.rule_name})" if hasattr(node, 'rule_name') else ""
-        print("  " * indent + f"Tree: {node.data}{rule_info}{meta_info}")
-        
-        # Print children nodes
-        for child in node.children:
-            print_tree_with_positions(child, indent + 1)
-    elif isinstance(node, Token):
-        print("  " * indent + f"Token: {node.type}='{node}'{meta_info}")
