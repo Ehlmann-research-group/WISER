@@ -383,7 +383,7 @@ def get_nan_count(arr: np.ndarray):
 def test_both_methods(hdr_paths, N=1):
     loader = RasterDataLoader()
     equation_dict = {
-        "+": '(a+c)+((c+a)+((e+f)+(g+h)))'
+        # "+": '(a+c)+((c+a)+((e+f)+(g+h)))'
         # "+": '(a+c)+((c+a)+(e+f)+(g+h))',
         # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
@@ -391,7 +391,7 @@ def test_both_methods(hdr_paths, N=1):
         # "neg": '-a+1',
         # "<": '((a-b)-d)<c',
         # "/-*+" : '(a/b)-(c*d)+a',
-        # "--<*": "(((a-b)-d)<c)*a",
+        "--<*": "(((a-b)-d)<c)*a",
         # "**": "a**b-(a**0.5)",
         # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
     }
@@ -400,7 +400,12 @@ def test_both_methods(hdr_paths, N=1):
         "*": None,
         "/": None,
         "-": None,
-        "<": None 
+        "neg": None,
+        "<": None,
+        "/-*+": None,
+        "--<*": None,
+        "**": None,
+        "formula": None
     }
 
     results_new_method = {
@@ -408,7 +413,12 @@ def test_both_methods(hdr_paths, N=1):
         "*": None,
         "/": None,
         "-": None,
-        "<": None 
+        "neg": None,
+        "<": None,
+        "/-*+": None,
+        "--<*": None,
+        "**": None,
+        "formula": None
     }
 
     caltech1 = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
