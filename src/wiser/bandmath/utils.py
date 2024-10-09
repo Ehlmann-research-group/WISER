@@ -2,9 +2,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
+import re
 import os
 
 import numpy as np
+
+import lark
+from lark import Tree
 
 import queue
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +19,47 @@ from wiser.raster.dataset import RasterDataSet
 from .builtins.constants import LHS_KEY, RHS_KEY
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
+
+def remove_trailing_number(filepath):
+    # Regular expression pattern to match " space followed by digits" at the end of the path
+    pattern = r"(.*)\s\d+$"
+    
+    # Use re.match to see if the pattern matches the filepath
+    match = re.match(pattern, filepath)
+    
+    # If a match is found, return the group without the trailing space and number
+    if match:
+        return match.group(1)
+    
+    # Otherwise, return the original filepath
+    return filepath
+
+def get_unused_file_path_in_folder(folder_to_search: str, result_name: str):
+    result_path = os.path.join(folder_to_search, result_name)
+    count = 2
+    while (os.path.exists(result_path)):
+        result_path = remove_trailing_number(result_path)
+        result_path+=f" {count}"
+        count+=1
+    return result_path
+
+def print_tree_with_meta(tree: lark.ParseTree, indent=0):
+    indent_str = "  " * indent
+    if isinstance(tree, Tree):
+        # Print the node type and its meta information if present
+        meta_info = ""
+        if hasattr(tree, 'meta') and tree.meta is not None:
+            meta_info = f"(unique_id: {getattr(tree.meta, 'unique_id', 'N/A')})"
+        print(f"{indent_str}{tree.data} {meta_info}")
+        # Recursively print children nodes
+        for child in tree.children:
+            print_tree_with_meta(child, indent + 1)
+    else:
+        # If it's a terminal node (e.g., a token), print its value and its meta if available
+        meta_info = ""
+        if hasattr(tree, 'unique_id') or hasattr(tree, 'LEFT'):
+            meta_info = f"(unique_id: {getattr(tree, 'unique_id', 'N/A')})"
+        print(f"{indent_str}{tree} {meta_info} (Terminal)")
 
 async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index_list_current: List[int], \
                       index_list_next: List[int], read_task_queue: queue.Queue, \
@@ -95,8 +140,6 @@ async def get_lhs_value_async(lhs: BandMathValue, index_list_current: List[int],
         lhs_value = await lhs_future
     return lhs_value
     
-            
-
 def read_lhs_future_onto_queue(lhs:BandMathValue, \
                                 index_list: List[int], event_loop, read_thread_pool, read_task_queue):
     future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)

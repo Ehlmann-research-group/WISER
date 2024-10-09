@@ -403,7 +403,7 @@ def test_both_methods(hdr_paths, N=1):
         "neg": None,
         "<": None,
         "/-*+": None,
-        "--<*": None,
+        "-+<*": None,
         "**": None,
         "formula": None
     }
