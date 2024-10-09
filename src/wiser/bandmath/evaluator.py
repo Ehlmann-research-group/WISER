@@ -130,8 +130,13 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
             self._max_intermediates = self._intermediate_running_total
     
     def decrement_interm_running_total(self):
-        self._intermediate_running_total -= 1
-
+        if self._intermediate_running_total > 0:
+            self._intermediate_running_total -= 1
+    
+    def update_interm_running_total(self, update: int):
+        self._intermediate_running_total += update
+        if self._intermediate_running_total > self._max_intermediates:
+            self._max_intermediates = self._intermediate_running_total
 
     @v_args(meta=True)
     def comparison(self, meta, args):
@@ -146,6 +151,47 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
         # It is okay if we don't want to use index with bands or spectrum 
         # because in each operator, index is only used with image cubes
         return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
+
+    def update_max_intermediates(self, lhs, rhs):
+        current_intermediates = 0
+        if isinstance(lhs, BandMathValue) and isinstance(rhs, BandMathValue):
+            # Lhs and rhs should never be an intermediate
+            if lhs.is_intermediate and rhs.is_intermediate:
+                self.decrement_interm_running_total()
+            elif lhs.is_intermediate or rhs.is_intermediate:
+                self.decrement_interm_running_total()
+            else:
+                if lhs.type == VariableType.IMAGE_CUBE and rhs.type == VariableType.IMAGE_CUBE:
+                    self.increment_interm_running_total()
+                    self.increment_interm_running_total()
+                elif lhs.type == VariableType.IMAGE_CUBE or rhs.type == VariableType.IMAGE_CUBE:
+                    self.increment_interm_running_total()
+        # Then one of them is an int
+        elif isinstance(lhs, BandMathValue) and isinstance(rhs, int):
+            if lhs.type != VariableType.IMAGE_CUBE:
+                self.increment_interm_running_total()
+
+        elif isinstance(lhs, BandMathValue) or isinstance(rhs, BandMathValue):
+            x = 1
+        if isinstance(lhs, BandMathValue):
+            if lhs.is_intermediate:
+                self.decrement_interm_running_total()
+            elif lhs.type == VariableType.IMAGE_CUBE:
+                self.increment_interm_running_total()
+        if isinstance(rhs, BandMathValue):
+            if rhs.is_intermediate:
+                self.decrement_interm_running_total()
+            elif rhs.type == VariableType.IMAGE_CUBE:
+                self.increment_interm_running_total()
+        else:
+            assert(isinstance(lhs, int))
+            assert(isinstance(rhs, int))
+            print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
+            self.decrement_interm_running_total()
+            self.decrement_interm_running_total()
+            # print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
+        # print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
+
 
     @v_args(meta=True)
     def add_expr(self, meta, values):
@@ -166,25 +212,8 @@ class NumberOfIntermediatesFinder(lark.visitors.Transformer):
         oper = values[1]
         rhs = values[2]
 
-        if isinstance(lhs, BandMathValue):
-            if lhs.type == VariableType.IMAGE_CUBE:
-                self.increment_interm_running_total()
-            if rhs.type == VariableType.IMAGE_CUBE:
-                self.increment_interm_running_total()
-            # print(f"!!!!!!!!!There's Bandmath value at node: {node_id}")
-        else:
-            assert(isinstance(lhs, int))
-            assert(isinstance(rhs, int))
-            # self.decrement_interm_running_total()
-            print(f"About to decrement running total, current interm running total interm: {self._intermediate_running_total}")
-            self._intermediate_running_total -= 1
-            self._intermediate_running_total -= 1
-            # print(f"Decrementing running total, current running total amt: {self._intermediate_running_total}")
-        # print(f"Current max intermediates: {self._max_intermediates} at node: {node_id}")
+        self.update_max_intermediates(lhs, rhs)
         return self._max_intermediates
-            
-        
-            
 
         # raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -535,9 +564,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
                 self.index_list_next,
                 self._read_data_queue_dict[node_id],
                 self._read_thread_pool,
-                self._read_thread_pool_rhs,
                 self._event_loop,
-                node_id=node_id
             ))
             return await addition_task
 
@@ -794,7 +821,7 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         if oper == '+':
             return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
-                                        event_loop=self._event_loop), loop=self._event_loop).result()
+                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
 
         elif oper == '-':
             return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
@@ -811,18 +838,22 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         logger.debug(' * mul_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id *: {node_id}")
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs], self.index_list_current)
+            return asyncio.run_coroutine_threadsafe(OperatorMultiply().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
+                                        event_loop=self._event_loop), loop=self._event_loop).result()
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs], self.index_list_current)
+            return asyncio.run_coroutine_threadsafe(OperatorDivide().apply([lhs, rhs], self.index_list_current, self.index_list_next,
+                                        self._read_data_queue_dict[node_id], self._read_thread_pool, \
+                                        event_loop=self._event_loop), loop=self._event_loop).result()
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -1226,12 +1257,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
         try:
-            print("TEST \n  \
-                  TEST \n \
-                  TEST \n \
-                  TEST \n \
-                  TEST \n \
-                  TEST \n")
             eval = BandMathEvaluatorSync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
@@ -1257,7 +1282,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             #     print("Failed to reopen dataset with GDAL_OF_THREADSAFE flag.")
             bytes_per_scalar = SCALAR_BYTES
             max_bytes = MAX_RAM_BYTES/bytes_per_scalar
-            max_bytes_per_intermediate = max_bytes / number_of_intermediates
+            max_bytes_per_intermediate = max_bytes / 2
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             writing_futures = []
             memory_before = memory_usage()[0]
