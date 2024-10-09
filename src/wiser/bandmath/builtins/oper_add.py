@@ -17,6 +17,7 @@ from wiser.bandmath.utils import (
     should_continue_reading_bands,
 )
 from wiser.raster.dataset import RasterDataSet
+import time
 
 
 class OperatorAdd(BandMathFunction):
@@ -115,12 +116,11 @@ class OperatorAdd(BandMathFunction):
     # We then await the executor thread
     async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
               index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, read_thread_pool_rhs: ThreadPoolExecutor, \
-                event_loop: asyncio.AbstractEventLoop, node_id: int):
+              read_thread_pool: ThreadPoolExecutor, \
+                event_loop: asyncio.AbstractEventLoop):
         '''
         Add the LHS and RHS and return the result.
         '''
-        print(f"========== ENTERED NODE: {node_id} ===========")
         if len(args) != 2:
             raise Exception('+ requires exactly two arguments')
 
@@ -179,7 +179,7 @@ class OperatorAdd(BandMathFunction):
                 else:
                     if read_task_queue[RHS_KEY].empty():
                         read_rhs_future_onto_queue(rhs, lhs_value_new_method_shape, index_list_current, \
-                                                   event_loop, read_thread_pool_rhs, read_task_queue[RHS_KEY])
+                                                   event_loop, read_thread_pool, read_task_queue[RHS_KEY])
                         rhs_future = read_task_queue[RHS_KEY].get()[0]
                     else:
                         rhs_future = read_task_queue[RHS_KEY].get()[0]
@@ -189,7 +189,7 @@ class OperatorAdd(BandMathFunction):
                         next_lhs_shape[0] = len(index_list_next)
                         next_lhs_shape = tuple(next_lhs_shape)
                         read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next, \
-                                                   event_loop, read_thread_pool_rhs, read_task_queue[RHS_KEY])
+                                                   event_loop, read_thread_pool, read_task_queue[RHS_KEY])
             else:
                 rhs_value_new_method = make_image_cube_compatible_by_bands(rhs, lhs_value_new_method_shape, index_list_current)
     
@@ -199,7 +199,7 @@ class OperatorAdd(BandMathFunction):
                 lhs_value_new_method = await lhs_future
             if should_be_the_same:
                 rhs_value_new_method = lhs_value_new_method
-
+            time.sleep(1)
             result_value_new_method = lhs_value_new_method + rhs_value_new_method
             assert lhs_value_new_method.ndim == 3 or (lhs_value_new_method.ndim == 2 and len(index_list_current) == 1)
             assert result_value_new_method.ndim == 3 or (result_value_new_method.ndim == 2 and len(index_list_current) == 1)

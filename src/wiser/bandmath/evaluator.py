@@ -702,9 +702,8 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         self._write_thread_pool.shutdown(wait=False, cancel_futures=True)
 
     def __del__(self):
-        print("!!!!!!!!!!!!!!!!!!!Destructor called, cleaning up event loop and thread...!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.stop()  # Ensure the loop and thread are stopped
-        print("Event loop and thread cleaned up")
+        print("Eval operator event loop and thread cleaned up")
 
 import re
 def remove_trailing_number(filepath):
@@ -738,7 +737,6 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
             self._read_data_queue_dict = {}
             self._write_data_queue = queue.Queue()
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
-            self._read_thread_pool_rhs = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
             self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
             self._event_loop = asyncio.new_event_loop()
             self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
@@ -746,12 +744,6 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
         else:
             self._read_data_queue = None
             self._write_data_queue = None
-
-        # Dictionary that maps position in tree to queue
-        # position so we don't have to have different queues for
-        # different trees. The node in the tree wil be able to 
-        # access the data it needs from the dictionary. The 
-        # data will be the queue and the thread or process pool executor
 
     def get_node_id(self, node_meta):
         '''
@@ -795,31 +787,14 @@ class BandMathEvaluatorSync(lark.visitors.Transformer):
             self._read_data_queue_dict[node_id] = {}
             self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
             self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id +: {node_id}")
-        # print(f"!!!!!!!!!!!!VALUES!!!!!!!! \n {values}")
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
-
-        # if isinstance(lhs, (concurrent.futures.Future, asyncio.Future)):
-        #     lhs = lhs.result()
-        # if isinstance(rhs, (concurrent.futures.Future, asyncio.Future)):
-        #     rhs = rhs.result()
         
-        # You pass in the dictionary to the Operator then the operator
-        # gets the queue, thread pool exector (for reading data) and
-        # process pool executor (for performing operations).
-        # Or we get those three things here and pass them into the 
-        # operator 
         if oper == '+':
-            # return asyncio.run(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
-            #                             self._read_data_queue_dict[node_id], self._read_thread_pool, \
-            #                             self._event_loop))
             return asyncio.run_coroutine_threadsafe(OperatorAdd().apply([lhs, rhs], self.index_list_current, self.index_list_next,
                                         self._read_data_queue_dict[node_id], self._read_thread_pool, \
-                                        self._read_thread_pool_rhs, \
-                                        event_loop=self._event_loop, node_id=node_id), loop=self._event_loop).result()
+                                        event_loop=self._event_loop), loop=self._event_loop).result()
 
         elif oper == '-':
             return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
