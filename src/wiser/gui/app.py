@@ -771,6 +771,8 @@ class DataVisualizerApp(QMainWindow):
                     functions.update(plugin_fns)
 
             try:
+                if not result_name:
+                    result_name = self.tr('Computed')
                 (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name,
                     variables, functions)
 
@@ -783,8 +785,6 @@ class DataVisualizerApp(QMainWindow):
                 loader = self._app_state.get_loader()
                 if result_type == RasterDataSet:
                     new_dataset = result
-                    if not result_name:
-                        result_name = self.tr('Computed')
 
                     new_dataset.set_name(
                         self._app_state.unique_dataset_name(result_name))
