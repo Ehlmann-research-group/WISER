@@ -1165,7 +1165,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         out_dataset_gdal.FlushCache()
         # print("FINISHED FLUSHING DATA")
 
-    from memory_profiler import memory_usage
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
         try:
