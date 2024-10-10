@@ -38,14 +38,10 @@ class OperatorUnaryNegate(BandMathFunction):
         return arg
 
 
-    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
-              index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, \
-                event_loop: asyncio.AbstractEventLoop, node_id: int):
+    def apply(self, args: List[BandMathValue], index_list: List[int]):
         '''
         Perform unary negation on the argument and return the result.
         '''
-        print(f"NODE ID: {node_id}")
         if len(args) != 1:
             raise Exception('Unary negation requires exactly one operand')
 
@@ -54,18 +50,14 @@ class OperatorUnaryNegate(BandMathFunction):
         if arg.type == VariableType.NUMBER:
             return BandMathValue(VariableType.NUMBER, -arg.value)
         elif arg.type == VariableType.IMAGE_CUBE:
-            if isinstance(index_list_current, int):
-                index_list_current = [index_list_current]
-            if isinstance(index_list_next, int):
-                index_list_next = [index_list_next]
-            arr = await get_lhs_value_async(arg, index_list_current, index_list_next, \
-                                        read_task_queue, read_thread_pool, event_loop)
-            time.sleep(1)
+            if isinstance(index_list, int):
+                index_list = [index_list]
+            arr = arg.as_numpy_array_by_bands(index_list)
             result_arr = -arr
             return BandMathValue(arg.type, result_arr)
         elif arg.type in [VariableType.IMAGE_BAND,
                           VariableType.SPECTRUM]:
-            arr = arg.as_numpy_array()
+            arr = arg.as_numpy_array_by_bands(index_list)
             result_arr = -arr
             return BandMathValue(arg.type, result_arr)
 

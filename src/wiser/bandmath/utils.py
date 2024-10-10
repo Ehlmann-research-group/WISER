@@ -61,84 +61,20 @@ def print_tree_with_meta(tree: lark.ParseTree, indent=0):
             meta_info = f"(unique_id: {getattr(tree, 'unique_id', 'N/A')})"
         print(f"{indent_str}{tree} {meta_info} (Terminal)")
 
-async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index_list_current: List[int], \
-                      index_list_next: List[int], read_task_queue: queue.Queue, \
-                      read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
-    lhs_value = None
-    lhs_future = None
+def get_lhs_rhs_values(lhs: BandMathValue, rhs: BandMathValue, index_list: List[int]):
     rhs_value = None
-    rhs_future = None
-    should_be_the_same = False
-    if not isinstance(lhs.value, np.ndarray):
-        # Check to see if queue is empty. If it's not, then we can immediately get the data
-        if read_task_queue[LHS_KEY].empty():
-            read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        else:
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        should_read_next = should_continue_reading_bands(index_list_next, lhs)
-        # Allows us to read data into the future so there's little down time in between I/O
-        if should_read_next:
-            read_lhs_future_onto_queue(lhs, index_list_next, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-    else:
-        lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
+    same_datasets = False
+    lhs_value = lhs.as_numpy_array_by_bands(index_list)
 
-    # We need to get lhs_value's shape since we may not have the actual array by this time
-    lhs_value_shape = list(lhs.get_shape())  
-    lhs_value_shape[0] = len(index_list_current)
-    lhs_value_shape = tuple(lhs_value_shape)
-
-    if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
-        # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-        if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
-            should_be_the_same = True
-        else:
-            if read_task_queue[RHS_KEY].empty():
-                read_rhs_future_onto_queue(rhs, lhs_value_shape, index_list_current, \
-                                            event_loop, read_thread_pool, read_task_queue[RHS_KEY])
-                rhs_future = read_task_queue[RHS_KEY].get()[0]
-            else:
-                rhs_future = read_task_queue[RHS_KEY].get()[0]
-            if should_read_next:
-                # We have to get the size of the next data to read
-                next_lhs_shape = list(lhs.get_shape())
-                next_lhs_shape[0] = len(index_list_next)
-                next_lhs_shape = tuple(next_lhs_shape)
-                read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next, \
-                                            event_loop, read_thread_pool, read_task_queue[RHS_KEY])
-    else:
-        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
-
-    if rhs_future is not None:
-        rhs_value = await rhs_future
-    if lhs_future is not None:
-        lhs_value = await lhs_future
-    if should_be_the_same:
+    # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
+    if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
+        same_datasets = True
+    if same_datasets:
         rhs_value = lhs_value
+    else:
+        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
     
     return lhs_value, rhs_value
-
-async def get_lhs_value_async(lhs: BandMathValue, index_list_current: List[int], \
-                       index_list_next: List[int], read_task_queue: queue.Queue, \
-                        read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
-    lhs_value = None
-    lhs_future = None
-    if not isinstance(lhs.value, np.ndarray):
-        # Check to see if queue is empty. If it's not, then we can immediately get the data
-        if read_task_queue[LHS_KEY].empty():
-            read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        else:
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        should_read_next = should_continue_reading_bands(index_list_next, lhs)
-        # Allows us to read data into the future so there's little down time in between I/O
-        if should_read_next:
-            read_lhs_future_onto_queue(lhs, index_list_next, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-    else:
-        lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
-    if lhs_future is not None:
-        lhs_value = await lhs_future
-    return lhs_value
     
 def read_lhs_future_onto_queue(lhs:BandMathValue, \
                                 index_list: List[int], event_loop, read_thread_pool, read_task_queue):
