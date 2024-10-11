@@ -137,11 +137,14 @@ class OperatorAdd(BandMathFunction):
             broadcasted_non_masked_arr = np.broadcast_to(rhs_value, lhs_value.shape)
             # print(f"unmasked positions.shape: {unmasked_positions.shape}")
             # print(f"broadcasted_non_masked_arr: {broadcasted_non_masked_arr.shape}")
-            rhs_non_masked_values = broadcasted_non_masked_arr[unmasked_positions]
-            # print(f"lhs value shape: {lhs_value.shape}")
+            # rhs_non_masked_values = broadcasted_non_masked_arr[unmasked_positions]
+            print(f"lhs value shape: {lhs_value.shape}")
+            # print(f"rhs value shape: {rhs_value.shape}")
             # print(f"rhs_non_masked_values shape: {rhs_non_masked_values.shape}")
-            result_arr = lhs_value.copy()
-            result_arr[unmasked_positions] += broadcasted_non_masked_arr[unmasked_positions]
+            # result_arr = lhs_value.copy()
+
+            # result_arr[unmasked_positions] += rhs_value # broadcasted_non_masked_arr[unmasked_positions]
+            result_arr = np.add(lhs_value, rhs_value, where=~lhs_value.mask)
             # result_arr = lhs_value + rhs_value
             # result_arr[lhs_value.mask] = 0.0
             # print(f"mean of result_arr: {np.nanmean(result_arr)}")
