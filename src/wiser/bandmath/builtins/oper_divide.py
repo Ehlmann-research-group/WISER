@@ -115,13 +115,13 @@ class OperatorDivide(BandMathFunction):
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
 
-            # Lets us handle when the band index list just has one band
+        # Lets us handle when the band index list just has one band
             if isinstance(index_list, int):
                 index_list = [index_list]
 
             lhs_value, rhs_value = get_lhs_rhs_values(lhs, rhs, index_list)
 
-            result_arr = lhs_value / rhs_value
+            result_arr = np.divide(lhs_value, rhs_value, where=~lhs_value.mask)
 
             # The result array should have the same dimensions as the LHS input
             # array.
