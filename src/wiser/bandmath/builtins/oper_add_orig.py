@@ -112,18 +112,27 @@ class OperatorAddOrig(BandMathFunction):
 
         # Do the addition computation.
 
+        def get_nan_count(arr: np.ndarray):
+            nan_count = np.isnan(arr).sum()
+            return nan_count
+    
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
             lhs_value = lhs.as_numpy_array()
             assert lhs_value.ndim == 3
 
             rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+            print(f"orig lhs_value type: {type(lhs_value)}, mean: {np.nanmean(lhs_value)}")
+            print(f"orig lhs nan count: {get_nan_count(lhs_value)}")
+            print(f"orig rhs_value type: {type(rhs_value)}, {rhs_value}")
             result_arr = lhs_value + rhs_value
-
+            print(f"orig mean of result_arr: {np.nanmean(result_arr)}")
+            print(f"orig nan count result_arr: {get_nan_count(result_arr)}")
             # The result array should have the same dimensions as the LHS input
             # array.
             assert result_arr.ndim == 3
             assert result_arr.shape == lhs_value.shape
+            print(f"orig mean of result_arr after a bit: {np.nanmean(result_arr)}")
             return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
         elif lhs.type == VariableType.IMAGE_BAND:

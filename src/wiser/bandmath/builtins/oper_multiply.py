@@ -15,7 +15,7 @@ from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
     make_image_cube_compatible_by_bands, read_lhs_future_onto_queue, read_rhs_future_onto_queue,
-    should_continue_reading_bands, get_lhs_rhs_values_async,
+    should_continue_reading_bands, get_lhs_rhs_values,
 )
 from wiser.raster.dataset import RasterDataSet
 import time
@@ -99,14 +99,10 @@ class OperatorMultiply(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
-              index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, \
-                event_loop: asyncio.AbstractEventLoop, node_id: int):
+    def apply(self, args: List[BandMathValue], index_list: List[int]):
         '''
         Multiply the LHS and RHS and return the result.
         '''
-        print(f"NODE ID: {node_id}")
         if len(args) != 2:
             raise Exception('* requires exactly two arguments')
 
@@ -126,21 +122,17 @@ class OperatorMultiply(BandMathFunction):
             # Dimensions:  [band][y][x]
 
             # Lets us handle when the band index list just has one band
-            if isinstance(index_list_current, int):
-                index_list_current = [index_list_current]
-            if isinstance(index_list_next, int):
-                index_list_next = [index_list_next]
-            
-            lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
-                                                           index_list_next, read_task_queue, \
-                                                            read_thread_pool, event_loop)
-            time.sleep(1)
+            if isinstance(index_list, int):
+                index_list = [index_list]
+
+            lhs_value, rhs_value = get_lhs_rhs_values(lhs, rhs, index_list)
+    
             result_arr = lhs_value * rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
-            assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
-            assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
+            assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list) == 1)
+            assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list) == 1)
             assert np.squeeze(result_arr).shape == lhs_value.shape
             return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 

@@ -388,11 +388,11 @@ def test_both_methods(hdr_paths, N=1):
         # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
         # "-": '(a-b)-(c-d)',
-        "neg": '-a+1',
+        # "neg": 'a+1',
         # "<": '((a-b)-d)<c',
         # "/-*+" : '(a/b)-(c*d)+a',
         # "-+<*": "(((a-b)+d)<c)*a",
-        # "**": "a**b-(a**0.5)",
+        "**": "a**b-(a**0.5)",
         # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
     }
     results_old_method = {
@@ -466,7 +466,7 @@ def test_both_methods(hdr_paths, N=1):
             original_arr = dataset.get_image_data()
             # print(f"type of arr_new_method: {arr_new_method}")
             # print(f"type of arr_old_method: {arr_old_method}")
-            print(f"np.assertequal: {np.allclose(arr_new_method, arr_old_method)}")
+            print(f"np.assertequal: {np.allclose(arr_new_method, arr_old_method, equal_nan=True)}")
             print(f"arr_new_shape: {arr_new_method.shape}")
             print(f"arr_old_shape: {arr_old_method.shape}")
             print(f"arr_new_method[69, 82, 573] = {arr_new_method[69, 82, 573]}")
@@ -493,11 +493,12 @@ def test_both_methods(hdr_paths, N=1):
                 for index in np.argwhere(not_close):
                     # # Unpack all dimensions dynamically
                     # index_str = ", ".join(map(str, index))
-                    # print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
-                    if amt_not_close == 0:
-                        print(f"original arr[10:11,100:105,100:101] = \n {original_arr[tuple(index)]}")
-                        print(f"arr_new_method[10:11,100:105,100:101] = \n {arr_new_method[tuple(index)]}")
-                        print(f"arr_old_method[10:11,100:105,100:101] = \n {arr_old_method[tuple(index)]}")
+                    # if not np.isnan(arr_new_method[tuple(index)]) and not np.isnan(arr_old_method[tuple(index)]):
+                    #     print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
+                    # if amt_not_close == 0:
+                    #     print(f"original arr[10:11,100:105,100:101] = \n {original_arr[tuple(index)]}")
+                    #     print(f"arr_new_method[10:11,100:105,100:101] = \n {arr_new_method[tuple(index)]}")
+                    #     print(f"arr_old_method[10:11,100:105,100:101] = \n {arr_old_method[tuple(index)]}")
                         
                         # assert arr_old_method[tuple(index)] == 2 * original_arr[tuple(index)]
                     # print(f" new method : {arr_new_method[tuple(index)]}")
@@ -511,7 +512,7 @@ def test_both_methods(hdr_paths, N=1):
             print(f"mean of new method: {np.nanmean(arr_new_method)}")
             print(f"mean of old method: {np.nanmean(arr_old_method)}")
             print()
-            assert np.isclose(np.nanmean(arr_new_method), np.mean(arr_old_method))
+            # assert np.isclose(np.nanmean(arr_new_method), np.nanmean(arr_old_method))
             assert np.allclose(arr_new_method, arr_old_method, equal_nan=True)
     return results_new_method, results_old_method
 
