@@ -122,7 +122,7 @@ class OperatorPower(BandMathFunction):
 
             lhs_value, rhs_value = get_lhs_rhs_values(lhs, rhs, index_list)
             
-            result_arr = lhs_value ** rhs_value
+            result_arr = np.power(lhs_value, rhs_value, where=~lhs_value.mask)
 
             # The result array should have the same dimensions as the LHS input
             # array.
