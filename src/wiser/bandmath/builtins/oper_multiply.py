@@ -127,7 +127,10 @@ class OperatorMultiply(BandMathFunction):
 
             lhs_value, rhs_value = get_lhs_rhs_values(lhs, rhs, index_list)
     
-            result_arr = np.multiply(lhs_value, rhs_value, where=~lhs_value.mask)
+            if isinstance(lhs_value, np.ma.masked_array):
+                result_arr = np.multiply(lhs_value, rhs_value, where=~lhs_value.mask)
+            else:
+                result_arr = lhs_value * rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.

@@ -139,8 +139,11 @@ class OperatorSubtract(BandMathFunction):
 
             lhs_value, rhs_value = get_lhs_rhs_values(lhs, rhs, index_list)
             
-            result_arr = np.add(_apply_sign(lsign, lhs_value), _apply_sign(rsign, rhs_value), \
+            if isinstance(lhs_value, np.ma.masked_array):
+                result_arr = np.add(_apply_sign(lsign, lhs_value), _apply_sign(rsign, rhs_value), \
                                 where=~lhs_value.mask)
+            else:
+                result_arr = np.add(_apply_sign(lsign, lhs_value), _apply_sign(rsign, rhs_value))
 
             # The result array should have the same dimensions as the LHS input
             # array.
