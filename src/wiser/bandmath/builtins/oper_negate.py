@@ -9,7 +9,6 @@ import asyncio
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
 
-from ..utils import get_lhs_value_async
 import time
 
 class OperatorUnaryNegate(BandMathFunction):

@@ -14,7 +14,7 @@ from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
     make_image_cube_compatible_by_bands, read_lhs_future_onto_queue, read_rhs_future_onto_queue,
-    should_continue_reading_bands, get_lhs_rhs_values_async,
+    should_continue_reading_bands, get_lhs_rhs_values,
 )
 from wiser.raster.dataset import RasterDataSet
 import time
@@ -99,14 +99,11 @@ class OperatorAdd(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
     # We then await the executor thread
-    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
-              index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, \
-                event_loop: asyncio.AbstractEventLoop, node_id: int):
+    def apply(self, args: List[BandMathValue], index_list: List[int]):
         '''
         Add the LHS and RHS and return the result.
         '''
-        print(f"NODE ID: {node_id}")
+        # print(f"NODE ID: {node_id}")
         if len(args) != 2:
             raise Exception('+ requires exactly two arguments')
 
@@ -121,25 +118,39 @@ class OperatorAdd(BandMathFunction):
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
     
+        def get_nan_count(arr: np.ndarray):
+            nan_count = np.isnan(arr).sum()
+            return nan_count
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
 
             # Lets us handle when the band index list just has one band
-            if isinstance(index_list_current, int):
-                index_list_current = [index_list_current]
-            if isinstance(index_list_next, int):
-                index_list_next = [index_list_next]
+            if isinstance(index_list, int):
+                index_list = [index_list]
 
-            lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
-                                                           index_list_next, read_task_queue, \
-                                                            read_thread_pool, event_loop)
-
-            time.sleep(1)
-            result_arr = lhs_value + rhs_value
-            assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
-            assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
-            assert np.squeeze(result_arr).shape == lhs_value.shape
+            lhs_value, rhs_value = get_lhs_rhs_values(lhs, rhs, index_list)
+            # print(f"lhs_value type: {type(lhs_value)}, mean: {np.nanmean(lhs_value)}")
+            # print(f"lhs nan count: {get_nan_count(lhs_value)}")
+            # print(f"rhs_value type: {type(rhs_value)}, {rhs_value}")
+            unmasked_positions = ~lhs_value.mask
+            broadcasted_non_masked_arr = np.broadcast_to(rhs_value, lhs_value.shape)
+            # print(f"unmasked positions.shape: {unmasked_positions.shape}")
+            # print(f"broadcasted_non_masked_arr: {broadcasted_non_masked_arr.shape}")
+            rhs_non_masked_values = broadcasted_non_masked_arr[unmasked_positions]
+            # print(f"lhs value shape: {lhs_value.shape}")
+            # print(f"rhs_non_masked_values shape: {rhs_non_masked_values.shape}")
+            result_arr = lhs_value.copy()
+            result_arr[unmasked_positions] += broadcasted_non_masked_arr[unmasked_positions]
+            # result_arr = lhs_value + rhs_value
+            # result_arr[lhs_value.mask] = 0.0
+            # print(f"mean of result_arr: {np.nanmean(result_arr)}")
+            # print(f"nan count result_arr: {get_nan_count(result_arr)}")
+            assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list) == 1)
+            assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list) == 1)
+            # assert np.squeeze(result_arr).shape == lhs_value.shape
+            # print(f"mean of result_arr after a bit: {np.nanmean(result_arr)}")
+            # print(f"type of result_arr : {type(result_arr)}")
             return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [y][x]
