@@ -383,7 +383,7 @@ def get_nan_count(arr: np.ndarray):
 def test_both_methods(hdr_paths, N=1):
     loader = RasterDataLoader()
     equation_dict = {
-        # "+": '(a+c)+((c+a)+((e+f)+(g+h)))'
+        "+": '(a+c)+((c+a)+((e+f)+(g+h)))'
         # "+": '(a+c)+((c+a)+(e+f)+(g+h))',
         # "*": '(a*b)*(c*d)',
         # "/": '(a/b)/(c/d)',
@@ -391,7 +391,7 @@ def test_both_methods(hdr_paths, N=1):
         # "neg": 'a+b',
         # "<": '((a-b)-d)<c',
         # "/-*+" : '(a/b)-(c*d)+a',
-        "-+<*": "(((a-b)+d)<c)*a",
+        # "-+<*": "(((a-b)+d)<c)*a",
         # "**": "a**b+a**(0.5)",
         # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
     }
@@ -438,7 +438,7 @@ def test_both_methods(hdr_paths, N=1):
         spectrum2 = dataset.get_all_bands_at(120, 120)
         spectrum3 = dataset.get_all_bands_at(140, 140)
         variables = {'a':(VariableType.IMAGE_CUBE, dataset),
-                    'c':(VariableType.IMAGE_CUBE, caltech2_dataset),
+                    'c':(VariableType.IMAGE_CUBE, dataset),
                     'b':(VariableType.IMAGE_BAND, band),
                     'd':(VariableType.SPECTRUM, spectrum),
                     'e':(VariableType.IMAGE_CUBE, dataset),
@@ -527,7 +527,7 @@ if __name__ == '__main__':
     dataset_6GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr"
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_500mb]
+    dataset_list = [dataset_15gb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     N = 1
 

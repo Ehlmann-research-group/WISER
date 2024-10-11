@@ -1111,7 +1111,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
     numInterFinder.transform(tree)
     number_of_intermediates = numInterFinder.get_max_intermediates()
-    # print(f"Number of intermediates: {number_of_intermediates}")
+    print(f"Number of intermediates: {number_of_intermediates}")
 
     def write_raster(out_dataset_gdal, band_index_list: List[int], result: np.ndarray):
         # print("ABOUT TO WRITE DATA")
@@ -1201,22 +1201,22 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
                 
-                # future = eval.write_thread_pool.submit(write_raster, \
-                #                                     out_dataset_gdal, band_index_list, \
-                #                                     res)
-                write_raster(out_dataset_gdal, band_index_list, res)
-                arr = out_dataset_gdal.ReadAsArray()
-                # Check for NaN values
-                has_nan = np.isnan(arr).any()
-                print(f"Array contains NaN: {has_nan}")
+                future = eval.write_thread_pool.submit(write_raster, \
+                                                    out_dataset_gdal, band_index_list, \
+                                                    res)
+                # write_raster(out_dataset_gdal, band_index_list, res)
+                # arr = out_dataset_gdal.ReadAsArray()
+                # # Check for NaN values
+                # has_nan = np.isnan(arr).any()
+                # print(f"Array contains NaN: {has_nan}")
 
-                # Check for infinite values
-                has_inf = np.isinf(arr).any()
-                print(f"Array contains Inf: {has_inf}")
-                cleaned_arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
-                print(f"!!!! After gdal array: {np.nanmean(cleaned_arr)}")
-            #     writing_futures.append(future)
-            # concurrent.futures.wait(writing_futures)
+                # # Check for infinite values
+                # has_inf = np.isinf(arr).any()
+                # print(f"Array contains Inf: {has_inf}")
+                # cleaned_arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+                # print(f"!!!! After gdal array: {np.nanmean(cleaned_arr)}")
+                writing_futures.append(future)
+            concurrent.futures.wait(writing_futures)
             # print(f"DONE WRITING ARRAY")
             # out_dataset_gdal.FlushCache()
         except BaseException as e:
