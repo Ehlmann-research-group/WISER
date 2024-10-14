@@ -130,20 +130,7 @@ class OperatorAdd(BandMathFunction):
                 index_list = [index_list]
 
             lhs_value, rhs_value = get_lhs_rhs_values(lhs, rhs, index_list)
-            # print(f"lhs_value type: {type(lhs_value)}, mean: {np.nanmean(lhs_value)}")
-            # print(f"lhs nan count: {get_nan_count(lhs_value)}")
-            # print(f"rhs_value type: {type(rhs_value)}, {rhs_value}")
-            # unmasked_positions = ~lhs_value.mask
-            # broadcasted_non_masked_arr = np.broadcast_to(rhs_value, lhs_value.shape)
-            # print(f"unmasked positions.shape: {unmasked_positions.shape}")
-            # print(f"broadcasted_non_masked_arr: {broadcasted_non_masked_arr.shape}")
-            # rhs_non_masked_values = broadcasted_non_masked_arr[unmasked_positions]
-            print(f"lhs value shape: {lhs_value.shape}")
-            # print(f"rhs value shape: {rhs_value.shape}")
-            # print(f"rhs_non_masked_values shape: {rhs_non_masked_values.shape}")
-            # result_arr = lhs_value.copy()
-
-            # result_arr[unmasked_positions] += rhs_value # broadcasted_non_masked_arr[unmasked_positions]
+            
             if isinstance(lhs_value, np.ma.masked_array):
                 result_arr = np.add(lhs_value, rhs_value, where=~lhs_value.mask)
             else:
