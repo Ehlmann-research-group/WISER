@@ -907,10 +907,6 @@ class BandMathEvaluator(lark.visitors.Transformer):
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
-
-        def get_nan_count(arr: np.ndarray):
-            nan_count = np.isnan(arr).sum()
-            return nan_count
         
         if oper == '+':
             res = OperatorAddOrig().apply([lhs, rhs])
@@ -1116,16 +1112,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     def write_raster(out_dataset_gdal, band_index_list: List[int], result: np.ndarray):
         # print("ABOUT TO WRITE DATA")
         gdal_band_list_current = [band+1 for band in band_index_list]
-        # # Step 2: Handle invalid values by replacing NaN and Inf
-        # arr_cleaned = np.nan_to_num(result, nan=0.0, posinf=1e10, neginf=-1e10)
-
-        # # Step 3: Optionally, clip extreme values to avoid overflow
-        # result = np.clip(arr_cleaned, -1e10, 1e10)
-        # We could check the type of out_dataset_gdal here to make sure 
-        # that it's a gdal even though we are only using this function here
-        # for band_index in gdal_band_list_current:
-        #     band = out_dataset_gdal.GetRasterBand(band_index)
-        #     band.SetNoDataValue(np.nan)
         
         out_dataset_gdal.WriteRaster(
             0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
@@ -1140,7 +1126,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
         try:
-            # eval = BandMathEvaluatorSync(lower_variables, lower_functions, expr_info.shape)
             eval = BandMathEvaluatorSync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
@@ -1176,28 +1161,12 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 eval.index_list = band_index_list
                 
                 result_value = eval.transform(tree)
-                # if isinstance(result_value, (asyncio.Future, Coroutine)):
-                #     result_value = asyncio.run_coroutine_threadsafe(eval.transform(tree), eval._event_loop).result()
                 res = result_value.value
-                print(f"!!!Before In eval_bandmath_expr res: {np.nanmean(res)}")
-                print(f"!!!Before In eval_bandmath_expr res nan count: {get_nan_count(res)}")
-                # masked_indices = np.where(res.mask)[0]
-                # idx = masked_indices[0]
-                # print(f"!!!Before In eval_bandmath_expr a few masked values: {res[idx]}")
-                print(f"res.ahpe: {res.shape}")
                 
                 if isinstance(res, np.ma.MaskedArray):
                     if not np.issubdtype(res.dtype, np.floating):
                         res = res.astype(np.float32)
-                    # print("FILLING RES============================")
-                    # res = res.filled(0.0)
-                    # # res = np.ma.masked_array(res.filled(np.nan), mask=res.mask)
-                #     print(f"IS REST MASKED ARRAY: {type(res)}")
-                # print(f"IS REST MASKED ARRAY 2nd: {type(res)}")
-                # print(f"!!!After In eval_bandmath_expr res: {np.nanmean(res)}")
-                # print(f"!!!After In eval_bandmath_expr res nan count: {get_nan_count(res)}")
-
-                # print(f"Num masked values in res: {np.ma.count_masked(res)}")
+    
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
                 
@@ -1205,16 +1174,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                                                     out_dataset_gdal, band_index_list, \
                                                     res)
                 # write_raster(out_dataset_gdal, band_index_list, res)
-                # arr = out_dataset_gdal.ReadAsArray()
-                # # Check for NaN values
-                # has_nan = np.isnan(arr).any()
-                # print(f"Array contains NaN: {has_nan}")
-
-                # # Check for infinite values
-                # has_inf = np.isinf(arr).any()
-                # print(f"Array contains Inf: {has_inf}")
-                # cleaned_arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
-                # print(f"!!!! After gdal array: {np.nanmean(cleaned_arr)}")
                 writing_futures.append(future)
             concurrent.futures.wait(writing_futures)
             # print(f"DONE WRITING ARRAY")
