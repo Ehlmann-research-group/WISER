@@ -37,7 +37,7 @@ class OperatorUnaryNegate(BandMathFunction):
         return arg
 
 
-    def apply(self, args: List[BandMathValue], index_list: List[int]):
+    def apply(self, args: List[BandMathValue], index_list: List[int] = None):
         '''
         Perform unary negation on the argument and return the result.
         '''
