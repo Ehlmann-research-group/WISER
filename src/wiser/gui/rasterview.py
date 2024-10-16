@@ -22,33 +22,76 @@ from wiser.raster.utils import normalize_ndarray
 logger = logging.getLogger(__name__)
 
 
+# def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
+#     '''
+#     Given a raster data set, band index, and optional contrast stretch object,
+#     this function generates color channel data into a NumPy array.  Elements in
+#     the output array will be in the range [0, 255].
+#     '''
+#     # Extract the raw band data and associated statistics from the data set.
+#     raw_data = dataset.get_band_data(band)
+#     stats = dataset.get_band_stats(band)
+
+#     # Normalize the raw band data.
+#     band_data = normalize_ndarray(raw_data,
+#         minval=stats.get_min(), maxval=stats.get_max())
+
+#     # If a stretch is specified for the channel, apply it to the
+#     # normalized band data.
+#     if stretch is not None:
+#         stretch.apply(band_data)
+
+#     # Clip the data to be in the range [0.0, 1.0].  This should not
+#     # remove NaNs.
+#     np.clip(band_data, 0.0, 1.0, out=band_data)
+
+#     # Finally, convert the normalized (and possibly stretched) band
+#     # data into a color channel with values in the range [0, 255].
+#     # TODO(donnie):  Is it faster to use uint8 for large images?
+#     channel_data = (band_data * 255.0).astype(np.uint32)
+
+#     return channel_data
+
 def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
     '''
     Given a raster data set, band index, and optional contrast stretch object,
     this function generates color channel data into a NumPy array.  Elements in
     the output array will be in the range [0, 255].
     '''
-    # Extract the raw band data and associated statistics from the data set.
+
+    # Time the extraction of raw band data and statistics
+    start_time = time.perf_counter()
     raw_data = dataset.get_band_data(band)
     stats = dataset.get_band_stats(band)
+    end_time = time.perf_counter()
+    print(f"MCI: Time for getting band data and stats: {end_time - start_time:.6f} seconds")
 
-    # Normalize the raw band data.
+    # Time the normalization of raw band data
+    start_time = time.perf_counter()
     band_data = normalize_ndarray(raw_data,
         minval=stats.get_min(), maxval=stats.get_max())
+    end_time = time.perf_counter()
+    print(f"MCI: Time for normalizing band data: {end_time - start_time:.6f} seconds")
 
-    # If a stretch is specified for the channel, apply it to the
-    # normalized band data.
+    # Time applying the stretch, if provided
     if stretch is not None:
+        start_time = time.perf_counter()
+        print(f"MCI: Number of bytes band data: {band_data.nbytes}")
         stretch.apply(band_data)
+        end_time = time.perf_counter()
+        print(f"MCI: Time for applying stretch: {end_time - start_time:.6f} seconds")
 
-    # Clip the data to be in the range [0.0, 1.0].  This should not
-    # remove NaNs.
+    # Time clipping the data
+    start_time = time.perf_counter()
     np.clip(band_data, 0.0, 1.0, out=band_data)
+    end_time = time.perf_counter()
+    print(f"MCI: Time for clipping band data: {end_time - start_time:.6f} seconds")
 
-    # Finally, convert the normalized (and possibly stretched) band
-    # data into a color channel with values in the range [0, 255].
-    # TODO(donnie):  Is it faster to use uint8 for large images?
+    # Time converting the data into color channel
+    start_time = time.perf_counter()
     channel_data = (band_data * 255.0).astype(np.uint32)
+    end_time = time.perf_counter()
+    print(f"MCI: Time for converting to color channel: {end_time - start_time:.6f} seconds")
 
     return channel_data
 
@@ -489,13 +532,18 @@ class RasterView(QWidget):
         time_1 = time.perf_counter()
 
         if len(self._display_bands) == 3:
+            # print(f"IF STATEMENT<<<<<<<<<<<<<<<<<<<")
             # Check each color band to see if we need to update it.
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
             for i in range(len(self._display_bands)):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Compute the contents of this color channel.
+                    print(f"i: {i}")
+                    time_bf = time.perf_counter()
                     self._display_data[i] = make_channel_image(self._raster_data,
                         self._display_bands[i], self._stretches[i])
+                    time_df = time.perf_counter()
+                    print(f"For loop iter: {i} count since last: {time_df-time_bf:0.02f}")
 
             time_2 = time.perf_counter()
 
@@ -503,6 +551,7 @@ class RasterView(QWidget):
             img_data = make_rgb_image(self._display_data)
 
         else:
+            print(f"ELSE STATEMENT!!!!!!!!!!!!!!!!!!!")
             # This is a grayscale image.
             if colors != ImageColors.NONE:
                 # Regenerate the image.  Since all color bands are the same,
@@ -538,6 +587,11 @@ class RasterView(QWidget):
         time_4 = time.perf_counter()
 
         logger.debug(f'update_display_image(colors={colors}) update times:  ' +
+                     f'channels = {time_2 - time_1:0.02f}s ' +
+                     f'image = {time_3 - time_2:0.02f}s ' +
+                     f'qt = {time_4 - time_3:0.02f}s')
+        
+        print(f'update_display_image(colors={colors}) update times:  ' +
                      f'channels = {time_2 - time_1:0.02f}s ' +
                      f'image = {time_3 - time_2:0.02f}s ' +
                      f'qt = {time_4 - time_3:0.02f}s')
