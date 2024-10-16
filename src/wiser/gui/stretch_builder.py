@@ -323,7 +323,7 @@ class ChannelStretchWidget(QWidget):
     def _update_histogram(self):
         if self._norm_band_data is None:
             return
-
+        print("ABOUT TO UPDATE HISTOGRAM")
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
         nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
@@ -350,13 +350,14 @@ class ChannelStretchWidget(QWidget):
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
 
         # Show the updated histogram
+        print("DONE UPDATING HISTOGRAM")
         self._show_histogram()
 
 
     def _show_histogram(self, update_lines_only=False):
         if self._norm_band_data is None:
             return
-
+        print("ABOUT TO SHOW HISTOGRAM")
         if not update_lines_only:
             self._histogram_axes.clear()
             self._histogram_figure.patch.set_visible(False)
@@ -385,6 +386,7 @@ class ChannelStretchWidget(QWidget):
             self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
         self._histogram_canvas.draw()
+        print("DONE SHOWING HISTOGRAM")
 
 
     def _on_low_slider_changed(self, value):
@@ -694,22 +696,29 @@ class StretchBuilderDialog(QDialog):
         stretch_type = self._stretch_config.get_stretch_type()
         # print(f'Stretch type changed to {stretch_type}')
 
+        print(".....BEFORE STRETCH CHANGED.......")
         for i in range(self._num_active_channels):
             self._channel_widgets[i].set_stretch_type(stretch_type)
+        print(".....AFTER STRETCH CHANGED.......")
 
         if self._enable_stretch_changed_events:
+            print("before stretch type changed")
             self._emit_stretch_changed(self.get_stretches())
+            print("after stretch type changed")
 
 
     def _on_conditioner_type_changed(self): # , conditioner_type):
         conditioner_type = self._stretch_config.get_conditioner_type()
         # print(f'Conditioner type changed to {conditioner_type}')
-
+        print(".....BEFORE CONDITIONER CHANGED.......")
         for i in range(self._num_active_channels):
             self._channel_widgets[i].set_conditioner_type(conditioner_type)
+        print(".....AFTER CONDITIONER CHANGED.......")
 
         if self._enable_stretch_changed_events:
+            print("before emit stretch changed")
             self._emit_stretch_changed(self.get_stretches())
+            print("after emit stretch changed")
 
 
     def _on_link_sliders(self, checked):

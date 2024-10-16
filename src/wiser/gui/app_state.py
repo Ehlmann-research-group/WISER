@@ -336,6 +336,7 @@ class ApplicationState(QObject):
 
 
     def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):
+        print("in set_stretches app state")
         if len(bands) != len(stretches):
             raise ValueError('bands and stretches must both be the same ' +
                 f'length (got {len(bands)} bands, {len(stretches)} stretches)')
@@ -346,6 +347,7 @@ class ApplicationState(QObject):
             self._stretches[key] = stretch
 
         self.stretch_changed.emit(ds_id, bands)
+        print("leaving set_stretches app state")
 
 
     def get_stretches(self, ds_id: int, bands: Tuple):
