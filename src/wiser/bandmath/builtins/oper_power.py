@@ -125,7 +125,7 @@ class OperatorPower(BandMathFunction):
             if isinstance(lhs_value, np.ma.masked_array):
                 result_arr = np.power(lhs_value, rhs_value, where=~lhs_value.mask)
             else:
-                lhs_value ** rhs_value
+                result_arr = lhs_value ** rhs_value
     
             # The result array should have the same dimensions as the LHS input
             # array.

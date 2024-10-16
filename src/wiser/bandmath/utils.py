@@ -10,15 +10,50 @@ import numpy as np
 import lark
 from lark import Tree
 
-import queue
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
+from osgeo import gdal
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
 from wiser.raster.dataset import RasterDataSet
 from .builtins.constants import LHS_KEY, RHS_KEY
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
+
+def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ndarray, gdal_elem_type: int):
+        # print("ABOUT TO WRITE DATA")
+        gdal_band_list_current = [band+1 for band in band_index_list]
+        
+        out_dataset_gdal.WriteRaster(
+            0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
+            result.tobytes(),
+            buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
+            buf_type=gdal_elem_type,
+            band_list=gdal_band_list_current
+        )
+        out_dataset_gdal.FlushCache()
+        # print("FINISHED FLUSHING DATA")
+
+def np_dtype_to_gdal(np_dtype):
+    """Converts a NumPy dtype to the corresponding GDAL GDT type."""
+
+    # Create a mapping between NumPy dtypes and GDAL GDT types
+    dtype_mapping = {
+        np.dtype('int8'): gdal.GDT_Byte,
+        np.dtype('uint8'): gdal.GDT_Byte,
+        np.dtype('int16'): gdal.GDT_Int16,
+        np.dtype('uint16'): gdal.GDT_UInt16,
+        np.dtype('int32'): gdal.GDT_Int32,
+        np.dtype('uint32'): gdal.GDT_UInt32,
+        np.dtype('float32'): gdal.GDT_Float32,
+        np.dtype('float64'): gdal.GDT_Float64,
+        np.dtype('complex64'): gdal.GDT_CFloat32,
+        np.dtype('complex128'): gdal.GDT_CFloat64,
+    }
+    
+    # Handle cases where the dtype is not in the mapping
+    if np_dtype not in dtype_mapping:
+        raise ValueError(f"Unsupported NumPy dtype: {np_dtype}")
+    
+    return dtype_mapping[np_dtype]
 
 def remove_trailing_number(filepath):
     # Regular expression pattern to match " space followed by digits" at the end of the path

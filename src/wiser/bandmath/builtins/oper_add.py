@@ -117,10 +117,7 @@ class OperatorAdd(BandMathFunction):
         # Since addition is commutative, arrange the arguments to make the
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
-    
-        def get_nan_count(arr: np.ndarray):
-            nan_count = np.isnan(arr).sum()
-            return nan_count
+
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]

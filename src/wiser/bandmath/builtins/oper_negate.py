@@ -48,14 +48,11 @@ class OperatorUnaryNegate(BandMathFunction):
 
         if arg.type == VariableType.NUMBER:
             return BandMathValue(VariableType.NUMBER, -arg.value)
-        elif arg.type == VariableType.IMAGE_CUBE:
+        elif arg.type in [VariableType.IMAGE_CUBE,
+                          VariableType.IMAGE_BAND,
+                          VariableType.SPECTRUM]:
             if isinstance(index_list, int):
                 index_list = [index_list]
-            arr = arg.as_numpy_array_by_bands(index_list)
-            result_arr = -arr
-            return BandMathValue(arg.type, result_arr)
-        elif arg.type in [VariableType.IMAGE_BAND,
-                          VariableType.SPECTRUM]:
             arr = arg.as_numpy_array_by_bands(index_list)
             result_arr = -arr
             return BandMathValue(arg.type, result_arr)
