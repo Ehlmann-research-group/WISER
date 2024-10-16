@@ -454,8 +454,6 @@ class TestBandmathEvaluator(unittest.TestCase):
     # COMPLEX OPERATION TESTS
     def test_bandmath_add_complex_expression(self):
         ''' Test band-math with a complex addition expression: (a + b) + (c + d) '''
-        import os
-        os.environ['GDAL_DISABLE_READDIR_ON_OPEN'] = 'YES'
         a = make_image(2, 3, 4)
         b = make_band(3, 4)
         c = make_image(2, 3, 4)
@@ -482,15 +480,266 @@ class TestBandmathEvaluator(unittest.TestCase):
         self.assertEqual(result_type, RasterDataSet)
 
         # Verify the result
-        print(f"Image data: {result_dataset.get_image_data()}")
         for value in np.nditer(result_dataset.get_image_data()):
-            self.assertEqual(value, 10.0)  # 1 + 2 + 3 + 4
+            self.assertEqual(value, 10.0)
+        
+        # Make sure input values didn't change
+        for value in np.nditer(a):
+            self.assertEqual(value, 1.0)
+        
+        for value in np.nditer(b):
+            self.assertEqual(value, 2.0)
+        
+        for value in np.nditer(c):
+            self.assertEqual(value, 3.0)
+        
+        for value in np.nditer(d):
+            self.assertEqual(value, 4.0)
+
+        del result_dataset
+
+    def test_bandmath_mul_complex_expression(self):
+        ''' Test band-math with a complex multiplication expression: (a * b) * (c * d) '''
+        a = make_image(2, 3, 4)
+        b = make_band(3, 4)
+        c = make_image(2, 3, 4)
+        d = make_spectrum(2)
+
+        a.fill(1.0)
+        b.fill(2.0)
+        c.fill(3.0)
+        d.fill(4.0)
+
+        expr_info = get_bandmath_expr_info('(a * b) * (c * d)',
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b),
+             'c':(VariableType.IMAGE_CUBE, c),
+             'd':(VariableType.SPECTRUM, d)}, {})
+        result_name = 'test_result'
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a * b) * (c * d)', expr_info, result_name,
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b),
+             'c':(VariableType.IMAGE_CUBE, c),
+             'd':(VariableType.SPECTRUM, d)}, {})
+
+        self.assertEqual(result_type, RasterDataSet)
+
+        # Verify the result
+        for value in np.nditer(result_dataset.get_image_data()):
+            self.assertEqual(value, 24.0)  # 1 * 2 * 3 * 4
+        
+        # Make sure input values didn't change
+        for value in np.nditer(a):
+            self.assertEqual(value, 1.0)
+        
+        for value in np.nditer(b):
+            self.assertEqual(value, 2.0)
+        
+        for value in np.nditer(c):
+            self.assertEqual(value, 3.0)
+        
+        for value in np.nditer(d):
+            self.assertEqual(value, 4.0)
         
         del result_dataset
 
+    def test_bandmath_div_complex_expression(self):
+        ''' Test band-math with a complex division expression: (a / b) / (c / d) '''
+        a = make_image(2, 3, 4)
+        b = make_band(3, 4)
+        c = make_image(2, 3, 4)
+        d = make_spectrum(2)
+
+        a.fill(16.0)
+        b.fill(2.0)
+        c.fill(4.0)
+        d.fill(2.0)
+
+        expr_info = get_bandmath_expr_info('(a / b) / (c / d)',
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b),
+             'c':(VariableType.IMAGE_CUBE, c),
+             'd':(VariableType.SPECTRUM, d)}, {})
+        result_name = 'test_result'
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a / b) / (c / d)', expr_info, result_name,
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b),
+             'c':(VariableType.IMAGE_CUBE, c),
+             'd':(VariableType.SPECTRUM, d)}, {})
+
+        self.assertEqual(result_type, RasterDataSet)
+
+        # Verify the result
+        for value in np.nditer(result_dataset.get_image_data()):
+            self.assertEqual(value, 4.0)  # (16 / 2) / (4 / 2)
+        
+        # Make sure input values didn't change
+        for value in np.nditer(a):
+            self.assertEqual(value, 16.0)
+        
+        for value in np.nditer(b):
+            self.assertEqual(value, 2.0)
+        
+        for value in np.nditer(c):
+            self.assertEqual(value, 4.0)
+        
+        for value in np.nditer(d):
+            self.assertEqual(value, 2.0)
+        
+        del result_dataset
+
+    def test_bandmath_sub_complex_expression(self):
+        ''' Test band-math with a complex subtraction expression: (a - b) - (c - d) '''
+        a = make_image(2, 3, 4)
+        b = make_band(3, 4)
+        c = make_image(2, 3, 4)
+        d = make_spectrum(2)
+
+        a.fill(10.0)
+        b.fill(2.0)
+        c.fill(5.0)
+        d.fill(1.0)
+
+        expr_info = get_bandmath_expr_info('(a - b) - (c - d)',
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b),
+             'c':(VariableType.IMAGE_CUBE, c),
+             'd':(VariableType.SPECTRUM, d)}, {})
+        result_name = 'test_result'
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a - b) - (c - d)', expr_info, result_name,
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b),
+             'c':(VariableType.IMAGE_CUBE, c),
+             'd':(VariableType.SPECTRUM, d)}, {})
+
+        self.assertEqual(result_type, RasterDataSet)
+
+        # Verify the result
+        for value in np.nditer(result_dataset.get_image_data()):
+            self.assertEqual(value, 4.0)  # (10 - 2) - (5 - 1)
+        
+        # Make sure input values didn't change
+        for value in np.nditer(a):
+            self.assertEqual(value, 10.0)
+        
+        for value in np.nditer(b):
+            self.assertEqual(value, 2.0)
+        
+        for value in np.nditer(c):
+            self.assertEqual(value, 5.0)
+        
+        for value in np.nditer(d):
+            self.assertEqual(value, 1.0)
+        
+        del result_dataset
+
+    def test_bandmath_neg_a_plus_1(self):
+        ''' Test band-math for expression -a + 1 '''
+        a = make_image(2, 3, 4)
+        a.fill(10.0)
+
+        expr_info = get_bandmath_expr_info('-a + 1',
+            {'a':(VariableType.IMAGE_CUBE, a)}, {})
+        result_name = 'test_result'
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('-a + 1', expr_info, result_name,
+            {'a':(VariableType.IMAGE_CUBE, a)}, {})
+
+        self.assertEqual(result_type, RasterDataSet)
+
+        # Verify the result
+        for value in np.nditer(result_dataset.get_image_data()):
+            self.assertEqual(value, -9.0)  # -10 + 1
+        
+        # Make sure input values didn't change
+        for value in np.nditer(a):
+            self.assertEqual(value, 10.0)
+        
+        del result_dataset
+
+    def test_bandmath_a_pow_b_minus_sqrt_a(self):
+        ''' Test band-math for expression a**b - (a**0.5) '''
+        a = make_image(2, 3, 4)
+        b = make_band(3, 4)
+
+        a.fill(4.0)
+        b.fill(2.0)
+
+        expr_info = get_bandmath_expr_info('a**b - (a**0.5)',
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b)}, {})
+        result_name = 'test_result'
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('a**b - (a**0.5)', expr_info, result_name,
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b)}, {})
+
+        self.assertEqual(result_type, RasterDataSet)
+
+        # Verify the result
+        for value in np.nditer(result_dataset.get_image_data()):
+            self.assertEqual(value, 14.0)  # 4**2 - (4**0.5) => 16 - 2
+        
+        for value in np.nditer(a):
+            self.assertEqual(value, 4.0)
+        
+        for value in np.nditer(b):
+            self.assertEqual(value, 2.0)
+        
+        del result_dataset
+    
+    def test_bandmath_all_operations(self):
+        ''' Test band-math with a complex expression: (a / b) - (c * d) + a**0.5 '''
+        a = make_image(2, 3, 4)
+        b = make_band(3, 4)
+        c = make_image(2, 3, 4)
+        d = make_spectrum(2)
+
+        a.fill(16.0)
+        b.fill(2.0)
+        c.fill(4.0)
+        d.fill(2.0)
+
+        expr_info = get_bandmath_expr_info('(a / b) - (c * d) + a**0.5',
+            {'a': (VariableType.IMAGE_CUBE, a),
+             'b': (VariableType.IMAGE_BAND, b),
+             'c': (VariableType.IMAGE_CUBE, c),
+             'd': (VariableType.SPECTRUM, d)}, {})
+        result_name = 'test_result'
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a / b) - (c * d) + a**0.5', expr_info, result_name,
+            {'a': (VariableType.IMAGE_CUBE, a),
+             'b': (VariableType.IMAGE_BAND, b),
+             'c': (VariableType.IMAGE_CUBE, c),
+             'd': (VariableType.SPECTRUM, d)}, {})
+
+        self.assertEqual(result_type, RasterDataSet)
+
+        # Verify the result
+        for value in np.nditer(result_dataset.get_image_data()):
+            expected_value = (16.0 / 2.0) - (4.0 * 2.0) + (16.0 ** 0.5)
+            self.assertEqual(value, expected_value)  # (16 / 2) - (4 * 2) + sqrt(16)
+
+        # Make sure input values didn't change
+        for value in np.nditer(a):
+            self.assertEqual(value, 16.0)
+
+        for value in np.nditer(b):
+            self.assertEqual(value, 2.0)
+
+        for value in np.nditer(c):
+            self.assertEqual(value, 4.0)
+
+        for value in np.nditer(d):
+            self.assertEqual(value, 2.0)
+
+        del result_dataset
 
 if __name__ == '__main__':
     test_class = TestBandmathEvaluator()
-    test_class.test_bandmath_add_complex_expression()
+    test_class.test_bandmath_add_band_number()
 
     

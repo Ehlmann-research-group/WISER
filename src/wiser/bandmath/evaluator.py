@@ -16,7 +16,8 @@ import concurrent.futures
 
 from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
-from .utils import TEMP_FOLDER_PATH, print_tree_with_meta, get_unused_file_path_in_folder
+from .utils import TEMP_FOLDER_PATH, print_tree_with_meta, get_unused_file_path_in_folder, \
+    np_dtype_to_gdal, write_raster_to_dataset
 
 from wiser.raster.dataset import RasterDataSet
 
@@ -1108,42 +1109,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     number_of_intermediates = numInterFinder.get_max_intermediates()
     print(f"Number of intermediates: {number_of_intermediates}")
 
-    def np_dtype_to_gdal(np_dtype):
-        """Converts a NumPy dtype to the corresponding GDAL GDT type."""
-    
-        # Create a mapping between NumPy dtypes and GDAL GDT types
-        dtype_mapping = {
-            np.dtype('int8'): gdal.GDT_Byte,
-            np.dtype('uint8'): gdal.GDT_Byte,
-            np.dtype('int16'): gdal.GDT_Int16,
-            np.dtype('uint16'): gdal.GDT_UInt16,
-            np.dtype('int32'): gdal.GDT_Int32,
-            np.dtype('uint32'): gdal.GDT_UInt32,
-            np.dtype('float32'): gdal.GDT_Float32,
-            np.dtype('float64'): gdal.GDT_Float64,
-            np.dtype('complex64'): gdal.GDT_CFloat32,
-            np.dtype('complex128'): gdal.GDT_CFloat64,
-        }
-        
-        # Handle cases where the dtype is not in the mapping
-        if np_dtype not in dtype_mapping:
-            raise ValueError(f"Unsupported NumPy dtype: {np_dtype}")
-        
-        return dtype_mapping[np_dtype]
     gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
-    def write_raster(out_dataset_gdal, band_index_list: List[int], result: np.ndarray):
-        # print("ABOUT TO WRITE DATA")
-        gdal_band_list_current = [band+1 for band in band_index_list]
-        
-        out_dataset_gdal.WriteRaster(
-            0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
-            result.tobytes(),
-            buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
-            buf_type=gdal_type,
-            band_list=gdal_band_list_current
-        )
-        out_dataset_gdal.FlushCache()
-        # print("FINISHED FLUSHING DATA")
 
     if expr_info.result_type == VariableType.IMAGE_CUBE and not use_old_method:
         eval = None
@@ -1194,10 +1160,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
                 
-                # future = eval.write_thread_pool.submit(write_raster, \
+                # future = eval.write_thread_pool.submit(write_raster_to_dataset, \
                 #                                     out_dataset_gdal, band_index_list, \
-                #                                     res)
-                write_raster(out_dataset_gdal, band_index_list, res)
+                #                                     res, gdal_type)
+                write_raster_to_dataset(out_dataset_gdal, band_index_list, res, gdal_type)
             #     writing_futures.append(future)
             # concurrent.futures.wait(writing_futures)
             # print(f"DONE WRITING ARRAY")
@@ -1211,7 +1177,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
         return (RasterDataSet, out_dataset)
     else:
-        # print("OLD METHOD")
+        print("OLD METHOD")
         def get_nan_count(arr: np.ndarray):
             nan_count = np.isnan(arr).sum()
             return nan_count
@@ -1219,12 +1185,12 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
             res = result_value.value
-            if not np.issubdtype(res.dtype, np.floating):
-                res = res.astype(np.float32)
-            res.data[res.mask] = 0.0
-            print(f"OLD METHOD type of res: {type(res)}")
-            print(f"OLD METHOD Num masked values in res: {np.ma.count_masked(res)}")
-            print(f"OLD METHOD res nan count: {get_nan_count(res)}")
+            # if not np.issubdtype(res.dtype, np.floating):
+            #     res = res.astype(np.float32)
+            # res.data[res.mask] = 0.0
+            # print(f"OLD METHOD type of res: {type(res)}")
+            # print(f"OLD METHOD Num masked values in res: {np.ma.count_masked(res)}")
+            # print(f"OLD METHOD res nan count: {get_nan_count(res)}")
             # print(f"OLD METHOD a few masked values: {res[res.mask]}")
         except BaseException as e:
             raise e
