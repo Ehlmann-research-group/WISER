@@ -448,3 +448,49 @@ class TestBandmathEvaluator(unittest.TestCase):
             self.assertEqual(value, 2.5)
             
         del result_dataset
+    
+    
+    #===========================================================================
+    # COMPLEX OPERATION TESTS
+    def test_bandmath_add_complex_expression(self):
+        ''' Test band-math with a complex addition expression: (a + b) + (c + d) '''
+        import os
+        os.environ['GDAL_DISABLE_READDIR_ON_OPEN'] = 'YES'
+        a = make_image(2, 3, 4)
+        b = make_band(3, 4)
+        c = make_image(2, 3, 4)
+        d = make_spectrum(2)
+
+        a.fill(1.0)
+        b.fill(2.0)
+        c.fill(3.0)
+        d.fill(4.0)
+
+        expr_info = get_bandmath_expr_info('(a + b) + (c + d)',
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b),
+             'c':(VariableType.IMAGE_CUBE, c),
+             'd':(VariableType.SPECTRUM, d)}, {})
+        result_name = 'test_result'
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a + b) + (c + d)', expr_info, result_name,
+            {'a':(VariableType.IMAGE_CUBE, a),
+             'b':(VariableType.IMAGE_BAND, b),
+             'c':(VariableType.IMAGE_CUBE, c),
+             'd':(VariableType.SPECTRUM, d)}, {})
+
+        self.assertEqual(result_type, RasterDataSet)
+
+        # Verify the result
+        print(f"Image data: {result_dataset.get_image_data()}")
+        for value in np.nditer(result_dataset.get_image_data()):
+            self.assertEqual(value, 10.0)  # 1 + 2 + 3 + 4
+        
+        del result_dataset
+
+
+if __name__ == '__main__':
+    test_class = TestBandmathEvaluator()
+    test_class.test_bandmath_add_complex_expression()
+
+    
