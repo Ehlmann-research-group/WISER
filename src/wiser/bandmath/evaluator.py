@@ -26,8 +26,7 @@ from osgeo import gdal
 from .builtins import (
     OperatorCompare,
     OperatorAdd, OperatorSubtract, OperatorMultiply, OperatorDivide,
-    OperatorUnaryNegate, OperatorPower, OperatorCompareOrig, OperatorAddOrig, OperatorSubtractOrig,
-    OperatorMultiplyOrig, OperatorDivideOrig, OperatorUnaryNegateOrig, OperatorPowerOrig, 
+    OperatorUnaryNegate, OperatorPower,
     )
 
 from wiser.raster.loader import RasterDataLoader
@@ -895,7 +894,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
-        return OperatorCompareOrig(oper).apply([lhs, rhs])
+        return OperatorCompare(oper).apply([lhs, rhs])
 
 
     def add_expr(self, values):
@@ -909,12 +908,12 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = values[2]
         
         if oper == '+':
-            res = OperatorAddOrig().apply([lhs, rhs])
+            res = OperatorAdd().apply([lhs, rhs])
             print(f"In bandmath evaluator, res: {np.nanmean(res.value)}")
             return res
 
         elif oper == '-':
-            return OperatorSubtractOrig().apply([lhs, rhs])
+            return OperatorSubtract().apply([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -930,10 +929,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiplyOrig().apply([lhs, rhs])
+            return OperatorMultiply().apply([lhs, rhs])
 
         elif oper == '/':
-            return OperatorDivideOrig().apply([lhs, rhs])
+            return OperatorDivide().apply([lhs, rhs])
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -943,7 +942,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
-        return OperatorPowerOrig().apply([args[0], args[1]])
+        return OperatorPower().apply([args[0], args[1]])
 
 
     def unary_negate_expr(self, args):
@@ -952,7 +951,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * unary_negate_expr')
         # args[0] is the '-' character
-        return OperatorUnaryNegateOrig().apply([args[1]])
+        return OperatorUnaryNegate().apply([args[1]])
 
 
     def true(self, args):
