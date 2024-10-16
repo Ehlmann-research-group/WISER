@@ -737,9 +737,3 @@ class TestBandmathEvaluator(unittest.TestCase):
             self.assertEqual(value, 2.0)
 
         del result_dataset
-
-if __name__ == '__main__':
-    test_class = TestBandmathEvaluator()
-    test_class.test_bandmath_add_band_number()
-
-    
