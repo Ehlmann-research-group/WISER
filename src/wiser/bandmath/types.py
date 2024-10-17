@@ -55,7 +55,8 @@ class BandMathExprInfo:
 
     def result_size(self):
         ''' Returns an estimate of this result's size in bytes. '''
-        return np.dtype(self.elem_type).itemsize * np.prod(self.shape)
+        shape_size = np.prod(self.shape) if self.shape is not None else 1
+        return np.dtype(self.elem_type).itemsize * shape_size
 
     def __repr__(self) -> str:
         if self.result_type in [VariableType.IMAGE_CUBE,

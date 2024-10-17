@@ -8,8 +8,7 @@ from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
 from wiser.raster.spectrum import calc_roi_spectrum
 # from PySide2.QtCore import *
-from wiser.bandmath.types import BandMathValue, VariableType
-from wiser.bandmath.builtins import OperatorAdd, OperatorCompare, OperatorDivide, OperatorMultiply, OperatorPower, OperatorSubtract, OperatorUnaryNegate
+from wiser.bandmath.types import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
 import cProfile
 import pstats
@@ -39,34 +38,6 @@ def calc_func_speed(hdr_paths: List[str], func, roi: RegionOfInterest):
         dataset = loader.load_from_file(hdr_path)
         start_time = time.time()
         func(dataset, roi)
-        end_time = time.time()
-        times.append(end_time-start_time)
-    return times
-
-def benchmark_addition(hdr_paths: str):
-    equation = '(a+b)+(c+d)'
-    
-    hdr_files = get_hdr_files(hdr_paths)
-    loader = RasterDataLoader()
-    times = []
-    for hdr_file in hdr_files:
-        print(f"Going through file: {os.path.basename(hdr_file)}")
-        dataset = loader.load_from_file(hdr_file)
-        band = dataset.get_band_data(0)
-        spectrum = dataset.get_all_bands_at(100, 100)
-
-        variables = {'a':(VariableType.IMAGE_CUBE, dataset),
-                'c':(VariableType.IMAGE_CUBE, dataset),
-                'b':(VariableType.IMAGE_BAND, band),
-                'd':(VariableType.SPECTRUM, spectrum)}
-
-        expr_info = get_bandmath_expr_info(equation,
-            variables, {})
-        result_name = 'test_result'
-
-        start_time = time.time()
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr(equation, expr_info, result_name,
-            variables, {})
         end_time = time.time()
         times.append(end_time-start_time)
     return times
@@ -148,8 +119,8 @@ def stress_test_benchmark(hdr_paths: str, use_both_methods = False, use_old_meth
                     'h':(VariableType.IMAGE_CUBE, dataset),
                     'i':(VariableType.SPECTRUM, spectrum2),
                     'j':(VariableType.SPECTRUM, spectrum3),
-                    'k':(VariableType.SPECTRUM, band2),
-                    'l':(VariableType.SPECTRUM, band3)}
+                    'k':(VariableType.IMAGE_BAND, band2),
+                    'l':(VariableType.IMAGE_BAND, band3)}
         file_times = []
         file_times_new_method = []
         file_times_old_method = []
@@ -392,7 +363,11 @@ def test_both_methods(hdr_paths, N=1):
         # "<": '((a-b)-d)<c',
         # "/-*+" : '(a/b)-(c*d)+a',
         # "-+<*": "(((a-b)+d)<c)*a",
-        "**": "a**b+a**(0.5)",
+        # "**": "a**b+a**(0.5)",
+        "D": 'a*(2.718)**0.2',
+        "C": 'dotprod(a, d)',
+        "A": '1.0 - 2.0*b/(k+l)',
+        "B": 'a / (d*(d>0.2)+d<0.2)',
         # "formula": "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
     }
     results_old_method = {
@@ -405,7 +380,11 @@ def test_both_methods(hdr_paths, N=1):
         "/-*+": None,
         "-+<*": None,
         "**": None,
-        "formula": None
+        "formula": None,
+        "A": None,
+        "B": None,
+        "C": None,
+        "D": None,
     }
 
     results_new_method = {
@@ -418,7 +397,11 @@ def test_both_methods(hdr_paths, N=1):
         "/-*+": None,
         "-+<*": None,
         "**": None,
-        "formula": None
+        "formula": None,
+        "A": None,
+        "B": None,
+        "C": None,
+        "D": None,
     }
 
     caltech1 = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
@@ -434,6 +417,8 @@ def test_both_methods(hdr_paths, N=1):
         print(f"Bad bands: {len(dataset._bad_bands)}")
         print(f"Shape: {dataset.get_shape()}")
         band = dataset.get_band_data(0)
+        band2 = dataset.get_band_data(1)
+        band3 = dataset.get_band_data(2)
         spectrum = dataset.get_all_bands_at(100, 100)
         spectrum2 = dataset.get_all_bands_at(120, 120)
         spectrum3 = dataset.get_all_bands_at(140, 140)
@@ -446,7 +431,9 @@ def test_both_methods(hdr_paths, N=1):
                     'g':(VariableType.IMAGE_CUBE, dataset),
                     'h':(VariableType.IMAGE_CUBE, dataset),
                     'i':(VariableType.SPECTRUM, spectrum2),
-                    'j':(VariableType.SPECTRUM, spectrum3)}
+                    'j':(VariableType.SPECTRUM, spectrum3),
+                    'k':(VariableType.IMAGE_BAND, band2),
+                    'l':(VariableType.IMAGE_BAND, band3)}
     
         for key, value in equation_dict.items():
             # oper_times_new_method = []
@@ -461,7 +448,11 @@ def test_both_methods(hdr_paths, N=1):
                 results_new_method[key] = result_new_method
             print(f"results old method calculating!")
             time_old_method, result_old_method = measure_bandmath_time(value, variables, use_old_method=True)
-            arr_new_method = result_new_method.get_image_data()
+            # arr_new_method = result_new_method.get_image_data()
+            if isinstance(result_new_method, RasterDataSet):
+                arr_new_method = result_new_method.get_image_data()
+            elif isinstance(result_new_method, np.ndarray):
+                arr_new_method = result_new_method
             arr_old_method = result_old_method
             original_arr = dataset.get_image_data()
             # print(f"type of arr_new_method: {arr_new_method}")
@@ -469,8 +460,8 @@ def test_both_methods(hdr_paths, N=1):
             print(f"np.assertequal: {np.allclose(arr_new_method, arr_old_method, equal_nan=True)}")
             print(f"arr_new_shape: {arr_new_method.shape}")
             print(f"arr_old_shape: {arr_old_method.shape}")
-            print(f"arr_new_method[69, 82, 573] = {arr_new_method[69, 82, 573]}")
-            print(f"arr_old_method[69, 82, 573] = {arr_old_method[69, 82, 573]}")
+            # print(f"arr_new_method[69, 82, 573] = {arr_new_method[69, 82, 573]}")
+            # print(f"arr_old_method[69, 82, 573] = {arr_old_method[69, 82, 573]}")
             print(f"results old method done!")
             # print(f"key: {key}")
             # print(f"results_old_method[key]: {results_old_method[key]}")
