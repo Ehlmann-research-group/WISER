@@ -365,13 +365,13 @@ if __name__ == '__main__':
     '''
     How to use stress_test_benchmark
     '''
-    # stress_test_benchmark(dataset_500mb, dataset_500mb, dataset_500mb)
+    stress_test_benchmark(dataset_500mb, dataset_500mb, dataset_500mb)
 
     '''
     How to use the profiler for test_both_methods
     '''
-    profile_outpath = f"output/bandmath_test_both_N-{N}.txt"
-    profile_function(profile_outpath, test_both_methods, dataset_list)
+    # profile_outpath = f"output/bandmath_test_both_N-{N}.txt"
+    # profile_function(profile_outpath, test_both_methods, dataset_list)
     
     '''
     How to use the profiler for stress_test_benchmark
