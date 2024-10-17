@@ -8,18 +8,34 @@ import os
 import numpy as np
 
 import lark
+import psutil
 from lark import Tree
 
 from osgeo import gdal
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
 from wiser.raster.dataset import RasterDataSet
-from .builtins.constants import LHS_KEY, RHS_KEY
+from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
+def max_bytes_to_chunk(dataset_bytes: int):
+    '''
+    Returns an integer that represents the amount of bytes we should be using as
+    a maximum amount for chunking. None is returned if we do not need to chunk
+    '''
+    available_mem = psutil.virtual_memory().available
+    if dataset_bytes > available_mem and available_mem > MAX_RAM_BYTES:
+        return min(MAX_RAM_BYTES, available_mem*RATIO_OF_MEM_TO_USE)
+    elif dataset_bytes > available_mem:
+        return available_mem*RATIO_OF_MEM_TO_USE
+    elif dataset_bytes > MAX_RAM_BYTES:
+        return MAX_RAM_BYTES
+    else:
+        return None
+
 def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ndarray, gdal_elem_type: int):
-        # print("ABOUT TO WRITE DATA")
+        print(f"Type of flushing result arr: {type(result)}")
         gdal_band_list_current = [band+1 for band in band_index_list]
         
         out_dataset_gdal.WriteRaster(
@@ -30,7 +46,6 @@ def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result
             band_list=gdal_band_list_current
         )
         out_dataset_gdal.FlushCache()
-        # print("FINISHED FLUSHING DATA")
 
 def np_dtype_to_gdal(np_dtype):
     """Converts a NumPy dtype to the corresponding GDAL GDT type."""
