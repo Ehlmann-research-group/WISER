@@ -404,6 +404,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     
     max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
+    # max_chunking_bytes = 4000000000
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
             eval = BandMathEvaluatorChunking(lower_variables, lower_functions)
@@ -433,11 +434,11 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
             for band_index in range(0, bands, num_bands):
                 band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
-                print(f"Min: {min(band_index_list)} | Max: {max(band_index_list)}")
                 eval.index_list = band_index_list
                 
                 result_value = eval.transform(tree)
                 res = result_value.value
+                print(f"Type new: {type(res)}")
     
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
@@ -456,6 +457,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
             res = result_value.value
+            print(f"Type old: {type(res)}")
         except BaseException as e:
             raise e
         return (result_value.type, result_value.value)

@@ -36,7 +36,6 @@ def max_bytes_to_chunk(dataset_bytes: int):
         return None
 
 def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ndarray, gdal_elem_type: int):
-        print(f"Type of flushing result arr: {type(result)}")
         gdal_band_list_current = [band+1 for band in band_index_list]
         
         out_dataset_gdal.WriteRaster(
