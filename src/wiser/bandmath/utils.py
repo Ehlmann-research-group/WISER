@@ -23,12 +23,13 @@ def max_bytes_to_chunk(dataset_bytes: int):
     '''
     Returns an integer that represents the amount of bytes we should be using as
     a maximum amount for chunking. None is returned if we do not need to chunk
+
+    The logic works such that the bytes returned will 
+    be the minimum 
     '''
     available_mem = psutil.virtual_memory().available
-    if dataset_bytes > available_mem and available_mem > MAX_RAM_BYTES:
-        return min(MAX_RAM_BYTES, available_mem*RATIO_OF_MEM_TO_USE)
-    elif dataset_bytes > available_mem:
-        return available_mem*RATIO_OF_MEM_TO_USE
+    if dataset_bytes > available_mem:
+        return max(MAX_RAM_BYTES, available_mem*RATIO_OF_MEM_TO_USE)
     elif dataset_bytes > MAX_RAM_BYTES:
         return MAX_RAM_BYTES
     else:
@@ -114,15 +115,21 @@ def print_tree_with_meta(tree: lark.ParseTree, indent=0):
 def get_lhs_rhs_values(lhs: BandMathValue, rhs: BandMathValue, index_list: List[int]):
     rhs_value = None
     same_datasets = False
+    print("Getting lhs value")
     lhs_value = lhs.as_numpy_array_by_bands(index_list)
+    print("Got lhs value")
 
     # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
+    
+    print("Getting rhs value")
     if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
         same_datasets = True
     if same_datasets:
         rhs_value = lhs_value
     else:
+        print("Doing make_image_cube-Compatible")
         rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
+    print("Got rhs value")
     
     return lhs_value, rhs_value
     

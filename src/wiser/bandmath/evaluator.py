@@ -402,15 +402,13 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
     gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
     
-    max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size())
+    max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
-    max_chunking_bytes = 4000000000
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
             eval = BandMathEvaluatorChunking(lower_variables, lower_functions)
 
             bands, lines, samples = expr_info.shape
-            
             # Gets the correct file path to make our temporary file
             result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
             folder_path = os.path.dirname(result_path)
@@ -431,11 +429,11 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             max_bytes = max_chunking_bytes/bytes_per_scalar
             max_bytes_per_intermediate = max_bytes / number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
+            num_bands = 1 if num_bands < 1 else num_bands
 
-            writing_futures = []
             for band_index in range(0, bands, num_bands):
                 band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
-                
+                print(f"Min: {min(band_index_list)} | Max: {max(band_index_list)}")
                 eval.index_list = band_index_list
                 
                 result_value = eval.transform(tree)
@@ -444,12 +442,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
                 
-                future = eval.write_thread_pool.submit(write_raster_to_dataset, \
-                                                    out_dataset_gdal, band_index_list, \
-                                                    res, gdal_type)
-            
-                writing_futures.append(future)
-            concurrent.futures.wait(writing_futures)
+                write_raster_to_dataset(out_dataset_gdal, band_index_list, res, gdal_type)
         except BaseException as e:
             if eval is not None:
                 eval.stop()

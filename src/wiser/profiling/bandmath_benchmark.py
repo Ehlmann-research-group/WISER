@@ -46,6 +46,12 @@ def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType
     end_time = time.perf_counter()
     return end_time-start_time, result_dataset
 
+def get_nan_count(arr: np.ndarray):
+    '''
+    A useful helper function for counting the number of nans in an array
+    '''
+    nan_count = np.isnan(arr).sum()
+    return nan_count
 
 def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: str,
                           large_image_cube_path: str, use_both_methods = False, \
@@ -114,18 +120,21 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
         keyD1: None,
         keyD2: None,
     }
+    oper_file_time_dict_both = {}
 
     file_times = []
     for key, value in stressing_equation_dict.items():
         oper_times = []
         oper_times_new_method = []
         oper_times_old_method = []
-        print(f"operations: {key}")
-        print(f"equation: {value}")
+        print(f"Operations: {key}")
+        print(f"Equation: {value}")
         for iter in range(N):
             # print(f"iter: {iter}")
             time_outer = None
             if use_both_methods:
+                # Whichever method goes first has to load the data from disk into memory so will take slower.
+                # To somewhat account for this, increase N and get rid of the first observation
                 print(f"New method calculating!")
                 time_new_method, result_new_method = measure_bandmath_time(value, variables, use_old_method=False)
                 print(f"New method done calculating!")
@@ -152,22 +161,28 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
                 print(f"New method done!")
                 time_outer = time
             oper_times.append(time_outer)
-        oper_file_time_dict[f"{key}:"] = oper_times
+        oper_file_time_dict[key] = oper_times
+        oper_file_time_dict_both[key] = {}
+        oper_file_time_dict_both[key]["new"] = oper_times_new_method
+        oper_file_time_dict_both[key]["old"] = oper_times_old_method
         file_times += (oper_times)
         
     print("==========Oper File Time Benchmarks==========")
-    for oper_file in oper_file_time_dict.keys():
-        print(f"{oper_file}:\n \
-                \t Mean: {np.mean(oper_file_time_dict[oper_file])} \n \
-                \t Std: {np.std(oper_file_time_dict[oper_file])}")
-
-
-def get_nan_count(arr: np.ndarray):
-    '''
-    A useful helper function for counting the number of nans in an array
-    '''
-    nan_count = np.isnan(arr).sum()
-    return nan_count
+    if use_both_methods:
+        for oper_file in oper_file_time_dict_both:
+            new_times = oper_file_time_dict_both[oper_file]['new']
+            old_times = oper_file_time_dict_both[oper_file]['old']
+            print(f"{oper_file}: \n \
+                  New times: \n \
+                  \t Mean: {np.mean(new_times):.6f} \t Std: {np.std(new_times):.6f} \n \
+                  Old times: \n \
+                  \t Mean: {np.mean(old_times):.6f} \t Std: {np.std(old_times):.6f}")
+    else:
+        for oper_file in oper_file_time_dict.keys():
+            print(f"{oper_file}:\n \
+                    \t Mean: {np.mean(oper_file_time_dict[oper_file])} \n \
+                    \t Std: {np.std(oper_file_time_dict[oper_file])}")
+    
 
 def test_both_methods(hdr_paths, N=1):
     '''
@@ -345,6 +360,7 @@ if __name__ == '__main__':
     dataset_500mb = 'c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr'
     dataset_500mb_copy = "c:\\Users\\jgarc\\OneDrive\\Documents\\Data\\caltech-pic-copy.hdr"
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
+    dataset_6B_3bands = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.3_Slow_Histogram_calc_2Gb_img_or_mosaic\Gale_MSL_HiRISE_Color_Mosaic_warp.tif.hdr"
     dataset_6GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr"
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
@@ -365,7 +381,7 @@ if __name__ == '__main__':
     '''
     How to use stress_test_benchmark
     '''
-    stress_test_benchmark(dataset_500mb, dataset_500mb, dataset_500mb)
+    stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_6GB, use_both_methods=True, N=2)
 
     '''
     How to use the profiler for test_both_methods
