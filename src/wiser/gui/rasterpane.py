@@ -1217,48 +1217,19 @@ class RasterPane(QWidget):
                                    rasterview.get_display_bands(),
                                    rasterview.get_stretches())
 
+
     def _on_stretch_changed(self, ds_id, bands):
-        import time
         # Iterate through all rasterviews.  If any is displaying the dataset
         # that changed stretch, update its stretches.
-        print("before the stretch_channged connected to app_state in rasterpane.py")
-        # for rv in self._rasterviews.values():
-        #     dataset = rv.get_raster_data()
-        #     if dataset is None:
-        #         continue
-
-        #     if dataset.get_id() == ds_id:
-        #         bands = rv.get_display_bands()
-        #         stretches = self._app_state.get_stretches(ds_id, bands)
-        #         rv.set_stretches(stretches)
         for rv in self._rasterviews.values():
-            # Measure time for getting raster data
-            before_dataset = time.time()
             dataset = rv.get_raster_data()
-            after_dataset = time.time()
-            print(f"Time taken for get_raster_data: {after_dataset - before_dataset:.6f} seconds")
-
             if dataset is None:
                 continue
 
             if dataset.get_id() == ds_id:
-                # Measure time for getting display bands
-                before_bands = time.time()
                 bands = rv.get_display_bands()
-                after_bands = time.time()
-                print(f"Time taken for get_display_bands: {after_bands - before_bands:.6f} seconds")
-
-                # Measure time for getting stretches
-                before_stretches = time.time()
                 stretches = self._app_state.get_stretches(ds_id, bands)
-                after_stretches = time.time()
-                print(f"Time taken for get_stretches: {after_stretches - before_stretches:.6f} seconds")
-
-                # Measure time for setting stretches
-                before_set_stretches = time.time()
                 rv.set_stretches(stretches)
-                after_set_stretches = time.time()
-                print(f"Time taken for set_stretches: {after_set_stretches - before_set_stretches:.6f} seconds")
 
     def _on_zoom_in(self, evt):
         ''' Zoom in the zoom-view by one level. '''
