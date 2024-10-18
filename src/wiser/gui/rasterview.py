@@ -16,7 +16,7 @@ from .util import get_painter
 
 from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.stretch import StretchBase
-from wiser.raster.utils import normalize_ndarray, normalize_array_by_dim_1
+from wiser.raster.utils import normalize_ndarray
 
 
 logger = logging.getLogger(__name__)
