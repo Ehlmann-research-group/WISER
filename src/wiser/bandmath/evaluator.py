@@ -428,11 +428,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 
                 write_raster_to_dataset(out_dataset_gdal, band_index_list, res, gdal_type)
         except BaseException as e:
-            if eval is not None:
-                eval.stop()
-                raise e
-        finally:
-            eval.stop()
+            raise e
         out_dataset.set_data_ignore_value(DEFAULT_IGNORE_VALUE)
         return (RasterDataSet, out_dataset)
     else:

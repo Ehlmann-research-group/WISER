@@ -298,24 +298,19 @@ def test_both_methods(hdr_paths, N=1):
             if np.any(not_close):
                 print("Pairs of values that are not close:")
                 for index in np.argwhere(not_close):
-                    # # Unpack all dimensions dynamically
+                    # # Unpack all dimensions dynamically, uncomment this if results do not match
                     # index_str = ", ".join(map(str, index))
                     # if not np.isnan(arr_new_method[tuple(index)]) and not np.isnan(arr_old_method[tuple(index)]):
                     #     print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
-                    # if amt_not_close == 0:
-                    #     print(f"original arr[10:11,100:105,100:101] = \n {original_arr[tuple(index)]}")
-                    #     print(f"arr_new_method[10:11,100:105,100:101] = \n {arr_new_method[tuple(index)]}")
-                    #     print(f"arr_old_method[10:11,100:105,100:101] = \n {arr_old_method[tuple(index)]}")
-                    # print(f" new method : {arr_new_method[tuple(index)]}")
                     amt_not_close += 1
             else:
                 print("All values are close within the given tolerance.")
             print(f"Amount not close: \n {amt_not_close}")
             print(f"Amount nan in each: \n new method: {get_nan_count(arr_new_method)} " +
                   f"\n old method: {get_nan_count(arr_old_method)}")
-            print(f"mean of original array: {np.mean(original_arr)}")
-            print(f"mean of new method: {np.nanmean(arr_new_method)}")
-            print(f"mean of old method: {np.nanmean(arr_old_method)}")
+            print(f"Mean of original array: {np.mean(original_arr)}")
+            print(f"Mean of new method: {np.nanmean(arr_new_method)}")
+            print(f"Mean of old method: {np.nanmean(arr_old_method)}")
             assert np.allclose(arr_new_method, arr_old_method, equal_nan=True)
     return results_new_method, results_old_method
 

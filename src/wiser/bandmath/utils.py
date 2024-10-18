@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Tuple, Union
 Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
@@ -474,12 +474,9 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     if arg.type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         result = arg.as_numpy_array_by_bands(band_list)
-        # print(f"utils, make_image_cube_compatible variabletype image_cube: {result.shape}, cube shape: {cube_shape}")
         assert result.ndim == 3 or (result.ndim == 2 and len(band_list) == 1)
 
         if not are_shapes_equivalent(result.shape, cube_shape):
-            print(f"RAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR: \n \
-                  result.shape : {result.shape} || cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
@@ -487,29 +484,20 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         # Dimensions:  [y][x]
         # NumPy will broadcast the band across the entire image, band by band.
         result = arg.as_numpy_array_by_bands(band_list)
-        # print(f"utils, make_image_cube_compatible variabletype IMAGE_BAND: {result.shape}, cube shape: {cube_shape}")
         assert result.ndim == 2
 
         if (result.shape != cube_shape[1:]) and (result.shape != cube_shape and len(band_list) == 1):
-            print(f"PPPPPPPPPPPPPPPPPPPPOOOOOOOOOOOOOOOOOPPPPPPPPPPPPPPPPPPPPPPPP: \n \
-                  image band shape: {result.shape}, cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]
         result = arg.as_numpy_array_by_bands(band_list)
-        # print(f"utils bandmath, make_image_cube_by_bands, spectrum: result: {result.shape}")
-        # if result.ndim == 3:
-        # Should only be of shape (1, 1, ..., X)
         max_dim = max(result.shape)
         result = np.squeeze(result).reshape(max_dim)
-        # print(f"utils bandmath, make_image_cube_by_bands, spectrum: result after: {result.shape}")
         assert result.ndim == 1
 
         if (result.shape != (cube_shape[0],)) and len(band_list) != 1:
-            print(f"WWWWWWWWWWWWWWEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEWWWWWWWWWWWWWWWWWWWWWWW: \n \
-                  spectrum shape: {result.shape}, cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
