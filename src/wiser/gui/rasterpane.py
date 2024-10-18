@@ -26,6 +26,9 @@ from wiser.raster.selection import SelectionType, Selection, SinglePixelSelectio
 from wiser.raster.spectra_export import export_roi_pixel_spectra
 from wiser.raster.spectrum import ROIAverageSpectrum
 
+from wiser.gui.gui_threading import Worker
+from wiser.gui.app_state import ApplicationState
+
 from .ui_roi import draw_roi, get_picked_roi_selections
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
 from .ui_selection_polygon import PolygonSelectionCreator, PolygonSelectionEditor
@@ -268,7 +271,7 @@ class RasterPane(QWidget):
     viewport_change = Signal(tuple)
 
 
-    def __init__(self, app_state, parent=None, size_hint=None,
+    def __init__(self, app_state: ApplicationState, parent=None, size_hint=None,
                  embed_toolbar=True, select_tools=True,
                  min_zoom_scale=None, max_zoom_scale=None, zoom_options=None,
                  initial_zoom=None):
@@ -309,7 +312,7 @@ class RasterPane(QWidget):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
-        self._app_state.stretch_changed.connect(self._on_stretch_changed)
+        self._app_state.stretch_changed.connect(self._on_stretch_changed_with_worker)
 
 
     def _init_ui(self, select_tools=True):
@@ -1231,6 +1234,12 @@ class RasterPane(QWidget):
                 stretches = self._app_state.get_stretches(ds_id, bands)
                 rv.set_stretches(stretches)
 
+    
+    def _on_stretch_changed_with_worker(self, ds_id: int, bands: Tuple):
+        worker = Worker(self._on_stretch_changed, ds_id, bands)
+
+        # Start the worker using the thread pool
+        self._app_state._app._thread_pool.start(worker)
 
     def _on_zoom_in(self, evt):
         ''' Zoom in the zoom-view by one level. '''
