@@ -181,6 +181,7 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None) -> np.ndarray
 
     return (array - minval) / (maxval - minval)
 
+
 def get_normalized_band(dataset, band_index):
     '''
     Extracts the specified band of raster data, mapping all elements to the
