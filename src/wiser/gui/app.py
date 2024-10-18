@@ -784,7 +784,6 @@ class DataVisualizerApp(QMainWindow):
 
                 loader = self._app_state.get_loader()
                 if result_type == RasterDataSet:
-                    print(f"Type of not basic reuslt: {type(result.get_image_data())}")
                     new_dataset = result
 
                     new_dataset.set_name(
@@ -800,7 +799,6 @@ class DataVisualizerApp(QMainWindow):
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.IMAGE_CUBE:
-                    print(f"Type of basic reuslt: {type(result)}")
                     new_dataset = loader.dataset_from_numpy_array(result)
 
                     if not result_name:

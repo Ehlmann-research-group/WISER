@@ -299,6 +299,7 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was removed.
         '''
+        self._datasets[ds_id].delete_underlying_dataset()
         del self._datasets[ds_id]
 
         # Remove all stretches that are associated with this data set

@@ -10,7 +10,7 @@ from astropy import units as u
 
 from osgeo import osr
 
-from .dataset_impl import RasterDataImpl, SaveState
+from .dataset_impl import RasterDataImpl, SaveState, GDALRasterDataImpl
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength
 
@@ -588,6 +588,12 @@ class RasterDataSet:
     
     def get_impl(self):
         return self._impl
+
+    def delete_underlying_dataset(self):
+        if hasattr(self._impl, 'delete_dataset'):
+            self._impl.delete_dataset()
+            return True
+        return False
 
     def __eq__(self, other) -> bool:
         if isinstance(other, RasterDataSet):

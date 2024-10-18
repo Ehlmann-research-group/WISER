@@ -22,7 +22,7 @@ class SaveState(Enum):
     IN_DISK_NOT_SAVED = 0
     IN_MEMORY_NOT_SAVED = 1
     IN_DISK_SAVED = 2
-    IN_MEMORY_SAVE = 3
+    IN_MEMORY_SAVED = 3
     UNKNOWN = 4
 
 class RasterDataImpl(abc.ABC):
@@ -302,19 +302,25 @@ class GDALRasterDataImpl(RasterDataImpl):
         self._save_state = save_state
 
     def delete_dataset(self) -> None:
-        driver = self.gdal_dataset.GetDriver()
-        try:
-            filepath = self.get_filepaths()[0]
-            if self.gdal_dataset:
-                self.gdal_dataset.FlushCache()
-                self.gdal_dataset = None
-            driver.Delete(filepath)
-        except Exception as e:
-            print(f"Couldn't delete dataset. Error: \n {e}")
+        '''
+        We should only be deleting a dataset if it is on disk but the user hasn't explicitly saved it.
+        '''
+        if self._save_state == SaveState.IN_DISK_NOT_SAVED:
+            try:
+                if self.gdal_dataset is not None:
+                    filepath = self.get_filepaths()[0]
+                    driver = self.gdal_dataset.GetDriver()
+                    self.gdal_dataset.FlushCache()
+                    self.gdal_dataset = None
+                    driver.Delete(filepath)
+                else:
+                    print(f"Dataset variable is None. Either the dataset " +
+                          "file was deleted or just the variable was deleted.")
+            except Exception as e:
+                print(f"Couldn't delete dataset. Error: \n {e}")
 
     def __del__(self):
-        if self._save_state == SaveState.IN_DISK_NOT_SAVED:
-            self.delete_dataset()
+        self.delete_dataset()
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
