@@ -84,7 +84,7 @@ class ConditionerType(Enum):
 
     LOG_CONDITIONER = 2
 
-import time
+
 class StretchBase:
     '''
     Base class for all stretch and conditioner types.
@@ -185,12 +185,9 @@ class StretchLinear(StretchBase):
         # Compute the linear stretch, then clip to the range [0, 1].
         # The operation is implemented this way to achieve in-place modification
         # of the array contents.
-        start_time = time.perf_counter()
         a *= self._slope
         a += self._offset
         np.clip(a, 0.0, 1.0, out=a)
-        end_time = time.perf_counter()
-        print(f"Stretch time applying linear: {end_time - start_time:.6f} seconds")
 
 
 class StretchHistEqualize(StretchBase):
@@ -220,11 +217,8 @@ class StretchHistEqualize(StretchBase):
 
     def apply(self, a: np.array):
         # TODO(donnie):  I think this makes a copy
-        start_time = time.perf_counter()
         out = np.interp(a, self._histo_edges[:-1], self._cdf)
         np.copyto(a, out)
-        end_time = time.perf_counter()
-        print(f"Stretch time applying histogram equalize: {end_time - start_time:.6f} seconds")
 
 
 class StretchSquareRoot(StretchBase):
@@ -240,10 +234,7 @@ class StretchSquareRoot(StretchBase):
         return 'StretchSquareRoot'
 
     def apply(self, a: np.array):
-        start_time = time.perf_counter()
         np.sqrt(a, out=a)
-        end_time = time.perf_counter()
-        print(f"Stretch time applying square root: {end_time - start_time:.6f} seconds")
 
     def modify_histogram(self, a: np.array) -> np.array:
         return a # for now
@@ -269,11 +260,8 @@ class StretchLog2(StretchBase):
         requires an input data-set that is in the range [0, 1], and produces a
         result also in the range [0, 1] by implementing numpy.log2(a + 1).
         '''
-        start_time = time.perf_counter()
         a += 1.0
         np.log2(a, out=a)
-        end_time = time.perf_counter()
-        print(f"Stretch time applying log2: {end_time - start_time:.6f} seconds")
 
     def modify_histogram(self, a: np.array) -> np.array:
         return a # for now
@@ -292,11 +280,8 @@ class StretchComposite(StretchBase):
         return f'StretchComposite[first={self._first}, second={self._second}]'
 
     def apply(self, a: np.array):
-        start_time = time.perf_counter()
         self._first.apply(a)
         self._second.apply(a)
-        end_time = time.perf_counter()
-        print(f"Stretch time applying composite: {end_time - start_time:.6f} seconds")
 
     def first(self):
         return self._first

@@ -181,34 +181,6 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None) -> np.ndarray
 
     return (array - minval) / (maxval - minval)
 
-def normalize_array_by_dim_1(array: np.ndarray, minval=None, maxval=None) -> np.ndarray:
-    '''
-    Normalize each 2D slice of the specified 3D array along the first dimension (b),
-    using vectorized operations. If minval and maxval are provided as 1D arrays of 
-    length `b`, they will be used for each respective slice. Each (x, y) slice is 
-    normalized independently. NaN values are left unaffected.
-    '''
-    
-    # If minval and maxval are not provided, compute them for each 2D slice
-    if minval is None:
-        minval = np.nanmin(array, axis=(1, 2))  # Shape (b,)
-
-    if maxval is None:
-        maxval = np.nanmax(array, axis=(1, 2))  # Shape (b,)
-
-    # Reshape minval and maxval to (b, 1, 1) to enable broadcasting across (x, y)
-    minval = minval[:, np.newaxis, np.newaxis]
-    maxval = maxval[:, np.newaxis, np.newaxis]
-
-    # Avoid division by zero by ensuring maxval > minval
-    denominator = (maxval - minval)
-    denominator[denominator == 0] = 1  # To handle cases where maxval == minval
-
-    # Normalize the array (keeping NaN values unaffected)
-    normalized_array = (array - minval) / denominator
-
-    return normalized_array
-
 def get_normalized_band(dataset, band_index):
     '''
     Extracts the specified band of raster data, mapping all elements to the
