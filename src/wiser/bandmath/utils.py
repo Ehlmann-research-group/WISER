@@ -15,7 +15,7 @@ from osgeo import gdal
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
 from wiser.raster.dataset import RasterDataSet
-from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES
+from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
@@ -35,7 +35,11 @@ def max_bytes_to_chunk(dataset_bytes: int):
     else:
         return None
 
-def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ndarray, gdal_elem_type: int):
+def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ma.MaskedArray, gdal_elem_type: int):
+        if isinstance(result, np.ma.MaskedArray):
+            print("MAAAAAAAAAAAAAASSSSSSSSSSSSSSSSKKKKKKKKKKKKKKKKKEEEEEEEEEEEEEEDDDDDDDDDDDDDD")
+            result = np.ma.filled(result, DEFAULT_IGNORE_VALUE)
+    
         gdal_band_list_current = [band+1 for band in band_index_list]
         
         out_dataset_gdal.WriteRaster(
@@ -114,21 +118,16 @@ def print_tree_with_meta(tree: lark.ParseTree, indent=0):
 def get_lhs_rhs_values(lhs: BandMathValue, rhs: BandMathValue, index_list: List[int]):
     rhs_value = None
     same_datasets = False
-    print("Getting lhs value")
     lhs_value = lhs.as_numpy_array_by_bands(index_list)
-    print("Got lhs value")
 
     # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
     
-    print("Getting rhs value")
     if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
         same_datasets = True
     if same_datasets:
         rhs_value = lhs_value
     else:
-        print("Doing make_image_cube-Compatible")
         rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
-    print("Got rhs value")
     
     return lhs_value, rhs_value
     
