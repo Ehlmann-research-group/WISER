@@ -16,7 +16,7 @@ from .util import get_painter
 
 from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.stretch import StretchBase
-from wiser.raster.utils import normalize_ndarray
+from wiser.raster.utils import normalize_ndarray, normalize_array_by_dim_1
 
 
 logger = logging.getLogger(__name__)
@@ -64,37 +64,70 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     raw_data = dataset.get_band_data(band)
     stats = dataset.get_band_stats(band)
     end_time = time.perf_counter()
-    print(f"MCI: Time for getting band data and stats: {end_time - start_time:.6f} seconds")
+    # print(f"MCI: Time for getting band data and stats: {end_time - start_time:.6f} seconds")
 
     # Time the normalization of raw band data
     start_time = time.perf_counter()
     band_data = normalize_ndarray(raw_data,
         minval=stats.get_min(), maxval=stats.get_max())
     end_time = time.perf_counter()
-    print(f"MCI: Time for normalizing band data: {end_time - start_time:.6f} seconds")
+    # print(f"MCI: Time for normalizing band data: {end_time - start_time:.6f} seconds")
 
     # Time applying the stretch, if provided
     if stretch is not None:
         start_time = time.perf_counter()
-        print(f"MCI: Number of bytes band data: {band_data.nbytes}")
+        # print(f"MCI: Number of bytes band data: {band_data.nbytes}")
         stretch.apply(band_data)
         end_time = time.perf_counter()
-        print(f"MCI: Time for applying stretch: {end_time - start_time:.6f} seconds")
+        # print(f"MCI: Time for applying stretch: {end_time - start_time:.6f} seconds")
 
     # Time clipping the data
     start_time = time.perf_counter()
     np.clip(band_data, 0.0, 1.0, out=band_data)
     end_time = time.perf_counter()
-    print(f"MCI: Time for clipping band data: {end_time - start_time:.6f} seconds")
+    # print(f"MCI: Time for clipping band data: {end_time - start_time:.6f} seconds")
 
     # Time converting the data into color channel
     start_time = time.perf_counter()
     channel_data = (band_data * 255.0).astype(np.uint32)
     end_time = time.perf_counter()
-    print(f"MCI: Time for converting to color channel: {end_time - start_time:.6f} seconds")
+    # print(f"MCI: Time for converting to color channel: {end_time - start_time:.6f} seconds")
 
     return channel_data
 
+def make_channel_image_many_bands(dataset: RasterDataSet, band_list: List[int], stretch: StretchBase = None) -> np.ndarray:
+    
+    start_time = time.perf_counter()
+    raw_bands = dataset.get_multiple_band_data(band_list)
+    end_time = time.perf_counter()
+    # print(f"MCI: Time for getting band data and stats: {end_time - start_time:.6f} seconds")
+    
+    start_time = time.perf_counter()
+    band_data = normalize_array_by_dim_1(raw_bands)
+    end_time = time.perf_counter()
+    # print(f"MCI: Time for normalizing band data: {end_time - start_time:.6f} seconds")
+
+    if stretch is not None:
+        start_time = time.perf_counter()
+        # print(f"MCI: Number of bytes band data: {band_data.nbytes}")
+        stretch.apply(band_data)
+        end_time = time.perf_counter()
+        # print(f"MCI: Time for applying stretch: {end_time - start_time:.6f} seconds")
+
+    start_time = time.perf_counter()
+    np.clip(band_data, 0.0, 1.0, out=band_data)
+    end_time = time.perf_counter()
+    # print(f"MCI: Time for clipping band data: {end_time - start_time:.6f} seconds")
+
+    # Time converting the data into color channel
+    start_time = time.perf_counter()
+    channel_data = (band_data * 255.0).astype(np.uint32)
+    end_time = time.perf_counter()
+    # print(f"MCI: Time for converting to color channel: {end_time - start_time:.6f} seconds")
+
+    return channel_data
+
+    
 
 def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     '''

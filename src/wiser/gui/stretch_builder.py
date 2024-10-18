@@ -121,10 +121,10 @@ class ChannelStretchWidget(QWidget):
         self._ui.button_reset_bounds.clicked.connect(self._on_reset_bounds)
 
         self._ui.slider_stretch_low.setRange(0, 200)
-        self._ui.slider_stretch_low.valueChanged.connect(self._on_low_slider_changed)
+        self._ui.slider_stretch_low.sliderReleased.connect(self._on_low_slider_changed)
 
         self._ui.slider_stretch_high.setRange(0, 200)
-        self._ui.slider_stretch_high.valueChanged.connect(self._on_high_slider_changed)
+        self._ui.slider_stretch_high.sliderReleased.connect(self._on_high_slider_changed)
 
 
     def set_title(self, title):
@@ -389,8 +389,9 @@ class ChannelStretchWidget(QWidget):
         print("DONE SHOWING HISTOGRAM")
 
 
-    def _on_low_slider_changed(self, value):
+    def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
+        value = self._ui.slider_stretch_low.value()
         self._stretch_low = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
 
@@ -404,8 +405,9 @@ class ChannelStretchWidget(QWidget):
         self.stretch_low_changed.emit(self._channel_no, self._stretch_low)
 
 
-    def _on_high_slider_changed(self, value):
+    def _on_high_slider_changed(self):
         # Compute the percentage from the slider position
+        value = self._ui.slider_stretch_high.value()
         self._stretch_high = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
 
