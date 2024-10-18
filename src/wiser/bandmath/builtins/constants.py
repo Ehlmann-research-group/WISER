@@ -11,3 +11,5 @@ NUM_WRITERS = 8
 
 LHS_KEY = 'lhs'
 RHS_KEY = 'rhs'
+
+DEFAULT_IGNORE_VALUE = -9999

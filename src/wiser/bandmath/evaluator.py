@@ -28,7 +28,7 @@ from .builtins import (
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset_impl import SaveState
 
-from .builtins.constants import SCALAR_BYTES, NUM_WRITERS
+from .builtins.constants import SCALAR_BYTES, NUM_WRITERS, DEFAULT_IGNORE_VALUE
 
 logger = logging.getLogger(__name__)
 
@@ -404,7 +404,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     
     max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
-    # max_chunking_bytes = 4000000000
+    max_chunking_bytes = 4000000000
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
             eval = BandMathEvaluatorChunking(lower_variables, lower_functions)
@@ -450,7 +450,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 raise e
         finally:
             eval.stop()
-
+        out_dataset.set_data_ignore_value(DEFAULT_IGNORE_VALUE)
         return (RasterDataSet, out_dataset)
     else:
         try:
