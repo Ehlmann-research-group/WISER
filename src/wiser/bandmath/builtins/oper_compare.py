@@ -8,8 +8,7 @@ from wiser.bandmath.types import BandMathFunction
 from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    make_image_cube_compatible_by_bands, read_lhs_future_onto_queue, read_rhs_future_onto_queue,
-    should_continue_reading_bands, get_lhs_rhs_values, 
+    make_image_cube_compatible_by_bands, get_lhs_rhs_values, 
 )
 
 

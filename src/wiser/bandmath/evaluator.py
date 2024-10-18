@@ -1,7 +1,7 @@
 import os
 import logging
 
-from typing import Any, Callable, Dict, List, Set, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 import lark
 import numpy as np
@@ -200,23 +200,6 @@ class BandMathEvaluator(lark.visitors.Transformer):
         # Chop the quotes off of the string value
         return str(token)[1:-1]
 
-class BandMathEvaluatorChunking(BandMathEvaluator):
-    '''
-    A Lark Transformer for evaluating band-math expressions.
-    '''
-    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
-                       functions: Dict[str, Callable]):
-        super().__init__(variables, functions)
-        self.write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
-    
-    def stop(self):
-        """Gracefully stop the event loop and wait for the thread to finish."""
-        self.write_thread_pool.shutdown(wait=False, cancel_futures=True)
-
-    def __del__(self):
-        self.stop()  # Ensure the loop and thread are stopped
-        print("Eval operator event loop and thread cleaned up")
-
 class NumberOfIntermediatesFinder(BandMathEvaluator):
     '''
     A Lark Transformer for evaluating band-math expressions.
@@ -407,7 +390,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
-            eval = BandMathEvaluatorChunking(lower_variables, lower_functions)
+            eval = BandMathEvaluator(lower_variables, lower_functions)
 
             bands, lines, samples = expr_info.shape
             # Gets the correct file path to make our temporary file
@@ -434,7 +417,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
             for band_index in range(0, bands, num_bands):
                 band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
-                print(f"Min: {min(band_index_list)} | Max: {max(band_index_list)}")
+                # print(f"Min: {min(band_index_list)} | Max: {max(band_index_list)}")
                 eval.index_list = band_index_list
                 
                 result_value = eval.transform(tree)
