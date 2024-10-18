@@ -1231,6 +1231,7 @@ class RasterPane(QWidget):
                 stretches = self._app_state.get_stretches(ds_id, bands)
                 rv.set_stretches(stretches)
 
+
     def _on_zoom_in(self, evt):
         ''' Zoom in the zoom-view by one level. '''
         scale = self.get_scale()

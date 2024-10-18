@@ -323,6 +323,7 @@ class ChannelStretchWidget(QWidget):
     def _update_histogram(self):
         if self._norm_band_data is None:
             return
+
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
         nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
@@ -355,6 +356,7 @@ class ChannelStretchWidget(QWidget):
     def _show_histogram(self, update_lines_only=False):
         if self._norm_band_data is None:
             return
+
         if not update_lines_only:
             self._histogram_axes.clear()
             self._histogram_figure.patch.set_visible(False)
@@ -704,6 +706,7 @@ class StretchBuilderDialog(QDialog):
     def _on_conditioner_type_changed(self): # , conditioner_type):
         conditioner_type = self._stretch_config.get_conditioner_type()
         # print(f'Conditioner type changed to {conditioner_type}')
+
         for i in range(self._num_active_channels):
             self._channel_widgets[i].set_conditioner_type(conditioner_type)
 
