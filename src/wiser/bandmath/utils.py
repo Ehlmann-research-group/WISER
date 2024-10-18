@@ -37,7 +37,6 @@ def max_bytes_to_chunk(dataset_bytes: int):
 
 def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ma.MaskedArray, gdal_elem_type: int):
         if isinstance(result, np.ma.MaskedArray):
-            print("MAAAAAAAAAAAAAASSSSSSSSSSSSSSSSKKKKKKKKKKKKKKKKKEEEEEEEEEEEEEEDDDDDDDDDDDDDD")
             result = np.ma.filled(result, DEFAULT_IGNORE_VALUE)
     
         gdal_band_list_current = [band+1 for band in band_index_list]
