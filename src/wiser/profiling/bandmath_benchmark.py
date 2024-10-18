@@ -70,13 +70,13 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
     keyD2 = "D-Large Atm Correction"
 
     stressing_equation_dict = {
-        # keyA: '1.0 - 2.0*b1/(b2+b3)',
+        keyA: '1.0 - 2.0*b1/(b2+b3)',
         keyB1: 'nd / (ns*(ns>0.2)+ns<0.2)',
-        # keyB2: 'ld / (ls*(ls>0.2)+ls<0.2)',
-        # keyC1: 'dotprod(nd, ns)',
-        # keyC2: 'dotprod(ld, ls)',
-        # keyD1: 'nd*(2.718)**0.2', #Atmospheric correction
-        # keyD2: 'ld*(2.718)**0.2', 
+        keyB2: 'ld / (ls*(ls>0.2)+ls<0.2)',
+        keyC1: 'dotprod(nd, ns)',
+        keyC2: 'dotprod(ld, ls)',
+        keyD1: 'nd*(2.718)**0.2', #Atmospheric correction
+        keyD2: 'ld*(2.718)**0.2', 
     }
 
     loader = RasterDataLoader()
