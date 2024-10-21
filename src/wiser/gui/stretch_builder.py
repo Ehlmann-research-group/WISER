@@ -120,11 +120,18 @@ class ChannelStretchWidget(QWidget):
         self._ui.button_apply_bounds.clicked.connect(self._on_apply_bounds)
         self._ui.button_reset_bounds.clicked.connect(self._on_reset_bounds)
 
+        self._low_slider_is_sliding = False
+        self._high_slider_is_sliding = False
+
         self._ui.slider_stretch_low.setRange(0, 200)
-        self._ui.slider_stretch_low.sliderReleased.connect(self._on_low_slider_changed)
+        self._ui.slider_stretch_low.sliderReleased.connect(self._on_low_slider_released)
+        self._ui.slider_stretch_low.sliderPressed.connect(self._on_low_slider_pressed)
+        self._ui.slider_stretch_low.valueChanged.connect(self._on_low_slider_clicked)
 
         self._ui.slider_stretch_high.setRange(0, 200)
-        self._ui.slider_stretch_high.sliderReleased.connect(self._on_high_slider_changed)
+        self._ui.slider_stretch_high.sliderPressed.connect(self._on_high_slider_pressed)
+        self._ui.slider_stretch_high.sliderReleased.connect(self._on_high_slider_released)
+        self._ui.slider_stretch_high.valueChanged.connect(self._on_high_slider_clicked)
 
 
     def set_title(self, title):
@@ -386,7 +393,6 @@ class ChannelStretchWidget(QWidget):
 
         self._histogram_canvas.draw()
 
-
     def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
         value = self._ui.slider_stretch_low.value()
@@ -401,6 +407,17 @@ class ChannelStretchWidget(QWidget):
         self._show_histogram(update_lines_only=True)
 
         self.stretch_low_changed.emit(self._channel_no, self._stretch_low)
+
+    def _on_low_slider_pressed(self):
+        self._low_slider_is_sliding = True
+    
+    def _on_low_slider_released(self):
+        self._low_slider_is_sliding = False
+        self._on_low_slider_changed()
+    
+    def _on_low_slider_clicked(self):
+        if not self._low_slider_is_sliding:
+            self._on_low_slider_changed()
 
 
     def _on_high_slider_changed(self):
@@ -417,6 +434,16 @@ class ChannelStretchWidget(QWidget):
 
         self.stretch_high_changed.emit(self._channel_no, self._stretch_high)
 
+    def _on_high_slider_pressed(self):
+        self._high_slider_is_sliding = True
+
+    def _on_high_slider_released(self):
+        self._high_slider_is_sliding = False
+        self._on_high_slider_changed()
+
+    def _on_high_slider_clicked(self):
+        if not self._high_slider_is_sliding:
+            self._on_high_slider_changed()
 
 class StretchConfigWidget(QWidget):
     '''
