@@ -26,7 +26,7 @@ from wiser.raster.selection import SelectionType, Selection, SinglePixelSelectio
 from wiser.raster.spectra_export import export_roi_pixel_spectra
 from wiser.raster.spectrum import ROIAverageSpectrum
 
-from wiser.gui.gui_threading import Worker
+from wiser.gui.gui_threading import Worker, thread_pool
 from wiser.gui.app_state import ApplicationState
 
 from .ui_roi import draw_roi, get_picked_roi_selections
@@ -1239,7 +1239,7 @@ class RasterPane(QWidget):
         worker = Worker(self._on_stretch_changed, ds_id, bands)
 
         # Start the worker using the thread pool
-        self._app_state._app._thread_pool.start(worker)
+        thread_pool.start(worker)
 
     def _on_zoom_in(self, evt):
         ''' Zoom in the zoom-view by one level. '''
