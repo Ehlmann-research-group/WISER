@@ -2,6 +2,11 @@ from PySide2.QtCore import QRunnable, QThreadPool, Signal, QObject
 from PySide2.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget, QPushButton
 import time
 
+MAX_THREAD_COUNT = 1
+
+thread_pool = QThreadPool()
+thread_pool.setMaxThreadCount(MAX_THREAD_COUNT)
+
 class WorkerSignals(QObject):
     update_signal = Signal(str)
 

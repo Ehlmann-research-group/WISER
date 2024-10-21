@@ -58,7 +58,7 @@ from wiser.raster import RasterDataSet, roi_export, spectra_export
 from wiser.raster.dataset_impl import RasterDataImpl
 from wiser.raster.dataset import SaveState
 
-from wiser.gui.gui_threading import Worker
+from wiser.gui.gui_threading import Worker, thread_pool
 
 logger = logging.getLogger(__name__)
 
@@ -88,8 +88,6 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
-
-        self._thread_pool = QThreadPool()
 
         # Application Toolbars
 
@@ -1022,7 +1020,7 @@ class DataVisualizerApp(QMainWindow):
         worker = Worker(self._on_stretch_changed, ds_id, bands, stretches)
 
         # Start the worker using the thread pool
-        self._thread_pool.start(worker)
+        thread_pool.start(worker)
 
     def _on_zoom_visibility_changed(self, visible):
         self._update_zoom_viewport_highlight()

@@ -11,6 +11,8 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
 from wiser.raster.utils import get_normalized_band
 
+from wiser.gui.gui_threading import Worker, thread_pool
+
 import numpy as np
 import numpy.ma as ma
 
@@ -395,6 +397,7 @@ class ChannelStretchWidget(QWidget):
 
     def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
+        print(f"_on_low_slider_changed CALLED")
         value = self._ui.slider_stretch_low.value()
         self._stretch_low = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
@@ -407,6 +410,10 @@ class ChannelStretchWidget(QWidget):
         self._show_histogram(update_lines_only=True)
 
         self.stretch_low_changed.emit(self._channel_no, self._stretch_low)
+
+    def _on_low_slider_changed_with_worker(self):
+        worker = Worker(self._on_low_slider_changed)
+        thread_pool.start(worker)
 
     def _on_low_slider_pressed(self):
         self._low_slider_is_sliding = True
@@ -422,6 +429,7 @@ class ChannelStretchWidget(QWidget):
 
     def _on_high_slider_changed(self):
         # Compute the percentage from the slider position
+        print(f"CALLED _on_high_slider_changed")
         value = self._ui.slider_stretch_high.value()
         self._stretch_high = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
@@ -433,6 +441,10 @@ class ChannelStretchWidget(QWidget):
         self._show_histogram(update_lines_only=True)
 
         self.stretch_high_changed.emit(self._channel_no, self._stretch_high)
+
+    def _on_high_slider_changed_with_worker(self):
+        worker = Worker(self._on_high_slider_changed)
+        thread_pool.start(worker)
 
     def _on_high_slider_pressed(self):
         self._high_slider_is_sliding = True
