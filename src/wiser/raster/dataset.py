@@ -14,8 +14,6 @@ from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength
 
-from PySide2.QtCore import QMutex, QMutexLocker
-
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
@@ -126,8 +124,6 @@ class RasterDataSet:
         # A map of band index to BandStats objects, so that we can lazily
         # compute these values and reuse them.
         self._cached_band_stats: Dict[int, BandStats] = {}
-
-        self._band_mutex = QMutex()
 
 
     def _compute_has_wavelengths(self):
@@ -376,7 +372,6 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        locker = QMutexLocker(self._band_mutex)
         arr = self._impl.get_band_data(band_index)
 
         if filter_data_ignore_value and self._data_ignore_value is not None:

@@ -179,15 +179,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         if new_dataset is None:
             raise ValueError(f"Unable to open dataset from {file_path} with driver {driver}")
-        
-        # if driver == 'GTiff':
-        #     print(f"Returning {driver}")
-        #     return GTiff_GDALRasterDataImpl(new_dataset)
-        # elif driver == 'ENVI':
-        #     print(f"Returning {driver}")
-        #     return ENVI_GDALRasterDataImpl(new_dataset)
-        # else:
-        #     print("NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+
         return new_dataset
 
     def get_width(self):

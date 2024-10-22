@@ -336,21 +336,14 @@ class ApplicationState(QObject):
 
 
     def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):
-        print("app_state set_stretches 1")
         if len(bands) != len(stretches):
             raise ValueError('bands and stretches must both be the same ' +
                 f'length (got {len(bands)} bands, {len(stretches)} stretches)')
-        print("app_state set_stretches 2")
         for i in range(len(bands)):
-            print(f"app_state set_stretches 2.50: {i}")
             key = (ds_id, bands[i])
-            print(f"app_state set_stretches 2.51: {i}")
             stretch = stretches[i]
-            print(f"app_state set_stretches 2.52: {i}")
             self._stretches[key] = stretch
-            print(f"app_state set_stretches 2.53: {i}")
 
-        print("set_stretches 3")
         self.stretch_changed.emit(ds_id, bands)
 
 

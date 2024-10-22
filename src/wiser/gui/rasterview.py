@@ -21,7 +21,7 @@ from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.stretch import StretchBase
 from wiser.raster.utils import normalize_ndarray
 
-from wiser.gui.gui_threading import Worker, thread_pool, TrackedEventLoop
+from wiser.gui.gui_threading import Worker, thread_pool
 
 logger = logging.getLogger(__name__)
 
@@ -498,7 +498,6 @@ class RasterView(QWidget):
             for i in range(len(self._display_bands)):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Compute the contents of this color channel.
-                    # event_loop = TrackedEventLoop()
                     self._display_data[i] = make_channel_image(self._raster_data,
                                                 self._display_bands[i], self._stretches[i])
 
@@ -528,6 +527,8 @@ class RasterView(QWidget):
         return img_data, time_1, time_2, colors
 
     def display_image(self, packed_results):
+        if packed_results is None:
+            return None
         img_data, time_1, time_2, colors = packed_results   
         self._img_data = img_data
         self._img_data.flags.writeable = False

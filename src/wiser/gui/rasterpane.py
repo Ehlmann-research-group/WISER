@@ -312,7 +312,7 @@ class RasterPane(QWidget):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
-        self._app_state.stretch_changed.connect(self._on_stretch_changed_with_worker)
+        self._app_state.stretch_changed.connect(self._on_stretch_changed)
 
 
     def _init_ui(self, select_tools=True):
@@ -1233,15 +1233,6 @@ class RasterPane(QWidget):
                 bands = rv.get_display_bands()
                 stretches = self._app_state.get_stretches(ds_id, bands)
                 rv.set_stretches(stretches)
-
-    
-    def _on_stretch_changed_with_worker(self, ds_id: int, bands: Tuple):
-        print("THE HIDDEN CALLED")
-        self._on_stretch_changed(ds_id, bands)
-        # worker = Worker(self._on_stretch_changed, ds_id, bands)
-
-        # # Start the worker using the thread pool
-        # thread_pool.start(worker)
 
     def _on_zoom_in(self, evt):
         ''' Zoom in the zoom-view by one level. '''
