@@ -9,6 +9,9 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from PySide2.QtCore import QFutureInterfaceBase
+from PySide2.QtConcurrent import QFutureWatcherQString
+
 import numpy as np
 from matplotlib import cm
 
@@ -18,6 +21,7 @@ from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.stretch import StretchBase
 from wiser.raster.utils import normalize_ndarray
 
+from wiser.gui.gui_threading import Worker, thread_pool, TrackedEventLoop
 
 logger = logging.getLogger(__name__)
 
@@ -474,12 +478,12 @@ class RasterView(QWidget):
     def get_colormap(self) -> Optional[str]:
         return self._colormap
 
-
-    def update_display_image(self, colors=ImageColors.RGB):
+    def get_image_data_from_channels(self, colors):
+        print(f"Getting image data")
         if self._raster_data is None:
             # No raster data to display
             self._image_widget.set_dataset_info(None, self._scale_factor)
-            return
+            return None
 
         # Only generate (or regenerate) each color plane if we don't already
         # have data for it, and if we aren't told to explicitly regenerate it.
@@ -491,11 +495,13 @@ class RasterView(QWidget):
         if len(self._display_bands) == 3:
             # Check each color band to see if we need to update it.
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
+
             for i in range(len(self._display_bands)):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Compute the contents of this color channel.
+                    # event_loop = TrackedEventLoop()
                     self._display_data[i] = make_channel_image(self._raster_data,
-                        self._display_bands[i], self._stretches[i])
+                                                self._display_bands[i], self._stretches[i])
 
             time_2 = time.perf_counter()
 
@@ -519,10 +525,12 @@ class RasterView(QWidget):
 
             # Combine our individual color channel(s) into a single RGB image.
             img_data = make_grayscale_image(self._display_data[0], self._colormap)
+        
+        return img_data, time_1, time_2, colors
 
-        # This is necessary because the QImage doesn't take ownership of the
-        # data we pass it, and if we drop this reference to the data then Python
-        # will reclaim the memory and Qt will start to display garbage.
+    def display_image(self, packed_results):
+        img_data, time_1, time_2, colors = packed_results   
+        print(f"Displaying image data")     
         self._img_data = img_data
         self._img_data.flags.writeable = False
 
@@ -543,6 +551,79 @@ class RasterView(QWidget):
                      f'qt = {time_4 - time_3:0.02f}s')
 
         self._update_scaled_image()
+
+    def update_display_image(self, colors=ImageColors.RGB):
+        worker = Worker(self.get_image_data_from_channels, colors)
+
+        worker.signals.finished.connect(self.display_image)
+
+        thread_pool.start(worker)
+        # if self._raster_data is None:
+        #     # No raster data to display
+        #     self._image_widget.set_dataset_info(None, self._scale_factor)
+        #     return
+
+        # # Only generate (or regenerate) each color plane if we don't already
+        # # have data for it, and if we aren't told to explicitly regenerate it.
+
+        # assert len(self._display_bands) in [1, 3]
+
+        # def handle_display_data_result(result, i, event_loop):
+        #     self._display_data[i] = result
+        #     event_loop.quit()
+
+        # time_1 = time.perf_counter()
+
+        # if len(self._display_bands) == 3:
+        #     # Check each color band to see if we need to update it.
+        #     color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
+
+        #     for i in range(len(self._display_bands)):
+        #         if self._display_data[i] is None or color_indexes[i] in colors:
+        #             # Compute the contents of this color channel.
+        #             event_loop = TrackedEventLoop()
+        #             # self._display_data[i] = make_channel_image(self._raster_data,
+        #             #                             self._display_bands[i], self._stretches[i])
+        #             print(f"Type of raster data: {type(self._raster_data)}")
+        #             task = Worker(make_channel_image, None, self._raster_data, \
+        #                                         self._display_bands[i], self._stretches[i])
+        #             task.signals.finished.connect(lambda result: \
+        #                                           handle_display_data_result(result, i, event_loop))
+
+        #             thread_pool.start(task)
+        #             try:
+        #                 event_loop.exec_()
+        #             finally:
+        #                 print("QUTING HEHEHEHE")
+        #                 event_loop.quit()
+
+        #     time_2 = time.perf_counter()
+
+        #     # Combine our individual color channel(s) into a single RGB image.
+        #     img_data = make_rgb_image(self._display_data)
+
+        # else:
+        #     # This is a grayscale image.
+        #     if colors != ImageColors.NONE:
+        #         # Regenerate the image.  Since all color bands are the same,
+        #         # generate the first one, then duplicate it for the other two
+        #         # bands.
+
+        #         self._display_data[0] = make_channel_image(self._raster_data,
+        #             self._display_bands[0], self._stretches[0])
+
+        #         self._display_data[1] = self._display_data[0]
+        #         self._display_data[2] = self._display_data[0]
+
+        #     time_2 = time.perf_counter()
+
+        #     # Combine our individual color channel(s) into a single RGB image.
+        #     img_data = make_grayscale_image(self._display_data[0], self._colormap)
+
+        # This is necessary because the QImage doesn't take ownership of the
+        # data we pass it, and if we drop this reference to the data then Python
+        # will reclaim the memory and Qt will start to display garbage.
+
 
 
     def get_unscaled_pixmap(self) -> QPixmap:
