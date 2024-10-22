@@ -185,5 +185,5 @@ def main(hdr_file, factor, bands_list = None):
 if __name__ == "__main__":
     hdr_file = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
     # hdr_file = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
-    factor = 20
+    factor = 10
     main(hdr_file, factor, [1, 2, 3])

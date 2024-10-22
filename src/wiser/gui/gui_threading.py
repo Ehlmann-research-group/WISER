@@ -1,6 +1,4 @@
-from PySide2.QtCore import QRunnable, QThreadPool, Signal, QObject
-from PySide2.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget, QPushButton
-import time
+from PySide2.QtCore import QRunnable, QThreadPool, Signal, QObject, QThread
 
 MAX_THREAD_COUNT = 1
 
@@ -19,5 +17,16 @@ class Worker(QRunnable):
         self.kwargs = kwargs
         self.signals = WorkerSignals()  # Set up signal
 
+    def run(self):
+        result = self.func(*self.args, **self.kwargs)
+
+class WorkerThread(QThread):
+
+    def __init__(self, func, *args, **kwargs):
+        super(WorkerThread, self).__init__()
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+    
     def run(self):
         result = self.func(*self.args, **self.kwargs)
