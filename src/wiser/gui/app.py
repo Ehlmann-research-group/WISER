@@ -58,7 +58,7 @@ from wiser.raster import RasterDataSet, roi_export, spectra_export
 from wiser.raster.dataset_impl import RasterDataImpl
 from wiser.raster.dataset import SaveState
 
-from wiser.gui.gui_threading import Worker, thread_pool
+from wiser.gui.gui_threading import Worker, thread_pool, TrackedEventLoop
 
 from osgeo import gdal
 
@@ -449,7 +449,6 @@ class DataVisualizerApp(QMainWindow):
         #     we must detect unsaved state.)
 
         # TODO(donnie):  Maybe save Qt state?
-
         # Exit WISER
         QApplication.exit(0)
 
@@ -460,6 +459,9 @@ class DataVisualizerApp(QMainWindow):
 
         # TODO(donnie):  Maybe save Qt state?
         delete_all_files_in_folder(TEMP_FOLDER_PATH)
+        print("QUITTTTTTTTTTTTIIIIIIIIIIINNNNNNNNNGGGGGGGGGGGGGGG AAPPPPPPLLLLLLIIIIIIICCCCCCCCAAAAAAAAAAATTTTTTTIIIIIIOOOOOOOOOOOOOOOOONNNNNN==========================================")
+        TrackedEventLoop.quit_all_active_loops()
+        thread_pool.waitForDone()
         super().closeEvent(event)
 
 

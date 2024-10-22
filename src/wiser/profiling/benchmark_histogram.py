@@ -14,6 +14,7 @@ from wiser.gui.app import DataVisualizerApp
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+from PySide2 import QtConcurrent
 from typing import Any, Dict, List, Optional
 
 from wiser.gui.rasterview import normalize_ndarray, StretchBase
@@ -229,7 +230,9 @@ def profile2(dataset_path: str):
     dataset = loader.load_from_file(dataset_path)
     log_stretch = StretchLog2()
 
-    compare_both_methods(dataset, log_stretch, N=100)
+    # compare_both_methods(dataset, log_stretch, N=100)
+    
+    QtConcurrent.run(compare_both_methods, dataset, log_stretch, N=100)
     # update_display_image_vec(dataset, log_stretch)
     # update_display_image_loop(dataset, log_stretch)
     # profiler = cProfile.Profile()

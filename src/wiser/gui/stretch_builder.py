@@ -405,23 +405,43 @@ class ChannelStretchWidget(QWidget):
         # Compute the percentage from the slider position
         print(f"_on_low_slider_changed CALLED")
         value = self._ui.slider_stretch_low.value()
-        print("low 1")
+        # print("low 1")
         self._stretch_low = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
-        print("low 2")
+        # print("low 2")
 
+        '''
+        so the problem is with the UI updates happening in the Thread. Best ways to fix this 
+        would be to either:
+
+        READING DATA
+            have another Thread for reading I/O from GDAL. TO make this integrate
+        with bandmath we could turn the thread off and on. Or we just have a QThreadPool that
+        will always put a read operation onto the Thread. Using openEx would help make this
+        work with multithreading. Then have another thread for performing the expensive 
+        computations and just call into those
+            everywhere we read in data from GDAL we surround it in a QThreadPool (so this wouldn't 
+        be in dataset_impl but instead in whatever function calls it. Less scaleable)
+            How will this impact bandmath and anything that uses GDAL with multithreading. Well
+        instead of using threading to call it we would have to use threading and then wait on a signal.
+            Or we just enable the option for threading
+
+        COMPUTATIONS
+            have a thread pool in the classes where the computations are performed. For hist eq
+            there is a whole slew of classes for this
+        '''
         # Update the displayed "low stretch" value
         value = self._min_bound + self._stretch_low * (self._max_bound - self._min_bound)
-        print("low 2.5")
+        # print("low 2.5")
         # self._ui.lineedit_stretch_low.setText(f'{value:.6f}')
-        print("low 3")
+        # print("low 3")
 
         # Update the histogram display
         self._show_histogram(update_lines_only=True)
-        print("low 4")
+        # print("low 4")
 
         self.stretch_low_changed.emit(self._channel_no, self._stretch_low)
-        print("low 5")
+        # print("low 5")
 
     def _on_low_slider_changed_with_worker(self):
         worker = Worker(self._on_low_slider_changed)
@@ -446,22 +466,22 @@ class ChannelStretchWidget(QWidget):
         # Compute the percentage from the slider position
         print(f"CALLED _on_high_slider_changed")
         value = self._ui.slider_stretch_high.value()
-        print("high 1")
+        # print("high 1")
         self._stretch_high = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
-        print("high 2")
+        # print("high 2")
 
         # Update the displayed "high stretch" value
         value = self._min_bound + self._stretch_high * (self._max_bound - self._min_bound)
-        print("high 2.5")
+        # print("high 2.5")
         # self._ui.lineedit_stretch_high.setText(f'{value:.6f}')
-        print("high 3")
+        # print("high 3")
 
         self._show_histogram(update_lines_only=True)
-        print("high 4")
+        # print("high 4")
 
         self.stretch_high_changed.emit(self._channel_no, self._stretch_high)
-        print("high 5")
+        # print("high 5")
 
     def _on_high_slider_changed_with_worker(self):
         worker = Worker(self._on_high_slider_changed)
