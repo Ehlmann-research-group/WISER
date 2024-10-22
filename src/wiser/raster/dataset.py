@@ -355,7 +355,6 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print("Get image data called")
         arr = self._impl.get_image_data()
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
@@ -377,7 +376,6 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print("Get band data called!")
         locker = QMutexLocker(self._band_mutex)
         arr = self._impl.get_band_data(band_index)
 
@@ -397,7 +395,6 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print("Get multiple band data called!")
         arr = self._impl.get_multiple_band_data(band_list)
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
@@ -429,7 +426,6 @@ class RasterDataSet:
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
         '''
-        print("Get all bands at called!")
         arr = self._impl.get_all_bands_at(x, y)
 
         if filter_bad_values:
@@ -454,7 +450,6 @@ class RasterDataSet:
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
         '''
-        print("Get all bands at rect called!")
         arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
             # TODO: (Joshua G-K) Ask donnie if we copy here because the numpy array 
