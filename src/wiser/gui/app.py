@@ -58,7 +58,7 @@ from wiser.raster import RasterDataSet, roi_export, spectra_export
 from wiser.raster.dataset_impl import RasterDataImpl
 from wiser.raster.dataset import SaveState
 
-from wiser.gui.gui_threading import Worker, thread_pool, TrackedEventLoop
+from wiser.gui.gui_threading import Worker, thread_pool
 
 from osgeo import gdal
 
@@ -91,7 +91,7 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
 
-        gdal.AllRegister()
+        # gdal.AllRegister()
 
         # Application Toolbars
 
@@ -459,8 +459,6 @@ class DataVisualizerApp(QMainWindow):
 
         # TODO(donnie):  Maybe save Qt state?
         delete_all_files_in_folder(TEMP_FOLDER_PATH)
-        print("QUITTTTTTTTTTTTIIIIIIIIIIINNNNNNNNNGGGGGGGGGGGGGGG AAPPPPPPLLLLLLIIIIIIICCCCCCCCAAAAAAAAAAATTTTTTTIIIIIIOOOOOOOOOOOOOOOOONNNNNN==========================================")
-        TrackedEventLoop.quit_all_active_loops()
         thread_pool.waitForDone()
         super().closeEvent(event)
 
@@ -1019,7 +1017,7 @@ class DataVisualizerApp(QMainWindow):
         # print(f'Contrast stretch changed to:')
         # for s in stretches:
         #     print(f' * {s}')
-        print("app stretch 1")
+
         self._app_state.set_stretches(ds_id, bands, stretches)
 
     def _on_stretch_changed_with_worker(self, ds_id: int, bands: Tuple, stretches: List):
