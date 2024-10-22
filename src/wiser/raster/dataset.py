@@ -14,6 +14,8 @@ from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength
 
+from PySide2.QtCore import QMutex, QMutexLocker
+
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
@@ -124,6 +126,8 @@ class RasterDataSet:
         # A map of band index to BandStats objects, so that we can lazily
         # compute these values and reuse them.
         self._cached_band_stats: Dict[int, BandStats] = {}
+
+        self._band_mutex = QMutex()
 
 
     def _compute_has_wavelengths(self):
@@ -351,6 +355,7 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        print("Get image data called")
         arr = self._impl.get_image_data()
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
@@ -372,6 +377,8 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        print("Get band data called!")
+        locker = QMutexLocker(self._band_mutex)
         arr = self._impl.get_band_data(band_index)
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
@@ -390,6 +397,7 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        print("Get multiple band data called!")
         arr = self._impl.get_multiple_band_data(band_list)
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
@@ -421,6 +429,7 @@ class RasterDataSet:
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
         '''
+        print("Get all bands at called!")
         arr = self._impl.get_all_bands_at(x, y)
 
         if filter_bad_values:
@@ -445,6 +454,7 @@ class RasterDataSet:
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
         '''
+        print("Get all bands at rect called!")
         arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
             # TODO: (Joshua G-K) Ask donnie if we copy here because the numpy array 

@@ -1236,10 +1236,12 @@ class RasterPane(QWidget):
 
     
     def _on_stretch_changed_with_worker(self, ds_id: int, bands: Tuple):
-        worker = Worker(self._on_stretch_changed, ds_id, bands)
+        print("THE HIDDEN CALLED")
+        self._on_stretch_changed(ds_id, bands)
+        # worker = Worker(self._on_stretch_changed, ds_id, bands)
 
-        # Start the worker using the thread pool
-        thread_pool.start(worker)
+        # # Start the worker using the thread pool
+        # thread_pool.start(worker)
 
     def _on_zoom_in(self, evt):
         ''' Zoom in the zoom-view by one level. '''

@@ -11,7 +11,7 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
 from wiser.raster.utils import get_normalized_band
 
-from wiser.gui.gui_threading import Worker, thread_pool
+from wiser.gui.gui_threading import Worker, WorkerThread, thread_pool
 
 import numpy as np
 import numpy.ma as ma
@@ -365,13 +365,14 @@ class ChannelStretchWidget(QWidget):
     def _show_histogram(self, update_lines_only=False):
         if self._norm_band_data is None:
             return
-
+        # print("1")
         if not update_lines_only:
             self._histogram_axes.clear()
             self._histogram_figure.patch.set_visible(False)
             self._histogram_axes.set_axis_off()
             self._histogram_axes.set_frame_on(False)
             self._histogram_axes.margins(0, 0)
+            # print("2")
 
             if self._histogram_bins is None or self._histogram_edges is None:
                 return
@@ -381,6 +382,7 @@ class ChannelStretchWidget(QWidget):
                                       weights=self._histogram_bins,
                                       histtype='stepfilled',
                                       color=self._histogram_color.name())
+            # print("3")
 
         if update_lines_only and self._low_line is not None:
             self._low_line.remove()
@@ -388,74 +390,96 @@ class ChannelStretchWidget(QWidget):
 
             self._low_line = None
             self._high_line = None
+            # print("4")
 
         if self._draw_stretch_lines:
             self._low_line = self._histogram_axes.axvline(self._stretch_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
             self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
+            # print("5")
+
         self._histogram_canvas.draw()
+        # print("6")
 
     def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
         print(f"_on_low_slider_changed CALLED")
         value = self._ui.slider_stretch_low.value()
+        print("low 1")
         self._stretch_low = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
+        print("low 2")
 
         # Update the displayed "low stretch" value
         value = self._min_bound + self._stretch_low * (self._max_bound - self._min_bound)
-        self._ui.lineedit_stretch_low.setText(f'{value:.6f}')
+        print("low 2.5")
+        # self._ui.lineedit_stretch_low.setText(f'{value:.6f}')
+        print("low 3")
 
         # Update the histogram display
         self._show_histogram(update_lines_only=True)
+        print("low 4")
 
         self.stretch_low_changed.emit(self._channel_no, self._stretch_low)
+        print("low 5")
 
     def _on_low_slider_changed_with_worker(self):
         worker = Worker(self._on_low_slider_changed)
         thread_pool.start(worker)
+    
+        # worker_thread = WorkerThread(self._on_low_slider_changed)
+        # worker_thread.start()
 
     def _on_low_slider_pressed(self):
         self._low_slider_is_sliding = True
     
     def _on_low_slider_released(self):
         self._low_slider_is_sliding = False
-        self._on_low_slider_changed()
+        self._on_low_slider_changed_with_worker()
     
     def _on_low_slider_clicked(self):
         if not self._low_slider_is_sliding:
-            self._on_low_slider_changed()
+            self._on_low_slider_changed_with_worker()
 
 
     def _on_high_slider_changed(self):
         # Compute the percentage from the slider position
         print(f"CALLED _on_high_slider_changed")
         value = self._ui.slider_stretch_high.value()
+        print("high 1")
         self._stretch_high = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
+        print("high 2")
 
         # Update the displayed "high stretch" value
         value = self._min_bound + self._stretch_high * (self._max_bound - self._min_bound)
-        self._ui.lineedit_stretch_high.setText(f'{value:.6f}')
+        print("high 2.5")
+        # self._ui.lineedit_stretch_high.setText(f'{value:.6f}')
+        print("high 3")
 
         self._show_histogram(update_lines_only=True)
+        print("high 4")
 
         self.stretch_high_changed.emit(self._channel_no, self._stretch_high)
+        print("high 5")
 
     def _on_high_slider_changed_with_worker(self):
         worker = Worker(self._on_high_slider_changed)
         thread_pool.start(worker)
+
+        # worker_thread = WorkerThread(self._on_high_slider_changed)
+        # worker_thread.start()
 
     def _on_high_slider_pressed(self):
         self._high_slider_is_sliding = True
 
     def _on_high_slider_released(self):
         self._high_slider_is_sliding = False
-        self._on_high_slider_changed()
+        self._on_high_slider_changed_with_worker()
 
     def _on_high_slider_clicked(self):
         if not self._high_slider_is_sliding:
-            self._on_high_slider_changed()
+            self._on_high_slider_changed_with_worker()
 
 class StretchConfigWidget(QWidget):
     '''
@@ -727,6 +751,7 @@ class StretchBuilderDialog(QDialog):
         Helper function to emit a stretch_changed event, along with the details
         of what dataset and display bands are involved.
         '''
+        print('emit stretch changed 1')
         self.stretch_changed.emit(self._dataset.get_id(), self._display_bands,
                                   stretches)
 
@@ -858,13 +883,18 @@ class StretchBuilderDialog(QDialog):
         # Note:  This code doesn't use the self._num_active_channels value,
         # because the "link min/max bounds" option is only visible when all
         # channels are visible.
+        print('channel 1')
         if self._link_sliders:
             for c in self._channel_widgets:
+                print('channel 2')
                 if c.get_channel_no() != channel_no:
+                    print('channel 2.5')
                     c.set_stretch_high(stretch_high)
-
+        
+        print('channel 3')
         if self._stretch_config.get_stretch_type() == StretchType.LINEAR_STRETCH and \
            self._enable_stretch_changed_events:
+            print('channel 4')
             self._emit_stretch_changed(self.get_stretches())
 
 

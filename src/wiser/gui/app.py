@@ -60,6 +60,8 @@ from wiser.raster.dataset import SaveState
 
 from wiser.gui.gui_threading import Worker, thread_pool
 
+from osgeo import gdal
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,6 +90,8 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
+
+        gdal.AllRegister()
 
         # Application Toolbars
 
@@ -773,6 +777,8 @@ class DataVisualizerApp(QMainWindow):
                     functions.update(plugin_fns)
 
             try:
+                if not result_name:
+                    result_name = self.tr('Computed')
                 (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name,
                     variables, functions)
 
@@ -785,8 +791,6 @@ class DataVisualizerApp(QMainWindow):
                 loader = self._app_state.get_loader()
                 if result_type == RasterDataSet:
                     new_dataset = result
-                    if not result_name:
-                        result_name = self.tr('Computed')
 
                     new_dataset.set_name(
                         self._app_state.unique_dataset_name(result_name))
@@ -1013,7 +1017,7 @@ class DataVisualizerApp(QMainWindow):
         # print(f'Contrast stretch changed to:')
         # for s in stretches:
         #     print(f' * {s}')
-
+        print("app stretch 1")
         self._app_state.set_stretches(ds_id, bands, stretches)
 
     def _on_stretch_changed_with_worker(self, ds_id: int, bands: Tuple, stretches: List):
