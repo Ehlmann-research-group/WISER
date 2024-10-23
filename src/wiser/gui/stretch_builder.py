@@ -142,6 +142,41 @@ class ChannelStretchWidget(QWidget):
     def set_histogram_color(self, color):
         self._histogram_color = color
 
+    def set_band_get_data(self, dataset, band_index):
+        self._dataset = dataset
+        self._band_index = band_index
+
+        print(f"set_band 2")
+        self._raw_band_data = dataset.get_band_data(band_index)
+        print(f"set_band 3")
+        self._raw_band_stats = dataset.get_band_stats(band_index)
+        print(f"set_band 4")
+        self._norm_band_data = get_normalized_band(dataset, band_index)
+        
+        print(f"set_band 5")
+        self._min_bound = self._raw_band_stats.get_min()
+        self._max_bound = self._raw_band_stats.get_max()
+
+    def set_band_ui_update(self):
+        print(f"set_band 6")
+        self.set_stretch_low(0.0)
+        print(f"set_band 7")
+        self.set_stretch_high(1.0)
+        print(f"set_band 8")
+
+        ############
+        # UI Updates
+        self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
+        self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
+
+        self._update_histogram()
+
+    # def set_band(self, dataset, band_index):
+    #     worker = Worker(self.set_band_get_data, dataset, band_index)
+    #     worker.signals.finished.connect(self.set_band_ui_update)
+    #     thread_pool.start(worker)
+
+
     def set_band(self, dataset, band_index):
         '''
         Sets the data set and index of the band data to be used in the channel
@@ -149,23 +184,34 @@ class ChannelStretchWidget(QWidget):
         histograms can be recomputed as the stretch conditioner is changed, or
         the endpoints over which to compute the histogram are modified.
         '''
+        print(f"set_band 1")
         self._dataset = dataset
         self._band_index = band_index
 
+        print(f"set_band 2")
         self._raw_band_data = dataset.get_band_data(band_index)
+        print(f"set_band 3")
         self._raw_band_stats = dataset.get_band_stats(band_index)
+        print(f"set_band 4")
         self._norm_band_data = get_normalized_band(dataset, band_index)
 
+        print(f"set_band 5")
         self._min_bound = self._raw_band_stats.get_min()
         self._max_bound = self._raw_band_stats.get_max()
 
+        print(f"set_band 6")
+        self.set_stretch_low(0.0)
+        print(f"set_band 7")
+        self.set_stretch_high(1.0)
+        print(f"set_band 8")
+
+        #####################
+        # UI Updates
         self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
         self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
 
-        self.set_stretch_low(0.0)
-        self.set_stretch_high(1.0)
-
         self._update_histogram()
+        print(f"set_band 9")
 
     def set_stretch_type(self, stretch_type):
         self._stretch_type = stretch_type
@@ -223,12 +269,14 @@ class ChannelStretchWidget(QWidget):
         the band data.
         '''
         # print(f'set_stretch_low({value})')
+        print(f"Start set_stretch_low")
         slider_range = self._ui.slider_stretch_low.maximum() - self._ui.slider_stretch_low.minimum()
         slider_value = value * slider_range
         self._ui.slider_stretch_low.setValue(int(slider_value))
 
         raw_value = self._min_bound + self._stretch_low * (self._max_bound - self._min_bound)
         self._ui.lineedit_stretch_low.setText(f'{raw_value:.6f}')
+        print(f"End set_stretch_low")
 
     def get_stretch_high(self):
         '''
@@ -247,12 +295,14 @@ class ChannelStretchWidget(QWidget):
         the band data.
         '''
         # print(f'set_stretch_high({value})')
+        print(f"Start set_stretch_high")
         slider_range = self._ui.slider_stretch_high.maximum() - self._ui.slider_stretch_high.minimum()
         slider_value = value * slider_range
         self._ui.slider_stretch_high.setValue(int(slider_value))
 
         raw_value = self._min_bound + self._stretch_high * (self._max_bound - self._min_bound)
         self._ui.lineedit_stretch_high.setText(f'{raw_value:.6f}')
+        print(f"End set_stretch_high")
 
     def get_band_min_max(self):
         '''
@@ -288,8 +338,10 @@ class ChannelStretchWidget(QWidget):
 
     def set_linear_stretch_pct(self, percent):
         # Based on the current histogram, figure out where the
+        print(f"set_linear_stretch_pct 1")
         (idx_low, idx_high) = hist_limits_for_pct(
             self._histogram_bins, self._histogram_edges, percent)
+        print(f"set_linear_stretch_pct 2")
 
         # print(f'set_linear_stretch_pct({percent}):')
         # print(f'  bins  = {self._histogram_bins}')
@@ -301,8 +353,11 @@ class ChannelStretchWidget(QWidget):
             raise DataDistributionError(f'Can\'t apply a {percent}% linear stretch')
 
         self.set_stretch_type(StretchType.LINEAR_STRETCH)
+        print(f"set_linear_stretch_pct 3")
         self.set_stretch_low(self._histogram_edges[idx_low])
+        print(f"set_linear_stretch_pct 4")
         self.set_stretch_high(self._histogram_edges[idx_high + 1])
+        print(f"set_linear_stretch_pct 5")
 
 
     def _on_reset_bounds(self):
@@ -328,8 +383,8 @@ class ChannelStretchWidget(QWidget):
 
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
-
-    def _update_histogram(self):
+    def _update_histogram_get_data(self):
+        print(f"Update histogram start")
         if self._norm_band_data is None:
             return
 
@@ -357,12 +412,54 @@ class ChannelStretchWidget(QWidget):
 
         else:
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
-
+    
+    def _update_histogram_ui_update(self):
         # Show the updated histogram
         self._show_histogram()
 
+    def _update_histogram(self):
+        worker = Worker(self._update_histogram_get_data)
+        worker.signals.finished.connect(self._update_histogram_ui_update)
+
+        thread_pool.start(worker)
+
+    # def _update_histogram(self):
+    #     print(f"Update histogram start")
+    #     if self._norm_band_data is None:
+    #         return
+
+    #     # The "raw" histogram is based solely on the filtered and normalized
+    #     # band data.  That is, no conditioner has been applied to the histogram.
+    #     nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+    #     self._histogram_bins_raw, self._histogram_edges_raw = \
+    #         np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
+
+    #     # self._num_pixels = np.prod(self._band_data.shape)
+
+    #     # Apply conditioner to the histogram, if necessary.
+
+    #     if self._conditioner_type == ConditionerType.NO_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = self._histogram_edges_raw
+
+    #     elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = np.sqrt(self._histogram_edges_raw)
+
+    #     elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = np.log2(1 + self._histogram_edges_raw)
+
+    #     else:
+    #         raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
+    #     print(f"About to show histogram")
+    #     # Show the updated histogram
+    #     self._show_histogram()
+    #     print(f"Update histogram end")
+
 
     def _show_histogram(self, update_lines_only=False):
+        print(f"Show histogram start")
         if self._norm_band_data is None:
             return
 
@@ -394,6 +491,7 @@ class ChannelStretchWidget(QWidget):
             self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
         self._histogram_canvas.draw()
+        print(f"Show histogram end")
 
     def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
@@ -414,7 +512,7 @@ class ChannelStretchWidget(QWidget):
     
     def _on_low_slider_released(self):
         self._low_slider_is_sliding = False
-        self._on_low_slider_change()
+        self._on_low_slider_changed()
     
     def _on_low_slider_clicked(self):
         if not self._low_slider_is_sliding:
@@ -644,6 +742,7 @@ class StretchBuilderDialog(QDialog):
 
 
     def _get_channel_stretch(self, channel_no):
+        print(f"_get_channel_stretch 1")
         if channel_no < 0 or channel_no >= self._num_active_channels:
             raise ValueError(f'Got channel number {channel_no}, but only have'
                              f' {self._num_active_channels} active channels')
@@ -697,7 +796,8 @@ class StretchBuilderDialog(QDialog):
 
         else:
             assert conditioner_type == ConditionerType.NO_CONDITIONER
-
+        
+        print(f"_get_channel_stretch 2")
         return stretch
 
 
@@ -721,25 +821,35 @@ class StretchBuilderDialog(QDialog):
 
 
     def _on_stretch_type_changed(self): # , stretch_type):
+        print(f"_on_stretch_type_changed 1")
         stretch_type = self._stretch_config.get_stretch_type()
         # print(f'Stretch type changed to {stretch_type}')
+        print(f"_on_stretch_type_changed 2")
 
         for i in range(self._num_active_channels):
+            print(f"_on_stretch_type_changed 2.5")
             self._channel_widgets[i].set_stretch_type(stretch_type)
 
         if self._enable_stretch_changed_events:
+            print(f"_on_stretch_type_changed 3")
             self._emit_stretch_changed(self.get_stretches())
+        print(f"_on_stretch_type_changed 4")
 
 
     def _on_conditioner_type_changed(self): # , conditioner_type):
+        print(f"_on_conditioner_type_changed 1")
         conditioner_type = self._stretch_config.get_conditioner_type()
         # print(f'Conditioner type changed to {conditioner_type}')
 
+        print(f"_on_conditioner_type_changed 2")
         for i in range(self._num_active_channels):
+            print(f"_on_conditioner_type_changed 2.5")
             self._channel_widgets[i].set_conditioner_type(conditioner_type)
 
         if self._enable_stretch_changed_events:
+            print(f"_on_conditioner_type_changed 3")
             self._emit_stretch_changed(self.get_stretches())
+        print(f"_on_conditioner_type_changed 4")
 
 
     def _on_link_sliders(self, checked):
@@ -795,16 +905,21 @@ class StretchBuilderDialog(QDialog):
 
         # Make sure to unlink sliders, becasue they will all likely end up in
         # different positions after this operation.
+        print(f"_on_linear_stretch_pct 1")
         self._cb_link_sliders.setChecked(False)
         assert self._link_sliders == False
+        print(f"_on_linear_stretch_pct 2")
 
         # Go through all channels and set the histogram bounds
         # based on the requested percentage.
         self._enable_stretch_changed_events = False
 
         try:
+            print(f"_on_linear_stretch_pct 3")
             for i in range(self._num_active_channels):
+                print(f"_on_linear_stretch_pct 3.50")
                 self._channel_widgets[i].set_linear_stretch_pct(percent / 100.0)
+                print(f"_on_linear_stretch_pct 3.51")
         except DataDistributionError:
             QMessageBox.critical(self,
                 self.tr('Cannot set {0}% linear stretch').format(percent),
@@ -813,8 +928,10 @@ class StretchBuilderDialog(QDialog):
             # TODO(donnie):  Switch to a different stretch somehow.
 
         self._enable_stretch_changed_events = True
+        print(f"_on_linear_stretch_pct 4")
 
         self._emit_stretch_changed(self.get_stretches())
+        print(f"_on_linear_stretch_pct 5")
 
 
     def _on_channel_minmax_changed(self, channel_no, min_bound, max_bound):
@@ -858,6 +975,7 @@ class StretchBuilderDialog(QDialog):
 
 
     def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
+        print(f"show 1")
         # print(f'Display bands = {display_bands}')
 
         self._enable_stretch_changed_events = False
@@ -875,13 +993,14 @@ class StretchBuilderDialog(QDialog):
                 self.tr('Blue Channel'),
             ]
             colors = [QColor('red'), QColor('green'), QColor('blue')]
-
+            print(f"show for loop start")
             for i in range(3):
                 self._channel_widgets[i].set_title(titles[i])
                 self._channel_widgets[i].set_histogram_color(colors[i])
                 self._channel_widgets[i].set_band(dataset, display_bands[i])
                 # TODO(donnie):  Set existing stretch details
                 self._channel_widgets[i].show()
+            print(f"show for loop end")
 
             self._cb_link_sliders.show()
             self._cb_link_min_max.show()
