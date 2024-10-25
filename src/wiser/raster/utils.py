@@ -180,6 +180,7 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=Fals
         maxval = np.nanmax(array)
 
     if in_place:
+        print("IN PLACE")
         # if array.dtype != np.float32 and array.dtype != np.float64:
         #     print("Converting in place")
         #     array[:] = array.astype(np.float32, copy=False)  # Convert in-place to float
