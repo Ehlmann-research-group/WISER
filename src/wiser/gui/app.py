@@ -1016,12 +1016,6 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state.set_stretches(ds_id, bands, stretches)
 
-    def _on_stretch_changed_with_worker(self, ds_id: int, bands: Tuple, stretches: List):
-        worker = Worker(self._on_stretch_changed, ds_id, bands, stretches)
-
-        # Start the worker using the thread pool
-        thread_pool.start(worker)
-
     def _on_zoom_visibility_changed(self, visible):
         self._update_zoom_viewport_highlight()
 

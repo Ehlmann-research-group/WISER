@@ -9,9 +9,6 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from PySide2.QtCore import QFutureInterfaceBase
-from PySide2.QtConcurrent import QFutureWatcherQString
-
 import numpy as np
 from matplotlib import cm
 
@@ -22,7 +19,6 @@ from wiser.raster.stretch import StretchBase
 from wiser.raster.utils import normalize_ndarray
 
 from wiser.gui.app_state import ApplicationState
-from wiser.gui.gui_threading import Worker, thread_pool
 from wiser.gui.rasterview_metadata import RasterViewMetaData
 
 logger = logging.getLogger(__name__)
@@ -492,83 +488,6 @@ class RasterView(QWidget):
     def get_colormap(self) -> Optional[str]:
         return self._colormap
 
-    def get_image_data_from_channels(self, colors):
-        if self._raster_data is None:
-            # No raster data to display
-            self._image_widget.set_dataset_info(None, self._scale_factor)
-            return None
-
-        # Only generate (or regenerate) each color plane if we don't already
-        # have data for it, and if we aren't told to explicitly regenerate it.
-
-        assert len(self._display_bands) in [1, 3]
-
-        time_1 = time.perf_counter()
-
-        if len(self._display_bands) == 3:
-            # Check each color band to see if we need to update it.
-            color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
-
-            for i in range(len(self._display_bands)):
-                if self._display_data[i] is None or color_indexes[i] in colors:
-                    # Compute the contents of this color channel.
-                    self._display_data[i] = make_channel_image(self._raster_data,
-                                                self._display_bands[i], self._stretches[i])
-
-            time_2 = time.perf_counter()
-
-            # Combine our individual color channel(s) into a single RGB image.
-            img_data = make_rgb_image(self._display_data)
-
-        else:
-            # This is a grayscale image.
-            if colors != ImageColors.NONE:
-                # Regenerate the image.  Since all color bands are the same,
-                # generate the first one, then duplicate it for the other two
-                # bands.
-
-                self._display_data[0] = make_channel_image(self._raster_data,
-                    self._display_bands[0], self._stretches[0])
-
-                self._display_data[1] = self._display_data[0]
-                self._display_data[2] = self._display_data[0]
-
-            time_2 = time.perf_counter()
-
-            # Combine our individual color channel(s) into a single RGB image.
-            img_data = make_grayscale_image(self._display_data[0], self._colormap)
-        
-        return img_data, time_1, time_2, colors
-
-    def display_image(self, packed_results):
-        if packed_results is None:
-            return None
-        img_data, time_1, time_2, colors = packed_results   
-        self._img_data = img_data
-        self._img_data.flags.writeable = False
-
-        time_3 = time.perf_counter()
-
-        # This is the 100% scale QImage of the data.
-        self._image = QImage(img_data,
-            self._raster_data.get_width(), self._raster_data.get_height(),
-            QImage.Format_RGB32)
-        self._image_pixmap = QPixmap.fromImage(self._image)
-        time_4 = time.perf_counter()
-
-        logger.debug(f'update_display_image(colors={colors}) update times:  ' +
-                     f'channels = {time_2 - time_1:0.02f}s ' +
-                     f'image = {time_3 - time_2:0.02f}s ' +
-                     f'qt = {time_4 - time_3:0.02f}s')
-
-        self._update_scaled_image()
-
-    # def update_display_image(self, colors=ImageColors.RGB):
-    #     worker = Worker(self.get_image_data_from_channels, colors)
-
-    #     worker.signals.finished.connect(self.display_image)
-
-    #     thread_pool.start(worker)
 
     def update_display_image(self, colors=ImageColors.RGB):
         if self._raster_data is None:
