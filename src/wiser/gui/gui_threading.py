@@ -29,14 +29,3 @@ class Worker(QRunnable):
         self.result = self.func(*self.args, **self.kwargs)
         
         self.signals.finished.emit(self.result)
-
-class WorkerThread(QThread):
-
-    def __init__(self, func, *args, **kwargs):
-        super(WorkerThread, self).__init__()
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-    
-    def run(self):
-        result = self.func(*self.args, **self.kwargs)

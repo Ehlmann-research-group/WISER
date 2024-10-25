@@ -9,9 +9,6 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from PySide2.QtCore import QFutureInterfaceBase
-from PySide2.QtConcurrent import QFutureWatcherQString
-
 import numpy as np
 from matplotlib import cm
 

@@ -55,12 +55,8 @@ from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export, spectra_export
 
-from wiser.raster.dataset_impl import RasterDataImpl
-from wiser.raster.dataset import SaveState
-
 from wiser.gui.gui_threading import Worker, thread_pool
 
-from osgeo import gdal
 
 logger = logging.getLogger(__name__)
 

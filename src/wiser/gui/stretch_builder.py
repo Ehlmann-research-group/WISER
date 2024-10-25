@@ -11,7 +11,7 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
 from wiser.raster.utils import get_normalized_band
 
-from wiser.gui.gui_threading import Worker, WorkerThread, thread_pool
+from wiser.gui.gui_threading import Worker, thread_pool
 
 import numpy as np
 import numpy.ma as ma
@@ -157,45 +157,45 @@ class ChannelStretchWidget(QWidget):
         self.set_stretch_low(0.0)
         self.set_stretch_high(1.0)
 
-        ############
+        #===========================================================
         # UI Updates
         self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
         self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
 
         self._update_histogram()
-
-    # def set_band(self, dataset, band_index):
-    #     worker = Worker(self.set_band_get_data, dataset, band_index)
-    #     worker.signals.finished.connect(self.set_band_ui_update)
-    #     thread_pool.start(worker)
-
 
     def set_band(self, dataset, band_index):
-        '''
-        Sets the data set and index of the band data to be used in the channel
-        stretch UI.  The data set and band index are retained, so that
-        histograms can be recomputed as the stretch conditioner is changed, or
-        the endpoints over which to compute the histogram are modified.
-        '''
-        self._dataset = dataset
-        self._band_index = band_index
+        worker = Worker(self.set_band_get_data, dataset, band_index)
+        worker.signals.finished.connect(self.set_band_ui_update)
+        thread_pool.start(worker)
 
-        self._raw_band_data = dataset.get_band_data(band_index)
-        self._raw_band_stats = dataset.get_band_stats(band_index)
-        self._norm_band_data = get_normalized_band(dataset, band_index)
 
-        self._min_bound = self._raw_band_stats.get_min()
-        self._max_bound = self._raw_band_stats.get_max()
+    # def set_band(self, dataset, band_index):
+    #     '''
+    #     Sets the data set and index of the band data to be used in the channel
+    #     stretch UI.  The data set and band index are retained, so that
+    #     histograms can be recomputed as the stretch conditioner is changed, or
+    #     the endpoints over which to compute the histogram are modified.
+    #     '''
+    #     self._dataset = dataset
+    #     self._band_index = band_index
 
-        self.set_stretch_low(0.0)
-        self.set_stretch_high(1.0)
+    #     self._raw_band_data = dataset.get_band_data(band_index)
+    #     self._raw_band_stats = dataset.get_band_stats(band_index)
+    #     self._norm_band_data = get_normalized_band(dataset, band_index)
 
-        #####################
-        # UI Updates
-        self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
-        self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
+    #     self._min_bound = self._raw_band_stats.get_min()
+    #     self._max_bound = self._raw_band_stats.get_max()
 
-        self._update_histogram()
+    #     self.set_stretch_low(0.0)
+    #     self.set_stretch_high(1.0)
+
+    #     #===========================================================
+    #     # UI Updates
+    #     self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
+    #     self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
+
+    #     self._update_histogram()
 
     def set_stretch_type(self, stretch_type):
         self._stretch_type = stretch_type
@@ -367,8 +367,6 @@ class ChannelStretchWidget(QWidget):
         nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
         self._histogram_bins_raw, self._histogram_edges_raw = \
             np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
-
-        # self._num_pixels = np.prod(self._band_data.shape)
 
         # Apply conditioner to the histogram, if necessary.
 
