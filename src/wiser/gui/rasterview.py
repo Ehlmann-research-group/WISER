@@ -35,6 +35,11 @@ def get_memory_usage():
     mem = process.memory_info().rss  # Resident Set Size: memory in bytes
     return mem / (1024 * 1024)  # Convert to MB
 
+import tracemalloc
+import time
+# Start tracing memory allocations
+# tracemalloc.start()
+
 def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
     '''
     Given a raster data set, band index, and optional contrast stretch object,
@@ -46,6 +51,7 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     print(f"Getting band data start")
     mem_before_get_band_data = get_memory_usage()
     temp_data = dataset.get_band_data(band)
+    print(f"TEMP DATA TYPE: {temp_data.dtype}")
     mem_after_get_band_data = get_memory_usage()
     print(f"Getting band data end")
     print(f"Memory usage after get_band_data: {mem_after_get_band_data:.2f} MB (increased by {mem_after_get_band_data - mem_before_get_band_data:.2f} MB)")
@@ -61,13 +67,22 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     Normalize array and multiply by 255 start; these steps consume significant RAM, especially normalization.
     '''
     # Normalize the raw band data.
-    print(f"Normalizing array start")
-    print(f"temp_data data type before: {temp_data.dtype}")
-    mem_before_normalize = get_memory_usage()
+    # print(f"temp_data data type before: {temp_data.dtype}")
+    mem_before_cast = get_memory_usage()
+    print(f"Casting start")
+    print(f"temp_data before size: {temp_data.nbytes}")
     temp_data = temp_data.astype(np.float32, copy=False)
+    print(f"Casting end")
+    mem_after_cast = get_memory_usage()
+    print(f"temp_data after size: {temp_data.nbytes}")
+    print(f"Memory usage after explicit casting: {mem_after_cast:.2f} MB (increased by {mem_after_cast - mem_before_cast:.2f} MB)")
+    
+    print(f"Normalizing array start")
+    mem_before_normalize = get_memory_usage()
     normalize_ndarray(temp_data, minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
     mem_after_normalize = get_memory_usage()
-    print(f"temp_data data type after: {temp_data.dtype}")
+    print(f"Memory usage after normalize_ndarray: {mem_after_normalize:.2f} MB (increased by {mem_after_normalize - mem_before_normalize:.2f} MB)")
+    # print(f"temp_data data type after: {temp_data.dtype}")
     print(f"Normalizing array end")
     print(f"Memory usage after normalize_ndarray: {mem_after_normalize:.2f} MB (increased by {mem_after_normalize - mem_before_normalize:.2f} MB)")
 
@@ -93,11 +108,17 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     mem_before_mult255 = get_memory_usage()
     # temp_data = (temp_data * 255.0).astype(np.uint32)  # Consider using np.uint8 to reduce memory usage
     temp_data = (temp_data * 255.0)
-    temp_data = temp_data.astype(np.float32, copy=False)
+    temp_data = temp_data.astype(np.uint8, copy=False)
     mem_after_mult255 = get_memory_usage()
     print(f"Multiplication by 255 and type casting end")
     print(f"Memory usage after multiplication and type cast: {mem_after_mult255:.2f} MB (increased by {mem_after_mult255 - mem_before_mult255:.2f} MB)")
 
+    # snapshot = tracemalloc.take_snapshot()
+    # top_stats = snapshot.statistics('lineno')
+
+    # print("[ Top 10 memory-consuming lines ]")
+    # for stat in top_stats[:10]:
+    #     print(stat)
     return temp_data
 
 # def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
@@ -207,12 +228,30 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     if __debug__:
         assert (0 <= np.amin(c) <= 255) and (0 <= np.amax(c) <= 255), \
             'Channel may only contain values in range 0..255, and no NaNs'
+    
+    assert channels[0].dtype == np.uint8 and \
+            channels[1].dtype == np.uint8 and \
+            channels[2].dtype == np.uint8
 
-    rgb_data = (channels[0] << 16 |
-                channels[1] <<  8 |
-                channels[2]) | 0xff000000
-    if isinstance(rgb_data, np.ma.MaskedArray):
-        rgb_data.fill_value = 0xff000000
+    if isinstance(channels[0], np.ma.MaskedArray):
+        # Create a masked array of zeros with the same shape as the channels
+        rgb_data = np.ma.zeros(channels[0].shape, dtype=np.uint32)
+        rgb_data.fill_value = 0xff000000  # Set the fill value for the masked array
+    else:
+        # Create a regular array of zeros
+        rgb_data = np.zeros(channels[0].shape, dtype=np.uint32)
+
+    rgb_data |= channels[0]
+    rgb_data = rgb_data << 8
+    rgb_data |= channels[1]
+    rgb_data = rgb_data << 8
+    rgb_data |= channels[2]
+    rgb_data |= 0xff000000
+    # rgb_data = (channels[0] << 16 |
+    #             channels[1] <<  8 |
+    #             channels[2]) | 0xff000000
+    # if isinstance(rgb_data, np.ma.MaskedArray):
+    #     rgb_data.fill_value = 0xff000000
 
     # Qt5/PySide2 complains if the array is not contiguous.
     if not rgb_data.flags['C_CONTIGUOUS']:
