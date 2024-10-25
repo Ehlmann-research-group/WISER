@@ -374,8 +374,10 @@ class DataVisualizerApp(QMainWindow):
 
 
     def _on_dataset_added(self, ds_id: int):
+        print(f"app _on_dataset_added 1")
         self._update_dataset_menus()
         self._image_coords.update_coords(self._app_state.get_dataset(ds_id), None)
+        print(f"app _on_dataset_added ended")
 
     def _on_dataset_removed(self, ds_id: int):
         self._update_dataset_menus()
@@ -513,6 +515,7 @@ class DataVisualizerApp(QMainWindow):
         for filename in selected[0]:
             try:
                 # Open the file on the application state.
+                print(f"app show_open_file_dialog 1")
                 self._app_state.open_file(filename)
             except Exception as e:
                 mbox = QMessageBox(QMessageBox.Critical,
@@ -524,6 +527,7 @@ class DataVisualizerApp(QMainWindow):
                 mbox.setDetailedText(traceback.format_exc())
 
                 mbox.exec()
+            print(f"app show_open_file_dialog end")
 
 
     def show_save_project_dialog(self, evt):
@@ -652,7 +656,7 @@ class DataVisualizerApp(QMainWindow):
         #     operation on the ApplicationState class, which can fire an event
         #     to views.
         # self._app_state = ApplicationState()
-
+        print(f"app apply_project_info 1")
         for ds_info in project_info['datasets']:
             # The first file in the list is usually the one that we load.
             filename = ds_info['files'][0]
@@ -676,6 +680,7 @@ class DataVisualizerApp(QMainWindow):
         s = project_info['qt_window_state']
         qba = QByteArray(bytes(s, 'utf-8'))
         self.restoreState(QByteArray.fromBase64(qba))
+        print(f"app apply_project_info end")
 
 
     def save_qt_settings(self):

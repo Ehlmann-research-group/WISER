@@ -165,7 +165,7 @@ def find_closest_value(values: List[Number], input_value: Number,
 # COMMON BAND-MATH OPERATIONS
 
 
-def normalize_ndarray(array: np.ndarray, minval=None, maxval=None) -> np.ndarray:
+def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
     '''
     Normalize the specified array, generating a new array to return to the
     caller.  The minimum and maximum values can be specified if already known,
@@ -179,7 +179,15 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None) -> np.ndarray
     if maxval is None:
         maxval = np.nanmax(array)
 
-    return (array - minval) / (maxval - minval)
+    if in_place:
+        # if array.dtype != np.float32 and array.dtype != np.float64:
+        #     print("Converting in place")
+        #     array[:] = array.astype(np.float32, copy=False)  # Convert in-place to float
+        array -= minval
+        # array /= (maxval - minval)
+        np.divide(array, (maxval - minval), out=array, dtype=np.float32)
+    else:
+        return (array - minval) / (maxval - minval)
 
 
 def get_normalized_band(dataset, band_index):

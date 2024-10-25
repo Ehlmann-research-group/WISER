@@ -62,8 +62,8 @@ class TiledRasterView(RasterView):
     builder, and a widget to choose the dataset being displayed.
     '''
 
-    def __init__(self, rasterpane, position, parent=None, forward=None):
-        super().__init__(parent=parent, forward=forward)
+    def __init__(self, rasterpane, position, app_state: ApplicationState, parent=None, forward=None):
+        super().__init__(parent=parent, forward=forward, app_state=app_state)
 
         self._rasterpane = rasterpane
         self._position = position
@@ -522,7 +522,7 @@ class RasterPane(QWidget):
 
                 rasterview = self._rasterviews.get(position)
                 if rasterview is None:
-                    rasterview = TiledRasterView(self, position, forward=forward)
+                    rasterview = TiledRasterView(self, position, self._app_state, forward=forward)
                     rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
 
                     self._rasterviews[position] = rasterview
@@ -1127,7 +1127,7 @@ class RasterPane(QWidget):
         this is the first dataset loaded, the function shows it in all
         rasterviews.
         '''
-
+        print(f"rasterpane _on_dataset_added id: {ds_id} 1")
         dataset = self._app_state.get_dataset(ds_id)
         bands = find_display_bands(dataset)
         self._display_bands[ds_id] = bands
@@ -1152,6 +1152,7 @@ class RasterPane(QWidget):
         # Always do this when we add a data set
         self._act_band_chooser.setEnabled(True)
         self._update_zoom_widgets()
+        print(f"rasterpane _on_dataset_added end")
 
 
 

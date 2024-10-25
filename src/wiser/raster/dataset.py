@@ -359,7 +359,7 @@ class RasterDataSet:
         return arr
 
 
-    def get_band_data(self, band_index: int, filter_data_ignore_value=True):
+    def get_band_data(self, band_index: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
         is at index 0.
@@ -397,7 +397,7 @@ class RasterDataSet:
 
         return arr
 
-    def get_band_stats(self, band_index: int):
+    def get_band_stats(self, band_index: int, band: Union[np.ndarray, np.ma.masked_array] = None):
         '''
         Returns statistics of the specified band's data, wrapped in a
         :class:`BandStats` object.
@@ -405,7 +405,9 @@ class RasterDataSet:
 
         stats = self._cached_band_stats.get(band_index)
         if stats is None:
-            band = self.get_band_data(band_index)
+            print("STATS IS NONE!")
+            if band is None:
+                band = self.get_band_data(band_index)
             stats = BandStats(band_index, np.nanmin(band), np.nanmax(band))
             self._cached_band_stats[band_index] = stats
 

@@ -117,7 +117,9 @@ class DatasetChooser(QToolButton):
 
 
     def _on_dataset_added(self, ds_id: int):
+        print(f"dataset_chooser _on_dataset_added 1")
         self._populate_dataset_menu()
+        print(f"dataset_chooser _on_dataset_added ended")
 
     def _on_dataset_removed(self, ds_id: int):
         self._populate_dataset_menu()
