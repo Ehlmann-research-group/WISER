@@ -37,7 +37,7 @@ class DatasetInfoView(QTreeWidget):
         When a data set is added to the application state, this method populates
         the data info view with information about the data set.
         '''
-
+        print(f"infoview _on_dataset_added 1")
         if self._model.num_datasets() == 1:
             self.clear()
 
@@ -129,6 +129,7 @@ class DatasetInfoView(QTreeWidget):
 
         # All done!
         self.addTopLevelItem(top)
+        print(f"infoview _on_dataset_added end")
 
 
     def _find_dataset_entry(self, ds_id: int) -> Optional[Tuple[int, QTreeWidgetItem]]:

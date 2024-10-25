@@ -42,10 +42,14 @@ class RasterDataLoader:
 
         # Iterate through all supported formats, and try to use each one to
         # load the raster data.
+        print(f"loader load_from_file 1")
         impl = None
         for (driver_name, impl_type) in self._formats.items():
             try:
+                
+                print(f"loader load_from_file try load 2")
                 impl = impl_type.try_load_file(path)
+                print(f"loader load_from_file try load 3")
 
             except Exception as e:
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
@@ -53,8 +57,10 @@ class RasterDataLoader:
 
         if impl is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
-
+        
+        print(f"loader load_from_file 4")
         ds = RasterDataSet(impl)
+        print(f"loader load_from_file 5")
         files = ds.get_filepaths()
         if files:
             name = os.path.basename(files[0])

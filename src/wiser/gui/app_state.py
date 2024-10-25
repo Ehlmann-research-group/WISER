@@ -22,6 +22,8 @@ from wiser.raster.stretch import StretchBase
 
 from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
+from wiser.gui.rasterview_metadata import RasterViewMetaData
+
 
 class StateChange(enum.Enum):
     ITEM_ADDED = 1
@@ -131,6 +133,15 @@ class ApplicationState(QObject):
 
         self._config: ApplicationConfig = config
 
+        # WHenever a dataset is added, some processing runs on the dataset
+        # for each view that it is displayed in (context pane, main view, zoom pane).
+        # This is really slow, we only want to run these computations once. To do so
+        # we will cache the result in this variable. 
+
+        # When instantiated, will be of the type (ds_id, display_bands, stretches, img)
+        # TODO: We maybe want to make this into a class somewhere
+        self._last_added_raster_display: RasterViewMetaData = None
+
 
     def _take_next_id(self) -> int:
         '''
@@ -222,6 +233,7 @@ class ApplicationState(QObject):
         '''
 
         # Remember the directory of the selected file, for next file-open
+        print("app_state open_file 1")
         self.update_cwd_from_path(file_path)
 
         # Is the file a project file?
@@ -251,9 +263,12 @@ class ApplicationState(QObject):
         # Either the data doesn't look like a spectral library, or loading
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
-
+        
+        print("app_state open_file 2")
         raster_data = self._raster_data_loader.load_from_file(file_path)
+        print("app_state open_file 3")
         self.add_dataset(raster_data)
+        print("app_state open_file 4")
 
 
     def add_dataset(self, dataset: RasterDataSet):
@@ -263,6 +278,7 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was added.
         '''
+        print(f"app_state add_dataset 1")
         if not isinstance(dataset, RasterDataSet):
             raise TypeError('dataset must be a RasterDataSet')
 
@@ -270,7 +286,9 @@ class ApplicationState(QObject):
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
+        self._last_added_raster_display = RasterViewMetaData(ds_id=ds_id)
         self.dataset_added.emit(ds_id)
+        print(f"app_state add_dataset end")
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
     def get_dataset(self, ds_id: int) -> RasterDataSet:
@@ -362,14 +380,18 @@ class ApplicationState(QObject):
         the library.  The method will fire a signal indicating that the spectral
         library was added, including the ID assigned to the library.
         '''
+        print(f"app_state add_spectral_library 1")
         if not isinstance(library, SpectralLibrary):
             raise TypeError('library must be a SpectralLibrary')
 
         lib_id = self._take_next_id()
+        print(f"app_state add_spectral_library 2")
         library.set_id(lib_id)
         self._spectral_libraries[lib_id] = library
 
         self.spectral_library_added.emit(lib_id)
+        
+        print(f"app_state add_spectral_library 3")
 
 
     def get_spectral_library(self, lib_id):
@@ -612,3 +634,9 @@ class ApplicationState(QObject):
 
         self._collected_spectra.clear()
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)
+    
+    def get_last_added_raster_display(self):
+        return self._last_added_raster_display
+
+    def set_last_added_raster_display(self, other: RasterViewMetaData):
+        self._last_added_raster_display = other

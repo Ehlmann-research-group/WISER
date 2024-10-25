@@ -1196,7 +1196,7 @@ class SpectrumPlot(QWidget):
         '''
         # TODO(donnie):  Put spectra / spectral library info onto each tree item
         #     so we can implement context menus properly.
-
+        print(f"spectrum_plot _on_spectral_library_added 1")
         spectral_library = self._app_state.get_spectral_library(lib_id)
 
         # Add a new top-level tree item for the spectral library.  Set the tree

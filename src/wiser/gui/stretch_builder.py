@@ -184,26 +184,18 @@ class ChannelStretchWidget(QWidget):
         histograms can be recomputed as the stretch conditioner is changed, or
         the endpoints over which to compute the histogram are modified.
         '''
-        print(f"set_band 1")
         self._dataset = dataset
         self._band_index = band_index
 
-        print(f"set_band 2")
         self._raw_band_data = dataset.get_band_data(band_index)
-        print(f"set_band 3")
         self._raw_band_stats = dataset.get_band_stats(band_index)
-        print(f"set_band 4")
         self._norm_band_data = get_normalized_band(dataset, band_index)
 
-        print(f"set_band 5")
         self._min_bound = self._raw_band_stats.get_min()
         self._max_bound = self._raw_band_stats.get_max()
 
-        print(f"set_band 6")
         self.set_stretch_low(0.0)
-        print(f"set_band 7")
         self.set_stretch_high(1.0)
-        print(f"set_band 8")
 
         #####################
         # UI Updates
@@ -211,7 +203,6 @@ class ChannelStretchWidget(QWidget):
         self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
 
         self._update_histogram()
-        print(f"set_band 9")
 
     def set_stretch_type(self, stretch_type):
         self._stretch_type = stretch_type
@@ -337,11 +328,9 @@ class ChannelStretchWidget(QWidget):
 
 
     def set_linear_stretch_pct(self, percent):
-        # Based on the current histogram, figure out where the
-        print(f"set_linear_stretch_pct 1")
+        # Based on the current histogram, figure out where the=
         (idx_low, idx_high) = hist_limits_for_pct(
             self._histogram_bins, self._histogram_edges, percent)
-        print(f"set_linear_stretch_pct 2")
 
         # print(f'set_linear_stretch_pct({percent}):')
         # print(f'  bins  = {self._histogram_bins}')
@@ -353,11 +342,8 @@ class ChannelStretchWidget(QWidget):
             raise DataDistributionError(f'Can\'t apply a {percent}% linear stretch')
 
         self.set_stretch_type(StretchType.LINEAR_STRETCH)
-        print(f"set_linear_stretch_pct 3")
         self.set_stretch_low(self._histogram_edges[idx_low])
-        print(f"set_linear_stretch_pct 4")
         self.set_stretch_high(self._histogram_edges[idx_high + 1])
-        print(f"set_linear_stretch_pct 5")
 
 
     def _on_reset_bounds(self):
@@ -459,7 +445,6 @@ class ChannelStretchWidget(QWidget):
 
 
     def _show_histogram(self, update_lines_only=False):
-        print(f"Show histogram start")
         if self._norm_band_data is None:
             return
 
@@ -491,7 +476,6 @@ class ChannelStretchWidget(QWidget):
             self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
         self._histogram_canvas.draw()
-        print(f"Show histogram end")
 
     def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
@@ -742,7 +726,6 @@ class StretchBuilderDialog(QDialog):
 
 
     def _get_channel_stretch(self, channel_no):
-        print(f"_get_channel_stretch 1")
         if channel_no < 0 or channel_no >= self._num_active_channels:
             raise ValueError(f'Got channel number {channel_no}, but only have'
                              f' {self._num_active_channels} active channels')
@@ -821,35 +804,25 @@ class StretchBuilderDialog(QDialog):
 
 
     def _on_stretch_type_changed(self): # , stretch_type):
-        print(f"_on_stretch_type_changed 1")
         stretch_type = self._stretch_config.get_stretch_type()
         # print(f'Stretch type changed to {stretch_type}')
-        print(f"_on_stretch_type_changed 2")
 
         for i in range(self._num_active_channels):
-            print(f"_on_stretch_type_changed 2.5")
             self._channel_widgets[i].set_stretch_type(stretch_type)
 
         if self._enable_stretch_changed_events:
-            print(f"_on_stretch_type_changed 3")
             self._emit_stretch_changed(self.get_stretches())
-        print(f"_on_stretch_type_changed 4")
 
 
     def _on_conditioner_type_changed(self): # , conditioner_type):
-        print(f"_on_conditioner_type_changed 1")
         conditioner_type = self._stretch_config.get_conditioner_type()
         # print(f'Conditioner type changed to {conditioner_type}')
 
-        print(f"_on_conditioner_type_changed 2")
         for i in range(self._num_active_channels):
-            print(f"_on_conditioner_type_changed 2.5")
             self._channel_widgets[i].set_conditioner_type(conditioner_type)
 
         if self._enable_stretch_changed_events:
-            print(f"_on_conditioner_type_changed 3")
             self._emit_stretch_changed(self.get_stretches())
-        print(f"_on_conditioner_type_changed 4")
 
 
     def _on_link_sliders(self, checked):
@@ -905,21 +878,16 @@ class StretchBuilderDialog(QDialog):
 
         # Make sure to unlink sliders, becasue they will all likely end up in
         # different positions after this operation.
-        print(f"_on_linear_stretch_pct 1")
         self._cb_link_sliders.setChecked(False)
         assert self._link_sliders == False
-        print(f"_on_linear_stretch_pct 2")
 
         # Go through all channels and set the histogram bounds
         # based on the requested percentage.
         self._enable_stretch_changed_events = False
 
         try:
-            print(f"_on_linear_stretch_pct 3")
             for i in range(self._num_active_channels):
-                print(f"_on_linear_stretch_pct 3.50")
                 self._channel_widgets[i].set_linear_stretch_pct(percent / 100.0)
-                print(f"_on_linear_stretch_pct 3.51")
         except DataDistributionError:
             QMessageBox.critical(self,
                 self.tr('Cannot set {0}% linear stretch').format(percent),
@@ -928,10 +896,8 @@ class StretchBuilderDialog(QDialog):
             # TODO(donnie):  Switch to a different stretch somehow.
 
         self._enable_stretch_changed_events = True
-        print(f"_on_linear_stretch_pct 4")
 
         self._emit_stretch_changed(self.get_stretches())
-        print(f"_on_linear_stretch_pct 5")
 
 
     def _on_channel_minmax_changed(self, channel_no, min_bound, max_bound):
