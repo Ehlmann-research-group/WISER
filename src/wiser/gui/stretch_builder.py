@@ -370,7 +370,6 @@ class ChannelStretchWidget(QWidget):
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
     def _update_histogram_get_data(self):
-        print(f"Update histogram start")
         if self._norm_band_data is None:
             return
 
@@ -410,7 +409,6 @@ class ChannelStretchWidget(QWidget):
         thread_pool.start(worker)
 
     # def _update_histogram(self):
-    #     print(f"Update histogram start")
     #     if self._norm_band_data is None:
     #         return
 
@@ -941,7 +939,6 @@ class StretchBuilderDialog(QDialog):
 
 
     def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
-        print(f"show 1")
         # print(f'Display bands = {display_bands}')
 
         self._enable_stretch_changed_events = False
@@ -959,14 +956,12 @@ class StretchBuilderDialog(QDialog):
                 self.tr('Blue Channel'),
             ]
             colors = [QColor('red'), QColor('green'), QColor('blue')]
-            print(f"show for loop start")
             for i in range(3):
                 self._channel_widgets[i].set_title(titles[i])
                 self._channel_widgets[i].set_histogram_color(colors[i])
                 self._channel_widgets[i].set_band(dataset, display_bands[i])
                 # TODO(donnie):  Set existing stretch details
                 self._channel_widgets[i].show()
-            print(f"show for loop end")
 
             self._cb_link_sliders.show()
             self._cb_link_min_max.show()

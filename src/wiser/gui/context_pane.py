@@ -67,7 +67,6 @@ class ContextPane(RasterPane):
         Override the base-class implementation so we can also update the
         image scaling.
         '''
-        print("$$$$$$$$$context_pane on dataset added")
         super()._on_dataset_added(ds_id)
         self._update_image_scale()
 

@@ -27,19 +27,6 @@ from wiser.gui.rasterview_metadata import RasterViewMetaData
 
 logger = logging.getLogger(__name__)
 
-import psutil
-import os
-
-def get_memory_usage():
-    process = psutil.Process(os.getpid())
-    mem = process.memory_info().rss  # Resident Set Size: memory in bytes
-    return mem / (1024 * 1024)  # Convert to MB
-
-import tracemalloc
-import time
-# Start tracing memory allocations
-# tracemalloc.start()
-
 def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
     '''
     Given a raster data set, band index, and optional contrast stretch object,
@@ -48,77 +35,26 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     '''
 
     # Extract the raw band data and associated statistics from the data set.
-    print(f"Getting band data start")
-    mem_before_get_band_data = get_memory_usage()
     temp_data = dataset.get_band_data(band)
-    print(f"TEMP DATA TYPE: {temp_data.dtype}")
-    mem_after_get_band_data = get_memory_usage()
-    print(f"Getting band data end")
-    print(f"Memory usage after get_band_data: {mem_after_get_band_data:.2f} MB (increased by {mem_after_get_band_data - mem_before_get_band_data:.2f} MB)")
-
-    print(f"Getting band stats start")
-    mem_before_get_band_stats = get_memory_usage()
-    stats = dataset.get_band_stats(band_index=band, band=temp_data)  # Consider optimizing this to avoid extra memory usage
-    mem_after_get_band_stats = get_memory_usage()
-    print(f"Getting band stats end")
-    print(f"Memory usage after get_band_stats: {mem_after_get_band_stats:.2f} MB (increased by {mem_after_get_band_stats - mem_before_get_band_stats:.2f} MB)")
-
-    '''
-    Normalize array and multiply by 255 start; these steps consume significant RAM, especially normalization.
-    '''
-    # Normalize the raw band data.
-    # print(f"temp_data data type before: {temp_data.dtype}")
-    mem_before_cast = get_memory_usage()
-    print(f"Casting start")
-    print(f"temp_data before size: {temp_data.nbytes}")
-    temp_data = temp_data.astype(np.float32, copy=False)
-    print(f"Casting end")
-    mem_after_cast = get_memory_usage()
-    print(f"temp_data after size: {temp_data.nbytes}")
-    print(f"Memory usage after explicit casting: {mem_after_cast:.2f} MB (increased by {mem_after_cast - mem_before_cast:.2f} MB)")
     
-    print(f"Normalizing array start")
-    mem_before_normalize = get_memory_usage()
-    normalize_ndarray(temp_data, minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
-    mem_after_normalize = get_memory_usage()
-    print(f"Memory usage after normalize_ndarray: {mem_after_normalize:.2f} MB (increased by {mem_after_normalize - mem_before_normalize:.2f} MB)")
-    # print(f"temp_data data type after: {temp_data.dtype}")
-    print(f"Normalizing array end")
-    print(f"Memory usage after normalize_ndarray: {mem_after_normalize:.2f} MB (increased by {mem_after_normalize - mem_before_normalize:.2f} MB)")
+    stats = dataset.get_band_stats(band_index=band, band=temp_data)  # Consider optimizing this to avoid extra memory usage
 
+    temp_data = temp_data.astype(np.float32, copy=False)
+
+    normalize_ndarray(temp_data, minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
+    
     # If a stretch is specified for the channel, apply it to the normalized band data.
     if stretch is not None:
-        print(f"Stretch apply start")
-        mem_before_stretch = get_memory_usage()
         stretch.apply(temp_data)
-        mem_after_stretch = get_memory_usage()
-        print(f"Stretch apply end")
-        print(f"Memory usage after stretch.apply: {mem_after_stretch:.2f} MB (increased by {mem_after_stretch - mem_before_stretch:.2f} MB)")
 
     # Clip the data to be in the range [0.0, 1.0]. This should not remove NaNs.
-    print(f"np.clip start")
-    mem_before_clip = get_memory_usage()
-    np.clip(temp_data, 0.0, 1.0, out=temp_data)
-    mem_after_clip = get_memory_usage()
-    print(f"np.clip end")
-    print(f"Memory usage after np.clip: {mem_after_clip:.2f} MB (increased by {mem_after_clip - mem_before_clip:.2f} MB)")
 
+    np.clip(temp_data, 0.0, 1.0, out=temp_data)
+    
     # Finally, convert the normalized (and possibly stretched) band data into a color channel with values in the range [0, 255].
-    print(f"Multiplication by 255 and type casting start")
-    mem_before_mult255 = get_memory_usage()
-    # temp_data = (temp_data * 255.0).astype(np.uint32)  # Consider using np.uint8 to reduce memory usage
     temp_data = (temp_data * 255.0)
     temp_data = temp_data.astype(np.uint8, copy=False)
-    mem_after_mult255 = get_memory_usage()
-    print(f"Multiplication by 255 and type casting end")
-    print(f"Memory usage after multiplication and type cast: {mem_after_mult255:.2f} MB (increased by {mem_after_mult255 - mem_before_mult255:.2f} MB)")
 
-    # snapshot = tracemalloc.take_snapshot()
-    # top_stats = snapshot.statistics('lineno')
-
-    # print("[ Top 10 memory-consuming lines ]")
-    # for stat in top_stats[:10]:
-    #     print(stat)
     return temp_data
 
 # def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
@@ -131,7 +67,6 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
 
 #     print(f"Getting band data start")
 #     temp_data = dataset.get_band_data(band)
-#     print(f"Getting band data end")
 #     print(f"Getting band stats start")
 #     stats = dataset.get_band_stats(band_index=band, band=temp_data) # Gonna have to make this not need to get the whole new band again (takes too much RAM)
 #     print(f"Getting band stats end")
@@ -510,18 +445,12 @@ class RasterView(QWidget):
         self._layout.addWidget(self._scroll_area)
         self.setLayout(self._layout)
 
-        self._dirty = True
-        print("Setting is dirty to true __INIT______________")
-
     def get_stretches(self):
         return self._stretches
 
     @Slot(StretchBase)
     def set_stretches(self, stretches: List):
-        print(f"((((((((((((((((((((SET_STRETCHES CALLED))))))))))))))))))))")
         self._stretches = stretches
-        self._dirty = True
-        print("Setting is dirty to true")
         self.update_display_image()
 
     def _clear_members(self):
@@ -552,8 +481,6 @@ class RasterView(QWidget):
         Specify a raster data-set to display in the raster-view widget.  A value
         of None causes the raster-view to display nothing.
         '''
-        print(f"((((((((((((((((((((set_raster_data CALLED))))))))))))))))))))")
-        print(f"rasterview set raster data called: 1")
         if raster_data is not None and not isinstance(raster_data, RasterDataSet):
             raise ValueError('raster_data must be a RasterDataSet object')
 
@@ -566,8 +493,6 @@ class RasterView(QWidget):
         self._clear_members()
 
         self._raster_data = raster_data
-        self._dirty = True
-        print("Setting is dirty to true")
 
         if raster_data is not None:
             self._display_bands = display_bands
@@ -582,8 +507,6 @@ class RasterView(QWidget):
             self._stretches = None
 
         self.update_display_image()
-
-        print(f"rasterview set raster data ended")
 
     def get_raster_data(self) -> Optional[RasterDataSet]:
         '''
@@ -638,8 +561,6 @@ class RasterView(QWidget):
                 changed |= ImageColors.BLUE
 
         self._display_bands = display_bands
-        self._dirty = True
-        print("Setting is dirty to true")
         self._colormap = colormap
         self.update_display_image(colors=changed)
 
@@ -696,7 +617,6 @@ class RasterView(QWidget):
         return img_data, time_1, time_2, colors
 
     def display_image(self, packed_results):
-        print(f"rasterview display_image 1")
         if packed_results is None:
             return None
         img_data, time_1, time_2, colors = packed_results   
@@ -709,9 +629,7 @@ class RasterView(QWidget):
         self._image = QImage(img_data,
             self._raster_data.get_width(), self._raster_data.get_height(),
             QImage.Format_RGB32)
-        print(f"ABOUT TO CREATE IMAGE ========================================")
         self._image_pixmap = QPixmap.fromImage(self._image)
-        print("!!!!!!!!!!!!!!!!!!! FINISHED CREATING IMAGE")
         time_4 = time.perf_counter()
 
         logger.debug(f'update_display_image(colors={colors}) update times:  ' +
@@ -720,19 +638,15 @@ class RasterView(QWidget):
                      f'qt = {time_4 - time_3:0.02f}s')
 
         self._update_scaled_image()
-        print(f"rasterview display_image end")
 
     # def update_display_image(self, colors=ImageColors.RGB):
-    #     print(f"rasterview update_display_image 1")
     #     worker = Worker(self.get_image_data_from_channels, colors)
 
     #     worker.signals.finished.connect(self.display_image)
 
     #     thread_pool.start(worker)
-    #     print(f"rasterview update_display_image end")
 
     def update_display_image(self, colors=ImageColors.RGB):
-        print(f"rasterview display_image CALLED !!!!!!!!!!!!!!!!!!!!!! 1")
         if self._raster_data is None:
             # No raster data to display
             self._image_widget.set_dataset_info(None, self._scale_factor)
@@ -748,39 +662,26 @@ class RasterView(QWidget):
         ds_id = self._raster_data.get_id()
 
         last_added_raster_display = self._app_state.get_last_added_raster_display()
-        print(f"last_added_raster_display: {last_added_raster_display}")
         current_added_raster_display = RasterViewMetaData(ds_id, self._display_bands, self._stretches)
-        print(f"current_added_raster_display: {current_added_raster_display}")
         # TODO (Joshua G-K): Make this logic cleaner or move to another function
-        # if last_added_raster_display is not None and \
-        #     ((ds_id == last_added_raster_display.get_ds_id() and not last_added_raster_display.is_fully_initialized())
-        #      or last_added_raster_display == current_added_raster_display):
         if last_added_raster_display is not None and \
             last_added_raster_display.is_fully_initialized() and \
             last_added_raster_display == current_added_raster_display:
-            print("SKIPIPIPIPPIPIPPPPPING CALCULATION")
             img_data = self._app_state.get_last_added_raster_display().get_image_data()
             time_2 = time.perf_counter()
         else:
-            print(f"Currently is DIRTY: {self._dirty}")
-            self._dirty = False
-            print(f"No longer is DIRTY: {self._dirty}")
             if len(self._display_bands) == 3:
                 # Check each color band to see if we need to update it.
                 color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
-                print("about to make chnalle images")
                 for i in range(len(self._display_bands)):
                     if self._display_data[i] is None or color_indexes[i] in colors:
                         # Compute the contents of this color channel.
-                        print(f"channel image i: {i}")
                         self._display_data[i] = make_channel_image(self._raster_data,
                             self._display_bands[i], self._stretches[i])
 
                 time_2 = time.perf_counter()
-                print("about to make rgb image")
                 # Combine our individual color channel(s) into a single RGB image.
                 img_data = make_rgb_image(self._display_data)
-                print("done making rgb image")
 
             else:
                 # This is a grayscale image.
@@ -815,9 +716,7 @@ class RasterView(QWidget):
             self._raster_data.get_width(), self._raster_data.get_height(),
             QImage.Format_RGB32)
 
-        print(f"ABOUT TO CREATE IMAGE")
         self._image_pixmap = QPixmap.fromImage(self._image)
-        print("FINISHED CREATING IMAGE")
 
         time_4 = time.perf_counter()
 
@@ -826,9 +725,7 @@ class RasterView(QWidget):
                      f'image = {time_3 - time_2:0.02f}s ' +
                      f'qt = {time_4 - time_3:0.02f}s')
 
-        print(f"about to update_scaled_image")
         self._update_scaled_image()
-        print(f"rasterview display_image ENDED =================================")
 
     def get_unscaled_pixmap(self) -> QPixmap:
         '''
@@ -850,7 +747,6 @@ class RasterView(QWidget):
 
 
     def _update_scaled_image(self, old_scale_factor=None):
-        # print(f"updating scaled image >>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
         # self._scroll_area.setVisible(True)
 
@@ -870,7 +766,6 @@ class RasterView(QWidget):
 
             self._update_scrollbar(self._scroll_area.verticalScrollBar(),
                 self._scroll_area.viewport().height(), scale_change)
-        # print(f"<<<<<<<<<<<<<<<FINISHED UPDATING SCALED IMAGE")
 
     def _update_scrollbar(self, scrollbar, view_size, scale_change):
         # The scrollbar's value will be scaled by the scale_change value.  For

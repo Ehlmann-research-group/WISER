@@ -405,7 +405,6 @@ class RasterDataSet:
 
         stats = self._cached_band_stats.get(band_index)
         if stats is None:
-            print("STATS IS NONE!")
             if band is None:
                 band = self.get_band_data(band_index)
             stats = BandStats(band_index, np.nanmin(band), np.nanmax(band))
