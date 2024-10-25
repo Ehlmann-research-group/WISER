@@ -233,7 +233,6 @@ class ApplicationState(QObject):
         '''
 
         # Remember the directory of the selected file, for next file-open
-        print("app_state open_file 1")
         self.update_cwd_from_path(file_path)
 
         # Is the file a project file?
@@ -264,11 +263,8 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
         
-        print("app_state open_file 2")
         raster_data = self._raster_data_loader.load_from_file(file_path)
-        print("app_state open_file 3")
         self.add_dataset(raster_data)
-        print("app_state open_file 4")
 
 
     def add_dataset(self, dataset: RasterDataSet):
@@ -278,7 +274,6 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was added.
         '''
-        print(f"app_state add_dataset 1")
         if not isinstance(dataset, RasterDataSet):
             raise TypeError('dataset must be a RasterDataSet')
 
@@ -288,7 +283,6 @@ class ApplicationState(QObject):
 
         self._last_added_raster_display = RasterViewMetaData(ds_id=ds_id)
         self.dataset_added.emit(ds_id)
-        print(f"app_state add_dataset end")
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
     def get_dataset(self, ds_id: int) -> RasterDataSet:
@@ -380,18 +374,14 @@ class ApplicationState(QObject):
         the library.  The method will fire a signal indicating that the spectral
         library was added, including the ID assigned to the library.
         '''
-        print(f"app_state add_spectral_library 1")
         if not isinstance(library, SpectralLibrary):
             raise TypeError('library must be a SpectralLibrary')
 
         lib_id = self._take_next_id()
-        print(f"app_state add_spectral_library 2")
         library.set_id(lib_id)
         self._spectral_libraries[lib_id] = library
 
         self.spectral_library_added.emit(lib_id)
-        
-        print(f"app_state add_spectral_library 3")
 
 
     def get_spectral_library(self, lib_id):
