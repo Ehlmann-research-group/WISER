@@ -37,6 +37,7 @@ class DatasetInfoView(QTreeWidget):
         When a data set is added to the application state, this method populates
         the data info view with information about the data set.
         '''
+
         if self._model.num_datasets() == 1:
             self.clear()
 

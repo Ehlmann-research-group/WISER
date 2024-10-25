@@ -46,13 +46,14 @@ class RasterDataLoader:
         for (driver_name, impl_type) in self._formats.items():
             try:
                 impl = impl_type.try_load_file(path)
+
             except Exception as e:
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
 
         if impl is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
-        
+
         ds = RasterDataSet(impl)
         files = ds.get_filepaths()
         if files:

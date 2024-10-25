@@ -53,14 +53,7 @@ from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
     NumPyArraySpectrum)
 from wiser.raster.spectral_library import ListSpectralLibrary
-from wiser.raster import RasterDataSet, roi_export, spectra_export
-
-from wiser.raster.dataset_impl import RasterDataImpl
-from wiser.raster.dataset import SaveState
-
-from wiser.gui.gui_threading import Worker, thread_pool
-
-from osgeo import gdal
+from wiser.raster import RasterDataSet, roi_export
 
 logger = logging.getLogger(__name__)
 
@@ -457,7 +450,6 @@ class DataVisualizerApp(QMainWindow):
 
         # TODO(donnie):  Maybe save Qt state?
         delete_all_files_in_folder(TEMP_FOLDER_PATH)
-        thread_pool.waitForDone()
         super().closeEvent(event)
 
 

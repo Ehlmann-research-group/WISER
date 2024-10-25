@@ -133,7 +133,6 @@ class ApplicationState(QObject):
 
         self._config: ApplicationConfig = config
 
-        # When instantiated, will be of the type (ds_id, display_bands, stretches, img)
         self._last_added_raster_display: RasterViewMetaData = None
 
 
