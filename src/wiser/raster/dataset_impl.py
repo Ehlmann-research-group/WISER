@@ -159,29 +159,6 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return paths
 
-    def reopen_dataset(self):
-        '''
-        Opens and returns a new GDAL dataset equivalent to the current one, 
-        always creating a new dataset from the file path.
-        '''
-        file_paths = self.get_filepaths()
-        
-        if not file_paths:
-            raise ValueError("Dataset is in-memory only, no file to reopen from.")
-
-        file_path = file_paths[0]  # Assuming the first file is the main dataset
-        driver = self.gdal_dataset.GetDriver().ShortName
-        
-        # Open the dataset with the corresponding driver
-        new_dataset = gdal.OpenEx(file_path, 
-            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
-            allowed_drivers=[driver])
-
-        if new_dataset is None:
-            raise ValueError(f"Unable to open dataset from {file_path} with driver {driver}")
-
-        return new_dataset
-
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
         return self.gdal_dataset.RasterXSize
@@ -231,8 +208,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         filtering will impact performance.
         '''
         # Note that GDAL indexes bands from 1, not 0.
-        new_dataset = self.reopen_dataset()
-        band = new_dataset.GetRasterBand(band_index + 1)
+        band = self.gdal_dataset.GetRasterBand(band_index + 1)
         try:
             np_array = band.GetVirtualMemAutoArray()
         except (RuntimeError, TypeError):

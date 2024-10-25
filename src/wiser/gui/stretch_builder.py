@@ -11,8 +11,6 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
 from wiser.raster.utils import get_normalized_band
 
-from wiser.gui.gui_threading import Worker, WorkerThread, thread_pool
-
 import numpy as np
 import numpy.ma as ma
 
@@ -141,34 +139,6 @@ class ChannelStretchWidget(QWidget):
 
     def set_histogram_color(self, color):
         self._histogram_color = color
-
-    def set_band_get_data(self, dataset, band_index):
-        self._dataset = dataset
-        self._band_index = band_index
-
-        self._raw_band_data = dataset.get_band_data(band_index)
-        self._raw_band_stats = dataset.get_band_stats(band_index)
-        self._norm_band_data = get_normalized_band(dataset, band_index)
-        
-        self._min_bound = self._raw_band_stats.get_min()
-        self._max_bound = self._raw_band_stats.get_max()
-
-    def set_band_ui_update(self):
-        self.set_stretch_low(0.0)
-        self.set_stretch_high(1.0)
-
-        ############
-        # UI Updates
-        self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
-        self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
-
-        self._update_histogram()
-
-    # def set_band(self, dataset, band_index):
-    #     worker = Worker(self.set_band_get_data, dataset, band_index)
-    #     worker.signals.finished.connect(self.set_band_ui_update)
-    #     thread_pool.start(worker)
-
 
     def set_band(self, dataset, band_index):
         '''
@@ -358,7 +328,7 @@ class ChannelStretchWidget(QWidget):
 
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
-    def _update_histogram_get_data(self):
+    def _update_histogram(self):
         if self._norm_band_data is None:
             return
 
@@ -386,49 +356,9 @@ class ChannelStretchWidget(QWidget):
 
         else:
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
-    
-    def _update_histogram_ui_update(self):
+
         # Show the updated histogram
         self._show_histogram()
-
-    def _update_histogram(self):
-        worker = Worker(self._update_histogram_get_data)
-        worker.signals.finished.connect(self._update_histogram_ui_update)
-
-        thread_pool.start(worker)
-
-    # def _update_histogram(self):
-    #     if self._norm_band_data is None:
-    #         return
-
-    #     # The "raw" histogram is based solely on the filtered and normalized
-    #     # band data.  That is, no conditioner has been applied to the histogram.
-    #     nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
-    #     self._histogram_bins_raw, self._histogram_edges_raw = \
-    #         np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
-
-    #     # self._num_pixels = np.prod(self._band_data.shape)
-
-    #     # Apply conditioner to the histogram, if necessary.
-
-    #     if self._conditioner_type == ConditionerType.NO_CONDITIONER:
-    #         self._histogram_bins = self._histogram_bins_raw
-    #         self._histogram_edges = self._histogram_edges_raw
-
-    #     elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
-    #         self._histogram_bins = self._histogram_bins_raw
-    #         self._histogram_edges = np.sqrt(self._histogram_edges_raw)
-
-    #     elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
-    #         self._histogram_bins = self._histogram_bins_raw
-    #         self._histogram_edges = np.log2(1 + self._histogram_edges_raw)
-
-    #     else:
-    #         raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
-    #     print(f"About to show histogram")
-    #     # Show the updated histogram
-    #     self._show_histogram()
-    #     print(f"Update histogram end")
 
 
     def _show_histogram(self, update_lines_only=False):
