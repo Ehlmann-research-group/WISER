@@ -160,7 +160,7 @@ class ChannelStretchWidget(QWidget):
         self.set_stretch_low(0.0)
         self.set_stretch_high(1.0)
 
-        #####################
+        #======================================================
         # UI Updates
         self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
         self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')

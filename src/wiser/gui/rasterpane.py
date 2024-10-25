@@ -26,7 +26,6 @@ from wiser.raster.selection import SelectionType, Selection, SinglePixelSelectio
 from wiser.raster.spectra_export import export_roi_pixel_spectra
 from wiser.raster.spectrum import ROIAverageSpectrum
 
-from wiser.gui.gui_threading import Worker, thread_pool
 from wiser.gui.app_state import ApplicationState
 
 from .ui_roi import draw_roi, get_picked_roi_selections
