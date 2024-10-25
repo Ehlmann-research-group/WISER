@@ -91,8 +91,6 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
 
-        # gdal.AllRegister()
-
         # Application Toolbars
 
         self._init_menus()
@@ -674,7 +672,6 @@ class DataVisualizerApp(QMainWindow):
         s = project_info['qt_window_state']
         qba = QByteArray(bytes(s, 'utf-8'))
         self.restoreState(QByteArray.fromBase64(qba))
-        print(f"app apply_project_info end")
 
 
     def save_qt_settings(self):

@@ -133,13 +133,7 @@ class ApplicationState(QObject):
 
         self._config: ApplicationConfig = config
 
-        # WHenever a dataset is added, some processing runs on the dataset
-        # for each view that it is displayed in (context pane, main view, zoom pane).
-        # This is really slow, we only want to run these computations once. To do so
-        # we will cache the result in this variable. 
-
         # When instantiated, will be of the type (ds_id, display_bands, stretches, img)
-        # TODO: We maybe want to make this into a class somewhere
         self._last_added_raster_display: RasterViewMetaData = None
 
 
