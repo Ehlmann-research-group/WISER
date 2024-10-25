@@ -146,23 +146,16 @@ class ChannelStretchWidget(QWidget):
         self._dataset = dataset
         self._band_index = band_index
 
-        print(f"set_band 2")
         self._raw_band_data = dataset.get_band_data(band_index)
-        print(f"set_band 3")
         self._raw_band_stats = dataset.get_band_stats(band_index)
-        print(f"set_band 4")
         self._norm_band_data = get_normalized_band(dataset, band_index)
         
-        print(f"set_band 5")
         self._min_bound = self._raw_band_stats.get_min()
         self._max_bound = self._raw_band_stats.get_max()
 
     def set_band_ui_update(self):
-        print(f"set_band 6")
         self.set_stretch_low(0.0)
-        print(f"set_band 7")
         self.set_stretch_high(1.0)
-        print(f"set_band 8")
 
         ############
         # UI Updates
@@ -260,14 +253,12 @@ class ChannelStretchWidget(QWidget):
         the band data.
         '''
         # print(f'set_stretch_low({value})')
-        print(f"Start set_stretch_low")
         slider_range = self._ui.slider_stretch_low.maximum() - self._ui.slider_stretch_low.minimum()
         slider_value = value * slider_range
         self._ui.slider_stretch_low.setValue(int(slider_value))
 
         raw_value = self._min_bound + self._stretch_low * (self._max_bound - self._min_bound)
         self._ui.lineedit_stretch_low.setText(f'{raw_value:.6f}')
-        print(f"End set_stretch_low")
 
     def get_stretch_high(self):
         '''
@@ -286,14 +277,12 @@ class ChannelStretchWidget(QWidget):
         the band data.
         '''
         # print(f'set_stretch_high({value})')
-        print(f"Start set_stretch_high")
         slider_range = self._ui.slider_stretch_high.maximum() - self._ui.slider_stretch_high.minimum()
         slider_value = value * slider_range
         self._ui.slider_stretch_high.setValue(int(slider_value))
 
         raw_value = self._min_bound + self._stretch_high * (self._max_bound - self._min_bound)
         self._ui.lineedit_stretch_high.setText(f'{raw_value:.6f}')
-        print(f"End set_stretch_high")
 
     def get_band_min_max(self):
         '''
@@ -328,7 +317,7 @@ class ChannelStretchWidget(QWidget):
 
 
     def set_linear_stretch_pct(self, percent):
-        # Based on the current histogram, figure out where the=
+        # Based on the current histogram, figure out where the
         (idx_low, idx_high) = hist_limits_for_pct(
             self._histogram_bins, self._histogram_edges, percent)
 
@@ -777,8 +766,7 @@ class StretchBuilderDialog(QDialog):
 
         else:
             assert conditioner_type == ConditionerType.NO_CONDITIONER
-        
-        print(f"_get_channel_stretch 2")
+    
         return stretch
 
 

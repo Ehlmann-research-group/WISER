@@ -57,76 +57,6 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
 
     return temp_data
 
-# def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
-#     '''
-#     Given a raster data set, band index, and optional contrast stretch object,
-#     this function generates color channel data into a NumPy array.  Elements in
-#     the output array will be in the range [0, 255].
-#     '''
-#     # Extract the raw band data and associated statistics from the data set.
-
-#     print(f"Getting band data start")
-#     temp_data = dataset.get_band_data(band)
-#     print(f"Getting band stats start")
-#     stats = dataset.get_band_stats(band_index=band, band=temp_data) # Gonna have to make this not need to get the whole new band again (takes too much RAM)
-#     print(f"Getting band stats end")
-#     '''
-#     Normalize array and mult 255 start take a lot of RAM, specifically normalize array
-#     '''
-#     # Normalize the raw band data.
-#     print(f"Normalizing array start")
-#     print(f"temp_data data type before: {temp_data.dtype}")
-#     temp_data = temp_data.astype(np.float32, copy=False)
-#     normalize_ndarray(temp_data,
-#         minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
-#     print(f"temp_data data type after: {temp_data.dtype}")
-#     print(f"Normalizing array end")
-
-#     # If a stretch is specified for the channel, apply it to the
-#     # normalized band data.
-#     if stretch is not None:
-#         print(f"Stretch apply start")
-#         stretch.apply(temp_data)
-#         print(f"Stretch apply end")
-
-#     # Clip the data to be in the range [0.0, 1.0].  This should not
-#     # remove NaNs.
-#     print(f"np clip start")
-#     np.clip(temp_data, 0.0, 1.0, out=temp_data) 
-#     print(f"np clip end")
-
-#     # Finally, convert the normalized (and possibly stretched) band
-#     # data into a color channel with values in the range [0, 255].
-#     # TODO(donnie):  Is it faster to use uint8 for large images?
-#     print(f"Mult 255 start")
-#     temp_data = (temp_data * 255.0).astype(np.uint32) # Pretty sure now this line takes forever
-#     print(f"Mult 255 end")
-
-#     return temp_data
-    # # Extract the raw band data and associated statistics from the data set.
-    # raw_data = dataset.get_band_data(band)
-    # stats = dataset.get_band_stats(band)
-
-    # # Normalize the raw band data.
-    # band_data = normalize_ndarray(raw_data,
-    #     minval=stats.get_min(), maxval=stats.get_max())
-
-    # # If a stretch is specified for the channel, apply it to the
-    # # normalized band data.
-    # if stretch is not None:
-    #     stretch.apply(band_data)
-
-    # # Clip the data to be in the range [0.0, 1.0].  This should not
-    # # remove NaNs.
-    # np.clip(band_data, 0.0, 1.0, out=band_data)
-
-    # # Finally, convert the normalized (and possibly stretched) band
-    # # data into a color channel with values in the range [0, 255].
-    # # TODO(donnie):  Is it faster to use uint8 for large images?
-    # channel_data = (band_data * 255.0).astype(np.uint32)
-
-    # return channel_data
-
 
 def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     '''
@@ -182,11 +112,6 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     rgb_data = rgb_data << 8
     rgb_data |= channels[2]
     rgb_data |= 0xff000000
-    # rgb_data = (channels[0] << 16 |
-    #             channels[1] <<  8 |
-    #             channels[2]) | 0xff000000
-    # if isinstance(rgb_data, np.ma.MaskedArray):
-    #     rgb_data.fill_value = 0xff000000
 
     # Qt5/PySide2 complains if the array is not contiguous.
     if not rgb_data.flags['C_CONTIGUOUS']:
@@ -529,7 +454,6 @@ class RasterView(QWidget):
 
     def set_display_bands(self, display_bands: Tuple, stretches: List = None,
                           colormap: Optional[str] = None):
-        print(f"((((((((((((((((((((set_display_bands CALLED))))))))))))))))))))")
         if len(display_bands) not in [1, 3]:
             raise ValueError('display_bands must be a list of 1 or 3 ints')
 
