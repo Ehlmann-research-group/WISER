@@ -48,6 +48,9 @@ def get_hdr_files(folder_path):
         return hdr_files
     return folder_path
 
+# Set up logging to track crashes
+logging.basicConfig(filename="output/app_test.log", level=logging.DEBUG)
+
 def benchmark_function(dataset_paths, function_to_test, N=1, output_file='output/benchmark_results.txt'):
     """
     Benchmarks the provided function on a list of dataset paths.
@@ -62,8 +65,38 @@ def benchmark_function(dataset_paths, function_to_test, N=1, output_file='output
     - Prints the timing results to the console.
     - Writes the timing results to the specified output file.
     """
-    # Set up logging to write to a file
-    logging.basicConfig(filename=output_file, level=logging.INFO, filemode='w')
+    import os
+    import logging
+
+    # Ensure the directory for the log file exists
+    output_dir = os.path.dirname(output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Create a separate logger for the benchmark function
+    logger = logging.getLogger('benchmark_logger')
+    logger.setLevel(logging.INFO)
+
+    # Remove any existing handlers from the logger
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    # Create a file handler for the output file
+    fh = logging.FileHandler(output_file)
+    fh.setLevel(logging.INFO)
+
+    # Optionally, create a console handler if you want logs to also appear on the console
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+
+    # Create a formatter and set it for both handlers
+    formatter = logging.Formatter('%(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+
+    # Add handlers to the logger
+    logger.addHandler(fh)
+    logger.addHandler(ch)
     
     for dataset_path in dataset_paths:
         if not os.path.isfile(dataset_path):
@@ -73,7 +106,7 @@ def benchmark_function(dataset_paths, function_to_test, N=1, output_file='output
         
         times = []
         print(f"\nBenchmarking on dataset: {dataset_path}")
-        logging.info(f"\nBenchmarking on dataset: {dataset_path}")
+        logger.info(f"\nBenchmarking on dataset: {dataset_path}")
         
         for i in range(N):
             start_time = time.time()
@@ -81,24 +114,24 @@ def benchmark_function(dataset_paths, function_to_test, N=1, output_file='output
                 function_to_test(dataset_path)
             except Exception as e:
                 print(f"Error during function execution: {e}")
-                logging.error(f"Error during function execution: {e}")
+                logger.error(f"Error during function execution: {e}")
                 break  # Exit the loop if the function fails
             end_time = time.time()
             elapsed_time = end_time - start_time
             times.append(elapsed_time)
             print(f"Run {i+1}/{N}: {elapsed_time:.4f} seconds")
-            logging.info(f"Run {i+1}/{N}: {elapsed_time:.4f} seconds")
+            logger.info(f"Run {i+1}/{N}: {elapsed_time:.4f} seconds")
         
         if times:
             mean_time = np.mean(times)
             std_time = np.std(times)
             print(f"Mean time over {N} runs: {mean_time:.4f} seconds")
             print(f"Standard deviation: {std_time:.4f} seconds")
-            logging.info(f"Mean time over {N} runs: {mean_time:.4f} seconds")
-            logging.info(f"Standard deviation: {std_time:.4f} seconds")
+            logger.info(f"Mean time over {N} runs: {mean_time:.4f} seconds")
+            logger.info(f"Standard deviation: {std_time:.4f} seconds")
         else:
             print("No valid runs were recorded.")
-            logging.info("No valid runs were recorded.")
+            logger.info("No valid runs were recorded.")
 
 def profile_function(profile_outpath, func, *args, **kwargs):
     profiler = cProfile.Profile()
@@ -120,9 +153,6 @@ def profile_function(profile_outpath, func, *args, **kwargs):
     print('Done with profiling')
     
     return result
-
-# Set up logging to track crashes
-logging.basicConfig(filename="output/app_test.log", level=logging.DEBUG)
 
 def run_function_in_ui(dataset_path, func):
     wiser_ui = None
@@ -155,7 +185,6 @@ def run_function_in_ui(dataset_path, func):
     finally:
         if wiser_ui:
             wiser_ui.close()
-        # ensure_qapp_closes(app)
 
 def use_stretch_builder(dataset_path: str):
     def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
@@ -248,13 +277,13 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Error in calculate_roi_average_spectrum: {e}")
 
-    try:
-        print("Running stress test benchmark...")
-        stress_test_benchmark(dataset_6GB, dataset_500mb, dataset_6GB, use_both_methods=False, N=N, \
-                            output_file='output/stress_test_benchmark.txt')
-        succ_func +=1 
-    except Exception as e:
-        print(f"Error in stress_test_benchmark: {e}")
+    # try:
+    #     print("Running stress test benchmark...")
+    #     stress_test_benchmark(dataset_6GB, dataset_500mb, dataset_6GB, use_both_methods=False, N=N, \
+    #                         output_file='output/stress_test_benchmark.txt')
+    #     succ_func +=1 
+    # except Exception as e:
+    #     print(f"Error in stress_test_benchmark: {e}")
 
     print(f"Functions successful: {succ_func} / {total_func}")
     sys.exit(1) 
