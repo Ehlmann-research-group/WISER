@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Tuple, Union
 Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
@@ -8,17 +8,70 @@ import os
 import numpy as np
 
 import lark
+import psutil
 from lark import Tree
 
-import queue
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
+from osgeo import gdal
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
 from wiser.raster.dataset import RasterDataSet
-from .builtins.constants import LHS_KEY, RHS_KEY
+from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
+
+def max_bytes_to_chunk(dataset_bytes: int):
+    '''
+    Returns an integer that represents the amount of bytes we should be using as
+    a maximum amount for chunking. None is returned if we do not need to chunk
+
+    The logic works such that the bytes returned will 
+    be the minimum 
+    '''
+    available_mem = psutil.virtual_memory().available
+    if dataset_bytes > available_mem:
+        return max(MAX_RAM_BYTES, available_mem*RATIO_OF_MEM_TO_USE)
+    elif dataset_bytes > MAX_RAM_BYTES:
+        return MAX_RAM_BYTES
+    else:
+        return None
+
+def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ma.MaskedArray, gdal_elem_type: int):
+        if isinstance(result, np.ma.MaskedArray):
+            result = np.ma.filled(result, DEFAULT_IGNORE_VALUE)
+    
+        gdal_band_list_current = [band+1 for band in band_index_list]
+        
+        out_dataset_gdal.WriteRaster(
+            0, 0, out_dataset_gdal.RasterXSize, out_dataset_gdal.RasterYSize,
+            result.tobytes(),
+            buf_xsize = out_dataset_gdal.RasterXSize, buf_ysize=out_dataset_gdal.RasterYSize,
+            buf_type=gdal_elem_type,
+            band_list=gdal_band_list_current
+        )
+        out_dataset_gdal.FlushCache()
+
+def np_dtype_to_gdal(np_dtype):
+    """Converts a NumPy dtype to the corresponding GDAL GDT type."""
+
+    # Create a mapping between NumPy dtypes and GDAL GDT types
+    dtype_mapping = {
+        np.dtype('int8'): gdal.GDT_Byte,
+        np.dtype('uint8'): gdal.GDT_Byte,
+        np.dtype('int16'): gdal.GDT_Int16,
+        np.dtype('uint16'): gdal.GDT_UInt16,
+        np.dtype('int32'): gdal.GDT_Int32,
+        np.dtype('uint32'): gdal.GDT_UInt32,
+        np.dtype('float32'): gdal.GDT_Float32,
+        np.dtype('float64'): gdal.GDT_Float64,
+        np.dtype('complex64'): gdal.GDT_CFloat32,
+        np.dtype('complex128'): gdal.GDT_CFloat64,
+    }
+    
+    # Handle cases where the dtype is not in the mapping
+    if np_dtype not in dtype_mapping:
+        raise ValueError(f"Unsupported NumPy dtype: {np_dtype}")
+    
+    return dtype_mapping[np_dtype]
 
 def remove_trailing_number(filepath):
     # Regular expression pattern to match " space followed by digits" at the end of the path
@@ -61,84 +114,21 @@ def print_tree_with_meta(tree: lark.ParseTree, indent=0):
             meta_info = f"(unique_id: {getattr(tree, 'unique_id', 'N/A')})"
         print(f"{indent_str}{tree} {meta_info} (Terminal)")
 
-async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index_list_current: List[int], \
-                      index_list_next: List[int], read_task_queue: queue.Queue, \
-                      read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
-    lhs_value = None
-    lhs_future = None
+def get_lhs_rhs_values(lhs: BandMathValue, rhs: BandMathValue, index_list: List[int]):
     rhs_value = None
-    rhs_future = None
-    should_be_the_same = False
-    if not isinstance(lhs.value, np.ndarray):
-        # Check to see if queue is empty. If it's not, then we can immediately get the data
-        if read_task_queue[LHS_KEY].empty():
-            read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        else:
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        should_read_next = should_continue_reading_bands(index_list_next, lhs)
-        # Allows us to read data into the future so there's little down time in between I/O
-        if should_read_next:
-            read_lhs_future_onto_queue(lhs, index_list_next, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-    else:
-        lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
+    same_datasets = False
+    lhs_value = lhs.as_numpy_array_by_bands(index_list)
 
-    # We need to get lhs_value's shape since we may not have the actual array by this time
-    lhs_value_shape = list(lhs.get_shape())  
-    lhs_value_shape[0] = len(index_list_current)
-    lhs_value_shape = tuple(lhs_value_shape)
-
-    if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
-        # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-        if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
-            should_be_the_same = True
-        else:
-            if read_task_queue[RHS_KEY].empty():
-                read_rhs_future_onto_queue(rhs, lhs_value_shape, index_list_current, \
-                                            event_loop, read_thread_pool, read_task_queue[RHS_KEY])
-                rhs_future = read_task_queue[RHS_KEY].get()[0]
-            else:
-                rhs_future = read_task_queue[RHS_KEY].get()[0]
-            if should_read_next:
-                # We have to get the size of the next data to read
-                next_lhs_shape = list(lhs.get_shape())
-                next_lhs_shape[0] = len(index_list_next)
-                next_lhs_shape = tuple(next_lhs_shape)
-                read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next, \
-                                            event_loop, read_thread_pool, read_task_queue[RHS_KEY])
-    else:
-        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
-
-    if rhs_future is not None:
-        rhs_value = await rhs_future
-    if lhs_future is not None:
-        lhs_value = await lhs_future
-    if should_be_the_same:
+    # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
+    
+    if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
+        same_datasets = True
+    if same_datasets:
         rhs_value = lhs_value
+    else:
+        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
     
     return lhs_value, rhs_value
-
-async def get_lhs_value_async(lhs: BandMathValue, index_list_current: List[int], \
-                       index_list_next: List[int], read_task_queue: queue.Queue, \
-                        read_thread_pool: ThreadPoolExecutor, event_loop: asyncio.AbstractEventLoop):
-    lhs_value = None
-    lhs_future = None
-    if not isinstance(lhs.value, np.ndarray):
-        # Check to see if queue is empty. If it's not, then we can immediately get the data
-        if read_task_queue[LHS_KEY].empty():
-            read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        else:
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        should_read_next = should_continue_reading_bands(index_list_next, lhs)
-        # Allows us to read data into the future so there's little down time in between I/O
-        if should_read_next:
-            read_lhs_future_onto_queue(lhs, index_list_next, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
-    else:
-        lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
-    if lhs_future is not None:
-        lhs_value = await lhs_future
-    return lhs_value
     
 def read_lhs_future_onto_queue(lhs:BandMathValue, \
                                 index_list: List[int], event_loop, read_thread_pool, read_task_queue):
@@ -484,12 +474,9 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
     if arg.type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         result = arg.as_numpy_array_by_bands(band_list)
-        # print(f"utils, make_image_cube_compatible variabletype image_cube: {result.shape}, cube shape: {cube_shape}")
         assert result.ndim == 3 or (result.ndim == 2 and len(band_list) == 1)
 
         if not are_shapes_equivalent(result.shape, cube_shape):
-            print(f"RAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR: \n \
-                  result.shape : {result.shape} || cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
@@ -497,29 +484,20 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         # Dimensions:  [y][x]
         # NumPy will broadcast the band across the entire image, band by band.
         result = arg.as_numpy_array_by_bands(band_list)
-        # print(f"utils, make_image_cube_compatible variabletype IMAGE_BAND: {result.shape}, cube shape: {cube_shape}")
         assert result.ndim == 2
 
         if (result.shape != cube_shape[1:]) and (result.shape != cube_shape and len(band_list) == 1):
-            print(f"PPPPPPPPPPPPPPPPPPPPOOOOOOOOOOOOOOOOOPPPPPPPPPPPPPPPPPPPPPPPP: \n \
-                  image band shape: {result.shape}, cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]
         result = arg.as_numpy_array_by_bands(band_list)
-        # print(f"utils bandmath, make_image_cube_by_bands, spectrum: result: {result.shape}")
-        # if result.ndim == 3:
-        # Should only be of shape (1, 1, ..., X)
         max_dim = max(result.shape)
         result = np.squeeze(result).reshape(max_dim)
-        # print(f"utils bandmath, make_image_cube_by_bands, spectrum: result after: {result.shape}")
         assert result.ndim == 1
 
         if (result.shape != (cube_shape[0],)) and len(band_list) != 1:
-            print(f"WWWWWWWWWWWWWWEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEWWWWWWWWWWWWWWWWWWWWWWW: \n \
-                  spectrum shape: {result.shape}, cube_shape: {cube_shape}")
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
