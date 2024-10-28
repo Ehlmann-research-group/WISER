@@ -204,15 +204,15 @@ def test_both_methods(hdr_paths, N=1):
 
     equation_dict = {
         key_plus_1: '(a+c)+((c+a)+((e+f)+(g+h)))',
-        key_mult: '(a*b)*(c*d)',
-        key_div: '(a/b)/(c/d)',
-        key_minus: '(a-b)-(c-d)',
-        key_neg: 'a+b',
-        key_less_than: '((a-b)-d)<c',
-        key_combo_1: '(a/b)-(c*d)+a',
-        key_combo_2: "(((a-b)+d)<c)*a",
-        key_exponent: "a**b+a**(0.5)",
-        key_formula: "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
+        # key_mult: '(a*b)*(c*d)',
+        # key_div: '(a/b)/(c/d)',
+        # key_minus: '(a-b)-(c-d)',
+        # key_neg: 'a+b',
+        # key_less_than: '((a-b)-d)<c',
+        # key_combo_1: '(a/b)-(c*d)+a',
+        # key_combo_2: "(((a-b)+d)<c)*a",
+        # key_exponent: "a**b+a**(0.5)",
+        # key_formula: "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
     }
 
     # Replacing keys in results_old_method
@@ -366,7 +366,7 @@ if __name__ == '__main__':
     '''
     How to use test_both_methods with a list of datasets
     '''
-    # test_both_methods(dataset_list)
+    test_both_methods(dataset_list)
     
     '''
     How to use test_both_methods with a folder that contain's .hdr paths
@@ -376,7 +376,7 @@ if __name__ == '__main__':
     '''
     How to use stress_test_benchmark
     '''
-    stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_6GB, use_both_methods=True, N=2)
+    # stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_6GB, use_both_methods=True, N=2)
 
     '''
     How to use the profiler for test_both_methods
