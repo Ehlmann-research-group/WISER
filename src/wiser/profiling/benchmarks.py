@@ -201,17 +201,12 @@ if __name__ == '__main__':
     '''
     How to use this file:
         1. Create aboslute paths to the .hdr files of your datasets as you see below
-        2. If you are using the function test_both_methods function then you can either pass
-        in an absolute path to a folder where you want to run all of your benchmarking or you can
-        pass in a list of the file paths like in the variable dataset_list. The function will go through
-        each of these files and ensure both methods get the same answer for all the equations in 
-        equation_dict. Feel free to only use the equations you need. 
-        3. If you are using stress_test_benchmark, then you will need to pass in 3 paths to datasets.
-        The first path is to a dataset with very large bands. The second path is to a normal sized dataset
-        (which is roughly defined as one that fits into RAM). The third path is to a large dataset (which 
-        is roughly defined as one that does not fit into RAM).
-        4. Look at the commented sections below to see examples
-        5. Lastly, in a terminal that has python run `python .\bandmath_benchmark.py` while in the parent folder
+        2. Put those paths into the list 'dataset_list' as variables
+        3. Use one of the functions currently made or make your own and then pass that function
+        into benchmark_function as a parameter with the list of datasets and output file path
+            3.5. tHE  output file path should write to the output folder as is done below
+        4. If you add a new function, incremment total_func by one and add succ_func+=1 to the try block as is below
+        5. Lastly, in a terminal that has python run `python .\benchmarks.py` while in the parent folder
         of this file
     '''
     dataset_500mb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
@@ -226,34 +221,35 @@ if __name__ == '__main__':
 
     # calculate_roi_average_spectrum(dataset_900mb)
     # use_stretch_builder(dataset_900mb)
+
     succ_func = 0
     total_func = 4
-    # try:
-    #     print("Running open_and_display_dataset...")
-    #     benchmark_function(dataset_list, open_and_display_dataset, \
-    #                        output_file='output/display_dataset_results.txt')
-    #     succ_func +=1 
-    # except BaseException as e:
-    #     print(f"Opening and displaying dataset failed with: \n {e}")
-    #     sys.exit(1)
+    try:
+        print("Running open_and_display_dataset...")
+        benchmark_function(dataset_list, open_and_display_dataset, \
+                           output_file='output/display_dataset_results.txt')
+        succ_func +=1 
+    except BaseException as e:
+        print(f"Opening and displaying dataset failed with: \n {e}")
+        sys.exit(1)
 
-    # try:
-    #     print("Running use_stretch_builder...")
-    #     benchmark_function(dataset_list, use_stretch_builder, \
-    #                        output_file='output/stretch_builder_results.txt')
-    #     succ_func +=1 
-    # except Exception as e:
-    #     print(f"Error in use_stretch_builder: {e}")
-    #     sys.exit(1) 
+    try:
+        print("Running use_stretch_builder...")
+        benchmark_function(dataset_list, use_stretch_builder, \
+                           output_file='output/stretch_builder_results.txt')
+        succ_func +=1 
+    except Exception as e:
+        print(f"Error in use_stretch_builder: {e}")
+        sys.exit(1) 
 
-    # try:
-    #     print("Running calculate_roi_average_spectrum...")
-    #     benchmark_function(dataset_list, calculate_roi_average_spectrum, \
-    #                        output_file='output/roi_avg_results.txt')
-    #     succ_func +=1 
-    # except Exception as e:
-    #     print(f"Error in calculate_roi_average_spectrum: {e}")
-    #     sys.exit(1) 
+    try:
+        print("Running calculate_roi_average_spectrum...")
+        benchmark_function(dataset_list, calculate_roi_average_spectrum, \
+                           output_file='output/roi_avg_results.txt')
+        succ_func +=1 
+    except Exception as e:
+        print(f"Error in calculate_roi_average_spectrum: {e}")
+        sys.exit(1) 
 
     try:
         print("Running stress test benchmark...")
