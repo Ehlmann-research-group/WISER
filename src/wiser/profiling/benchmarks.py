@@ -18,6 +18,7 @@ from typing import Dict, Any, Tuple
 from wiser import bandmath
 import numpy as np
 
+from wiser.profiling.bandmath_benchmark import stress_test_benchmark, test_both_methods
 
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterpane import RasterPane
@@ -217,6 +218,7 @@ if __name__ == '__main__':
     dataset_900mb = 'C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr'
     dataset_6B_3bands = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.3_Slow_Histogram_calc_2Gb_img_or_mosaic\\Gale_MSL_HiRISE_Color_Mosaic_warp.tif.hdr"
     dataset_6GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr"
+    dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
     dataset_list = [dataset_900mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
@@ -225,32 +227,41 @@ if __name__ == '__main__':
     # calculate_roi_average_spectrum(dataset_900mb)
     # use_stretch_builder(dataset_900mb)
     succ_func = 0
-    total_func = 3
-    try:
-        print("Running open_and_display_dataset...")
-        benchmark_function(dataset_list, open_and_display_dataset, \
-                           output_file='output/display_dataset_results.txt')
-        succ_func +=1 
-    except BaseException as e:
-        print(f"Opening and displaying dataset failed with: \n {e}")
-        sys.exit(1)
+    total_func = 4
+    # try:
+    #     print("Running open_and_display_dataset...")
+    #     benchmark_function(dataset_list, open_and_display_dataset, \
+    #                        output_file='output/display_dataset_results.txt')
+    #     succ_func +=1 
+    # except BaseException as e:
+    #     print(f"Opening and displaying dataset failed with: \n {e}")
+    #     sys.exit(1)
+
+    # try:
+    #     print("Running use_stretch_builder...")
+    #     benchmark_function(dataset_list, use_stretch_builder, \
+    #                        output_file='output/stretch_builder_results.txt')
+    #     succ_func +=1 
+    # except Exception as e:
+    #     print(f"Error in use_stretch_builder: {e}")
+    #     sys.exit(1) 
+
+    # try:
+    #     print("Running calculate_roi_average_spectrum...")
+    #     benchmark_function(dataset_list, calculate_roi_average_spectrum, \
+    #                        output_file='output/roi_avg_results.txt')
+    #     succ_func +=1 
+    # except Exception as e:
+    #     print(f"Error in calculate_roi_average_spectrum: {e}")
+    #     sys.exit(1) 
 
     try:
-        print("Running use_stretch_builder...")
-        benchmark_function(dataset_list, use_stretch_builder, \
-                           output_file='output/stretch_builder_results.txt')
+        print("Running stress test benchmark...")
+        stress_test_benchmark(dataset_6GB, dataset_500mb, dataset_6GB, use_both_methods=False, N=N, \
+                            output_file='output/roi_avg_results.txt')
         succ_func +=1 
     except Exception as e:
-        print(f"Error in use_stretch_builder: {e}")
-        sys.exit(1) 
-
-    try:
-        print("Running calculate_roi_average_spectrum...")
-        benchmark_function(dataset_list, calculate_roi_average_spectrum, \
-                           output_file='output/roi_avg_results.txt')
-        succ_func +=1 
-    except Exception as e:
-        print(f"Error in calculate_roi_average_spectrum: {e}")
+        print(f"Error in stress_test_benchmark: {e}")
         sys.exit(1) 
 
     print(f"Functions successful: {succ_func} / {total_func}")
