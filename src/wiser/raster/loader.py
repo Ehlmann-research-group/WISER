@@ -73,7 +73,7 @@ class RasterDataLoader:
 
 
     def save_dataset_as(self, dataset: RasterDataSet, path: str, format: str,
-            config: Dict[str, Any]) -> None:
+            config: Dict[str, Any]) -> ENVI_GDALRasterDataImpl:
         if format == 'ENVI':
             return ENVI_GDALRasterDataImpl.save_dataset_as(dataset, path, config)
         else:
