@@ -231,7 +231,6 @@ if __name__ == '__main__':
         succ_func +=1 
     except BaseException as e:
         print(f"Opening and displaying dataset failed with: \n {e}")
-        sys.exit(1)
 
     try:
         print("Running use_stretch_builder...")
@@ -240,7 +239,6 @@ if __name__ == '__main__':
         succ_func +=1 
     except Exception as e:
         print(f"Error in use_stretch_builder: {e}")
-        sys.exit(1) 
 
     try:
         print("Running calculate_roi_average_spectrum...")
@@ -249,7 +247,6 @@ if __name__ == '__main__':
         succ_func +=1 
     except Exception as e:
         print(f"Error in calculate_roi_average_spectrum: {e}")
-        sys.exit(1) 
 
     try:
         print("Running stress test benchmark...")
@@ -258,6 +255,6 @@ if __name__ == '__main__':
         succ_func +=1 
     except Exception as e:
         print(f"Error in stress_test_benchmark: {e}")
-        sys.exit(1) 
 
     print(f"Functions successful: {succ_func} / {total_func}")
+    sys.exit(1) 
