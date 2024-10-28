@@ -159,6 +159,29 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return paths
 
+    def reopen_dataset(self):
+        '''
+        Opens and returns a new GDAL dataset equivalent to the current one, 
+        always creating a new dataset from the file path.
+        '''
+        file_paths = self.get_filepaths()
+        
+        if not file_paths:
+            raise ValueError("Dataset is in-memory only, no file to reopen from.")
+
+        file_path = file_paths[0]  # Assuming the first file is the main dataset
+        driver = self.gdal_dataset.GetDriver().ShortName
+        
+        # Open the dataset with the corresponding driver
+        new_dataset = gdal.OpenEx(file_path, 
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=[driver])
+
+        if new_dataset is None:
+            raise ValueError(f"Unable to open dataset from {file_path} with driver {driver}")
+
+        return new_dataset
+
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
         return self.gdal_dataset.RasterXSize
@@ -186,11 +209,12 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        new_dataset_handle = self.reopen_dataset()
         try:
-            np_array = self.gdal_dataset.GetVirtualMemArray(band_sequential=True)
+            np_array = new_dataset_handle.GetVirtualMemArray(band_sequential=True)
         except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            np_array = self.gdal_dataset.ReadAsArray()
+            np_array = new_dataset_handle.ReadAsArray()
 
         return np_array
 
@@ -207,8 +231,9 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        new_dataset_handle = self.reopen_dataset()
         # Note that GDAL indexes bands from 1, not 0.
-        band = self.gdal_dataset.GetRasterBand(band_index + 1)
+        band = new_dataset_handle.GetRasterBand(band_index + 1)
         try:
             np_array = band.GetVirtualMemAutoArray()
         except RuntimeError:
@@ -233,7 +258,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        np_array = self.gdal_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
+        new_dataset_handle = self.reopen_dataset()
+        np_array = new_dataset_handle.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
         # so reshape into a 1D array with shape (bands).
@@ -245,12 +271,13 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         Returns a numpy 3D array of all the x & y values at the specified bands.
         '''
+        new_dataset_handle = self.reopen_dataset()
         # Note that GDAL indexes bands from 1, not 0.
         # print(f"dataset_impl get_multiple_band_data: {band_list_orig}")
         band_list = [band+1 for band in band_list_orig]
 
         # Read the specified bands
-        data = self.gdal_dataset.ReadAsArray(band_list=band_list)
+        data = new_dataset_handle.ReadAsArray(band_list=band_list)
 
         return data
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
@@ -266,7 +293,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        np_array = self.gdal_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
+        new_dataset_handle = self.reopen_dataset()
+        np_array = new_dataset_handle.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 
         return np_array
 
