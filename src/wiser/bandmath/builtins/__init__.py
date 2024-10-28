@@ -5,3 +5,10 @@ from .oper_multiply import OperatorMultiply
 from .oper_divide import OperatorDivide
 from .oper_negate import OperatorUnaryNegate
 from .oper_power import OperatorPower
+from .oper_add_orig import OperatorAddOrig
+from .oper_compare_orig import OperatorCompareOrig
+from .oper_divide_orig import OperatorDivideOrig
+from .oper_multiply_orig import OperatorMultiplyOrig
+from .oper_negate_orig import OperatorUnaryNegateOrig
+from .oper_power_orig import OperatorPowerOrig
+from .oper_subtract_orig import OperatorSubtractOrig

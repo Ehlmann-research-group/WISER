@@ -246,6 +246,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         Returns a numpy 3D array of all the x & y values at the specified bands.
         '''
         # Note that GDAL indexes bands from 1, not 0.
+        # print(f"dataset_impl get_multiple_band_data: {band_list_orig}")
         band_list = [band+1 for band in band_list_orig]
 
         # Read the specified bands
@@ -308,7 +309,6 @@ class GDALRasterDataImpl(RasterDataImpl):
                 self.gdal_dataset.FlushCache()
                 self.gdal_dataset = None
             driver.Delete(filepath)
-            print(f"Delete: {filepath}.hdr")
         except Exception as e:
             print(f"Couldn't delete dataset. Error: \n {e}")
 
@@ -379,7 +379,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         load_path = cls.get_load_filename(path)
         gdal_dataset = gdal.OpenEx(load_path,
-            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR ,
             allowed_drivers=['ENVI'])
 
         return cls(gdal_dataset)

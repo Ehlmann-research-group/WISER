@@ -84,7 +84,8 @@ class BandMathValue:
     :ivar value: The value itself.
     :ivar computed: If True, the value was computed from an expression.
     '''
-    def __init__(self, type: VariableType, value: Any, computed: bool = True):
+    def __init__(self, type: VariableType, value: Any, computed: bool = True,
+                 is_intermediate=False):
         if type not in VariableType:
             raise ValueError(f'Unrecognized variable-type {type}')
 
@@ -92,6 +93,7 @@ class BandMathValue:
         self.type: VariableType = type
         self.value: Any = value
         self.computed: bool = computed
+        self.is_intermediate = is_intermediate
 
 
     def set_name(self, name: Optional[str]) -> None:
@@ -149,6 +151,9 @@ class BandMathValue:
 
         # If the value is already a NumPy array, we are done!
         if isinstance(self.value, np.ndarray):
+            # if self.type == VariableType.SPECTRUM:
+                # print("================ SPECTRUM SHAPE ================")
+                # print(f"spectrum shape: {self.value.shape}")
             return self.value
 
         if self.type == VariableType.IMAGE_CUBE:
@@ -180,15 +185,33 @@ class BandMathValue:
             # If the value is already a NumPy array, we are done!
             if isinstance(self.value, np.ndarray):
                 # Assuems all numpy arrays have band as the first dimension
+                min_band = min(band_list)
+                band_list_base = [band-min_band for band in band_list]
                 if self.type == VariableType.IMAGE_CUBE:
-                    return np.squeeze(self.value[band_list, : , :], axis=0)
+                    
+                    # print(f"bandmathvalue, as-numpy-array-by-bands, numpy array, value: {self.value.shape}")
+                    # print(f"band_list: {band_list}")
+                    # if self.value.ndim == 3 and len(band_list) == 1:
+                    #     return np.squeeze(self.value[band_list, : , :], axis=0)
+                    # elif self.value.ndim == 2:
+                    #     return self.value
+                    if len(band_list_base) == 1:
+                        # print("================ IMAGE CUBE SHAPE ARRAY, 2dims================")
+                        # print(f"image cube shape: {self.value.shape}")
+                        return self.value
+                    # print("================ IMAGE CUBE SHAPE ARRAY================")
+                    # print(f"image cube shape: {self.value[band_list, : , :].shape}")
+                    # print(f"len(band_list): {len(band_list)}")
+                    return self.value[band_list_base, : , :]
                 elif self.type == VariableType.IMAGE_BAND:
                     return self.value
                 elif self.type == VariableType.SPECTRUM:
                     band_start = band_list[0]
                     band_end = band_list[-1]
+                    # print(f"numpy arr as_numpy-by-bands band_list: {band_list}")
                     arr = self.value[band_start:band_end+1]
-                    arr = arr[:, np.newaxis]
+                    # print("================ SPECTRUM SHAPE array  ================")
+                    # print(f"spectrum shape: {arr.shape}")
                     return arr
                 raise TypeError(f'Type value is incorrect, should be' +
                                 f'IMAGE_CUBE, IMAGE_BAND, OR SPECTRUM' + 
@@ -196,6 +219,9 @@ class BandMathValue:
 
             if self.type == VariableType.IMAGE_CUBE:
                 if isinstance(self.value, RasterDataSet):
+                    # print(f"types, image cube, band_list: {band_list}")
+                    # print("================ IMAGE CUBE SHAPE DATASET================")
+                    # print(f"image cube shape: {self.value.get_multiple_band_data(band_list).shape}")
                     return self.value.get_multiple_band_data(band_list)
 
             elif self.type == VariableType.IMAGE_BAND:
@@ -205,8 +231,11 @@ class BandMathValue:
             elif self.type == VariableType.SPECTRUM:
                 if isinstance(self.value, Spectrum):
                     arr = self.value.get_spectrum()
+                    # print("================ SPECTRUM SHAPE variable type spectrum ================")
+                    # print(f"spectrum shape: {arr.shape}")
                     band_start = band_list[0]
                     band_end = band_list[-1]
+                    # print(f"as_num-By_bands bandlist: {band_list}")
                     arr=arr[band_start:band_end+1]
                     return arr
             # We only want this function to work for numpy arrays and RasterDataSets 

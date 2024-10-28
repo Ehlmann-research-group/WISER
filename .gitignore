@@ -18,4 +18,9 @@ Install-WISER-*.exe
 # This file contains secrets for distribution, DO NOT CHECK IN!
 Secret.mk
 
+<<<<<<< HEAD
 src/wiser/profiling/output/*
+=======
+src/wiser/bandmath/temp_output/
+src/wiser/profiling/output/
+>>>>>>> jgk/bm-chunk-sychronous

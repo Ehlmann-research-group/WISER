@@ -390,6 +390,7 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        # print(f"Data set band_list: {band_list}")
         arr = self._impl.get_multiple_band_data(band_list)
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
@@ -585,6 +586,23 @@ class RasterDataSet:
 
     def set_save_state(self, save_state: SaveState):
         self._impl.set_save_state(save_state)
+    
+    def get_impl(self):
+        return self._impl
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, RasterDataSet):
+            our_filepaths = self.get_filepaths()
+            other_filepaths = other.get_filepaths()
+            if our_filepaths != other_filepaths:
+                return False
+            if self.get_data_ignore_value() != other.get_data_ignore_value():
+                return False
+            if self.get_bad_bands() != other.get_bad_bands():
+                return False
+        else:
+            return False
+        return True
 
 
 class RasterDataBand:

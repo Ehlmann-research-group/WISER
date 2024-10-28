@@ -1,39 +1,30 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List
 
 import numpy as np
 
-import queue
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
-
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
-from .constants import LHS_KEY, RHS_KEY
+
 from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    make_image_cube_compatible_by_bands, read_lhs_future_onto_queue, read_rhs_future_onto_queue,
-    should_continue_reading_bands, get_lhs_rhs_values_async,
 )
-from wiser.raster.dataset import RasterDataSet
-import time
 
 
-class OperatorAdd(BandMathFunction):
+class OperatorMultiplyOrig(BandMathFunction):
     '''
-    Binary addition operator.
+    Binary multiplication operator.
     '''
 
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for +')
+        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for *')
 
 
-    def analyze(self, infos: List[BandMathExprInfo],
-            options: Dict[str, Any] = None) -> BandMathExprInfo:
+    def analyze(self, infos: List[BandMathExprInfo]):
 
         if len(infos) != 2:
-            raise ValueError('Binary addition requires exactly two arguments')
+            raise ValueError('Binary multiplication requires exactly two arguments')
 
         lhs = infos[0]
         rhs = infos[1]
@@ -98,56 +89,49 @@ class OperatorAdd(BandMathFunction):
 
         self._report_type_error(lhs.result_type, rhs.result_type)
 
-    # We then await the executor thread
-    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
-              index_list_next: List[int], read_task_queue: queue.Queue, \
-              read_thread_pool: ThreadPoolExecutor, \
-                event_loop: asyncio.AbstractEventLoop, node_id: int):
+
+    def apply(self, args: List[BandMathValue]):
         '''
-        Add the LHS and RHS and return the result.
+        Multiply the LHS and RHS and return the result.
         '''
-        print(f"NODE ID: {node_id}")
+
         if len(args) != 2:
-            raise Exception('+ requires exactly two arguments')
+            raise Exception('* requires exactly two arguments')
 
         lhs = args[0]
         rhs = args[1]
 
         # Take care of the simple case first, where it's just two numbers.
         if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
-            return BandMathValue(VariableType.NUMBER, lhs.value + rhs.value)
+            return BandMathValue(VariableType.NUMBER, lhs.value * rhs.value)
 
-        # Since addition is commutative, arrange the arguments to make the
+        # Since multiplication is commutative, arrange the arguments to make the
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
-    
-        # Do the addition computation.
+
+        # Do the multiplication computation.
+
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
+            lhs_value = lhs.as_numpy_array()
+            assert lhs_value.ndim == 3
 
-            # Lets us handle when the band index list just has one band
-            if isinstance(index_list_current, int):
-                index_list_current = [index_list_current]
-            if isinstance(index_list_next, int):
-                index_list_next = [index_list_next]
+            rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+            result_arr = lhs_value * rhs_value
 
-            lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
-                                                           index_list_next, read_task_queue, \
-                                                            read_thread_pool, event_loop)
+            # The result array should have the same dimensions as the LHS input
+            # array.
+            assert result_arr.ndim == 3
+            assert result_arr.shape == lhs_value.shape
+            return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
 
-            time.sleep(1)
-            result_arr = lhs_value + rhs_value
-            assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
-            assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
-            assert np.squeeze(result_arr).shape == lhs_value.shape
-            return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [y][x]
             lhs_value = lhs.as_numpy_array()
             assert lhs_value.ndim == 2
 
             rhs_value = make_image_band_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value + rhs_value
+            result_arr = lhs_value * rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
@@ -161,7 +145,7 @@ class OperatorAdd(BandMathFunction):
             assert lhs_value.ndim == 1
 
             rhs_value = make_spectrum_compatible(rhs, lhs_value.shape)
-            result_arr = lhs_value + rhs_value
+            result_arr = lhs_value * rhs_value
 
             # The result array should have the same dimensions as the LHS input
             # array.
@@ -169,7 +153,7 @@ class OperatorAdd(BandMathFunction):
             assert result_arr.shape == lhs_value.shape
             return BandMathValue(VariableType.SPECTRUM, result_arr)
 
-        # If we get here, we don't know how to add the two types.
+        # If we get here, we don't know how to multiply the two types.
         # Use args[0] and args[1] instead of lhs and rhs, since lhs/rhs may be
         # reversed from the original inputs.
         self._report_type_error(args[0].type, args[1].type)
