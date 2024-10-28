@@ -254,7 +254,7 @@ if __name__ == '__main__':
     try:
         print("Running stress test benchmark...")
         stress_test_benchmark(dataset_6GB, dataset_500mb, dataset_6GB, use_both_methods=False, N=N, \
-                            output_file='output/roi_avg_results.txt')
+                            output_file='output/stress_test_benchmark.txt')
         succ_func +=1 
     except Exception as e:
         print(f"Error in stress_test_benchmark: {e}")
