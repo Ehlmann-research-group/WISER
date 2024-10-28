@@ -7,6 +7,10 @@ import os
 
 import numpy as np
 
+import queue
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
 import lark
 import psutil
 from lark import Tree
@@ -15,9 +19,49 @@ from osgeo import gdal
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
 from wiser.raster.dataset import RasterDataSet
-from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE
+from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE, LHS_KEY, RHS_KEY
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
+
+def read_lhs_future_onto_queue(lhs:BandMathValue, index_list: List[int], read_thread_pool: ThreadPoolExecutor, \
+                                read_task_queue: queue, event_loop: asyncio.AbstractEventLoop):
+    future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
+    read_task_queue[LHS_KEY].put((future, (min(index_list), max(index_list))))
+
+def read_rhs_future_onto_queue(rhs: BandMathValue, lhs_value_shape: Tuple[int], index_list: List[int], \
+                               read_thread_pool: ThreadPoolExecutor, read_task_queue: queue, \
+                                event_loop: asyncio.AbstractEventLoop):
+    future = event_loop.run_in_executor(read_thread_pool, \
+                                        make_image_cube_compatible_by_bands, rhs, lhs_value_shape, index_list)
+    read_task_queue[RHS_KEY].put((future, (min(index_list), max(index_list))))
+
+def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMathValue):
+    ''' 
+    lhs is assumed to have variable type ImageCube, 
+    band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]'''
+    _, _, _ = lhs.get_shape()
+    if lhs.is_intermediate:
+        return False
+    if band_index_list_sorted == [] or band_index_list_sorted is None:
+        return False
+    return True
+
+def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMathValue):
+            ''' 
+            lhs is assumed to have variable type ImageCube, 
+            band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]'''
+            total_num_bands, _, _ = lhs.get_shape()
+            if lhs.is_intermediate:
+                # print(f"LHS IS AN INTERMEDIATE VALUEEEEEEEEEEEEEE")
+                return False
+            # else:
+                # print("LHS IS NOT AN INTERMEDIATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+            if band_index_list_sorted == [] or band_index_list_sorted is None:
+                # print("Was false")
+                return False
+            # max_curr_band = band_index_list_sorted[-1]
+            # print(f"result {max_curr_band} < {total_num_bands}: {max_curr_band < total_num_bands}")
+            return True
 
 def max_bytes_to_chunk(dataset_bytes: int):
     '''
