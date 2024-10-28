@@ -2,6 +2,10 @@ from typing import Any, Dict, List
 
 import numpy as np
 
+import queue
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
 from wiser.bandmath.utils import (
@@ -10,6 +14,7 @@ from wiser.bandmath.utils import (
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
     get_lhs_rhs_values,
 )
+from wiser.raster.dataset import RasterDataSet
 
 class OperatorAdd(BandMathFunction):
     '''
@@ -90,7 +95,10 @@ class OperatorAdd(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    def apply(self, args: List[BandMathValue], index_list: List[int] = None):
+    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
+              index_list_next: List[int], read_task_queue: queue.Queue, \
+              read_thread_pool: ThreadPoolExecutor, read_thread_pool_rhs: ThreadPoolExecutor, \
+                event_loop: asyncio.AbstractEventLoop, node_id: int):
         '''
         Add the LHS and RHS and return the result.
         '''
