@@ -484,7 +484,11 @@ class BandMathEvaluator(lark.visitors.Transformer):
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
-        return OperatorCompare(oper).apply([lhs, rhs], self.index_list)
+
+        future = asyncio.run_coroutine_threadsafe(
+            OperatorCompare(oper).apply([lhs, rhs], self.index_list), \
+            self._event_loop)
+        return future.result()
 
 
     def add_expr(self, values):
@@ -498,14 +502,16 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = values[2]
         
         if oper == '+':
-            print("Adding")
             future = asyncio.run_coroutine_threadsafe(
                 OperatorAdd().apply([lhs, rhs], self.index_list), \
                 self._event_loop)
             return future.result()
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs], self.index_list)
+            future = asyncio.run_coroutine_threadsafe(
+                OperatorSubtract().apply([lhs, rhs], self.index_list), \
+                self._event_loop)
+            return future.result()
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -521,10 +527,16 @@ class BandMathEvaluator(lark.visitors.Transformer):
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs], self.index_list)
+            future = asyncio.run_coroutine_threadsafe(
+                OperatorMultiply().apply([lhs, rhs], self.index_list), \
+                self._event_loop)
+            return future.result()
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs], self.index_list)
+            future = asyncio.run_coroutine_threadsafe(
+                OperatorDivide().apply([lhs, rhs], self.index_list), \
+                self._event_loop)
+            return future.result()
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
@@ -535,7 +547,10 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * power_expr')
 
-        return OperatorPower().apply([args[0], args[1]], self.index_list)
+        future = asyncio.run_coroutine_threadsafe(
+            OperatorPower().apply([args[0], args[1]], self.index_list), \
+            self._event_loop)
+        return future.result()
 
 
     def unary_negate_expr(self, args):
@@ -544,8 +559,11 @@ class BandMathEvaluator(lark.visitors.Transformer):
         '''
         logger.debug(' * unary_negate_expr')
         # args[0] is the '-' character
-
-        return OperatorUnaryNegate().apply([args[1]], self.index_list)
+        
+        future = asyncio.run_coroutine_threadsafe(
+            OperatorUnaryNegate().apply([args[1]], self.index_list), \
+            self._event_loop)
+        return future.result()
 
 
     def true(self, args):
@@ -833,19 +851,15 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     id_assigner = UniqueIDAssigner()
     id_assigner.visit(tree)
 
-    print("before num")
     numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
     numInterFinder.transform(tree)
-    print("after num")
     number_of_intermediates = numInterFinder.get_max_intermediates()
     logger.debug(f'Number of intermediates: {number_of_intermediates}')
 
     gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
     
-    print("before max bytes")
     max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
-    print("After max")
 
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
@@ -882,9 +896,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 eval.index_list_current = band_index_list_current
                 eval.index_list_next = band_index_list_next
                 
-                print("res before")
                 result_value = eval.transform(tree)
-                print("res")
                 if isinstance(result_value, (asyncio.Future, Coroutine)):
                     result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
                     # result_value = asyncio.run(result_value)
@@ -903,16 +915,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         out_dataset.set_data_ignore_value(DEFAULT_IGNORE_VALUE)
         return (RasterDataSet, out_dataset)
     else:
-        print("else")
         try:
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
-            # print("else res")
-            # if isinstance(result_value, (asyncio.Future, Coroutine)):
-            #     print("else res future")
-            #     # result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
-            #     result_value = asyncio.run(result_value)
-            #     print("else res after future")
             res = result_value.value
         except BaseException as e:
             eval.stop()

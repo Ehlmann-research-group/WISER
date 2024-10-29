@@ -1,7 +1,13 @@
 from typing import List
 
+import queue
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
+
+from ..utils import get_lhs_value_async
 
 class OperatorUnaryNegate(BandMathFunction):
     '''
@@ -29,7 +35,10 @@ class OperatorUnaryNegate(BandMathFunction):
         return arg
 
 
-    def apply(self, args: List[BandMathValue], index_list: List[int] = None):
+    async def apply(self, args: List[BandMathValue], index_list_current: List[int] = None, \
+              index_list_next: List[int] = None, read_task_queue: queue.Queue = None, \
+              read_thread_pool: ThreadPoolExecutor = None, \
+                event_loop: asyncio.AbstractEventLoop = None, node_id: int = None):
         '''
         Perform unary negation on the argument and return the result.
         '''
@@ -40,6 +49,15 @@ class OperatorUnaryNegate(BandMathFunction):
 
         if arg.type == VariableType.NUMBER:
             return BandMathValue(VariableType.NUMBER, -arg.value)
+        elif arg.type == VariableType.IMAGE_CUBE and index_list_current is not None:
+            if isinstance(index_list_current, int):
+                index_list_current = [index_list_current]
+            if isinstance(index_list_next, int):
+                index_list_next = [index_list_next]
+            arr = await get_lhs_value_async(arg, index_list_current, index_list_next, \
+                                        read_task_queue, read_thread_pool, event_loop)
+            result_arr = -arr
+            return BandMathValue(arg.type, result_arr)
         elif arg.type in [VariableType.IMAGE_CUBE,
                           VariableType.IMAGE_BAND,
                           VariableType.SPECTRUM]:

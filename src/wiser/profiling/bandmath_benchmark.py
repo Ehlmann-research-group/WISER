@@ -203,13 +203,13 @@ def test_both_methods(hdr_paths, N=1):
     key_formula = "formula"
 
     equation_dict = {
-        key_plus_1: '(a+c)+((c+a)+((e+f)+(g+h)))',
+        # key_plus_1: '(a+c)+((c+a)+((e+f)+(g+h)))',
         # key_mult: '(a*b)*(c*d)',
         # key_div: '(a/b)/(c/d)',
         # key_minus: '(a-b)-(c-d)',
         # key_neg: 'a+b',
         # key_less_than: '((a-b)-d)<c',
-        # key_combo_1: '(a/b)-(c*d)+a',
+        key_combo_1: '(a/b)-(c*d)+a',
         # key_combo_2: "(((a-b)+d)<c)*a",
         # key_exponent: "a**b+a**(0.5)",
         # key_formula: "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
