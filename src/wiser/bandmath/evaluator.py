@@ -45,7 +45,6 @@ class UniqueIDAssigner(Visitor):
     def _assign_id(self, tree):
         self.current_id += 1
         tree.meta.unique_id = self.current_id
-        print(f"Giving unique ID: {self.current_id}")
 
     def comparison(self, tree):
         self._assign_id(tree)
@@ -860,10 +859,13 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     
     max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
-
+    max_chunking_bytes = 40000000
+    print(f"GDAL TYPE: {gdal_type}")
+    print(f"expr_info result type: {expr_info.result_type}")
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
+        print("NEW METHOD")
         try:
-            eval = BandMathEvaluatorAsync(lower_variables, lower_functions)
+            eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
             # Gets the correct file path to make our temporary file
@@ -888,6 +890,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             num_bands = 1 if num_bands < 1 else num_bands
 
+            writing_futures = []
             for band_index in range(0, bands, num_bands):
                 band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
                 band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
@@ -905,17 +908,23 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
                 
-                write_raster_to_dataset(out_dataset_gdal, band_index_list_current, res, gdal_type)
+                # write_raster_to_dataset(out_dataset_gdal, band_index_list_current, res, gdal_type)
+                future = eval._write_thread_pool.submit(write_raster_to_dataset, \
+                                                    out_dataset_gdal, band_index_list_current, \
+                                                    res, gdal_type)
+                writing_futures.append(future)
+            concurrent.futures.wait(writing_futures)
         except BaseException as e:
             if eval is not None:
                 eval.stop()
             raise e
         finally:
             eval.stop()
-        out_dataset.set_data_ignore_value(DEFAULT_IGNORE_VALUE)
+        # out_dataset.set_data_ignore_value(DEFAULT_IGNORE_VALUE)
         return (RasterDataSet, out_dataset)
     else:
         try:
+            print("OLD METHOD")
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
             res = result_value.value

@@ -129,7 +129,6 @@ class OperatorPower(BandMathFunction):
 
                 # The result array should have the same dimensions as the LHS input
                 # array.
-                result_arr = lhs_value + rhs_value
                 assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
                 assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
