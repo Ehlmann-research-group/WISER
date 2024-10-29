@@ -2,10 +2,10 @@ import os
 import logging
 import inspect
 
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Tuple, Coroutine
 
 import lark
-from lark import Tree, Token, v_args
+from lark import Visitor, Tree, Token, v_args
 from lark.exceptions import VisitError, GrammarError
 import numpy as np
 
@@ -37,6 +37,30 @@ from wiser.raster.dataset_impl import SaveState
 from .builtins.constants import SCALAR_BYTES, NUM_WRITERS, DEFAULT_IGNORE_VALUE, NUM_READERS, LHS_KEY, RHS_KEY
 
 logger = logging.getLogger(__name__)
+
+class UniqueIDAssigner(Visitor):
+    def __init__(self):
+        self.current_id = 0
+
+    def _assign_id(self, tree):
+        self.current_id += 1
+        tree.meta.unique_id = self.current_id
+        print(f"Giving unique ID: {self.current_id}")
+
+    def comparison(self, tree):
+        self._assign_id(tree)
+
+    def add_expr(self, tree):
+        self._assign_id(tree)
+
+    def mul_expr(self, tree):
+        self._assign_id(tree)
+
+    def unary_negate_expr(self, tree):
+        self._assign_id(tree)
+
+    def power_expr(self, tree):
+        self._assign_id(tree)
 
 class AsyncTransformer(lark.visitors.Transformer):
     """
@@ -165,7 +189,6 @@ class BandMathEvaluatorAsync(AsyncTransformer):
             self._read_data_queue_dict = {}
             self._write_data_queue = queue.Queue()
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
-            self._read_thread_pool_rhs = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
             self._write_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WRITERS)
             self._event_loop = asyncio.new_event_loop()
             self._loop_thread = threading.Thread(target=self._event_loop.run_forever, daemon=False)
@@ -174,28 +197,30 @@ class BandMathEvaluatorAsync(AsyncTransformer):
             self._read_data_queue = None
             self._write_data_queue = None
 
-        # Dictionary that maps position in tree to queue
-        # position so we don't have to have different queues for
-        # different trees. The node in the tree wil be able to 
-        # access the data it needs from the dictionary. The 
-        # data will be the queue and the thread or process pool executor
-
     @v_args(meta=True)
-    def comparison(self, meta, args):
+    async def comparison(self, meta, args):
         logger.debug(' * comparison')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id <: {node_id}")
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
+
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
-        if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # It is okay if we don't want to use index with bands or spectrum 
-        # because in each operator, index is only used with image cubes
-        return OperatorCompare(oper).apply([lhs, rhs], self.index_list_current)
+        
+        # Schedule this operation as a background task
+        addition_task = asyncio.ensure_future(OperatorCompare(oper).apply(
+            [lhs, rhs],
+            self.index_list_current,
+            self.index_list_next,
+            self._read_data_queue_dict[node_id],
+            self._read_thread_pool,
+            self._event_loop,
+            node_id
+        ))
+        return await addition_task
 
     @v_args(meta=True)
     async def add_expr(self, meta, values):
@@ -209,14 +234,10 @@ class BandMathEvaluatorAsync(AsyncTransformer):
             self._read_data_queue_dict[node_id] = {}
             self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
             self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id <: {node_id}")
 
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
-        # print(f"type(lhs): {type(lhs)} for node {node_id}")
-        # print(f"type(rhs): {type(rhs)} for node {node_id}")
 
         if oper == '+':
             # Schedule this operation as a background task
@@ -226,20 +247,29 @@ class BandMathEvaluatorAsync(AsyncTransformer):
                 self.index_list_next,
                 self._read_data_queue_dict[node_id],
                 self._read_thread_pool,
-                self._read_thread_pool_rhs,
                 self._event_loop,
-                node_id=node_id
+                node_id
             ))
             return await addition_task
 
         elif oper == '-':
-            return OperatorSubtract().apply([lhs, rhs], self.index_list_current)
+            # Schedule this operation as a background task
+            addition_task = asyncio.ensure_future(OperatorSubtract().apply(
+                [lhs, rhs],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id
+            ))
+            return await addition_task
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
 
     @v_args(meta=True)
-    def mul_expr(self, meta, args):
+    async def mul_expr(self, meta, args):
         '''
         Implementation of multiplication and division operations in the
         transformer.
@@ -247,49 +277,88 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         logger.debug(' * mul_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id *: {node_id}")
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
+            
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
 
         if oper == '*':
-            return OperatorMultiply().apply([lhs, rhs], self.index_list_current)
+            # Schedule this operation as a background task
+            addition_task = asyncio.ensure_future(OperatorMultiply().apply(
+                [lhs, rhs],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id
+            ))
+            return await addition_task
 
         elif oper == '/':
-            return OperatorDivide().apply([lhs, rhs], self.index_list_current)
+            # Schedule this operation as a background task
+            addition_task = asyncio.ensure_future(OperatorDivide().apply(
+                [lhs, rhs],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id
+            ))
+            return await addition_task
 
         raise RuntimeError(f'Unexpected operator {oper}')
 
 
     @v_args(meta=True)
-    def power_expr(self, meta, args):
+    async def power_expr(self, meta, args):
         '''
         Implementation of power operation in the transformer.
         '''
         logger.debug(' * power_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id **: {node_id}")
-        return OperatorPower().apply([args[0], args[1]], self.index_list_current)
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+            self._read_data_queue_dict[node_id][RHS_KEY] = queue.Queue()
+
+        addition_task = asyncio.ensure_future(OperatorPower().apply(
+                [args[0], args[1]],
+                self.index_list_current,
+                self.index_list_next,
+                self._read_data_queue_dict[node_id],
+                self._read_thread_pool,
+                self._event_loop,
+                node_id
+            ))
+        return await addition_task
 
 
     @v_args(meta=True)
-    def unary_negate_expr(self, meta, args):
+    async def unary_negate_expr(self, meta, args):
         '''
         Implementation of unary negation in the transformer.
         '''
         logger.debug(' * unary_negate_expr')
         node_id = getattr(meta, 'unique_id', None)
         if node_id not in self._read_data_queue_dict:
-            self._read_data_queue_dict[node_id] = queue.Queue()
-        # if node_id:
-        #     print(f"Node id -: {node_id}")
-        # args[0] is the '-' character
-        return OperatorUnaryNegate().apply([args[1]], self.index_list_current)
+            self._read_data_queue_dict[node_id] = {}
+            self._read_data_queue_dict[node_id][LHS_KEY] = queue.Queue()
+
+        addition_task = asyncio.ensure_future(OperatorUnaryNegate().apply(
+            [args[1]],
+            self.index_list_current,
+            self.index_list_next,
+            self._read_data_queue_dict[node_id],
+            self._read_thread_pool,
+            self._event_loop,
+            node_id
+        ))
+        return await addition_task
 
 
     def true(self, args):
@@ -384,6 +453,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         logger.debug(' * STRING')
         # Chop the quotes off of the string value
         return str(token)[1:-1]
+
     def stop(self):
         """Gracefully stop the event loop and wait for the thread to finish."""
         if self._event_loop.is_running():
@@ -393,9 +463,8 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         self._write_thread_pool.shutdown(wait=False, cancel_futures=True)
 
     def __del__(self):
-        print("!!!!!!!!!!!!!!!!!!!Destructor called, cleaning up event loop and thread...!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.stop()  # Ensure the loop and thread are stopped
-        print("Event loop and thread cleaned up")
+        print("Eval operator event loop and thread cleaned up")
 
 class BandMathEvaluator(lark.visitors.Transformer):
     '''
@@ -406,6 +475,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         self._variables = variables
         self._functions = functions
         self.index_list = None
+        self._event_loop = asyncio.new_event_loop()
 
     def comparison(self, args):
         logger.debug(' * comparison')
@@ -564,6 +634,15 @@ class BandMathEvaluator(lark.visitors.Transformer):
         logger.debug(' * STRING')
         # Chop the quotes off of the string value
         return str(token)[1:-1]
+    
+    def stop(self):
+        """Gracefully stop the event loop and wait for the thread to finish."""
+        if self._event_loop.is_running():
+            self._event_loop.call_soon_threadsafe(self._event_loop.stop)  # Safely stop the loop
+
+    def __del__(self):
+        self.stop()  # Ensure the loop and thread are stopped
+        print("Eval operator event loop cleaned up")
 
 class NumberOfIntermediatesFinder(BandMathEvaluator):
     '''
@@ -743,6 +822,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     logger.info(f'Band-math parse tree:\n{tree.pretty()}')
     logger.debug('Beginning band-math evaluation')
 
+    id_assigner = UniqueIDAssigner()
+    id_assigner.visit(tree)
+
     numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
     numInterFinder.transform(tree)
     number_of_intermediates = numInterFinder.get_max_intermediates()
@@ -755,7 +837,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
-            eval = BandMathEvaluator(lower_variables, lower_functions)
+            eval = BandMathEvaluatorAsync(lower_variables, lower_functions)
 
             bands, lines, samples = expr_info.shape
             # Gets the correct file path to make our temporary file
@@ -781,26 +863,40 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             num_bands = 1 if num_bands < 1 else num_bands
 
             for band_index in range(0, bands, num_bands):
-                band_index_list = [band for band in range(band_index, band_index+num_bands) if band < bands]
+                band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
+                band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
                 # print(f"Min: {min(band_index_list)} | Max: {max(band_index_list)}")
-                eval.index_list = band_index_list
+                
+                eval.index_list_current = band_index_list_current
+                eval.index_list_next = band_index_list_next
                 
                 result_value = eval.transform(tree)
+                if isinstance(result_value, (asyncio.Future, Coroutine)):
+                    result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
                 res = result_value.value
     
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
                 
-                write_raster_to_dataset(out_dataset_gdal, band_index_list, res, gdal_type)
+                write_raster_to_dataset(out_dataset_gdal, band_index_list_current, res, gdal_type)
         except BaseException as e:
+            if eval is not None:
+                eval.stop()
             raise e
+        finally:
+            eval.stop()
         out_dataset.set_data_ignore_value(DEFAULT_IGNORE_VALUE)
         return (RasterDataSet, out_dataset)
     else:
         try:
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
+            if isinstance(result_value, (asyncio.Future, Coroutine)):
+                result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
             res = result_value.value
         except BaseException as e:
+            eval.stop()
             raise e
+        finally:
+            eval.stop()
         return (result_value.type, result_value.value)
