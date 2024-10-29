@@ -208,11 +208,11 @@ def test_both_methods(hdr_paths, N=1):
         # key_div: '(a/b)/(c/d)',
         # key_minus: '(a-b)-(c-d)',
         # key_neg: 'a+b',
-        # key_less_than: '((a-b)-d)<c',
-        key_combo_1: '(a/b)-(c*d)+a',
-        # key_combo_2: "(((a-b)+d)<c)*a",
+        key_less_than: '((a-b)-d)<c',
+        # key_combo_1: '(a/b)-(c*d)+a',
+        key_combo_2: "(((a-b)+d)<c)*a",
         # key_exponent: "a**b+a**(0.5)",
-        # key_formula: "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
+        # key_formula: "0.5*(1-(b/(0.4*k+0.6*l)))+0.5"
     }
 
     # Replacing keys in results_old_method
@@ -243,6 +243,8 @@ def test_both_methods(hdr_paths, N=1):
         key_formula: None,
     }
 
+    total_close = 0
+    total_comparisons = 0
     hdr_files = get_hdr_files(hdr_paths)
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
@@ -289,13 +291,15 @@ def test_both_methods(hdr_paths, N=1):
                 results_old_method[key] = result_old_method
             are_close = np.allclose(arr_new_method, arr_old_method, rtol=1e-4, equal_nan=True)
             print(f"Are the arrays close: {are_close}")
-
+            if are_close:
+                total_close += 1
+            total_comparisons += 1
             # Find elements that are not close
             not_close = ~np.isclose(arr_new_method, arr_old_method, rtol=1e-4)
 
             # Print indices and values that are not close
             amt_not_close = 0
-            if np.any(not_close):
+            if not are_close:
                 print("Pairs of values that are not close:")
                 for index in np.argwhere(not_close):
                     # # Unpack all dimensions dynamically, uncomment this if results do not match
@@ -312,6 +316,7 @@ def test_both_methods(hdr_paths, N=1):
             print(f"Mean of new method: {np.nanmean(arr_new_method)}")
             print(f"Mean of old method: {np.nanmean(arr_old_method)}")
             assert np.allclose(arr_new_method, arr_old_method, equal_nan=True)
+    print(f"The total fraction close are: {total_close} / {total_comparisons}")
     return results_new_method, results_old_method
 
 def profile_function(profile_outpath, func, *args, **kwargs):
@@ -359,7 +364,7 @@ if __name__ == '__main__':
     dataset_6GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr"
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_500mb, dataset_900mb]
+    dataset_list = [dataset_500mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     N = 1
 
@@ -376,7 +381,7 @@ if __name__ == '__main__':
     '''
     How to use stress_test_benchmark
     '''
-    # stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_6GB, use_both_methods=True, N=2)
+    # stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_20GB, use_both_methods=False, N=1)
 
     '''
     How to use the profiler for test_both_methods

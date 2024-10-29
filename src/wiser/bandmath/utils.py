@@ -629,7 +629,7 @@ def make_image_cube_compatible_by_bands(arg: BandMathValue,
         result = arg.as_numpy_array_by_bands(band_list)
         assert result.ndim == 3 or (result.ndim == 2 and len(band_list) == 1)
 
-        if not are_shapes_equivalent(result.shape, cube_shape):
+        if not are_shapes_broadcastable(result.shape, cube_shape):
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
                                  arg.type, arg.get_shape())
 
@@ -673,6 +673,25 @@ def are_shapes_equivalent(shape1, shape2):
     
     # Compare the resulting shapes
     return trimmed_shape1 == trimmed_shape2
+
+def are_shapes_broadcastable(shape1, shape2):
+    """
+    Check if two shapes are broadcastable according to NumPy's broadcasting rules.
+    Broadcasting means that two shapes are compatible if:
+      - The dimensions are the same, or
+      - One of the dimensions is 1, or
+      - The smaller shape can be extended with leading 1's to match the larger shape.
+    """
+    # Reverse the shapes to align from the last dimension
+    rev_shape1 = shape1[::-1]
+    rev_shape2 = shape2[::-1]
+
+    # Compare dimensions from the last one backward (trailing dimensions)
+    for dim1, dim2 in zip(rev_shape1, rev_shape2):
+        if dim1 != dim2 and dim1 != 1 and dim2 != 1:
+            return False
+
+    return True
 
 def make_image_band_compatible(arg: BandMathValue,
         band_shape: Tuple[int, int]) -> Union[np.ndarray, Scalar]:
