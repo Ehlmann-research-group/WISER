@@ -120,7 +120,7 @@ class OperatorAdd(BandMathFunction):
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-
+            print("In oper_add")
             if index_list_current is not None:
                 # Lets us handle when the band index list just has one band
                 if isinstance(index_list_current, int):
@@ -138,6 +138,7 @@ class OperatorAdd(BandMathFunction):
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
             else:
+                print("In else")
                 lhs_value = lhs.as_numpy_array()
                 assert lhs_value.ndim == 3
 
