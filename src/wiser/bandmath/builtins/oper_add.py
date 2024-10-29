@@ -12,7 +12,7 @@ from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    get_lhs_rhs_values, get_lhs_rhs_values_async
+    get_lhs_rhs_values_async
 )
 from wiser.raster.dataset import RasterDataSet
 
@@ -95,7 +95,7 @@ class OperatorAdd(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    async def apply(self, args: List[BandMathValue], index_list_current: List[int], \
+    async def apply(self, args: List[BandMathValue], index_list_current: List[int] = None, \
                 index_list_next: List[int] = None, read_task_queue: queue.Queue = None, \
                 read_thread_pool: ThreadPoolExecutor = None, event_loop: asyncio.AbstractEventLoop = None, \
                 node_id: int = None):
@@ -120,7 +120,6 @@ class OperatorAdd(BandMathFunction):
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            print("In oper_add")
             if index_list_current is not None:
                 # Lets us handle when the band index list just has one band
                 if isinstance(index_list_current, int):
@@ -138,7 +137,6 @@ class OperatorAdd(BandMathFunction):
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
             else:
-                print("In else")
                 lhs_value = lhs.as_numpy_array()
                 assert lhs_value.ndim == 3
 
