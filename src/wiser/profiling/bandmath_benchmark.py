@@ -16,6 +16,7 @@ import time
 from typing import List, Dict, Any, Tuple
 from wiser import bandmath
 import numpy as np
+import logging
 
 def get_hdr_files(folder_path):
     '''
@@ -53,9 +54,33 @@ def get_nan_count(arr: np.ndarray):
     nan_count = np.isnan(arr).sum()
     return nan_count
 
+def setup_logger(output_file):
+    """Sets up the logger to output to both the console and a file."""
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # Create a file handler
+    file_handler = logging.FileHandler(output_file)
+    file_handler.setLevel(logging.INFO)
+
+    # Create a console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    # Set the format for both handlers
+    formatter = logging.Formatter('%(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    # Add handlers to the logger
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
+
 def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: str,
                           large_image_cube_path: str, use_both_methods = False, \
-                            use_old_method = False, N = 1):
+                            use_old_method = False, N = 1, output_file='output/bandmath_benchmark.txt'):
     '''
     Used to stress test the evaluator algorithm in 4 main scenarios that would commonly be used
     in WISER. Result mean and standard deviation of values are printed to the screen. You can
@@ -171,6 +196,7 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
         file_times += (oper_times)
         
     print("==========Oper File Time Benchmarks==========")
+    logger.info("==========Oper File Time Benchmarks==========")
     if use_both_methods:
         for oper_file in oper_file_time_dict_both:
             new_times = oper_file_time_dict_both[oper_file]['new']
@@ -180,9 +206,17 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
                   \t Mean: {np.mean(new_times):.6f} \t Std: {np.std(new_times):.6f} \n \
                   Old times: \n \
                   \t Mean: {np.mean(old_times):.6f} \t Std: {np.std(old_times):.6f}")
+            logger.info(f"{oper_file}: \n \
+                  New times: \n \
+                  \t Mean: {np.mean(new_times):.6f} \t Std: {np.std(new_times):.6f} \n \
+                  Old times: \n \
+                  \t Mean: {np.mean(old_times):.6f} \t Std: {np.std(old_times):.6f}")
     else:
         for oper_file in oper_file_time_dict.keys():
             print(f"{oper_file}:\n \
+                    \t Mean: {np.mean(oper_file_time_dict[oper_file])} \n \
+                    \t Std: {np.std(oper_file_time_dict[oper_file])}")
+            logger.info(f"{oper_file}:\n \
                     \t Mean: {np.mean(oper_file_time_dict[oper_file])} \n \
                     \t Std: {np.std(oper_file_time_dict[oper_file])}")
     
@@ -387,7 +421,7 @@ if __name__ == '__main__':
     '''
     How to use stress_test_benchmark
     '''
-    stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_15gb, use_both_methods=True, N=1)
+    stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_6GB, use_both_methods=True, N=N)
 
     '''
     How to use the profiler for test_both_methods
