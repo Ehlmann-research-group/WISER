@@ -19,6 +19,7 @@ from .functions import BandMathFunction, get_builtin_functions
 from .utils import (
     TEMP_FOLDER_PATH, get_unused_file_path_in_folder, \
     np_dtype_to_gdal, write_raster_to_dataset, max_bytes_to_chunk,
+    get_valid_ignore_value,
 )
 
 from wiser.raster.dataset import RasterDataSet
@@ -920,7 +921,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             raise e
         finally:
             eval.stop()
-        # out_dataset.set_data_ignore_value(DEFAULT_IGNORE_VALUE)
+        correct_data_ignore_val = get_valid_ignore_value(out_dataset_gdal, DEFAULT_IGNORE_VALUE)
+        print(f"Correct data ignore value: {correct_data_ignore_val}")
+        out_dataset.set_data_ignore_value(correct_data_ignore_val)
         return (RasterDataSet, out_dataset)
     else:
         try:

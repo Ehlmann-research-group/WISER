@@ -208,7 +208,7 @@ def test_both_methods(hdr_paths, N=1):
         # key_div: '(a/b)/(c/d)',
         # key_minus: '(a-b)-(c-d)',
         # key_neg: 'a+b',
-        key_less_than: '((a-b)-d)<c',
+        # key_less_than: '((a-b)-d)<c',
         # key_combo_1: '(a/b)-(c*d)+a',
         key_combo_2: "(((a-b)+d)<c)*a",
         # key_exponent: "a**b+a**(0.5)",
@@ -303,9 +303,9 @@ def test_both_methods(hdr_paths, N=1):
                 print("Pairs of values that are not close:")
                 for index in np.argwhere(not_close):
                     # # Unpack all dimensions dynamically, uncomment this if results do not match
-                    # index_str = ", ".join(map(str, index))
-                    # if not np.isnan(arr_new_method[tuple(index)]) and not np.isnan(arr_old_method[tuple(index)]):
-                    #     print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
+                    index_str = ", ".join(map(str, index))
+                    if not np.isnan(arr_new_method[tuple(index)]) and not np.isnan(arr_old_method[tuple(index)]):
+                        print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
                     amt_not_close += 1
             else:
                 print("All values are close within the given tolerance.")
