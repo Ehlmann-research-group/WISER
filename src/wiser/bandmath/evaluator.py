@@ -860,10 +860,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     
     max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
-    print(f"max_chunking_bytes: {max_chunking_bytes}")
+
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
-            print("New method!")
             eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
@@ -892,7 +891,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             for band_index in range(0, bands, num_bands):
                 band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
                 band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
-                print(f"Min: {min(band_index_list_current)} | Max: {max(band_index_list_current)}")
+                # print(f"Min: {min(band_index_list_current)} | Max: {max(band_index_list_current)}")
                 
                 eval.index_list_current = band_index_list_current
                 eval.index_list_next = band_index_list_next
