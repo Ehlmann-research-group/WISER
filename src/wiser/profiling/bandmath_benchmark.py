@@ -61,7 +61,7 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
     in WISER. Result mean and standard deviation of values are printed to the screen. You can
     choose to either use both methods, or just one of the methods to test. 
     '''
-    keyA = "A"
+    keyA = "A-Band calculation"
     keyB1 = "B-Normal Cube/Spectrum"
     keyB2 = "B2-Large Cube/Spectrum"
     keyC1 = "C-Normal Dotprod"
@@ -70,12 +70,12 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
     keyD2 = "D-Large Atm Correction"
 
     stressing_equation_dict = {
-        keyA: '1.0 - 2.0*b1/(b2+b3)',
-        keyB1: 'nd / (ns*(ns>0.2)+ns<0.2)',
+        # keyA: '1.0 - 2.0*b1/(b2+b3)',
+        # keyB1: 'nd / (ns*(ns>0.2)+ns<0.2)',
         keyB2: 'ld / (ls*(ls>0.2)+ls<0.2)',
-        keyC1: 'dotprod(nd, ns)',
+        # keyC1: 'dotprod(nd, ns)',
         keyC2: 'dotprod(ld, ls)',
-        keyD1: 'nd*(2.718)**0.2', #Atmospheric correction
+        # keyD1: 'nd*(2.718)**0.2', #Atmospheric correction
         keyD2: 'ld*(2.718)**0.2', 
     }
 
@@ -135,18 +135,21 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
             if use_both_methods:
                 # Whichever method goes first has to load the data from disk into memory so will take slower.
                 # To somewhat account for this, increase N and get rid of the first observation
+            
                 print(f"New method calculating!")
                 time_new_method, result_new_method = measure_bandmath_time(value, variables, use_old_method=False)
                 print(f"New method done calculating!")
                 if results_new_method[key] is None:
                     results_new_method[key] = result_new_method
+                print(f"time_new_method: {time_new_method}")
                 
                 print(f"Old method calculating!")
                 time_old_method, result_old_method = measure_bandmath_time(value, variables, use_old_method=True)
                 print(f"Old method done calculating!")
                 if results_old_method[key] is None:
                     results_old_method[key] = result_old_method
-                
+                print(f"time_old_method: {time_old_method}")
+
                 oper_times_new_method.append(time_new_method)
                 oper_times_old_method.append(time_old_method)
                 time_outer = time_new_method
@@ -374,7 +377,7 @@ if __name__ == '__main__':
     '''
     How to use test_both_methods with a list of datasets
     '''
-    test_both_methods(dataset_list)
+    # test_both_methods(dataset_list)
     
     '''
     How to use test_both_methods with a folder that contain's .hdr paths
@@ -384,7 +387,7 @@ if __name__ == '__main__':
     '''
     How to use stress_test_benchmark
     '''
-    # stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_20GB, use_both_methods=False, N=1)
+    stress_test_benchmark(dataset_15gb, dataset_500mb, dataset_15gb, use_both_methods=True, N=1)
 
     '''
     How to use the profiler for test_both_methods
