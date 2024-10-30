@@ -17,11 +17,73 @@ from lark import Tree
 
 from osgeo import gdal
 
+from enum import Enum
+
 from .types import VariableType, BandMathExprInfo, BandMathValue
 from wiser.raster.dataset import RasterDataSet
 from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE, LHS_KEY, RHS_KEY
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
+
+class MathOperations(Enum):
+    ADD = "add"
+    SUBTRACT = "subtract"
+    MULTIPLY = "multiply"
+    DIVIDE = "divide"
+    COMPARE = "compare"
+    POWER = "power"
+    TRIG_FUNCTION = "trig_function"
+    DOT_PRODUCT = "dot_product"
+    GENERAL = "general"
+
+def get_result_dtype(dtype1: np.dtype, dtype2: np.dtype, operation: MathOperations = MathOperations.GENERAL) -> np.dtype:
+    """
+    Determines the resulting NumPy dtype after performing a specified mathematical operation
+    between two input dtypes.
+
+    Parameters:
+    - dtype1 (np.dtype): The dtype of the first operand.
+    - dtype2 (np.dtype): The dtype of the second operand.
+    - operation (MathOperations): The mathematical operation to perform.
+
+    Returns:
+    - np.dtype: The resulting dtype after the operation.
+
+    Raises:
+    - ValueError: If an unsupported operation is provided.
+    """
+    if dtype1 is None and dtype2 is not None:
+        return dtype2
+
+    elif dtype1 is not None and dtype2 is None:
+        return dtype1
+
+    elif operation in {
+        MathOperations.ADD,
+        MathOperations.SUBTRACT,
+        MathOperations.MULTIPLY,
+        MathOperations.DIVIDE,
+        MathOperations.POWER,
+        MathOperations.DOT_PRODUCT,
+        MathOperations.GENERAL
+    }:
+        # For arithmetic operations, use NumPy's type promotion rules
+        return np.result_type(dtype1, dtype2)
+
+    elif operation == MathOperations.COMPARE:
+        # Comparison operations yield boolean results
+        return np.bool_
+
+    elif operation == MathOperations.TRIG_FUNCTION:
+        # Trigonometric functions typically return floating-point types
+        if np.issubdtype(dtype1, np.floating):
+            return dtype1  # Retain the floating type if already floating
+        else:
+            # Promote to a higher precision floating type if input is integer
+            return np.float32
+
+    else:
+        raise ValueError(f"Unsupported operation: {operation}")
 
 def get_valid_ignore_value(dataset: gdal.Dataset, default_ignore_value: float):
     """
@@ -244,7 +306,7 @@ def max_bytes_to_chunk(dataset_bytes: int):
 def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ma.MaskedArray, gdal_elem_type: int):
         if isinstance(result, np.ma.MaskedArray):
             result = np.ma.filled(result, DEFAULT_IGNORE_VALUE)
-    
+        
         gdal_band_list_current = [band+1 for band in band_index_list]
         
         out_dataset_gdal.WriteRaster(
