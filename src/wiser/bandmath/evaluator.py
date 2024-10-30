@@ -860,13 +860,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     
     max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
-    max_chunking_bytes = 40000000
-    # print(f"GDAL TYPE: {gdal_type}")
-    print(f"EQUIVALENT NUMPY TYPE: {expr_info.elem_type}")
-    # print(f"expr_info result type: {expr_info.result_type}")
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
-        print("NEW METHOD")
-        # print(f"shape: {expr_info.shape}")
         try:
             eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
 
@@ -904,14 +898,11 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 
                 result_value = eval.transform(tree)
                 if isinstance(result_value, (asyncio.Future, Coroutine)):
-                    # print("Running coroutine safe on thread")
                     result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
-                    # result_value = asyncio.run(result_value)
                 res = result_value.value
                 assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
                         res.shape[1] == out_dataset_gdal.RasterYSize)
                 
-                # write_raster_to_dataset(out_dataset_gdal, band_index_list_current, res, gdal_type)
                 future = eval._write_thread_pool.submit(write_raster_to_dataset, \
                                                     out_dataset_gdal, band_index_list_current, \
                                                     res, gdal_type)
@@ -924,12 +915,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         finally:
             eval.stop()
         correct_data_ignore_val = get_valid_ignore_value(out_dataset_gdal, DEFAULT_IGNORE_VALUE)
-        # print(f"Correct data ignore value: {correct_data_ignore_val}")
         out_dataset.set_data_ignore_value(correct_data_ignore_val)
         return (RasterDataSet, out_dataset)
     else:
         try:
-            print("OLD METHOD")
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
             res = result_value.value
