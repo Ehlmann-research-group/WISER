@@ -13,7 +13,7 @@ from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    get_lhs_rhs_values_async,
+    get_lhs_rhs_values_async, get_result_dtype, MathOperations,
 )
 
 class OperatorMultiply(BandMathFunction):
@@ -56,7 +56,8 @@ class OperatorMultiply(BandMathFunction):
 
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
-            info.elem_type = lhs.elem_type
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
+                                              MathOperations.MULTIPLY)
 
             # TODO(donnie):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
