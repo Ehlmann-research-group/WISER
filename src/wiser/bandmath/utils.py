@@ -23,6 +23,59 @@ from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNO
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
+def get_valid_ignore_value(dataset: gdal.Dataset, default_ignore_value: float):
+    """
+    Determines an appropriate data ignore value for a GDAL dataset based on its data type.
+
+    Parameters:
+    - dataset: GDAL dataset object
+    - default_ignore_value: The default data ignore value to use if it fits into the dataset's data type
+
+    Returns:
+    - A data ignore value that fits into the dataset's data type
+    """
+    # Get the data type of the first band
+    band = dataset.GetRasterBand(1)
+    gdal_dtype = band.DataType
+
+    # Map GDAL data types to NumPy data types
+    gdal_dtype_to_numpy_dtype = {
+        gdal.GDT_Byte: np.uint8,
+        gdal.GDT_UInt16: np.uint16,
+        gdal.GDT_Int16: np.int16,
+        gdal.GDT_UInt32: np.uint32,
+        gdal.GDT_Int32: np.int32,
+        gdal.GDT_Float32: np.float32,
+        gdal.GDT_Float64: np.float64,
+    }
+
+    # Check if the GDAL data type is supported
+    if gdal_dtype not in gdal_dtype_to_numpy_dtype:
+        raise ValueError(f"Unsupported GDAL data type: {gdal.GetDataTypeName(gdal_dtype)}")
+
+    numpy_dtype = gdal_dtype_to_numpy_dtype[gdal_dtype]
+
+    # Get the min and max values for the data type
+    if np.issubdtype(numpy_dtype, np.integer):
+        type_info = np.iinfo(numpy_dtype)
+    elif np.issubdtype(numpy_dtype, np.floating):
+        type_info = np.finfo(numpy_dtype)
+    else:
+        raise ValueError(f"Unsupported NumPy data type: {numpy_dtype}")
+
+    min_value = type_info.min
+    max_value = type_info.max
+
+    # Check if the default ignore value fits into the data type
+    if min_value <= default_ignore_value <= max_value:
+        # Ensure the type of default_ignore_value matches the data type
+        if (np.issubdtype(numpy_dtype, np.integer) and isinstance(default_ignore_value, int)) or \
+           (np.issubdtype(numpy_dtype, np.floating) and isinstance(default_ignore_value, (int, float))):
+            return default_ignore_value
+
+    # Return the minimum value for the data type if the default ignore value doesn't fit
+    return min_value
+
 def remove_trailing_number(filepath):
     # Regular expression pattern to match " space followed by digits" at the end of the path
     pattern = r"(.*)\s\d+$"

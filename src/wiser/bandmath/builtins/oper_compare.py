@@ -202,12 +202,11 @@ class OperatorCompare(BandMathFunction):
                                                             index_list_next, read_task_queue, \
                                                                 read_thread_pool, event_loop)
 
-                
                 if isinstance(lhs_value, np.ma.masked_array):
                     result_arr = compare_fn(lhs_value, rhs_value, where=~lhs_value.mask)
                 else:
                     result_arr = compare_fn(lhs_value, rhs_value)
-                # result_arr = compare_fn(lhs_value, rhs_value)
+    
                 result_arr = result_arr.astype(np.byte)
                 assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
                 assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
