@@ -75,19 +75,29 @@ dist-mac : build-mac
 # include all the necessary Qt DLLs.  The worst one is the SVG icon
 # resources, which require a few steps just to get the icons to even
 # show up in the frozen UI.
+# pyinstaller --name $(APP_NAME) --noconfirm \
+#     --icon icons\wiser.ico \
+# 	--add-binary C:\ProgramData\Miniconda3\Library\plugins\platforms;platforms \
+# 	--add-binary C:\ProgramData\Miniconda3\Library\plugins\iconengines;iconengines \
+# 	--add-data C:\ProgramData\Miniconda3\Library\bin\libiomp5md.dll;. \
+# 	--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
+# 	--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
+# 	--collect-all osgeo \
+# 	--exclude-module PyQt5 \
+# 	src\wiser\__main__.py
+# $(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" install-win\win-install.nsi
 dist-win : generated
 	pyinstaller --name $(APP_NAME) --noconfirm \
 	    --icon icons\wiser.ico \
-		--add-binary C:\ProgramData\Miniconda3\Library\plugins\platforms;platforms \
-		--add-binary C:\ProgramData\Miniconda3\Library\plugins\iconengines;iconengines \
-		--add-data C:\ProgramData\Miniconda3\Library\bin\libiomp5md.dll;. \
+		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\platforms;platforms \
+		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\iconengines;iconengines \
+		--add-data C:\Users\jgarc\anaconda3\envs\wiser-source\Library\bin\libiomp5md.dll;. \
 		--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
 		--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
 		--collect-all osgeo \
 		--exclude-module PyQt5 \
 		src\wiser\__main__.py
 
-	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" install-win\win-install.nsi
 
 clean:
 	$(MAKE) -C src clean
