@@ -860,8 +860,10 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     
     max_chunking_bytes = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
+    print(f"max_chunking_bytes: {max_chunking_bytes}")
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
+            print("New method!")
             eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
@@ -881,8 +883,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             # Based on memory limits (currently set in constants,, but we could make it more adjustable)
             # find the number of bands that we can access without exceeding it
             bytes_per_element = np.dtype(expr_info.elem_type).itemsize if expr_info.elem_type is not None else SCALAR_BYTES
-            bytes_per_scalar = bytes_per_element
-            max_bytes = max_chunking_bytes/bytes_per_scalar
+            max_bytes = max_chunking_bytes/bytes_per_element
             max_bytes_per_intermediate = max_bytes / number_of_intermediates
             num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
             num_bands = 1 if num_bands < 1 else num_bands
@@ -891,7 +892,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             for band_index in range(0, bands, num_bands):
                 band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
                 band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
-                # print(f"Min: {min(band_index_list)} | Max: {max(band_index_list)}")
+                print(f"Min: {min(band_index_list_current)} | Max: {max(band_index_list_current)}")
                 
                 eval.index_list_current = band_index_list_current
                 eval.index_list_next = band_index_list_next
