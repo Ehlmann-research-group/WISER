@@ -55,7 +55,8 @@ class BandMathExprInfo:
 
     def result_size(self):
         ''' Returns an estimate of this result's size in bytes. '''
-        return np.dtype(self.elem_type).itemsize * np.prod(self.shape)
+        shape_size = np.prod(self.shape) if self.shape is not None else 1
+        return np.dtype(self.elem_type).itemsize * shape_size
 
     def __repr__(self) -> str:
         if self.result_type in [VariableType.IMAGE_CUBE,
@@ -84,7 +85,8 @@ class BandMathValue:
     :ivar value: The value itself.
     :ivar computed: If True, the value was computed from an expression.
     '''
-    def __init__(self, type: VariableType, value: Any, computed: bool = True):
+    def __init__(self, type: VariableType, value: Any, computed: bool = True,
+                 is_intermediate=False):
         if type not in VariableType:
             raise ValueError(f'Unrecognized variable-type {type}')
 
@@ -92,6 +94,7 @@ class BandMathValue:
         self.type: VariableType = type
         self.value: Any = value
         self.computed: bool = computed
+        self.is_intermediate = is_intermediate
 
 
     def set_name(self, name: Optional[str]) -> None:
@@ -179,16 +182,19 @@ class BandMathValue:
 
             # If the value is already a NumPy array, we are done!
             if isinstance(self.value, np.ndarray):
-                # Assuems all numpy arrays have band as the first dimension
+                # Assumes all numpy arrays have band as the first dimension
+                min_band = min(band_list)
+                band_list_base = [band-min_band for band in band_list]
                 if self.type == VariableType.IMAGE_CUBE:
-                    return np.squeeze(self.value[band_list, : , :], axis=0)
+                    if len(band_list_base) == 1:
+                        return self.value
+                    return self.value[band_list_base, : , :]
                 elif self.type == VariableType.IMAGE_BAND:
                     return self.value
                 elif self.type == VariableType.SPECTRUM:
                     band_start = band_list[0]
                     band_end = band_list[-1]
                     arr = self.value[band_start:band_end+1]
-                    arr = arr[:, np.newaxis]
                     return arr
                 raise TypeError(f'Type value is incorrect, should be' +
                                 f'IMAGE_CUBE, IMAGE_BAND, OR SPECTRUM' + 

@@ -2,15 +2,18 @@ from typing import List
 
 import numpy as np
 
+import queue
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.functions import BandMathFunction
-
+from .constants import LHS_KEY, RHS_KEY
 from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    make_image_cube_compatible_by_bands,
+    get_lhs_rhs_values_async, get_result_dtype, MathOperations,
 )
-
 
 class OperatorPower(BandMathFunction):
     '''
@@ -44,7 +47,8 @@ class OperatorPower(BandMathFunction):
 
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
-            info.elem_type = lhs.elem_type
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
+                                              MathOperations.POWER)
 
             # TODO(donnie):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
@@ -89,7 +93,10 @@ class OperatorPower(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
 
 
-    def apply(self, args: List[BandMathValue], index: int):
+    async def apply(self, args: List[BandMathValue], index_list_current: List[int] = None, \
+              index_list_next: List[int] = None, read_task_queue: queue.Queue = None, \
+              read_thread_pool: ThreadPoolExecutor = None, \
+                event_loop: asyncio.AbstractEventLoop = None, node_id: int = None):
         '''
         Raise the LHS to the power specified by RHS and return the result.
         '''
@@ -108,18 +115,38 @@ class OperatorPower(BandMathFunction):
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
-            lhs_value = lhs.as_numpy_array_by_bands([index])
-            assert lhs_value.ndim == 2
 
-            rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, [index])
-            result_arr = lhs_value ** rhs_value
+            if index_list_current is not None:
+                    # Lets us handle when the band index list just has one band
+                if isinstance(index_list_current, int):
+                    index_list_current = [index_list_current]
+                if isinstance(index_list_next, int):
+                    index_list_next = [index_list_next]
 
-            # The result array should have the same dimensions as the LHS input
-            # array.
-            assert result_arr.ndim == 2
-            assert result_arr.shape == lhs_value.shape
-            return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+                lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
+                                                            index_list_next, read_task_queue, \
+                                                                read_thread_pool, event_loop)
+                result_arr = lhs_value ** rhs_value
 
+                # The result array should have the same dimensions as the LHS input
+                # array.
+                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
+                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
+                assert np.squeeze(result_arr).shape == lhs_value.shape
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+            else:
+                lhs_value = lhs.as_numpy_array()
+                assert lhs_value.ndim == 3
+
+                rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+                result_arr = lhs_value ** rhs_value
+
+                # The result array should have the same dimensions as the LHS input
+                # array.
+                assert result_arr.ndim == 3
+                assert result_arr.shape == lhs_value.shape
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
+                
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [x][y]
             lhs_value = lhs.as_numpy_array()
