@@ -134,7 +134,6 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
         result = []
         for v in range(256):
             rgba = cmap(v, bytes=True)
-            print(f"Type rgba: {rgba[0]}")
             elem = np.uint32(0)
             elem |= rgba[0]
             elem = elem << 8
