@@ -129,12 +129,21 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
     channel values are in the range [0, 255]; since this is an expensive check,
     it is disabled if optimizations are turned on.
     '''
-
+    colormap = 'viridis'
     def make_colormap_array(cmap):
         result = []
         for v in range(256):
             rgba = cmap(v, bytes=True)
-            result.append(rgba[0] << 16 | rgba[1] << 8 | rgba[2] | 0xff000000)
+            elem = np.uint32(0)
+            elem |= rgba[0]
+            elem = elem << 8
+            elem |= rgba[1]
+            elem = elem << 8
+            elem |= rgba[2]
+            elem |= 0xff000000
+
+            # result.append(rgba[0] << 16 | rgba[1] << 8 | rgba[2] | 0xff000000)
+            result.append(elem)
 
         return np.array(result, np.uint32)
 
@@ -149,7 +158,14 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
 
     if colormap is None:
         # Use the channel data to generate various gray RGB values.
-        rgb_data = (channel << 16 | channel << 8 | channel) | 0xff000000
+        # rgb_data = (channel << 16 | channel << 8 | channel) | 0xff000000
+        
+        rgb_data |= channel
+        rgb_data = rgb_data << 8
+        rgb_data |= channel
+        rgb_data = rgb_data << 8
+        rgb_data |= channel
+        rgb_data |= 0xff000000
 
     else:
         # Map the channel data to RGB colors using the colormap.
@@ -165,7 +181,6 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
         rgb_data = np.ascontiguousarray(rgb_data)
 
     return rgb_data
-
 
 
 class ImageColors(enum.IntFlag):
@@ -412,7 +427,6 @@ class RasterView(QWidget):
             raise ValueError('display_bands and stretches must be the same length')
 
         self._clear_members()
-
         self._raster_data = raster_data
 
         if raster_data is not None:
@@ -427,6 +441,7 @@ class RasterView(QWidget):
             self._display_bands = None
             self._stretches = None
 
+        print(f"set raster data display bands: {self._display_bands}")
         self.update_display_image()
 
     def get_raster_data(self) -> Optional[RasterDataSet]:
@@ -455,7 +470,7 @@ class RasterView(QWidget):
 
         if stretches is not None and len(display_bands) != len(stretches):
             raise ValueError('display_bands and stretches must be same length')
-
+        print(f"SETTING DISPLAY BANDS: {display_bands}")
         # Figure out what colors changed, so that we only have to update the
         # parts of the image that are required.
         changed = ImageColors.NONE

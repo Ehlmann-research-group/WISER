@@ -45,7 +45,9 @@ class RasterDataLoader:
         impl = None
         for (driver_name, impl_type) in self._formats.items():
             try:
+                print("loader load_from_file start")
                 impl = impl_type.try_load_file(path)
+                print("loader load_from_file end")
 
             except Exception as e:
                 logger.debug(f'Couldn\'t load file {path} with driver ' +

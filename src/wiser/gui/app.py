@@ -369,6 +369,7 @@ class DataVisualizerApp(QMainWindow):
         self._image_coords.update_coords(self._app_state.get_dataset(ds_id), None)
 
     def _on_dataset_removed(self, ds_id: int):
+        print("app _on_dataset_removed")
         self._update_dataset_menus()
         self._image_coords.update_coords(None, None)
 

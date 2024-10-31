@@ -1160,6 +1160,7 @@ class RasterPane(QWidget):
         dataset.  Also, if any rasterviews are showing the dataset, the function
         switches them to a different dataset (if more than one is loaded).
         '''
+        print(f"Rasterpane _on_dataset_removed")
         del self._display_bands[ds_id]
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')

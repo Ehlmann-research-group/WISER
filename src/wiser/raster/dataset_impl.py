@@ -338,11 +338,12 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def try_load_file(cls, path: str) -> 'GTiff_GDALRasterDataImpl':
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
-
+        print(f"GTIFF dataset_impl try_load_file start")
         load_path = cls.get_load_filename(path)
         gdal_dataset = gdal.OpenEx(load_path,
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
             allowed_drivers=['GTiff'])
+        print(f"GTIFF dataset_impl try_load_file end")
 
         return cls(gdal_dataset)
 

@@ -1,0 +1,5 @@
+
+Benchmarking on dataset: C:\Users\jgarc\OneDrive\Documents\Data\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr
+Run 1/1: 0.8945 seconds
+Mean time over 1 runs: 0.8945 seconds
+Standard deviation: 0.0000 seconds

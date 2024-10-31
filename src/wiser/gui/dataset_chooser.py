@@ -120,6 +120,7 @@ class DatasetChooser(QToolButton):
         self._populate_dataset_menu()
 
     def _on_dataset_removed(self, ds_id: int):
+        print(f"dataset_chooser on_dataset_removed")
         self._populate_dataset_menu()
 
     def _on_views_changed(self, shape):

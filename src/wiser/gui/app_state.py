@@ -255,9 +255,10 @@ class ApplicationState(QObject):
         # Either the data doesn't look like a spectral library, or loading
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
-        
+        print(f"app_state open file start")
         raster_data = self._raster_data_loader.load_from_file(file_path)
         self.add_dataset(raster_data)
+        print(f"app_state open file end")
 
 
     def add_dataset(self, dataset: RasterDataSet):
@@ -267,6 +268,7 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was added.
         '''
+        print(f"app_state add_dataset start")
         if not isinstance(dataset, RasterDataSet):
             raise TypeError('dataset must be a RasterDataSet')
 
@@ -276,6 +278,8 @@ class ApplicationState(QObject):
 
         self._last_added_raster_display = RasterViewMetaData(ds_id=ds_id)
         self.dataset_added.emit(ds_id)
+        
+        print(f"app_state end start")
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
     def get_dataset(self, ds_id: int) -> RasterDataSet:
