@@ -129,12 +129,22 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
     channel values are in the range [0, 255]; since this is an expensive check,
     it is disabled if optimizations are turned on.
     '''
-
+    colormap = 'viridis'
     def make_colormap_array(cmap):
         result = []
         for v in range(256):
             rgba = cmap(v, bytes=True)
-            result.append(rgba[0] << 16 | rgba[1] << 8 | rgba[2] | 0xff000000)
+            print(f"Type rgba: {rgba[0]}")
+            elem = np.uint32(0)
+            elem |= rgba[0]
+            elem = elem << 8
+            elem |= rgba[1]
+            elem = elem << 8
+            elem |= rgba[2]
+            elem |= 0xff000000
+
+            # result.append(rgba[0] << 16 | rgba[1] << 8 | rgba[2] | 0xff000000)
+            result.append(elem)
 
         return np.array(result, np.uint32)
 
@@ -149,7 +159,14 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
 
     if colormap is None:
         # Use the channel data to generate various gray RGB values.
-        rgb_data = (channel << 16 | channel << 8 | channel) | 0xff000000
+        # rgb_data = (channel << 16 | channel << 8 | channel) | 0xff000000
+        
+        rgb_data |= channel
+        rgb_data = rgb_data << 8
+        rgb_data |= channel
+        rgb_data = rgb_data << 8
+        rgb_data |= channel
+        rgb_data |= 0xff000000
 
     else:
         # Map the channel data to RGB colors using the colormap.
@@ -165,7 +182,6 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
         rgb_data = np.ascontiguousarray(rgb_data)
 
     return rgb_data
-
 
 
 class ImageColors(enum.IntFlag):
