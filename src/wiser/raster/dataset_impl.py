@@ -859,8 +859,7 @@ class NumPyRasterDataImpl(RasterDataImpl):
         return self._arr[:, y, x]
 
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int) -> np.ndarray:
-        # return self._arr[:, y:y+dy, x:x+dx]
-        return NotImplementedError
+        return self._arr[:, y:y+dy, x:x+dx]
 
     def read_description(self) -> Optional[str]:
         return None
