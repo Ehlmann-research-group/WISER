@@ -9,7 +9,7 @@ from osgeo import gdal, gdalconst, gdal_array
 
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl)
+    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl)
 
 from .spectrum import Spectrum
 
@@ -28,6 +28,7 @@ class RasterDataLoader:
         self._formats = {
             'ENVI': ENVI_GDALRasterDataImpl,
             'GTiff': GTiff_GDALRasterDataImpl,
+            'NetCDF': NetCDF_GDALRasterDataImpl,
         }
 
         # This is a counter so we can generate names for unnamed datasets.
@@ -48,6 +49,7 @@ class RasterDataLoader:
                 impl = impl_type.try_load_file(path)
 
             except Exception as e:
+                print(f"Exception: \n {e}")
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
 
