@@ -51,7 +51,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_min_bound">
         <property name="text">
-         <string>Minimum</string>
+         <string>Plot Minimum</string>
         </property>
         <property name="buddy">
          <cstring>lineedit_min_bound</cstring>
@@ -97,7 +97,7 @@
       <item row="1" column="0">
        <widget class="QLabel" name="label_max_bound">
         <property name="text">
-         <string>Maximum</string>
+         <string>Plot Maximum</string>
         </property>
         <property name="buddy">
          <cstring>lineedit_max_bound</cstring>
