@@ -233,11 +233,23 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         # Note that GDAL indexes bands from 1, not 0.
         new_dataset = self.reopen_dataset()
+        print(f"gdal dataset: {self.gdal_dataset}")
+        print(f"new_dataset: {new_dataset}")
+        print(f"dataset subdataset: {new_dataset.GetSubDatasets()}")
         band = new_dataset.GetRasterBand(band_index + 1)
-        try:
-            np_array = band.GetVirtualMemAutoArray()
-        except (RuntimeError, TypeError):
-            np_array = band.ReadAsArray()
+        print(f"BAND: {band}")
+        if band is None:
+            print("In NETCDF")
+            filepath = self.get_filepaths()[0]
+            reflectance_subdataset_path = f'NETCDF:"{filepath}":reflectance'
+            reflectance_dataset = gdal.Open(reflectance_subdataset_path)
+            np_array = reflectance_dataset.GetRasterBand(band_index + 1).ReadAsArray()
+        else:
+            print("Not in net cdf")
+            try:
+                np_array = band.GetVirtualMemAutoArray()
+            except (RuntimeError, TypeError):
+                np_array = band.ReadAsArray()
 
         return np_array
 
@@ -383,7 +395,35 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
+    @classmethod
+    def try_load_file(cls, path: str) -> 'NetCDF_GDALRasterDataImpl':
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        print(f"TRYING TO LOAD NETCDF FILE")
+        # Open the netCDF file
+        gdal_dataset = gdal.OpenEx(
+            path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['netCDF']
+        )
 
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open netCDF file: {path}")
+
+        # Check for subdatasets
+        subdatasets = gdal_dataset.GetSubDatasets()
+        if subdatasets:
+            # For this example, select the first subdataset
+            first_subdataset_name = subdatasets[0][0]
+            gdal_dataset = gdal.Open(first_subdataset_name)
+            if gdal_dataset is None:
+                raise ValueError(f"Unable to open subdataset: {first_subdataset_name}")
+        print(f"gdal dataset made as: {gdal_dataset}")
+        return cls(gdal_dataset)
+
+    def __init__(self, gdal_dataset):
+        super().__init__(gdal_dataset)
 
 
 class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
