@@ -229,6 +229,8 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return np_array
 
+    
+
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
@@ -242,15 +244,39 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        from netCDF4 import Dataset
+
+        nc_file = Dataset(self.get_filepaths()[0])
+
+        # List all available variables in the netCDF file
+        print("Available variables in the netCDF file:")
+        print(nc_file.variables.keys())
+
+        # Look for a variable likely to contain wavelengths
+        # Common variable names for wavelengths could be "wavelength", "wavelengths", "bands", etc.
+        if 'wavelength' in nc_file.variables:
+            wavelengths = nc_file.variables['wavelength'][:]
+            print("Wavelengths:", wavelengths)
+        elif 'bands' in nc_file.variables:
+            wavelengths = nc_file.variables['bands'][:]
+            print("Wavelengths (bands):", wavelengths)
+        else:
+            print("No wavelength information found in the netCDF file.")
+
+        # Close the netCDF file
+        nc_file.close()
+    
         print(f"get_band_data called!")
         # Note that GDAL indexes bands from 1, not 0.
         data_format = self.get_format()
         new_dataset = self.reopen_dataset()
         band = new_dataset.GetRasterBand(band_index + 1)
-        # print(f"subdatasets: {new_dataset.GetSubDatasets()}")
+        print(f"subdatasets: {new_dataset.GetSubDatasets()}")
+        # print(f"new dataset meta data: {new_dataset.GetMetadata()}")
         if data_format == DriverNames.NetCDF.value:
             file_path = self.get_filepaths()[0]
             reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+            print(f"reflectance_subdataset_path: {reflectance_subdataset_path}")
             reflectance_dataset = gdal.Open(reflectance_subdataset_path)
             np_array = reflectance_dataset.GetRasterBand(band_index + 1).ReadAsArray()
         else:
