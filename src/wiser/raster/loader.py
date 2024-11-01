@@ -9,7 +9,8 @@ from osgeo import gdal, gdalconst, gdal_array
 
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl)
+    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl,
+    JP2_GDALRasterDataImpl)
 
 from .spectrum import Spectrum
 
@@ -29,6 +30,7 @@ class RasterDataLoader:
             'ENVI': ENVI_GDALRasterDataImpl,
             'GTiff': GTiff_GDALRasterDataImpl,
             'NetCDF': NetCDF_GDALRasterDataImpl,
+            'JP2': JP2_GDALRasterDataImpl,
         }
 
         # This is a counter so we can generate names for unnamed datasets.

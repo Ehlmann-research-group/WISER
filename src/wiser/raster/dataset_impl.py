@@ -29,6 +29,7 @@ class DriverNames(Enum):
     GTIFF = 'GTiff'
     ENVI = 'ENVI'
     NetCDF = 'netCDF'
+    JP2 = ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']
 
 class RasterDataImpl(abc.ABC):
 
@@ -221,6 +222,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             reflectance_dataset = gdal.Open(reflectance_subdataset_path)
             np_array = reflectance_dataset.ReadAsArray()
         else:
+            print(f"Data format: {data_format}")
             try:
                 np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
             except (RuntimeError, ValueError):
@@ -228,8 +230,6 @@ class GDALRasterDataImpl(RasterDataImpl):
                 np_array = new_dataset.ReadAsArray()
 
         return np_array
-
-    
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
@@ -244,27 +244,27 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        from netCDF4 import Dataset
+        # from netCDF4 import Dataset
 
-        nc_file = Dataset(self.get_filepaths()[0])
+        # nc_file = Dataset(self.get_filepaths()[0])
 
-        # List all available variables in the netCDF file
-        print("Available variables in the netCDF file:")
-        print(nc_file.variables.keys())
+        # # List all available variables in the netCDF file
+        # print("Available variables in the netCDF file:")
+        # print(nc_file.variables.keys())
 
-        # Look for a variable likely to contain wavelengths
-        # Common variable names for wavelengths could be "wavelength", "wavelengths", "bands", etc.
-        if 'wavelength' in nc_file.variables:
-            wavelengths = nc_file.variables['wavelength'][:]
-            print("Wavelengths:", wavelengths)
-        elif 'bands' in nc_file.variables:
-            wavelengths = nc_file.variables['bands'][:]
-            print("Wavelengths (bands):", wavelengths)
-        else:
-            print("No wavelength information found in the netCDF file.")
+        # # Look for a variable likely to contain wavelengths
+        # # Common variable names for wavelengths could be "wavelength", "wavelengths", "bands", etc.
+        # if 'wavelength' in nc_file.variables:
+        #     wavelengths = nc_file.variables['wavelength'][:]
+        #     print("Wavelengths:", wavelengths)
+        # elif 'bands' in nc_file.variables:
+        #     wavelengths = nc_file.variables['bands'][:]
+        #     print("Wavelengths (bands):", wavelengths)
+        # else:
+        #     print("No wavelength information found in the netCDF file.")
 
-        # Close the netCDF file
-        nc_file.close()
+        # # Close the netCDF file
+        # nc_file.close()
     
         print(f"get_band_data called!")
         # Note that GDAL indexes bands from 1, not 0.
@@ -280,6 +280,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             reflectance_dataset = gdal.Open(reflectance_subdataset_path)
             np_array = reflectance_dataset.GetRasterBand(band_index + 1).ReadAsArray()
         else:
+            print(f"Data format: {data_format}")
             try:
                 np_array = band.GetVirtualMemAutoArray()
             except (RuntimeError, TypeError):
@@ -312,6 +313,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
             new_dataset = gdal.Open(reflectance_subdataset_path)
         else:
+            print(f"Data format: {data_format}")
             new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
@@ -333,6 +335,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
             new_dataset = gdal.Open(reflectance_subdataset_path)
         else:
+            print(f"Data format: {data_format}")
             new_dataset = self.reopen_dataset()
             # Note that GDAL indexes bands from 1, not 0.
         band_list = [band+1 for band in band_list_orig]
@@ -363,6 +366,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
             new_dataset = gdal.Open(reflectance_subdataset_path)
         else:
+            print(f"Data format: {data_format}")
             new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
         print(f"get_all_bands_at_rect ended!")
@@ -460,7 +464,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     def try_load_file(cls, path: str) -> 'NetCDF_GDALRasterDataImpl':
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
-        print(f"TRYING TO LOAD NETCDF FILE")
         # Open the netCDF file
         gdal_dataset = gdal.OpenEx(
             path,
@@ -485,6 +488,50 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
+    @classmethod
+    def get_jpeg2000_drivers(cls):
+        driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
+        jpeg2000_drivers = []
+        for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
+            if drv in driver_names:
+                jpeg2000_drivers.append(drv)
+        return jpeg2000_drivers
+
+    @classmethod
+    def get_load_filename(cls, path: str) -> str:
+        # For JP2 files, there's no need to adjust the path
+        return path
+
+    @classmethod
+    def try_load_file(cls, path: str) -> 'JP2_GDALRasterDataImpl':
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        print("ATTEMPTING JP2")
+        load_path = cls.get_load_filename(path)
+        allowed_drivers = cls.get_jpeg2000_drivers()
+        if not allowed_drivers:
+            raise ValueError("No JPEG2000 drivers are available in GDAL.")
+
+        for driver in allowed_drivers:
+            try:
+                gdal_dataset = gdal.OpenEx(
+                    load_path,
+                    nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+                    allowed_drivers=[driver]
+                )
+                if gdal_dataset is not None:
+                    logger.debug(f"Opened {load_path} with driver {driver}")
+                    print("Successfully opened jpeg200 file!")
+                    return cls(gdal_dataset)
+            except RuntimeError as e:
+                logger.warning(f"Failed to open {load_path} with driver {driver}: {e}")
+                continue
+
+        raise ValueError(f"Unable to open {load_path} as a JPEG2000 file using drivers {allowed_drivers}")
+
+    def __init__(self, gdal_dataset):
+        super().__init__(gdal_dataset)
 
 class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
