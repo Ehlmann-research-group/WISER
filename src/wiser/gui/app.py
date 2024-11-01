@@ -487,6 +487,7 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
+            self.tr('JPEG 2000 raster files (*.jp2)'),
             self.tr('NetCDF raster files (*.nc)'),
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
