@@ -1,5 +1,7 @@
 from typing import Dict, List, Optional, Tuple, Union
 
+from osgeo import gdal
+
 import numpy as np
 from astropy import units as u
 
@@ -42,8 +44,30 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
     "mhz"           : u.MHz,
 }
 
-def get_netCDF_reflectance_path(file_path: str):
-    return f'NETCDF:"{file_path}":reflectance'
+# def get_netCDF_reflectance_path(file_path: str):
+#     return f'NETCDF:"{file_path}":reflectance'
+
+def get_netCDF_reflectance_path(file_path):
+    """
+    Checks for the presence of reflectance and reflectance uncertainty subdatasets.
+    Returns the path to reflectance if available, otherwise falls back to reflectance uncertainty.
+    """
+    # Open the netCDF file with GDAL
+    dataset = gdal.Open(file_path)
+
+    # Get the list of subdatasets
+    subdatasets = dataset.GetSubDatasets()
+
+    # Check for reflectance and reflectance uncertainty
+    for subdataset, _ in subdatasets:
+        if "reflectance" in subdataset:
+            return subdataset
+        elif "reflectance_uncertainty" in subdataset:
+            return subdataset
+        elif "mask" in subdataset:
+            return subdataset
+
+    raise Exception(f'netCDF file type is not supported!')
 
 def get_spectral_unit(unit_str: str) -> u.Unit:
     '''
