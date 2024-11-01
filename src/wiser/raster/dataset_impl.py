@@ -25,6 +25,11 @@ class SaveState(Enum):
     IN_MEMORY_SAVED = 3
     UNKNOWN = 4
 
+class DriverNames(Enum):
+    GTIFF = 'GTiff'
+    ENVI = 'ENVI'
+    NetCDF = 'netCDF'
+
 class RasterDataImpl(abc.ABC):
 
     def get_format(self) -> str:
@@ -141,7 +146,6 @@ class GDALRasterDataImpl(RasterDataImpl):
                 raise ValueError('Cannot handle raster data with bands that ' +
                     'have different data-ignore values per band.')
 
-
     def get_format(self) -> str:
         return self.gdal_dataset.GetDriver().ShortName
 
@@ -232,13 +236,15 @@ class GDALRasterDataImpl(RasterDataImpl):
         filtering will impact performance.
         '''
         # Note that GDAL indexes bands from 1, not 0.
+        data_format = self.get_format()
         new_dataset = self.reopen_dataset()
         print(f"gdal dataset: {self.gdal_dataset}")
         print(f"new_dataset: {new_dataset}")
         print(f"dataset subdataset: {new_dataset.GetSubDatasets()}")
         band = new_dataset.GetRasterBand(band_index + 1)
         print(f"BAND: {band}")
-        if band is None:
+        print(f"FORMAT: {data_format}")
+        if data_format == DriverNames.NetCDF.value:
             print("In NETCDF")
             filepath = self.get_filepaths()[0]
             reflectance_subdataset_path = f'NETCDF:"{filepath}":reflectance'
