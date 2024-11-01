@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 
-from .utils import make_spectral_value, convert_spectral, get_spectral_unit
+from .utils import make_spectral_value, convert_spectral, get_spectral_unit, get_netCDF_reflectance_path
 from .loaders import envi
 
 import numpy as np
@@ -214,11 +214,18 @@ class GDALRasterDataImpl(RasterDataImpl):
         filtering will impact performance.
         '''
         new_dataset = self.reopen_dataset()
-        try:
-            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-        except (RuntimeError, ValueError):
-            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            np_array = new_dataset.ReadAsArray()
+        data_format = self.get_format()
+        if data_format == DriverNames.NetCDF.value:
+            file_path = self.get_filepaths()[0]
+            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+            reflectance_dataset = gdal.Open(reflectance_subdataset_path)
+            np_array = reflectance_dataset.ReadAsArray()
+        else:
+            try:
+                np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+            except (RuntimeError, ValueError):
+                logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+                np_array = new_dataset.ReadAsArray()
 
         return np_array
 
@@ -235,27 +242,23 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        print(f"get_band_data called!")
         # Note that GDAL indexes bands from 1, not 0.
         data_format = self.get_format()
         new_dataset = self.reopen_dataset()
-        print(f"gdal dataset: {self.gdal_dataset}")
-        print(f"new_dataset: {new_dataset}")
-        print(f"dataset subdataset: {new_dataset.GetSubDatasets()}")
         band = new_dataset.GetRasterBand(band_index + 1)
-        print(f"BAND: {band}")
-        print(f"FORMAT: {data_format}")
+        # print(f"subdatasets: {new_dataset.GetSubDatasets()}")
         if data_format == DriverNames.NetCDF.value:
-            print("In NETCDF")
-            filepath = self.get_filepaths()[0]
-            reflectance_subdataset_path = f'NETCDF:"{filepath}":reflectance'
+            file_path = self.get_filepaths()[0]
+            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
             reflectance_dataset = gdal.Open(reflectance_subdataset_path)
             np_array = reflectance_dataset.GetRasterBand(band_index + 1).ReadAsArray()
         else:
-            print("Not in net cdf")
             try:
                 np_array = band.GetVirtualMemAutoArray()
             except (RuntimeError, TypeError):
                 np_array = band.ReadAsArray()
+        print(f"get_band_data ended!")
 
         return np_array
 
@@ -276,12 +279,20 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        new_dataset = self.reopen_dataset()
+        print(f"get_all_bands_at called!")
+        data_format = self.get_format()
+        if data_format == DriverNames.NetCDF.value:
+            file_path = self.get_filepaths()[0]
+            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+            new_dataset = gdal.Open(reflectance_subdataset_path)
+        else:
+            new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
         # so reshape into a 1D array with shape (bands).
         np_array = np_array.reshape(np_array.shape[0])
+        print(f"get_all_bands_at ended!")
 
         return np_array
 
@@ -289,14 +300,23 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         Returns a numpy 3D array of all the x & y values at the specified bands.
         '''
-        new_dataset = self.reopen_dataset()
-        # Note that GDAL indexes bands from 1, not 0.
+        print(f"get_multiple_band_data called!")
+        data_format = self.get_format()
+        if data_format == DriverNames.NetCDF.value:
+            file_path = self.get_filepaths()[0]
+            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+            new_dataset = gdal.Open(reflectance_subdataset_path)
+        else:
+            new_dataset = self.reopen_dataset()
+            # Note that GDAL indexes bands from 1, not 0.
         band_list = [band+1 for band in band_list_orig]
 
         # Read the specified bands
         data = new_dataset.ReadAsArray(band_list=band_list)
+        print(f"get_multiple_band_data ended!")
 
         return data
+
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
         '''
         Returns a numpy 2D array of the values of all bands at the specified
@@ -310,8 +330,16 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        new_dataset = self.reopen_dataset()
+        print(f"get_all_bands_at_rect called!")
+        data_format = self.get_format()
+        if data_format == DriverNames.NetCDF.value:
+            file_path = self.get_filepaths()[0]
+            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+            new_dataset = gdal.Open(reflectance_subdataset_path)
+        else:
+            new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
+        print(f"get_all_bands_at_rect ended!")
 
         return np_array
 
