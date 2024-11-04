@@ -587,6 +587,9 @@ class RasterDataSet:
     def get_impl(self):
         return self._impl
 
+    def get_subdataset_name(self) -> str:
+        return self._impl.subdataset_name
+
     def delete_underlying_dataset(self):
         if hasattr(self._impl, 'delete_dataset'):
             self._impl.delete_dataset()

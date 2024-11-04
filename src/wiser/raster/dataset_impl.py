@@ -31,6 +31,17 @@ class DriverNames(Enum):
     NetCDF = 'netCDF'
     JP2 = ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']
 
+emit_data_names = set(['reflectance', 'reflectance_uncertainty', 'mask', \
+                    'group_1_band_depth_unc', 'group_1_fit', 'group_2_band_depth_unc', \
+                    'group_2_fit', 'group_1_band_depth', 'group_1_mineral_id', \
+                    'group_2_band_depth', 'group_2_mineral_id', '' \
+                    'radiance', 'obs', 'Calcite', 'Chlorite', 'Dolomite', \
+                    'Goethite', 'Gypsum', 'Hematite', 'Illite+Muscovite', \
+                    'Kaolinite', 'Montmorillonite', 'Vermiculite', 'Calcite_uncert', \
+                    'Chlorite_uncert', 'Dolomite_uncert', 'Goethite_uncert', \
+                    'Gypsum_uncert', 'Hematite_uncert', 'Illite+Muscovite_uncert', \
+                    'Kaolinite_uncert', 'Montmorillonite_uncert', 'Vermiculite_uncert'])
+
 class RasterDataImpl(abc.ABC):
 
     def get_format(self) -> str:
@@ -108,6 +119,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__()
         self.gdal_dataset = gdal_dataset
+        self.subdataset_name = None
         self.data_ignore: Optional[Union[float, int]] = None
         self._validate_dataset()
         self._save_state = SaveState.UNKNOWN
@@ -170,11 +182,12 @@ class GDALRasterDataImpl(RasterDataImpl):
         always creating a new dataset from the file path.
         '''
         file_paths = self.get_filepaths()
-        
+        print(f"=======FILEPATHS: {file_paths}")
         if not file_paths:
             raise ValueError("Dataset is in-memory only, no file to reopen from.")
 
-        file_path = file_paths[0]  # Assuming the first file is the main dataset
+        file_path = self.subdataset_name if self.subdataset_name is not None else file_paths[0]  # Assuming the first file is the main dataset
+        print(f"REOPNING WITH PATH: {file_path}")
         driver = self.gdal_dataset.GetDriver().ShortName
         
         # Open the dataset with the corresponding driver
@@ -216,18 +229,18 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         new_dataset = self.reopen_dataset()
         data_format = self.get_format()
-        if data_format == DriverNames.NetCDF.value:
-            file_path = self.get_filepaths()[0]
-            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-            reflectance_dataset = gdal.Open(reflectance_subdataset_path)
-            np_array = reflectance_dataset.ReadAsArray()
-        else:
-            print(f"Data format: {data_format}")
-            try:
-                np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-            except (RuntimeError, ValueError):
-                logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-                np_array = new_dataset.ReadAsArray()
+        # if data_format == DriverNames.NetCDF.value:
+        #     file_path = self.get_filepaths()[0]
+        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+        #     reflectance_dataset = gdal.Open(reflectance_subdataset_path)
+        #     np_array = reflectance_dataset.ReadAsArray()
+        # else:
+        #     print(f"Data format: {data_format}")
+        try:
+            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+        except (RuntimeError, ValueError):
+            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+            np_array = new_dataset.ReadAsArray()
 
         return np_array
 
@@ -273,18 +286,18 @@ class GDALRasterDataImpl(RasterDataImpl):
         band = new_dataset.GetRasterBand(band_index + 1)
         print(f"subdatasets: {new_dataset.GetSubDatasets()}")
         # print(f"new dataset meta data: {new_dataset.GetMetadata()}")
-        if data_format == DriverNames.NetCDF.value:
-            file_path = self.get_filepaths()[0]
-            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-            print(f"reflectance_subdataset_path: {reflectance_subdataset_path}")
-            reflectance_dataset = gdal.Open(reflectance_subdataset_path)
-            np_array = reflectance_dataset.GetRasterBand(band_index + 1).ReadAsArray()
-        else:
-            print(f"Data format: {data_format}")
-            try:
-                np_array = band.GetVirtualMemAutoArray()
-            except (RuntimeError, TypeError):
-                np_array = band.ReadAsArray()
+        # if data_format == DriverNames.NetCDF.value:
+        #     file_path = self.get_filepaths()[0]
+        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+        #     print(f"reflectance_subdataset_path: {reflectance_subdataset_path}")
+        #     reflectance_dataset = gdal.Open(reflectance_subdataset_path)
+        #     np_array = reflectance_dataset.GetRasterBand(band_index + 1).ReadAsArray()
+        # else:
+        #     print(f"Data format: {data_format}")
+        try:
+            np_array = band.GetVirtualMemAutoArray()
+        except (RuntimeError, TypeError):
+            np_array = band.ReadAsArray()
         print(f"get_band_data ended!")
 
         return np_array
@@ -308,13 +321,13 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     xsize=1, ysize=1)
         print(f"get_all_bands_at called!")
         data_format = self.get_format()
-        if data_format == DriverNames.NetCDF.value:
-            file_path = self.get_filepaths()[0]
-            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-            new_dataset = gdal.Open(reflectance_subdataset_path)
-        else:
-            print(f"Data format: {data_format}")
-            new_dataset = self.reopen_dataset()
+        # if data_format == DriverNames.NetCDF.value:
+        #     file_path = self.get_filepaths()[0]
+        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+        #     new_dataset = gdal.Open(reflectance_subdataset_path)
+        # else:
+        print(f"Data format: {data_format}")
+        new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
@@ -330,14 +343,14 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         print(f"get_multiple_band_data called!")
         data_format = self.get_format()
-        if data_format == DriverNames.NetCDF.value:
-            file_path = self.get_filepaths()[0]
-            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-            new_dataset = gdal.Open(reflectance_subdataset_path)
-        else:
-            print(f"Data format: {data_format}")
-            new_dataset = self.reopen_dataset()
-            # Note that GDAL indexes bands from 1, not 0.
+        # if data_format == DriverNames.NetCDF.value:
+        #     file_path = self.get_filepaths()[0]
+        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+        #     new_dataset = gdal.Open(reflectance_subdataset_path)
+        # else:
+        print(f"Data format: {data_format}")
+        new_dataset = self.reopen_dataset()
+        # Note that GDAL indexes bands from 1, not 0.
         band_list = [band+1 for band in band_list_orig]
 
         # Read the specified bands
@@ -361,13 +374,13 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     xsize=1, ysize=1)
         print(f"get_all_bands_at_rect called!")
         data_format = self.get_format()
-        if data_format == DriverNames.NetCDF.value:
-            file_path = self.get_filepaths()[0]
-            reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-            new_dataset = gdal.Open(reflectance_subdataset_path)
-        else:
-            print(f"Data format: {data_format}")
-            new_dataset = self.reopen_dataset()
+        # if data_format == DriverNames.NetCDF.value:
+        #     file_path = self.get_filepaths()[0]
+        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
+        #     new_dataset = gdal.Open(reflectance_subdataset_path)
+        # else:
+        print(f"Data format: {data_format}")
+        new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
         print(f"get_all_bands_at_rect ended!")
 
@@ -444,7 +457,7 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
     @classmethod
-    def try_load_file(cls, path: str) -> 'GTiff_GDALRasterDataImpl':
+    def try_load_file(cls, path: str) -> ['GTiff_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -453,7 +466,7 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
             allowed_drivers=['GTiff'])
 
-        return cls(gdal_dataset)
+        return [cls(gdal_dataset)]
 
 
     def __init__(self, gdal_dataset):
@@ -461,7 +474,7 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
 
 class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
-    def try_load_file(cls, path: str) -> 'NetCDF_GDALRasterDataImpl':
+    def try_load_file(cls, path: str) -> ['NetCDF_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
         # Open the netCDF file
@@ -476,14 +489,43 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
         # Check for subdatasets
         subdatasets = gdal_dataset.GetSubDatasets()
+        instances_list = []  # List to hold instances of the class
+    
         if subdatasets:
-            # For this example, select the first subdataset
-            first_subdataset_name = subdatasets[0][0]
-            gdal_dataset = gdal.Open(first_subdataset_name)
-            if gdal_dataset is None:
-                raise ValueError(f"Unable to open subdataset: {first_subdataset_name}")
-        print(f"gdal dataset made as: {gdal_dataset}")
-        return cls(gdal_dataset)
+            for subdataset_name, description in subdatasets:
+                # Extract the actual subdataset name from the path (e.g., "reflectance", "Calcite", etc.)
+                subdataset_key = subdataset_name.split(':')[-1]
+                
+                # Check if the subdataset name is in the emit_data_names set
+                if subdataset_key in emit_data_names:
+                    print(f"Processing subdataset: {subdataset_key}")
+                    
+                    # Open the subdataset
+                    gdal_subdataset = gdal.Open(subdataset_name)
+                    if gdal_subdataset is None:
+                        raise ValueError(f"Unable to open subdataset: {subdataset_name}")
+                    
+                    # Create an instance of the class for each matching subdataset
+                    instance = cls(gdal_subdataset)
+                    instance.subdataset_name = subdataset_name
+                    
+                    # Add the instance to the list
+                    instances_list.append(instance)
+
+        print(f"Total instances created: {len(instances_list)}")
+        return instances_list
+        # if subdatasets:
+        #     # For this example, select the first subdataset
+        #     first_subdataset_name = subdatasets[0][0]
+        #     print(f"FIRST SUBDATASET NAME: {first_subdataset_name}")
+        #     gdal_dataset = gdal.Open(first_subdataset_name)
+        #     print(f"!!!!!!!!!!!!!! {gdal_dataset.GetFileList()}")
+        #     if gdal_dataset is None:
+        #         raise ValueError(f"Unable to open subdataset: {first_subdataset_name}")
+        # print(f"gdal dataset made as: {gdal_dataset}")
+        # instance = [cls(gdal_dataset)]
+        # instance.subdataset_name = first_subdataset_name
+        # return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
@@ -504,7 +546,7 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
         return path
 
     @classmethod
-    def try_load_file(cls, path: str) -> 'JP2_GDALRasterDataImpl':
+    def try_load_file(cls, path: str) -> ['JP2_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
         print("ATTEMPTING JP2")
@@ -523,7 +565,7 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
                 if gdal_dataset is not None:
                     logger.debug(f"Opened {load_path} with driver {driver}")
                     print("Successfully opened jpeg200 file!")
-                    return cls(gdal_dataset)
+                    return [cls(gdal_dataset)]
             except RuntimeError as e:
                 logger.warning(f"Failed to open {load_path} with driver {driver}: {e}")
                 continue
@@ -553,7 +595,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
     @classmethod
-    def try_load_file(cls, path: str) -> 'GTiff_ENVIRasterDataImpl':
+    def try_load_file(cls, path: str) -> ['GTiff_ENVIRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -562,7 +604,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
             allowed_drivers=['ENVI'])
 
-        return cls(gdal_dataset)
+        return [cls(gdal_dataset)]
 
 
     @staticmethod

@@ -256,8 +256,10 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
         
-        raster_data = self._raster_data_loader.load_from_file(file_path)
-        self.add_dataset(raster_data)
+        raster_data_list = self._raster_data_loader.load_from_file(file_path)
+        
+        for raster_data in raster_data_list:
+            self.add_dataset(raster_data)
 
 
     def add_dataset(self, dataset: RasterDataSet):
