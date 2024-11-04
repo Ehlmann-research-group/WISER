@@ -45,28 +45,35 @@ class RasterDataLoader:
 
         # Iterate through all supported formats, and try to use each one to
         # load the raster data.
-        impl = None
+        impl_list = None
         for (driver_name, impl_type) in self._formats.items():
             try:
-                impl = impl_type.try_load_file(path)
+                impl_list = impl_type.try_load_file(path)
 
             except Exception as e:
                 print(f"Exception: \n {e}")
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
 
-        if impl is None:
+        if impl_list is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
 
-        ds = RasterDataSet(impl)
-        files = ds.get_filepaths()
-        if files:
-            name = os.path.basename(files[0])
-        else:
-            name = os.path.basename(path)
-        ds.set_name(name)
+        datasets = []
+        for impl in impl_list:
+            ds = RasterDataSet(impl)
+            files = ds.get_filepaths()
+            if files:
+                name = os.path.basename(files[0])
+            else:
+                name = os.path.basename(path)
+            subdataset_name = ds.get_subdataset_name()
+            if subdataset_name is not None:
+                name += ":" + subdataset_name.split(":")[-1]
 
-        return ds
+            ds.set_name(name)
+            datasets.append(ds)
+
+        return datasets
 
 
     def get_save_filenames(self, path: str, format: str = 'ENVI') -> List[str]:

@@ -105,9 +105,9 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
     }
 
     loader = RasterDataLoader()
-    large_band_dataset = loader.load_from_file(large_band_dataset_path)
-    normal_image_cube = loader.load_from_file(normal_image_cube_path)
-    large_image_cube = loader.load_from_file(large_image_cube_path)
+    large_band_dataset = loader.load_from_file(large_band_dataset_path)[0]
+    normal_image_cube = loader.load_from_file(normal_image_cube_path)[0]
+    large_image_cube = loader.load_from_file(large_image_cube_path)[0]
     b1 = large_band_dataset.get_band_data(0)
     b2 = large_band_dataset.get_band_data(1)
     b3 = large_band_dataset.get_band_data(2)
@@ -286,7 +286,7 @@ def test_both_methods(hdr_paths, N=1):
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
-        dataset = loader.load_from_file(hdr_file)
+        dataset = loader.load_from_file(hdr_file)[0]
         band = dataset.get_band_data(0)
         band2 = dataset.get_band_data(1)
         band3 = dataset.get_band_data(2)

@@ -163,7 +163,7 @@ def run_function_in_ui(dataset_path, func):
         wiser_ui.show()
 
         loader = RasterDataLoader()
-        dataset = loader.load_from_file(dataset_path)
+        dataset = loader.load_from_file(dataset_path)[0]
 
         # Create an application state, no need to pass the app here
         app_state = wiser_ui._app_state
