@@ -182,12 +182,10 @@ class GDALRasterDataImpl(RasterDataImpl):
         always creating a new dataset from the file path.
         '''
         file_paths = self.get_filepaths()
-        print(f"=======FILEPATHS: {file_paths}")
         if not file_paths:
             raise ValueError("Dataset is in-memory only, no file to reopen from.")
 
         file_path = self.subdataset_name if self.subdataset_name is not None else file_paths[0]  # Assuming the first file is the main dataset
-        print(f"REOPNING WITH PATH: {file_path}")
         driver = self.gdal_dataset.GetDriver().ShortName
         
         # Open the dataset with the corresponding driver
@@ -326,7 +324,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
         #     new_dataset = gdal.Open(reflectance_subdataset_path)
         # else:
-        print(f"Data format: {data_format}")
+        # print(f"Data format: {data_format}")
         new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
@@ -348,7 +346,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
         #     new_dataset = gdal.Open(reflectance_subdataset_path)
         # else:
-        print(f"Data format: {data_format}")
+        # print(f"Data format: {data_format}")
         new_dataset = self.reopen_dataset()
         # Note that GDAL indexes bands from 1, not 0.
         band_list = [band+1 for band in band_list_orig]
@@ -379,7 +377,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
         #     new_dataset = gdal.Open(reflectance_subdataset_path)
         # else:
-        print(f"Data format: {data_format}")
+        # print(f"Data format: {data_format}")
         new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
         print(f"get_all_bands_at_rect ended!")
@@ -468,6 +466,27 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
 
         return [cls(gdal_dataset)]
 
+
+    def __init__(self, gdal_dataset):
+        super().__init__(gdal_dataset)
+
+class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
+    @classmethod
+    def try_load_file(cls, path: str) -> ['FITS_GDALRasterDataImpl']:
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+
+        # Open the FITS file
+        gdal_dataset = gdal.OpenEx(
+            path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['FITS']
+        )
+
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open FITS file: {path}")
+
+        return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
@@ -1004,7 +1023,6 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             bad_bands = [1] * self.num_bands()
 
         return bad_bands
-
 
 class NumPyRasterDataImpl(RasterDataImpl):
 
