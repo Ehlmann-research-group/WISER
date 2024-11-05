@@ -74,8 +74,11 @@ class RectangleSelectionCreator(TaskDelegate):
             return
 
         scale = self._rasterview.get_scale()
-        p1_scaled = self._point1 * scale
-        p2_scaled = self._point2 * scale
+        print(f"before point1: {self._point1} | point2: {self._point2}")
+        # p1_scaled = self._point1 * scale
+        p1_scaled = QPointF(float(self._point1.x() * scale), float(self._point1.y() * scale))
+        # p2_scaled = self._point2 * scale
+        p2_scaled = QPointF(float(self._point2.x() * scale), float(self._point2.y() * scale))
 
         # Draw a box between the two points, using a dotted rectangle.
 
@@ -84,6 +87,9 @@ class RectangleSelectionCreator(TaskDelegate):
         pen.setStyle(Qt.DashLine)
         painter.setPen(pen)
         rect = get_rectangle(p1_scaled, p2_scaled)
+        print(f"scale before: {scale}")
+        print(f"P1: {p1_scaled} | P2: {p2_scaled}")
+        print(f"Rect: {rect.getCoords()}")
         painter.drawRect(rect)
 
         # Draw boxes on the two points themselves.
@@ -101,6 +107,9 @@ class RectangleSelectionCreator(TaskDelegate):
         if self._point1 is None or self._point2 is None:
             return
 
+        print(f"point1: {self._point1} | point2: {self._point2}")
+        scale = self._rasterview.get_scale()
+        print(f"scale after: {scale}")
         sel = RectangleSelection(self._point1, self._point2)
         roi = self._rasterpane.get_current_roi()
         roi.add_selection(sel)
