@@ -51,7 +51,7 @@ def get_spectral_unit(unit_str: str) -> u.Unit:
     try:
         return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
     except BaseException as e:
-        return u.def_unit("Unknown", represents=u.nm)
+        return u.def_unit("Unknown", represents=u.cm)
 
 def spectral_unit_to_string(unit: u.Unit) -> str:
     for k, v in KNOWN_SPECTRAL_UNITS.items():
@@ -120,7 +120,7 @@ def find_band_near_wavelength(bands: List[Dict],
 
 def find_closest_wavelength(wavelengths: List[u.Quantity],
                             input_wavelength: u.Quantity,
-                            max_distance: u.Quantity = 20*u.nm) -> Optional[int]:
+                            max_distance: u.Quantity = None) -> Optional[int]:
     '''
     Given a list of wavelengths and an input wavelength, this function returns
     the index of the wavelength closest to the input wavelength.  If no
@@ -128,7 +128,8 @@ def find_closest_wavelength(wavelengths: List[u.Quantity],
     '''
 
     # Do the whole calculation in nm to keep things simple.
-
+    if max_distance is None:
+        max_distance = 20*input_wavelength.unit.si
     input_value = convert_spectral(input_wavelength, u.nm).value
     max_dist_value = None
     if max_distance is not None:
