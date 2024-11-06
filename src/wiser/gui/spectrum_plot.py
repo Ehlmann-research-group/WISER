@@ -841,48 +841,6 @@ class SpectrumPlot(QWidget):
     def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
         return self._dataset
 
-    def _add_spectrum_and_refresh_plot(self, spectrum, treeitem):
-        display_info = SpectrumDisplayInfo(spectrum)
-        self._spectrum_display_info[spectrum.get_id()] = display_info
-
-        # Figure out whether we should use wavelengths or not in the plot.
-        use_wavelengths = False
-        if spectrum.has_wavelengths():
-            # TODO(donnie):  This is ugly.  Find a way to expose wavelength units
-            #     on datasets and spectra.
-            self._x_units = spectrum.get_wavelengths()[0].unit
-
-            self._displayed_spectra_with_wavelengths += 1
-            if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
-                use_wavelengths = True
-
-        if use_wavelengths == self._plot_uses_wavelengths:
-            # Nothing has changed, so just generate a plot for the new spectrum
-            display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
-
-        else:
-            # Need to regenerate all plots with the new "use wavelengths" value
-
-            axes_font = get_font_properties(self._font_name, self._font_size['axes'])
-            if use_wavelengths:
-                unit_name = UNIT_NAME_MAPPING[self._x_units]
-                self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
-                    labelpad=0, fontproperties=axes_font)
-                self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
-            else:
-                self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=axes_font)
-                self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
-
-            for other_info in self._spectrum_display_info.values():
-                other_info.generate_plot(self._axes, use_wavelengths, self._x_units)
-
-            self._plot_uses_wavelengths = use_wavelengths
-
-        # Show the plot's color in the tree widget
-        treeitem.setIcon(0, display_info.get_icon())
-
-        return display_info
-
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
