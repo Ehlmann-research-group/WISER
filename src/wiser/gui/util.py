@@ -13,6 +13,8 @@ import numpy as np
 
 import wiser.gui.generated.resources
 
+def scale_qpoint_by_float(point: QPoint, scale: float):
+    return QPoint(float(point.x() * scale), float(point.y() * scale))
 
 def str_or_none(s: Optional[str]) -> str:
     '''
