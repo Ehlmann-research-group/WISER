@@ -290,9 +290,7 @@ class SpectrumPointDisplayInfo:
             x_value = self._spectrum.get_wavelengths()[self._band_index]
 
             if self._band_units is not None:
-                print("Converting to spectral in generate plot for spectrum point display info")
                 x_value = raster_utils.convert_spectral(x_value, self._band_units)
-            print(f"self._band_units: {self._band_units}")
             label = f'{x_value} = {y_value_str}'
         else:
             x_value = self._band_index * u.dimensionless_unscaled
@@ -858,8 +856,6 @@ class SpectrumPlot(QWidget):
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
                 use_wavelengths = True
 
-
-        print(f"plot uses wavelengths?: {self._plot_uses_wavelengths}")
         if use_wavelengths == self._plot_uses_wavelengths:
             # Nothing has changed, so just generate a plot for the new spectrum
             display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
@@ -902,11 +898,8 @@ class SpectrumPlot(QWidget):
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
                 use_wavelengths = True
 
-
-        print(f"plot uses wavelengths?: {self._plot_uses_wavelengths}")
         axes_font = get_font_properties(self._font_name, self._font_size['axes'])
         if use_wavelengths == self._plot_uses_wavelengths:
-            print("!!!!!!Displaying each")
             for _, single_display_info in self._spectrum_display_info.items():
                 # Nothing has changed, so just generate a plot for the new spectrum
                 single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
@@ -1359,7 +1352,6 @@ class SpectrumPlot(QWidget):
                 spectrum_color = self._active_spectrum_color
                 spectrum.set_color(spectrum_color)
 
-            print(f"_on_active_spectrum_changed")
             display_info = self._add_spectrum_to_plot(spectrum, self._treeitem_active)
 
             # Update the tree-item for the active spectrum
@@ -1386,7 +1378,6 @@ class SpectrumPlot(QWidget):
 
 
     def _on_collected_spectra_changed(self, change, index):
-        print(f"_on_collected_spectra_changed")
         if change == StateChange.ITEM_ADDED:
             spectrum = self._app_state.get_collected_spectra()[index]
             treeitem = QTreeWidgetItem([spectrum.get_name()])
@@ -1395,8 +1386,7 @@ class SpectrumPlot(QWidget):
             self._treeitem_collected.insertChild(index, treeitem)
             self._treeitem_collected.setHidden(False)
             self._treeitem_collected.setExpanded(True)
-            
-            print(f"_on_collected_spectra_changed, _add_spectrum_to_plot")
+
             self._add_spectrum_to_plot(spectrum, treeitem)
 
         elif change == StateChange.ITEM_REMOVED:
@@ -1543,14 +1533,12 @@ class SpectrumPlot(QWidget):
         This function handles the context-menu option for toggling the
         visibility of a spectrum plot.
         '''
-        print(f"_on_toggle_spectrum_visible")
         spectrum = treeitem.data(0, Qt.UserRole)
         display_info = self._spectrum_display_info.get(spectrum.get_id())
 
         # Toggle the visibility of the spectrum.
         if display_info is None:
             # Make visible
-            print(f"_on_toggle_spectrum_visible, _add_spectrum_to_plot")
             self._add_spectrum_to_plot(spectrum, treeitem)
 
         else:
@@ -1672,7 +1660,6 @@ class SpectrumPlot(QWidget):
         menu operation.  It is available on the "collected spectra" group, and
         the loaded spectral library groups.
         '''
-        print(f"_on_show_all_spectra")
         for i in range(treeitem.childCount()):
             child_treeitem = treeitem.child(i)
             spectrum = child_treeitem.data(0, Qt.UserRole)
@@ -1681,7 +1668,6 @@ class SpectrumPlot(QWidget):
             # Toggle the visibility of the spectrum.
             if display_info is None:
                 # Make visible
-                print(f"_on_show_all_spectra, _add_spectrum_to_plot")
                 self._add_spectrum_to_plot(spectrum, child_treeitem)
 
         self._draw_spectra()
