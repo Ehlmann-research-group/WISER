@@ -40,7 +40,6 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
     "angstroms"     : u.angstrom,
     "ghz"           : u.GHz,
     "mhz"           : u.MHz,
-    "unknown"       : u.dimensionless_unscaled,
 }
 
 
@@ -76,8 +75,6 @@ def convert_spectral(value: u.Quantity, to_unit: u.Unit) -> u.Quantity:
     Convert a spectral value with units (e.g. a frequency or wavelength),
     to the specified units.
     '''
-    if to_unit.is_equivalent(u.dimensionless_unscaled):
-        return value
     return value.to(to_unit, equivalencies=u.spectral())
 
 
