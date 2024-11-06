@@ -12,7 +12,7 @@ from PySide2.QtWidgets import *
 import numpy as np
 from matplotlib import cm
 
-from .util import get_painter
+from .util import get_painter, scale_qpoint_by_float
 
 from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.stretch import StretchBase
