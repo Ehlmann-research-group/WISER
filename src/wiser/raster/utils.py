@@ -51,7 +51,7 @@ def get_spectral_unit(unit_str: str) -> u.Unit:
     try:
         return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
     except BaseException as e:
-        return u.def_unit("Unknown", represents=u.cm)
+        return u.def_unit("Unknown", represents=u.nm)
 
 def spectral_unit_to_string(unit: u.Unit) -> str:
     for k, v in KNOWN_SPECTRAL_UNITS.items():
@@ -128,12 +128,15 @@ def find_closest_wavelength(wavelengths: List[u.Quantity],
     '''
 
     # Do the whole calculation in nm to keep things simple.
+    print(f"======FIND CLOSEST CALLED!!!!!!!!!!!!!!!")
     if max_distance is None:
         max_distance = 20*input_wavelength.unit.si
     input_value = convert_spectral(input_wavelength, u.nm).value
+    print(f"input_value: {input_value}")
     max_dist_value = None
     if max_distance is not None:
         max_dist_value = convert_spectral(max_distance, u.nm).value
+        print(f"max_dist_value: {max_dist_value}")
 
     values = [convert_spectral(v, u.nm).value for v in wavelengths]
 
