@@ -40,7 +40,6 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
     "angstroms"     : u.angstrom,
     "ghz"           : u.GHz,
     "mhz"           : u.MHz,
-    "unknown"       : u.dimensionless_unscaled,
 }
 
 
@@ -52,7 +51,7 @@ def get_spectral_unit(unit_str: str) -> u.Unit:
     try:
         return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
     except BaseException as e:
-        return KNOWN_SPECTRAL_UNITS["unknown"]
+        return u.def_unit("Unknown", represents=u.nm)
 
 def spectral_unit_to_string(unit: u.Unit) -> str:
     for k, v in KNOWN_SPECTRAL_UNITS.items():
@@ -131,7 +130,6 @@ def find_closest_wavelength(wavelengths: List[u.Quantity],
     # Do the whole calculation in nm to keep things simple.
 
     input_value = convert_spectral(input_wavelength, u.nm).value
-
     max_dist_value = None
     if max_distance is not None:
         max_dist_value = convert_spectral(max_distance, u.nm).value
