@@ -377,6 +377,24 @@ class SpectrumPlotDatasetChooser(DatasetChooser):
             menu.addAction(act)
 
 
+UNIT_NAME_MAPPING = {
+    u.cm: "Wavelength",
+    u.m: "Wavelength",
+    u.micrometer: "Wavelength",
+    u.millimeter: "Wavelength",
+    u.micron: "Wavelength",
+    u.nanometer: "Wavelength",
+    u.centimeter: "Wavelength",
+    u.meter: "Wavelength",
+    u.millimeter: "Wavelength",
+    u.nanometer: "Wavelength",
+    u.micrometer: "Wavelength",
+    u.cm ** -1: "Wavenumber",
+    u.angstrom: "Wavelength",
+    u.GHz: "Wavelength",
+    u.MHz: "Wavelength"
+}
+
 class SpectrumPlot(QWidget):
     '''
     This widget provides a spectrum-plot window in the user interface.
@@ -839,6 +857,8 @@ class SpectrumPlot(QWidget):
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
                 use_wavelengths = True
 
+
+
         if use_wavelengths == self._plot_uses_wavelengths:
             # Nothing has changed, so just generate a plot for the new spectrum
             display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
@@ -848,7 +868,8 @@ class SpectrumPlot(QWidget):
 
             axes_font = get_font_properties(self._font_name, self._font_size['axes'])
             if use_wavelengths:
-                self._axes.set_xlabel(f'Wavelength ({self._x_units})',
+                unit_name = UNIT_NAME_MAPPING[self._x_units]
+                self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
                     labelpad=0, fontproperties=axes_font)
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
             else:
