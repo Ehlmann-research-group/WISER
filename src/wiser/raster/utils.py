@@ -40,6 +40,7 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
     "angstroms"     : u.angstrom,
     "ghz"           : u.GHz,
     "mhz"           : u.MHz,
+    "unknown"       : u.dimensionless_unscaled,
 }
 
 
@@ -48,8 +49,10 @@ def get_spectral_unit(unit_str: str) -> u.Unit:
     Given a string representation of the units, this function returns an
     ``astropy.units.Unit`` object to represent the unit.
     '''
-    return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
-
+    try:
+        return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
+    except BaseException as e:
+        return KNOWN_SPECTRAL_UNITS["unknown"]
 
 def spectral_unit_to_string(unit: u.Unit) -> str:
     for k, v in KNOWN_SPECTRAL_UNITS.items():
