@@ -5,6 +5,8 @@ from PySide2.QtWidgets import *
 from .task_delegate import TaskDelegate
 from wiser.raster.selection import MultiPixelSelection
 
+from .util import scale_qpoint_by_float
+
 
 # This is the offset for how the bounding rectangle is drawn around the pixels
 # in a multi-pixel selection.
@@ -26,7 +28,7 @@ def draw_multi_pixel_selection(rasterview, painter, mp_sel, color, active=False)
     pen = QPen(color)
     painter.setPen(pen)
 
-    points_scaled = [p * scale for p in mp_sel.get_pixels()]
+    points_scaled = [scale_qpoint_by_float(p, scale) for p in mp_sel.get_pixels()]
 
     for p in points_scaled:
         if scale >= 6:
@@ -95,7 +97,7 @@ class MultiPixelSelectionManipulator(TaskDelegate):
 
         scale = self._rasterview.get_scale()
 
-        points_scaled = [p * scale for p in self._points]
+        points_scaled = [scale_qpoint_by_float(p, scale) for p in self._points]
 
         color = self._app_state.get_config('raster.selection.edit_outline')
         painter.setPen(QPen(color))

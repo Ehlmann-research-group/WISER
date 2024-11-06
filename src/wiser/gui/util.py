@@ -32,6 +32,9 @@ def delete_all_files_in_folder(folder_path):
     else:
         print(f"Directory {folder_path} does not exist.")
 
+def scale_qpoint_by_float(point: QPoint, scale: float):
+    return QPoint(float(point.x() * scale), float(point.y() * scale))
+
 def str_or_none(s: Optional[str]) -> str:
     '''
     Formats an optional string for logging.  If the argument is a string then
