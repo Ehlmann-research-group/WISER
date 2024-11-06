@@ -183,7 +183,6 @@ class RectangleSelection(Selection):
         return self._point2
 
     def get_rect(self):
-        print(f"rectangle selection: {get_rectangle(self._point1, self._point2)}")
         return get_rectangle(self._point1, self._point2)
 
     def is_picked_by(self, coord):
@@ -226,12 +225,9 @@ class PolygonSelection(Selection):
         self._rasterized_poly = None
 
     def num_points(self):
-        print("num points!")
         return len(self._points)
 
     def get_points(self):
-        print("get points!")
-        print(f"points: {self._points}")
         return self._points
 
     def get_bounding_box(self):
@@ -246,18 +242,15 @@ class PolygonSelection(Selection):
         return QRect(x_min, y_min, x_max - x_min, y_max - y_min)
 
     def is_picked_by(self, coord):
-        print("is_picked_by!")\
         # TODO(donnie):  Implement proper polygon picking
         return self.get_bounding_box().contains(coord)
     
     def get_rasterized_polygon(self) -> RasterizedPolygon:
-        print("get_rasterized_polygon!")
         if self._rasterized_poly == None:
             self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
         return self._rasterized_poly
     
     def get_all_pixels(self) -> Set[Tuple[int, int]]:
-        print("get_all_pixels!")
         if self._rasterized_poly == None:
             self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
         return self._rasterized_poly.get_set()
@@ -276,9 +269,7 @@ class PolygonSelection(Selection):
 
     def from_pyrep(data):
         assert data['type'] == SelectionType.POLYGON.name
-        print(f"from_pyrep points: {data['points']}")
         points = [QPoint(p[0], p[1]) for p in data['points']]
-        print(f"from_pyrep QPoints: {points}")
         return PolygonSelection(points)
 
 class PredicateSelection(Selection):

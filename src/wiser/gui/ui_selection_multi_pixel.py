@@ -98,7 +98,6 @@ class MultiPixelSelectionManipulator(TaskDelegate):
         scale = self._rasterview.get_scale()
 
         points_scaled = [scale_qpoint_by_float(p, scale) for p in self._points]
-        # points_scaled = [p * scale for p in self._points]
 
         color = self._app_state.get_config('raster.selection.edit_outline')
         painter.setPen(QPen(color))

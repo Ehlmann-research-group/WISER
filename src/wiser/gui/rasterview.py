@@ -853,8 +853,6 @@ class RasterView(QWidget):
         # Scale the screen position into the dataset's coordinate system.
         scaled = position / self._scale_factor
 
-        # scaled = scale_qpoint_by_float(position, 1 / self._scale_factor)
-
         # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
         # it rounds to the nearest point, and we just want truncation/floor.
         return QPoint(int(scaled.x()), int(scaled.y()))

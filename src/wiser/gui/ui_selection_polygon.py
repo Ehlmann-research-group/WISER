@@ -124,12 +124,6 @@ class PolygonSelectionCreator(TaskDelegate):
         closed_loop = False
         points_scaled = [scale_qpoint_by_float(p, scale) \
                          for p in self._points]
-        # points_scaled = [QPoint(float(p.x() * scale), float(p.y() * scale)) \
-        #                  for p in self._points]
-        # points_scaled = [p * scale for p in self._points]
-        # print(f"points_scaled: {points_scaled}")
-        # print(f"self._points: {self._points}")
-        # print(f"scale: {scale}")
         if self._cursor_position is not None:
             cp_scaled = scale_qpoint_by_float(self._cursor_position, scale)
 
