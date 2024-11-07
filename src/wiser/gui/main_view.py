@@ -358,7 +358,6 @@ class MainViewWidget(RasterPane):
         '''
         # Invoke the superclass version of this operation to emit the
         # viewport-changed event.
-        print(f"MainViewWidget _afterRasterScroll")
         super()._afterRasterScroll(rasterview, dx, dy)
         self._sync_scroll_state(rasterview)
 

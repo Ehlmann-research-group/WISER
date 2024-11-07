@@ -920,8 +920,6 @@ class DataVisualizerApp(QMainWindow):
         # TODO(donnie):  Handle this!!  Need to iterate through all raster-views
         #     and draw their viewports in the context pane.  If the main view
         #     has linked scrolling enabled, we only need to draw one box though.
-        print(f"[[[[[[[[[]]]]]]]]]")
-        print("_on_mainview_viewport_change")
         if rasterview_position is None:
             return
 
@@ -931,8 +929,7 @@ class DataVisualizerApp(QMainWindow):
         else:
             rasterview = self._main_view.get_rasterview(rasterview_position)
             visible_region = rasterview.get_visible_region()
-        print(f"visible region: {visible_region}")
-        print("==============")
+
         self._context_pane.set_viewport_highlight(visible_region)
 
 
