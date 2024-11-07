@@ -571,7 +571,7 @@ class RasterPane(QWidget):
         return len(self._rasterviews) > 1
 
 
-    def get_rasterview(self, rasterview_pos=(0, 0)):
+    def get_rasterview(self, rasterview_pos=(0, 0)) -> RasterView:
         '''
         Returns the raster-view at the specified (row, column) position in the
         raster-pane.  The default (row, column) value is (0, 0), which can be
@@ -641,6 +641,7 @@ class RasterPane(QWidget):
         Override the QtWidget resizeEvent() virtual method to fire an event that
         the visible region of the raster-view has changed.
         '''
+        print(f"RasterPane resizeEvent")
         self._emit_viewport_change()
 
 
@@ -711,6 +712,7 @@ class RasterPane(QWidget):
         This function is called when the scroll-area moves around.  Fire an
         event that the visible region of the raster-view has changed.
         '''
+        print(f"RasterPane _afterRasterScroll")
         self._emit_viewport_change()
 
 
@@ -846,6 +848,7 @@ class RasterPane(QWidget):
         If multiple raster-views are active, and scrolling is linked, this also
         propagates the scroll changes to the other raster-views.
         '''
+        print(f"RasterPane _afterRasterScroll 2")
         self._emit_viewport_change(self._get_rasterview_position(rasterview))
 
 
@@ -911,6 +914,7 @@ class RasterPane(QWidget):
 
     def _emit_viewport_change(self, rasterview_pos=None):
         ''' A helper that emits the viewport-changed event. '''
+        print(f"rasterview_pos: {rasterview_pos}")
         self.viewport_change.emit(rasterview_pos)
 
 
@@ -1245,10 +1249,12 @@ class RasterPane(QWidget):
 
     def _on_zoom_out(self, evt):
         ''' Zoom out the zoom-view by one level. '''
+        print("_on_zoom_out")
         scale = self.get_scale()
         new_scale = self._zoom_out_scale(scale)
 
         if self._min_zoom_scale is None or new_scale >= self._min_zoom_scale:
+            print(f"_on_zoom_out if statement")
             self.set_scale(new_scale)
 
         self._update_zoom_widgets()
@@ -1333,6 +1339,7 @@ class RasterPane(QWidget):
 
 
     def _update_zoom_widgets(self):
+        print(f"Update zoom windgets")
         scale = self.get_scale()
 
         # Enable / disable zoom buttons based on scale

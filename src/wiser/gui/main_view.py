@@ -354,6 +354,7 @@ class MainViewWidget(RasterPane):
         '''
         # Invoke the superclass version of this operation to emit the
         # viewport-changed event.
+        print(f"MainViewWidget _afterRasterScroll")
         super()._afterRasterScroll(rasterview, dx, dy)
         self._sync_scroll_state(rasterview)
 
@@ -393,3 +394,15 @@ class MainViewWidget(RasterPane):
             self.set_scale(rasterview.get_scale())
 
         self._update_zoom_widgets()
+
+    def _on_zoom_in(self, evt):
+        ''' Zoom in the zoom-view by one level. '''
+        super()._on_zoom_in(evt)
+        self.viewport_change.emit(self._get_rasterview_position(self.get_rasterview()))
+
+
+
+    def _on_zoom_out(self, evt):
+        ''' Zoom out the zoom-view by one level. '''
+        super()._on_zoom_out(evt)
+        self.viewport_change.emit(self._get_rasterview_position(self.get_rasterview()))
