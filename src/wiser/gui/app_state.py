@@ -57,6 +57,9 @@ class ApplicationState(QObject):
     # Signal:  the data-set with the specified ID was removed
     dataset_removed = Signal(int)
 
+    # Signal: the mainview dataset was changed
+    mainview_dataset_changed = Signal(int)
+
     # Signal:  a spectral library with the specified ID was added
     spectral_library_added = Signal(int)
 

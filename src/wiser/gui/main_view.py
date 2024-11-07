@@ -278,6 +278,10 @@ class MainViewWidget(RasterPane):
         # Finally, remove the dataset.
         self._app_state.remove_dataset(dataset.get_id())
 
+    
+    def _on_dataset_changed(self, act):
+        super()._on_dataset_changed(act)
+        self._app_state.mainview_dataset_changed.emit(self.get_rasterview().get_raster_data().get_id())
 
     def get_stretch_builder(self):
         return self._stretch_builder

@@ -311,6 +311,7 @@ class RasterPane(QWidget):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+        self._app_state.mainview_dataset_changed.connect(self._on_dataset_added)
         self._app_state.stretch_changed.connect(self._on_stretch_changed)
 
 
@@ -1130,6 +1131,16 @@ class RasterPane(QWidget):
         this is the first dataset loaded, the function shows it in all
         rasterviews.
         '''
+        self._view_dataset(ds_id)
+    
+    def _view_dataset(self, ds_id):
+        '''
+        This function changes the current raster pane's view to that of the dataset
+        from ds_id.
+        It records the initial display bands to use for the dataset.  Also, if
+        this is the first dataset loaded, the function shows it in all
+        rasterviews.
+        '''
         dataset = self._app_state.get_dataset(ds_id)
         bands = find_display_bands(dataset)
         self._display_bands[ds_id] = bands
@@ -1154,8 +1165,6 @@ class RasterPane(QWidget):
         # Always do this when we add a data set
         self._act_band_chooser.setEnabled(True)
         self._update_zoom_widgets()
-
-
 
     def _on_dataset_removed(self, ds_id):
         '''
