@@ -335,6 +335,7 @@ class ImageScrollArea(QScrollArea):
         super().scrollContentsBy(dx, dy)
 
         if 'scrollContentsBy' in self._forward:
+            print(f"ImageScrollArea, scrollContentsBy")
             self._forward['scrollContentsBy'](self._rasterview, dx, dy)
 
 class RasterView(QWidget):
