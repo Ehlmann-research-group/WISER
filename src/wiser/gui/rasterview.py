@@ -15,7 +15,7 @@ from matplotlib import cm
 from .util import get_painter, scale_qpoint_by_float
 
 from wiser.raster.dataset import RasterDataSet, find_display_bands
-from wiser.raster.stretch import StretchBase
+from wiser.raster.stretch import StretchBase, StretchLinear
 from wiser.raster.utils import normalize_ndarray
 
 from wiser.gui.app_state import ApplicationState
@@ -23,34 +23,78 @@ from wiser.gui.rasterview_metadata import RasterViewMetaData
 
 logger = logging.getLogger(__name__)
 
+def min_max_without_outliers(array, threshold=3):
+    """
+    Removes outliers from the array based on the specified threshold of standard deviations
+    and returns the min and max of the filtered array.
+    
+    Parameters:
+    - array: numpy array from which to remove outliers.
+    - threshold: number of standard deviations from the mean to define an outlier (default is 3).
+    
+    Returns:
+    - (min_value, max_value): tuple with the minimum and maximum of the array after removing outliers.
+    """
+
+    # Calculate mean and standard deviation of the array
+    mean = np.mean(array)
+    std_dev = np.std(array)
+    print(f"")
+    # Create a boolean mask to filter out values that are outside the threshold
+    non_outliers = (array > mean - threshold * std_dev) & (array < mean + threshold * std_dev)
+
+    # Filter the array to remove outliers
+    filtered_array = array[non_outliers]
+
+    # Return the min and max of the filtered array
+    min_value = np.min(filtered_array)
+    max_value = np.max(filtered_array)
+    
+    return min_value, max_value
+
 def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
     '''
     Given a raster data set, band index, and optional contrast stretch object,
     this function generates color channel data into a NumPy array. Elements in
     the output array will be in the range [0, 255].
     '''
-
+    print(f"!!!!make_channel_image dataset before: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
     # Extract the raw band data and associated statistics from the data set.
     temp_data = dataset.get_band_data(band)
-    
+    print(f"make_channel_image band: {band}")
+    print(f"make_channel_image temp_data before: {temp_data[0:5][0:5]}")
     stats = dataset.get_band_stats(band_index=band, band=temp_data)  # Consider optimizing this to avoid extra memory usage
-
+    print(f"stats: {stats}")
     temp_data = temp_data.astype(np.float32, copy=False)
-
-    normalize_ndarray(temp_data, minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
-    
+    print(f"Making float32: {temp_data[0:5][0:5]}")
     # If a stretch is specified for the channel, apply it to the normalized band data.
     if stretch is not None:
+        print(f"stretching!")
         stretch.apply(temp_data)
+    # else:
+    #     print("elsing")
+    #     min_val, max_val = min_max_without_outliers(temp_data)
+    #     stretch = StretchLinear(min_val, max_val)
+    #     print(f"min_val: {min_val}")
+    #     print(f"max_val: {max_val}")
+    #     stretch.apply(temp_data)
+    print(f"Array after stretch: {temp_data[0:5][0:5]}")
+    normalize_ndarray(temp_data, minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
+    print(f"Array after normalization: {temp_data[0:5][0:5]}")
 
     # Clip the data to be in the range [0.0, 1.0]. This should not remove NaNs.
 
     np.clip(temp_data, 0.0, 1.0, out=temp_data)
+    print(f"Array after clip: {temp_data[0:5][0:5]}")
     
     # Finally, convert the normalized (and possibly stretched) band data into a color channel with values in the range [0, 255].
     temp_data = (temp_data * 255.0)
+    print(f"Array after 255 mult: {temp_data[0:5][0:5]}")
     temp_data = temp_data.astype(np.uint8, copy=False)
+    print(f"Array after uint8 conversion: {temp_data[0:5][0:5]}")
+    # print(f"make_channel_image temp_data after: {temp_data[0:5][0:5]}")
 
+    print(f"====make_channel_image dataset after: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
     return temp_data
 
 
@@ -525,6 +569,7 @@ class RasterView(QWidget):
         if last_added_raster_display is not None and \
             last_added_raster_display.is_fully_initialized() and \
             last_added_raster_display == current_added_raster_display:
+            print("SKIPPPPPPPPPPPING")
             img_data = self._app_state.get_last_added_raster_display().get_image_data()
             time_2 = time.perf_counter()
         else:

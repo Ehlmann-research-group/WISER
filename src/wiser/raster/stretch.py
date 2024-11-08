@@ -28,7 +28,12 @@ def hist_limits_for_pct(hist_bins, hist_edges, percent, total_samples=None):
 
     TODO(donnie):  Maybe this should just return the edge values.
     '''
-
+    # print("[[[[[[[[[[[[]]]]]]]]]]]]")
+    # print(f"hist_bins: {hist_bins}")
+    # print(f"hist_edges: {hist_edges}")
+    # print(f"percent: {percent}")
+    # print(f"total_samples: {total_samples}")
+    # print("[[[[[[[[[[[[]]]]]]]]]]]]")
     # This helper function traverses the histogram bins until the total samples
     # is at least the target count.
     def find_limit(target_count: int, bins, start, end, step) -> int:
@@ -148,22 +153,22 @@ class StretchLinear(StretchBase):
         # Use 1.0 + EPSILON because sometimes the value is extreeeemly close to
         # 1.0, but *just* over.
 
-        if lower < 0.0 or lower > 1.0 + EPSILON:
-            raise ValueError(f'Required:  0 <= lower <= 1 (got {lower})')
+        # if lower < 0.0 or lower > 1.0 + EPSILON:
+        #     raise ValueError(f'Required:  0 <= lower <= 1 (got {lower})')
 
-        if upper < 0.0 or upper > 1.0 + EPSILON:
-            raise ValueError(f'Required:  0 <= upper <= 1 (got {upper})')
+        # if upper < 0.0 or upper > 1.0 + EPSILON:
+        #     raise ValueError(f'Required:  0 <= upper <= 1 (got {upper})')
 
         if upper <= lower:
             raise ValueError(f'Required:  lower < upper (got {lower}, {upper})')
 
         # Clamp values that are out of range.
 
-        if lower > 1.0:
-            lower = 1.0
+        # if lower > 1.0:
+        #     lower = 1.0
 
-        if upper > 1.0:
-            upper = 1.0
+        # if upper > 1.0:
+        #     upper = 1.0
 
         self._lower = lower
         self._upper = upper
