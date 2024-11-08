@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 
 # TODO(donnie):  We also need an "offline/local" location for the manual,
 #     for when it's downloaded to the local system.
-ONLINE_WISER_MANUAL_URL = 'http://users.cms.caltech.edu/~donnie/WISER/manual/'
+ONLINE_WISER_MANUAL_URL = 'https://ehlmann-research-group.github.io/WISER-UserManual/'
 
 
 class DataVisualizerApp(QMainWindow):
