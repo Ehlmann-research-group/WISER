@@ -180,7 +180,6 @@ class SpectrumDisplayInfo:
         linewidth = 0.5
 
         if use_wavelengths:
-            print("use_Wavelengths is happening")
             # We should only be told to use wavelengths if all displayed spectra
             # have wavelengths for the bands.
             assert(self._spectrum.has_wavelengths())
