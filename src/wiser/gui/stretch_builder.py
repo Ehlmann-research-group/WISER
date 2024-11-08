@@ -296,9 +296,12 @@ class ChannelStretchWidget(QWidget):
         # print(f'  edges = {self._histogram_edges}')
         # print(f'  (idx_low, idx_high) = ({idx_low}, {idx_high})')
 
-        if idx_low is None or idx_high is None or idx_high <= idx_low:
-            # The data distribution won't allow for this linear percent stretch.
-            raise DataDistributionError(f'Can\'t apply a {percent}% linear stretch')
+        # if idx_low is None or idx_high is None or idx_high <= idx_low:
+        #     # The data distribution won't allow for this linear percent stretch.
+        #     print("POOWNED")
+        #     print(f"idx_low: {idx_low}")
+        #     print(f"idx_low: {idx_high}")
+        #     raise DataDistributionError(f'Can\'t apply a {percent}% linear stretch')
 
         self.set_stretch_type(StretchType.LINEAR_STRETCH)
         self.set_stretch_low(self._histogram_edges[idx_low])
@@ -672,7 +675,7 @@ class StretchBuilderDialog(QDialog):
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
 
-            stretch = StretchLinear(low, high)
+            stretch = StretchLinear(band_min, band_max)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
             bins, edges = channel.get_histogram()

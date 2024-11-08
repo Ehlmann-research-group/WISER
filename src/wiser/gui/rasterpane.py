@@ -936,11 +936,12 @@ class RasterPane(QWidget):
         return rasterview.get_raster_data()
 
 
-    def show_dataset(self, dataset, rasterview_pos=(0, 0)):
+    def show_dataset(self, dataset: RasterDataSet, rasterview_pos=(0, 0)):
         '''
         Sets the dataset being displayed in the specified view of the raster
         pane.
         '''
+        print(f"raster pane showing dataset: {dataset.get_image_data()[:][0:5][0:5]} | ds_id: {dataset.get_id()}")
         rasterview = self.get_rasterview(rasterview_pos)
 
         # If the rasterview is already showing the specified dataset, skip!
@@ -1127,6 +1128,7 @@ class RasterPane(QWidget):
         this is the first dataset loaded, the function shows it in all
         rasterviews.
         '''
+        print(f"rasterpane _on_dataset_added")
         self._view_dataset(ds_id)
     
     def _view_dataset(self, ds_id):
@@ -1137,6 +1139,7 @@ class RasterPane(QWidget):
         this is the first dataset loaded, the function shows it in all
         rasterviews.
         '''
+        print(f"rasterpane view_dataset")
         dataset = self._app_state.get_dataset(ds_id)
         bands = find_display_bands(dataset)
         self._display_bands[ds_id] = bands

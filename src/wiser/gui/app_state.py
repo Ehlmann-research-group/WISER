@@ -270,6 +270,7 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was added.
         '''
+        print(f"appstate add_dataset")
         if not isinstance(dataset, RasterDataSet):
             raise TypeError('dataset must be a RasterDataSet')
 
