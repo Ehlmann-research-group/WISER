@@ -607,12 +607,14 @@ class RasterDataSetSpectrum(Spectrum):
         Returns a list of wavelength values corresponding to each band.  The
         individual values are astropy values-with-units.
         '''
+        # print(f"get_wavelengths: {self._dataset.band_list()}")
         bands =  [b['wavelength'] for b in self._dataset.band_list()]
 
         if filter_bad_bands:
             bad_bands = self._dataset.get_bad_bands()
             bands = [bands[i] for i in range(len(bands)) if bad_bands[i]]
 
+        # print(f"bands after: {bands}")
         return bands
 
     def _calculate_spectrum(self):
