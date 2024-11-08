@@ -175,7 +175,7 @@ class SpectrumDisplayInfo:
         # If we already have a plot, remove it.
         self.remove_plot()
 
-        wavelength_units = self._spectrum.get_wavelengths()[0].unit.si
+        # wavelength_units = self._spectrum.get_wavelengths()[0].unit.si
         if should_recalculate or self._values is None:
             self._values = self._spectrum.get_spectrum()
 
@@ -194,6 +194,7 @@ class SpectrumDisplayInfo:
 
             wavelengths = raster_utils.get_band_values(
                 self._spectrum.get_wavelengths(), to_unit)
+    
             lines = axes.plot(wavelengths, self._values, color=color,
                 linewidth=linewidth, label=self._spectrum.get_name())
             assert(len(lines) == 1)

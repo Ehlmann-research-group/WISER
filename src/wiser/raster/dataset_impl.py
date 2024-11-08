@@ -209,7 +209,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print(f"get_image_data")
         new_dataset = self.reopen_dataset()
         try:
             np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
@@ -232,7 +231,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print(f"get_band_data")
         # Note that GDAL indexes bands from 1, not 0.
         new_dataset = self.reopen_dataset()
         band = new_dataset.GetRasterBand(band_index + 1)
@@ -260,7 +258,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        print(f"get_all_bands_at")
         new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
@@ -274,7 +271,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         Returns a numpy 3D array of all the x & y values at the specified bands.
         '''
-        print(f"get_multiple_band_data")
         new_dataset = self.reopen_dataset()
         # Note that GDAL indexes bands from 1, not 0.
         band_list = [band+1 for band in band_list_orig]
@@ -296,7 +292,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        print(f"get_all_bands_at_rect")
         new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 

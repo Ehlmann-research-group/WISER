@@ -421,7 +421,6 @@ class RasterDataSet:
         the metadata will be set to NaN, and bands with the "data ignore value"
         will also be set to NaN.
         '''
-        print(f"dataset get_all_bands_at")
         arr = self._impl.get_all_bands_at(x, y)
 
         if filter_bad_values:
