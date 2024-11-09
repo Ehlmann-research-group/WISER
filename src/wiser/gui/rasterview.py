@@ -155,6 +155,14 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
         assert (0 <= np.amin(channel) <= 255) and (0 <= np.amax(channel) <= 255), \
             'Channel may only contain values in range 0..255, and no NaNs'
 
+    if isinstance(channel, np.ma.MaskedArray):
+        # Create a masked array of zeros with the same shape as the channels
+        rgb_data = np.ma.zeros(channel.shape, dtype=np.uint32)
+        rgb_data.fill_value = 0xff000000  # Set the fill value for the masked array
+    else:
+        # Create a regular array of zeros
+        rgb_data = np.zeros(channel.shape, dtype=np.uint32)
+    
     if colormap is None:
         # Use the channel data to generate various gray RGB values.
         # rgb_data = (channel << 16 | channel << 8 | channel) | 0xff000000

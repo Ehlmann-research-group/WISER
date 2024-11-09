@@ -862,7 +862,8 @@ class SpectrumPlot(QWidget):
             for _, single_display_info in self._spectrum_display_info.items():
                 # Nothing has changed, so just generate a plot for the new spectrum
                 single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
-                unit_name = UNIT_NAME_MAPPING[self._x_units]
+                unit_name = UNIT_NAME_MAPPING.get(self._x_units)
+                unit_name = unit_name if unit_name is not None else "Unknown"
                 self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
                     labelpad=0, fontproperties=axes_font)
 
