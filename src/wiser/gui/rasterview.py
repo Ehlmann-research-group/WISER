@@ -385,7 +385,6 @@ class RasterView(QWidget):
 
     @Slot(StretchBase)
     def set_stretches(self, stretches: List):
-        print(f"set_stretches update_display_image")
         self._stretches = stretches
         self.update_display_image()
 
@@ -442,7 +441,6 @@ class RasterView(QWidget):
             self._display_bands = None
             self._stretches = None
 
-        print(f"set_raster_data update_display_image")
         self.update_display_image()
 
     def get_raster_data(self) -> Optional[RasterDataSet]:
@@ -558,7 +556,6 @@ class RasterView(QWidget):
                 time_2 = time.perf_counter()
 
                 # Combine our individual color channel(s) into a single RGB image.
-                print(f"self._colormap: {self._colormap}")
                 img_data = make_grayscale_image(self._display_data[0], self._colormap)
             current_added_raster_display.set_image_data(img_data)
             self._app_state.set_last_added_raster_display(current_added_raster_display)
@@ -876,7 +873,6 @@ class RasterView(QWidget):
         else:
             print(f'WARNING:  Unrecognized color # {color}')
 
-        print(f"rgb_band changed update_display_image")
         self.update_display_image(colors=color)
 
 
