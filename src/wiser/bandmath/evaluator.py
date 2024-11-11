@@ -919,7 +919,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
         out_dataset.set_data_ignore_value(correct_data_ignore_val)
         return (RasterDataSet, out_dataset)
     else:
-        print(f"Old method")
         try:
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)

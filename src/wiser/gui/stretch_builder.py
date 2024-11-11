@@ -675,7 +675,6 @@ class StretchBuilderDialog(QDialog):
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
 
-            print(f"[[[[[[[[[[[[[[[[[[[band_min: {band_stretch_low}, band_max: {band_stretch_high}]]]]]]]]]]]]]]]]]]]")
             stretch = StretchLinear(band_stretch_low, band_stretch_high)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:

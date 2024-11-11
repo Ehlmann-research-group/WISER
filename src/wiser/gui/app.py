@@ -812,7 +812,6 @@ class DataVisualizerApp(QMainWindow):
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.IMAGE_BAND:
-                    print(f"IS IMAGE BAND")
                     # Convert the image band into a 1-band image cube
                     result = result[np.newaxis, :]
                     new_dataset = loader.dataset_from_numpy_array(result)

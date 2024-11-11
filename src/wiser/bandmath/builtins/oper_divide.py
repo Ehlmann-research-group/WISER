@@ -159,8 +159,6 @@ class OperatorDivide(BandMathFunction):
 
             rhs_value = make_image_band_compatible(rhs, lhs_value.shape)
             result_arr = lhs_value / rhs_value
-            print(f"div lhs_value: {lhs_value[0:5][0:5]}, nan count: {np.isnan(lhs_value).sum()}")
-            print(f"div result_arr: {result_arr[0:5][0:5]}, nan count: {np.isnan(result_arr).sum()}")
 
             # The result array should have the same dimensions as the LHS input
             # array.
