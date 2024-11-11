@@ -59,24 +59,25 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     the output array will be in the range [0, 255].
     '''
     print("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||")
-    print(f"!!!!make_channel_image dataset before: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
+    # print(f"!!!!make_channel_image dataset before: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
     # Extract the raw band data and associated statistics from the data set.
-    # 
-    # Note (Joshua G-k): Copying will increase the memory usage, but will also ensure that changing the stretch does not change
-    # the underlying data as it does now.
-    temp_data = np.copy(dataset.get_band_data(band))
-    print(f"make_channel_image band: {band}")
-    print(f"make_channel_image temp_data before: {temp_data[0:5][0:5]}")
+    temp_data = dataset.get_band_data(band).copy()
+    # print(f"make_channel_image band: {band}")
+    # print(f"make_channel_image temp_data before: {temp_data[0:5][0:5]}")
     stats = dataset.get_band_stats(band_index=band, band=temp_data)  # Consider optimizing this to avoid extra memory usage
-    print(f"stats: {stats}")
+    # print(f"stats: {stats}")
     temp_data = temp_data.astype(np.float32, copy=False)
-    print(f"====make_channel_image dataset after astype float32: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
-    print(f"Making float32: {temp_data[0:5][0:5]}")
+    # print(f"====make_channel_image dataset after astype float32: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
+    # print(f"Making float32: {temp_data[0:5][0:5]}")
     # If a stretch is specified for the channel, apply it to the normalized band data.
     if stretch is not None:
-        print(f"stretching!")
+        try:
+            print(f"stretching) upper: {stretch._upper} | lower: {stretch._lower} | slope: {stretch._slope} | offset: {stretch._offset}")
+        except BaseException as e:
+            print("")
+        # print(f"min: {np.nanmin(temp_data)}, max: {np.nanmax(temp_data)}")
         stretch.apply(temp_data)
-    print(f"====make_channel_image dataset after stretching: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
+    # print(f"====make_channel_image dataset after stretching: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
     # else:
     #     print("elsing")
     #     min_val, max_val = min_max_without_outliers(temp_data)
@@ -84,24 +85,25 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     #     print(f"min_val: {min_val}")
     #     print(f"max_val: {max_val}")
     #     stretch.apply(temp_data)
-    print(f"Array after stretch: {temp_data[0:5][0:5]}")
-    normalize_ndarray(temp_data, minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
-    print(f"Array after normalization: {temp_data[0:5][0:5]}")
-    print(f"====make_channel_image dataset after normalize: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
+    # print(f"Array after stretch: {temp_data[0:5][0:5]}")
+    # normalize_ndarray(temp_data, minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
+    finite_vals = temp_data[np.isfinite(temp_data)]
+    normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=True)
+    # print(f"Array after normalization: {temp_data[0:5][0:5]}")
+    # print(f"====make_channel_image dataset after normalize: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
 
     # Clip the data to be in the range [0.0, 1.0]. This should not remove NaNs.
 
     np.clip(temp_data, 0.0, 1.0, out=temp_data)
-    print(f"Array after clip: {temp_data[0:5][0:5]}")
+    # print(f"Array after clip: {temp_data[0:5][0:5]}")
     
     # Finally, convert the normalized (and possibly stretched) band data into a color channel with values in the range [0, 255].
     temp_data = (temp_data * 255.0)
-    print(f"Array after 255 mult: {temp_data[0:5][0:5]}")
+    # print(f"Array after 255 mult: {temp_data[0:5][0:5]}")
     temp_data = temp_data.astype(np.uint8, copy=False)
-    print(f"Array after uint8 conversion: {temp_data[0:5][0:5]}")
-    # print(f"make_channel_image temp_data after: {temp_data[0:5][0:5]}")
+    # print(f"Array after uint8 conversion: {temp_data[0:5][0:5]}")
 
-    print(f"====make_channel_image dataset after all: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
+    # print(f"====make_channel_image dataset after all: {dataset.get_image_data()[:][0:5][0:5]} | ds_id {dataset.get_id()}")
     print("|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||")
     return temp_data
 

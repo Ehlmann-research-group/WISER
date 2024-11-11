@@ -941,7 +941,7 @@ class RasterPane(QWidget):
         Sets the dataset being displayed in the specified view of the raster
         pane.
         '''
-        print(f"raster pane showing dataset: {dataset.get_image_data()[:][0:5][0:5]} | ds_id: {dataset.get_id()}")
+        # print(f"raster pane showing dataset: {dataset.get_image_data()[:][0:5][0:5]} | ds_id: {dataset.get_id()}")
         rasterview = self.get_rasterview(rasterview_pos)
 
         # If the rasterview is already showing the specified dataset, skip!
