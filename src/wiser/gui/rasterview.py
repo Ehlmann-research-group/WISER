@@ -15,7 +15,7 @@ from matplotlib import cm
 from .util import get_painter, scale_qpoint_by_float
 
 from wiser.raster.dataset import RasterDataSet, find_display_bands
-from wiser.raster.stretch import StretchBase
+from wiser.raster.stretch import StretchBase, StretchLinear
 from wiser.raster.utils import normalize_ndarray
 
 from wiser.gui.app_state import ApplicationState
@@ -29,28 +29,21 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     this function generates color channel data into a NumPy array. Elements in
     the output array will be in the range [0, 255].
     '''
-
     # Extract the raw band data and associated statistics from the data set.
-    temp_data = dataset.get_band_data(band)
-    
-    stats = dataset.get_band_stats(band_index=band, band=temp_data)  # Consider optimizing this to avoid extra memory usage
-
+    temp_data = dataset.get_band_data(band).copy()
     temp_data = temp_data.astype(np.float32, copy=False)
-
-    normalize_ndarray(temp_data, minval=stats.get_min(), maxval=stats.get_max(), in_place=True)
-    
     # If a stretch is specified for the channel, apply it to the normalized band data.
     if stretch is not None:
         stretch.apply(temp_data)
+    finite_vals = temp_data[np.isfinite(temp_data)]
+    normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=True)
 
     # Clip the data to be in the range [0.0, 1.0]. This should not remove NaNs.
-
     np.clip(temp_data, 0.0, 1.0, out=temp_data)
     
     # Finally, convert the normalized (and possibly stretched) band data into a color channel with values in the range [0, 255].
     temp_data = (temp_data * 255.0)
     temp_data = temp_data.astype(np.uint8, copy=False)
-
     return temp_data
 
 
