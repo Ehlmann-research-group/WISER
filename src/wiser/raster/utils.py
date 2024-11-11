@@ -183,9 +183,7 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=Fals
 
     if in_place:
         array -= minval
-        # print(f"&&&&&&&&&&&&& Nan count before: {np.isnan(array).sum()}")
         np.divide(array, (maxval - minval), out=array, dtype=np.float32)
-        # print(f"&&&&&&&&&&&&& Nan count after: {np.isnan(array).sum()}")
     else:
         return (array - minval) / (maxval - minval)
 

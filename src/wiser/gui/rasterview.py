@@ -23,35 +23,6 @@ from wiser.gui.rasterview_metadata import RasterViewMetaData
 
 logger = logging.getLogger(__name__)
 
-def min_max_without_outliers(array, threshold=3):
-    """
-    Removes outliers from the array based on the specified threshold of standard deviations
-    and returns the min and max of the filtered array.
-    
-    Parameters:
-    - array: numpy array from which to remove outliers.
-    - threshold: number of standard deviations from the mean to define an outlier (default is 3).
-    
-    Returns:
-    - (min_value, max_value): tuple with the minimum and maximum of the array after removing outliers.
-    """
-
-    # Calculate mean and standard deviation of the array
-    mean = np.mean(array)
-    std_dev = np.std(array)
-    print(f"")
-    # Create a boolean mask to filter out values that are outside the threshold
-    non_outliers = (array > mean - threshold * std_dev) & (array < mean + threshold * std_dev)
-
-    # Filter the array to remove outliers
-    filtered_array = array[non_outliers]
-
-    # Return the min and max of the filtered array
-    min_value = np.min(filtered_array)
-    max_value = np.max(filtered_array)
-    
-    return min_value, max_value
-
 def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
     '''
     Given a raster data set, band index, and optional contrast stretch object,
