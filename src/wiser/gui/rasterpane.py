@@ -936,7 +936,7 @@ class RasterPane(QWidget):
         return rasterview.get_raster_data()
 
 
-    def show_dataset(self, dataset, rasterview_pos=(0, 0)):
+    def show_dataset(self, dataset: RasterDataSet, rasterview_pos=(0, 0)):
         '''
         Sets the dataset being displayed in the specified view of the raster
         pane.
