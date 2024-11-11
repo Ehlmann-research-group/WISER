@@ -28,12 +28,6 @@ def hist_limits_for_pct(hist_bins, hist_edges, percent, total_samples=None):
 
     TODO(donnie):  Maybe this should just return the edge values.
     '''
-    # print("[[[[[[[[[[[[]]]]]]]]]]]]")
-    # print(f"hist_bins: {hist_bins}")
-    # print(f"hist_edges: {hist_edges}")
-    # print(f"percent: {percent}")
-    # print(f"total_samples: {total_samples}")
-    # print("[[[[[[[[[[[[]]]]]]]]]]]]")
     # This helper function traverses the histogram bins until the total samples
     # is at least the target count.
     def find_limit(target_count: int, bins, start, end, step) -> int:

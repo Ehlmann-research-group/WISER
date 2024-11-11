@@ -863,7 +863,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
 
     if expr_info.result_type == VariableType.IMAGE_CUBE and max_chunking_bytes is not None and not use_old_method:
         try:
-            print(f"New method")
             eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
 
             bands, lines, samples = expr_info.shape
