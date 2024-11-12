@@ -439,7 +439,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
     @staticmethod
     def save_dataset_as(src_dataset: 'RasterDataSet', path: str,
                         options: Optional[Dict[str, Any]] = None) -> 'ENVI_GDALRasterDataImpl':
-        print(f"ENVI SAVE DATASET AS")
+
         def map_default_display_bands(display_bands, include_bands):
             # Build a mapping of source-image band-indexes to
             # destination-image band-indexes
@@ -587,7 +587,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         chunk_size = 0
         for band_info in src_dataset.band_list():
             src_index = band_info['index']
-            print(f"src_index: {src_index}")
+
             # If band is to be excluded, continue.
             if not dst_include_bands[src_index]:
                 # print(f'Skipping source-band {src_index}; excluded from destination.')
