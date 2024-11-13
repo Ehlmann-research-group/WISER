@@ -13,7 +13,7 @@ from .generated.band_math_ui import Ui_BandMathDialog
 from .app_state import ApplicationState
 from .rasterview import RasterView
 
-from wiser.raster.dataset import RasterDataSet, RasterDataBand
+from wiser.raster.dataset import RasterDataBand
 from wiser import bandmath
 from wiser.bandmath.utils import get_dimensions
 from wiser.gui.util import get_plugin_fns
