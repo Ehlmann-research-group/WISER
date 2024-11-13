@@ -13,6 +13,39 @@ import numpy as np
 
 import wiser.gui.generated.resources
 
+def get_plugin_fns(app_state):
+    # Collect functions from all plugins.
+    functions = {}
+    print("showing bandmath dialog")
+    for (plugin_name, plugin) in app_state.get_plugins().items():
+        print(f"Found bandmath plugin: {plugin}")
+        try:
+            print(f"It's actually a plugin!")
+            plugin_fns = plugin.get_bandmath_functions()
+            print(f"plugin_fns: {plugin_fns}")
+
+            # Make sure all function names are lowercase.
+            for k in list(plugin_fns.keys()):
+                lower_k = k.lower()
+                if k != lower_k:
+                    plugin_fns[lower_k] = plugin_fns[k]
+                    del plugin_fns[k]
+            print(f"plugin_fns after: {plugin_fns}")
+
+            # If any functions appear multiple times, make sure to
+            # report a warning about it.
+            for k in plugin_fns.keys():
+                if k in functions:
+                    print(f'WARNING:  Function "{k}" is defined ' +
+                            f'multiple times (last seen in plugin {plugin_name})')
+            print(f"plugin_fns final: {plugin_fns}")
+
+            functions.update(plugin_fns)
+            print(f"functions: {functions}")
+        except:
+            pass
+    return functions
+
 def delete_all_files_in_folder(folder_path):
     # Check if the folder exists
     if os.path.exists(folder_path) and os.path.isdir(folder_path):
