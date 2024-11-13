@@ -675,11 +675,9 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
     A Lark Transformer for evaluating band-math expressions.
     '''
     def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
-                       functions: Dict[str, Callable],
-                       shape: Tuple[int, int, int] = None):
+                       functions: Dict[str, Callable]):
         self._variables = variables
         self._functions = functions
-        self._shape = shape
         self._intermediate_running_total = 0
         self._max_intermediates = 0
     
@@ -851,7 +849,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     id_assigner = UniqueIDAssigner()
     id_assigner.visit(tree)
 
-    numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
+    numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions)
     numInterFinder.transform(tree)
     number_of_intermediates = numInterFinder.get_max_intermediates()
     logger.debug(f'Number of intermediates: {number_of_intermediates}')

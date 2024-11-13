@@ -54,10 +54,13 @@ class SpectralAngle(BandMathFunction):
             raise BandMathEvalError('spectral_angle function requires two arguments, an IMAGE_CUBE and a SPECTRUM.')
 
         # Compute the spectral angle
+        spectrum_arr = np.nan_to_num(spectrum_arr, nan=0.0)
+        img_arr = np.nan_to_num(img_arr, nan=0.0)
         spectrum_mag = np.linalg.norm(spectrum_arr)
         img_mags = np.linalg.norm(img_arr, axis=0)
         result_arr = np.moveaxis(img_arr, 0, -1)
-        result_arr = np.dot(result_arr, spectrum_arr)
+        result_arr_no_nan = np.nan_to_num(result_arr, nan=0.0)
+        result_arr = np.dot(result_arr_no_nan, spectrum_arr)
         result_arr = result_arr / (spectrum_mag * img_mags)
         result_arr = np.arccos(result_arr)
 
