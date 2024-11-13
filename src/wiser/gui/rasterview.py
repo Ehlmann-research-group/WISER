@@ -143,45 +143,6 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
     if channel.dtype not in [np.uint8, np.uint16, np.uint32]:
         raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {channel.dtype}')
 
-        # Find indices of values outside the range [0, 255]
-    out_of_range_indices = np.where((channel < 0) | (channel > 255))
-    out_of_range_values = channel[out_of_range_indices]
-    out_of_range_count = len(out_of_range_values)
-
-    # Find indices of NaN values
-    nan_indices = np.where(np.isnan(channel))
-    nan_values = channel[nan_indices]
-    nan_count = len(nan_values)
-
-    # Print out-of-range values with their indices
-    if out_of_range_count > 0:
-        print("Values outside the range [0, 255]:")
-        for idx, value in zip(out_of_range_indices[0], out_of_range_values):
-            print(f"Index {idx}: Value {value}")
-        print(f"Total out-of-range values: {out_of_range_count}")
-    else:
-        print("No values outside the range [0, 255].")
-
-    # Print NaN values with their indices
-    if nan_count > 0:
-        print("NaN values:")
-        for idx in nan_indices[0]:
-            print(f"Index {idx}: Value NaN")
-        print(f"Total NaN values: {nan_count}")
-    else:
-        print("No NaN values.")
-
-    # amin = np.amin(channel)
-    # amin_index = np.where(0 <= np.amin(amin) <= 255)
-    # print(f"amin channels: {channel[amin_index]}")
-
-    # amax = np.amax(channel)
-    # amax_index = np.where(0 <= np.amax(amax) <= 255)
-    # print(f"amax channels: {channel[amax_index]}")
-    print(f"channel: {channel}")
-    print(f"np.amin(channel): {np.amin(channel)}")
-    print(f"np.amax(channel): {np.amax(channel)}")
-
     # Expensive sanity checks:
     if __debug__:
         assert (0 <= np.amin(channel) <= 255) and (0 <= np.amax(channel) <= 255), \
