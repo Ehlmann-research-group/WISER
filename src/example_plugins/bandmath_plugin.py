@@ -4,60 +4,107 @@ import numpy as np
 
 from wiser.plugins import BandMathPlugin
 
-from wiser.bandmath import BandMathValue, BandMathEvalError, VariableType
-from wiser.bandmath.functions import BandMathFunction, verify_function_args
-
+from wiser.bandmath import BandMathValue, BandMathEvalError, VariableType, BandMathExprInfo
+from wiser.bandmath.functions import BandMathFunction
+from wiser.bandmath.utils import reorder_args, check_image_cube_compatible
 
 class SpectralAnglePlugin(BandMathPlugin):
     def __init__(self):
         super().__init__()
 
     def get_bandmath_functions(self) -> Dict[str, BandMathFunction]:
-        return {'spectral_angle': spectral_angle}
+        return {'spectral_angle': SpectralAngle()}
 
+class SpectralAngle(BandMathFunction):
+    def _report_type_error(self, lhs_type, rhs_type):
+        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for spectral angle operation.')
 
-def spectral_angle(args: List[BandMathValue]) -> BandMathValue:
-    if len(args) != 2:
-        raise BandMathEvalError('spectral_angle function requires two ' +
-            'arguments, an IMAGE_CUBE and a SPECTRUM (in any order)')
+    def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
+        if len(infos) != 2:
+            raise ValueError('spectral_angle function requires exactly two arguments.')
 
-    verify_function_args(args)
+        lhs, rhs = infos[0], infos[1]
+        lhs, rhs = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
 
-    if (args[0].type == VariableType.IMAGE_CUBE and
-        args[1].type == VariableType.SPECTRUM):
+        if lhs.result_type == VariableType.IMAGE_CUBE and rhs.result_type == VariableType.SPECTRUM:
+            check_image_cube_compatible(rhs, lhs.shape)
+            info = BandMathExprInfo(VariableType.IMAGE_BAND)
+            info.shape = (lhs.shape[1], lhs.shape[2])
+            info.elem_type = lhs.elem_type
+            info.spatial_metadata_source = lhs.spatial_metadata_source
+            info.spectral_metadata_source = lhs.spectral_metadata_source
+            return info
+        else:
+            self._report_type_error(lhs.result_type, rhs.result_type)
 
-        img_arr = args[0].as_numpy_array()
-        spectrum_arr = args[1].as_numpy_array()
+    def apply(self, args: List[BandMathValue]) -> BandMathValue:
+        if len(args) != 2:
+            raise BandMathEvalError('spectral_angle function requires exactly two arguments.')
 
-    elif (args[0].type == VariableType.SPECTRUM and
-          args[1].type == VariableType.IMAGE_CUBE):
+        lhs, rhs = args[0], args[1]
+        lhs, rhs = reorder_args(lhs.type, rhs.type, lhs, rhs)
 
-        spectrum_arr = args[0].as_numpy_array()
-        img_arr = args[1].as_numpy_array()
+        if lhs.type == VariableType.IMAGE_CUBE and rhs.type == VariableType.SPECTRUM:
+            img_arr = lhs.as_numpy_array()
+            spectrum_arr = rhs.as_numpy_array()
+        elif lhs.type == VariableType.SPECTRUM and rhs.type == VariableType.IMAGE_CUBE:
+            spectrum_arr = lhs.as_numpy_array()
+            img_arr = rhs.as_numpy_array()
+        else:
+            raise BandMathEvalError('spectral_angle function requires two arguments, an IMAGE_CUBE and a SPECTRUM.')
 
-    else:
-        raise BandMathEvalError('dotprod function requires two arguments, ' +
-            'an IMAGE_CUBE and a SPECTRUM (in any order)')
+        # Compute the spectral angle
+        spectrum_mag = np.linalg.norm(spectrum_arr)
+        img_mags = np.linalg.norm(img_arr, axis=0)
+        result_arr = np.moveaxis(img_arr, 0, -1)
+        result_arr = np.dot(result_arr, spectrum_arr)
+        result_arr = result_arr / (spectrum_mag * img_mags)
+        result_arr = np.arccos(result_arr)
 
-    # np.set_printoptions(threshold=sys.maxsize)
+        return BandMathValue(VariableType.IMAGE_BAND, result_arr)
 
-    # print(f'img_arr.shape = {img_arr.shape}')
-    # print(f'img_arr = {img_arr}')
+# def spectral_angle(args: List[BandMathValue]) -> BandMathValue:
+#     if len(args) != 2:
+#         raise BandMathEvalError('spectral_angle function requires two ' +
+#             'arguments, an IMAGE_CUBE and a SPECTRUM (in any order)')
 
-    # print(f'spectrum_arr.shape = {spectrum_arr.shape}')
-    # print(f'spectrum_arr = {spectrum_arr}')
+#     verify_function_args(args)
 
-    spectrum_mag = np.linalg.norm(spectrum_arr)
-    # print(f'spectrum_mag = {spectrum_mag}')
+#     if (args[0].type == VariableType.IMAGE_CUBE and
+#         args[1].type == VariableType.SPECTRUM):
 
-    img_mags = np.linalg.norm(img_arr, axis=0)
-    # print(f'img_mags.shape = {img_mags.shape}')
-    # print(f'img_mags = {img_mags}')
+#         img_arr = args[0].as_numpy_array()
+#         spectrum_arr = args[1].as_numpy_array()
 
-    result_arr = np.moveaxis(img_arr, 0, -1)
-    result_arr = np.dot(result_arr, spectrum_arr)
-    result_arr = result_arr / (spectrum_mag * img_mags)
-    result_arr = np.arccos(result_arr)
-    # print(f'After SA:  shape = {result_arr.shape}')
+#     elif (args[0].type == VariableType.SPECTRUM and
+#           args[1].type == VariableType.IMAGE_CUBE):
 
-    return BandMathValue(VariableType.IMAGE_BAND, result_arr)
+#         spectrum_arr = args[0].as_numpy_array()
+#         img_arr = args[1].as_numpy_array()
+
+#     else:
+#         raise BandMathEvalError('dotprod function requires two arguments, ' +
+#             'an IMAGE_CUBE and a SPECTRUM (in any order)')
+
+#     # np.set_printoptions(threshold=sys.maxsize)
+
+#     # print(f'img_arr.shape = {img_arr.shape}')
+#     # print(f'img_arr = {img_arr}')
+
+#     # print(f'spectrum_arr.shape = {spectrum_arr.shape}')
+#     # print(f'spectrum_arr = {spectrum_arr}')
+
+#     spectrum_mag = np.linalg.norm(spectrum_arr)
+#     # print(f'spectrum_mag = {spectrum_mag}')
+
+#     img_mags = np.linalg.norm(img_arr, axis=0)
+#     # print(f'img_mags.shape = {img_mags.shape}')
+#     # print(f'img_mags = {img_mags}')
+
+#     result_arr = np.moveaxis(img_arr, 0, -1)
+#     result_arr = np.dot(result_arr, spectrum_arr)
+#     result_arr = result_arr / (spectrum_mag * img_mags)
+#     result_arr = np.arccos(result_arr)
+#     # print(f'After SA:  shape = {result_arr.shape}')
+
+#     return BandMathValue(VariableType.IMAGE_BAND, result_arr)
