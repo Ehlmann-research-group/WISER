@@ -97,12 +97,12 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
     keyD2 = "D-Large Atm Correction"
 
     stressing_equation_dict = {
-        keyA: '1.0 - 2.0*b1/(b2+b3)',
-        keyB1: 'nd / (ns*(ns>0.2)+ns<0.2)',
+        # keyA: '1.0 - 2.0*b1/(b2+b3)',
+        # keyB1: 'nd / (ns*(ns>0.2)+ns<0.2)',
         keyB2: 'ld / (ls*(ls>0.2)+ls<0.2)',
-        keyC1: 'dotprod(nd, ns)',
+        # keyC1: 'dotprod(nd, ns)',
         keyC2: 'dotprod(ld, ls)',
-        keyD1: 'nd*(2.718)**0.2', #Atmospheric correction
+        # keyD1: 'nd*(2.718)**0.2', #Atmospheric correction
         keyD2: 'ld*(2.718)**0.2', 
     }
 
@@ -162,18 +162,21 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
             if use_both_methods:
                 # Whichever method goes first has to load the data from disk into memory so will take slower.
                 # To somewhat account for this, increase N and get rid of the first observation
+            
                 print(f"New method calculating!")
                 time_new_method, result_new_method = measure_bandmath_time(value, variables, use_old_method=False)
                 print(f"New method done calculating!")
                 if results_new_method[key] is None:
                     results_new_method[key] = result_new_method
+                print(f"time_new_method: {time_new_method}")
                 
                 print(f"Old method calculating!")
                 time_old_method, result_old_method = measure_bandmath_time(value, variables, use_old_method=True)
                 print(f"Old method done calculating!")
                 if results_old_method[key] is None:
                     results_old_method[key] = result_old_method
-                
+                print(f"time_old_method: {time_old_method}")
+
                 oper_times_new_method.append(time_new_method)
                 oper_times_old_method.append(time_old_method)
                 time_outer = time_new_method
@@ -248,7 +251,7 @@ def test_both_methods(hdr_paths, N=1):
         key_combo_1: '(a/b)-(c*d)+a',
         key_combo_2: "(((a-b)+d)<c)*a",
         key_exponent: "a**b+a**(0.5)",
-        key_formula: "0.5*(1-(b/(0.4*i+0.6*j)))+0.5"
+        key_formula: "0.5*(1-(b/(0.4*k+0.6*l)))+0.5"
     }
 
     # Replacing keys in results_old_method
@@ -279,6 +282,8 @@ def test_both_methods(hdr_paths, N=1):
         key_formula: None,
     }
 
+    total_close = 0
+    total_comparisons = 0
     hdr_files = get_hdr_files(hdr_paths)
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
@@ -325,22 +330,27 @@ def test_both_methods(hdr_paths, N=1):
                 results_old_method[key] = result_old_method
             are_close = np.allclose(arr_new_method, arr_old_method, rtol=1e-4, equal_nan=True)
             print(f"Are the arrays close: {are_close}")
-
+            if are_close:
+                total_close += 1
+            total_comparisons += 1
             # Find elements that are not close
             not_close = ~np.isclose(arr_new_method, arr_old_method, rtol=1e-4)
-
             # Print indices and values that are not close
             amt_not_close = 0
-            if np.any(not_close):
-                print("Pairs of values that are not close:")
-                for index in np.argwhere(not_close):
-                    # # Unpack all dimensions dynamically, uncomment this if results do not match
-                    # index_str = ", ".join(map(str, index))
-                    # if not np.isnan(arr_new_method[tuple(index)]) and not np.isnan(arr_old_method[tuple(index)]):
-                    #     print(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}")
-                    amt_not_close += 1
-            else:
-                print("All values are close within the given tolerance.")
+
+            # if not are_close:
+                # with open('output/close_indices.txt', 'w') as f:
+                #     f.write("Pairs of values that are not close:\n")
+                #     for index in np.argwhere(not_close):
+                #         # Unpack all dimensions dynamically, uncomment this if results do not match
+                #         index_str = ", ".join(map(str, index))
+                #         mask_value = arr_old_method.mask[tuple(index)]
+                #         # Write to the file instead of printing
+                #         if not np.isnan(arr_new_method[tuple(index)]) and not np.isnan(arr_old_method[tuple(index)]):
+                #             f.write(f"arr_new_method[{index_str}] = {arr_new_method[tuple(index)]}, "
+                #                     f"arr_old_method[{index_str}] = {arr_old_method[tuple(index)]}, mask = {mask_value}\n")
+            # else:
+            #     print("All values are close within the given tolerance.")
             print(f"Amount not close: \n {amt_not_close}")
             print(f"Amount nan in each: \n new method: {get_nan_count(arr_new_method)} " +
                   f"\n old method: {get_nan_count(arr_old_method)}")
@@ -348,6 +358,7 @@ def test_both_methods(hdr_paths, N=1):
             print(f"Mean of new method: {np.nanmean(arr_new_method)}")
             print(f"Mean of old method: {np.nanmean(arr_old_method)}")
             assert np.allclose(arr_new_method, arr_old_method, equal_nan=True)
+    print(f"The total fraction close are: {total_close} / {total_comparisons}")
     return results_new_method, results_old_method
 
 def profile_function(profile_outpath, func, *args, **kwargs):
@@ -395,7 +406,7 @@ if __name__ == '__main__':
     dataset_6GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr"
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_500mb, dataset_900mb]
+    dataset_list = [dataset_500mb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     N = 1
 

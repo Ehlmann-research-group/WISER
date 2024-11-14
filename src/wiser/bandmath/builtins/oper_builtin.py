@@ -7,6 +7,7 @@ from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.utils import (
     reorder_args,
     check_image_cube_compatible, check_spectrum_compatible,
+    get_result_dtype, MathOperations,
 )
 from wiser.bandmath.types import VariableType, BandMathValue, BandMathFunction, BandMathEvalError
 
@@ -34,7 +35,9 @@ class OperatorTrigFunction(BandMathFunction):
         # Output type will be the same as the input type
         info = BandMathExprInfo(arg_info.result_type)
         info.shape = arg_info.shape
-        info.elem_type = arg_info.elem_type
+        info.elem_type = get_result_dtype(arg_info.elem_type, None, \
+                                              MathOperations.TRIG_FUNCTION)
+
 
         # Propagate metadata
         info.spatial_metadata_source = arg_info.spatial_metadata_source
@@ -77,7 +80,8 @@ class OperatorDotProduct(BandMathFunction):
 
             info = BandMathExprInfo(VariableType.IMAGE_BAND)
             info.shape = (lhs.shape[1], lhs.shape[2])
-            info.elem_type = lhs.elem_type
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
+                                              MathOperations.DOT_PRODUCT)
 
             # TODO(Joshua):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
