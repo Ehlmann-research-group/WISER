@@ -16,6 +16,8 @@ import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
 
+from astropy.io import fits
+
 logger = logging.getLogger(__name__)
 
 class SaveState(Enum):
@@ -485,6 +487,39 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
 
         if gdal_dataset is None:
             raise ValueError(f"Unable to open FITS file: {path}")
+
+        with fits.open(path) as hdul:
+            # Access the primary header (or first HDU if multi-extension FITS)
+            header = hdul[0].header
+            
+            # Retrieve the number of dimensions (NAXIS) and size of each dimension (NAXIS1, NAXIS2, etc.)
+            naxis = header['NAXIS']
+            print(f"Number of dimensions (NAXIS) {naxis}")
+            for i in range(1, naxis + 1):
+                dimension_size = header[f'NAXIS{i}']
+                print(f"Size of dimension {i}: {dimension_size}")
+
+        if gdal_dataset is not None:
+            # Get dimensions
+            width = gdal_dataset.RasterXSize
+            height = gdal_dataset.RasterYSize
+            bands = gdal_dataset.RasterCount
+
+            print(f"Number of dimensions:")
+            print(f"Width (X-axis): {width}")
+            print(f"Height (Y-axis): {height}")
+            print(f"Bands (Z-axis): {bands}")
+
+            # Attempt to retrieve NAXIS metadata
+            metadata = gdal_dataset.GetMetadata()
+            naxis = metadata.get("NAXIS", None)
+
+            if naxis:
+                print(f"Number of dimensions (NAXIS): {naxis}")
+                for i in range(1, int(naxis) + 1):
+                    print(f"NAXIS{i} (size of dimension {i}): {metadata.get(f'NAXIS{i}', 'Unknown')}")
+            else:
+                print("NAXIS information not found in metadata; interpreting dimensions via GDAL's band structure.")
 
         return [cls(gdal_dataset)]
 
