@@ -328,37 +328,80 @@ class ChannelStretchWidget(QWidget):
 
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
+
     def _update_histogram(self):
+        import time
+        start_time = time.time()
+        
         if self._norm_band_data is None:
             return
-
-        # The "raw" histogram is based solely on the filtered and normalized
-        # band data.  That is, no conditioner has been applied to the histogram.
+        print(f"Time to check _norm_band_data: {time.time() - start_time:.6f} seconds")
+        
+        # Measure time for calculating non-NaN data
+        start_line = time.time()
         nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+        print(f"Time to remove NaNs from _norm_band_data: {time.time() - start_line:.6f} seconds")
+        
+        # Measure time for calculating histogram
+        start_line = time.time()
         self._histogram_bins_raw, self._histogram_edges_raw = \
             np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
-
-        # self._num_pixels = np.prod(self._band_data.shape)
-
-        # Apply conditioner to the histogram, if necessary.
-
+        print(f"Time to compute histogram: {time.time() - start_line:.6f} seconds")
+        
+        # Measure time for checking conditioner type and applying it
+        start_line = time.time()
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = self._histogram_edges_raw
-
         elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = np.sqrt(self._histogram_edges_raw)
-
         elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = np.log2(1 + self._histogram_edges_raw)
-
         else:
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
-
-        # Show the updated histogram
+        print(f"Time to apply conditioner: {time.time() - start_line:.6f} seconds")
+        
+        # Measure time to show histogram
+        start_line = time.time()
         self._show_histogram()
+        print(f"Time to show histogram: {time.time() - start_line:.6f} seconds")
+        
+        total_time = time.time() - start_time
+        print(f"Total time to execute _update_histogram: {total_time:.6f} seconds")
+
+    # def _update_histogram(self):
+    #     if self._norm_band_data is None:
+    #         return
+
+    #     # The "raw" histogram is based solely on the filtered and normalized
+    #     # band data.  That is, no conditioner has been applied to the histogram.
+    #     nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+    #     self._histogram_bins_raw, self._histogram_edges_raw = \
+    #         np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
+
+    #     # self._num_pixels = np.prod(self._band_data.shape)
+
+    #     # Apply conditioner to the histogram, if necessary.
+
+    #     if self._conditioner_type == ConditionerType.NO_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = self._histogram_edges_raw
+
+    #     elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = np.sqrt(self._histogram_edges_raw)
+
+    #     elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = np.log2(1 + self._histogram_edges_raw)
+
+    #     else:
+    #         raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
+
+    #     # Show the updated histogram
+    #     self._show_histogram()
 
 
     def _show_histogram(self, update_lines_only=False):
