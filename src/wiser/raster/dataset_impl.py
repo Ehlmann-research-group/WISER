@@ -499,6 +499,8 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
                 dimension_size = header[f'NAXIS{i}']
                 print(f"Size of dimension {i}: {dimension_size}")
 
+        # If NAXIS 
+
         if gdal_dataset is not None:
             # Get dimensions
             width = gdal_dataset.RasterXSize
