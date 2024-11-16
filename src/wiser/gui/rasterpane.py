@@ -201,6 +201,7 @@ class TiledRasterView(RasterView):
         Override the base-class implementation to also update the toolbar's
         dataset-chooser to match the dataset being displayed.
         '''
+        print(f"TiledRasterView set_raster_data")
         # Let the base implementation do its thing first.
         super().set_raster_data(raster_data, display_bands, stretches=stretches)
 
@@ -953,7 +954,7 @@ class RasterPane(QWidget):
             ds_id = dataset.get_id()
             bands = self._display_bands[ds_id]
             stretches = self._app_state.get_stretches(ds_id, bands)
-
+        print(f"RasterPane show_dataset")
         rasterview.set_raster_data(dataset, bands, stretches)
 
 
@@ -1169,6 +1170,7 @@ class RasterPane(QWidget):
         dataset.  Also, if any rasterviews are showing the dataset, the function
         switches them to a different dataset (if more than one is loaded).
         '''
+        print(f"RasterPane _on_dataset_removed")
         del self._display_bands[ds_id]
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
@@ -1216,21 +1218,24 @@ class RasterPane(QWidget):
 
     def _on_stretch_builder(self, checked=False, rasterview_pos=(0, 0)):
         ''' Show the Stretch Builder on behalf of the specified raster-view. '''
-
+        print(f"RasterPane _on_stretch_builder")
         # print(f'on_stretch_builder invoked for position {rasterview_pos}')
 
         if self._stretch_builder is None:
             self._stretch_builder = StretchBuilderDialog(parent=self)
 
         rasterview = self.get_rasterview(rasterview_pos)
+        display_raw_data = self._app_state._last_added_raster_display.get_raw_bands()
         self._stretch_builder.show(rasterview.get_raster_data(),
                                    rasterview.get_display_bands(),
-                                   rasterview.get_stretches())
+                                   rasterview.get_stretches(),
+                                   display_raw_data)
 
 
     def _on_stretch_changed(self, ds_id, bands):
         # Iterate through all rasterviews.  If any is displaying the dataset
         # that changed stretch, update its stretches.
+        print(f"RasterPane, Stretch changed, from app_state!!")
         for rv in self._rasterviews.values():
             dataset = rv.get_raster_data()
             if dataset is None:

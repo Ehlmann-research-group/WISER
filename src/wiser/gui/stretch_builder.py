@@ -9,7 +9,7 @@ from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
-from wiser.raster.utils import get_normalized_band
+from wiser.raster.utils import get_normalized_band, get_normalized_band_using_stats
 
 import numpy as np
 import numpy.ma as ma
@@ -140,32 +140,129 @@ class ChannelStretchWidget(QWidget):
     def set_histogram_color(self, color):
         self._histogram_color = color
 
-    def set_band(self, dataset, band_index):
+    def set_band(self, dataset, band_index, raw_band_data):
         '''
         Sets the data set and index of the band data to be used in the channel
-        stretch UI.  The data set and band index are retained, so that
+        stretch UI. The data set and band index are retained, so that
         histograms can be recomputed as the stretch conditioner is changed, or
         the endpoints over which to compute the histogram are modified.
         '''
+        import time
+        print("ChannelStretchWidget set_band")
         self._dataset = dataset
         self._band_index = band_index
 
-        self._raw_band_data = dataset.get_band_data(band_index)
-        self._raw_band_stats = dataset.get_band_stats(band_index)
-        self._norm_band_data = get_normalized_band(dataset, band_index)
+        # Time the _raw_band_data retrieval
+        start_time = time.time()
+        self._raw_band_data = raw_band_data
+        raw_band_data_time = time.time() - start_time
+        print(f"Time taken for self._raw_band_data: {raw_band_data_time:.6f} seconds")
 
+        # Time the _raw_band_stats retrieval
+        start_time = time.time()
+        self._raw_band_stats = dataset.get_band_stats(band_index, self._raw_band_data)
+        raw_band_stats_time = time.time() - start_time
+        print(f"Time taken for self._raw_band_stats: {raw_band_stats_time:.6f} seconds")
+
+        # Time the _norm_band_data normalization
+        start_time = time.time()
+        self._norm_band_data = get_normalized_band_using_stats(self._raw_band_data, self._raw_band_stats)
+        norm_band_data_time = time.time() - start_time
+        print(f"Time taken for self._norm_band_data: {norm_band_data_time:.6f} seconds")
+
+        # Time the _update_histogram call
+        start_time = time.time()
+        self._update_histogram()
+        update_histogram_time = time.time() - start_time
+        print(f"Time taken for self._update_histogram: {update_histogram_time:.6f} seconds")
+
+        # Set min and max bounds
         self._min_bound = self._raw_band_stats.get_min()
         self._max_bound = self._raw_band_stats.get_max()
 
+        # Set stretch low and high
         self.set_stretch_low(0.0)
         self.set_stretch_high(1.0)
 
-        #======================================================
         # UI Updates
         self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
         self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
 
-        self._update_histogram()
+    # def set_band(self, dataset, band_index):
+    #     '''
+    #     Sets the data set and index of the band data to be used in the channel
+    #     stretch UI. The data set and band index are retained, so that
+    #     histograms can be recomputed as the stretch conditioner is changed, or
+    #     the endpoints over which to compute the histogram are modified.
+    #     '''
+    #     import time
+    #     print("ChannelStretchWidget set_band")
+    #     self._dataset = dataset
+    #     self._band_index = band_index
+
+    #     # Time the _raw_band_data retrieval
+    #     start_time = time.time()
+    #     self._raw_band_data = dataset.get_band_data(band_index)
+    #     raw_band_data_time = time.time() - start_time
+    #     print(f"Time taken for self._raw_band_data: {raw_band_data_time:.6f} seconds")
+
+    #     # Time the _raw_band_stats retrieval
+    #     start_time = time.time()
+    #     self._raw_band_stats = dataset.get_band_stats(band_index, self._raw_band_data)
+    #     raw_band_stats_time = time.time() - start_time
+    #     print(f"Time taken for self._raw_band_stats: {raw_band_stats_time:.6f} seconds")
+
+    #     # Time the _norm_band_data normalization
+    #     start_time = time.time()
+    #     self._norm_band_data = get_normalized_band_using_stats(self._raw_band_data, self._raw_band_stats)
+    #     norm_band_data_time = time.time() - start_time
+    #     print(f"Time taken for self._norm_band_data: {norm_band_data_time:.6f} seconds")
+
+    #     # Time the _update_histogram call
+    #     start_time = time.time()
+    #     self._update_histogram()
+    #     update_histogram_time = time.time() - start_time
+    #     print(f"Time taken for self._update_histogram: {update_histogram_time:.6f} seconds")
+
+    #     # Set min and max bounds
+    #     self._min_bound = self._raw_band_stats.get_min()
+    #     self._max_bound = self._raw_band_stats.get_max()
+
+    #     # Set stretch low and high
+    #     self.set_stretch_low(0.0)
+    #     self.set_stretch_high(1.0)
+
+    #     # UI Updates
+    #     self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
+    #     self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
+
+    # def set_band(self, dataset, band_index):
+    #     '''
+    #     Sets the data set and index of the band data to be used in the channel
+    #     stretch UI.  The data set and band index are retained, so that
+    #     histograms can be recomputed as the stretch conditioner is changed, or
+    #     the endpoints over which to compute the histogram are modified.
+    #     '''
+    #     print(f"ChannelStretchWidget set_band")
+    #     self._dataset = dataset
+    #     self._band_index = band_index
+
+    #     self._raw_band_data = dataset.get_band_data(band_index)
+    #     self._raw_band_stats = dataset.get_band_stats(band_index)
+    #     self._norm_band_data = get_normalized_band(dataset, band_index)
+
+    #     self._min_bound = self._raw_band_stats.get_min()
+    #     self._max_bound = self._raw_band_stats.get_max()
+
+    #     self.set_stretch_low(0.0)
+    #     self.set_stretch_high(1.0)
+
+    #     #======================================================
+    #     # UI Updates
+    #     self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
+    #     self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
+
+    #     self._update_histogram()
 
     def set_stretch_type(self, stretch_type):
         self._stretch_type = stretch_type
@@ -320,19 +417,26 @@ class ChannelStretchWidget(QWidget):
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
     def _update_histogram(self):
+        import time
         if self._norm_band_data is None:
             return
 
+        # Time the removal of NaNs
+        start_time_nonan = time.perf_counter()
+        nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+        end_time_nonan = time.perf_counter()
+        nonan_data_time = end_time_nonan - start_time_nonan
+        print(f"Time to filter NaNs: {nonan_data_time:.6f} seconds")
+
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
-        nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+        start_time = time.perf_counter()
         self._histogram_bins_raw, self._histogram_edges_raw = \
             np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
-
-        # self._num_pixels = np.prod(self._band_data.shape)
+        end_time = time.perf_counter()
+        print(f"Time to make histogram: {end_time-start_time:.6f}")
 
         # Apply conditioner to the histogram, if necessary.
-
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = self._histogram_edges_raw
@@ -348,8 +452,46 @@ class ChannelStretchWidget(QWidget):
         else:
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
 
-        # Show the updated histogram
+        # Time the histogram display
+        start_time_show_histogram = time.perf_counter()
         self._show_histogram()
+        end_time_show_histogram = time.perf_counter()
+        show_histogram_time = end_time_show_histogram - start_time_show_histogram
+
+        # Print the timing results
+        print(f"Time to show histogram: {show_histogram_time:.6f} seconds")
+
+    # def _update_histogram(self):
+    #     if self._norm_band_data is None:
+    #         return
+
+    #     # The "raw" histogram is based solely on the filtered and normalized
+    #     # band data.  That is, no conditioner has been applied to the histogram.
+    #     nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+    #     self._histogram_bins_raw, self._histogram_edges_raw = \
+    #         np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
+
+    #     # self._num_pixels = np.prod(self._band_data.shape)
+
+    #     # Apply conditioner to the histogram, if necessary.
+
+    #     if self._conditioner_type == ConditionerType.NO_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = self._histogram_edges_raw
+
+    #     elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = np.sqrt(self._histogram_edges_raw)
+
+    #     elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
+    #         self._histogram_bins = self._histogram_bins_raw
+    #         self._histogram_edges = np.log2(1 + self._histogram_edges_raw)
+
+    #     else:
+    #         raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
+
+    #     # Show the updated histogram
+    #     self._show_histogram()
 
 
     def _show_histogram(self, update_lines_only=False):
@@ -846,8 +988,8 @@ class StretchBuilderDialog(QDialog):
            self._enable_stretch_changed_events:
             self._emit_stretch_changed(self.get_stretches())
 
-
-    def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
+    def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches, raw_band_data):
+        print(f"StretchBuilderDialog show")
         # print(f'Display bands = {display_bands}')
 
         self._enable_stretch_changed_events = False
@@ -868,7 +1010,8 @@ class StretchBuilderDialog(QDialog):
             for i in range(3):
                 self._channel_widgets[i].set_title(titles[i])
                 self._channel_widgets[i].set_histogram_color(colors[i])
-                self._channel_widgets[i].set_band(dataset, display_bands[i])
+                # self._channel_widgets[i].set_band(dataset, display_bands[i])
+                self._channel_widgets[i].set_band(dataset, display_bands[i], raw_band_data[display_bands[i]])
                 # TODO(donnie):  Set existing stretch details
                 self._channel_widgets[i].show()
 
@@ -879,7 +1022,8 @@ class StretchBuilderDialog(QDialog):
             # Initialize grayscale stretch building
             self._channel_widgets[0].set_title(self.tr('Grayscale Channel'))
             self._channel_widgets[0].set_histogram_color(QColor('black'))
-            self._channel_widgets[0].set_band(dataset, display_bands[0])
+            # self._channel_widgets[0].set_band(dataset, display_bands[0])
+            self._channel_widgets[i].set_band(dataset, display_bands[i], raw_band_data[display_bands[0]])
             # TODO(donnie):  Set existing stretch details
             self._channel_widgets[0].show()
 
@@ -898,6 +1042,60 @@ class StretchBuilderDialog(QDialog):
 
         self.adjustSize()
         super().show()
+
+
+    # def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
+    #     print(f"StretchBuilderDialog show")
+    #     # print(f'Display bands = {display_bands}')
+
+    #     self._enable_stretch_changed_events = False
+
+    #     self._dataset = dataset
+    #     self._display_bands = display_bands
+
+    #     self._num_active_channels = len(display_bands)
+
+    #     if len(display_bands) == 3:
+    #         # Initialize RGB stretch building
+    #         titles = [
+    #             self.tr('Red Channel'),
+    #             self.tr('Green Channel'),
+    #             self.tr('Blue Channel'),
+    #         ]
+    #         colors = [QColor('red'), QColor('green'), QColor('blue')]
+    #         for i in range(3):
+    #             self._channel_widgets[i].set_title(titles[i])
+    #             self._channel_widgets[i].set_histogram_color(colors[i])
+    #             self._channel_widgets[i].set_band(dataset, display_bands[i])
+    #             # TODO(donnie):  Set existing stretch details
+    #             self._channel_widgets[i].show()
+
+    #         self._cb_link_sliders.show()
+    #         self._cb_link_min_max.show()
+
+    #     elif len(display_bands) == 1:
+    #         # Initialize grayscale stretch building
+    #         self._channel_widgets[0].set_title(self.tr('Grayscale Channel'))
+    #         self._channel_widgets[0].set_histogram_color(QColor('black'))
+    #         self._channel_widgets[0].set_band(dataset, display_bands[0])
+    #         # TODO(donnie):  Set existing stretch details
+    #         self._channel_widgets[0].show()
+
+    #         self._channel_widgets[1].hide()
+    #         self._channel_widgets[2].hide()
+
+    #         self._cb_link_sliders.hide()
+    #         self._cb_link_min_max.hide()
+
+    #     else:
+    #         raise ValueError(f'display_bands must be 1 element or 3 elements; got {display_bands}')
+
+    #     self._saved_stretches = stretches
+
+    #     self._enable_stretch_changed_events = True
+
+    #     self.adjustSize()
+    #     super().show()
 
 
     def closeEvent(self, event):

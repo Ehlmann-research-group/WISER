@@ -205,3 +205,19 @@ def get_normalized_band(dataset, band_index):
         norm_data = norm_data.astype(np.float32)
 
     return norm_data
+
+def get_normalized_band_using_stats(band_data: np.ndarray, stats):
+    '''
+    Maps all elements in the band to the range of [0.0, 1.0]. 
+    Elements will be of type np.float32, unless the input
+    data is already np.float64, in which case the elements are left as
+    np.float64.
+    '''
+
+    norm_data = (band_data - stats.get_min()) / (stats.get_max() - stats.get_min())
+
+    if norm_data.dtype not in [np.float32, np.float64]:
+        print(f'NOTE:  norm_data.dtype is {norm_data.dtype}, band_data.dtype is {band_data.dtype}')
+        norm_data = norm_data.astype(np.float32)
+
+    return norm_data
