@@ -370,10 +370,13 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        print(f"Getting band data!")
         arr = self._impl.get_band_data(band_index)
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
             arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        self.get_band_stats(band_index, arr)
 
         return arr
 
@@ -408,7 +411,6 @@ class RasterDataSet:
             filtered_band = band[(band != -np.inf) & (band != np.inf)]
             stats = BandStats(band_index, np.nanmin(filtered_band), np.nanmax(filtered_band))
             self._cached_band_stats[band_index] = stats
-
         return stats
 
 

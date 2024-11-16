@@ -281,7 +281,7 @@ class SpectrumPointDisplayInfo:
             y_value_str = f'{y_value:.7f}'
         elif elem_type == np.float64:
             y_value_str = f'{y_value:.15f}'
-        elif elem_type == np.float128:
+        elif hasattr(np, "float128") and elem_type == np.float128:
             y_value_str = f'{y_value:.34f}'
         else:
             y_value_str = f'{y_value}'

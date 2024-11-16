@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 
@@ -8,11 +8,12 @@ class RasterViewMetaData:
 
     def __init__(self, ds_id: int = None, display_bands: List[int] = None, \
                stretches: List[StretchBase] = None, img_data: np.ndarray = None, \
-                colormap = None):
+                display_bands_raw_data: Dict[int, np.ndarray] = None, colormap = None):
         self._ds_id = ds_id
         self._display_bands = display_bands
         self._stretches = stretches
         self._img_data = img_data
+        self._display_bands_raw_data = display_bands_raw_data
         self._colormap = colormap
     
     def is_fully_initialized(self) -> bool:
@@ -21,6 +22,12 @@ class RasterViewMetaData:
     def get_ds_id(self):
         return self._ds_id
     
+    def get_raw_bands(self):
+        return self._display_bands_raw_data
+
+    def set_raw_band_data(self, new_raw_data):
+        self._display_bands_raw_data = new_raw_data
+
     def get_image_data(self):
         return self._img_data
 
