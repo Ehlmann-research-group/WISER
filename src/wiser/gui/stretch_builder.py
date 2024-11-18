@@ -424,6 +424,7 @@ class ChannelStretchWidget(QWidget):
         # Time the removal of NaNs
         start_time_nonan = time.perf_counter()
         nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+        print(f"nonan_data.shape: {nonan_data.shape}")
         end_time_nonan = time.perf_counter()
         nonan_data_time = end_time_nonan - start_time_nonan
         print(f"Time to filter NaNs: {nonan_data_time:.6f} seconds")

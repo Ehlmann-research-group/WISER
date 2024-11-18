@@ -62,6 +62,9 @@ class RasterDataImpl(abc.ABC):
     def get_band_data(self, band_index) -> np.ndarray:
         pass
 
+    def sample_band_data(self, band_index, sample_factor: int):
+        pass
+
     def get_all_bands_at(self, x, y) -> np.ndarray:
         pass
 
@@ -240,6 +243,50 @@ class GDALRasterDataImpl(RasterDataImpl):
             np_array = band.GetVirtualMemAutoArray()
         except (RuntimeError, TypeError):
             np_array = band.ReadAsArray()
+
+        return np_array
+    
+    def sample_band_data(self, band_index, sample_factor: int):
+        '''
+        Returns a numpy 2D array of the specified band's data but resampled. 
+        The first band is at index 0.
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+
+        # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
+        #     different raster bands can have different dimensions, data types,
+        #     etc.  Should probably do some sanity checking in the initializer.
+        # TODO(donnie):  This doesn't work with a virtual-memory array, but
+        #     maybe the non-virtual-memory approach is faster.
+        # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
+        #     xsize=1, ysize=1)
+        new_dataset = self.reopen_dataset()
+        x_size = new_dataset.RasterXSize
+        y_size = new_dataset.RasterYSize
+        buf_xsize = int(x_size/sample_factor)
+        buf_ysize = int(y_size/sample_factor)
+        print(f"=============buf_xsize: {buf_xsize}")
+        print(f"=============buf_ysize: {buf_ysize}")
+        band = new_dataset.GetRasterBand(band_index + 1)
+        print(f"=============band no data: {band.GetNoDataValue()}")
+        print(f"=============band block size: {band.GetBlockSize()}")
+        # band.DeleteNoDataValue()
+        print(f"=============band no data deleted: {band.GetNoDataValue()}")
+        np_array: Union[np.ndarray, np.ma.masked_array] = band.ReadAsArray(
+                                                            buf_xsize=buf_xsize, 
+                                                            buf_ysize=buf_ysize, 
+                                                            buf_type= gdal.GDT_Float32,
+                                                            resample_alg=gdal.GRIORA_Gauss)
+        # Use NumPy to count unique values and their frequencies
+        unique, counts = np.unique(np_array, return_counts=True)
+
+        # Return a dictionary of values and their frequencies
+        print(f"=========== frequencies{dict(zip(unique, counts))}")                                                        
+        print(f"=============array type: {np_array.dtype}")
 
         return np_array
 
@@ -860,6 +907,10 @@ class NumPyRasterDataImpl(RasterDataImpl):
 
     def get_band_data(self, band_index) -> np.ndarray:
         return self._arr[band_index]
+
+    
+    def sample_band_data(self, band_index, sample_factor: int):
+        return self._arr[band_index,::sample_factor,::sample_factor]
 
     def get_all_bands_at(self, x, y) -> np.ndarray:
         return self._arr[:, y, x]
