@@ -180,10 +180,13 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=Fals
 
     if maxval is None:
         maxval = np.nanmax(array)
-
+    
     if in_place:
         array -= minval
-        np.divide(array, (maxval - minval), out=array, dtype=np.float32)
+        if maxval-minval == 0:
+            array.fill(0.0)
+        else:
+            np.divide(array, (maxval - minval), out=array, dtype=np.float32)
     else:
         return (array - minval) / (maxval - minval)
 

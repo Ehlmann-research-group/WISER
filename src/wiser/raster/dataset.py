@@ -379,6 +379,36 @@ class RasterDataSet:
         self.get_band_stats(band_index, arr)
 
         return arr
+    
+    def sample_band_data(self, band_index: int, sample_factor: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
+        '''
+        Returns a numpy 2D array of the specified band's data.  The first band
+        is at index 0.
+
+        The numpy array is configured such that the pixel (x, y) values are at
+        element array[y][x].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        print(f"Sampling band data!")
+        arr : Union[np.ndarray, np.ma.masked_array] = self._impl.sample_band_data(band_index, 2)
+        print(f"---------------np.nanmin(display_bands_raw_data[band]): {np.nanmin(arr)}")
+        print(f"---------------np.nanmax(display_bands_raw_data[band]): {np.nanmax(arr)}")
+        print(f"---------------array size:: {arr.size}")
+        print(f"---------------band: {band_index}")
+
+
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            print(f"---------------data ignore: {self._data_ignore_value}")
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        print(f"---------------after mask np.nanmin(display_bands_raw_data[band]): {np.nanmin(arr)}")
+        print(f"---------------after mask np.nanmax(display_bands_raw_data[band]): {np.nanmax(arr)}")
+        self.get_band_stats(band_index, arr)
+        return arr
 
     def get_multiple_band_data(self, band_list: List[int], filter_data_ignore_value=True):
         '''
@@ -430,12 +460,18 @@ class RasterDataSet:
             for i, v in enumerate(self.get_bad_bands()):
                 if v == 0:
                     # Band is marked "bad"
-                    arr[i] = np.nan
+                    try:
+                        arr[i] = np.nan
+                    except:
+                        pass
 
                 elif (self._data_ignore_value is not None and
                       math.isclose(arr[i], self._data_ignore_value)):
                     # Band has the "data ignore" value
-                    arr[i] = np.nan
+                    try:
+                        arr[i] = np.nan
+                    except:
+                        pass
 
         return arr
 
@@ -465,7 +501,10 @@ class RasterDataSet:
                     arr[:,i,j][mask] = np.nan
             if self._data_ignore_value is not None:
                 mask_ignore_val = np.isclose(arr, self._data_ignore_value)
-                arr[mask_ignore_val] = np.nan
+                try:
+                    arr[mask_ignore_val] = np.nan
+                except:
+                    pass
         return arr
 
     def get_geo_transform(self) -> Tuple:

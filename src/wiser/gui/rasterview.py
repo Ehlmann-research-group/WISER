@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 def get_new_display_band_data(raster_data: RasterDataSet,
                               display_bands_raw: Dict[int, np.ndarray], 
-                              display_bands: Tuple[int]):
+                              display_bands: Tuple[int],
+                              sample_factor: int = 4):
     """
     Updates the display_bands_raw dict based on the comparison between display_bands
     and the keys of display_bands_raw. For matching tuples, it keeps the existing data. 
@@ -56,13 +57,29 @@ def get_new_display_band_data(raster_data: RasterDataSet,
             # Check if the corresponding value in display_bands_raw is None
             if display_bands_raw[curr_band] is None:
                 # Fetch the band data using raster_data
-                updated_bands[curr_band] = raster_data.get_band_data(curr_band)
+                # updated_bands[curr_band] = raster_data.get_band_data(curr_band)
+                print(f"curr_band: {curr_band}")
+                arr = raster_data.sample_band_data(curr_band, sample_factor)
+                print(f"type(arr): {type(arr)}")
+                arr = arr.copy()
+                print(f"copy arr type: {type(arr)}")
+                print(f"copy arr: {arr}")
+                updated_bands[curr_band] = arr
             else:
                 # Use the existing data from display_bands_raw
+                print(f"Getting past bands: type: {type(display_bands_raw[curr_band])}")
+                print(f"Getting past bands: {display_bands_raw[curr_band]}")
                 updated_bands[curr_band] = display_bands_raw[curr_band]
         else:
             # Fetch the band data if the band is not in display_bands_raw
-            updated_bands[curr_band] = raster_data.get_band_data(curr_band)
+            # updated_bands[curr_band] = raster_data.get_band_data(curr_band)
+            print(f"curr_band2: {curr_band}")
+            arr = raster_data.sample_band_data(curr_band, sample_factor)
+            print(f"type(arr): {type(arr)}")
+            print(f"copy arr type: {type(arr)}")
+            arr = arr.copy()
+            print(f"copy arr: {arr}")
+            updated_bands[curr_band] = raster_data.sample_band_data(curr_band, sample_factor).copy()
 
     # Return the updated bands dictionary
     return updated_bands
@@ -111,6 +128,7 @@ def make_channel_image_with_band(band: np.ndarray, stretch: StretchBase = None) 
     # Extract the raw band data and associated statistics from the data set.
     start_time = time.perf_counter()
     temp_data = band.copy()
+    print(f"Temp data shape: {temp_data.shape}")
     end_time = time.perf_counter()
     print(f"Time to copy band data: {end_time - start_time:.6f} seconds")
 
@@ -163,12 +181,16 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     '''
     # Extract the raw band data and associated statistics from the data set.
     start_time = time.perf_counter()
-    temp_data = dataset.get_band_data(band).copy()
+    temp_data = dataset.sample_band_data(band, 2)
+    print(f"!!!!!!!!!!nan min before copy: {np.nanmin(temp_data)}")
+    temp_data = temp_data.copy()
+    print(f"!!!!!!!!!!nan min after copy: {np.nanmin(temp_data)}")
     end_time = time.perf_counter()
     print(f"Time to copy band data: {end_time - start_time:.6f} seconds")
 
     start_time = time.perf_counter()
     temp_data = temp_data.astype(np.float32, copy=False)
+    print(f"!!!!!!!!!!nan min after astype: {np.nanmin(temp_data)}")
     end_time = time.perf_counter()
     print(f"Time to cast data to float32: {end_time - start_time:.6f} seconds")
 
@@ -178,6 +200,7 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
         stretch.apply(temp_data)
         end_time = time.perf_counter()
         print(f"Time to apply stretch: {end_time - start_time:.6f} seconds")
+    print(f"!!!!!!!!!!nan min after stretch: {np.nanmin(temp_data)}")
 
     start_time = time.perf_counter()
     finite_vals = temp_data[np.isfinite(temp_data)]
@@ -186,6 +209,7 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
 
     start_time = time.perf_counter()
     normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=True)
+    print(f"!!!!!!!!!!!!!nan min after normalize_ndarray: {np.nanmin(temp_data)}")
     end_time = time.perf_counter()
     print(f"Time to normalize array: {end_time - start_time:.6f} seconds")
 
@@ -264,8 +288,10 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
             raise ValueError(f'All channels must have the same dimensions')
 
     # Expensive sanity checks:
+    print(f"np.nanmin(c): {np.nanmin(c)}")
+    print(f"np.nanmax(c): {np.nanmax(c)}")
     if __debug__:
-        assert (0 <= np.amin(c) <= 255) and (0 <= np.amax(c) <= 255), \
+        assert (0 <= np.nanmin(c) <= 255) and (0 <= np.nanmax(c) <= 255), \
             'Channel may only contain values in range 0..255, and no NaNs'
     
     assert channels[0].dtype == np.uint8 and \
@@ -442,6 +468,28 @@ class ImageWidget(QWidget):
         # about the dataset are modified (including stretch adjustments, etc.)
         self.update()
 
+    def set_dataset_info2(self, band, scale):
+        # TODO(donnie):  Do something
+        print(f"||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||")
+        if band is not None:
+            width = band.shape[1]
+            height = band.shape[0]
+            print(f"width: {width}")
+            print(f"height: {height}")
+            self._scaled_size = QSize(int(width * scale), int(height * scale))
+            print(f"Scaled size: {self._scaled_size}")
+
+        else:
+            print(f"Is none")
+            self._scaled_size = None
+
+        # Inform the parent widget/layout that the geometry may have changed.
+        self.setFixedSize(self._get_size_of_contents())
+
+        # Request a repaint, since this function is called when any details
+        # about the dataset are modified (including stretch adjustments, etc.)
+        self.update()
+
 
     def _get_size_of_contents(self):
         '''
@@ -490,12 +538,15 @@ class ImageWidget(QWidget):
                 pixmap = self._rasterview.get_unscaled_pixmap()
 
                 # Draw the scaled version of the pixmap.
+                print(f"Before draw pixmap, width: {self._scaled_size.width()}, height: {self._scaled_size.height()}")
                 painter.drawPixmap(0, 0,
                     self._scaled_size.width(), self._scaled_size.height(), pixmap,
                     0, 0, 0, 0)
-
+                print(f"After drawPixel Map")
                 if 'paintEvent' in self._forward:
+                    print(f"PaintEvent forward")
                     self._forward['paintEvent'](self._rasterview, self, paint_event)
+                print(f"After if statement")
 
             else:
                 # Draw a note that there is no data to display.
@@ -736,17 +787,24 @@ class RasterView(QWidget):
             last_added_raster_display.is_fully_initialized() and \
             last_added_raster_display == current_added_raster_display:
             img_data = self._app_state.get_last_added_raster_display().get_image_data()
+            band_width = list(self._app_state._last_added_raster_display.get_raw_bands().values())[0].shape[1]
+            band_height = list(self._app_state._last_added_raster_display.get_raw_bands().values())[0].shape[0]
+            # band_width = None
+            # band_height = None
             print(f"Skipping!")
             time_2 = time.perf_counter()
         else:
             display_bands_raw_data = get_new_display_band_data(self._raster_data,
                                                                  last_added_raster_display.get_raw_bands(),
                                                                  self._display_bands)
+            band_width = None
+            band_height = None
             if len(self._display_bands) == 3:
                 # Check each color band to see if we need to update it.
                 color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
                 start1 = time.perf_counter()
-                for i in range(len(self._display_bands)):
+                # for i in range(len(self._display_bands)):
+                for i in [2, 1, 0]:
                     if self._display_data[i] is None or color_indexes[i] in colors:
                         # Start the timer
                         start_time = time.perf_counter()
@@ -754,6 +812,10 @@ class RasterView(QWidget):
                         # Compute the contents of this color channel.
                         self._display_data[i] = make_channel_image_with_band(display_bands_raw_data[band],
                                                     self._stretches[i])
+                        
+                        # self._display_data[i] = make_channel_image(self._raster_data, band, self._stretches[i])
+                        band_width = display_bands_raw_data[band].shape[1]
+                        band_height = display_bands_raw_data[band].shape[0]
                         print(f"Display data type: {type(self._display_data[i])}")
                         print(f"Display data: {self._display_data[i]}")
                         # End the timer
@@ -769,6 +831,10 @@ class RasterView(QWidget):
                 # Start the timer
                 start_time = time.perf_counter()
                 # Combine our individual color channel(s) into a single RGB image.
+                print(f"self._display_data: {self._display_data}")
+                print(f"self._display_data[0]: {np.nanmin(self._display_data[0])}")
+                print(f"self._display_data[1]: {np.nanmin(self._display_data[1])}")
+                print(f"self._display_data[2]: {np.nanmin(self._display_data[2])}")
                 img_data = make_rgb_image(self._display_data)
                 # End the timer
                 end_time = time.perf_counter()
@@ -807,9 +873,18 @@ class RasterView(QWidget):
 
         start_time = time.perf_counter()
         # This is the 100% scale QImage of the data.
-        self._image = QImage(img_data,
-            self._raster_data.get_width(), self._raster_data.get_height(),
-            QImage.Format_RGB32)
+        if band_width is not None:
+            print(f"band_width: {band_width}")
+            print(f"band_height: {band_height}")
+            self._image = QImage(img_data,
+                band_width, band_height,
+                QImage.Format_RGB32)
+        else:
+            print(f"self._raster_data.get_width(): {self._raster_data.get_width()}")
+            print(f"self._raster_data.get_height(): {self._raster_data.get_height()}")
+            self._image = QImage(img_data,
+                self._raster_data.get_width(), self._raster_data.get_height(),
+                QImage.Format_RGB32)
         # End the timer
         end_time = time.perf_counter()
 
@@ -853,7 +928,7 @@ class RasterView(QWidget):
 
 
     def _update_scaled_image(self, old_scale_factor=None):
-        self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
+        self._image_widget.set_dataset_info2(list(self._app_state._last_added_raster_display.get_raw_bands().values())[0], self._scale_factor)
         # self._scroll_area.setVisible(True)
 
         # Need to process queued events now, since the image-widget has changed
