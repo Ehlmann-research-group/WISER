@@ -229,6 +229,19 @@ class RasterDataSet:
         '''
         return self._impl.get_elem_type()
 
+    def get_band_memory_size(self) -> int:
+        '''
+        Returns the approximate size of a band of this dataset.
+        It's approximate because this doesn't account for compression
+        '''
+        return self.get_width() * self.get_height * self.get_elem_type().itemsize
+    
+    def get_memory_size(self) -> int:
+        '''
+        Returns the approximate size of this dataset.
+        It's approximate because this doesn't account for compression
+        '''
+        return self.get_band_memory_size() * self.num_bands()
 
     def get_band_unit(self) -> Optional[u.Unit]:
         '''
@@ -634,6 +647,9 @@ class RasterDataSet:
             self._impl.delete_dataset()
             return True
         return False
+
+    def __hash__(self):
+        return hash(tuple(self.get_filepaths()))
 
     def __eq__(self, other) -> bool:
         if isinstance(other, RasterDataSet):

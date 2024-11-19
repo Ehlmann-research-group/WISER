@@ -22,6 +22,8 @@ from wiser.raster.stretch import StretchBase
 
 from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
+from wiser.raster.data_cache import DataCache
+
 from wiser.gui.rasterview_metadata import RasterViewMetaData
 
 
@@ -88,6 +90,8 @@ class ApplicationState(QObject):
 
         # A reference to the overall UI
         self._app = app
+
+        self._cache = DataCache()
 
         # The plugins currently loaded into WISER.
         self._plugins: Dict[str, Plugin] = {}
@@ -309,6 +313,7 @@ class ApplicationState(QObject):
         '''
         self._datasets[ds_id].delete_underlying_dataset()
         del self._datasets[ds_id]
+        self._cache.remove_image_cube(ds_id)
 
         # Remove all stretches that are associated with this data set
         for key in list(self._stretches.keys()):
