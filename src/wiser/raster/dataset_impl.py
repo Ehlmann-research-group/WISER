@@ -278,14 +278,15 @@ class GDALRasterDataImpl(RasterDataImpl):
         print(f"=============band no data deleted: {band.GetNoDataValue()}")
         np_array: Union[np.ndarray, np.ma.masked_array] = band.ReadAsArray(
                                                             buf_xsize=buf_xsize, 
-                                                            buf_ysize=buf_ysize, 
-                                                            buf_type= gdal.GDT_Float32,
+                                                            buf_ysize=buf_ysize,
                                                             resample_alg=gdal.GRIORA_Gauss)
+        print(f"=============np.nanmin(np_array): {np.nanmin(np_array)}")
+        print(f"=============np.nanmin(np_array): {np.nanmin(np_array)}")
         # Use NumPy to count unique values and their frequencies
-        unique, counts = np.unique(np_array, return_counts=True)
+        # unique, counts = np.unique(np_array, return_counts=True)
 
         # Return a dictionary of values and their frequencies
-        print(f"=========== frequencies{dict(zip(unique, counts))}")                                                        
+        # print(f"=========== frequencies{dict(zip(unique, counts))}")                                                        
         print(f"=============array type: {np_array.dtype}")
 
         return np_array
