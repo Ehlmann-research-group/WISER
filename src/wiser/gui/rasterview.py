@@ -23,102 +23,6 @@ from wiser.gui.rasterview_metadata import RasterViewMetaData
 
 logger = logging.getLogger(__name__)
 
-def get_new_display_band_data(raster_data: RasterDataSet,
-                              display_bands_raw: Dict[int, np.ndarray], 
-                              display_bands: Tuple[int],
-                              sample_factor: int = 4):
-    """
-    Updates the display_bands_raw dict based on the comparison between display_bands
-    and the keys of display_bands_raw. For matching tuples, it keeps the existing data. 
-    It fetches the band data from raster_data if there is no array data or no matches
-
-    Parameters:
-        raster_data (RasterDataSet): The raster dataset object to fetch band data.
-        display_bands_raw (list): A list of the band index with its correspoding numpy array
-        display_bands (tuple): The current display bands.
-
-    Returns:
-        dict: Updated display_bands_raw dict that contains possibly new arrays
-    
-    Edge cases: 
-        - display_bands_raw is [None, None, None]
-        - current_display_bands is None
-    """
-    # Initialize the updated bands dictionary
-    updated_bands = {}
-
-    # If display_bands is None, return an empty updated_bands dictionary
-    if display_bands is None:
-        return updated_bands
-
-    # Loop through the current bands in display_bands
-    for curr_band in display_bands:
-        if display_bands_raw is not None and curr_band in display_bands_raw:
-            # Check if the corresponding value in display_bands_raw is None
-            if display_bands_raw[curr_band] is None:
-                # Fetch the band data using raster_data
-                updated_bands[curr_band] = raster_data.get_band_data(curr_band)
-                print(f"curr_band: {curr_band}")
-                # arr = raster_data.sample_band_data(curr_band, sample_factor)
-                print(f"type(arr): {type(arr)}")
-                arr = arr.copy()
-                print(f"copy arr type: {type(arr)}")
-                print(f"copy arr: {arr}")
-                updated_bands[curr_band] = arr
-            else:
-                # Use the existing data from display_bands_raw
-                print(f"Getting past bands: type: {type(display_bands_raw[curr_band])}")
-                print(f"Getting past bands: {display_bands_raw[curr_band]}")
-                updated_bands[curr_band] = display_bands_raw[curr_band]
-        else:
-            # Fetch the band data if the band is not in display_bands_raw
-            updated_bands[curr_band] = raster_data.get_band_data(curr_band)
-            print(f"curr_band2: {curr_band}")
-            # arr = raster_data.sample_band_data(curr_band, sample_factor)
-            print(f"type(arr): {type(arr)}")
-            print(f"copy arr type: {type(arr)}")
-            arr = arr.copy()
-            print(f"copy arr: {arr}")
-            # updated_bands[curr_band] = raster_data.sample_band_data(curr_band, sample_factor).copy()
-
-    # Return the updated bands dictionary
-    return updated_bands
-
-    # Initialize the updated bands dict
-
-    # Loop through the current bands in display_bands
-        # If one of these bands is in display_bands_raw we, we check to see if display_bands_raw
-        # is none. If it is none we get the array data using raster_data.get_band_data(curr_band)
-
-        # If its not none we add the array to the updated dict
-
-        # If one of the bends is not in display_bands, we just get
-        # the band with raster_data.get_band_data(curr_band)
-    
-    # We return the updated bands dict
-
-    # # Initialize a new list to hold the updated band data
-    # updated_bands_raw = []
-    
-    # for new_index, new_band in enumerate(new_display_bands):
-    #     # Check if the current new_band exists in the current_display_bands tuple
-    #     if new_band in current_display_bands:
-    #         # Find the index of the matching band in current_display_bands
-    #         current_index = current_display_bands.index(new_band)
-    #         # Use the corresponding data from display_bands_raw
-    #         if display_bands_raw[current_index] is None:
-    #             print(f"display_bands_raw[current_index] is none: {display_bands_raw[current_index]}")
-    #             updated_bands_raw.append(raster_data.get_band_data(new_band))
-    #         else:
-    #             updated_bands_raw.append(display_bands_raw[current_index])
-    #     else:
-    #         print(f"New band not in current display bands: new band: {new_band}, curr_display: {current_display_bands}")
-    #         # Fetch new data from raster_data for the non-matching band
-    #         updated_bands_raw.append(raster_data.get_band_data(new_band))
-    
-    # return updated_bands_raw
-
-
 def make_channel_image_with_band(band: np.ndarray, stretch: StretchBase = None) -> np.ndarray:
     '''
     Given a raster data set, band index, and optional contrast stretch object,
@@ -127,7 +31,7 @@ def make_channel_image_with_band(band: np.ndarray, stretch: StretchBase = None) 
     '''
     # Extract the raw band data and associated statistics from the data set.
     start_time = time.perf_counter()
-    # temp_data = band.copy()
+    temp_data = band.copy()
     print(f"Temp data shape: {temp_data.shape}")
     end_time = time.perf_counter()
     print(f"Time to copy band data: {end_time - start_time:.6f} seconds")
@@ -209,7 +113,7 @@ def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase =
     print(f"Time to extract finite values: {end_time - start_time:.6f} seconds")
 
     start_time = time.perf_counter()
-    normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=False)
+    temp_data = normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=False)
     # print(f"!!!!!!!!!!!!!nan min after normalize_ndarray: {np.nanmin(temp_data)}")
     end_time = time.perf_counter()
     print(f"Time to normalize array: {end_time - start_time:.6f} seconds")
@@ -768,26 +672,7 @@ class RasterView(QWidget):
 
         time_1 = time.perf_counter()
 
-        ds_id = self._raster_data.get_id()
-
-        # last_added_raster_display = self._app_state.get_last_added_raster_display()
-        # current_added_raster_display = RasterViewMetaData(ds_id, self._display_bands, self._stretches, \
-                                                        #   colormap=self._colormap)
         # TODO (Joshua G-K): Make this logic cleaner or move to another function
-        # if last_added_raster_display is not None and \
-        #     last_added_raster_display.is_fully_initialized() and \
-        #     last_added_raster_display == current_added_raster_display:
-        #     img_data = self._app_state.get_last_added_raster_display().get_image_data()
-        #     band_width = list(self._app_state._last_added_raster_display.get_raw_bands().values())[0].shape[1]
-        #     band_height = list(self._app_state._last_added_raster_display.get_raw_bands().values())[0].shape[0]
-        #     # band_width = None
-        #     # band_height = None
-        #     print(f"Skipping!")
-        #     time_2 = time.perf_counter()
-        # else:
-            # display_bands_raw_data = get_new_display_band_data(self._raster_data,
-            #                                                      last_added_raster_display.get_raw_bands(),
-            #                                                      self._display_bands)
 
         # band_width = None
         # band_height = None
@@ -801,9 +686,6 @@ class RasterView(QWidget):
                     # Start the timer
                     start_time = time.perf_counter()
                     # Compute the contents of this color channel.
-                    # display_band_raw = self._app_state.get_cache().get_image_band(band, self._raster_data)
-                    # self._display_data[i] = make_channel_image_with_band(display_band_raw,
-                    #                             self._stretches[i])
                     
                     self._display_data[i] = make_channel_image(self._raster_data,
                                                             self._display_bands[i], self._stretches[i])
@@ -852,9 +734,6 @@ class RasterView(QWidget):
 
             # Combine our individual color channel(s) into a single RGB image.
             img_data = make_grayscale_image(self._display_data[0], self._colormap)
-        # current_added_raster_display.set_image_data(img_data)
-        # current_added_raster_display.set_raw_band_data(display_bands_raw_data)
-        # self._app_state.set_last_added_raster_display(current_added_raster_display)
         self._display_data = [None, None, None]
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
@@ -866,15 +745,6 @@ class RasterView(QWidget):
 
         start_time = time.perf_counter()
         # This is the 100% scale QImage of the data.
-        # if band_width is not None:
-        #     print(f"band_width: {band_width}")
-        #     print(f"band_height: {band_height}")
-        #     self._image = QImage(img_data,
-        #         band_width, band_height,
-        #         QImage.Format_RGB32)
-        # else:
-        #     print(f"self._raster_data.get_width(): {self._raster_data.get_width()}")
-        #     print(f"self._raster_data.get_height(): {self._raster_data.get_height()}")
         self._image = QImage(img_data,
             self._raster_data.get_width(), self._raster_data.get_height(),
             QImage.Format_RGB32)
