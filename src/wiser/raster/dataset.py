@@ -364,15 +364,22 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        arr = self._data_cache.get_image_cube(self) if self._data_cache else None
-        if arr is None:
-            arr = self._impl.get_image_data()
+        # arr = self._data_cache.get_image_cube(self) if self._data_cache else None
+        # if arr is None:
+        #     arr = self._impl.get_image_data()
 
-            if filter_data_ignore_value and self._data_ignore_value is not None:
-                arr = np.ma.masked_values(arr, self._data_ignore_value)
-            if self._data_cache:
-                key = self._data_cache.get_computation_cache_key(dataset=self)
-                self._data_cache.add_computation_cache_item(key, arr)
+        #     if filter_data_ignore_value and self._data_ignore_value is not None:
+        #         arr = np.ma.masked_values(arr, self._data_ignore_value)
+        #     if self._data_cache:
+        #         key = self._data_cache.get_computation_cache_key(dataset=self)
+        #         self._data_cache.add_computation_cache_item(key, arr)
+        # return arr
+        
+        arr = self._impl.get_image_data()
+
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+        
         return arr
 
 
@@ -390,17 +397,26 @@ class RasterDataSet:
         filtering will impact performance.
         '''
 
-        arr = self._data_cache.get_image_band(band_index, self) if self._data_cache else None
-        if arr is None:
-            print(f"!Getting band data! for: {band_index}")
-            arr = self._impl.get_band_data(band_index)
-            if filter_data_ignore_value and self._data_ignore_value is not None:
-                arr = np.ma.masked_values(arr, self._data_ignore_value)
+        # arr = self._data_cache.get_image_band(band_index, self) if self._data_cache else None
+        # if arr is None:
+        #     print(f"!Getting band data! for: {band_index}")
+        #     arr = self._impl.get_band_data(band_index)
+        #     if filter_data_ignore_value and self._data_ignore_value is not None:
+        #         arr = np.ma.masked_values(arr, self._data_ignore_value)
 
-            self.get_band_stats(band_index, arr)
-            if self._data_cache:
-                key = self._data_cache.get_computation_cache_key(band_index, self)
-                self._data_cache.add_computation_cache_item(key, arr)
+        #     self.get_band_stats(band_index, arr)
+        #     if self._data_cache:
+        #         key = self._data_cache.get_computation_cache_key(band_index, self)
+        #         self._data_cache.add_computation_cache_item(key, arr)
+
+        # return arr
+        
+        print(f"!Getting band data! for: {band_index}")
+        arr = self._impl.get_band_data(band_index)
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        self.get_band_stats(band_index, arr)
 
         return arr
     
