@@ -54,6 +54,7 @@ from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
     NumPyArraySpectrum)
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export
+from wiser.raster.data_cache import DataCache
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,8 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
+        self._data_cache = DataCache()
+        self._app_state.set_data_cache(self._data_cache)
 
         # Application Toolbars
 
@@ -181,7 +184,6 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
-
 
     def _init_menus(self):
 
@@ -487,8 +489,8 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
-            self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
             self.tr('ENVI raster files (*.img *.hdr)'),
+            self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
             # self.tr('PDS raster files (*.PDS *.IMG)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
             # self.tr('WISER project files (*.wiser)'),

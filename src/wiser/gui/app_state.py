@@ -91,7 +91,7 @@ class ApplicationState(QObject):
         # A reference to the overall UI
         self._app = app
 
-        self._cache = DataCache()
+        self._cache = None
 
         # The plugins currently loaded into WISER.
         self._plugins: Dict[str, Plugin] = {}
@@ -190,6 +190,10 @@ class ApplicationState(QObject):
         self._current_dir = current_dir
 
 
+    def set_data_cache(self, data_cache: DataCache):
+        self._cache = data_cache
+
+
     def update_cwd_from_path(self, path: str) -> None:
         '''
         This helper function makes it easier to update the current working
@@ -263,7 +267,7 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
         
-        raster_data = self._raster_data_loader.load_from_file(file_path)
+        raster_data = self._raster_data_loader.load_from_file(file_path, self._cache)
         self.add_dataset(raster_data)
 
 
@@ -291,6 +295,9 @@ class ApplicationState(QObject):
         unrecognized then a KeyError will be raised.
         '''
         return self._datasets[ds_id]
+
+    def get_cache(self) -> DataCache:
+        return self._cache
 
     def num_datasets(self):
         ''' Return the number of datasets in the application state. '''

@@ -140,7 +140,7 @@ class ChannelStretchWidget(QWidget):
     def set_histogram_color(self, color):
         self._histogram_color = color
 
-    def set_band(self, dataset, band_index, raw_band_data):
+    def set_band(self, dataset, band_index, raw_band_data = None):
         '''
         Sets the data set and index of the band data to be used in the channel
         stretch UI. The data set and band index are retained, so that
@@ -154,7 +154,8 @@ class ChannelStretchWidget(QWidget):
 
         # Time the _raw_band_data retrieval
         start_time = time.time()
-        self._raw_band_data = raw_band_data
+        # self._raw_band_data = raw_band_data
+        self._raw_band_data = dataset.get_band_data(band_index)
         raw_band_data_time = time.time() - start_time
         print(f"Time taken for self._raw_band_data: {raw_band_data_time:.6f} seconds")
 
@@ -1012,7 +1013,7 @@ class StretchBuilderDialog(QDialog):
                 self._channel_widgets[i].set_title(titles[i])
                 self._channel_widgets[i].set_histogram_color(colors[i])
                 # self._channel_widgets[i].set_band(dataset, display_bands[i])
-                self._channel_widgets[i].set_band(dataset, display_bands[i], raw_band_data[display_bands[i]])
+                self._channel_widgets[i].set_band(dataset, display_bands[i])
                 # TODO(donnie):  Set existing stretch details
                 self._channel_widgets[i].show()
 
@@ -1024,7 +1025,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[0].set_title(self.tr('Grayscale Channel'))
             self._channel_widgets[0].set_histogram_color(QColor('black'))
             # self._channel_widgets[0].set_band(dataset, display_bands[0])
-            self._channel_widgets[i].set_band(dataset, display_bands[i], raw_band_data[display_bands[0]])
+            self._channel_widgets[i].set_band(dataset, display_bands[i])
             # TODO(donnie):  Set existing stretch details
             self._channel_widgets[0].show()
 

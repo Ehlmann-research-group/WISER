@@ -34,7 +34,7 @@ class RasterDataLoader:
         self._unnamed_datasets: int = 0
 
 
-    def load_from_file(self, path):
+    def load_from_file(self, path, data_cache = None):
         '''
         Load a raster data-set from the specified path.  Returns a
         :class:`RasterDataSet` object.
@@ -53,8 +53,8 @@ class RasterDataLoader:
 
         if impl is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
-
-        ds = RasterDataSet(impl)
+        print(f"Data cache is: {data_cache}")
+        ds = RasterDataSet(impl, data_cache)
         files = ds.get_filepaths()
         if files:
             name = os.path.basename(files[0])
