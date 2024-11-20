@@ -618,7 +618,6 @@ class RasterView(QWidget):
         self._layout.addWidget(self._scroll_area)
         self.setLayout(self._layout)
 
-        self._display_bands_raw_data: List[Tuple[int, np.ndarray]] = [None, None, None]
         print("NEWWWWWWWWWWWWWWWWW \n RAAAAAAAAAAAAAAASSSSSSSSSSTTTTTTTTEEEEERRRRR \n VIEW")
 
     def get_stretches(self):
@@ -682,10 +681,6 @@ class RasterView(QWidget):
 
         if raster_data is not None:
             self._display_bands = display_bands
-            print(f"self._display_bands_raw_data: {self._display_bands_raw_data}")
-            # self._display_bands_raw_data = get_new_display_band_data(self._raster_data,
-            #                                 self._display_bands_raw_data,
-            #                                 self._display_bands)
 
             if stretches is not None:
                 self._stretches = stretches
@@ -693,9 +688,7 @@ class RasterView(QWidget):
                 # Default to no stretches.
                 self._stretches = [None] * len(self._display_bands)
         else:
-            print(f"Setting _display_bands_raw_datato none")
             self._display_bands = None
-            self._display_bands_raw_data = [None, None, None]
             self._stretches = None
 
         self.update_display_image()
@@ -753,9 +746,6 @@ class RasterView(QWidget):
                 changed |= ImageColors.BLUE
 
         self._display_bands = display_bands
-        # self._display_bands_raw_data = get_new_display_band_data(self._raster_data,
-        #                                                          self._display_bands_raw_data,
-        #                                                          self._display_bands)
         self._colormap = colormap
         self.update_display_image(colors=changed)
 
@@ -798,73 +788,73 @@ class RasterView(QWidget):
             # display_bands_raw_data = get_new_display_band_data(self._raster_data,
             #                                                      last_added_raster_display.get_raw_bands(),
             #                                                      self._display_bands)
-        if True:
-            band_width = None
-            band_height = None
-            if len(self._display_bands) == 3:
-                # Check each color band to see if we need to update it.
-                color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
-                start1 = time.perf_counter()
-                # for i in range(len(self._display_bands)):
-                for i in [2, 1, 0]:
-                    if self._display_data[i] is None or color_indexes[i] in colors:
-                        # Start the timer
-                        start_time = time.perf_counter()
-                        band = self._display_bands[i]
-                        # Compute the contents of this color channel.
-                        # display_band_raw = self._app_state.get_cache().get_image_band(band, self._raster_data)
-                        # self._display_data[i] = make_channel_image_with_band(display_band_raw,
-                        #                             self._stretches[i])
-                        
-                        self._display_data[i] = make_channel_image(self._raster_data, band, self._stretches[i])
-                        # band_width = display_bands_raw_data[band].shape[1]
-                        # band_height = display_bands_raw_data[band].shape[0]
-                        # print(f"Display data type: {type(self._display_data[i])}")
-                        # print(f"Display data: {self._display_data[i]}")
-                        # End the timer
-                        end_time = time.perf_counter()
 
-                        # Print the time taken
-                        print(f"Time taken for make_channel_image: {end_time - start_time:.6f} seconds")
-                end1 = time.perf_counter()
-                # Print the time taken
-                print(f"Time taken for FOR loop: {end1 - start1:.6f} seconds")
+        # band_width = None
+        # band_height = None
+        if len(self._display_bands) == 3:
+            # Check each color band to see if we need to update it.
+            color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
+            start1 = time.perf_counter()
+            # for i in range(len(self._display_bands)):
+            for i in range(len(self._display_bands)):
+                if self._display_data[i] is None or color_indexes[i] in colors:
+                    # Start the timer
+                    start_time = time.perf_counter()
+                    # Compute the contents of this color channel.
+                    # display_band_raw = self._app_state.get_cache().get_image_band(band, self._raster_data)
+                    # self._display_data[i] = make_channel_image_with_band(display_band_raw,
+                    #                             self._stretches[i])
+                    
+                    self._display_data[i] = make_channel_image(self._raster_data,
+                                                            self._display_bands[i], self._stretches[i])
+                    # band_width = display_bands_raw_data[band].shape[1]
+                    # band_height = display_bands_raw_data[band].shape[0]
+                    # print(f"Display data type: {type(self._display_data[i])}")
+                    # print(f"Display data: {self._display_data[i]}")
+                    # End the timer
+                    end_time = time.perf_counter()
 
-                time_2 = time.perf_counter()
-                # Start the timer
-                start_time = time.perf_counter()
-                # Combine our individual color channel(s) into a single RGB image.
-                # print(f"self._display_data: {self._display_data}")
-                # print(f"self._display_data[0]: {np.nanmin(self._display_data[0])}")
-                # print(f"self._display_data[1]: {np.nanmin(self._display_data[1])}")
-                # print(f"self._display_data[2]: {np.nanmin(self._display_data[2])}")
-                img_data = make_rgb_image(self._display_data)
-                # End the timer
-                end_time = time.perf_counter()
+                    # Print the time taken
+                    print(f"Time taken for make_channel_image: {end_time - start_time:.6f} seconds")
+            end1 = time.perf_counter()
+            # Print the time taken
+            print(f"Time taken for FOR loop: {end1 - start1:.6f} seconds")
 
-                # Print the time taken
-                print(f"Time taken for make_rgb_image: {end_time - start_time:.6f} seconds")
+            time_2 = time.perf_counter()
+            # Start the timer
+            start_time = time.perf_counter()
+            # Combine our individual color channel(s) into a single RGB image.
+            # print(f"self._display_data: {self._display_data}")
+            # print(f"self._display_data[0]: {np.nanmin(self._display_data[0])}")
+            # print(f"self._display_data[1]: {np.nanmin(self._display_data[1])}")
+            # print(f"self._display_data[2]: {np.nanmin(self._display_data[2])}")
+            img_data = make_rgb_image(self._display_data)
+            # End the timer
+            end_time = time.perf_counter()
 
-            else:
-                # This is a grayscale image.
-                if colors != ImageColors.NONE:
-                    # Regenerate the image.  Since all color bands are the same,
-                    # generate the first one, then duplicate it for the other two
-                    # bands.
+            # Print the time taken
+            print(f"Time taken for make_rgb_image: {end_time - start_time:.6f} seconds")
 
-                    self._display_data[0] = make_channel_image(self._raster_data,
-                        self._display_bands[0], self._stretches[0])
+        else:
+            # This is a grayscale image.
+            if colors != ImageColors.NONE:
+                # Regenerate the image.  Since all color bands are the same,
+                # generate the first one, then duplicate it for the other two
+                # bands.
 
-                    self._display_data[1] = self._display_data[0]
-                    self._display_data[2] = self._display_data[0]
+                self._display_data[0] = make_channel_image(self._raster_data,
+                    self._display_bands[0], self._stretches[0])
 
-                time_2 = time.perf_counter()
+                self._display_data[1] = self._display_data[0]
+                self._display_data[2] = self._display_data[0]
 
-                # Combine our individual color channel(s) into a single RGB image.
-                img_data = make_grayscale_image(self._display_data[0], self._colormap)
-            # current_added_raster_display.set_image_data(img_data)
-            # current_added_raster_display.set_raw_band_data(display_bands_raw_data)
-            # self._app_state.set_last_added_raster_display(current_added_raster_display)
+            time_2 = time.perf_counter()
+
+            # Combine our individual color channel(s) into a single RGB image.
+            img_data = make_grayscale_image(self._display_data[0], self._colormap)
+        # current_added_raster_display.set_image_data(img_data)
+        # current_added_raster_display.set_raw_band_data(display_bands_raw_data)
+        # self._app_state.set_last_added_raster_display(current_added_raster_display)
         self._display_data = [None, None, None]
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
@@ -876,20 +866,20 @@ class RasterView(QWidget):
 
         start_time = time.perf_counter()
         # This is the 100% scale QImage of the data.
-        if band_width is not None:
-            print(f"band_width: {band_width}")
-            print(f"band_height: {band_height}")
-            self._image = QImage(img_data,
-                band_width, band_height,
-                QImage.Format_RGB32)
-        else:
-            print(f"self._raster_data.get_width(): {self._raster_data.get_width()}")
-            print(f"self._raster_data.get_height(): {self._raster_data.get_height()}")
-            self._image = QImage(img_data,
-                self._raster_data.get_width(), self._raster_data.get_height(),
-                QImage.Format_RGB32)
+        # if band_width is not None:
+        #     print(f"band_width: {band_width}")
+        #     print(f"band_height: {band_height}")
+        #     self._image = QImage(img_data,
+        #         band_width, band_height,
+        #         QImage.Format_RGB32)
+        # else:
+        #     print(f"self._raster_data.get_width(): {self._raster_data.get_width()}")
+        #     print(f"self._raster_data.get_height(): {self._raster_data.get_height()}")
+        self._image = QImage(img_data,
+            self._raster_data.get_width(), self._raster_data.get_height(),
+            QImage.Format_RGB32)
         # End the timer
-        end_time = time.perf_counter()
+        # end_time = time.perf_counter()
 
         # Print the time taken
         print(f"Time taken for QImage: {end_time - start_time:.6f} seconds")

@@ -1225,11 +1225,9 @@ class RasterPane(QWidget):
             self._stretch_builder = StretchBuilderDialog(parent=self)
 
         rasterview = self.get_rasterview(rasterview_pos)
-        display_raw_data = self._app_state._last_added_raster_display.get_raw_bands()
         self._stretch_builder.show(rasterview.get_raster_data(),
                                    rasterview.get_display_bands(),
-                                   rasterview.get_stretches(),
-                                   display_raw_data)
+                                   rasterview.get_stretches())
 
 
     def _on_stretch_changed(self, ds_id, bands):
