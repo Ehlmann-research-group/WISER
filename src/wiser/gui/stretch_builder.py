@@ -140,7 +140,7 @@ class ChannelStretchWidget(QWidget):
     def set_histogram_color(self, color):
         self._histogram_color = color
 
-    def set_band(self, dataset, band_index, raw_band_data = None):
+    def set_band(self, dataset, band_index):
         '''
         Sets the data set and index of the band data to be used in the channel
         stretch UI. The data set and band index are retained, so that
@@ -990,7 +990,7 @@ class StretchBuilderDialog(QDialog):
            self._enable_stretch_changed_events:
             self._emit_stretch_changed(self.get_stretches())
 
-    def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches, raw_band_data):
+    def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
         print(f"StretchBuilderDialog show")
         # print(f'Display bands = {display_bands}')
 
