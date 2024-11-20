@@ -162,10 +162,9 @@ def find_closest_value(values: List[Number], input_value: Number,
 
     return best_index
 
-
+from numba import njit
 #============================================================================
 # COMMON BAND-MATH OPERATIONS
-
 
 def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
     '''

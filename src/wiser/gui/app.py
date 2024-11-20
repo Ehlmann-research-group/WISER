@@ -15,6 +15,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from osgeo import gdal
+
 from .app_config import PixelReticleType
 
 from wiser.bandmath.utils import TEMP_FOLDER_PATH
@@ -184,6 +186,8 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+
+        gdal.SetCacheMax(8 * 1024 * 1024 * 1024)
 
     def _init_menus(self):
 
