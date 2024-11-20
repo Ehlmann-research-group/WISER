@@ -7,6 +7,7 @@ from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
 from wiser.raster.spectrum import calc_roi_spectrum
+from wiser.raster.data_cache import DataCache
 # from PySide2.QtCore import *
 from wiser.bandmath.types import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
@@ -105,9 +106,10 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
     }
 
     loader = RasterDataLoader()
-    large_band_dataset = loader.load_from_file(large_band_dataset_path)
-    normal_image_cube = loader.load_from_file(normal_image_cube_path)
-    large_image_cube = loader.load_from_file(large_image_cube_path)
+    data_cache = DataCache()
+    large_band_dataset = loader.load_from_file(large_band_dataset_path, data_cache)
+    normal_image_cube = loader.load_from_file(normal_image_cube_path, data_cache)
+    large_image_cube = loader.load_from_file(large_image_cube_path, data_cache)
     b1 = large_band_dataset.get_band_data(0)
     b2 = large_band_dataset.get_band_data(1)
     b3 = large_band_dataset.get_band_data(2)
@@ -227,7 +229,8 @@ def test_both_methods(hdr_paths, N=1):
     sections below if you want to peak at the values that are not the same between the methods. 
     '''
     loader = RasterDataLoader()
-
+    data_cache = DataCache()
+    
     key_plus_1 = "+"
     key_mult = "*"
     key_div = "/"
@@ -286,7 +289,7 @@ def test_both_methods(hdr_paths, N=1):
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
-        dataset = loader.load_from_file(hdr_file)
+        dataset = loader.load_from_file(hdr_file, data_cache)
         band = dataset.get_band_data(0)
         band2 = dataset.get_band_data(1)
         band3 = dataset.get_band_data(2)

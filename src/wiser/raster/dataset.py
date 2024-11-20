@@ -77,7 +77,7 @@ class RasterDataSet:
     data for each pixel.
     '''
 
-    def __init__(self, impl: RasterDataImpl):
+    def __init__(self, impl: RasterDataImpl, data_cache = None):
 
         if impl is None:
             raise ValueError('impl cannot be None')
@@ -86,6 +86,8 @@ class RasterDataSet:
         self._id: Optional[int] = None
 
         self._impl: RasterDataImpl = impl
+
+        self._data_cache = data_cache
 
         self._name: Optional[str] = None
 
@@ -362,11 +364,15 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        arr = self._impl.get_image_data()
+        arr = self._data_cache.get_image_cube(self) if self._data_cache else None
+        if arr is None:
+            arr = self._impl.get_image_data()
 
-        if filter_data_ignore_value and self._data_ignore_value is not None:
-            arr = np.ma.masked_values(arr, self._data_ignore_value)
-
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+            if self._data_cache:
+                key = self._data_cache.get_computation_cache_key(dataset=self)
+                self._data_cache.add_computation_cache_item(key, arr)
         return arr
 
 
@@ -383,13 +389,18 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print(f"Getting band data!")
-        arr = self._impl.get_band_data(band_index)
 
-        if filter_data_ignore_value and self._data_ignore_value is not None:
-            arr = np.ma.masked_values(arr, self._data_ignore_value)
+        arr = self._data_cache.get_image_band(band_index, self) if self._data_cache else None
+        if arr is None:
+            print(f"!Getting band data! for: {band_index}")
+            arr = self._impl.get_band_data(band_index)
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
 
-        self.get_band_stats(band_index, arr)
+            self.get_band_stats(band_index, arr)
+            if self._data_cache:
+                key = self._data_cache.get_computation_cache_key(band_index, self)
+                self._data_cache.add_computation_cache_item(key, arr)
 
         return arr
     
