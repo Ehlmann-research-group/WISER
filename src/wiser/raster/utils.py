@@ -1,7 +1,10 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from numba import njit
 from astropy import units as u
+
+from time import perf_counter
 
 # For easier typing in this module
 Number = Union[int, float]
@@ -189,6 +192,22 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=Fals
     else:
         return (array - minval) / (maxval - minval)
 
+@njit
+def normalize_ndarray_min_max(array: np.ndarray, minval=None, maxval=None) -> np.ndarray:
+    '''
+    Normalize the specified array, generating a new array to return to the
+    caller.  The minimum and maximum values can be specified if already known,
+    or if the caller wants to normalize to a different min/max than the array's
+    actual min/max values.  NaN values are left unaffected.
+    '''
+
+    if minval is None:
+        minval = np.nanmin(array)
+
+    if maxval is None:
+        maxval = np.nanmax(array)
+    
+    return (array - minval) / (maxval - minval)
 
 def get_normalized_band(dataset, band_index):
     '''
@@ -215,11 +234,23 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
     data is already np.float64, in which case the elements are left as
     np.float64.
     '''
-
-    norm_data = (band_data - stats.get_min()) / (stats.get_max() - stats.get_min())
+    
+    # norm_data = (band_data - stats.get_min()) / (stats.get_max() - stats.get_min())
+    if isinstance(band_data, np.ma.masked_array):
+        band_data_mask = band_data.mask
+        band_data = band_data.data 
+    start_time = perf_counter()
+    norm_data = normalize_ndarray_min_max(band_data, stats.get_min(), stats.get_max())
+    end_time = perf_counter()
+    if isinstance(band_data, np.ma.masked_array):
+        band_data = np.ma.masked_array(band_data, mask=band_data_mask)
+    print(f"Time taken making norm data in normalize: {end_time - start_time:.6f} seconds")
 
     if norm_data.dtype not in [np.float32, np.float64]:
+        start_time = perf_counter()
         print(f'NOTE:  norm_data.dtype is {norm_data.dtype}, band_data.dtype is {band_data.dtype}')
         norm_data = norm_data.astype(np.float32)
+        end_time = perf_counter()
+        print(f"Time taken making float32 in normalize: {end_time - start_time:.6f} seconds")
 
     return norm_data

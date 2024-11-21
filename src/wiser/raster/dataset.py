@@ -372,6 +372,7 @@ class RasterDataSet:
             arr = self._impl.get_image_data()
 
             if filter_data_ignore_value and self._data_ignore_value is not None:
+                print(f"********************************")
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
             if self._data_cache:
                 key = self._data_cache.get_computation_cache_key(dataset=self)
@@ -518,12 +519,7 @@ class RasterDataSet:
             stats = BandStats(band_index, band_min, band_max)
             end = time.perf_counter()
             print(f"Time taken for BandStats: {end - start:.6f} seconds")
-            # if band is None:
-            #     band = self.get_band_data(band_index)
-            # filtered_band = band[(band != -np.inf) & (band != np.inf)]
-            # band_min = np.nanmin(filtered_band)
-            # band_max = np.nanmax(filtered_band)
-            # stats = BandStats(band_index, band_min, band_max)
+            
             self._cached_band_stats[band_index] = stats
         return stats
 

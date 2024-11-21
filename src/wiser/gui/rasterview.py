@@ -234,7 +234,7 @@ def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndar
     return normalized
 
 @njit
-def make_channel_image(band_data: np.ndarray, stretch=None) -> np.ndarray:
+def make_channel_image(band_data: np.ndarray, stretch: StretchBase =None) -> np.ndarray:
     '''
     Generates color channel data into a NumPy array. Elements in
     the output array will be in the range [0, 255].
@@ -244,7 +244,7 @@ def make_channel_image(band_data: np.ndarray, stretch=None) -> np.ndarray:
 
     # Apply stretch if provided
     if stretch is not None:
-        stretch(temp_data)  # Stretch should be a Numba-compatible callable
+        stretch.apply(temp_data)  # Stretch should be a Numba-compatible callable
 
     # Compute finite values' min and max manually
     finite_min, finite_max = np.inf, -np.inf
@@ -913,13 +913,16 @@ class RasterView(QWidget):
                     new_data = make_channel_image(band_data, self._stretches[i])
                     end_time = time.perf_counter()
 
-                    # start_making_new = time.perf_counter()
-                    # new_arr = np.ma.masked_array(new_data, mask=band_mask)
-                    # end_making_new = time.perf_counter()
-                    # print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
+                    start_making_new = time.perf_counter()
+                    new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                    end_making_new = time.perf_counter()
+                    print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
+                    # print(f"**********\n new arr mask: {new_arr.mask}")
+                    self._display_data[i] = new_arr
 
-                    self._display_data[i] = new_data 
-                    display_data_mask[i] = band_mask
+                    # self._display_data[i] = new_data 
+                    # display_data_mask[i] = band_mask
+
                     # self._display_data[i] = np.ma.masked_array(
                     #     make_channel_image(band_data, self._stretches[i]), mask=band_mask)
                     # band_width = display_bands_raw_data[band].shape[1]
@@ -944,10 +947,10 @@ class RasterView(QWidget):
             # print(f"self._display_data[0]: {np.nanmin(self._display_data[0])}")
             # print(f"self._display_data[1]: {np.nanmin(self._display_data[1])}")
             # print(f"self._display_data[2]: {np.nanmin(self._display_data[2])}")
-            # img_data = make_rgb_image(self._display_data)
-            test_compatibility(self._display_data[0], self._display_data[1], self._display_data[2])
-            img_data = make_rgb_image_njit(self._display_data[0], self._display_data[1], self._display_data[2])
-            img_data = np.ma.masked_array(img_data, mask=display_data_mask[0])
+            img_data = make_rgb_image(self._display_data)
+            # test_compatibility(self._display_data[0], self._display_data[1], self._display_data[2])
+            # img_data = make_rgb_image_njit(self._display_data[0], self._display_data[1], self._display_data[2])
+            # img_data = np.ma.masked_array(img_data, mask=display_data_mask[0])
             # for i in range(len(self._display_data)):
             #     data = self._display_data[i]
             #     masked_data = np.ma.masked_array(data, mask=display_data_mask[i])
