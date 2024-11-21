@@ -234,7 +234,7 @@ def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndar
     return normalized
 
 @njit
-def make_channel_image(band_data: np.ndarray, stretch: StretchBase =None) -> np.ndarray:
+def make_channel_image(band_data: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     '''
     Generates color channel data into a NumPy array. Elements in
     the output array will be in the range [0, 255].
@@ -242,9 +242,17 @@ def make_channel_image(band_data: np.ndarray, stretch: StretchBase =None) -> np.
     # Assume stretch is None or callable
     temp_data = band_data.astype(np.float32)
 
-    # Apply stretch if provided
-    if stretch is not None:
-        stretch.apply(temp_data)  # Stretch should be a Numba-compatible callable
+    if stretch1 is not None:
+        stretch1.apply(temp_data)
+
+    if stretch2 is not None:
+        stretch2.apply(temp_data)
+
+    # # Apply stretch if provided
+    # if stretches is not None:
+    #     for stretch in stretches:
+    #         if stretch:
+    #             stretch.apply(temp_data)  # Stretch should be a Numba-compatible callable
 
     # Compute finite values' min and max manually
     finite_min, finite_max = np.inf, -np.inf
@@ -907,14 +915,22 @@ class RasterView(QWidget):
                     end_time = time.perf_counter()
                     print(f"Time taken for get_band_data: {end_time - start_time:.6f} seconds")
                     # band_data = arr
-                    band_data = arr.data
-                    band_mask = arr.mask
+                    band_data = arr
+                    band_mask = None
+                    if isinstance(arr, np.ma.masked_array):
+                        band_data = arr.data
+                        band_mask = arr.mask
                     start_time = time.perf_counter()
-                    new_data = make_channel_image(band_data, self._stretches[i])
+                    stretches = [None, None]
+                    if self._stretches[i]:
+                        stretches = self._stretches[i].get_stretches()
+                    new_data = make_channel_image(band_data, stretches[0], stretches[1])
                     end_time = time.perf_counter()
 
                     start_making_new = time.perf_counter()
-                    new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                    new_arr = new_data
+                    if isinstance(arr, np.ma.masked_array):
+                        new_arr = np.ma.masked_array(new_data, mask=band_mask)
                     end_making_new = time.perf_counter()
                     print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
                     # print(f"**********\n new arr mask: {new_arr.mask}")
@@ -969,7 +985,10 @@ class RasterView(QWidget):
                 # bands.
 
                 arr = self._raster_data.get_band_data(self._display_bands[0])
-                self._display_data[0] = make_channel_image(arr, self._stretches[0])
+                stretches = None
+                if self._stretches[i]:
+                    stretches = self._stretches[0].get_stretches()
+                self._display_data[0] = make_channel_image(arr, stretches[0], stretches[1])
 
                 self._display_data[1] = self._display_data[0]
                 self._display_data[2] = self._display_data[0]
