@@ -187,7 +187,7 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
-        gdal.SetCacheMax(8 * 1024 * 1024 * 1024)
+        gdal.SetCacheMax(512 * 1024 * 1024)
 
     def _init_menus(self):
 
