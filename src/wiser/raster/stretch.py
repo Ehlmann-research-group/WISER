@@ -3,7 +3,8 @@
 from enum import Enum
 
 import numpy as np
-
+from numba import njit, float32, types
+from numba.experimental import jitclass
 
 # An epsilon value for checking stretch ranges.
 EPSILON = 1e-6
@@ -83,7 +84,11 @@ class ConditionerType(Enum):
 
     LOG_CONDITIONER = 2
 
+# base_spec = [
+#     ('_name', types.unicode_type)
+# ]
 
+# @jitclass(base_spec)
 class StretchBase:
     '''
     Base class for all stretch and conditioner types.
@@ -110,13 +115,22 @@ class StretchBase:
         '''
         pass
 
+# Class specification
+linear_spec = [
+    ('_name', types.unicode_type),
+    ('_slope', float32),   # Slope of the linear stretch
+    ('_offset', float32),  # Offset of the linear stretch
+    ('_lower', float32),   # Lower bound for the stretch
+    ('_upper', float32),   # Upper bound for the stretch
+]
 
-class StretchLinear(StretchBase):
+@jitclass(linear_spec)
+class StretchLinear:
     ''' Linear stretch '''
 
     # Constructor
     def __init__(self, lower, upper):
-        super().__init__('Linear')
+        self._name = 'Linear'
 
         # The slope and offset of the linear stretch to apply.
         self._slope = 1.0
@@ -153,8 +167,10 @@ class StretchLinear(StretchBase):
         # if upper < 0.0 or upper > 1.0 + EPSILON:
         #     raise ValueError(f'Required:  0 <= upper <= 1 (got {upper})')
 
-        if upper <= lower:
-            raise ValueError(f'Required:  lower < upper (got {lower}, {upper})')
+        # if upper <= lower:
+        #     raise ValueError(f'Required:  lower < upper (got {lower}, {upper})')
+
+        assert upper > lower
 
         # Clamp values that are out of range.
 
@@ -176,7 +192,6 @@ class StretchLinear(StretchBase):
     def upper(self):
         return self._upper
 
-
     def apply(self, a):
         '''
         Apply a linear stretch to the specified numpy array of data.
@@ -184,9 +199,111 @@ class StretchLinear(StretchBase):
         # Compute the linear stretch, then clip to the range [0, 1].
         # The operation is implemented this way to achieve in-place modification
         # of the array contents.
-        a *= self._slope
-        a += self._offset
-        np.clip(a, 0.0, 1.0, out=a)
+
+        for i in range(a.shape[0]):
+            for j in range(a.shape[1]):
+                a[i, j] = self._slope * a[i, j] + self._offset
+                if a[i, j] < 0.0:
+                    a[i, j] = 0.0
+                elif a[i, j] > 1.0:
+                    a[i, j] = 1.0
+        # a *= self._slope
+        # a += self._offset
+        # np.clip(a, 0.0, 1.0, out=a)
+    
+    def __hash__(self):
+        hash((self._name, self._lower, self._upper, self._slope, self._offset))
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._name == other._name and
+            self._lower == other._lower and
+            self._upper == other._upper and
+            self._slope == other._slope and
+            self._offset == other._offset
+        )
+
+    def __ne__(self, value):
+        pass
+
+# class StretchLinear(StretchBase):
+#     ''' Linear stretch '''
+
+#     # Constructor
+#     def __init__(self, lower, upper):
+#         super().__init__('Linear')
+
+#         # The slope and offset of the linear stretch to apply.
+#         self._slope = 1.0
+#         self._offset = 0.0
+
+#         # These are the starting and ending points for the linear stretch.
+#         # Since stretches operate on normalized data, the lower and upper values
+#         # are also in the range 0..1.
+#         self._lower = 0.0
+#         self._upper = 1.0
+
+#         # This call will configure the above values for the specified lower and
+#         # upper bounds.
+#         self.set_bounds(lower, upper)
+
+#     def __str__(self):
+#         return (f'StretchLinear[lower={self._lower:.3f}, upper={self._upper:.3f}, ' +
+#                 f'slope={self._slope:.3f}, offset={self._offset:.3f}]')
+
+
+#     def set_bounds(self, lower, upper):
+#         '''
+#         Set the bounds of the linear stretch.  Since all stretch operations are
+#         applied to data in the range [0, 1], the lower and upper bounds of this
+#         linear stretch are also required to be in the range [0, 1].
+#         '''
+
+#         # Use 1.0 + EPSILON because sometimes the value is extreeeemly close to
+#         # 1.0, but *just* over.
+
+#         # if lower < 0.0 or lower > 1.0 + EPSILON:
+#         #     raise ValueError(f'Required:  0 <= lower <= 1 (got {lower})')
+
+#         # if upper < 0.0 or upper > 1.0 + EPSILON:
+#         #     raise ValueError(f'Required:  0 <= upper <= 1 (got {upper})')
+
+#         if upper <= lower:
+#             raise ValueError(f'Required:  lower < upper (got {lower}, {upper})')
+
+#         # Clamp values that are out of range.
+
+#         # if lower > 1.0:
+#         #     lower = 1.0
+
+#         # if upper > 1.0:
+#         #     upper = 1.0
+
+#         self._lower = lower
+#         self._upper = upper
+
+#         self._slope = 1.0 / (self._upper - self._lower)
+#         self._offset = -self._lower * self._slope
+
+#     def lower(self):
+#         return self._lower
+
+#     def upper(self):
+#         return self._upper
+
+
+#     def apply(self, a):
+#         '''
+#         Apply a linear stretch to the specified numpy array of data.
+#         '''
+#         # Compute the linear stretch, then clip to the range [0, 1].
+#         # The operation is implemented this way to achieve in-place modification
+#         # of the array contents.
+#         a *= self._slope
+#         a += self._offset
+#         np.clip(a, 0.0, 1.0, out=a)
 
 
 class StretchHistEqualize(StretchBase):
