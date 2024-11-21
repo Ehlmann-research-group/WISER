@@ -23,6 +23,9 @@ from wiser.gui.rasterview_metadata import RasterViewMetaData
 
 from numba import njit, jit
 
+import jax.numpy as jnp
+from jax import device_put
+
 logger = logging.getLogger(__name__)
 
 def make_channel_image_with_band(band: np.ndarray, stretch: StretchBase = None) -> np.ndarray:
@@ -153,97 +156,121 @@ def make_channel_image_with_band(band: np.ndarray, stretch: StretchBase = None) 
 
 #     return temp_data
 
-
-def make_channel_image(band_data: np.ndarray, stretch: StretchBase = None) -> np.ndarray:
-    '''
-    Given a raster data set, band index, and optional contrast stretch object,
-    this function generates color channel data into a NumPy array. Elements in
-    the output array will be in the range [0, 255].
-    '''
-    debug = False
-    # Extract the raw band data and associated statistics from the data set.
-    # temp_data = dataset.sample_band_data(band, 2)
-    temp_data = band_data
-    # print(f"!!!!!!!!!!nan min before copy: {np.nanmin(temp_data)}")
-    # temp_data = temp_data.copy()
-    # print(f"!!!!!!!!!!nan min after copy: {np.nanmin(temp_data)}")
-    temp_data = temp_data.astype(np.float32)
-    # temp_data = temp_data.astype(np.float32, copy=False)
-    # print(f"!!!!!!!!!!nan min after astype: {np.nanmin(temp_data)}")
-
-    # If a stretch is specified for the channel, apply it to the normalized band data.
-    if stretch is not None:
-        stretch.apply(temp_data)
-    # print(f"!!!!!!!!!!nan min after stretch: {np.nanmin(temp_data)}")
-
-    finite_vals = temp_data[np.isfinite(temp_data)]
-
-    temp_data = normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=False)
-    
-    np.clip(temp_data, 0.0, 1.0, out=temp_data)
-    
-    temp_data = (temp_data * 255.0)
-    
-    temp_data = temp_data.astype(np.uint8, copy=False)
-    
-
-    return temp_data
-
-from numba import njit
-import numpy as np
-
-# @njit
-# def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
-#     """
-#     Normalize an array to the range [0, 1].
-#     """
-#     normalized = np.empty_like(data, dtype=np.float32)
-#     for i in range(data.shape[0]):
-#         for j in range(data.shape[1]):
-#             if np.isfinite(data[i, j]):
-#                 normalized[i, j] = (data[i, j] - minval) / (maxval - minval)
-#             else:
-#                 normalized[i, j] = 0  # Handle NaN or Inf
-#     return normalized
-
-# @njit
-# def make_channel_image(band_data: np.ndarray, stretch=None) -> np.ndarray:
+# def make_channel_image(band_data: jnp.ndarray, stretch: StretchBase = None) -> jnp.ndarray:
 #     '''
-#     Generates color channel data into a NumPy array. Elements in
+#     Given a raster data set, band index, and optional contrast stretch object,
+#     this function generates color channel data into a JAX array. Elements in
 #     the output array will be in the range [0, 255].
 #     '''
-#     # Assume stretch is None or callable
-#     temp_data = band_data.astype(np.float32)
+#     # Move data to the device (optional, ensures compatibility with JAX)
+#     temp_data = device_put(band_data)
+#     temp_data = temp_data.astype(jnp.float32)
 
-#     # Apply stretch if provided
+#     # If a stretch is specified for the channel, apply it to the normalized band data.
 #     if stretch is not None:
-#         stretch(temp_data)  # Stretch should be a Numba-compatible callable
+#         stretch.apply(temp_data)
 
-#     # Compute finite values' min and max manually
-#     finite_min, finite_max = np.inf, -np.inf
-#     for i in range(temp_data.shape[0]):
-#         for j in range(temp_data.shape[1]):
-#             if np.isfinite(temp_data[i, j]):
-#                 finite_min = min(finite_min, temp_data[i, j])
-#                 finite_max = max(finite_max, temp_data[i, j])
+#     # Get finite values for normalization
+#     finite_vals = temp_data[jnp.isfinite(temp_data)]
 
-#     # Avoid division by zero
-#     if finite_max > finite_min:
-#         temp_data = normalize_ndarray(temp_data, finite_min, finite_max)
-#     else:
-#         temp_data.fill(0)  # If all values are identical or invalid
+#     # Normalize using a custom normalization function
+#     minval = finite_vals.min()
+#     maxval = finite_vals.max()
+#     temp_data = normalize_ndarray(temp_data, minval=minval, maxval=maxval, in_place=False)
 
-#     # Clip values to [0, 1]
-#     for i in range(temp_data.shape[0]):
-#         for j in range(temp_data.shape[1]):
-#             temp_data[i, j] = max(0.0, min(1.0, temp_data[i, j]))
+#     # Clip values to the range [0.0, 1.0]
+#     temp_data = jnp.clip(temp_data, 0.0, 1.0)
 
-#     # Scale to [0, 255] and convert to uint8
-#     for i in range(temp_data.shape[0]):
-#         for j in range(temp_data.shape[1]):
-#             temp_data[i, j] = temp_data[i, j] * 255.0
+#     # Scale to the range [0, 255]
+#     temp_data = temp_data * 255.0
 
-#     return temp_data.astype(np.uint8)
+#     # Convert to uint8
+#     temp_data = temp_data.astype(jnp.uint8)
+
+#     return temp_data
+
+# def make_channel_image(band_data: np.ndarray, stretch: StretchBase = None) -> np.ndarray:
+#     '''
+#     Given a raster data set, band index, and optional contrast stretch object,
+#     this function generates color channel data into a NumPy array. Elements in
+#     the output array will be in the range [0, 255].
+#     '''
+#     debug = False
+#     # Extract the raw band data and associated statistics from the data set.
+#     temp_data = band_data
+#     temp_data = temp_data.astype(np.float32)
+
+#     # If a stretch is specified for the channel, apply it to the normalized band data.
+#     if stretch is not None:
+#         stretch.apply(temp_data)
+
+#     finite_vals = temp_data[np.isfinite(temp_data)]
+
+#     temp_data = normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=False)
+    
+#     np.clip(temp_data, 0.0, 1.0, out=temp_data)
+    
+#     temp_data = (temp_data * 255.0)
+    
+#     temp_data = temp_data.astype(np.uint8, copy=False)
+    
+#     return temp_data
+
+# from numba import njit
+# import numpy as np
+
+@njit
+def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
+    """
+    Normalize an array to the range [0, 1].
+    """
+    normalized = np.empty_like(data, dtype=np.float32)
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            if np.isfinite(data[i, j]):
+                normalized[i, j] = (data[i, j] - minval) / (maxval - minval)
+            else:
+                normalized[i, j] = 0  # Handle NaN or Inf
+    return normalized
+
+@njit
+def make_channel_image(band_data: np.ndarray, stretch=None) -> np.ndarray:
+    '''
+    Generates color channel data into a NumPy array. Elements in
+    the output array will be in the range [0, 255].
+    '''
+    # Assume stretch is None or callable
+    temp_data = band_data.astype(np.float32)
+
+    # Apply stretch if provided
+    if stretch is not None:
+        stretch(temp_data)  # Stretch should be a Numba-compatible callable
+
+    # Compute finite values' min and max manually
+    finite_min, finite_max = np.inf, -np.inf
+    for i in range(temp_data.shape[0]):
+        for j in range(temp_data.shape[1]):
+            if np.isfinite(temp_data[i, j]):
+                finite_min = min(finite_min, temp_data[i, j])
+                finite_max = max(finite_max, temp_data[i, j])
+
+    # Avoid division by zero
+    if finite_max > finite_min:
+        temp_data = normalize_ndarray(temp_data, finite_min, finite_max)
+    else:
+        temp_data.fill(0)  # If all values are identical or invalid
+
+    # Clip values to [0, 1]
+    for i in range(temp_data.shape[0]):
+        for j in range(temp_data.shape[1]):
+            temp_data[i, j] = max(0.0, min(1.0, temp_data[i, j]))
+
+    # Scale to [0, 255] and convert to uint8
+    for i in range(temp_data.shape[0]):
+        for j in range(temp_data.shape[1]):
+            temp_data[i, j] = temp_data[i, j] * 255.0
+
+    return temp_data.astype(np.uint8)
 
 
 # def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
@@ -803,10 +830,21 @@ class RasterView(QWidget):
                     arr = self._raster_data.get_band_data(self._display_bands[i])
                     end_time = time.perf_counter()
                     print(f"Time taken for get_band_data: {end_time - start_time:.6f} seconds")
-                    band_data = arr # np.asarray(arr)
+                    # band_data = arr
+                    band_data = arr.data
+                    band_mask = arr.mask
                     start_time = time.perf_counter()
-                    self._display_data[i] = make_channel_image(band_data, self._stretches[i])
+                    new_data = make_channel_image(band_data, self._stretches[i])
                     end_time = time.perf_counter()
+
+                    start_making_new = time.perf_counter()
+                    new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                    end_making_new = time.perf_counter()
+                    print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
+
+                    self._display_data[i] = new_arr 
+                    # self._display_data[i] = np.ma.masked_array(
+                    #     make_channel_image(band_data, self._stretches[i]), mask=band_mask)
                     # band_width = display_bands_raw_data[band].shape[1]
                     # band_height = display_bands_raw_data[band].shape[0]
                     # print(f"Display data type: {type(self._display_data[i])}")
@@ -843,7 +881,7 @@ class RasterView(QWidget):
                 # generate the first one, then duplicate it for the other two
                 # bands.
 
-                arr = self._raster_data.get_band_data(self._display_bands[i])
+                arr = self._raster_data.get_band_data(self._display_bands[0])
                 self._display_data[0] = make_channel_image(arr, self._stretches[0])
 
                 self._display_data[1] = self._display_data[0]
@@ -870,7 +908,7 @@ class RasterView(QWidget):
             self._raster_data.get_width(), self._raster_data.get_height(),
             QImage.Format_RGB32)
         # End the timer
-        # end_time = time.perf_counter()
+        end_time = time.perf_counter()
 
         # Print the time taken
         print(f"Time taken for QImage: {end_time - start_time:.6f} seconds")

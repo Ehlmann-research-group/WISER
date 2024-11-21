@@ -16,6 +16,8 @@ import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
 
+from time import perf_counter
+
 logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
@@ -244,7 +246,10 @@ class GDALRasterDataImpl(RasterDataImpl):
         try:
             np_array = band.GetVirtualMemAutoArray()
         except (RuntimeError, TypeError):
+            start_time = perf_counter()
             np_array = band.ReadAsArray()
+            end_time = perf_counter()
+            print(f"Time taken INSIDE get_band_data: {end_time - start_time:.6f} seconds")
 
         return np_array
     

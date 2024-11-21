@@ -12,6 +12,9 @@ from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength
 
+import time
+from time import perf_counter
+
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
@@ -364,23 +367,23 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        # arr = self._data_cache.get_image_cube(self) if self._data_cache else None
-        # if arr is None:
-        #     arr = self._impl.get_image_data()
+        arr = self._data_cache.get_image_cube(self) if self._data_cache else None
+        if arr is None:
+            arr = self._impl.get_image_data()
 
-        #     if filter_data_ignore_value and self._data_ignore_value is not None:
-        #         arr = np.ma.masked_values(arr, self._data_ignore_value)
-        #     if self._data_cache:
-        #         key = self._data_cache.get_computation_cache_key(dataset=self)
-        #         self._data_cache.add_computation_cache_item(key, arr)
-        # return arr
-        
-        arr = self._impl.get_image_data()
-
-        if filter_data_ignore_value and self._data_ignore_value is not None:
-            arr = np.ma.masked_values(arr, self._data_ignore_value)
-        
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+            if self._data_cache:
+                key = self._data_cache.get_computation_cache_key(dataset=self)
+                self._data_cache.add_computation_cache_item(key, arr)
         return arr
+        
+        # arr = self._impl.get_image_data()
+
+        # if filter_data_ignore_value and self._data_ignore_value is not None:
+        #     arr = np.ma.masked_values(arr, self._data_ignore_value)
+        
+        # return arr
 
 
     def get_band_data(self, band_index: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
@@ -397,28 +400,37 @@ class RasterDataSet:
         filtering will impact performance.
         '''
 
-        # arr = self._data_cache.get_image_band(band_index, self) if self._data_cache else None
-        # if arr is None:
-        #     print(f"!Getting band data! for: {band_index}")
-        #     arr = self._impl.get_band_data(band_index)
-        #     if filter_data_ignore_value and self._data_ignore_value is not None:
-        #         arr = np.ma.masked_values(arr, self._data_ignore_value)
+        arr = self._data_cache.get_image_band(band_index, self) if self._data_cache else None
+        if arr is None:
+            print(f"!Getting band data! for: {band_index}")
+            arr = self._impl.get_band_data(band_index)
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
 
-        #     self.get_band_stats(band_index, arr)
-        #     if self._data_cache:
-        #         key = self._data_cache.get_computation_cache_key(band_index, self)
-        #         self._data_cache.add_computation_cache_item(key, arr)
-
-        # return arr
-        
-        print(f"!Getting band data! for: {band_index}")
-        arr = self._impl.get_band_data(band_index)
-        if filter_data_ignore_value and self._data_ignore_value is not None:
-            arr = np.ma.masked_values(arr, self._data_ignore_value)
-
-        self.get_band_stats(band_index, arr)
+            self.get_band_stats(band_index, arr)
+            if self._data_cache:
+                key = self._data_cache.get_computation_cache_key(band_index, self)
+                self._data_cache.add_computation_cache_item(key, arr)
 
         return arr
+        
+        # print(f"!Getting band data! for: {band_index}")
+        # start_time = perf_counter()
+        # arr = self._impl.get_band_data(band_index)
+        # end_time = perf_counter()
+        # print(f"Time taken SURROUNDING get_band_data: {end_time - start_time:.6f} seconds")
+        # if filter_data_ignore_value and self._data_ignore_value is not None:
+        #     start_time = perf_counter()
+        #     arr = np.ma.masked_values(arr, self._data_ignore_value)
+        #     end_time = perf_counter()
+        #     print(f"Time taken to make masked array: {end_time - start_time:.6f} seconds")
+
+        # start_time = perf_counter()
+        # self.get_band_stats(band_index, arr)
+        # end_time = perf_counter()
+        # print(f"Time taken to get band stats: {end_time - start_time:.6f} seconds")
+
+        # return arr
     
     def sample_band_data(self, band_index: int, sample_factor: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
         '''
@@ -476,10 +488,42 @@ class RasterDataSet:
 
         stats = self._cached_band_stats.get(band_index)
         if stats is None:
+            # Timer for checking if band is None and assigning
             if band is None:
+                start = time.perf_counter()
                 band = self.get_band_data(band_index)
-            filtered_band = band[(band != -np.inf) & (band != np.inf)]
-            stats = BandStats(band_index, np.nanmin(filtered_band), np.nanmax(filtered_band))
+                end = time.perf_counter()
+                print(f"Time taken for get_band_data: {end - start:.6f} seconds")
+
+            # Timer for filtering the band
+            start = time.perf_counter()
+            filtered_band = band # band[(band != -np.inf) & (band != np.inf)]
+            end = time.perf_counter()
+            print(f"Time taken for filtered_band: {end - start:.6f} seconds")
+
+            # Timer for calculating min
+            start = time.perf_counter()
+            band_min = np.nanmin(filtered_band)
+            end = time.perf_counter()
+            print(f"Time taken for nanmin: {end - start:.6f} seconds")
+
+            # Timer for calculating max
+            start = time.perf_counter()
+            band_max = np.nanmax(filtered_band)
+            end = time.perf_counter()
+            print(f"Time taken for nanmax: {end - start:.6f} seconds")
+
+            # Timer for creating BandStats
+            start = time.perf_counter()
+            stats = BandStats(band_index, band_min, band_max)
+            end = time.perf_counter()
+            print(f"Time taken for BandStats: {end - start:.6f} seconds")
+            # if band is None:
+            #     band = self.get_band_data(band_index)
+            # filtered_band = band[(band != -np.inf) & (band != np.inf)]
+            # band_min = np.nanmin(filtered_band)
+            # band_max = np.nanmax(filtered_band)
+            # stats = BandStats(band_index, band_min, band_max)
             self._cached_band_stats[band_index] = stats
         return stats
 
