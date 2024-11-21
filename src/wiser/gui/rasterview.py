@@ -296,6 +296,81 @@ def make_channel_image(band_data: np.ndarray, stretch=None) -> np.ndarray:
 #     temp_data = temp_data.astype(np.uint8, copy=False)
 #     return temp_data
 
+def check_channel_test(c):
+    min_val = np.nanmin(c)
+    max_val = np.nanmax(c)
+    has_nan = np.isnan(min_val) or np.isnan(max_val)
+    assert not has_nan and 0 <= min_val <= 255 and 0 <= max_val <= 255, \
+        "Channel may only contain values in range 0..255, and no NaNs"
+
+@njit
+def check_channel(c):
+    min_val = np.nanmin(c)
+    max_val = np.nanmax(c)
+    has_nan = np.isnan(min_val) or np.isnan(max_val)
+    assert not has_nan and 0 <= min_val <= 255 and 0 <= max_val <= 255, \
+        "Channel may only contain values in range 0..255, and no NaNs"
+
+def test_compatibility(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray):
+    
+    # Ensure all channels have the same dimensions
+    assert ch1.shape == ch2.shape and ch1.shape == ch3.shape, \
+        "All channels must have the same dimensions"
+
+    # # Ensure all channels are of type np.uint8
+    # assert ch1.dtype == np.uint8 and ch2.dtype == np.uint8 and ch3.dtype == np.uint8, \
+    #     "All channels must be of type uint8"
+
+    # Expensive sanity checks
+    check_channel_test(ch1)
+    check_channel_test(ch2)
+    check_channel_test(ch3)
+
+@njit
+def make_rgb_image_njit(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np.ndarray:
+    '''
+    Given three color channels of the same dimensions, this function
+    combines them together into an RGB image. The first, second, and third
+    channels are used for the red, green, and blue channels of the resulting image.
+
+    An exception is raised if:
+    * The channels do not all have the same dimensions (shape).
+    * Any channel is not of type ``np.uint8``.
+    * Any channel contains values outside the range [0, 255] or contains NaNs.
+
+    Note: This function assumes that masked arrays are not used.
+    '''
+
+    # Ensure all channels have the same dimensions
+    assert ch1.shape == ch2.shape and ch1.shape == ch3.shape, \
+        "All channels must have the same dimensions"
+
+    # # Ensure all channels are of type np.uint8
+    # assert ch1.dtype == np.uint8 and ch2.dtype == np.uint8 and ch3.dtype == np.uint8, \
+    #     "All channels must be of type uint8"
+
+    # Expensive sanity checks
+    check_channel(ch1)
+    check_channel(ch2)
+    check_channel(ch3)
+
+    # Combine the channels into a single uint32 array
+    # rgb_data = (
+    #     (0xff000000) |
+    #     (ch1.astype(np.uint32) << 16) |
+    #     (ch2.astype(np.uint32) << 8) |
+    #     ch3.astype(np.uint32)
+    # )
+
+    rgb_data = np.zeros(ch1.shape, dtype=np.uint32)
+    rgb_data |= ch1[0]
+    rgb_data = rgb_data << 8
+    rgb_data |= ch2[1]
+    rgb_data = rgb_data << 8
+    rgb_data |= ch3[2]
+    rgb_data |= 0xff000000
+
+    return rgb_data
 
 def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     '''
@@ -818,6 +893,7 @@ class RasterView(QWidget):
             start1 = time.perf_counter()
             # for i in range(len(self._display_bands)):
             channel_img_time = 0
+            display_data_mask = [None for x in self._display_bands]
             for i in range(len(self._display_bands)):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Start the timer
@@ -837,12 +913,13 @@ class RasterView(QWidget):
                     new_data = make_channel_image(band_data, self._stretches[i])
                     end_time = time.perf_counter()
 
-                    start_making_new = time.perf_counter()
-                    new_arr = np.ma.masked_array(new_data, mask=band_mask)
-                    end_making_new = time.perf_counter()
-                    print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
+                    # start_making_new = time.perf_counter()
+                    # new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                    # end_making_new = time.perf_counter()
+                    # print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
 
-                    self._display_data[i] = new_arr 
+                    self._display_data[i] = new_data 
+                    display_data_mask[i] = band_mask
                     # self._display_data[i] = np.ma.masked_array(
                     #     make_channel_image(band_data, self._stretches[i]), mask=band_mask)
                     # band_width = display_bands_raw_data[band].shape[1]
@@ -867,7 +944,14 @@ class RasterView(QWidget):
             # print(f"self._display_data[0]: {np.nanmin(self._display_data[0])}")
             # print(f"self._display_data[1]: {np.nanmin(self._display_data[1])}")
             # print(f"self._display_data[2]: {np.nanmin(self._display_data[2])}")
-            img_data = make_rgb_image(self._display_data)
+            # img_data = make_rgb_image(self._display_data)
+            test_compatibility(self._display_data[0], self._display_data[1], self._display_data[2])
+            img_data = make_rgb_image_njit(self._display_data[0], self._display_data[1], self._display_data[2])
+            img_data = np.ma.masked_array(img_data, mask=display_data_mask[0])
+            # for i in range(len(self._display_data)):
+            #     data = self._display_data[i]
+            #     masked_data = np.ma.masked_array(data, mask=display_data_mask[i])
+            #     self._display_data[i] = masked_data
             # End the timer
             end_time = time.perf_counter()
 
