@@ -115,6 +115,9 @@ class StretchBase:
         '''
         pass
 
+    def get_stretches(self):
+        return [None, None]
+
 # Class specification
 linear_spec = [
     ('_name', types.unicode_type),
@@ -158,27 +161,7 @@ class StretchLinear:
         linear stretch are also required to be in the range [0, 1].
         '''
 
-        # Use 1.0 + EPSILON because sometimes the value is extreeeemly close to
-        # 1.0, but *just* over.
-
-        # if lower < 0.0 or lower > 1.0 + EPSILON:
-        #     raise ValueError(f'Required:  0 <= lower <= 1 (got {lower})')
-
-        # if upper < 0.0 or upper > 1.0 + EPSILON:
-        #     raise ValueError(f'Required:  0 <= upper <= 1 (got {upper})')
-
-        # if upper <= lower:
-        #     raise ValueError(f'Required:  lower < upper (got {lower}, {upper})')
-
         assert upper > lower
-
-        # Clamp values that are out of range.
-
-        # if lower > 1.0:
-        #     lower = 1.0
-
-        # if upper > 1.0:
-        #     upper = 1.0
 
         self._lower = lower
         self._upper = upper
@@ -207,10 +190,10 @@ class StretchLinear:
                     a[i, j] = 0.0
                 elif a[i, j] > 1.0:
                     a[i, j] = 1.0
-        # a *= self._slope
-        # a += self._offset
-        # np.clip(a, 0.0, 1.0, out=a)
     
+    def get_stretches(self):
+        return [self, None]
+
     def __hash__(self):
         hash((self._name, self._lower, self._upper, self._slope, self._offset))
     
@@ -225,8 +208,186 @@ class StretchLinear:
             self._offset == other._offset
         )
 
-    def __ne__(self, value):
-        pass
+    def __ne__(self, other):
+        if not isinstance(other, type(self)):
+            return True
+        return (
+            self._name != other._name or
+            self._lower != other._lower or
+            self._upper != other._upper or
+            self._slope != other._slope or
+            self._offset != other._offset
+        )
+
+# Define the specification
+stretch_hist_spec = [
+    ('_name', types.unicode_type),
+    ('_cdf', float32[:]),       # Cumulative Distribution Function (CDF)
+    ('_histo_edges', float32[:])  # Histogram edges
+]
+
+@jitclass(stretch_hist_spec)
+class StretchHistEqualize:
+    ''' Histogram Equalization Stretches '''
+
+    def __init__(self, histogram_bins, histogram_edges):
+        self._name = 'Equalize'
+    
+        self._cdf = np.zeros(histogram_bins.size, dtype=np.float32)
+        self._histo_edges = np.zeros(histogram_edges.size, dtype=np.float32)
+
+        self._calculate(histogram_bins, histogram_edges)
+
+    def _calculate(self, bins, edges):
+        """
+        Calculate the cumulative distribution function (CDF) based on the histogram bins and edges.
+        """
+        self._histo_edges = edges.astype(np.float32)
+
+        # Calculate density probability histogram
+        db = np.diff(edges).astype(np.float32)
+        density_bins = bins / db / bins.sum()
+
+        # Calculate the cumulative distribution function and normalize it
+        self._cdf = np.cumsum(density_bins)
+        self._cdf /= self._cdf[-1]
+
+    def apply(self, a):
+        """
+        Apply histogram equalization to the input array `a` in place.
+        """
+        out = np.interp(a, self._histo_edges[:-1], self._cdf)
+        # # Manually interpolate using Numba-supported operations
+        # out = np.zeros_like(a, dtype=np.float64)
+        # for i in range(a.size):
+        #     value = a.flat[i]
+        #     # Find where the value fits in the histogram edges
+        #     idx = np.searchsorted(self._histo_edges, value, side='right') - 1
+        #     if idx < 0:
+        #         out.flat[i] = 0.0
+        #     elif idx >= len(self._cdf) - 1:
+        #         out.flat[i] = 1.0
+        #     else:
+        #         # Linear interpolation
+        #         left_edge = self._histo_edges[idx]
+        #         right_edge = self._histo_edges[idx + 1]
+        #         left_cdf = self._cdf[idx]
+        #         right_cdf = self._cdf[idx + 1]
+        #         if right_edge != left_edge:
+        #             fraction = (value - left_edge) / (right_edge - left_edge)
+        #         else:
+        #             fraction = 0.0
+        #         out.flat[i] = left_cdf + fraction * (right_cdf - left_cdf)
+
+        # Copy the interpolated values back into the original array
+        # np.copyto(a, out)
+
+        for i in range(out.shape[0]):
+            for j in range(out.shape[1]):
+                a[i, j] = out[i, j]
+    
+    def get_stretches(self):
+        return [self, None]
+
+
+# Define the class specification
+stretch_sqrt_spec = [
+    ('_name', types.unicode_type),  # String attribute
+]
+
+@jitclass(stretch_sqrt_spec)
+class StretchSquareRoot:
+    '''
+    This class implements a Square Root Conditioner Stretch.
+    In order  '''
+
+    # Constructor
+    def __init__(self):
+        # Initialize the _name attribute
+        self._name = 'Conditioner_SquareRoot'
+
+    def __str__(self):
+        return 'StretchSquareRoot'
+
+    def apply(self, a: np.array):
+        np.sqrt(a, a)
+
+    def modify_histogram(self, a: np.array) -> np.array:
+        return a # for now
+
+    def get_stretches(self):
+        return [self, None]
+
+
+log2_spec = [
+    ('_name', types.unicode_type),  # String attribute
+]
+
+@jitclass(log2_spec)
+class StretchLog2:
+    '''
+    This class implements a Logarithmic Conditioner Stretch.  This class
+    requires an input in the range [0, 1], in order to produce a result that is
+    also in the range [0, 1].  The output is computed as log2(input + 1.0).
+    '''
+
+    # Constructor
+    def __init__(self):
+        self._name = 'Conditioner_Log2'
+
+    def __str__(self):
+        return 'StretchLog2'
+
+    def apply(self, a: np.array):
+        '''
+        Apply a logarithmic stretch to the input array.  This operation
+        requires an input data-set that is in the range [0, 1], and produces a
+        result also in the range [0, 1] by implementing numpy.log2(a + 1).
+        '''
+        a += 1.0
+        np.log2(a, a)
+
+    def modify_histogram(self, a: np.array) -> np.array:
+        return a # for now
+
+    def get_stretches(self):
+        return [self, None]
+
+
+class StretchComposite:
+    ''' This class implements a stretch composed from a pair of stretches. '''
+
+    # Constructor
+    def __init__(self, first, second):
+        self._name = 'Composite'
+        self._first = first
+        self._second = second
+
+    def __str__(self):
+        return f'StretchComposite[first={self._first}, second={self._second}]'
+
+    def apply(self, a: np.array):
+        self._first.apply(a)
+        self._second.apply(a)
+
+    def first(self):
+        return self._first
+
+    def set_first(self, first):
+        self._first = first
+
+    def second(self):
+        return self._second
+
+    def set_second(self, second):
+        self._second = second
+
+    def get_stretches(self):
+        # stretches = self.collect_stretches(self)
+        # return stretches
+        first = self._first if not isinstance(self._first, StretchBase) else None
+        second = self._second if not isinstance(self._second, StretchBase) else None
+        return [first, second]
 
 # class StretchLinear(StretchBase):
 #     ''' Linear stretch '''
@@ -306,107 +467,107 @@ class StretchLinear:
 #         np.clip(a, 0.0, 1.0, out=a)
 
 
-class StretchHistEqualize(StretchBase):
-    ''' Histogram Equalization Stretches '''
+# class StretchHistEqualize(StretchBase):
+#     ''' Histogram Equalization Stretches '''
 
-    # Constructor
-    def __init__(self, histogram_bins, histogram_edges):
-        super().__init__('Equalize')
-        self._cdf = None
-        self._histo_edges = None
+#     # Constructor
+#     def __init__(self, histogram_bins, histogram_edges):
+#         super().__init__('Equalize')
+#         self._cdf = None
+#         self._histo_edges = None
 
-        self._calculate(histogram_bins, histogram_edges)
+#         self._calculate(histogram_bins, histogram_edges)
 
-    def __str__(self):
-        return 'StretchHistEqualize'
+#     def __str__(self):
+#         return 'StretchHistEqualize'
 
-    def _calculate(self, bins: np.array, edges: np.array):
-        self._histo_edges = edges
-        # First, calculate a density probability histogram from the counts version
-        # (mimics the handling of density in numpy's histogram() implementation)
-        db = np.array(np.diff(edges), float)
-        density_bins = bins / db / bins.sum()
+#     def _calculate(self, bins: np.array, edges: np.array):
+#         self._histo_edges = edges
+#         # First, calculate a density probability histogram from the counts version
+#         # (mimics the handling of density in numpy's histogram() implementation)
+#         db = np.array(np.diff(edges), float)
+#         density_bins = bins / db / bins.sum()
 
-        # Now calculate a cumulative distribution function and normalize it
-        self._cdf = density_bins.cumsum()
-        self._cdf /= self._cdf[-1]
+#         # Now calculate a cumulative distribution function and normalize it
+#         self._cdf = density_bins.cumsum()
+#         self._cdf /= self._cdf[-1]
 
-    def apply(self, a: np.array):
-        # TODO(donnie):  I think this makes a copy
-        out = np.interp(a, self._histo_edges[:-1], self._cdf)
-        np.copyto(a, out)
-
-
-class StretchSquareRoot(StretchBase):
-    '''
-    This class implements a Square Root Conditioner Stretch.
-    In order  '''
-
-    # Constructor
-    def __init__(self):
-        super().__init__('Conditioner_SquareRoot')
-
-    def __str__(self):
-        return 'StretchSquareRoot'
-
-    def apply(self, a: np.array):
-        np.sqrt(a, out=a)
-
-    def modify_histogram(self, a: np.array) -> np.array:
-        return a # for now
+#     def apply(self, a: np.array):
+#         # TODO(donnie):  I think this makes a copy
+#         out = np.interp(a, self._histo_edges[:-1], self._cdf)
+#         np.copyto(a, out)
 
 
-class StretchLog2(StretchBase):
-    '''
-    This class implements a Logarithmic Conditioner Stretch.  This class
-    requires an input in the range [0, 1], in order to produce a result that is
-    also in the range [0, 1].  The output is computed as log2(input + 1.0).
-    '''
+# class StretchSquareRoot(StretchBase):
+#     '''
+#     This class implements a Square Root Conditioner Stretch.
+#     In order  '''
 
-    # Constructor
-    def __init__(self):
-        super().__init__('Conditioner_Log2')
+#     # Constructor
+#     def __init__(self):
+#         super().__init__('Conditioner_SquareRoot')
 
-    def __str__(self):
-        return 'StretchLog2'
+#     def __str__(self):
+#         return 'StretchSquareRoot'
 
-    def apply(self, a: np.array):
-        '''
-        Apply a logarithmic stretch to the input array.  This operation
-        requires an input data-set that is in the range [0, 1], and produces a
-        result also in the range [0, 1] by implementing numpy.log2(a + 1).
-        '''
-        a += 1.0
-        np.log2(a, out=a)
+#     def apply(self, a: np.array):
+#         np.sqrt(a, out=a)
 
-    def modify_histogram(self, a: np.array) -> np.array:
-        return a # for now
+#     def modify_histogram(self, a: np.array) -> np.array:
+#         return a # for now
 
 
-class StretchComposite(StretchBase):
-    ''' This class implements a stretch composed from a pair of stretches. '''
+# class StretchLog2(StretchBase):
+#     '''
+#     This class implements a Logarithmic Conditioner Stretch.  This class
+#     requires an input in the range [0, 1], in order to produce a result that is
+#     also in the range [0, 1].  The output is computed as log2(input + 1.0).
+#     '''
 
-    # Constructor
-    def __init__(self, first, second):
-        super().__init__('Composite')
-        self._first = first
-        self._second = second
+#     # Constructor
+#     def __init__(self):
+#         super().__init__('Conditioner_Log2')
 
-    def __str__(self):
-        return f'StretchComposite[first={self._first}, second={self._second}]'
+#     def __str__(self):
+#         return 'StretchLog2'
 
-    def apply(self, a: np.array):
-        self._first.apply(a)
-        self._second.apply(a)
+#     def apply(self, a: np.array):
+#         '''
+#         Apply a logarithmic stretch to the input array.  This operation
+#         requires an input data-set that is in the range [0, 1], and produces a
+#         result also in the range [0, 1] by implementing numpy.log2(a + 1).
+#         '''
+#         a += 1.0
+#         np.log2(a, out=a)
 
-    def first(self):
-        return self._first
+#     def modify_histogram(self, a: np.array) -> np.array:
+#         return a # for now
 
-    def set_first(self, first):
-        self._first = first
 
-    def second(self):
-        return self._second
+# class StretchComposite(StretchBase):
+#     ''' This class implements a stretch composed from a pair of stretches. '''
 
-    def set_second(self, second):
-        self._second = second
+#     # Constructor
+#     def __init__(self, first, second):
+#         super().__init__('Composite')
+#         self._first = first
+#         self._second = second
+
+#     def __str__(self):
+#         return f'StretchComposite[first={self._first}, second={self._second}]'
+
+#     def apply(self, a: np.array):
+#         self._first.apply(a)
+#         self._second.apply(a)
+
+#     def first(self):
+#         return self._first
+
+#     def set_first(self, first):
+#         self._first = first
+
+#     def second(self):
+#         return self._second
+
+#     def set_second(self, second):
+#         self._second = second

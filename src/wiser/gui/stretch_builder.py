@@ -13,6 +13,7 @@ from wiser.raster.utils import get_normalized_band, get_normalized_band_using_st
 
 import numpy as np
 import numpy.ma as ma
+from numba import njit
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -23,6 +24,28 @@ import matplotlib.pyplot as plt
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
+
+@njit
+def histogram_nonan_data(nonan_data):
+    bins = 512
+    min_val = 0.0
+    max_val = 1.0
+    counts = np.zeros(bins, dtype=np.int64)
+    bin_edges = np.linspace(min_val, max_val, bins + 1)
+    inv_bin_width = bins / (max_val - min_val)
+
+    for x in nonan_data:
+        # Skip values outside the specified range
+        if x < min_val or x > max_val:
+            continue
+        # Handle the edge case where x == max_val
+        if x == max_val:
+            bin_index = bins - 1
+        else:
+            bin_index = int((x - min_val) * inv_bin_width)
+        counts[bin_index] += 1
+
+    return counts, bin_edges
 
 def get_slider_percentage(slider, value=None):
     '''
@@ -426,6 +449,7 @@ class ChannelStretchWidget(QWidget):
         start_time_nonan = time.perf_counter()
         nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
         print(f"nonan_data.shape: {nonan_data.shape}")
+        print(f"nonan_data: {nonan_data[1000:1025]}")
         end_time_nonan = time.perf_counter()
         nonan_data_time = end_time_nonan - start_time_nonan
         print(f"Time to filter NaNs: {nonan_data_time:.6f} seconds")
@@ -433,8 +457,10 @@ class ChannelStretchWidget(QWidget):
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
         start_time = time.perf_counter()
+        # self._histogram_bins_raw, self._histogram_edges_raw = \
+        #     np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
         self._histogram_bins_raw, self._histogram_edges_raw = \
-            np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
+                histogram_nonan_data(nonan_data)
         end_time = time.perf_counter()
         print(f"Time to make histogram: {end_time-start_time:.6f}")
 
