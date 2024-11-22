@@ -200,13 +200,7 @@ class ChannelStretchWidget(QWidget):
     def set_histogram_color(self, color):
         self._histogram_color = color
 
-    def set_band(self, dataset, band_index):
-        '''
-        Sets the data set and index of the band data to be used in the channel
-        stretch UI. The data set and band index are retained, so that
-        histograms can be recomputed as the stretch conditioner is changed, or
-        the endpoints over which to compute the histogram are modified.
-        '''
+    def get_normalized_band(self, dataset, band_index):
         import time
         print("ChannelStretchWidget set_band")
         self._dataset = dataset
@@ -230,7 +224,22 @@ class ChannelStretchWidget(QWidget):
         self._norm_band_data = get_normalized_band_using_stats(self._raw_band_data, self._raw_band_stats)
         norm_band_data_time = time.time() - start_time
         print(f"Time taken for self._norm_band_data: {norm_band_data_time:.6f} seconds")
+        # self._dataset = dataset
+        # self._band_index = band_index
+        # self._raw_band_data = dataset.get_band_data(band_index)
+        # self._raw_band_stats = dataset.get_band_stats(band_index, self._raw_band_data)
+        # self._norm_band_data = get_normalized_band_using_stats(self._raw_band_data, self._raw_band_stats)
+        # return self._norm_band_data
 
+    def set_band(self, dataset, band_index):
+        '''
+        Sets the data set and index of the band data to be used in the channel
+        stretch UI. The data set and band index are retained, so that
+        histograms can be recomputed as the stretch conditioner is changed, or
+        the endpoints over which to compute the histogram are modified.
+        '''
+        import time
+        self.get_normalized_band(dataset, band_index)
         # Time the _update_histogram call
         start_time = time.time()
         self._update_histogram()
@@ -480,7 +489,10 @@ class ChannelStretchWidget(QWidget):
     def _update_histogram(self):
         import time
         if self._norm_band_data is None:
-            return
+            if self._dataset is None or self._band_index is None:
+                return
+            else:
+                self.get_normalized_band(self._dataset, self._band_index)
 
         # Time the removal of NaNs
         # start_time = time.perf_counter()
@@ -536,6 +548,7 @@ class ChannelStretchWidget(QWidget):
 
         # Print the timing results
         print(f"Time to show histogram: {show_histogram_time:.6f} seconds")
+        self._norm_band_data = None
 
     # def _update_histogram(self):
     #     if self._norm_band_data is None:

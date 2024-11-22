@@ -371,13 +371,41 @@ def make_rgb_image_njit(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np
     #     ch3.astype(np.uint32)
     # )
 
-    rgb_data = np.zeros(ch1.shape, dtype=np.uint32)
-    rgb_data |= ch1[0]
-    rgb_data = rgb_data << 8
-    rgb_data |= ch2[1]
-    rgb_data = rgb_data << 8
-    rgb_data |= ch3[2]
-    rgb_data |= 0xff000000
+    # rgb_data = np.zeros(ch1.shape, dtype=np.uint32)
+    # rgb_data |= ch1
+    # rgb_data = rgb_data << 8
+    # rgb_data |= ch2
+    # rgb_data = rgb_data << 8
+    # rgb_data |= ch3
+    # rgb_data |= 0xff000000
+
+    # return rgb_data
+
+    # Get the shape of the channels
+    shape = ch1.shape
+    rgb_data = np.zeros(shape, dtype=np.uint32)
+
+    # Flatten arrays for easier looping
+    r_flat = ch1.reshape((-1))
+    g_flat = ch2.reshape((-1))
+    b_flat = ch3.reshape((-1))
+    rgb_flat = rgb_data.reshape((-1))
+
+    n_elements = r_flat.size
+
+    for i in range(n_elements):
+        r = np.uint8(r_flat[i])
+        g = np.uint8(g_flat[i])
+        b = np.uint8(b_flat[i])
+        rgb_flat[i] |= r
+        rgb_flat[i] = rgb_flat[i] << 8
+        rgb_flat[i] |= g
+        rgb_flat[i] = rgb_flat[i] << 8
+        rgb_flat[i] |= b
+        rgb_flat[i] |= 0xff000000
+
+    # Reshape back to original shape
+    rgb_data = rgb_flat.reshape(shape)
 
     return rgb_data
 
@@ -889,13 +917,13 @@ class RasterView(QWidget):
         # have data for it, and if we aren't told to explicitly regenerate it.
 
         assert len(self._display_bands) in [1, 3]
-        cache = self._raster_data.get_cache()
-        key = cache.get_render_cache_key(self._raster_data, self._display_bands, self._stretches)
+        cache = self._raster_data.get_cache().get_render_cache()
+        key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches)
 
         time_1 = time.perf_counter()
-        if cache.in_render_cache(key):
+        if cache.in_cache(key):
             print(f"SKIPPPPPPPPPPPPPPIIIIIIIINNNNNNNNGGGGGGGGGGG")
-            img_data = cache.get_render_cache_item(key)
+            img_data = cache.get_cache_item(key)
             time_2 = time.perf_counter()
         # TODO (Joshua G-K): Make this logic cleaner or move to another function
         elif len(self._display_bands) == 3:
@@ -946,9 +974,33 @@ class RasterView(QWidget):
 
             # Start the timer
             start_time = time.perf_counter()
-            img_data = make_rgb_image(self._display_data)
+            use_njit = True
+            if use_njit:
+                # img_data = make_rgb_image(self._display_data)
+                # if isinstance(img_data, np.ma.masked_array):
+                #     print(f"reg img_data[250:255,250:255]: {img_data.data[0:5,0:5]}")
+                # else:
+                #     print(f"reg img_data[250:255,250:255]: {img_data[0:5,0:5]}")
+                if isinstance(self._display_data[0], np.ma.masked_array):
+                    band_masks = []
+                    for data in self._display_data:
+                        band_masks.append(data.mask)
+                    print(f"self._display_data[0].data.shape: {self._display_data[0].data.shape}")
+                    print(f"self._display_data[0].mask.shape: {self._display_data[0].mask.shape}")
+                    img_data = make_rgb_image_njit(self._display_data[0].data, self._display_data[1].data, self._display_data[2].data)
+                    if not img_data.flags['C_CONTIGUOUS']:
+                        img_data = np.ascontiguousarray(img_data)
+                    print(f"img_data.shape: {img_data.shape}")
+                    # img_data = np.ma.masked_array(img_data, mask=band_masks[0])#np.array([band_masks[0], band_masks[1], band_masks[2]]))
+                    mask = np.zeros(img_data.shape, dtype=bool)
+                    img_data = np.ma.masked_array(img_data, mask)
+                    print(f"njit img_data[250:255,250:255]: {img_data[0:5,0:5]}")
+                else:
+                    img_data = make_rgb_image_njit(self._display_data[0], self._display_data[1], self._display_data[2])
+            else:
+                img_data = make_rgb_image(self._display_data)
             end_time = time.perf_counter()
-            cache.add_render_cache_item(key, img_data)
+            cache.add_cache_item(key, img_data)
 
             # Print the time taken
             print(f"Time taken for make_rgb_image: {end_time - start_time:.6f} seconds")
@@ -973,7 +1025,7 @@ class RasterView(QWidget):
 
             # Combine our individual color channel(s) into a single RGB image.
             img_data = make_grayscale_image(self._display_data[0], self._colormap)
-            cache.add_render_cache_item(key, img_data)
+            cache.add_cache_item(key, img_data)
         # from osgeo import gdal
         # print(f'gdal block cache size: {gdal.GetCacheMax() / (1024 * 1024)}')
         # for data in self._display_data:

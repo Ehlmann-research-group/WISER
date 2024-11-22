@@ -318,10 +318,18 @@ class ApplicationState(QObject):
 
         The method will fire a signal indicating that the dataset was removed.
         '''
-        self._datasets[ds_id].delete_underlying_dataset()
-        del self._datasets[ds_id]
-        self._cache.remove_image_cube(ds_id)
+        dataset_to_del = self._datasets[ds_id]
+        dataset_to_del.delete_underlying_dataset()
+        # First we remove it form the computation cache
+        comp_cache = self._cache.get_computation_cache()
+        comp_key = comp_cache.get_cache_key(dataset_to_del)
+        comp_cache.remove_cache_item(comp_key)
 
+        # TODO (Joshua  G-K): Next we remove it from the render cache 
+        render_cache = self._cache.get_render_cache()
+        render_cache.clear_keys_from_partial(render_cache.get_partial_key(dataset_to_del))
+
+        del self._datasets[ds_id]
         # Remove all stretches that are associated with this data set
         for key in list(self._stretches.keys()):
             if key[0] == ds_id:
