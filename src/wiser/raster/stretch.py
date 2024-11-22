@@ -211,7 +211,7 @@ class StretchLinear:
         return (self._name, self._lower, self._upper, self._slope, self._offset)
 
     def __hash__(self):
-        hash(self.get_hash_tuple())
+        return hash(self.get_hash_tuple())
     
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -282,7 +282,7 @@ class StretchHistEqualize:
         return (self._name, *self._cdf, *self._histo_edges)
 
     def __hash__(self):
-        hash(self.get_hash_tuple())
+        return hash(self.get_hash_tuple())
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):

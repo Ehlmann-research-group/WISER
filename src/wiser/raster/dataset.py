@@ -370,16 +370,18 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        arr = self._data_cache.get_image_cube(self) if self._data_cache else None
+        arr = None
+        if self._data_cache:
+            cache = self._data_cache.get_computation_cache()
+            key = cache.get_cache_key(self)
+            arr = cache.get_cache_item(key)
         if arr is None:
             arr = self._impl.get_image_data()
 
             if filter_data_ignore_value and self._data_ignore_value is not None:
-                print(f"********************************")
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
             if self._data_cache:
-                key = self._data_cache.get_computation_cache_key(dataset=self)
-                self._data_cache.add_computation_cache_item(key, arr)
+                cache.add_cache_item(key, arr)
         return arr
         
         # arr = self._impl.get_image_data()
@@ -403,8 +405,11 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-
-        arr = self._data_cache.get_image_band(band_index, self) if self._data_cache else None
+        arr = None
+        if self._data_cache:
+            cache = self._data_cache.get_computation_cache()
+            key = cache.get_cache_key(self, band_index)
+            arr = cache.get_cache_item(key)
         if arr is None:
             print(f"!Getting band data! for: {band_index}")
             arr = self._impl.get_band_data(band_index)
@@ -413,8 +418,7 @@ class RasterDataSet:
 
             self.get_band_stats(band_index, arr)
             if self._data_cache:
-                key = self._data_cache.get_computation_cache_key(band_index, self)
-                self._data_cache.add_computation_cache_item(key, arr)
+                cache.add_cache_item(key, arr)
 
         return arr
         
