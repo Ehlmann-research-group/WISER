@@ -25,6 +25,7 @@ from numba import njit, jit
 
 import jax.numpy as jnp
 from jax import device_put
+import gc
 
 logger = logging.getLogger(__name__)
 
@@ -888,33 +889,31 @@ class RasterView(QWidget):
         # have data for it, and if we aren't told to explicitly regenerate it.
 
         assert len(self._display_bands) in [1, 3]
+        cache = self._raster_data.get_cache()
+        key = cache.get_render_cache_key(self._raster_data, self._display_bands, self._stretches)
 
         time_1 = time.perf_counter()
-
+        if cache.in_render_cache(key):
+            print(f"SKIPPPPPPPPPPPPPPIIIIIIIINNNNNNNNGGGGGGGGGGG")
+            img_data = cache.get_render_cache_item(key)
+            time_2 = time.perf_counter()
         # TODO (Joshua G-K): Make this logic cleaner or move to another function
-
-        # band_width = None
-        # band_height = None
-        if len(self._display_bands) == 3:
+        elif len(self._display_bands) == 3:
             # Check each color band to see if we need to update it.
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
             start1 = time.perf_counter()
-            # for i in range(len(self._display_bands)):
             channel_img_time = 0
-            display_data_mask = [None for x in self._display_bands]
             for i in range(len(self._display_bands)):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Start the timer
                     start_time = time.perf_counter()
                     # Compute the contents of this color channel.
-                    
-                    # self._display_data[i] = make_channel_image(self._raster_data,
-                    #                                         self._display_bands[i], self._stretches[i])
+                
                     start_time = time.perf_counter()
                     arr = self._raster_data.get_band_data(self._display_bands[i])
                     end_time = time.perf_counter()
                     print(f"Time taken for get_band_data: {end_time - start_time:.6f} seconds")
-                    # band_data = arr
+        
                     band_data = arr
                     band_mask = None
                     if isinstance(arr, np.ma.masked_array):
@@ -933,20 +932,9 @@ class RasterView(QWidget):
                         new_arr = np.ma.masked_array(new_data, mask=band_mask)
                     end_making_new = time.perf_counter()
                     print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
-                    # print(f"**********\n new arr mask: {new_arr.mask}")
+                    
                     self._display_data[i] = new_arr
-
-                    # self._display_data[i] = new_data 
-                    # display_data_mask[i] = band_mask
-
-                    # self._display_data[i] = np.ma.masked_array(
-                    #     make_channel_image(band_data, self._stretches[i]), mask=band_mask)
-                    # band_width = display_bands_raw_data[band].shape[1]
-                    # band_height = display_bands_raw_data[band].shape[0]
-                    # print(f"Display data type: {type(self._display_data[i])}")
-                    # print(f"Display data: {self._display_data[i]}")
-                    # End the timer
-
+    
                     # Print the time taken
                     print(f"Time taken for make_channel_image: {end_time - start_time:.6f} seconds")
                     channel_img_time += (end_time - start_time)
@@ -954,25 +942,13 @@ class RasterView(QWidget):
             # Print the time taken
             print(f"Time taken for all make_channel_img: {channel_img_time:.6f} seconds")
             print(f"Time taken for FOR loop: {end1 - start1:.6f} seconds")
-
             time_2 = time.perf_counter()
+
             # Start the timer
             start_time = time.perf_counter()
-            # Combine our individual color channel(s) into a single RGB image.
-            # print(f"self._display_data: {self._display_data}")
-            # print(f"self._display_data[0]: {np.nanmin(self._display_data[0])}")
-            # print(f"self._display_data[1]: {np.nanmin(self._display_data[1])}")
-            # print(f"self._display_data[2]: {np.nanmin(self._display_data[2])}")
             img_data = make_rgb_image(self._display_data)
-            # test_compatibility(self._display_data[0], self._display_data[1], self._display_data[2])
-            # img_data = make_rgb_image_njit(self._display_data[0], self._display_data[1], self._display_data[2])
-            # img_data = np.ma.masked_array(img_data, mask=display_data_mask[0])
-            # for i in range(len(self._display_data)):
-            #     data = self._display_data[i]
-            #     masked_data = np.ma.masked_array(data, mask=display_data_mask[i])
-            #     self._display_data[i] = masked_data
-            # End the timer
             end_time = time.perf_counter()
+            cache.add_render_cache_item(key, img_data)
 
             # Print the time taken
             print(f"Time taken for make_rgb_image: {end_time - start_time:.6f} seconds")
@@ -986,7 +962,7 @@ class RasterView(QWidget):
 
                 arr = self._raster_data.get_band_data(self._display_bands[0])
                 stretches = None
-                if self._stretches[i]:
+                if self._stretches[0]:
                     stretches = self._stretches[0].get_stretches()
                 self._display_data[0] = make_channel_image(arr, stretches[0], stretches[1])
 
@@ -997,12 +973,17 @@ class RasterView(QWidget):
 
             # Combine our individual color channel(s) into a single RGB image.
             img_data = make_grayscale_image(self._display_data[0], self._colormap)
-        from osgeo import gdal
-        print(f'gdal block cache size: {gdal.GetCacheMax() / (1024 * 1024)}')
-        self._display_data = [None, None, None]
+            cache.add_render_cache_item(key, img_data)
+        # from osgeo import gdal
+        # print(f'gdal block cache size: {gdal.GetCacheMax() / (1024 * 1024)}')
+        # for data in self._display_data:
+        #     del data
+        # self._display_data = [None, None, None]
+        # gc.collect()
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
+        
         self._img_data = img_data
         self._img_data.flags.writeable = False
 

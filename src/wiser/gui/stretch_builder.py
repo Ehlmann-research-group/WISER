@@ -24,6 +24,43 @@ import matplotlib.pyplot as plt
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
+@njit
+def remove_nans(data):
+    """
+    Extracts non-NaN values from a 2D NumPy array and returns them as a 1D array.
+
+    Parameters:
+    ----------
+    norm_band_data : np.ndarray
+        A 2D NumPy array from which NaN values are to be removed.
+
+    Returns:
+    -------
+    nonan_data : np.ndarray
+        A 1D NumPy array containing all non-NaN elements from `norm_band_data`.
+    """
+    rows, cols = data.shape
+    count = 0
+
+    # First pass: Count the number of non-NaN elements
+    for i in range(rows):
+        for j in range(cols):
+            if not np.isnan(data[i, j]):
+                count += 1
+
+    # Allocate the output array with the exact size needed
+    nonan_data = np.empty(count, dtype=data.dtype)
+
+    # Second pass: Populate the nonan_data array with non-NaN elements
+    idx = 0
+    for i in range(rows):
+        for j in range(cols):
+            value = data[i, j]
+            if not np.isnan(value):
+                nonan_data[idx] = value
+                idx += 1
+
+    return nonan_data
 
 @njit
 def histogram_nonan_data(nonan_data):
@@ -446,8 +483,19 @@ class ChannelStretchWidget(QWidget):
             return
 
         # Time the removal of NaNs
+        # start_time = time.perf_counter()
+        # mask = ~np.isnan(self._norm_band_data)
+        # end_time = time.perf_counter()
+        # print(f"Time to mask NaNs: {end_time-start_time:.6f} seconds")
+
+
+        # start_time_nonan = time.perf_counter()
+        # nonan_data = self._norm_band_data[mask]
+        # end_time_nonan = time.perf_counter()
         start_time_nonan = time.perf_counter()
-        nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+        print(f"self._norm_band_data.shape: {self._norm_band_data.shape} |||||||||||||||||||||")
+        # nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
+        nonan_data = remove_nans(self._norm_band_data)
         print(f"nonan_data.shape: {nonan_data.shape}")
         print(f"nonan_data: {nonan_data[1000:1025]}")
         end_time_nonan = time.perf_counter()

@@ -118,6 +118,19 @@ class StretchBase:
     def get_stretches(self):
         return [None, None]
 
+    def get_hash_tuple(self):
+        return (self._name)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._name == other._name
+        )
+
 # Class specification
 linear_spec = [
     ('_name', types.unicode_type),
@@ -194,8 +207,11 @@ class StretchLinear:
     def get_stretches(self):
         return [self, None]
 
+    def get_hash_tuple(self):
+        return (self._name, self._lower, self._upper, self._slope, self._offset)
+
     def __hash__(self):
-        hash((self._name, self._lower, self._upper, self._slope, self._offset))
+        hash(self.get_hash_tuple())
     
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -257,35 +273,25 @@ class StretchHistEqualize:
         Apply histogram equalization to the input array `a` in place.
         """
         out = np.interp(a, self._histo_edges[:-1], self._cdf)
-        # # Manually interpolate using Numba-supported operations
-        # out = np.zeros_like(a, dtype=np.float64)
-        # for i in range(a.size):
-        #     value = a.flat[i]
-        #     # Find where the value fits in the histogram edges
-        #     idx = np.searchsorted(self._histo_edges, value, side='right') - 1
-        #     if idx < 0:
-        #         out.flat[i] = 0.0
-        #     elif idx >= len(self._cdf) - 1:
-        #         out.flat[i] = 1.0
-        #     else:
-        #         # Linear interpolation
-        #         left_edge = self._histo_edges[idx]
-        #         right_edge = self._histo_edges[idx + 1]
-        #         left_cdf = self._cdf[idx]
-        #         right_cdf = self._cdf[idx + 1]
-        #         if right_edge != left_edge:
-        #             fraction = (value - left_edge) / (right_edge - left_edge)
-        #         else:
-        #             fraction = 0.0
-        #         out.flat[i] = left_cdf + fraction * (right_cdf - left_cdf)
-
-        # Copy the interpolated values back into the original array
-        # np.copyto(a, out)
 
         for i in range(out.shape[0]):
             for j in range(out.shape[1]):
                 a[i, j] = out[i, j]
-    
+
+    def get_hash_tuple(self):
+        return (self._name, *self._cdf, *self._histo_edges)
+
+    def __hash__(self):
+        hash(self.get_hash_tuple())
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._cdf == other._cdf and
+            self._histo_edges == other._histo_edges
+        )
+
     def get_stretches(self):
         return [self, None]
 
@@ -317,6 +323,17 @@ class StretchSquareRoot:
 
     def get_stretches(self):
         return [self, None]
+
+    def get_hash_tuple(self):
+        return (self._name)
+    
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        return (
+            self._name == other._name
+        )
 
 
 log2_spec = [
@@ -352,6 +369,17 @@ class StretchLog2:
 
     def get_stretches(self):
         return [self, None]
+    
+    def get_hash_tuple(self):
+        return (self._name)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        return (
+            self._name == other._name
+        )
 
 
 class StretchComposite:
@@ -388,6 +416,12 @@ class StretchComposite:
         first = self._first if not isinstance(self._first, StretchBase) else None
         second = self._second if not isinstance(self._second, StretchBase) else None
         return [first, second]
+    
+    def get_hash_tuple(self):
+        return (*self._first.get_hash_tuple(), *self._second.get_hash_tuple())
+
+    def __hash__(self):
+        return self.get_hash_tuple()
 
 # class StretchLinear(StretchBase):
 #     ''' Linear stretch '''
