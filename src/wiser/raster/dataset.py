@@ -10,7 +10,7 @@ from osgeo import osr
 
 from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from .utils import find_band_near_wavelength
+from .utils import find_band_near_wavelength, normalize_ndarray_min_max
 from .data_cache import DataCache
 
 import time
@@ -416,11 +416,48 @@ class RasterDataSet:
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
 
+            if self._data_cache:
+                cache.add_cache_item(key, arr)
             self.get_band_stats(band_index, arr)
+
+        return arr
+    
+    def get_band_data_normalized(self, band_index: int, band_min = None, band_max = None, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
+        '''
+        Returns a numpy 2D array of the specified band's data.  The first band
+        is at index 0.
+
+        The numpy array is configured such that the pixel (x, y) values are at
+        element array[y][x].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        arr = None
+        if self._data_cache:
+            cache = self._data_cache.get_computation_cache()
+            key = cache.get_cache_key(self, band_index)
+            arr = cache.get_cache_item(key)
+        if arr is None:
+            print(f"!Getting band data! for: {band_index}")
+            arr = self._impl.get_band_data(band_index)
+            band_min = np.nanmin(arr)
+            band_max = np.nanmax(arr)
+            stats = BandStats(band_index, band_min, band_max)
+            self._cached_band_stats[band_index] = stats
+            
+            arr = normalize_ndarray_min_max(arr, stats.get_min(), stats.get_max())
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+
             if self._data_cache:
                 cache.add_cache_item(key, arr)
 
         return arr
+    
+
         
         # print(f"!Getting band data! for: {band_index}")
         # start_time = perf_counter()
