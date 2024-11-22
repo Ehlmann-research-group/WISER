@@ -21,7 +21,7 @@ Raster views are fed raster datasets from the raster pane
 
 - Actually displaying the data requires: stretching, normalization, clipping, & *255.0
 '''
-from typing import OrderedDict as OrderedDictType, Union
+from typing import OrderedDict as OrderedDictType, Union, Tuple
 from collections import OrderedDict
 
 import numpy as np
@@ -42,8 +42,8 @@ class DataCache():
 
     # Ability to look up an image cube by dataset id
 
-    # Default is to use 1GB (1,000,000) for rendering and 2GB (2,000,000)for computation size
-    def __init__(self, render_memory_capacity=100000000, computation_memory_capacity=7000000000):
+    # Default is to use 1GB (3,000,000,000) for rendering and 2GB (2,000,000)for computation size
+    def __init__(self, render_memory_capacity=3000000000, computation_memory_capacity=7000000000):
         self._render_cache: OrderedDictType[int: Union[np.ndarray, np.ma.masked_array]] = OrderedDict()
         self._computation_cache: OrderedDictType[int: Union[np.ndarray, np.ma.masked_array]] = OrderedDict()
         self._render_capacity = render_memory_capacity
@@ -51,6 +51,31 @@ class DataCache():
         self._computation_capacity = computation_memory_capacity
         self._computation_size = 0
     
+    def _evict_render_cache(self):
+        while self._render_size > self._render_capacity:
+            if not self._render_cache:
+                break
+            key, value = self._render_cache.popitem(last=False)
+            self._render_size -= value.nbytes
+
+    def add_render_cache_item(self, key: int, value: Union[np.ndarray, np.ma.masked_array]):
+        data_size = value.nbytes
+        if data_size > self._render_capacity:
+            raise RuntimeError(f'Size of data exceeds cache size: {data_size} > {self._render_capacity}')
+        if self._render_size + data_size > self._render_capacity:
+            self._evict_render_cache()
+        self._render_cache[key] = value
+        self._render_size += value.nbytes
+
+    def get_render_cache_key(self, dataset, band_tuple: Tuple[int], stretch):
+        return hash((dataset, *band_tuple, *stretch))
+
+    def get_render_cache_item(self, key):
+        return self._render_cache[key]
+
+    def in_render_cache(self, key):
+        return key in self._render_cache
+
     def _evict_computation_cache(self):
         while self._computation_size > self._computation_capacity:
             if not self._computation_cache:
@@ -99,8 +124,9 @@ class DataCache():
     
     def remove_image_cube(self, dataset):
         key = hash((dataset))
-        self._computation_size -= self._computation_cache[key].nbytes
-        del self._computation_cache[key]
+        if key in self._computation_cache[key]:
+            self._computation_size -= self._computation_cache[key].nbytes
+            del self._computation_cache[key]
     
     def get_computation_cache_key(self, band_index: int = None, dataset = None):
         if band_index is not None and dataset is not None:

@@ -11,6 +11,7 @@ from osgeo import osr
 from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength
+from .data_cache import DataCache
 
 import time
 from time import perf_counter
@@ -80,7 +81,7 @@ class RasterDataSet:
     data for each pixel.
     '''
 
-    def __init__(self, impl: RasterDataImpl, data_cache = None):
+    def __init__(self, impl: RasterDataImpl, data_cache: DataCache = None):
 
         if impl is None:
             raise ValueError('impl cannot be None')
@@ -136,6 +137,8 @@ class RasterDataSet:
 
         return True
 
+    def get_cache(self) -> DataCache:
+        return self._data_cache
 
     def set_dirty(self, dirty: bool = True):
         self._dirty = dirty
