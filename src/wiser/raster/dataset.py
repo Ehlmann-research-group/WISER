@@ -418,7 +418,7 @@ class RasterDataSet:
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
-            self.get_band_stats(band_index, arr)
+            self.cache_band_stats(band_index, arr)
 
         return arr
     
@@ -443,12 +443,18 @@ class RasterDataSet:
         if arr is None:
             print(f"!Getting band data! for: {band_index}")
             arr = self._impl.get_band_data(band_index)
-            band_min = np.nanmin(arr)
-            band_max = np.nanmax(arr)
+            if band_index in self._cached_band_stats:
+                band_min = self._cached_band_stats[band_index].get_min()
+                band_max = self._cached_band_stats[band_index].get_max()
+            else:
+                if band_min is None:
+                    band_min = np.nanmin(arr)
+                if band_max is None:
+                    band_max = np.nanmax(arr)
             stats = BandStats(band_index, band_min, band_max)
             self._cached_band_stats[band_index] = stats
             
-            arr = normalize_ndarray_min_max(arr, stats.get_min(), stats.get_max())
+            arr = normalize_ndarray_min_max(arr, band_min, band_max)
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
 
@@ -504,7 +510,6 @@ class RasterDataSet:
 
         print(f"---------------after mask np.nanmin(display_bands_raw_data[band]): {np.nanmin(arr)}")
         print(f"---------------after mask np.nanmax(display_bands_raw_data[band]): {np.nanmax(arr)}")
-        self.get_band_stats(band_index, arr)
         return arr
 
     def get_multiple_band_data(self, band_list: List[int], filter_data_ignore_value=True):
@@ -660,6 +665,14 @@ class RasterDataSet:
     def has_geographic_info(self) -> bool:
         return self._spatial_ref is not None
     '''
+
+    def cache_band_stats(self, index, arr: np.ndarray):
+        if index not in self._cached_band_stats:
+            band_min = np.nanmin(arr)
+            band_max = np.nanmax(arr)
+            band_stats = BandStats(index, band_min, band_max)
+            self._cached_band_stats[index] = band_stats
+
 
     def to_geographic_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
         if self._spatial_ref is None:

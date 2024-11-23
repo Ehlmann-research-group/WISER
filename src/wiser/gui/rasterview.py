@@ -235,39 +235,19 @@ def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndar
     return normalized
 
 @njit
-def make_channel_image(band_data: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
+def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     '''
     Generates color channel data into a NumPy array. Elements in
     the output array will be in the range [0, 255].
     '''
     # Assume stretch is None or callable
-    temp_data = band_data.astype(np.float32)
+    temp_data = normalized_band.astype(np.float32)
 
     if stretch1 is not None:
         stretch1.apply(temp_data)
 
     if stretch2 is not None:
         stretch2.apply(temp_data)
-
-    # # Apply stretch if provided
-    # if stretches is not None:
-    #     for stretch in stretches:
-    #         if stretch:
-    #             stretch.apply(temp_data)  # Stretch should be a Numba-compatible callable
-
-    # Compute finite values' min and max manually
-    finite_min, finite_max = np.inf, -np.inf
-    for i in range(temp_data.shape[0]):
-        for j in range(temp_data.shape[1]):
-            if np.isfinite(temp_data[i, j]):
-                finite_min = min(finite_min, temp_data[i, j])
-                finite_max = max(finite_max, temp_data[i, j])
-
-    # Avoid division by zero
-    if finite_max > finite_min:
-        temp_data = normalize_ndarray(temp_data, finite_min, finite_max)
-    else:
-        temp_data.fill(0)  # If all values are identical or invalid
 
     # Clip values to [0, 1]
     for i in range(temp_data.shape[0]):
@@ -938,7 +918,7 @@ class RasterView(QWidget):
                     # Compute the contents of this color channel.
                 
                     start_time = time.perf_counter()
-                    arr = self._raster_data.get_band_data(self._display_bands[i])
+                    arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
                     end_time = time.perf_counter()
                     print(f"Time taken for get_band_data: {end_time - start_time:.6f} seconds")
         
@@ -1012,7 +992,7 @@ class RasterView(QWidget):
                 # generate the first one, then duplicate it for the other two
                 # bands.
 
-                arr = self._raster_data.get_band_data(self._display_bands[0])
+                arr = self._raster_data.get_band_data_normalized(self._display_bands[0])
                 stretches = None
                 if self._stretches[0]:
                     stretches = self._stretches[0].get_stretches()

@@ -201,35 +201,34 @@ class ChannelStretchWidget(QWidget):
         self._histogram_color = color
 
     def get_normalized_band(self, dataset, band_index):
-        import time
-        print("ChannelStretchWidget set_band")
         self._dataset = dataset
         self._band_index = band_index
-
-        # Time the _raw_band_data retrieval
-        start_time = time.time()
-        # self._raw_band_data = raw_band_data
-        self._raw_band_data = dataset.get_band_data(band_index)
-        raw_band_data_time = time.time() - start_time
-        print(f"Time taken for self._raw_band_data: {raw_band_data_time:.6f} seconds")
-
-        # Time the _raw_band_stats retrieval
-        start_time = time.time()
-        self._raw_band_stats = dataset.get_band_stats(band_index, self._raw_band_data)
-        raw_band_stats_time = time.time() - start_time
-        print(f"Time taken for self._raw_band_stats: {raw_band_stats_time:.6f} seconds")
-
-        # Time the _norm_band_data normalization
-        start_time = time.time()
-        self._norm_band_data = get_normalized_band_using_stats(self._raw_band_data, self._raw_band_stats)
-        norm_band_data_time = time.time() - start_time
-        print(f"Time taken for self._norm_band_data: {norm_band_data_time:.6f} seconds")
+        self._norm_band_data = dataset.get_band_data_normalized(band_index)
+        # TODO (Joshua): Make this cleaner 
+        self._raw_band_stats = dataset.get_band_stats(band_index, None)
+        # import time
+        # print("ChannelStretchWidget set_band")
         # self._dataset = dataset
         # self._band_index = band_index
+
+        # # Time the _raw_band_data retrieval
+        # start_time = time.time()
+        # # self._raw_band_data = raw_band_data
         # self._raw_band_data = dataset.get_band_data(band_index)
+        # raw_band_data_time = time.time() - start_time
+        # print(f"Time taken for self._raw_band_data: {raw_band_data_time:.6f} seconds")
+
+        # # Time the _raw_band_stats retrieval
+        # start_time = time.time()
         # self._raw_band_stats = dataset.get_band_stats(band_index, self._raw_band_data)
+        # raw_band_stats_time = time.time() - start_time
+        # print(f"Time taken for self._raw_band_stats: {raw_band_stats_time:.6f} seconds")
+
+        # # Time the _norm_band_data normalization
+        # start_time = time.time()
         # self._norm_band_data = get_normalized_band_using_stats(self._raw_band_data, self._raw_band_stats)
-        # return self._norm_band_data
+        # norm_band_data_time = time.time() - start_time
+        # print(f"Time taken for self._norm_band_data: {norm_band_data_time:.6f} seconds")
 
     def set_band(self, dataset, band_index):
         '''
@@ -247,16 +246,16 @@ class ChannelStretchWidget(QWidget):
         print(f"Time taken for self._update_histogram: {update_histogram_time:.6f} seconds")
 
         # Set min and max bounds
-        self._min_bound = self._raw_band_stats.get_min()
-        self._max_bound = self._raw_band_stats.get_max()
+        self._min_bound = self.raw_to_norm_value(self._raw_band_stats.get_min())
+        self._max_bound = self.raw_to_norm_value(self._raw_band_stats.get_max()) 
 
         # Set stretch low and high
         self.set_stretch_low(0.0)
         self.set_stretch_high(1.0)
 
         # UI Updates
-        self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
-        self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
+        self._ui.lineedit_min_bound.setText(f'{self._raw_band_stats.get_min() :.6f}')
+        self._ui.lineedit_max_bound.setText(f'{self._raw_band_stats.get_max() :.6f}')
 
     # def set_band(self, dataset, band_index):
     #     '''
@@ -349,20 +348,33 @@ class ChannelStretchWidget(QWidget):
     def get_min_max_bounds(self):
         return (self._min_bound, self._max_bound)
 
+    def norm_to_raw_value(self, norm_value):
+        value_range = self._raw_band_stats.get_max() - self._raw_band_stats.get_min()
+        return (norm_value + self._raw_band_stats.get_min()) * value_range
+    
+    def raw_to_norm_value(self, raw_value):
+        value_range = self._raw_band_stats.get_max() - self._raw_band_stats.get_min()
+        return (raw_value - self._raw_band_stats.get_min()) / value_range
+
     def set_min_max_bounds(self, min_bound, max_bound):
+        '''
+        The min and max bound as in the normalized terms
+        '''
         if min_bound >= max_bound:
             raise ValueError(f'min_bound must be less than max_bound; got ({min_bound}, {max_bound})')
 
-        self._min_bound = min_bound
-        self._max_bound = max_bound
+        self._min_bound = min_bound # (min_bound + self._raw_band_stats.get_min()) * value_range
+        self._max_bound = max_bound # (max_bound + self._raw_band_stats.get_max()) * value_range
 
-        self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
-        self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
+        self._ui.lineedit_min_bound.setText(f'{self.norm_to_raw_value(self._min_bound):.6f}')
+        self._ui.lineedit_max_bound.setText(f'{self.norm_to_raw_value(self._max_bound):.6f}')
 
         # Mask all values that are outside of the min/max bounds, and then
-        # normalize the remaining values to the 0..1 range.
-        data = ma.masked_outside(self._raw_band_data, self._min_bound, self._max_bound)
-        self._norm_band_data = (data - self._min_bound) / (self._max_bound - self._min_bound)
+        # normalize the remaining values to the 0...1 range.
+        # data = ma.masked_outside(self._norm_band_data, self._min_bound, self._max_bound)
+        # self._norm_band_data = (data - self._min_bound) / (self._max_bound - self._min_bound)
+
+        self._norm_band_data = ma.masked_outside(self._norm_band_data, self._min_bound, self._max_bound)
 
         self._update_histogram()
 
@@ -394,7 +406,8 @@ class ChannelStretchWidget(QWidget):
         slider_value = value * slider_range
         self._ui.slider_stretch_low.setValue(int(slider_value))
 
-        raw_value = self._min_bound + self._stretch_low * (self._max_bound - self._min_bound)
+        # raw_value = self._min_bound + self._stretch_low * (self._max_bound - self._min_bound)
+        raw_value = self.norm_to_raw_value(self._stretch_low)
         self._ui.lineedit_stretch_low.setText(f'{raw_value:.6f}')
 
     def get_stretch_high(self):
@@ -418,7 +431,8 @@ class ChannelStretchWidget(QWidget):
         slider_value = value * slider_range
         self._ui.slider_stretch_high.setValue(int(slider_value))
 
-        raw_value = self._min_bound + self._stretch_high * (self._max_bound - self._min_bound)
+        # raw_value = self._min_bound + self._stretch_high * (self._max_bound - self._min_bound)
+        raw_value = self.norm_to_raw_value(self._stretch_high)
         self._ui.lineedit_stretch_high.setText(f'{raw_value:.6f}')
 
     def get_band_min_max(self):
@@ -435,11 +449,13 @@ class ChannelStretchWidget(QWidget):
         minimum and maximum values, with no normalization or conditioning
         applied.
         '''
-        band_stretch_low = self._min_bound + \
-            self._stretch_low * (self._max_bound - self._min_bound)
+        # band_stretch_low = self._min_bound + \
+        #     self._stretch_low * (self._max_bound - self._min_bound)
+        band_stretch_low = self.norm_to_raw_value(self._stretch_low)
 
-        band_stretch_high = self._min_bound + \
-            self._stretch_high * (self._max_bound - self._min_bound)
+        # band_stretch_high = self._min_bound + \
+        #     self._stretch_high * (self._max_bound - self._min_bound)
+        band_stretch_high = self.norm_to_raw_value(self._stretch_high)
 
         return (band_stretch_low, band_stretch_high)
 
@@ -469,8 +485,9 @@ class ChannelStretchWidget(QWidget):
         the band data.  In other words, all band data is included in the
         histogram calculation.
         '''
-        self.set_min_max_bounds(self._raw_band_stats.get_min(),
-                                self._raw_band_stats.get_max())
+        self.set_min_max_bounds(0, 1)
+        # self.set_min_max_bounds(self._norm_band_data.get_min(),
+        #                         self._norm_band_data.get_max())
 
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
@@ -507,7 +524,11 @@ class ChannelStretchWidget(QWidget):
         start_time_nonan = time.perf_counter()
         print(f"self._norm_band_data.shape: {self._norm_band_data.shape} |||||||||||||||||||||")
         # nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
-        nonan_data = remove_nans(self._norm_band_data)
+        if isinstance(self._norm_band_data, np.ma.masked_array):
+            norm_data = self._norm_band_data.data
+        else:
+            norm_data = self._norm_band_data 
+        nonan_data = remove_nans(norm_data)
         print(f"nonan_data.shape: {nonan_data.shape}")
         print(f"nonan_data: {nonan_data[1000:1025]}")
         end_time_nonan = time.perf_counter()
@@ -622,7 +643,7 @@ class ChannelStretchWidget(QWidget):
         self._stretch_low = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
         # Update the displayed "low stretch" value
-        value = self._min_bound + self._stretch_low * (self._max_bound - self._min_bound)
+        value = self.norm_to_raw_value(self._stretch_low)
     
         self._ui.lineedit_stretch_low.setText(f'{value:.6f}')
 
@@ -649,7 +670,7 @@ class ChannelStretchWidget(QWidget):
             self._ui.slider_stretch_low, value=value)
 
         # Update the displayed "high stretch" value
-        value = self._min_bound + self._stretch_high * (self._max_bound - self._min_bound)
+        value = self.norm_to_raw_value(self._stretch_high)
         self._ui.lineedit_stretch_high.setText(f'{value:.6f}')
 
         self._show_histogram(update_lines_only=True)
@@ -890,6 +911,7 @@ class StretchBuilderDialog(QDialog):
             (band_min, band_max) = channel.get_band_min_max()
             (band_stretch_low, band_stretch_high) = channel.get_band_stretch_bounds()
 
+            # TODO: (Joshua): Get rid of this
             range = band_max - band_min
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
