@@ -279,7 +279,11 @@ class StretchHistEqualize:
                 a[i, j] = out[i, j]
 
     def get_hash_tuple(self):
-        return (self._name, *self._cdf, *self._histo_edges)
+        '''
+        Make sure when you are hashing this, you only need the 
+        information that it's a histogram stretch
+        '''
+        return (self._name)
 
     def __hash__(self):
         return hash(self.get_hash_tuple())
@@ -421,7 +425,7 @@ class StretchComposite:
         return (*self._first.get_hash_tuple(), *self._second.get_hash_tuple())
 
     def __hash__(self):
-        return self.get_hash_tuple()
+        return hash(self.get_hash_tuple())
 
 # class StretchLinear(StretchBase):
 #     ''' Linear stretch '''

@@ -1222,7 +1222,7 @@ class RasterPane(QWidget):
         # print(f'on_stretch_builder invoked for position {rasterview_pos}')
 
         if self._stretch_builder is None:
-            self._stretch_builder = StretchBuilderDialog(parent=self)
+            self._stretch_builder = StretchBuilderDialog(parent=self, app_state=self._app_state)
 
         rasterview = self.get_rasterview(rasterview_pos)
         self._stretch_builder.show(rasterview.get_raster_data(),

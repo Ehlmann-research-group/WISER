@@ -117,14 +117,16 @@ class ChannelStretchWidget(QWidget):
     stretch_high_changed = Signal(int, float)
 
 
-    def __init__(self, channel_no, parent=None, histogram_color=Qt.black):
+    def __init__(self, channel_no, parent=None, app_state=None, histogram_color=Qt.black):
         super().__init__(parent)
         self._ui = Ui_ChannelStretchWidget()
         self._ui.setupUi(self)
 
+        self._app_state = app_state
+
         #============================================================
         # Internal State:
-
+    
         # Which channel this is
         self._channel_no = channel_no
 
@@ -254,6 +256,8 @@ class ChannelStretchWidget(QWidget):
         self.set_stretch_high(1.0)
 
         # UI Updates
+        print(f'set_band get_min: {self._raw_band_stats.get_min() :.6f}')
+        print(f'set_band get_max: {self._raw_band_stats.get_max() :.6f}')
         self._ui.lineedit_min_bound.setText(f'{self._raw_band_stats.get_min() :.6f}')
         self._ui.lineedit_max_bound.setText(f'{self._raw_band_stats.get_max() :.6f}')
 
@@ -366,6 +370,8 @@ class ChannelStretchWidget(QWidget):
         self._min_bound = min_bound # (min_bound + self._raw_band_stats.get_min()) * value_range
         self._max_bound = max_bound # (max_bound + self._raw_band_stats.get_max()) * value_range
 
+        print(f'set_min_max_bounds min: {self.norm_to_raw_value(self._min_bound):.6f}')
+        print(f'set_min_max_bounds max: {self.norm_to_raw_value(self._max_bound):.6f}')
         self._ui.lineedit_min_bound.setText(f'{self.norm_to_raw_value(self._min_bound):.6f}')
         self._ui.lineedit_max_bound.setText(f'{self.norm_to_raw_value(self._max_bound):.6f}')
 
@@ -498,8 +504,8 @@ class ChannelStretchWidget(QWidget):
         that are outside of this range, and recompute the histogram based on the
         specified bounds.
         '''
-        self.set_min_max_bounds(float(self._ui.lineedit_min_bound.text()),
-                                float(self._ui.lineedit_max_bound.text()))
+        self.set_min_max_bounds(self.raw_to_norm_value(float(self._ui.lineedit_min_bound.text())),
+                                self.raw_to_norm_value(float(self._ui.lineedit_max_bound.text())))
 
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
@@ -540,8 +546,17 @@ class ChannelStretchWidget(QWidget):
         start_time = time.perf_counter()
         # self._histogram_bins_raw, self._histogram_edges_raw = \
         #     np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
-        self._histogram_bins_raw, self._histogram_edges_raw = \
+        cache = self._app_state.get_cache().get_histogram_cache()
+        key = cache.get_cache_key(self._dataset, self._band_index, self._conditioner_type, self._stretch_type)
+        if cache.in_cache(key):
+            print("BYPASSSSSSINGGGGGGGG")
+            self._histogram_bins_raw, self._histogram_edges_raw = \
+                cache.get_cache_item(key)
+        else:
+            print("Calculating histogram result!")
+            self._histogram_bins_raw, self._histogram_edges_raw = \
                 histogram_nonan_data(nonan_data)
+            cache.add_cache_item(key, (self._histogram_bins_raw, self._histogram_edges_raw))
         end_time = time.perf_counter()
         print(f"Time to make histogram: {end_time-start_time:.6f}")
 
@@ -768,7 +783,7 @@ class StretchBuilderDialog(QDialog):
     #     display-band tuple length
     stretch_changed = Signal(int, tuple, list)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, app_state=None):
         super().__init__(parent=parent)
 
         self.setWindowTitle(self.tr('Contrast Stretch Configuration'))
@@ -782,6 +797,8 @@ class StretchBuilderDialog(QDialog):
             & ~Qt.WindowCloseButtonHint)
         self.setWindowFlags(flags)
         '''
+
+        self._app_state = app_state
 
         self._num_active_channels = 0
 
@@ -818,7 +835,7 @@ class StretchBuilderDialog(QDialog):
         scrollarea_layout.setSpacing(0)
         scrollarea_layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
 
-        self._channel_widgets = [ChannelStretchWidget(i) for i in range(3)]
+        self._channel_widgets = [ChannelStretchWidget(i, app_state=self._app_state) for i in range(3)]
 
         for i in range(3):
             scrollarea_layout.addWidget(self._channel_widgets[i])
@@ -916,7 +933,7 @@ class StretchBuilderDialog(QDialog):
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
 
-            stretch = StretchLinear(band_stretch_low, band_stretch_high)
+            stretch = StretchLinear(low, high)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
             bins, edges = channel.get_histogram()

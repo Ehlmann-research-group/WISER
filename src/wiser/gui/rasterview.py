@@ -235,7 +235,7 @@ def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndar
     return normalized
 
 @njit
-def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
+def make_channel_image(normalized_band: np.ndarray, min_val: float, max_val: float, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     '''
     Generates color channel data into a NumPy array. Elements in
     the output array will be in the range [0, 255].
@@ -260,6 +260,53 @@ def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None
             temp_data[i, j] = temp_data[i, j] * 255.0
 
     return temp_data.astype(np.uint8)
+
+# @njit
+# def make_channel_image(band_data: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
+#     '''
+#     Generates color channel data into a NumPy array. Elements in
+#     the output array will be in the range [0, 255].
+#     '''
+#     # Assume stretch is None or callable
+#     temp_data = band_data.astype(np.float32)
+
+#     # # Apply stretch if provided
+#     # if stretches is not None:
+#     #     for stretch in stretches:
+#     #         if stretch:
+#     #             stretch.apply(temp_data)  # Stretch should be a Numba-compatible callable
+
+#     # Compute finite values' min and max manually
+#     finite_min, finite_max = np.inf, -np.inf
+#     for i in range(temp_data.shape[0]):
+#         for j in range(temp_data.shape[1]):
+#             if np.isfinite(temp_data[i, j]):
+#                 finite_min = min(finite_min, temp_data[i, j])
+#                 finite_max = max(finite_max, temp_data[i, j])
+
+#     # Avoid division by zero
+#     if finite_max > finite_min:
+#         temp_data = normalize_ndarray(temp_data, finite_min, finite_max)
+#     else:
+#         temp_data.fill(0)  # If all values are identical or invalid
+
+#     if stretch1 is not None:
+#         stretch1.apply(temp_data)
+
+#     if stretch2 is not None:
+#         stretch2.apply(temp_data)
+
+#     # Clip values to [0, 1]
+#     for i in range(temp_data.shape[0]):
+#         for j in range(temp_data.shape[1]):
+#             temp_data[i, j] = max(0.0, min(1.0, temp_data[i, j]))
+
+#     # Scale to [0, 255] and convert to uint8
+#     for i in range(temp_data.shape[0]):
+#         for j in range(temp_data.shape[1]):
+#             temp_data[i, j] = temp_data[i, j] * 255.0
+
+#     return temp_data.astype(np.uint8)
 
 
 # def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
@@ -434,7 +481,9 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     if isinstance(channels[0], np.ma.MaskedArray):
         # Create a masked array of zeros with the same shape as the channels
         rgb_data = np.ma.zeros(channels[0].shape, dtype=np.uint32)
+        rgb_data.mask = channels[0].mask
         rgb_data.fill_value = 0xff000000  # Set the fill value for the masked array
+        rgb_data
     else:
         # Create a regular array of zeros
         rgb_data = np.zeros(channels[0].shape, dtype=np.uint32)
@@ -919,6 +968,7 @@ class RasterView(QWidget):
                 
                     start_time = time.perf_counter()
                     arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
+                    # arr = self._raster_data.get_band_data(self._display_bands[i])
                     end_time = time.perf_counter()
                     print(f"Time taken for get_band_data: {end_time - start_time:.6f} seconds")
         
@@ -931,17 +981,27 @@ class RasterView(QWidget):
                     stretches = [None, None]
                     if self._stretches[i]:
                         stretches = self._stretches[i].get_stretches()
-                    new_data = make_channel_image(band_data, stretches[0], stretches[1])
+                    try:
+                        print(f"stretch1: {stretches[0]._lower} and {stretches[0]._upper}")
+                        print(f"stretch2: {stretches[1]._lower} and {stretches[1]._upper}")
+                    except BaseException as e:
+                        pass
+                    stats = self._raster_data.get_band_stats(self._display_bands[i])
+                    minval = stats.get_min()
+                    maxval = stats.get_max()
+                    new_data = make_channel_image(band_data, minval, maxval, stretches[0], stretches[1])
                     end_time = time.perf_counter()
 
                     start_making_new = time.perf_counter()
                     new_arr = new_data
                     if isinstance(arr, np.ma.masked_array):
+                        print("IT IS MASKEDDDDDDDDDDDDDDDDDDDDDDDD")
                         new_arr = np.ma.masked_array(new_data, mask=band_mask)
                     end_making_new = time.perf_counter()
                     print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
                     
                     self._display_data[i] = new_arr
+                    print(f"New arr[50:55,50:55]: {new_arr[50:55,50:55]}")
     
                     # Print the time taken
                     print(f"Time taken for make_channel_image: {end_time - start_time:.6f} seconds")
@@ -954,7 +1014,7 @@ class RasterView(QWidget):
 
             # Start the timer
             start_time = time.perf_counter()
-            use_njit = True
+            use_njit = False
             if use_njit:
                 # img_data = make_rgb_image(self._display_data)
                 # if isinstance(img_data, np.ma.masked_array):
@@ -996,7 +1056,10 @@ class RasterView(QWidget):
                 stretches = None
                 if self._stretches[0]:
                     stretches = self._stretches[0].get_stretches()
-                self._display_data[0] = make_channel_image(arr, stretches[0], stretches[1])
+                stats = self._raster_data.get_band_stats(self._display_bands[0])
+                minval = stats.get_min()
+                maxval = stats.get_max()
+                self._display_data[0] = make_channel_image(arr, minval, maxval, stretches[0], stretches[1])
 
                 self._display_data[1] = self._display_data[0]
                 self._display_data[2] = self._display_data[0]
