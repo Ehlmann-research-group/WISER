@@ -443,20 +443,31 @@ class RasterDataSet:
         if arr is None:
             print(f"!Getting band data! for: {band_index}")
             arr = self._impl.get_band_data(band_index)
+            
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+            # Must get min after making it a masked array
             if band_index in self._cached_band_stats:
+                print("CACHED stats")
                 band_min = self._cached_band_stats[band_index].get_min()
                 band_max = self._cached_band_stats[band_index].get_max()
             else:
+                print(f"NOT CACHED stats")
                 if band_min is None:
                     band_min = np.nanmin(arr)
                 if band_max is None:
                     band_max = np.nanmax(arr)
             stats = BandStats(band_index, band_min, band_max)
+            if isinstance(arr, np.ma.masked_array):
+                mask = arr.mask
+                arr = normalize_ndarray_min_max(arr.data, band_min, band_max)
+                arr = np.ma.masked_array(arr, mask=mask)
+            else:
+                arr = normalize_ndarray_min_max(arr, band_min, band_max)
+
+            print(f"FROM THE SOURCE STATS: {stats}")
             self._cached_band_stats[band_index] = stats
-            
-            arr = normalize_ndarray_min_max(arr, band_min, band_max)
-            if filter_data_ignore_value and self._data_ignore_value is not None:
-                arr = np.ma.masked_values(arr, self._data_ignore_value)
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
