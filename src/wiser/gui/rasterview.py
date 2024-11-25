@@ -1001,7 +1001,7 @@ class RasterView(QWidget):
                     print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
                     
                     self._display_data[i] = new_arr
-                    print(f"New arr[50:55,50:55]: {new_arr[50:55,50:55]}")
+                    print(f"New arr[150:155,150:155]: {new_arr[150:155,150:155]}")
     
                     # Print the time taken
                     print(f"Time taken for make_channel_image: {end_time - start_time:.6f} seconds")

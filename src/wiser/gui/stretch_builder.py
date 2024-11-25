@@ -354,7 +354,7 @@ class ChannelStretchWidget(QWidget):
 
     def norm_to_raw_value(self, norm_value):
         value_range = self._raw_band_stats.get_max() - self._raw_band_stats.get_min()
-        return (norm_value + self._raw_band_stats.get_min()) * value_range
+        return (norm_value * value_range) + self._raw_band_stats.get_min() 
     
     def raw_to_norm_value(self, raw_value):
         value_range = self._raw_band_stats.get_max() - self._raw_band_stats.get_min()
@@ -459,6 +459,7 @@ class ChannelStretchWidget(QWidget):
         #     self._stretch_low * (self._max_bound - self._min_bound)
         band_stretch_low = self.norm_to_raw_value(self._stretch_low)
 
+        # Min bound is the minimum of the stretch range
         # band_stretch_high = self._min_bound + \
         #     self._stretch_high * (self._max_bound - self._min_bound)
         band_stretch_high = self.norm_to_raw_value(self._stretch_high)
@@ -933,6 +934,14 @@ class StretchBuilderDialog(QDialog):
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
 
+            print(f"STRETCH LINEAR low: {low}")
+            print(f"STRETCH LINEAR high: {high}")
+            print(f"STRETCH LINEAR stretch_low: {channel._stretch_low}")
+            print(f"STRETCH LINEAR stretch_high: {channel._stretch_high}")
+            print(f"STRETCH LINEAR band_stretch_low: {band_stretch_low}")
+            print(f"STRETCH LINEAR band_stretch_high: {band_stretch_high}")
+            print(f"STRETCH LINEAR band_min: {band_min}")
+            print(f"STRETCH LINEAR band_max: {band_max}")
             stretch = StretchLinear(low, high)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
