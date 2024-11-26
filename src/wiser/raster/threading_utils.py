@@ -1,0 +1,30 @@
+from PySide2.QtCore import (QRunnable, QThreadPool, Signal, \
+                            QObject, QThread, QEventLoop)
+
+class WorkerSignals(QObject):
+    update = Signal(str)
+    finished = Signal(object)
+    error = Signal(BaseException)
+
+class Worker(QRunnable):
+
+    def __init__(self, func, *args, **kwargs):
+        '''
+        Callback is a function assumed to have no arguments
+        '''
+        super(Worker, self).__init__()
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()  # Set up signal
+        self.result = None
+
+    def run(self):
+        print(f"args: {self.args}")
+        print(f"kwargs: {self.kwargs}")
+        try:
+            self.result = self.func(*self.args, **self.kwargs)
+            
+            self.signals.finished.emit(self.result)
+        except BaseException as e:
+            self.signals.error.emit(e)
