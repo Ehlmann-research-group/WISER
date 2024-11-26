@@ -100,10 +100,6 @@ class RenderCache(Cache):
         we delete a dataset.
         '''
         partial_key = self.get_partial_key(dataset)
-        print(f"Type of band tuple: {type(band_tuple)}")
-        print(f"Type of band tuple[0]: {type(band_tuple[0])}")
-        print(f"Type of stretches: {type(stretches)}")
-        print(f"Type of stretches[0]: {type(stretches[0])}")
         cache_key = hash((dataset, *band_tuple, *stretches))
         if partial_key not in self._key_lookup_table:
             self._key_lookup_table[partial_key] = []

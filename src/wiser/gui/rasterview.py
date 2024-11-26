@@ -938,6 +938,7 @@ class RasterView(QWidget):
 
     def update_display_image(self, colors=ImageColors.RGB):
         print(f"RasterView, update_display_image")
+        img_data = None
         if self._raster_data is None:
             # No raster data to display
             self._image_widget.set_dataset_info(None, self._scale_factor)
@@ -998,8 +999,13 @@ class RasterView(QWidget):
                     if isinstance(arr, np.ma.masked_array):
                         print("IT IS MASKEDDDDDDDDDDDDDDDDDDDDDDDD")
                         new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                        start_time_mask = time.perf_counter()
+                        new_arr.data[band_mask] = 0
+                        end_time_mask = time.perf_counter()
+                        print(f"Time taken for making invalid into 0: {end_time_mask-start_time_mask:.6f} seconds")
+
                     end_making_new = time.perf_counter()
-                    print(f"Time taken for making masked array: {start_making_new - end_making_new:.6f} seconds")
+                    print(f"Time taken for making masked array: {end_making_new-start_making_new:.6f} seconds")
                     
                     self._display_data[i] = new_arr
                     print(f"New arr[150:155,150:155]: {new_arr[150:155,150:155]}")
@@ -1026,12 +1032,15 @@ class RasterView(QWidget):
                     band_masks = []
                     for data in self._display_data:
                         band_masks.append(data.mask)
-                    print(f"self._display_data[0].data.shape: {self._display_data[0].data.shape}")
-                    print(f"self._display_data[0].mask.shape: {self._display_data[0].mask.shape}")
+                    # print(f"self._display_data[0].data.shape: {self._display_data[0].data.shape}")
+                    # print(f"self._display_data[0].mask.shape: {self._display_data[0].mask.shape}")
                     img_data = make_rgb_image_njit(self._display_data[0].data, self._display_data[1].data, self._display_data[2].data)
+                    print(f"njit self._display_data[0][250:255,250:255]: {self._display_data[0].data[0:5,0:5]}")
+                    print(f"njit self._display_data[1][250:255,250:255]: {self._display_data[1].data[0:5,0:5]}")
+                    print(f"njit self._display_data[2][250:255,250:255]: {self._display_data[2].data[0:5,0:5]}")
                     if not img_data.flags['C_CONTIGUOUS']:
                         img_data = np.ascontiguousarray(img_data)
-                    print(f"img_data.shape: {img_data.shape}")
+                    # print(f"img_data.shape: {img_data.shape}")
                     # img_data = np.ma.masked_array(img_data, mask=band_masks[0])#np.array([band_masks[0], band_masks[1], band_masks[2]]))
                     mask = np.zeros(img_data.shape, dtype=bool)
                     img_data = np.ma.masked_array(img_data, mask)
@@ -1042,8 +1051,10 @@ class RasterView(QWidget):
                 img_data = make_rgb_image(self._display_data)
             end_time = time.perf_counter()
             if isinstance(img_data, np.ma.masked_array):
-                print("8888888888888888888888888888888888888888888888888888888888888888888")
-                img_data.fill_value = 0xff000000
+                print(f"8888888888888888888888888888888888888888888888888888888888888888888: {type(img_data)}")
+                # img_data.fill_value = 0xff000000
+                # img_data.filled()
+                # img_data.data[img_data.mask] = 0xff000000
             print(f"img_data[0:5,0:5]: {img_data[0:5,0:5]}")
             cache.add_cache_item(key, img_data)
 
