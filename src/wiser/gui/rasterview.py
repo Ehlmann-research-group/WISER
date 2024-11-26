@@ -482,8 +482,6 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
         # Create a masked array of zeros with the same shape as the channels
         rgb_data = np.ma.zeros(channels[0].shape, dtype=np.uint32)
         rgb_data.mask = channels[0].mask
-        rgb_data.fill_value = 0xff000000  # Set the fill value for the masked array
-        rgb_data
     else:
         # Create a regular array of zeros
         rgb_data = np.zeros(channels[0].shape, dtype=np.uint32)
@@ -494,6 +492,9 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     rgb_data = rgb_data << 8
     rgb_data |= channels[2]
     rgb_data |= 0xff000000
+
+    if isinstance(channels[0], np.ma.MaskedArray):
+        rgb_data.fill_value = 0xff000000  # Set the fill value for the masked array
 
     # Qt5/PySide2 complains if the array is not contiguous.
     if not rgb_data.flags['C_CONTIGUOUS']:
@@ -936,7 +937,7 @@ class RasterView(QWidget):
 
 
     def update_display_image(self, colors=ImageColors.RGB):
-        print(f"RasterView, update_display_image ")
+        print(f"RasterView, update_display_image")
         if self._raster_data is None:
             # No raster data to display
             self._image_widget.set_dataset_info(None, self._scale_factor)
@@ -1014,7 +1015,7 @@ class RasterView(QWidget):
 
             # Start the timer
             start_time = time.perf_counter()
-            use_njit = False
+            use_njit = True
             if use_njit:
                 # img_data = make_rgb_image(self._display_data)
                 # if isinstance(img_data, np.ma.masked_array):
@@ -1040,6 +1041,10 @@ class RasterView(QWidget):
             else:
                 img_data = make_rgb_image(self._display_data)
             end_time = time.perf_counter()
+            if isinstance(img_data, np.ma.masked_array):
+                print("8888888888888888888888888888888888888888888888888888888888888888888")
+                img_data.fill_value = 0xff000000
+            print(f"img_data[0:5,0:5]: {img_data[0:5,0:5]}")
             cache.add_cache_item(key, img_data)
 
             # Print the time taken
