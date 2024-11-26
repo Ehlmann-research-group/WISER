@@ -8,12 +8,14 @@ class WorkerSignals(QObject):
 
 class Worker(QRunnable):
 
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, current_call, total_calls, func, *args, **kwargs):
         '''
         Callback is a function assumed to have no arguments
         '''
         super(Worker, self).__init__()
         self.func = func
+        self.current_call = current_call  # The current index of the call we are on
+        self.total_calls = total_calls  # The total index of the call we are on
         self.args = args
         self.kwargs = kwargs
         self.signals = WorkerSignals()  # Set up signal
@@ -25,6 +27,7 @@ class Worker(QRunnable):
         try:
             self.result = self.func(*self.args, **self.kwargs)
             
-            self.signals.finished.emit(self.result)
+            self.signals.finished.emit((self.current_call, self.total_calls, self.result))
         except BaseException as e:
+            print(f"Error: \n {e}")
             self.signals.error.emit(e)
