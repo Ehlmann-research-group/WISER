@@ -6,6 +6,9 @@ from astropy import units as u
 
 from time import perf_counter
 
+from wiser.utils.numba_wrapper import numba_wrapper
+
+
 # For easier typing in this module
 Number = Union[int, float]
 
@@ -169,14 +172,15 @@ from numba import njit
 #============================================================================
 # COMMON BAND-MATH OPERATIONS
 
-def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
+
+def normalize_ndarray_non_njit(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
     '''
     Normalize the specified array, generating a new array to return to the
     caller.  The minimum and maximum values can be specified if already known,
     or if the caller wants to normalize to a different min/max than the array's
     actual min/max values.  NaN values are left unaffected.
     '''
-
+    print(f"Non njit version")
     if minval is None:
         minval = np.nanmin(array)
 
@@ -191,23 +195,20 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=Fals
             np.divide(array, (maxval - minval), out=array, dtype=np.float32)
     else:
         return (array - minval) / (maxval - minval)
-
-@njit
-def normalize_ndarray_min_max(array: np.ndarray, minval=None, maxval=None) -> np.ndarray:
-    '''
-    Normalize the specified array, generating a new array to return to the
-    caller.  The minimum and maximum values can be specified if already known,
-    or if the caller wants to normalize to a different min/max than the array's
-    actual min/max values.  NaN values are left unaffected.
-    '''
-
-    if minval is None:
-        minval = np.nanmin(array)
-
-    if maxval is None:
-        maxval = np.nanmax(array)
     
-    return (array - minval) / (maxval - minval)
+@numba_wrapper(non_njit_func=normalize_ndarray_non_njit)
+def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
+    """
+    Normalize an array to the range [0, 1].
+    """
+    normalized = np.empty_like(data, dtype=np.float32)
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            if np.isfinite(data[i, j]):
+                normalized[i, j] = (data[i, j] - minval) / (maxval - minval)
+            else:
+                normalized[i, j] = 0  # Handle NaN or Inf
+    return normalized
 
 def get_normalized_band(dataset, band_index):
     '''
@@ -222,7 +223,6 @@ def get_normalized_band(dataset, band_index):
     norm_data = (band_data - stats.get_min()) / (stats.get_max() - stats.get_min())
 
     if norm_data.dtype not in [np.float32, np.float64]:
-        print(f'NOTE:  norm_data.dtype is {norm_data.dtype}, band_data.dtype is {band_data.dtype}')
         norm_data = norm_data.astype(np.float32)
 
     return norm_data
@@ -240,7 +240,7 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
         band_data_mask = band_data.mask
         band_data = band_data.data 
     start_time = perf_counter()
-    norm_data = normalize_ndarray_min_max(band_data, stats.get_min(), stats.get_max())
+    norm_data = normalize_ndarray(band_data, stats.get_min(), stats.get_max())
     end_time = perf_counter()
     if isinstance(band_data, np.ma.masked_array):
         band_data = np.ma.masked_array(band_data, mask=band_data_mask)
