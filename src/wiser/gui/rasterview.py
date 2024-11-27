@@ -16,7 +16,7 @@ from .util import get_painter, scale_qpoint_by_float
 
 from wiser.raster.dataset import RasterDataSet, find_display_bands
 from wiser.raster.stretch import StretchBase, StretchLinear
-from wiser.raster.utils import normalize_ndarray
+from wiser.raster.utils import normalize_ndarray_non_njit, normalize_ndarray
 
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterview_metadata import RasterViewMetaData
@@ -26,6 +26,8 @@ from numba import njit, jit
 import jax.numpy as jnp
 from jax import device_put
 import gc
+
+from wiser.utils.numba_wrapper import numba_wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ def make_channel_image_with_band(band: np.ndarray, stretch: StretchBase = None) 
     print(f"Time to extract finite values: {end_time - start_time:.6f} seconds")
 
     start_time = time.perf_counter()
-    normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=False)
+    normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max())
     end_time = time.perf_counter()
     print(f"Time to normalize array: {end_time - start_time:.6f} seconds")
 
@@ -220,22 +222,29 @@ def make_channel_image_with_band(band: np.ndarray, stretch: StretchBase = None) 
 # from numba import njit
 # import numpy as np
 
-@njit
-def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
-    """
-    Normalize an array to the range [0, 1].
-    """
-    normalized = np.empty_like(data, dtype=np.float32)
-    for i in range(data.shape[0]):
-        for j in range(data.shape[1]):
-            if np.isfinite(data[i, j]):
-                normalized[i, j] = (data[i, j] - minval) / (maxval - minval)
-            else:
-                normalized[i, j] = 0  # Handle NaN or Inf
-    return normalized
+def make_channel_image_non_njit(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
+    '''
+    Generates color channel data into a NumPy array. Elements in
+    the output array will be in the range [0, 255].
+    '''
+    # Assume stretch is None or callable
+    temp_data = normalized_band.astype(np.float32)
 
-@njit
-def make_channel_image(normalized_band: np.ndarray, min_val: float, max_val: float, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
+    if stretch1 is not None:
+        stretch1.apply(temp_data)
+
+    if stretch2 is not None:
+        stretch2.apply(temp_data)
+
+    # Clip values to [0, 1]
+    np.clip(temp_data, 0.0, 1.0, out=temp_data)
+
+    temp_data = (temp_data * 255.0)
+
+    return temp_data.astype(np.uint8)
+
+@numba_wrapper(non_njit_func=make_channel_image_non_njit)
+def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     '''
     Generates color channel data into a NumPy array. Elements in
     the output array will be in the range [0, 255].
@@ -260,6 +269,8 @@ def make_channel_image(normalized_band: np.ndarray, min_val: float, max_val: flo
             temp_data[i, j] = temp_data[i, j] * 255.0
 
     return temp_data.astype(np.uint8)
+
+
 
 # @njit
 # def make_channel_image(band_data: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
@@ -988,10 +999,7 @@ class RasterView(QWidget):
                         print(f"stretch2: {stretches[1]._lower} and {stretches[1]._upper}")
                     except BaseException as e:
                         pass
-                    stats = self._raster_data.get_band_stats(self._display_bands[i])
-                    minval = stats.get_min()
-                    maxval = stats.get_max()
-                    new_data = make_channel_image(band_data, minval, maxval, stretches[0], stretches[1])
+                    new_data = make_channel_image(band_data, stretches[0], stretches[1])
                     end_time = time.perf_counter()
 
                     start_making_new = time.perf_counter()
@@ -1072,10 +1080,7 @@ class RasterView(QWidget):
                 stretches = None
                 if self._stretches[0]:
                     stretches = self._stretches[0].get_stretches()
-                stats = self._raster_data.get_band_stats(self._display_bands[0])
-                minval = stats.get_min()
-                maxval = stats.get_max()
-                self._display_data[0] = make_channel_image(arr, minval, maxval, stretches[0], stretches[1])
+                self._display_data[0] = make_channel_image(arr, stretches[0], stretches[1])
 
                 self._display_data[1] = self._display_data[0]
                 self._display_data[2] = self._display_data[0]
