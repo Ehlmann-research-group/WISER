@@ -1,7 +1,6 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from numba import njit
 from astropy import units as u
 
 from time import perf_counter
@@ -168,7 +167,6 @@ def find_closest_value(values: List[Number], input_value: Number,
 
     return best_index
 
-from numba import njit
 #============================================================================
 # COMMON BAND-MATH OPERATIONS
 
