@@ -1,5 +1,5 @@
 try:
-    from numba import jit
+    from numba import jit, jitclass
     print(f"NUMBA AVAILABLE")
     NUMBA_AVAILABLE = True
 except ImportError:
@@ -28,4 +28,24 @@ def numba_wrapper(non_njit_func, nopython=True):
         else:
             # If Numba is not available, return the original function
             return non_njit_func
+    return decorator
+
+
+def numba_jitclass_wrapper(spec, nonjit_class):
+    """
+    Wrapper for creating a JIT-optimized class using Numba if available.
+
+    Args:
+        spec (dict): A dictionary specifying the data types of class attributes
+                     for Numba's `jitclass`.
+
+    Returns:
+        A decorator that applies Numba's `jitclass` if available; otherwise,
+        it returns the original class.
+    """
+    def decorator(cls):
+        if NUMBA_AVAILABLE:
+            return jitclass(spec)(cls)
+        else:
+            return nonjit_class
     return decorator
