@@ -717,11 +717,10 @@ class ImageWidget(QWidget):
                 painter.drawPixmap(0, 0,
                     self._scaled_size.width(), self._scaled_size.height(), pixmap,
                     0, 0, 0, 0)
-                # print(f"After drawPixel Map")
+            
                 if 'paintEvent' in self._forward:
-                    # print(f"PaintEvent forward")
+            
                     self._forward['paintEvent'](self._rasterview, self, paint_event)
-                # print(f"After if statement")
 
             else:
                 # Draw a note that there is no data to display.
@@ -792,31 +791,26 @@ class RasterView(QWidget):
         self._layout.addWidget(self._scroll_area)
         self.setLayout(self._layout)
 
-        print("NEWWWWWWWWWWWWWWWWW \n RAAAAAAAAAAAAAAASSSSSSSSSSTTTTTTTTEEEEERRRRR \n VIEW")
-
     def get_stretches(self):
         return self._stretches
 
     @Slot(StretchBase)
     def set_stretches(self, stretches: List):
-        import time
-        print(f" raster view set stretches")
+        print(f"set_stretches stretches:")
+        for stretch in stretches:
+            print(f"stretch: {stretch}")
         self._stretches = stretches
-        # Timing with time.time
-        start_time = time.time()
         self.update_display_image()
-        end_time = time.time()
-        print(f"Time taken by update_display_image(): {end_time - start_time:.6f} seconds")
 
     def _clear_members(self):
         '''
         A helper function to clear all raster dataset members when the dataset
         changes.  This way we don't accidentally leave anything out.
         '''
-        print(f"Clearing members")
         self._raster_data = None
         self._display_bands = None
         self._colormap: Optional[str] = None
+        print(f"RESETTING STRETCHES 0")
         self._stretches = None
 
         # These members are for storing the components of the raster data, so
@@ -836,10 +830,6 @@ class RasterView(QWidget):
         Specify a raster data-set to display in the raster-view widget.  A value
         of None causes the raster-view to display nothing.
         '''
-        print(f"Rasterview, set_raster_data: \n \
-              raster_data {raster_data}  \
-              \n display_bands: {display_bands} \
-              \n stretches: {stretches}")
         if raster_data is not None and not isinstance(raster_data, RasterDataSet):
             raise ValueError('raster_data must be a RasterDataSet object')
 
@@ -860,9 +850,11 @@ class RasterView(QWidget):
                 self._stretches = stretches
             else:
                 # Default to no stretches.
+                print(f"RESETTING STRETCHES 1")
                 self._stretches = [None] * len(self._display_bands)
         else:
             self._display_bands = None
+            print(f"RESETTING STRETCHES 2")
             self._stretches = None
 
         self.update_display_image()
@@ -888,7 +880,6 @@ class RasterView(QWidget):
 
     def set_display_bands(self, display_bands: Tuple, stretches: List = None,
                           colormap: Optional[str] = None):
-        print(f"RasterView, set_display_bands")
         if len(display_bands) not in [1, 3]:
             raise ValueError('display_bands must be a list of 1 or 3 ints')
 
@@ -929,7 +920,6 @@ class RasterView(QWidget):
 
 
     def update_display_image(self, colors=ImageColors.RGB):
-        print(f"RasterView, update_display_image")
         img_data = None
         if self._raster_data is None:
             # No raster data to display
@@ -941,18 +931,18 @@ class RasterView(QWidget):
 
         assert len(self._display_bands) in [1, 3]
         cache = self._raster_data.get_cache().get_render_cache()
+        print(f"When getting stretches: {self._stretches}")
         key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches)
 
         time_1 = time.perf_counter()
         if cache.in_cache(key):
-            print(f"SKIPPPPPPPPPPPPPPIIIIIIIINNNNNNNNGGGGGGGGGGG")
             img_data = cache.get_cache_item(key)
+            print(f"Skipping!!!!")
             time_2 = time.perf_counter()
         # TODO (Joshua G-K): Make this logic cleaner or move to another function
         elif len(self._display_bands) == 3:
             # Check each color band to see if we need to update it.
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
-            start1 = time.perf_counter()
             channel_img_time = 0
             for i in range(len(self._display_bands)):
                 if self._display_data[i] is None or color_indexes[i] in colors:
@@ -960,11 +950,8 @@ class RasterView(QWidget):
                     start_time = time.perf_counter()
                     # Compute the contents of this color channel.
                 
-                    start_time = time.perf_counter()
                     arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
                     # arr = self._raster_data.get_band_data(self._display_bands[i])
-                    end_time = time.perf_counter()
-                    print(f"Time taken for get_band_data: {end_time - start_time:.6f} seconds")
         
                     band_data = arr
                     band_mask = None
@@ -974,81 +961,46 @@ class RasterView(QWidget):
                     start_time = time.perf_counter()
                     stretches = [None, None]
                     if self._stretches[i]:
+                        print(f"self._stretches[i] inside if: {self._stretches[i]}")
                         stretches = self._stretches[i].get_stretches()
-                    try:
-                        print(f"stretch1: {stretches[0]._lower} and {stretches[0]._upper}")
-                        print(f"stretch2: {stretches[1]._lower} and {stretches[1]._upper}")
-                    except BaseException as e:
-                        pass
+                        print(f"stretches inside if: {stretches}")
                     new_data = make_channel_image(band_data, stretches[0], stretches[1])
                     end_time = time.perf_counter()
 
-                    start_making_new = time.perf_counter()
                     new_arr = new_data
                     if isinstance(arr, np.ma.masked_array):
-                        print("IT IS MASKEDDDDDDDDDDDDDDDDDDDDDDDD")
                         new_arr = np.ma.masked_array(new_data, mask=band_mask)
-                        start_time_mask = time.perf_counter()
                         new_arr.data[band_mask] = 0
-                        end_time_mask = time.perf_counter()
-                        print(f"Time taken for making invalid into 0: {end_time_mask-start_time_mask:.6f} seconds")
 
-                    end_making_new = time.perf_counter()
-                    print(f"Time taken for making masked array: {end_making_new-start_making_new:.6f} seconds")
-                    
                     self._display_data[i] = new_arr
-                    print(f"New arr[150:155,150:155]: {new_arr[150:155,150:155]}")
     
                     # Print the time taken
-                    print(f"Time taken for make_channel_image: {end_time - start_time:.6f} seconds")
                     channel_img_time += (end_time - start_time)
-            end1 = time.perf_counter()
+
             # Print the time taken
-            print(f"Time taken for all make_channel_img: {channel_img_time:.6f} seconds")
-            print(f"Time taken for FOR loop: {end1 - start1:.6f} seconds")
             time_2 = time.perf_counter()
 
             # Start the timer
             start_time = time.perf_counter()
             use_njit = True
             if use_njit:
-                # img_data = make_rgb_image(self._display_data)
-                # if isinstance(img_data, np.ma.masked_array):
-                #     print(f"reg img_data[250:255,250:255]: {img_data.data[0:5,0:5]}")
-                # else:
-                #     print(f"reg img_data[250:255,250:255]: {img_data[0:5,0:5]}")
                 if isinstance(self._display_data[0], np.ma.masked_array):
                     band_masks = []
                     for data in self._display_data:
                         band_masks.append(data.mask)
-                    # print(f"self._display_data[0].data.shape: {self._display_data[0].data.shape}")
-                    # print(f"self._display_data[0].mask.shape: {self._display_data[0].mask.shape}")
                     img_data = make_rgb_image_njit(self._display_data[0].data, self._display_data[1].data, self._display_data[2].data)
-                    print(f"njit self._display_data[0][250:255,250:255]: {self._display_data[0].data[0:5,0:5]}")
-                    print(f"njit self._display_data[1][250:255,250:255]: {self._display_data[1].data[0:5,0:5]}")
-                    print(f"njit self._display_data[2][250:255,250:255]: {self._display_data[2].data[0:5,0:5]}")
+                
                     if not img_data.flags['C_CONTIGUOUS']:
                         img_data = np.ascontiguousarray(img_data)
-                    # print(f"img_data.shape: {img_data.shape}")
-                    # img_data = np.ma.masked_array(img_data, mask=band_masks[0])#np.array([band_masks[0], band_masks[1], band_masks[2]]))
+                    
                     mask = np.zeros(img_data.shape, dtype=bool)
                     img_data = np.ma.masked_array(img_data, mask)
-                    print(f"njit img_data[250:255,250:255]: {img_data[0:5,0:5]}")
                 else:
                     img_data = make_rgb_image_njit(self._display_data[0], self._display_data[1], self._display_data[2])
             else:
                 img_data = make_rgb_image(self._display_data)
             end_time = time.perf_counter()
-            if isinstance(img_data, np.ma.masked_array):
-                print(f"8888888888888888888888888888888888888888888888888888888888888888888: {type(img_data)}")
-                # img_data.fill_value = 0xff000000
-                # img_data.filled()
-                # img_data.data[img_data.mask] = 0xff000000
-            print(f"img_data[0:5,0:5]: {img_data[0:5,0:5]}")
             cache.add_cache_item(key, img_data)
-
-            # Print the time taken
-            print(f"Time taken for make_rgb_image: {end_time - start_time:.6f} seconds")
 
         else:
             # This is a grayscale image.
@@ -1071,12 +1023,7 @@ class RasterView(QWidget):
             # Combine our individual color channel(s) into a single RGB image.
             img_data = make_grayscale_image(self._display_data[0], self._colormap)
             cache.add_cache_item(key, img_data)
-        # from osgeo import gdal
-        # print(f'gdal block cache size: {gdal.GetCacheMax() / (1024 * 1024)}')
-        # for data in self._display_data:
-        #     del data
-        # self._display_data = [None, None, None]
-        # gc.collect()
+
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
@@ -1094,16 +1041,10 @@ class RasterView(QWidget):
         # End the timer
         end_time = time.perf_counter()
 
-        # Print the time taken
-        print(f"Time taken for QImage: {end_time - start_time:.6f} seconds")
-
         start_time = time.perf_counter()
         self._image_pixmap = QPixmap.fromImage(self._image)
         # End the timer
         end_time = time.perf_counter()
-
-        # Print the time taken
-        print(f"Time taken for QPixmap: {end_time - start_time:.6f} seconds")
 
         time_4 = time.perf_counter()
 
@@ -1135,7 +1076,6 @@ class RasterView(QWidget):
 
     def _update_scaled_image(self, old_scale_factor=None):
         self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
-        # self._image_widget.set_dataset_info2(list(self._app_state._last_added_raster_display.get_raw_bands().values())[0], self._scale_factor)
         # self._scroll_area.setVisible(True)
 
         # Need to process queued events now, since the image-widget has changed

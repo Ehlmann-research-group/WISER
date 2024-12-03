@@ -535,18 +535,14 @@ class ChannelStretchWidget(QWidget):
         # nonan_data = self._norm_band_data[mask]
         # end_time_nonan = time.perf_counter()
         start_time_nonan = time.perf_counter()
-        print(f"self._norm_band_data.shape: {self._norm_band_data.shape} |||||||||||||||||||||")
         # nonan_data = self._norm_band_data[~np.isnan(self._norm_band_data)]
         if isinstance(self._norm_band_data, np.ma.masked_array):
             norm_data = self._norm_band_data.data
         else:
             norm_data = self._norm_band_data 
         nonan_data = remove_nans(norm_data)
-        print(f"nonan_data.shape: {nonan_data.shape}")
-        print(f"nonan_data: {nonan_data[1000:1025]}")
         end_time_nonan = time.perf_counter()
         nonan_data_time = end_time_nonan - start_time_nonan
-        print(f"Time to filter NaNs: {nonan_data_time:.6f} seconds")
 
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
@@ -556,16 +552,13 @@ class ChannelStretchWidget(QWidget):
         cache = self._app_state.get_cache().get_histogram_cache()
         key = cache.get_cache_key(self._dataset, self._band_index, self._conditioner_type, self._stretch_type)
         if cache.in_cache(key):
-            print("BYPASSSSSSINGGGGGGGG")
             self._histogram_bins_raw, self._histogram_edges_raw = \
                 cache.get_cache_item(key)
         else:
-            print("Calculating histogram result!")
             self._histogram_bins_raw, self._histogram_edges_raw = \
                 histogram_nonan_data(nonan_data)
             cache.add_cache_item(key, (self._histogram_bins_raw, self._histogram_edges_raw))
         end_time = time.perf_counter()
-        print(f"Time to make histogram: {end_time-start_time:.6f}")
 
         # Apply conditioner to the histogram, if necessary.
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
@@ -590,7 +583,6 @@ class ChannelStretchWidget(QWidget):
         show_histogram_time = end_time_show_histogram - start_time_show_histogram
 
         # Print the timing results
-        print(f"Time to show histogram: {show_histogram_time:.6f} seconds")
         self._norm_band_data = None
 
     # def _update_histogram(self):
@@ -940,14 +932,6 @@ class StretchBuilderDialog(QDialog):
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
 
-            print(f"STRETCH LINEAR low: {low}")
-            print(f"STRETCH LINEAR high: {high}")
-            print(f"STRETCH LINEAR stretch_low: {channel._stretch_low}")
-            print(f"STRETCH LINEAR stretch_high: {channel._stretch_high}")
-            print(f"STRETCH LINEAR band_stretch_low: {band_stretch_low}")
-            print(f"STRETCH LINEAR band_stretch_high: {band_stretch_high}")
-            print(f"STRETCH LINEAR band_min: {band_min}")
-            print(f"STRETCH LINEAR band_max: {band_max}")
             stretch = StretchLinear(low, high)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:

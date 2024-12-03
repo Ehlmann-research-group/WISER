@@ -621,6 +621,7 @@ class StretchComposite:
         return f'StretchComposite[first={self._first}, second={self._second}]'
 
     def apply(self, a: np.array):
+        print(f"COMPOSITE APPLY")
         self._first.apply(a)
         self._second.apply(a)
 
@@ -637,8 +638,8 @@ class StretchComposite:
         self._second = second
 
     def get_stretches(self):
-        first = self._first if not isinstance(self._first, StretchBase) else None
-        second = self._second if not isinstance(self._second, StretchBase) else None
+        first = self._first
+        second = self._second
         return [first, second]
     
     def get_hash_tuple(self):
