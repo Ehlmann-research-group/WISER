@@ -354,7 +354,6 @@ class StretchHistEqualizeNonJit(StretchBase):
     def apply(self, a: np.array):
         # TODO(donnie):  I think this makes a copy
         out = np.interp(a, self._histo_edges[:-1], self._cdf)
-        print("NON JIT HIST APPLIED")
         np.copyto(a, out)
 
     def get_stretches(self):
@@ -457,7 +456,6 @@ class StretchSquareRootNonJit(StretchBase):
         return 'StretchSquareRoot'
 
     def apply(self, a: np.array):
-        print("NON JIT SQRT APPLIED")
         np.sqrt(a, out=a)
 
     def modify_histogram(self, a: np.array) -> np.array:
@@ -539,7 +537,6 @@ class StretchLog2NonJit(StretchBase):
         requires an input data-set that is in the range [0, 1], and produces a
         result also in the range [0, 1] by implementing numpy.log2(a + 1).
         '''
-        print("NON JIT LOG APPLIED")
         a += 1.0
         np.log2(a, out=a)
 
@@ -621,7 +618,6 @@ class StretchComposite:
         return f'StretchComposite[first={self._first}, second={self._second}]'
 
     def apply(self, a: np.array):
-        print(f"COMPOSITE APPLY")
         self._first.apply(a)
         self._second.apply(a)
 
