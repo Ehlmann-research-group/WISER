@@ -169,7 +169,7 @@ def find_closest_value(values: List[Number], input_value: Number,
 # COMMON BAND-MATH OPERATIONS
 
 
-def normalize_ndarray_non_njit(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
+def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
     '''
     Normalize the specified array, generating a new array to return to the
     caller.  The minimum and maximum values can be specified if already known,
@@ -191,8 +191,8 @@ def normalize_ndarray_non_njit(array: np.ndarray, minval=None, maxval=None, in_p
     else:
         return (array - minval) / (maxval - minval)
     
-@numba_njit_wrapper(non_njit_func=normalize_ndarray_non_njit)
-def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
+@numba_njit_wrapper(non_njit_func=normalize_ndarray)
+def normalize_ndarray_using_njit(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
     """
     Normalize an array to the range [0, 1].
     """
@@ -232,7 +232,7 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
     if isinstance(band_data, np.ma.masked_array):
         band_data_mask = band_data.mask
         band_data = band_data.data 
-    norm_data = normalize_ndarray(band_data, stats.get_min(), stats.get_max())
+    norm_data = normalize_ndarray_using_njit(band_data, stats.get_min(), stats.get_max())
     if isinstance(band_data, np.ma.masked_array):
         band_data = np.ma.masked_array(band_data, mask=band_data_mask)
 

@@ -1,9 +1,7 @@
 import abc
 import logging
-import math
 import os
 import pprint
-from urllib.parse import urlparse
 
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -15,8 +13,6 @@ from .loaders import envi
 import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
-
-from time import perf_counter
 
 logger = logging.getLogger(__name__)
 
@@ -244,10 +240,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         try:
             np_array = band.GetVirtualMemAutoArray()
         except (RuntimeError, TypeError):
-            start_time = perf_counter()
             np_array = band.ReadAsArray()
-            end_time = perf_counter()
-            print(f"Time taken INSIDE get_band_data: {end_time - start_time:.6f} seconds")
 
         return np_array
     

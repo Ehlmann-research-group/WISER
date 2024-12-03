@@ -166,12 +166,12 @@ class TestRasterUtils(unittest.TestCase):
 
 
     #======================================================
-    # normalize_ndarray()
+    # normalize_ndarray_using_njit()
 
     def test_normalize_1d_no_minmax(self):
         inp = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        out = utils.normalize_ndarray(inp)
+        out = utils.normalize_ndarray_using_njit(inp)
 
         self.assertAlmostEqual(out[0], 0.00)
         self.assertAlmostEqual(out[1], 0.25)
@@ -182,7 +182,7 @@ class TestRasterUtils(unittest.TestCase):
     def test_normalize_1d_nans_no_minmax(self):
         inp = np.array([np.nan, 1.0, 2.0, 3.0, np.nan, 4.0, 5.0])
 
-        out = utils.normalize_ndarray(inp)
+        out = utils.normalize_ndarray_using_njit(inp)
 
         self.assertTrue(np.isnan(out[0]))
         self.assertAlmostEqual(out[1], 0.00)
@@ -195,7 +195,7 @@ class TestRasterUtils(unittest.TestCase):
     def test_normalize_1d_minmax_specified(self):
         inp = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        out = utils.normalize_ndarray(inp, 2, 4)
+        out = utils.normalize_ndarray_using_njit(inp, 2, 4)
 
         self.assertAlmostEqual(out[0], -0.50)
         self.assertAlmostEqual(out[1],  0.00)
@@ -206,7 +206,7 @@ class TestRasterUtils(unittest.TestCase):
     def test_normalize_1d_nans_minmax_specified(self):
         inp = np.array([np.nan, 1.0, 2.0, 3.0, np.nan, 4.0, 5.0])
 
-        out = utils.normalize_ndarray(inp, 2, 4)
+        out = utils.normalize_ndarray_using_njit(inp, 2, 4)
 
         self.assertTrue(np.isnan(out[0]))
         self.assertAlmostEqual(out[1], -0.50)
