@@ -753,7 +753,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         band_info = []
 
         md = self.gdal_dataset.GetMetadata('ENVI')
-        has_band_names = ('band_names' in md)
+        has_band_names = ('band names' in md)
 
         # Note:  GDAL indexes bands from 1, not 0.
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
