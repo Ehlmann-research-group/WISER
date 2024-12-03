@@ -196,13 +196,20 @@ def normalize_ndarray_using_njit(data: np.ndarray, minval: float, maxval: float)
     """
     Normalize an array to the range [0, 1].
     """
-    normalized = np.empty_like(data, dtype=np.float32)
-    for i in range(data.shape[0]):
-        for j in range(data.shape[1]):
-            if np.isfinite(data[i, j]):
-                normalized[i, j] = (data[i, j] - minval) / (maxval - minval)
-            else:
-                normalized[i, j] = 0  # Handle NaN or Inf
+    # Create an empty array with the same shape as `data` and dtype float32
+    normalized = np.empty(data.shape, dtype=np.float32)
+    
+    # Total number of elements in the array
+    total_elements = data.size
+    
+    # Iterate over each element in the flattened array
+    for idx in range(total_elements):
+        value = data.flat[idx]
+        if np.isfinite(value):
+            normalized.flat[idx] = (value - minval) / (maxval - minval)
+        else:
+            normalized.flat[idx] = 0.0  # Handle NaN or Inf
+    
     return normalized
 
 def get_normalized_band(dataset, band_index):
