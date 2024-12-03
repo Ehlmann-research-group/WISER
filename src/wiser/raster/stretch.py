@@ -127,8 +127,13 @@ class StretchBase:
         )
 
 
-class StretchLinearNonJit(StretchBase):
-    ''' Linear stretch '''
+class StretchLinear(StretchBase):
+    '''
+    Linear stretch
+    
+    This class does not use numba. We need a class that does not use numba
+    in case the computer this runs on does not support numba.
+    '''
 
     # Constructor
     def __init__(self, lower, upper):
@@ -149,7 +154,7 @@ class StretchLinearNonJit(StretchBase):
         self.set_bounds(lower, upper)
 
     def __str__(self):
-        return (f'StretchLinear[lower={self._lower:.3f}, upper={self._upper:.3f}, ' +
+        return (f'StretchLinearUsingNumba[lower={self._lower:.3f}, upper={self._upper:.3f}, ' +
                 f'slope={self._slope:.3f}, offset={self._offset:.3f}]')
 
 
@@ -230,9 +235,13 @@ linear_spec = [
 ]
 
 
-@numba_jitclass_wrapper(linear_spec, nonjit_class=StretchLinearNonJit)
-class StretchLinear:
-    ''' Linear stretch '''
+@numba_jitclass_wrapper(linear_spec, nonjit_class=StretchLinear)
+class StretchLinearUsingNumba:
+    '''
+    Linear stretch 
+    
+    This class does use numba.
+    '''
 
     # Constructor
     def __init__(self, lower, upper):
@@ -253,7 +262,7 @@ class StretchLinear:
         self.set_bounds(lower, upper)
 
     def __str__(self):
-        return (f'StretchLinear[lower={self._lower:.3f}, upper={self._upper:.3f}, ' +
+        return (f'StretchLinearUsingNumba[lower={self._lower:.3f}, upper={self._upper:.3f}, ' +
                 f'slope={self._slope:.3f}, offset={self._offset:.3f}]')
 
 
@@ -326,8 +335,12 @@ class StretchLinear:
         )
 
 
-class StretchHistEqualizeNonJit(StretchBase):
-    ''' Histogram Equalization Stretches '''
+class StretchHistEqualize(StretchBase):
+    ''' 
+    Histogram Equalization Stretches.
+
+    This class does not use numba.
+    '''
 
     # Constructor
     def __init__(self, histogram_bins, histogram_edges):
@@ -338,7 +351,7 @@ class StretchHistEqualizeNonJit(StretchBase):
         self._calculate(histogram_bins, histogram_edges)
 
     def __str__(self):
-        return 'StretchHistEqualize'
+        return 'StretchHistEqualizeUsingNumba'
 
     def _calculate(self, bins: np.array, edges: np.array):
         self._histo_edges = edges
@@ -385,9 +398,13 @@ stretch_hist_spec = [
 ]
 
 
-@numba_jitclass_wrapper(stretch_hist_spec, nonjit_class=StretchHistEqualizeNonJit)
-class StretchHistEqualize:
-    ''' Histogram Equalization Stretches '''
+@numba_jitclass_wrapper(stretch_hist_spec, nonjit_class=StretchHistEqualize)
+class StretchHistEqualizeUsingNumba:
+    '''
+    Histogram Equalization Stretches.
+
+    This class does use numba
+    '''
 
     def __init__(self, histogram_bins, histogram_edges):
         self._name = 'Equalize'
@@ -443,17 +460,19 @@ class StretchHistEqualize:
         return [self, None]
 
 
-class StretchSquareRootNonJit(StretchBase):
+class StretchSquareRoot(StretchBase):
     '''
     This class implements a Square Root Conditioner Stretch.
-    In order  '''
+
+    This class does not use numba.
+    '''
 
     # Constructor
     def __init__(self):
         super().__init__('Conditioner_SquareRoot')
 
     def __str__(self):
-        return 'StretchSquareRoot'
+        return 'StretchSquareRootUsingNumba'
 
     def apply(self, a: np.array):
         np.sqrt(a, out=a)
@@ -482,11 +501,13 @@ stretch_sqrt_spec = [
 ]
 
 
-@numba_jitclass_wrapper(stretch_sqrt_spec, nonjit_class=StretchSquareRootNonJit)
-class StretchSquareRoot:
+@numba_jitclass_wrapper(stretch_sqrt_spec, nonjit_class=StretchSquareRoot)
+class StretchSquareRootUsingNumba:
     '''
-    This class implements a Square Root Conditioner Stretch.
-    In order  '''
+    This class implements a Square Root Conditioner Stretch. 
+     
+    This class does use numba.
+    '''
 
     # Constructor
     def __init__(self):
@@ -494,7 +515,7 @@ class StretchSquareRoot:
         self._name = 'Conditioner_SquareRoot'
 
     def __str__(self):
-        return 'StretchSquareRoot'
+        return 'StretchSquareRootUsingNumba'
 
     def apply(self, a: np.array):
         np.sqrt(a, a)
@@ -517,11 +538,13 @@ class StretchSquareRoot:
         )
 
 
-class StretchLog2NonJit(StretchBase):
+class StretchLog2(StretchBase):
     '''
     This class implements a Logarithmic Conditioner Stretch.  This class
     requires an input in the range [0, 1], in order to produce a result that is
     also in the range [0, 1].  The output is computed as log2(input + 1.0).
+
+    This class does not use numba.
     '''
 
     # Constructor
@@ -529,7 +552,7 @@ class StretchLog2NonJit(StretchBase):
         super().__init__('Conditioner_Log2')
 
     def __str__(self):
-        return 'StretchLog2'
+        return 'StretchLog2UsingNumba'
 
     def apply(self, a: np.array):
         '''
@@ -563,12 +586,14 @@ log2_spec = [
 ]
 
 
-@numba_jitclass_wrapper(log2_spec, nonjit_class=StretchLog2NonJit)
-class StretchLog2:
+@numba_jitclass_wrapper(log2_spec, nonjit_class=StretchLog2)
+class StretchLog2UsingNumba:
     '''
     This class implements a Logarithmic Conditioner Stretch.  This class
     requires an input in the range [0, 1], in order to produce a result that is
     also in the range [0, 1].  The output is computed as log2(input + 1.0).
+
+    This class does use numba.
     '''
 
     # Constructor
@@ -576,7 +601,7 @@ class StretchLog2:
         self._name = 'Conditioner_Log2'
 
     def __str__(self):
-        return 'StretchLog2'
+        return 'StretchLog2UsingNumba'
 
     def apply(self, a: np.array):
         '''

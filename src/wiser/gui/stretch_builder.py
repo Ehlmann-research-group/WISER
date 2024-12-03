@@ -23,11 +23,11 @@ import matplotlib.pyplot as plt
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-def remove_nans_no_njit(data):
+def remove_nans(data):
     return data[~np.isnan(data)]
 
-@numba_njit_wrapper(non_njit_func=remove_nans_no_njit)
-def remove_nans(data):
+@numba_njit_wrapper(non_njit_func=remove_nans)
+def remove_nans_using_numba(data):
     """
     Extracts non-NaN values from a 2D NumPy array and returns them as a 1D array.
 
@@ -64,11 +64,17 @@ def remove_nans(data):
 
     return nonan_data
 
-def histogram_nonan_data_no_njit(nonan_data):
+def create_histogram(nonan_data):
     return np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
 
-@numba_njit_wrapper(non_njit_func=histogram_nonan_data_no_njit)
-def histogram_nonan_data(nonan_data):
+@numba_njit_wrapper(non_njit_func=create_histogram)
+def create_histogram_using_numba(nonan_data):
+    '''
+    Creates a histogram and uses numba to speed up the below code.
+
+    Args:
+    - nonan_data (np.ndarray): A numpy array that shouldn't contain nans
+    '''
     bins = 512
     min_val = 0.0
     max_val = 1.0
@@ -402,7 +408,7 @@ class ChannelStretchWidget(QWidget):
             norm_data = self._norm_band_data.data
         else:
             norm_data = self._norm_band_data 
-        nonan_data = remove_nans(norm_data)
+        nonan_data = remove_nans_using_numba(norm_data)
 
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
@@ -413,7 +419,7 @@ class ChannelStretchWidget(QWidget):
                 cache.get_cache_item(key)
         else:
             self._histogram_bins_raw, self._histogram_edges_raw = \
-                histogram_nonan_data(nonan_data)
+                create_histogram_using_numba(nonan_data)
             cache.add_cache_item(key, (self._histogram_bins_raw, self._histogram_edges_raw))
 
         # Apply conditioner to the histogram, if necessary.
@@ -751,11 +757,11 @@ class StretchBuilderDialog(QDialog):
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
 
-            stretch = StretchLinear(low, high)
+            stretch = StretchLinearUsingNumba(low, high)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
             bins, edges = channel.get_histogram()
-            stretch = StretchHistEqualize(bins, edges)
+            stretch = StretchHistEqualizeUsingNumba(bins, edges)
 
         else:
             # No stretch
@@ -768,10 +774,10 @@ class StretchBuilderDialog(QDialog):
         conditioner_type = self._stretch_config.get_conditioner_type()
 
         if conditioner_type == ConditionerType.SQRT_CONDITIONER:
-            stretch = StretchComposite(StretchSquareRoot(), stretch)
+            stretch = StretchComposite(StretchSquareRootUsingNumba(), stretch)
 
         elif conditioner_type == ConditionerType.LOG_CONDITIONER:
-            stretch = StretchComposite(StretchLog2(), stretch)
+            stretch = StretchComposite(StretchLog2UsingNumba(), stretch)
 
         else:
             assert conditioner_type == ConditionerType.NO_CONDITIONER

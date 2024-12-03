@@ -10,7 +10,7 @@ from osgeo import osr
 
 from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from .utils import find_band_near_wavelength, normalize_ndarray
+from .utils import find_band_near_wavelength, normalize_ndarray_using_njit
 from .data_cache import DataCache
 
 import time
@@ -451,10 +451,10 @@ class RasterDataSet:
             stats = BandStats(band_index, band_min, band_max)
             if isinstance(arr, np.ma.masked_array):
                 mask = arr.mask
-                arr = normalize_ndarray(arr.data, band_min, band_max)
+                arr = normalize_ndarray_using_njit(arr.data, band_min, band_max)
                 arr = np.ma.masked_array(arr, mask=mask)
             else:
-                arr = normalize_ndarray(arr, band_min, band_max)
+                arr = normalize_ndarray_using_njit(arr, band_min, band_max)
 
             self._cached_band_stats[band_index] = stats
 
