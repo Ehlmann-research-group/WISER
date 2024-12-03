@@ -1,5 +1,4 @@
-from PySide2.QtCore import (QRunnable, QThreadPool, Signal, \
-                            QObject, QThread, QEventLoop)
+from PySide2.QtCore import (QRunnable, Signal, QObject)
 
 class WorkerSignals(QObject):
     update = Signal(str)
@@ -18,12 +17,12 @@ class Worker(QRunnable):
         self.total_calls = total_calls  # The total index of the call we are on
         self.args = args
         self.kwargs = kwargs
-        self.signals = WorkerSignals()  # Set up signal
+        self.signals = WorkerSignals()
         self.result = None
 
     def run(self):
-        print(f"args: {self.args}")
-        print(f"kwargs: {self.kwargs}")
+        # print(f"args: {self.args}")
+        # print(f"kwargs: {self.kwargs}")
         try:
             self.result = self.func(*self.args, **self.kwargs)
             

@@ -53,7 +53,7 @@ class RasterDataLoader:
 
         if impl is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
-        print(f"Data cache is: {data_cache}")
+
         ds = RasterDataSet(impl, data_cache)
         files = ds.get_filepaths()
         if files:

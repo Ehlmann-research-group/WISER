@@ -24,8 +24,6 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
 
-from wiser.gui.rasterview_metadata import RasterViewMetaData
-
 
 class StateChange(enum.Enum):
     ITEM_ADDED = 1
@@ -139,8 +137,6 @@ class ApplicationState(QObject):
             config = ApplicationConfig()
 
         self._config: ApplicationConfig = config
-
-        self._last_added_raster_display: RasterViewMetaData = None
 
 
     def _take_next_id(self) -> int:
@@ -285,7 +281,6 @@ class ApplicationState(QObject):
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
-        self._last_added_raster_display = RasterViewMetaData(ds_id=ds_id)
         self.dataset_added.emit(ds_id)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
@@ -325,7 +320,7 @@ class ApplicationState(QObject):
         comp_key = comp_cache.get_cache_key(dataset_to_del)
         comp_cache.remove_cache_item(comp_key)
 
-        # TODO (Joshua  G-K): Next we remove it from the render cache 
+        # Next we remove it from the render cache 
         render_cache = self._cache.get_render_cache()
         render_cache.clear_keys_from_partial(render_cache.get_partial_key(dataset_to_del))
 
@@ -641,9 +636,3 @@ class ApplicationState(QObject):
 
         self._collected_spectra.clear()
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)
-    
-    def get_last_added_raster_display(self):
-        return self._last_added_raster_display
-
-    def set_last_added_raster_display(self, other: RasterViewMetaData):
-        self._last_added_raster_display = other
