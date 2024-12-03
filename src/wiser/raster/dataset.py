@@ -436,25 +436,18 @@ class RasterDataSet:
         filtering will impact performance.
         '''
         arr = None
-        print(f"get_band_data_normalized 1")
         if self._data_cache:
-            print(f"get_band_data_normalized 1.1")
             cache = self._data_cache.get_computation_cache()
             key = cache.get_cache_key(self, band_index)
             arr = cache.get_cache_item(key)
-            print(f"get_band_data_normalized 1.2")
-        print(f"get_band_data_normalized 2")
         if arr is None:
             print(f"!Getting band data! for: {band_index}")
-            print(f"get_band_data_normalized 2.1")
             arr = self._impl.get_band_data(band_index)
             
-            print(f"get_band_data_normalized 2.2")
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
 
             # Must get min after making it a masked array
-            print(f"get_band_data_normalized 2.3")
             if band_index in self._cached_band_stats:
                 print("CACHED stats")
                 band_min = self._cached_band_stats[band_index].get_min()
@@ -466,7 +459,6 @@ class RasterDataSet:
                 if band_max is None:
                     band_max = np.nanmax(arr)
             stats = BandStats(band_index, band_min, band_max)
-            print(f"get_band_data_normalized 2.4")
             if isinstance(arr, np.ma.masked_array):
                 mask = arr.mask
                 arr = normalize_ndarray(arr.data, band_min, band_max)
@@ -479,7 +471,6 @@ class RasterDataSet:
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
-        print(f"get_band_data_normalized 3")
 
         return arr
     
