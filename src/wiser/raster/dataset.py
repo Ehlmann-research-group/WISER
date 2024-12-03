@@ -543,7 +543,7 @@ class RasterDataSet:
                     try:
                         arr[i] = np.nan
                     except:
-                        pass
+                        arr[i] = DEFAULT_MASK_VALUE
 
                 elif (self._data_ignore_value is not None and
                       math.isclose(arr[i], self._data_ignore_value)):
@@ -551,7 +551,7 @@ class RasterDataSet:
                     try:
                         arr[i] = np.nan
                     except:
-                        pass
+                        arr[i] = DEFAULT_MASK_VALUE
 
         return arr
 
@@ -620,6 +620,9 @@ class RasterDataSet:
 
 
     def cache_band_stats(self, index, arr: np.ndarray):
+        """
+        Stores the band stats in this dataset's cache for band stats
+        """
         if index not in self._cached_band_stats:
             band_min = np.nanmin(arr)
             band_max = np.nanmax(arr)
