@@ -51,10 +51,7 @@ def get_spectral_unit(unit_str: str) -> u.Unit:
     Given a string representation of the units, this function returns an
     ``astropy.units.Unit`` object to represent the unit.
     '''
-    try:
-        return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
-    except BaseException as e:
-        return u.def_unit("Unknown", represents=u.nm)
+    return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
 
 def spectral_unit_to_string(unit: u.Unit) -> str:
     for k, v in KNOWN_SPECTRAL_UNITS.items():

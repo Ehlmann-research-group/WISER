@@ -863,9 +863,11 @@ class SpectrumPlot(QWidget):
                 # Nothing has changed, so just generate a plot for the new spectrum
                 single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
                 unit_name = UNIT_NAME_MAPPING.get(self._x_units)
-                unit_name = unit_name if unit_name is not None else "Unknown"
-                self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
-                    labelpad=0, fontproperties=axes_font)
+                if unit_name is not None:
+                    self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
+                        labelpad=0, fontproperties=axes_font)
+                else:
+                    self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=axes_font)
 
         else:
             # Need to regenerate all plots with the new "use wavelengths" value
