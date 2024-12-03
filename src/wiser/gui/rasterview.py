@@ -21,8 +21,6 @@ from wiser.raster.utils import normalize_ndarray_non_njit, normalize_ndarray
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterview_metadata import RasterViewMetaData
 
-from numba import njit, jit
-
 import jax.numpy as jnp
 from jax import device_put
 import gc
@@ -219,8 +217,6 @@ def make_channel_image_with_band(band: np.ndarray, stretch: StretchBase = None) 
     
 #     return temp_data
 
-# from numba import njit
-# import numpy as np
 
 def make_channel_image_non_njit(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     '''
@@ -270,79 +266,6 @@ def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None
 
     return temp_data.astype(np.uint8)
 
-
-
-# @njit
-# def make_channel_image(band_data: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
-#     '''
-#     Generates color channel data into a NumPy array. Elements in
-#     the output array will be in the range [0, 255].
-#     '''
-#     # Assume stretch is None or callable
-#     temp_data = band_data.astype(np.float32)
-
-#     # # Apply stretch if provided
-#     # if stretches is not None:
-#     #     for stretch in stretches:
-#     #         if stretch:
-#     #             stretch.apply(temp_data)  # Stretch should be a Numba-compatible callable
-
-#     # Compute finite values' min and max manually
-#     finite_min, finite_max = np.inf, -np.inf
-#     for i in range(temp_data.shape[0]):
-#         for j in range(temp_data.shape[1]):
-#             if np.isfinite(temp_data[i, j]):
-#                 finite_min = min(finite_min, temp_data[i, j])
-#                 finite_max = max(finite_max, temp_data[i, j])
-
-#     # Avoid division by zero
-#     if finite_max > finite_min:
-#         temp_data = normalize_ndarray(temp_data, finite_min, finite_max)
-#     else:
-#         temp_data.fill(0)  # If all values are identical or invalid
-
-#     if stretch1 is not None:
-#         stretch1.apply(temp_data)
-
-#     if stretch2 is not None:
-#         stretch2.apply(temp_data)
-
-#     # Clip values to [0, 1]
-#     for i in range(temp_data.shape[0]):
-#         for j in range(temp_data.shape[1]):
-#             temp_data[i, j] = max(0.0, min(1.0, temp_data[i, j]))
-
-#     # Scale to [0, 255] and convert to uint8
-#     for i in range(temp_data.shape[0]):
-#         for j in range(temp_data.shape[1]):
-#             temp_data[i, j] = temp_data[i, j] * 255.0
-
-#     return temp_data.astype(np.uint8)
-
-
-# def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
-#     '''
-#     Given a raster data set, band index, and optional contrast stretch object,
-#     this function generates color channel data into a NumPy array. Elements in
-#     the output array will be in the range [0, 255].
-#     '''
-#     # Extract the raw band data and associated statistics from the data set.
-#     temp_data = dataset.get_band_data(band).copy()
-#     temp_data = temp_data.astype(np.float32, copy=False)
-#     # If a stretch is specified for the channel, apply it to the normalized band data.
-#     if stretch is not None:
-#         stretch.apply(temp_data)
-#     finite_vals = temp_data[np.isfinite(temp_data)]
-#     normalize_ndarray(temp_data, minval=finite_vals.min(), maxval=finite_vals.max(), in_place=True)
-
-#     # Clip the data to be in the range [0.0, 1.0]. This should not remove NaNs.
-#     np.clip(temp_data, 0.0, 1.0, out=temp_data)
-    
-#     # Finally, convert the normalized (and possibly stretched) band data into a color channel with values in the range [0, 255].
-#     temp_data = (temp_data * 255.0)
-#     temp_data = temp_data.astype(np.uint8, copy=False)
-#     return temp_data
-
 def check_channel_test(c):
     min_val = np.nanmin(c)
     max_val = np.nanmax(c)
@@ -350,7 +273,14 @@ def check_channel_test(c):
     assert not has_nan and 0 <= min_val <= 255 and 0 <= max_val <= 255, \
         "Channel may only contain values in range 0..255, and no NaNs"
 
-@njit
+def check_channel_no_njit(c):
+    min_val = np.nanmin(c)
+    max_val = np.nanmax(c)
+    has_nan = np.isnan(min_val) or np.isnan(max_val)
+    assert not has_nan and 0 <= min_val <= 255 and 0 <= max_val <= 255, \
+        "Channel may only contain values in range 0..255, and no NaNs"
+
+@numba_wrapper(non_njit_func=check_channel_no_njit)
 def check_channel(c):
     min_val = np.nanmin(c)
     max_val = np.nanmax(c)
@@ -373,7 +303,58 @@ def test_compatibility(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray):
     check_channel_test(ch2)
     check_channel_test(ch3)
 
-@njit
+def make_rgb_image_no_njit(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np.ndarray:
+    '''
+    Given a list of 3 color channels of the same dimensions, this function
+    combines them together into an RGB image.  The first, second and third
+    channels are correspondingly used for the red, green and blue channels of
+    the resulting image.
+
+    An exception is raised if:
+    *   A number of channels is specified other than 3.
+    *   Any channel is not of type ``np.uint8``, ``np.uint16``, or ``np.uint32``.
+    *   The channels do not all have the same dimensions (shape).
+
+    If optimizations are not enabled, the function also verifies that all
+    channel values are in the range [0, 255]; since this is an expensive check,
+    it is disabled if optimizations are turned on.
+    '''
+
+    if ch1.dtype not in [np.uint8, np.uint16, np.uint32]:
+        raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {ch1.dtype}')
+    
+    if ch2.dtype not in [np.uint8, np.uint16, np.uint32]:
+        raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {ch2.dtype}')
+    
+    if ch3.dtype not in [np.uint8, np.uint16, np.uint32]:
+        raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {ch3.dtype}')
+
+    if ch1.shape != ch2.shape or ch1.shape != ch3.shape or ch2.shape != ch3.shape:
+        raise ValueError(f'All channels must have the same dimensions')
+
+    # Expensive sanity checks:
+    if __debug__:
+        assert (0 <= np.amin(ch1) <= 255) and (0 <= np.amax(ch1) <= 255), \
+            'Channel may only contain values in range 0..255, and no NaNs'
+
+    rgb_data = np.zeros(ch1.shape, dtype=np.uint32)
+    rgb_data |= ch1
+    rgb_data = rgb_data << 8
+    rgb_data |= ch2
+    rgb_data = rgb_data << 8
+    rgb_data |= ch3
+    rgb_data |= 0xff000000
+
+    if isinstance(rgb_data, np.ma.MaskedArray):
+        rgb_data.fill_value = 0xff000000
+
+    # Qt5/PySide2 complains if the array is not contiguous.
+    if not rgb_data.flags['C_CONTIGUOUS']:
+        rgb_data = np.ascontiguousarray(rgb_data)
+
+    return rgb_data
+
+@numba_wrapper(non_njit_func=make_rgb_image_no_njit)
 def make_rgb_image_njit(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np.ndarray:
     '''
     Given three color channels of the same dimensions, this function

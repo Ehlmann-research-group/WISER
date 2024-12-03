@@ -10,10 +10,10 @@ from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
 from wiser.raster.utils import get_normalized_band, get_normalized_band_using_stats
+from wiser.utils.numba_wrapper import numba_wrapper
 
 import numpy as np
 import numpy.ma as ma
-from numba import njit
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -24,7 +24,10 @@ import matplotlib.pyplot as plt
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-@njit
+def remove_nans_no_njit(data):
+    return data[~np.isnan(data)]
+
+@numba_wrapper(non_njit_func=remove_nans_no_njit)
 def remove_nans(data):
     """
     Extracts non-NaN values from a 2D NumPy array and returns them as a 1D array.
@@ -62,7 +65,10 @@ def remove_nans(data):
 
     return nonan_data
 
-@njit
+def histogram_nonan_data_no_njit(nonan_data):
+    return np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
+
+@numba_wrapper(non_njit_func=histogram_nonan_data_no_njit)
 def histogram_nonan_data(nonan_data):
     bins = 512
     min_val = 0.0
