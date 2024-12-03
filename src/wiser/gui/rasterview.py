@@ -25,7 +25,7 @@ import jax.numpy as jnp
 from jax import device_put
 import gc
 
-from wiser.utils.numba_wrapper import numba_wrapper
+from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +239,7 @@ def make_channel_image_non_njit(normalized_band: np.ndarray, stretch1: StretchBa
 
     return temp_data.astype(np.uint8)
 
-@numba_wrapper(non_njit_func=make_channel_image_non_njit)
+@numba_njit_wrapper(non_njit_func=make_channel_image_non_njit)
 def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     '''
     Generates color channel data into a NumPy array. Elements in
@@ -280,7 +280,7 @@ def check_channel_no_njit(c):
     assert not has_nan and 0 <= min_val <= 255 and 0 <= max_val <= 255, \
         "Channel may only contain values in range 0..255, and no NaNs"
 
-@numba_wrapper(non_njit_func=check_channel_no_njit)
+@numba_njit_wrapper(non_njit_func=check_channel_no_njit)
 def check_channel(c):
     min_val = np.nanmin(c)
     max_val = np.nanmax(c)
@@ -354,7 +354,7 @@ def make_rgb_image_no_njit(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) ->
 
     return rgb_data
 
-@numba_wrapper(non_njit_func=make_rgb_image_no_njit)
+@numba_njit_wrapper(non_njit_func=make_rgb_image_no_njit)
 def make_rgb_image_njit(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np.ndarray:
     '''
     Given three color channels of the same dimensions, this function
@@ -796,9 +796,6 @@ class RasterView(QWidget):
 
     @Slot(StretchBase)
     def set_stretches(self, stretches: List):
-        print(f"set_stretches stretches:")
-        for stretch in stretches:
-            print(f"stretch: {stretch}")
         self._stretches = stretches
         self.update_display_image()
 
@@ -810,7 +807,6 @@ class RasterView(QWidget):
         self._raster_data = None
         self._display_bands = None
         self._colormap: Optional[str] = None
-        print(f"RESETTING STRETCHES 0")
         self._stretches = None
 
         # These members are for storing the components of the raster data, so
@@ -850,11 +846,9 @@ class RasterView(QWidget):
                 self._stretches = stretches
             else:
                 # Default to no stretches.
-                print(f"RESETTING STRETCHES 1")
                 self._stretches = [None] * len(self._display_bands)
         else:
             self._display_bands = None
-            print(f"RESETTING STRETCHES 2")
             self._stretches = None
 
         self.update_display_image()
@@ -931,13 +925,11 @@ class RasterView(QWidget):
 
         assert len(self._display_bands) in [1, 3]
         cache = self._raster_data.get_cache().get_render_cache()
-        print(f"When getting stretches: {self._stretches}")
         key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches)
 
         time_1 = time.perf_counter()
         if cache.in_cache(key):
             img_data = cache.get_cache_item(key)
-            print(f"Skipping!!!!")
             time_2 = time.perf_counter()
         # TODO (Joshua G-K): Make this logic cleaner or move to another function
         elif len(self._display_bands) == 3:
@@ -961,9 +953,7 @@ class RasterView(QWidget):
                     start_time = time.perf_counter()
                     stretches = [None, None]
                     if self._stretches[i]:
-                        print(f"self._stretches[i] inside if: {self._stretches[i]}")
                         stretches = self._stretches[i].get_stretches()
-                        print(f"stretches inside if: {stretches}")
                     new_data = make_channel_image(band_data, stretches[0], stretches[1])
                     end_time = time.perf_counter()
 

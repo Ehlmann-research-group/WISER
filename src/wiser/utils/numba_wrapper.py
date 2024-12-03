@@ -48,7 +48,7 @@ except ImportError:
 # Have the function take two parameters: function to use with numba, 
 # function to use without numba
 
-def numba_wrapper(non_njit_func, nopython=True):
+def numba_njit_wrapper(non_njit_func, nopython=True):
     """
     Custom function to wrap Numba's NJIT functionality and availability.
 

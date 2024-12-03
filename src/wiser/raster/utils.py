@@ -5,7 +5,7 @@ from astropy import units as u
 
 from time import perf_counter
 
-from wiser.utils.numba_wrapper import numba_wrapper
+from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 
 # For easier typing in this module
@@ -194,7 +194,7 @@ def normalize_ndarray_non_njit(array: np.ndarray, minval=None, maxval=None, in_p
     else:
         return (array - minval) / (maxval - minval)
     
-@numba_wrapper(non_njit_func=normalize_ndarray_non_njit)
+@numba_njit_wrapper(non_njit_func=normalize_ndarray_non_njit)
 def normalize_ndarray(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
     """
     Normalize an array to the range [0, 1].
