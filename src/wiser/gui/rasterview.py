@@ -21,10 +21,6 @@ from wiser.raster.utils import normalize_ndarray_non_njit, normalize_ndarray
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterview_metadata import RasterViewMetaData
 
-import jax.numpy as jnp
-from jax import device_put
-import gc
-
 from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 logger = logging.getLogger(__name__)
@@ -912,6 +908,146 @@ class RasterView(QWidget):
     def get_colormap(self) -> Optional[str]:
         return self._colormap
 
+    def process_band(self, display_band_index):
+        print("1")
+        arr = self._raster_data.get_band_data_normalized(self._display_bands[display_band_index])
+        print("2")
+        band_data = arr
+        band_mask = None
+        if isinstance(arr, np.ma.masked_array):
+            band_data = arr.data
+            band_mask = arr.mask
+        print("3")
+        stretches = [None, None]
+        if self._stretches[display_band_index]:
+            stretches = self._stretches[display_band_index].get_stretches()
+            try:
+                print(f"stretch1: {stretches[0]._lower} and {stretches[0]._upper}")
+                print(f"stretch2: {stretches[1]._lower} and {stretches[1]._upper}")
+            except BaseException as e:
+                pass
+        print("4")
+        # We can't pass a masked array into an njit function, so we have to 'dance' around
+        # masked arrays
+        channel_data = make_channel_image(band_data, 0, 0, stretches[0], stretches[1])
+        print("5")
+
+        new_arr = channel_data
+        if isinstance(arr, np.ma.masked_array):
+            new_arr = np.ma.masked_array(channel_data, mask=band_mask)
+            new_arr.data[band_mask] = 0
+        
+        # self._display_data[display_band_index] = new_arr
+        return new_arr
+
+    # One function for collection the display_data
+    def update_display_image_collect_data(self, colors=ImageColors.RGB):
+        if self._raster_data is None:
+            # No raster data to display
+            self._image_widget.set_dataset_info(None, self._scale_factor)
+            return
+    
+        assert len(self._display_bands) in [1, 3]
+        cache = self._raster_data.get_cache().get_render_cache()
+        key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches)
+
+        # If it is in the cache then we want to skip to function for 
+        # making img_data into QPixMap
+        if cache.in_cache(key):
+            img_data = cache.get_cache_item(key)
+            self.update_display_image_make_pixmap(img_data)
+        elif len(self._display_bands) == 3:
+            color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
+            for i in range(len(self._display_bands)):
+                if self._display_data[i] is None or color_indexes[i] in colors:
+                    print("Making worker")
+                    worker = Worker(i, len(self._display_bands), self.process_band, i)
+                    worker.signals.finished.connect(self.update_display_image_make_img_data)
+                    print("Starting worker")
+                    QThreadPool.globalInstance().start(worker)
+                    print("Started worker")
+                    # self.process_band(i)
+        else:  # It is a gray scal image 
+            if colors != ImageColors.NONE:
+                worker = Worker(0, 1, self.process_band, 0)
+                worker.signals.finished.connect(self.update_display_image_make_img_data)
+                QThreadPool.globalInstance().start(worker)
+            else:
+                img_data = make_grayscale_image(self._display_data[0], self._colormap)
+                cache.add_cache_item(key, img_data)
+                self.update_display_image(img_data)
+    
+    def update_display_image_make_img_data(self, args):
+        index, total_indices, channel_img = args[0], args[1], args[2]
+        self._display_data[index] = channel_img
+        self._processed_channel_indices.append(index)
+        if len(self._processed_channel_indices) == total_indices:
+            # sorted_indices, sorted_imgs = zip(*sorted(zip(self._processed_channel_indices, self._processed_channels)))
+            cache = self._raster_data.get_cache().get_render_cache()
+            key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches)
+            if total_indices == 3:
+                use_njit = True
+                if use_njit:
+                    if isinstance(self._display_data[0], np.ma.masked_array):
+                        band_masks = []
+                        for data in self._display_data:
+                            band_masks.append(data.mask)
+                        img_data = make_rgb_image_njit(self._display_data[0].data, self._display_data[1].data, self._display_data[2].data)
+                        if not img_data.flags['C_CONTIGUOUS']:
+                            img_data = np.ascontiguousarray(img_data)
+                        img_data = np.ma.masked_array(img_data, self._display_data[0].mask)
+                    else:
+                        img_data = make_rgb_image_njit(self._display_data[0], self._display_data[1], self._display_data[2])
+                else:
+                    img_data = make_rgb_image(self._display_data)
+                cache.add_cache_item(key, img_data)
+                self.update_display_image(img_data)
+            else:  # This is a grayscale image.
+                # Regenerate the image.  Since all color bands are the same,
+                # generate the first one, then duplicate it for the other two
+                # bands.
+                self._display_data[1] = self._display_data[0]
+                self._display_data[2] = self._display_data[0]
+
+
+                # Combine our individual color channel(s) into a single RGB image.
+                img_data = make_grayscale_image(self._display_data[0], self._colormap)
+                cache.add_cache_item(key, img_data)
+                self.update_display_image(img_data)
+
+            self._processed_channel_indices = []
+        else:
+            return
+
+    def update_display_image_make_pixmap(self, img_data):
+        self._img_data = img_data
+        self._img_data.flags.writeable = False
+
+        start_time = time.perf_counter()
+        # This is the 100% scale QImage of the data.
+        self._image = QImage(img_data,
+            self._raster_data.get_width(), self._raster_data.get_height(),
+            QImage.Format_RGB32)
+        end_time = time.perf_counter()
+
+        # Print the time taken
+        print(f"Time taken for QImage: {end_time - start_time:.6f} seconds")
+
+        start_time = time.perf_counter()
+        self._image_pixmap = QPixmap.fromImage(self._image)
+        # End the timer
+        end_time = time.perf_counter()
+
+        # Print the time taken
+        print(f"Time taken for QPixmap: {end_time - start_time:.6f} seconds")
+
+        self._update_scaled_image()
+
+        
+
+    # Another function for making it into an rgb data or gray scale data
+
+    # Another function for the rest of the stuff
 
     def update_display_image(self, colors=ImageColors.RGB):
         img_data = None
@@ -1044,6 +1180,9 @@ class RasterView(QWidget):
                      f'qt = {time_4 - time_3:0.02f}s')
 
         self._update_scaled_image()
+
+    def update_display_image(self, colors=ImageColors.RGB):
+        self.update_display_image_collect_data(colors)
 
     def get_unscaled_pixmap(self) -> QPixmap:
         '''

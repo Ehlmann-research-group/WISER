@@ -216,8 +216,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        # new_dataset = self.reopen_dataset()
-        new_dataset = self.gdal_dataset
+        new_dataset = self.reopen_dataset()
+        # new_dataset = self.gdal_dataset
         try:
             np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
         except (RuntimeError, ValueError):
@@ -240,8 +240,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         filtering will impact performance.
         '''
         # Note that GDAL indexes bands from 1, not 0.
-        # new_dataset = self.reopen_dataset()
-        new_dataset = self.gdal_dataset
+        new_dataset = self.reopen_dataset()
+        # new_dataset = self.gdal_dataset
         band = new_dataset.GetRasterBand(band_index + 1)
         try:
             np_array = band.GetVirtualMemAutoArray()
@@ -271,8 +271,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        # new_dataset = self.reopen_dataset()
-        new_dataset = self.gdal_dataset
+        new_dataset = self.reopen_dataset()
+        # new_dataset = self.gdal_dataset
         x_size = new_dataset.RasterXSize
         y_size = new_dataset.RasterYSize
         buf_xsize = int(x_size/sample_factor)
@@ -316,8 +316,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        # new_dataset = self.reopen_dataset()
-        new_dataset = self.gdal_dataset
+        new_dataset = self.reopen_dataset()
+        # new_dataset = self.gdal_dataset
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
@@ -330,8 +330,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         Returns a numpy 3D array of all the x & y values at the specified bands.
         '''
-        # new_dataset = self.reopen_dataset()
-        new_dataset = self.gdal_dataset
+        new_dataset = self.reopen_dataset()
+        # new_dataset = self.gdal_dataset
         # Note that GDAL indexes bands from 1, not 0.
         band_list = [band+1 for band in band_list_orig]
 
@@ -352,8 +352,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        # new_dataset = self.reopen_dataset()
-        new_dataset = self.gdal_dataset
+        new_dataset = self.reopen_dataset()
+        # new_dataset = self.gdal_dataset
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 
         return np_array
