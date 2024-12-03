@@ -187,8 +187,6 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
-        gdal.SetCacheMax(512 * 1024 * 1024)
-
     def _init_menus(self):
 
         # Configure the menus based on the OS/platform
@@ -992,7 +990,7 @@ class DataVisualizerApp(QMainWindow):
         # print(f'Contrast stretch changed to:')
         # for s in stretches:
         #     print(f' * {s}')
-        print(f"DatavisualizerApp, _on_stretch_changed")
+    
         self._app_state.set_stretches(ds_id, bands, stretches)
 
     def _on_zoom_visibility_changed(self, visible):

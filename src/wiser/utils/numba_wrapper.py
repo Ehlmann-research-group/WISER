@@ -4,7 +4,6 @@ try:
     from numba import jit
     from numba.experimental import jitclass
     from numba import types, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64
-    print(f"NUMBA AVAILABLE")
     NUMBA_AVAILABLE = True
 
     def numpy_spec_to_numba_spec(numpy_spec, default_array_dtype=float32):
@@ -38,31 +37,23 @@ try:
         return numba_spec
 
 except ImportError:
-    print(f"NUMBA NOT AVAILABLE")
     NUMBA_AVAILABLE = False
 
-# See if we have numba or don't have numba in a try catch block
-
-# Set the constant variable 
-
-# Have the function take two parameters: function to use with numba, 
-# function to use without numba
-
-def numba_njit_wrapper(non_njit_func, nopython=True):
+def numba_njit_wrapper(non_njit_func, nopython=True, parallel=True):
     """
     Custom function to wrap Numba's NJIT functionality and availability.
 
     Args:
+        non_njit_func (function): A function that's not written to be optimized by njit
         nopython (bool): Use Numba's `nopython` mode.
         parallel (bool): Enable parallel computation.
-        cache (bool): Cache compiled functions for reuse.
 
     """
     def decorator(func):
         if NUMBA_AVAILABLE:
-            return jit(nopython=nopython)(func)
+            return jit(nopython=nopython, parallel=parallel)(func)
         else:
-            # If Numba is not available, return the original function
+            # If Numba is not available, return the non jit function
             return non_njit_func
     return decorator
 
@@ -71,12 +62,12 @@ def numba_jitclass_wrapper(numpy_spec, nonjit_class):
     Wrapper for creating a JIT-optimized class using Numba if available.
 
     Args:
-        spec (dict): A dictionary specifying the data types of class attributes
-                     for Numba's `jitclass`.
+        numpy_spec (dict): A dictionary specifying the data types of class attributes
+                     for Numba's `jitclass`, but in a numpy version.
 
     Returns:
         A decorator that applies Numba's `jitclass` if available; otherwise,
-        it returns the original class.
+        it returns the non jit class.
     """
     def decorator(cls):
         if NUMBA_AVAILABLE:

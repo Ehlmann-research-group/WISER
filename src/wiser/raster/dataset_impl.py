@@ -217,7 +217,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         filtering will impact performance.
         '''
         new_dataset = self.reopen_dataset()
-        # new_dataset = self.gdal_dataset
         try:
             np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
         except (RuntimeError, ValueError):
@@ -241,7 +240,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         # Note that GDAL indexes bands from 1, not 0.
         new_dataset = self.reopen_dataset()
-        # new_dataset = self.gdal_dataset
         band = new_dataset.GetRasterBand(band_index + 1)
         try:
             np_array = band.GetVirtualMemAutoArray()
@@ -272,30 +270,15 @@ class GDALRasterDataImpl(RasterDataImpl):
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
         new_dataset = self.reopen_dataset()
-        # new_dataset = self.gdal_dataset
         x_size = new_dataset.RasterXSize
         y_size = new_dataset.RasterYSize
         buf_xsize = int(x_size/sample_factor)
         buf_ysize = int(y_size/sample_factor)
-        print(f"=============buf_xsize: {buf_xsize}")
-        print(f"=============buf_ysize: {buf_ysize}")
         band = new_dataset.GetRasterBand(band_index + 1)
-        print(f"=============band no data: {band.GetNoDataValue()}")
-        print(f"=============band block size: {band.GetBlockSize()}")
-        # band.DeleteNoDataValue()
-        print(f"=============band no data deleted: {band.GetNoDataValue()}")
         np_array: Union[np.ndarray, np.ma.masked_array] = band.ReadAsArray(
                                                             buf_xsize=buf_xsize, 
                                                             buf_ysize=buf_ysize,
                                                             resample_alg=gdal.GRIORA_Gauss)
-        print(f"=============np.nanmin(np_array): {np.nanmin(np_array)}")
-        print(f"=============np.nanmin(np_array): {np.nanmin(np_array)}")
-        # Use NumPy to count unique values and their frequencies
-        # unique, counts = np.unique(np_array, return_counts=True)
-
-        # Return a dictionary of values and their frequencies
-        # print(f"=========== frequencies{dict(zip(unique, counts))}")                                                        
-        print(f"=============array type: {np_array.dtype}")
 
         return np_array
 
@@ -317,7 +300,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
         new_dataset = self.reopen_dataset()
-        # new_dataset = self.gdal_dataset
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
@@ -331,7 +313,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         Returns a numpy 3D array of all the x & y values at the specified bands.
         '''
         new_dataset = self.reopen_dataset()
-        # new_dataset = self.gdal_dataset
         # Note that GDAL indexes bands from 1, not 0.
         band_list = [band+1 for band in band_list_orig]
 
@@ -353,7 +334,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
         new_dataset = self.reopen_dataset()
-        # new_dataset = self.gdal_dataset
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 
         return np_array

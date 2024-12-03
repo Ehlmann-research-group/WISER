@@ -19,6 +19,7 @@ from time import perf_counter
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
+DEFAULT_MASK_VALUE = 0
 
 def pixel_coord_to_geo_coord(pixel_coord: Tuple[Number, Number],
         geo_transform: Tuple[Number, Number, Number, Number, Number, Number]) -> Tuple[Number, Number]:
@@ -242,7 +243,7 @@ class RasterDataSet:
         Returns the approximate size of a band of this dataset.
         It's approximate because this doesn't account for compression
         '''
-        return self.get_width() * self.get_height * self.get_elem_type().itemsize
+        return self.get_width() * self.get_height() * self.get_elem_type().itemsize
     
     def get_memory_size(self) -> int:
         '''
@@ -383,13 +384,6 @@ class RasterDataSet:
             if self._data_cache:
                 cache.add_cache_item(key, arr)
         return arr
-        
-        # arr = self._impl.get_image_data()
-
-        # if filter_data_ignore_value and self._data_ignore_value is not None:
-        #     arr = np.ma.masked_values(arr, self._data_ignore_value)
-        
-        # return arr
 
 
     def get_band_data(self, band_index: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
@@ -411,7 +405,6 @@ class RasterDataSet:
             key = cache.get_cache_key(self, band_index)
             arr = cache.get_cache_item(key)
         if arr is None:
-            print(f"!Getting band data! for: {band_index}")
             arr = self._impl.get_band_data(band_index)
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
@@ -441,7 +434,6 @@ class RasterDataSet:
             key = cache.get_cache_key(self, band_index)
             arr = cache.get_cache_item(key)
         if arr is None:
-            print(f"!Getting band data! for: {band_index}")
             arr = self._impl.get_band_data(band_index)
             
             if filter_data_ignore_value and self._data_ignore_value is not None:
@@ -449,11 +441,9 @@ class RasterDataSet:
 
             # Must get min after making it a masked array
             if band_index in self._cached_band_stats:
-                print("CACHED stats")
                 band_min = self._cached_band_stats[band_index].get_min()
                 band_max = self._cached_band_stats[band_index].get_max()
             else:
-                print(f"NOT CACHED stats")
                 if band_min is None:
                     band_min = np.nanmin(arr)
                 if band_max is None:
@@ -466,33 +456,12 @@ class RasterDataSet:
             else:
                 arr = normalize_ndarray(arr, band_min, band_max)
 
-            print(f"FROM THE SOURCE STATS: {stats}")
             self._cached_band_stats[band_index] = stats
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
 
         return arr
-    
-
-        
-        # print(f"!Getting band data! for: {band_index}")
-        # start_time = perf_counter()
-        # arr = self._impl.get_band_data(band_index)
-        # end_time = perf_counter()
-        # print(f"Time taken SURROUNDING get_band_data: {end_time - start_time:.6f} seconds")
-        # if filter_data_ignore_value and self._data_ignore_value is not None:
-        #     start_time = perf_counter()
-        #     arr = np.ma.masked_values(arr, self._data_ignore_value)
-        #     end_time = perf_counter()
-        #     print(f"Time taken to make masked array: {end_time - start_time:.6f} seconds")
-
-        # start_time = perf_counter()
-        # self.get_band_stats(band_index, arr)
-        # end_time = perf_counter()
-        # print(f"Time taken to get band stats: {end_time - start_time:.6f} seconds")
-
-        # return arr
     
     def sample_band_data(self, band_index: int, sample_factor: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
         '''
@@ -507,20 +476,12 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print(f"Sampling band data!")
-        arr : Union[np.ndarray, np.ma.masked_array] = self._impl.sample_band_data(band_index, 2)
-        print(f"---------------np.nanmin(display_bands_raw_data[band]): {np.nanmin(arr)}")
-        print(f"---------------np.nanmax(display_bands_raw_data[band]): {np.nanmax(arr)}")
-        print(f"---------------array size:: {arr.size}")
-        print(f"---------------band: {band_index}")
+        arr : Union[np.ndarray, np.ma.masked_array] = self._impl.sample_band_data(band_index, sample_factor)
 
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
-            print(f"---------------data ignore: {self._data_ignore_value}")
             arr = np.ma.masked_values(arr, self._data_ignore_value)
 
-        print(f"---------------after mask np.nanmin(display_bands_raw_data[band]): {np.nanmin(arr)}")
-        print(f"---------------after mask np.nanmax(display_bands_raw_data[band]): {np.nanmax(arr)}")
         return arr
 
     def get_multiple_band_data(self, band_list: List[int], filter_data_ignore_value=True):
@@ -549,36 +510,15 @@ class RasterDataSet:
 
         stats = self._cached_band_stats.get(band_index)
         if stats is None:
-            # Timer for checking if band is None and assigning
             if band is None:
-                start = time.perf_counter()
                 band = self.get_band_data(band_index)
-                end = time.perf_counter()
-                print(f"Time taken for get_band_data: {end - start:.6f} seconds")
 
-            # Timer for filtering the band
-            start = time.perf_counter()
-            filtered_band = band # band[(band != -np.inf) & (band != np.inf)]
-            end = time.perf_counter()
-            print(f"Time taken for filtered_band: {end - start:.6f} seconds")
+            filtered_band = band
 
-            # Timer for calculating min
-            start = time.perf_counter()
             band_min = np.nanmin(filtered_band)
-            end = time.perf_counter()
-            print(f"Time taken for nanmin: {end - start:.6f} seconds")
-
-            # Timer for calculating max
-            start = time.perf_counter()
             band_max = np.nanmax(filtered_band)
-            end = time.perf_counter()
-            print(f"Time taken for nanmax: {end - start:.6f} seconds")
 
-            # Timer for creating BandStats
-            start = time.perf_counter()
             stats = BandStats(band_index, band_min, band_max)
-            end = time.perf_counter()
-            print(f"Time taken for BandStats: {end - start:.6f} seconds")
             
             self._cached_band_stats[band_index] = stats
         return stats
@@ -625,13 +565,12 @@ class RasterDataSet:
         '''
         arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
-            # TODO: (Joshua G-K) Ask donnie if we copy here because the numpy array 
-            # has direct access to the memory and we don't want to change thet memory
             arr = arr.copy()
             # Make mask for the bad band values
             mask = np.array(self.get_bad_bands())
             assert np.all((mask == 0) | (mask == 1)), "Bad bands mask contains values other than 0 or 1"
             assert (arr.shape[0] == len(mask)), "Length of mask does not match number of spectra"
+    
             # In the mask, 1 means keep and 0 means get rid of, I use XOR with 1 to reverse this
             # because np's mask operation (arr[mask]) would switch all the values where the mask is 1
             mask = np.where((mask==0)|(mask==1), mask^1, mask)
@@ -643,8 +582,9 @@ class RasterDataSet:
                 mask_ignore_val = np.isclose(arr, self._data_ignore_value)
                 try:
                     arr[mask_ignore_val] = np.nan
-                except:
-                    pass
+                except BaseException as e:
+                    print(f"Exception occured when trying to mask array with np.nan:\n{e}")
+                    arr[mask_ignore_val] = DEFAULT_MASK_VALUE
         return arr
 
     def get_geo_transform(self) -> Tuple:
@@ -672,10 +612,12 @@ class RasterDataSet:
         '''
         return self._spatial_ref
 
+
     '''
     def has_geographic_info(self) -> bool:
         return self._spatial_ref is not None
     '''
+
 
     def cache_band_stats(self, index, arr: np.ndarray):
         if index not in self._cached_band_stats:
