@@ -970,7 +970,7 @@ class StretchBuilderDialog(QDialog):
             # Initialize grayscale stretch building
             self._channel_widgets[0].set_title(self.tr('Grayscale Channel'))
             self._channel_widgets[0].set_histogram_color(QColor('black'))
-            self._channel_widgets[i].set_band(dataset, display_bands[i])
+            self._channel_widgets[0].set_band(dataset, display_bands[0])
             # TODO(donnie):  Set existing stretch details
             self._channel_widgets[0].show()
 
