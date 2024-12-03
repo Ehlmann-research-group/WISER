@@ -309,7 +309,8 @@ class ApplicationState(QObject):
     def remove_dataset(self, ds_id: int):
         '''
         Remove the dataset with the specified numeric ID from the application
-        state.  If the ID is unrecognized then a KeyError will be raised.
+        state and the cache. If the ID is unrecognized then a KeyError will 
+        be raised.
 
         The method will fire a signal indicating that the dataset was removed.
         '''

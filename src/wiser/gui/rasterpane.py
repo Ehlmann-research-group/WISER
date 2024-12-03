@@ -1231,7 +1231,6 @@ class RasterPane(QWidget):
     def _on_stretch_changed(self, ds_id, bands):
         # Iterate through all rasterviews.  If any is displaying the dataset
         # that changed stretch, update its stretches.
-
         for rv in self._rasterviews.values():
             dataset = rv.get_raster_data()
             if dataset is None:
