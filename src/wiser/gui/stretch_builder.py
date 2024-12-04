@@ -759,7 +759,7 @@ class StretchBuilderDialog(QDialog):
         else:
             # No stretch
             assert stretch_type == StretchType.NO_STRETCH
-            stretch = StretchBase()
+            stretch = StretchBaseUsingNumba()
 
         #=================================
         # CONDITIONER
