@@ -13,6 +13,8 @@ from wiser.bandmath.analyzer import get_bandmath_expr_info
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
 
+from wiser.raster.data_cache import DataCache
+
 
 def make_image(bands, width, height):
     arr = np.zeros(shape=(bands, width, height))
@@ -44,8 +46,11 @@ class TestBandmathEvaluator(unittest.TestCase):
         expr_info = get_bandmath_expr_info('(2 * 3 + 4) / 2',
             {}, {})
         result_name = 'test_result'
+
+        cache = DataCache()
+
         (result_type, result_value) = \
-            bandmath.eval_bandmath_expr('(2 * 3 + 4) / 2', expr_info, result_name, {}, {})
+            bandmath.eval_bandmath_expr('(2 * 3 + 4) / 2', expr_info, result_name, cache, {}, {})
 
         self.assertEqual(result_type, VariableType.NUMBER)
         self.assertEqual(result_value, 5)
@@ -69,7 +74,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'band':(VariableType.IMAGE_BAND, band)}, {})
         result_name = 'test_result'
     
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image + band', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image + band', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, {})
 
@@ -108,7 +115,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image + 0.5', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image + 0.5', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
 
         assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
@@ -145,7 +154,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'band':(VariableType.IMAGE_BAND, band)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('band + image', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('band + image', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, {})
 
@@ -186,7 +197,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'b':(VariableType.IMAGE_BAND, band)}, {})
         result_name = 'test_result'
 
-        (result_type, result_band) = bandmath.eval_bandmath_expr('b + 0.5', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_band) = bandmath.eval_bandmath_expr('b + 0.5', expr_info, result_name, cache,
             {'b':(VariableType.IMAGE_BAND, band)}, {})
 
         self.assertEqual(result_type, VariableType.IMAGE_BAND)
@@ -207,7 +220,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         expr_info = get_bandmath_expr_info('S1 + 0.5',
             {'s1':(VariableType.SPECTRUM, spectrum)}, {})
         result_name = 'test_result'
-        (result_type, result_spectrum) = bandmath.eval_bandmath_expr('S1 + 0.5', expr_info, result_name,
+        
+        cache = DataCache()
+
+        (result_type, result_spectrum) = bandmath.eval_bandmath_expr('S1 + 0.5', expr_info, result_name, cache,
             {'s1':(VariableType.SPECTRUM, spectrum)}, {})
 
         self.assertEqual(result_type, VariableType.SPECTRUM)
@@ -229,7 +245,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
         result_name = 'test_result'
     
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('0.5 + image', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('0.5 + image', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
 
         assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
@@ -260,7 +278,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         expr_info = get_bandmath_expr_info('0.5 + b',
             {'b':(VariableType.IMAGE_BAND, band)}, {})
     
-        (result_type, result_band) = bandmath.eval_bandmath_expr('0.5 + b', expr_info, None,
+        cache = DataCache()
+
+        (result_type, result_band) = bandmath.eval_bandmath_expr('0.5 + b', expr_info, None, cache,
             {'b':(VariableType.IMAGE_BAND, band)}, {})
 
         self.assertEqual(result_type, VariableType.IMAGE_BAND)
@@ -282,7 +302,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'s1':(VariableType.SPECTRUM, spectrum)}, {})
         result_name = 'test_result'
 
-        (result_type, result_spectrum) = bandmath.eval_bandmath_expr('0.5 + S1', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_spectrum) = bandmath.eval_bandmath_expr('0.5 + S1', expr_info, result_name, cache,
             {'s1':(VariableType.SPECTRUM, spectrum)}, {})
 
         self.assertEqual(result_type, VariableType.SPECTRUM)
@@ -314,7 +336,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'band':(VariableType.IMAGE_BAND, band)}, {})
         result_name = 'test_result'
     
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image - band', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image - band', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, {})
 
@@ -357,7 +381,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
         result_name = 'test_result'
     
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image - 0.5', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image - 0.5', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
 
         assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
@@ -389,7 +415,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'B1':(VariableType.IMAGE_BAND, band)}, {})
         result_name = 'test_result'
     
-        (result_type, result_band) = bandmath.eval_bandmath_expr('B1 - 0.5', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_band) = bandmath.eval_bandmath_expr('B1 - 0.5', expr_info, result_name, cache,
             {'B1':(VariableType.IMAGE_BAND, band)}, {})
 
         self.assertEqual(result_type, VariableType.IMAGE_BAND)
@@ -411,7 +439,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'s':(VariableType.SPECTRUM, spectrum)}, {})
         result_name = 'test_result'
 
-        (result_type, result_spectrum) = bandmath.eval_bandmath_expr('s - 0.5', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_spectrum) = bandmath.eval_bandmath_expr('s - 0.5', expr_info, result_name, cache,
             {'s':(VariableType.SPECTRUM, spectrum)}, {})
 
         self.assertEqual(result_type, VariableType.SPECTRUM)
@@ -436,7 +466,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
         result_name = 'test_result'
     
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image * 2', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image * 2', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
 
         assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
@@ -468,7 +500,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('2 * image', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('2 * image', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
 
         assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
@@ -503,7 +537,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image / 0.5', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('image / 0.5', expr_info, result_name, cache,
             {'image':(VariableType.IMAGE_CUBE, img)}, {})
 
         assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
@@ -548,7 +584,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'd':(VariableType.SPECTRUM, d)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a + b) + (c + d)', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a + b) + (c + d)', expr_info, result_name, cache,
             {'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b),
              'c':(VariableType.IMAGE_CUBE, c),
@@ -602,7 +640,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'd':(VariableType.SPECTRUM, d)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a * b) * (c * d)', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a * b) * (c * d)', expr_info, result_name, cache,
             {'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b),
              'c':(VariableType.IMAGE_CUBE, c),
@@ -656,7 +696,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'd':(VariableType.SPECTRUM, d)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a / b) / (c / d)', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a / b) / (c / d)', expr_info, result_name, cache,
             {'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b),
              'c':(VariableType.IMAGE_CUBE, c),
@@ -710,7 +752,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'd':(VariableType.SPECTRUM, d)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a - b) - (c - d)', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a - b) - (c - d)', expr_info, result_name, cache,
             {'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b),
              'c':(VariableType.IMAGE_CUBE, c),
@@ -754,7 +798,9 @@ class TestBandmathEvaluator(unittest.TestCase):
             {'a':(VariableType.IMAGE_CUBE, a)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('-a + 1', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('-a + 1', expr_info, result_name, cache,
             {'a':(VariableType.IMAGE_CUBE, a)}, {})
 
         assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
@@ -790,7 +836,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'b':(VariableType.IMAGE_BAND, b)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('a**b - (a**0.5)', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('a**b - (a**0.5)', expr_info, result_name, cache,
             {'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b)}, {})
 
@@ -838,7 +886,9 @@ class TestBandmathEvaluator(unittest.TestCase):
              'd': (VariableType.SPECTRUM, d)}, {})
         result_name = 'test_result'
 
-        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a / b) - (c * d) + a**0.5', expr_info, result_name,
+        cache = DataCache()
+
+        (result_type, result_dataset) = bandmath.eval_bandmath_expr('(a / b) - (c * d) + a**0.5', expr_info, result_name, cache,
             {'a': (VariableType.IMAGE_CUBE, a),
              'b': (VariableType.IMAGE_BAND, b),
              'c': (VariableType.IMAGE_CUBE, c),

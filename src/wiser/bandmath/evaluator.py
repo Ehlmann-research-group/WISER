@@ -22,6 +22,8 @@ from .utils import (
     get_valid_ignore_value,
 )
 
+from wiser.raster.data_cache import DataCache
+
 from wiser.raster.dataset import RasterDataSet
 
 from osgeo import gdal
@@ -795,7 +797,7 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
         logger.debug(' * unary_negate_expr')
         return self.find_current_interm_and_update_max(args[1], 0)
 
-def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
+def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None,
         use_old_method = False) -> BandMathValue:
@@ -873,7 +875,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal_type)
             # We declare the dataset write after so if any errors occur below,
             # the file gets destroyed (which happens in del of RasterDataSet)
-            out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
+            out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
             out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
             out_dataset.set_dirty()
             
