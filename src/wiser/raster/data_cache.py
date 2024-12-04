@@ -64,13 +64,11 @@ class Cache:
         Args:
             key (int): The key associated with the value.
             value (Union[np.ndarray, np.ma.masked_array]): The data to be cached.
-
-        Raises:
-            RuntimeError: If the size of the data exceeds the cache capacity.
         """
         data_size = value.nbytes
         if data_size > self._capacity:
-            raise RuntimeError(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
+            print(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
+            return
         if self._size + data_size > self._capacity:
             self._evict()
         self._cache[key] = value
@@ -258,7 +256,8 @@ class HistogramCache(Cache):
         for value in values:
             data_size += value.nbytes
         if data_size > self._capacity:
-            raise RuntimeError(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
+            print(f'Size of data exceeds histogram cache size: {data_size} > {self._capacity}')
+            return
         if self._size + data_size > self._capacity:
             self._evict()
         self._cache[key] = values
@@ -277,16 +276,8 @@ class HistogramCache(Cache):
         return hash((dataset))
 
 class DataCache():
-    """
-    Manages different types of caches, including rendering, computation, and histogram caches.
 
-    Attributes:
-        _render_cache (RenderCache): The cache handling rendered data.
-        _computation_cache (ComputationCache): The cache handling computational results.
-        _histogram_cache (HistogramCache): The cache handling histogram data.
-    """
-
-    def __init__(self, render_capacity:int = 3000000000, computation_capacity: int=7000000000):
+    def __init__(self, render_capacity:int = 10000000000, computation_capacity: int=10000000000):
         self._render_cache = RenderCache(render_capacity)
         self._computation_cache = ComputationCache(computation_capacity)
         self._histogram_cache = HistogramCache()

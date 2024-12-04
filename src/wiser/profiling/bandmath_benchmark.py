@@ -42,8 +42,10 @@ def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType
         variables, {})
     result_name = 'test_result'
 
+    cache = DataCache()
+
     start_time = time.perf_counter()
-    (_, result_dataset) = bandmath.eval_bandmath_expr(equation, expr_info, result_name,
+    (_, result_dataset) = bandmath.eval_bandmath_expr(equation, expr_info, result_name, cache,
         variables, {}, use_old_method)
     end_time = time.perf_counter()
     return end_time-start_time, result_dataset

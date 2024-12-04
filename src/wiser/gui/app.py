@@ -752,7 +752,7 @@ class DataVisualizerApp(QMainWindow):
             try:
                 if not result_name:
                     result_name = self.tr('Computed')
-                (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name,
+                (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name, self._data_cache,
                     variables, functions)
 
                 logger.debug(f'Result of band-math evaluation is type ' +
@@ -778,7 +778,7 @@ class DataVisualizerApp(QMainWindow):
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.IMAGE_CUBE:
-                    new_dataset = loader.dataset_from_numpy_array(result)
+                    new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
 
                     if not result_name:
                         result_name = self.tr('Computed')
@@ -799,7 +799,7 @@ class DataVisualizerApp(QMainWindow):
                 elif result_type == bandmath.VariableType.IMAGE_BAND:
                     # Convert the image band into a 1-band image cube
                     result = result[np.newaxis, :]
-                    new_dataset = loader.dataset_from_numpy_array(result)
+                    new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
 
                     if not result_name:
                         result_name = self.tr('Computed')
