@@ -436,8 +436,6 @@ class ChannelStretchWidget(QWidget):
 
         self._show_histogram()
 
-        self._norm_band_data = None
-
 
     def _show_histogram(self, update_lines_only=False):
         if self._norm_band_data is None:
@@ -496,7 +494,6 @@ class ChannelStretchWidget(QWidget):
     def _on_low_slider_clicked(self):
         if not self._low_slider_is_sliding:
             self._on_low_slider_changed()
-
 
     def _on_high_slider_changed(self):
         # Compute the percentage from the slider position
