@@ -202,6 +202,9 @@ class ChannelStretchWidget(QWidget):
         self._ui.slider_stretch_high.sliderReleased.connect(self._on_high_slider_released)
         self._ui.slider_stretch_high.valueChanged.connect(self._on_high_slider_clicked)
 
+        self._ui.lineedit_stretch_low.returnPressed.connect(self._on_low_lineedit_pressed)
+        self._ui.lineedit_stretch_high.returnPressed.connect(self._on_high_lineedit_pressed)
+
 
     def set_title(self, title):
         self._ui.groupbox_channel.setTitle(title)
@@ -469,6 +472,16 @@ class ChannelStretchWidget(QWidget):
             self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
         self._histogram_canvas.draw()
+
+    def _on_low_lineedit_pressed(self):
+        low_stretch_str = self._ui.lineedit_stretch_low.text()
+        low_stretch_val = float(low_stretch_str)
+        self._on_low_slider_changed()
+
+    def _on_high_lineedit_pressed(self):
+        high_stretch_str = self._ui.lineedit_stretch_high.text()
+        high_stretch_val = float(high_stretch_str)
+        self._on_high_slider_changed()
 
     def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
