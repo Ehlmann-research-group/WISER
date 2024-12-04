@@ -126,6 +126,55 @@ class StretchBase:
             self._name == other._name
         )
 
+# Class specification in numpy, this will be transformed to a numba specification in numba_wrapper
+base_spec = [
+    ('_name', np.str_)
+]
+
+
+@numba_jitclass_wrapper(base_spec, nonjit_class=StretchBase)
+class StretchBaseUsingNumba:
+    '''
+    Base class for all stretch and conditioner types.
+
+    All stretch class types have a string name briefly describing the kind of
+    stretch object.
+
+    The primary means of applying stretch is through the apply() function,
+    which mutates the input array in-place.  The input array is expected to
+    consist of floating-point values (either numpy.float32 or numpy.float64)
+    in the range [0, 1].  This is essential, as it makes many of the operations
+    much more straightforward to implement for arbitrary data.
+    '''
+
+    def __init__(self, name='Base'):
+        self._name = name
+
+    def __str__(self):
+        return 'StretchBase'
+
+    def apply(self, input):
+        '''
+        Apply this class' stretch operation to the input numpy array, in-place.
+        '''
+        pass
+
+    def get_stretches(self):
+        return [None, None]
+
+    def get_hash_tuple(self):
+        return (self._name)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._name == other._name
+        )
+
 
 class StretchLinear(StretchBase):
     '''
