@@ -129,8 +129,6 @@ class ChannelStretchWidget(QWidget):
         self._ui = Ui_ChannelStretchWidget()
         self._ui.setupUi(self)
 
-        self._parent = parent
-
         self._app_state = app_state
 
         #============================================================
@@ -203,11 +201,6 @@ class ChannelStretchWidget(QWidget):
         self._ui.slider_stretch_high.sliderPressed.connect(self._on_high_slider_pressed)
         self._ui.slider_stretch_high.sliderReleased.connect(self._on_high_slider_released)
         self._ui.slider_stretch_high.valueChanged.connect(self._on_high_slider_clicked)
-
-        self._ui.lineedit_stretch_low.returnPressed.connect(self._on_low_lineedit_pressed)
-        self._ui.lineedit_stretch_low.selectionChanged.connect(self._focus_low_lineedit)
-    
-        self._ui.lineedit_stretch_high.returnPressed.connect(self._on_high_lineedit_pressed)
 
 
     def set_title(self, title):
@@ -477,25 +470,6 @@ class ChannelStretchWidget(QWidget):
 
         self._histogram_canvas.draw()
 
-    def _focus_low_lineedit(self):
-        if self._parent:
-            if hasattr(self._parent, 'buttons'):
-                ok_button = self._parent.buttons.button(QDialogButtonBox.Ok)
-                if ok_button:
-                    print(f"Clearing focus")
-                    ok_button.clearFocus()
-                    ok_button.setAutoDefault(False)
-
-    def _on_low_lineedit_pressed(self):
-        low_stretch_str = self._ui.lineedit_stretch_low.text()
-        low_stretch_val = float(low_stretch_str)
-        self._on_low_slider_changed()
-
-    def _on_high_lineedit_pressed(self):
-        high_stretch_str = self._ui.lineedit_stretch_high.text()
-        high_stretch_val = float(high_stretch_str)
-        self._on_high_slider_changed()
-
     def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
         value = self._ui.slider_stretch_low.value()
@@ -678,7 +652,7 @@ class StretchBuilderDialog(QDialog):
         scrollarea_layout.setSpacing(0)
         scrollarea_layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
 
-        self._channel_widgets = [ChannelStretchWidget(i, parent=self, app_state=self._app_state) for i in range(3)]
+        self._channel_widgets = [ChannelStretchWidget(i, app_state=self._app_state) for i in range(3)]
 
         for i in range(3):
             scrollarea_layout.addWidget(self._channel_widgets[i])
@@ -704,12 +678,12 @@ class StretchBuilderDialog(QDialog):
         self._cb_link_min_max.toggled.connect(self._on_link_min_max)
 
         # Dialog buttons - hook to built-in QDialog functions
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
             Qt.Horizontal, self)
-        self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
 
-        layout.addWidget(self.buttons)
+        layout.addWidget(buttons)
 
         self.setLayout(layout)
 
