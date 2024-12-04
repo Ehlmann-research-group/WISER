@@ -64,7 +64,7 @@ def remove_nans_using_numba(data):
 
     return nonan_data
 
-def create_histogram(nonan_data):
+def create_histogram(nonan_data: np.ndarray):
     return np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
 
 @numba_njit_wrapper(non_njit_func=create_histogram)
@@ -79,20 +79,16 @@ def create_histogram_using_numba(nonan_data):
     min_val = 0.0
     max_val = 1.0
     counts = np.zeros(bins, dtype=np.int64)
-    bin_edges = np.linspace(min_val, max_val, bins + 1)
-    inv_bin_width = bins / (max_val - min_val)
+    bin_width = (max_val - min_val) / bins
 
     for x in nonan_data:
-        # Skip values outside the specified range
         if x < min_val or x > max_val:
             continue
-        # Handle the edge case where x == max_val
-        if x == max_val:
-            bin_index = bins - 1
-        else:
-            bin_index = int((x - min_val) * inv_bin_width)
+        # Correct bin index calculation
+        bin_index = min(int((x - min_val) / bin_width), bins - 1)
         counts[bin_index] += 1
 
+    bin_edges = np.linspace(min_val, max_val, bins + 1)
     return counts, bin_edges
 
 def get_slider_percentage(slider, value=None):
