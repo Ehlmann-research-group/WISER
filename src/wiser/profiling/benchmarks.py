@@ -65,8 +65,6 @@ def benchmark_function(dataset_paths, function_to_test, N=1, output_file='output
     - Prints the timing results to the console.
     - Writes the timing results to the specified output file.
     """
-    import os
-    import logging
 
     # Ensure the directory for the log file exists
     output_dir = os.path.dirname(output_file)
