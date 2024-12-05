@@ -439,15 +439,21 @@ class RasterDataSet:
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
 
+            has_inf = np.isinf(arr).any()
+
+            filtered_arr = arr
+            if has_inf:
+                filtered_arr = arr[np.isfinite(arr)]
+        
             # Must get min after making it a masked array
             if band_index in self._cached_band_stats:
                 band_min = self._cached_band_stats[band_index].get_min()
                 band_max = self._cached_band_stats[band_index].get_max()
             else:
                 if band_min is None:
-                    band_min = np.nanmin(arr)
+                    band_min = np.nanmin(filtered_arr)
                 if band_max is None:
-                    band_max = np.nanmax(arr)
+                    band_max = np.nanmax(filtered_arr)
             stats = BandStats(band_index, band_min, band_max)
             if isinstance(arr, np.ma.masked_array):
                 mask = arr.mask
@@ -513,11 +519,13 @@ class RasterDataSet:
             if band is None:
                 band = self.get_band_data(band_index)
 
+            has_inf = np.isinf(band).any()
             filtered_band = band
-
+            if has_inf:
+                filtered_band = band[np.isfinite(band)]
+    
             band_min = np.nanmin(filtered_band)
             band_max = np.nanmax(filtered_band)
-
             stats = BandStats(band_index, band_min, band_max)
             
             self._cached_band_stats[band_index] = stats
