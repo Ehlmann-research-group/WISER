@@ -1,7 +1,10 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 from astropy import units as u
+
+from wiser.utils.numba_wrapper import numba_njit_wrapper
+
 
 # For easier typing in this module
 Number = Union[int, float]
@@ -49,7 +52,6 @@ def get_spectral_unit(unit_str: str) -> u.Unit:
     ``astropy.units.Unit`` object to represent the unit.
     '''
     return KNOWN_SPECTRAL_UNITS[unit_str.lower()]
-
 
 def spectral_unit_to_string(unit: u.Unit) -> str:
     for k, v in KNOWN_SPECTRAL_UNITS.items():
@@ -118,7 +120,7 @@ def find_band_near_wavelength(bands: List[Dict],
 
 def find_closest_wavelength(wavelengths: List[u.Quantity],
                             input_wavelength: u.Quantity,
-                            max_distance: u.Quantity = 20*u.nm) -> Optional[int]:
+                            max_distance: u.Quantity = None) -> Optional[int]:
     '''
     Given a list of wavelengths and an input wavelength, this function returns
     the index of the wavelength closest to the input wavelength.  If no
@@ -126,9 +128,9 @@ def find_closest_wavelength(wavelengths: List[u.Quantity],
     '''
 
     # Do the whole calculation in nm to keep things simple.
-
+    if max_distance is None:
+        max_distance = 20*input_wavelength.unit.si
     input_value = convert_spectral(input_wavelength, u.nm).value
-
     max_dist_value = None
     if max_distance is not None:
         max_dist_value = convert_spectral(max_distance, u.nm).value
@@ -160,27 +162,52 @@ def find_closest_value(values: List[Number], input_value: Number,
 
     return best_index
 
-
 #============================================================================
 # COMMON BAND-MATH OPERATIONS
 
 
-def normalize_ndarray(array: np.ndarray, minval=None, maxval=None) -> np.ndarray:
+def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
     '''
     Normalize the specified array, generating a new array to return to the
     caller.  The minimum and maximum values can be specified if already known,
     or if the caller wants to normalize to a different min/max than the array's
     actual min/max values.  NaN values are left unaffected.
     '''
-
     if minval is None:
         minval = np.nanmin(array)
 
     if maxval is None:
         maxval = np.nanmax(array)
 
-    return (array - minval) / (maxval - minval)
-
+    if in_place:
+        array -= minval
+        if maxval-minval == 0:
+            array.fill(0.0)
+        else:
+            np.divide(array, (maxval - minval), out=array, dtype=np.float32)
+    else:
+        return (array - minval) / (maxval - minval)
+    
+@numba_njit_wrapper(non_njit_func=normalize_ndarray)
+def normalize_ndarray_using_njit(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
+    """
+    Normalize an array to the range [0, 1].
+    """
+    # Create an empty array with the same shape as `data` and dtype float32
+    normalized = np.empty(data.shape, dtype=np.float32)
+    
+    # Total number of elements in the array
+    total_elements = data.size
+    
+    # Iterate over each element in the flattened array
+    for idx in range(total_elements):
+        value = data.flat[idx]
+        if np.isfinite(value):
+            normalized.flat[idx] = (value - minval) / (maxval - minval)
+        else:
+            normalized.flat[idx] = 0.0  # Handle NaN or Inf
+    
+    return normalized
 
 def get_normalized_band(dataset, band_index):
     '''
@@ -195,7 +222,25 @@ def get_normalized_band(dataset, band_index):
     norm_data = (band_data - stats.get_min()) / (stats.get_max() - stats.get_min())
 
     if norm_data.dtype not in [np.float32, np.float64]:
-        print(f'NOTE:  norm_data.dtype is {norm_data.dtype}, band_data.dtype is {band_data.dtype}')
+        norm_data = norm_data.astype(np.float32)
+
+    return norm_data
+
+def get_normalized_band_using_stats(band_data: np.ndarray, stats):
+    '''
+    Maps all elements in the band to the range of [0.0, 1.0]. 
+    Elements will be of type np.float32, unless the input
+    data is already np.float64, in which case the elements are left as
+    np.float64.
+    '''
+    if isinstance(band_data, np.ma.masked_array):
+        band_data_mask = band_data.mask
+        band_data = band_data.data 
+    norm_data = normalize_ndarray_using_njit(band_data, stats.get_min(), stats.get_max())
+    if isinstance(band_data, np.ma.masked_array):
+        band_data = np.ma.masked_array(band_data, mask=band_data_mask)
+
+    if norm_data.dtype not in [np.float32, np.float64]:
         norm_data = norm_data.astype(np.float32)
 
     return norm_data

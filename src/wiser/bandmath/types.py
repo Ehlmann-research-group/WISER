@@ -55,7 +55,8 @@ class BandMathExprInfo:
 
     def result_size(self):
         ''' Returns an estimate of this result's size in bytes. '''
-        return np.dtype(self.elem_type).itemsize * np.prod(self.shape)
+        shape_size = np.prod(self.shape) if self.shape is not None else 1
+        return np.dtype(self.elem_type).itemsize * shape_size
 
     def __repr__(self) -> str:
         if self.result_type in [VariableType.IMAGE_CUBE,
@@ -84,7 +85,8 @@ class BandMathValue:
     :ivar value: The value itself.
     :ivar computed: If True, the value was computed from an expression.
     '''
-    def __init__(self, type: VariableType, value: Any, computed: bool = True):
+    def __init__(self, type: VariableType, value: Any, computed: bool = True,
+                 is_intermediate=False):
         if type not in VariableType:
             raise ValueError(f'Unrecognized variable-type {type}')
 
@@ -92,6 +94,7 @@ class BandMathValue:
         self.type: VariableType = type
         self.value: Any = value
         self.computed: bool = computed
+        self.is_intermediate = is_intermediate
 
 
     def set_name(self, name: Optional[str]) -> None:
@@ -168,6 +171,54 @@ class BandMathValue:
         raise TypeError(f'Don\'t know how to convert {self.type} ' +
                         f'value {self.value} into a NumPy array')
 
+    def as_numpy_array_by_bands(self, band_list: List[int]) -> np.ndarray:
+            '''
+            If a band-math value is an image cube, image band, or spectrum, this
+            function returns the value as a NumPy ``ndarray``.  If a band-math
+            value is some other type, the function raises a ``TypeError``.
+            This function should really only be called on image_cubes unless its 
+            called through make_image_cube_compatible_by_bands
+            '''
+
+            # If the value is already a NumPy array, we are done!
+            if isinstance(self.value, np.ndarray):
+                # Assumes all numpy arrays have band as the first dimension
+                min_band = min(band_list)
+                band_list_base = [band-min_band for band in band_list]
+                if self.type == VariableType.IMAGE_CUBE:
+                    if len(band_list_base) == 1:
+                        return self.value
+                    return self.value[band_list_base, : , :]
+                elif self.type == VariableType.IMAGE_BAND:
+                    return self.value
+                elif self.type == VariableType.SPECTRUM:
+                    band_start = band_list[0]
+                    band_end = band_list[-1]
+                    arr = self.value[band_start:band_end+1]
+                    return arr
+                raise TypeError(f'Type value is incorrect, should be' +
+                                f'IMAGE_CUBE, IMAGE_BAND, OR SPECTRUM' + 
+                                f'but got {type(self.value)}')
+
+            if self.type == VariableType.IMAGE_CUBE:
+                if isinstance(self.value, RasterDataSet):
+                    return self.value.get_multiple_band_data(band_list)
+
+            elif self.type == VariableType.IMAGE_BAND:
+                if isinstance(self.value, RasterDataBand):
+                    return self.value.get_data()
+
+            elif self.type == VariableType.SPECTRUM:
+                if isinstance(self.value, Spectrum):
+                    arr = self.value.get_spectrum()
+                    band_start = band_list[0]
+                    band_end = band_list[-1]
+                    arr=arr[band_start:band_end+1]
+                    return arr
+            # We only want this function to work for numpy arrays and RasterDataSets 
+            # because these can be very big 3D objects
+            raise TypeError(f'This function should only be called on numpy' +
+                            f'arrays and image cubes, not {self.type}')  
 
 class BandMathFunction(abc.ABC):
     '''

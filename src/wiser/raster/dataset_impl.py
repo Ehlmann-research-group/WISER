@@ -1,10 +1,9 @@
 import abc
 import logging
-import math
 import os
 import pprint
-from urllib.parse import urlparse
 
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 Number = Union[int, float]
 
@@ -15,9 +14,16 @@ import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
 
-
 logger = logging.getLogger(__name__)
 
+CHUNK_WRITE_SIZE = 250000000
+
+class SaveState(Enum):
+    IN_DISK_NOT_SAVED = 0
+    IN_MEMORY_NOT_SAVED = 1
+    IN_DISK_SAVED = 2
+    IN_MEMORY_SAVED = 3
+    UNKNOWN = 4
 
 class RasterDataImpl(abc.ABC):
 
@@ -54,7 +60,13 @@ class RasterDataImpl(abc.ABC):
     def get_band_data(self, band_index) -> np.ndarray:
         pass
 
+    def sample_band_data(self, band_index, sample_factor: int):
+        pass
+
     def get_all_bands_at(self, x, y) -> np.ndarray:
+        pass
+
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int) -> np.ndarray:
         pass
 
     def read_description(self) -> Optional[str]:
@@ -82,6 +94,11 @@ class RasterDataImpl(abc.ABC):
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         return None
 
+    def get_save_state(self) -> SaveState:
+        return SaveState.UNKNOWN
+
+    def set_save_state(self, save_state: SaveState):
+        pass
 
 class GDALRasterDataImpl(RasterDataImpl):
 
@@ -90,6 +107,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         self.gdal_dataset = gdal_dataset
         self.data_ignore: Optional[Union[float, int]] = None
         self._validate_dataset()
+        self._save_state = SaveState.UNKNOWN
 
     def _validate_dataset(self):
         '''
@@ -144,6 +162,29 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         return paths
 
+    def reopen_dataset(self):
+        '''
+        Opens and returns a new GDAL dataset equivalent to the current one, 
+        always creating a new dataset from the file path.
+        '''
+        file_paths = self.get_filepaths()
+        
+        if not file_paths:
+            raise ValueError("Dataset is in-memory only, no file to reopen from.")
+
+        file_path = file_paths[0]  # Assuming the first file is the main dataset
+        driver = self.gdal_dataset.GetDriver().ShortName
+        
+        # Open the dataset with the corresponding driver
+        new_dataset = gdal.OpenEx(file_path, 
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=[driver])
+
+        if new_dataset is None:
+            raise ValueError(f"Unable to open dataset from {file_path} with driver {driver}")
+
+        return new_dataset
+
     def get_width(self):
         ''' Returns the number of pixels per row in the raster data. '''
         return self.gdal_dataset.RasterXSize
@@ -171,11 +212,12 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        new_dataset = self.reopen_dataset()
         try:
-            np_array = self.gdal_dataset.GetVirtualMemArray(band_sequential=True)
-        except RuntimeError:
+            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+        except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            np_array = self.gdal_dataset.ReadAsArray()
+            np_array = new_dataset.ReadAsArray()
 
         return np_array
 
@@ -193,11 +235,43 @@ class GDALRasterDataImpl(RasterDataImpl):
         filtering will impact performance.
         '''
         # Note that GDAL indexes bands from 1, not 0.
-        band = self.gdal_dataset.GetRasterBand(band_index + 1)
+        new_dataset = self.reopen_dataset()
+        band = new_dataset.GetRasterBand(band_index + 1)
         try:
             np_array = band.GetVirtualMemAutoArray()
-        except RuntimeError:
+        except (RuntimeError, TypeError):
             np_array = band.ReadAsArray()
+
+        return np_array
+    
+    def sample_band_data(self, band_index, sample_factor: int):
+        '''
+        Returns a numpy 2D array of the specified band's data but resampled. 
+        The first band is at index 0.
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+
+        # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
+        #     different raster bands can have different dimensions, data types,
+        #     etc.  Should probably do some sanity checking in the initializer.
+        # TODO(donnie):  This doesn't work with a virtual-memory array, but
+        #     maybe the non-virtual-memory approach is faster.
+        # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
+        #     xsize=1, ysize=1)
+        new_dataset = self.reopen_dataset()
+        x_size = new_dataset.RasterXSize
+        y_size = new_dataset.RasterYSize
+        buf_xsize = int(x_size/sample_factor)
+        buf_ysize = int(y_size/sample_factor)
+        band = new_dataset.GetRasterBand(band_index + 1)
+        np_array: Union[np.ndarray, np.ma.masked_array] = band.ReadAsArray(
+                                                            buf_xsize=buf_xsize, 
+                                                            buf_ysize=buf_ysize,
+                                                            resample_alg=gdal.GRIORA_Gauss)
 
         return np_array
 
@@ -218,11 +292,42 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        np_array = self.gdal_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
+        new_dataset = self.reopen_dataset()
+        np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
         # so reshape into a 1D array with shape (bands).
         np_array = np_array.reshape(np_array.shape[0])
+
+        return np_array
+
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        '''
+        Returns a numpy 3D array of all the x & y values at the specified bands.
+        '''
+        new_dataset = self.reopen_dataset()
+        # Note that GDAL indexes bands from 1, not 0.
+        band_list = [band+1 for band in band_list_orig]
+
+        # Read the specified bands
+        data = new_dataset.ReadAsArray(band_list=band_list)
+
+        return data
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
+        '''
+        Returns a numpy 2D array of the values of all bands at the specified
+        rectangle in the raster data.
+        '''
+
+        # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
+        #     different raster bands can have different dimensions, data types,
+        #     etc.  Should probably do some sanity checking in the initializer.
+        # TODO(donnie):  This doesn't work with a virtual-memory array, but
+        #     maybe the non-virtual-memory approach is faster.
+        # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
+        #     xsize=1, ysize=1)
+        new_dataset = self.reopen_dataset()
+        np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 
         return np_array
 
@@ -251,6 +356,32 @@ class GDALRasterDataImpl(RasterDataImpl):
             spatial_ref.SetAxisMappingStrategy(osr.OAMS_AUTHORITY_COMPLIANT)
         return spatial_ref
 
+    def get_save_state(self) -> SaveState:
+        return self._save_state
+
+    def set_save_state(self, save_state: SaveState):
+        self._save_state = save_state
+
+    def delete_dataset(self) -> None:
+        '''
+        We should only be deleting a dataset if it is on disk but the user hasn't explicitly saved it.
+        '''
+        if self._save_state == SaveState.IN_DISK_NOT_SAVED:
+            try:
+                if self.gdal_dataset is not None:
+                    filepath = self.get_filepaths()[0]
+                    driver = self.gdal_dataset.GetDriver()
+                    self.gdal_dataset.FlushCache()
+                    self.gdal_dataset = None
+                    driver.Delete(filepath)
+                else:
+                    print(f"Dataset variable is None. Either the dataset " +
+                          "file was deleted or just the variable was deleted.")
+            except Exception as e:
+                print(f"Couldn't delete dataset. Error: \n {e}")
+
+    def __del__(self):
+        self.delete_dataset()
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -285,9 +416,6 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
-
-
-
 
 class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
@@ -487,6 +615,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_wavelength_units = options.get('wavelength_units')
         dst_bad_bands = []
         dst_index = 1
+
+        chunk_size = 0
         for band_info in src_dataset.band_list():
             src_index = band_info['index']
 
@@ -503,8 +633,13 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             # print(f'Source-array shape:  {src_data.shape}')
             dst_data = src_data[src_offset_y:src_offset_y+dst_height,
                                 src_offset_x:src_offset_x+dst_width]
+            # print(f"Destination-array size: {dst_data.size}")
             # print(f'Destination-array shape:  {dst_data.shape}')
             dst_band.WriteArray(dst_data, 0, 0)
+            chunk_size += dst_data.size
+            if chunk_size >= CHUNK_WRITE_SIZE:
+                chunk_size = 0
+                dst_gdal_dataset.FlushCache()
 
             # Metadata for the band
 
@@ -618,7 +753,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         band_info = []
 
         md = self.gdal_dataset.GetMetadata('ENVI')
-        has_band_names = ('band_names' in md)
+        has_band_names = ('band names' in md)
 
         # Note:  GDAL indexes bands from 1, not 0.
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
@@ -758,8 +893,15 @@ class NumPyRasterDataImpl(RasterDataImpl):
     def get_band_data(self, band_index) -> np.ndarray:
         return self._arr[band_index]
 
+    
+    def sample_band_data(self, band_index, sample_factor: int):
+        return self._arr[band_index,::sample_factor,::sample_factor]
+
     def get_all_bands_at(self, x, y) -> np.ndarray:
         return self._arr[:, y, x]
+
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int) -> np.ndarray:
+        return self._arr[:, y:y+dy, x:x+dx]
 
     def read_description(self) -> Optional[str]:
         return None

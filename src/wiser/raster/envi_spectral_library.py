@@ -39,8 +39,8 @@ class ENVISpectralLibrary(SpectralLibrary):
         # If the file type doesn't properly indicate that the file is a spectral
         # library, don't go on!!!
 
-        file_type = self._metadata['file type']
-        if file_type != 'ENVI Spectral Library':
+        file_type = self._metadata.get('file type')
+        if file_type is not None and file_type != 'ENVI Spectral Library':
             raise EnviFileFormatError(f'Unrecognized spectral library file type "{file_type}"')
 
         # In ENVI spectral library files, each line (row) is a complete

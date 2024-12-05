@@ -22,6 +22,8 @@ from wiser.raster.stretch import StretchBase
 
 from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
+from wiser.raster.data_cache import DataCache
+
 
 class StateChange(enum.Enum):
     ITEM_ADDED = 1
@@ -55,6 +57,9 @@ class ApplicationState(QObject):
     # Signal:  the data-set with the specified ID was removed
     dataset_removed = Signal(int)
 
+    # Signal: the mainview dataset was changed
+    mainview_dataset_changed = Signal(int)
+
     # Signal:  a spectral library with the specified ID was added
     spectral_library_added = Signal(int)
 
@@ -83,6 +88,8 @@ class ApplicationState(QObject):
 
         # A reference to the overall UI
         self._app = app
+
+        self._cache = None
 
         # The plugins currently loaded into WISER.
         self._plugins: Dict[str, Plugin] = {}
@@ -179,6 +186,10 @@ class ApplicationState(QObject):
         self._current_dir = current_dir
 
 
+    def set_data_cache(self, data_cache: DataCache):
+        self._cache = data_cache
+
+
     def update_cwd_from_path(self, path: str) -> None:
         '''
         This helper function makes it easier to update the current working
@@ -251,8 +262,8 @@ class ApplicationState(QObject):
         # Either the data doesn't look like a spectral library, or loading
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
-
-        raster_data = self._raster_data_loader.load_from_file(file_path)
+        
+        raster_data = self._raster_data_loader.load_from_file(file_path, self._cache)
         self.add_dataset(raster_data)
 
 
@@ -280,6 +291,9 @@ class ApplicationState(QObject):
         '''
         return self._datasets[ds_id]
 
+    def get_cache(self) -> DataCache:
+        return self._cache
+
     def num_datasets(self):
         ''' Return the number of datasets in the application state. '''
         return len(self._datasets)
@@ -295,12 +309,23 @@ class ApplicationState(QObject):
     def remove_dataset(self, ds_id: int):
         '''
         Remove the dataset with the specified numeric ID from the application
-        state.  If the ID is unrecognized then a KeyError will be raised.
+        state and the cache. If the ID is unrecognized then a KeyError will 
+        be raised.
 
         The method will fire a signal indicating that the dataset was removed.
         '''
-        del self._datasets[ds_id]
+        dataset_to_del = self._datasets[ds_id]
+        dataset_to_del.delete_underlying_dataset()
+        # First we remove it form the computation cache
+        comp_cache = self._cache.get_computation_cache()
+        comp_key = comp_cache.get_cache_key(dataset_to_del)
+        comp_cache.remove_cache_item(comp_key)
 
+        # Next we remove it from the render cache 
+        render_cache = self._cache.get_render_cache()
+        render_cache.clear_keys_from_partial(render_cache.get_partial_key(dataset_to_del))
+
+        del self._datasets[ds_id]
         # Remove all stretches that are associated with this data set
         for key in list(self._stretches.keys()):
             if key[0] == ds_id:
@@ -339,7 +364,6 @@ class ApplicationState(QObject):
         if len(bands) != len(stretches):
             raise ValueError('bands and stretches must both be the same ' +
                 f'length (got {len(bands)} bands, {len(stretches)} stretches)')
-
         for i in range(len(bands)):
             key = (ds_id, bands[i])
             stretch = stretches[i]
