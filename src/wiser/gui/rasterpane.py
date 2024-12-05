@@ -26,6 +26,8 @@ from wiser.raster.selection import SelectionType, Selection, SinglePixelSelectio
 from wiser.raster.spectra_export import export_roi_pixel_spectra
 from wiser.raster.spectrum import ROIAverageSpectrum
 
+from wiser.gui.app_state import ApplicationState
+
 from .ui_roi import draw_roi, get_picked_roi_selections
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
 from .ui_selection_polygon import PolygonSelectionCreator, PolygonSelectionEditor
@@ -59,8 +61,8 @@ class TiledRasterView(RasterView):
     builder, and a widget to choose the dataset being displayed.
     '''
 
-    def __init__(self, rasterpane, position, parent=None, forward=None):
-        super().__init__(parent=parent, forward=forward)
+    def __init__(self, rasterpane, position, app_state: ApplicationState, parent=None, forward=None):
+        super().__init__(parent=parent, forward=forward, app_state=app_state)
 
         self._rasterpane = rasterpane
         self._position = position
@@ -268,7 +270,7 @@ class RasterPane(QWidget):
     viewport_change = Signal(tuple)
 
 
-    def __init__(self, app_state, parent=None, size_hint=None,
+    def __init__(self, app_state: ApplicationState, parent=None, size_hint=None,
                  embed_toolbar=True, select_tools=True,
                  min_zoom_scale=None, max_zoom_scale=None, zoom_options=None,
                  initial_zoom=None):
@@ -309,6 +311,7 @@ class RasterPane(QWidget):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+        self._app_state.mainview_dataset_changed.connect(self._on_dataset_added)
         self._app_state.stretch_changed.connect(self._on_stretch_changed)
 
 
@@ -519,7 +522,7 @@ class RasterPane(QWidget):
 
                 rasterview = self._rasterviews.get(position)
                 if rasterview is None:
-                    rasterview = TiledRasterView(self, position, forward=forward)
+                    rasterview = TiledRasterView(self, position, self._app_state, forward=forward)
                     rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
 
                     self._rasterviews[position] = rasterview
@@ -569,7 +572,7 @@ class RasterPane(QWidget):
         return len(self._rasterviews) > 1
 
 
-    def get_rasterview(self, rasterview_pos=(0, 0)):
+    def get_rasterview(self, rasterview_pos=(0, 0)) -> RasterView:
         '''
         Returns the raster-view at the specified (row, column) position in the
         raster-pane.  The default (row, column) value is (0, 0), which can be
@@ -933,7 +936,7 @@ class RasterPane(QWidget):
         return rasterview.get_raster_data()
 
 
-    def show_dataset(self, dataset, rasterview_pos=(0, 0)):
+    def show_dataset(self, dataset: RasterDataSet, rasterview_pos=(0, 0)):
         '''
         Sets the dataset being displayed in the specified view of the raster
         pane.
@@ -1124,7 +1127,16 @@ class RasterPane(QWidget):
         this is the first dataset loaded, the function shows it in all
         rasterviews.
         '''
-
+        self._view_dataset(ds_id)
+    
+    def _view_dataset(self, ds_id):
+        '''
+        This function changes the current raster pane's view to that of the dataset
+        from ds_id.
+        It records the initial display bands to use for the dataset.  Also, if
+        this is the first dataset loaded, the function shows it in all
+        rasterviews.
+        '''
         dataset = self._app_state.get_dataset(ds_id)
         bands = find_display_bands(dataset)
         self._display_bands[ds_id] = bands
@@ -1149,8 +1161,6 @@ class RasterPane(QWidget):
         # Always do this when we add a data set
         self._act_band_chooser.setEnabled(True)
         self._update_zoom_widgets()
-
-
 
     def _on_dataset_removed(self, ds_id):
         '''
@@ -1210,7 +1220,7 @@ class RasterPane(QWidget):
         # print(f'on_stretch_builder invoked for position {rasterview_pos}')
 
         if self._stretch_builder is None:
-            self._stretch_builder = StretchBuilderDialog(parent=self)
+            self._stretch_builder = StretchBuilderDialog(parent=self, app_state=self._app_state)
 
         rasterview = self.get_rasterview(rasterview_pos)
         self._stretch_builder.show(rasterview.get_raster_data(),
@@ -1230,7 +1240,6 @@ class RasterPane(QWidget):
                 bands = rv.get_display_bands()
                 stretches = self._app_state.get_stretches(ds_id, bands)
                 rv.set_stretches(stretches)
-
 
     def _on_zoom_in(self, evt):
         ''' Zoom in the zoom-view by one level. '''

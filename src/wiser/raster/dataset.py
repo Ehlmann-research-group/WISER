@@ -1,5 +1,3 @@
-import abc
-from abc import abstractmethod
 import copy
 import math
 
@@ -10,13 +8,18 @@ from astropy import units as u
 
 from osgeo import osr
 
-from .dataset_impl import RasterDataImpl
+from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from .utils import find_band_near_wavelength
+from .utils import find_band_near_wavelength, normalize_ndarray_using_njit
+from .data_cache import DataCache
+
+import time
+from time import perf_counter
 
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
+DEFAULT_MASK_VALUE = 0
 
 def pixel_coord_to_geo_coord(pixel_coord: Tuple[Number, Number],
         geo_transform: Tuple[Number, Number, Number, Number, Number, Number]) -> Tuple[Number, Number]:
@@ -79,7 +82,7 @@ class RasterDataSet:
     data for each pixel.
     '''
 
-    def __init__(self, impl: RasterDataImpl):
+    def __init__(self, impl: RasterDataImpl, data_cache: DataCache = None):
 
         if impl is None:
             raise ValueError('impl cannot be None')
@@ -88,6 +91,8 @@ class RasterDataSet:
         self._id: Optional[int] = None
 
         self._impl: RasterDataImpl = impl
+
+        self._data_cache = data_cache
 
         self._name: Optional[str] = None
 
@@ -133,6 +138,8 @@ class RasterDataSet:
 
         return True
 
+    def get_cache(self) -> DataCache:
+        return self._data_cache
 
     def set_dirty(self, dirty: bool = True):
         self._dirty = dirty
@@ -231,6 +238,19 @@ class RasterDataSet:
         '''
         return self._impl.get_elem_type()
 
+    def get_band_memory_size(self) -> int:
+        '''
+        Returns the approximate size of a band of this dataset.
+        It's approximate because this doesn't account for compression
+        '''
+        return self.get_width() * self.get_height() * self.get_elem_type().itemsize
+    
+    def get_memory_size(self) -> int:
+        '''
+        Returns the approximate size of this dataset.
+        It's approximate because this doesn't account for compression
+        '''
+        return self.get_band_memory_size() * self.num_bands()
 
     def get_band_unit(self) -> Optional[u.Unit]:
         '''
@@ -308,7 +328,7 @@ class RasterDataSet:
 
 
     def set_data_ignore_value(self, ignore_value: Optional[Number]) -> None:
-        self._data_ignore_value = value
+        self._data_ignore_value = ignore_value
         self.set_dirty()
 
 
@@ -351,15 +371,22 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        arr = self._impl.get_image_data()
+        arr = None
+        if self._data_cache:
+            cache = self._data_cache.get_computation_cache()
+            key = cache.get_cache_key(self)
+            arr = cache.get_cache_item(key)
+        if arr is None:
+            arr = self._impl.get_image_data()
 
-        if filter_data_ignore_value and self._data_ignore_value is not None:
-            arr = np.ma.masked_values(arr, self._data_ignore_value)
-
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+            if self._data_cache:
+                cache.add_cache_item(key, arr)
         return arr
 
 
-    def get_band_data(self, band_index: int, filter_data_ignore_value=True):
+    def get_band_data(self, band_index: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
         is at index 0.
@@ -372,15 +399,116 @@ class RasterDataSet:
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        arr = self._impl.get_band_data(band_index)
+        arr = None
+        if self._data_cache:
+            cache = self._data_cache.get_computation_cache()
+            key = cache.get_cache_key(self, band_index)
+            arr = cache.get_cache_item(key)
+        if arr is None:
+            arr = self._impl.get_band_data(band_index)
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+            if self._data_cache:
+                cache.add_cache_item(key, arr)
+            self.cache_band_stats(band_index, arr)
+
+        return arr
+    
+    def get_band_data_normalized(self, band_index: int, band_min = None, band_max = None, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
+        '''
+        Returns a numpy 2D array of the specified band's data.  The first band
+        is at index 0.
+
+        The numpy array is configured such that the pixel (x, y) values are at
+        element array[y][x].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        arr = None
+        if self._data_cache:
+            cache = self._data_cache.get_computation_cache()
+            key = cache.get_cache_key(self, band_index)
+            arr = cache.get_cache_item(key)
+        if arr is None:
+            arr = self._impl.get_band_data(band_index)
+            
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+        
+            # Must get min after making it a masked array
+            if band_index in self._cached_band_stats:
+                band_min = self._cached_band_stats[band_index].get_min()
+                band_max = self._cached_band_stats[band_index].get_max()
+            else:
+                has_inf = np.isinf(arr).any()
+
+                filtered_arr = arr
+                if has_inf:
+                    filtered_arr = arr[np.isfinite(arr)]
+
+                if band_min is None:
+                    band_min = np.nanmin(filtered_arr)
+                if band_max is None:
+                    band_max = np.nanmax(filtered_arr)
+            stats = BandStats(band_index, band_min, band_max)
+            if isinstance(arr, np.ma.masked_array):
+                mask = arr.mask
+                arr = normalize_ndarray_using_njit(arr.data, band_min, band_max)
+                arr = np.ma.masked_array(arr, mask=mask)
+            else:
+                arr = normalize_ndarray_using_njit(arr, band_min, band_max)
+
+            self._cached_band_stats[band_index] = stats
+
+            if self._data_cache:
+                cache.add_cache_item(key, arr)
+
+        return arr
+    
+    def sample_band_data(self, band_index: int, sample_factor: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
+        '''
+        Returns a numpy 2D array of the specified band's data.  The first band
+        is at index 0.
+
+        The numpy array is configured such that the pixel (x, y) values are at
+        element array[y][x].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        arr : Union[np.ndarray, np.ma.masked_array] = self._impl.sample_band_data(band_index, sample_factor)
+
 
         if filter_data_ignore_value and self._data_ignore_value is not None:
             arr = np.ma.masked_values(arr, self._data_ignore_value)
 
         return arr
 
+    def get_multiple_band_data(self, band_list: List[int], filter_data_ignore_value=True):
+        '''
+        Returns a numpy 3D array of the specified images band data for all pixels in those
+        bands.
+        The numpy array is configured such that the pixel (x, y) for band b values are at
+        element array[b][y][x].
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        arr = self._impl.get_multiple_band_data(band_list)
 
-    def get_band_stats(self, band_index: int):
+        if filter_data_ignore_value and self._data_ignore_value is not None:
+            arr = np.ma.masked_values(arr, self._data_ignore_value)
+
+        return arr
+
+    def get_band_stats(self, band_index: int, band: Union[np.ndarray, np.ma.masked_array] = None):
         '''
         Returns statistics of the specified band's data, wrapped in a
         :class:`BandStats` object.
@@ -388,10 +516,19 @@ class RasterDataSet:
 
         stats = self._cached_band_stats.get(band_index)
         if stats is None:
-            band = self.get_band_data(band_index)
-            stats = BandStats(band_index, np.nanmin(band), np.nanmax(band))
-            self._cached_band_stats[band_index] = stats
+            if band is None:
+                band = self.get_band_data(band_index)
 
+            has_inf = np.isinf(band).any()
+            filtered_band = band
+            if has_inf:
+                filtered_band = band[np.isfinite(band)]
+    
+            band_min = np.nanmin(filtered_band)
+            band_max = np.nanmax(filtered_band)
+            stats = BandStats(band_index, band_min, band_max)
+            
+            self._cached_band_stats[band_index] = stats
         return stats
 
 
@@ -411,15 +548,52 @@ class RasterDataSet:
             for i, v in enumerate(self.get_bad_bands()):
                 if v == 0:
                     # Band is marked "bad"
-                    arr[i] = np.nan
+                    try:
+                        arr[i] = np.nan
+                    except:
+                        arr[i] = DEFAULT_MASK_VALUE
 
                 elif (self._data_ignore_value is not None and
                       math.isclose(arr[i], self._data_ignore_value)):
                     # Band has the "data ignore" value
-                    arr[i] = np.nan
+                    try:
+                        arr[i] = np.nan
+                    except:
+                        arr[i] = DEFAULT_MASK_VALUE
 
         return arr
 
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int, filter_bad_values=True):
+        '''
+        Returns a numpy 2D array of the values of all bands at the specified
+        rectangle in the raster data.
+        If filter_bad_values is set to True, bands that are marked as "bad" in
+        the metadata will be set to NaN, and bands with the "data ignore value"
+        will also be set to NaN.
+        '''
+        arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
+        if filter_bad_values:
+            arr = arr.copy()
+            # Make mask for the bad band values
+            mask = np.array(self.get_bad_bands())
+            assert np.all((mask == 0) | (mask == 1)), "Bad bands mask contains values other than 0 or 1"
+            assert (arr.shape[0] == len(mask)), "Length of mask does not match number of spectra"
+    
+            # In the mask, 1 means keep and 0 means get rid of, I use XOR with 1 to reverse this
+            # because np's mask operation (arr[mask]) would switch all the values where the mask is 1
+            mask = np.where((mask==0)|(mask==1), mask^1, mask)
+            mask = mask.astype(bool)
+            for i in range(arr.shape[1]):
+                for j in range(arr.shape[2]):
+                    arr[:,i,j][mask] = np.nan
+            if self._data_ignore_value is not None:
+                mask_ignore_val = np.isclose(arr, self._data_ignore_value)
+                try:
+                    arr[mask_ignore_val] = np.nan
+                except BaseException as e:
+                    print(f"Exception occured when trying to mask array with np.nan:\n{e}")
+                    arr[mask_ignore_val] = DEFAULT_MASK_VALUE
+        return arr
 
     def get_geo_transform(self) -> Tuple:
         '''
@@ -446,10 +620,23 @@ class RasterDataSet:
         '''
         return self._spatial_ref
 
+
     '''
     def has_geographic_info(self) -> bool:
         return self._spatial_ref is not None
     '''
+
+
+    def cache_band_stats(self, index, arr: np.ndarray):
+        """
+        Stores the band stats in this dataset's cache for band stats
+        """
+        if index not in self._cached_band_stats:
+            band_min = np.nanmin(arr)
+            band_max = np.nanmax(arr)
+            band_stats = BandStats(index, band_min, band_max)
+            self._cached_band_stats[index] = band_stats
+
 
     def to_geographic_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
         if self._spatial_ref is None:
@@ -534,6 +721,38 @@ class RasterDataSet:
 
         self.set_dirty()
 
+    def get_save_state(self):
+        return self._impl.get_save_state()
+
+    def set_save_state(self, save_state: SaveState):
+        self._impl.set_save_state(save_state)
+    
+    def get_impl(self):
+        return self._impl
+
+    def delete_underlying_dataset(self):
+        if hasattr(self._impl, 'delete_dataset'):
+            self._impl.delete_dataset()
+            return True
+        return False
+
+    def __hash__(self):
+        return hash(tuple(self.get_filepaths()))
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, RasterDataSet):
+            our_filepaths = self.get_filepaths()
+            other_filepaths = other.get_filepaths()
+            if our_filepaths != other_filepaths:
+                return False
+            if self.get_data_ignore_value() != other.get_data_ignore_value():
+                return False
+            if self.get_bad_bands() != other.get_bad_bands():
+                return False
+        else:
+            return False
+        return True
+
 
 class RasterDataBand:
     '''
@@ -597,7 +816,6 @@ class RasterDataBand:
         object.
         '''
         return self._dataset.get_band_stats(self._band_index)
-
 
 def find_truecolor_bands(dataset: RasterDataSet,
                          red: u.Quantity = RED_WAVELENGTH,

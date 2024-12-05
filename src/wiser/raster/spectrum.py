@@ -3,6 +3,8 @@ import enum
 import os
 from typing import List, Optional, Tuple
 
+from collections import deque
+
 from PySide2.QtCore import *
 
 import numpy as np
@@ -13,6 +15,7 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.roi import RegionOfInterest
+from wiser.raster.selection import SelectionType
 
 
 #============================================================================
@@ -37,6 +40,177 @@ AVG_MODE_NAMES = {
     SpectrumAverageMode.MEDIAN : 'Median',
 }
 
+def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
+    rectangles = []
+    start = None
+
+    for x in range(len(row)):
+        if row[x] == 1 and start is None:
+            start = x  # Start of a new rectangle
+        elif row[x] == 0 and start is not None:
+            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
+            start = None
+
+    # If the row ends and a rectangle was still open
+    if start is not None:
+        rectangles.append(np.array([start, len(row) - 1, y, y]))
+
+    return rectangles
+
+def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
+    rectangles = []
+    start = None
+
+    for x in range(len(row)):
+        if row[x] == 1 and start is None:
+            start = x  # Start of a new rectangle
+        elif row[x] == 0 and start is not None:
+            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
+            start = None
+
+    # If the row ends and a rectangle was still open
+    if start is not None:
+        rectangles.append(np.array([start, len(row) - 1, y, y]))
+
+    return rectangles
+
+def raster_to_combined_rectangles_x_axis(raster):
+    rectangles = []
+    previous_row_rectangles = deque()
+    # prev_row_rect_to_keep = []
+
+    for y in range(raster.shape[0]):  # For each row (y-coordinate)
+        row = raster[y]
+        current_row_rectangles = find_rectangles_in_row(row, y)
+
+        # Get all of the previous rectangles (from previous row or continued on from farther back rows)
+        # Since we haven't yet added the previous row's rectangles to our final set of rectangles, if there
+        # are no matches with a current rectangle then it is safe to add it in with the final set of rects
+        for i in range(len(previous_row_rectangles)):
+            prev_rect = previous_row_rectangles.pop()
+            prev_x_start, prev_x_end, prev_y_start, prev_y_end = prev_rect
+
+            merged = False
+            # Get all of the rectangles in the current row, we will compare each previous rectangle
+            # with all the rectangles in the current row. If there is a match in x and y values 
+            # between the previous rectangle and a current row rectangle, then we update the current
+            # row rectangle's size to expand. Then when we add this rectangle to previous row rectangles
+            # it will have carried over.
+            # If there isn't a merge, we add the previous rect to rectangles.
+            for curr_rect in current_row_rectangles:
+                x_start, x_end, y_start, y_end = curr_rect
+
+
+                # If the current rectangle does match with a previous rectangle
+                if prev_x_start == x_start and prev_x_end == x_end and prev_y_end == y - 1:
+                    # Merge the current rectangle with the previous one
+                    curr_rect[-2] = prev_y_start
+                    merged = True
+                    break
+
+
+            # If the previous rectangle here does not continue from a current rows, we immediately add it to rectangles
+            # which we can do because we know it won't show up again 
+            if not merged:
+                rectangles.append(np.array(prev_rect))
+
+        # We make the previous row rectangles the be the current row to "move on" from this row
+        # The current rectangles are updated to get merged into the previous ones and nothing is doubly added
+        previous_row_rectangles = current_row_rectangles
+
+    # For the last row it is never treated as a previous row (which would let it be added to rectangles), so we just add it to rectangles 
+    rectangles += list(previous_row_rectangles)  # Accumulate merged rectangles
+
+    return np.array(rectangles)
+
+def raster_to_combined_rectangles_y_axis(raster_y: np.ndarray):
+    raster_x = raster_y.T
+    rectangles_x = raster_to_combined_rectangles_x_axis(raster_x)
+    rectangles_y = rectangles_x[:, [0, 1, 2, 3]] = rectangles_x[:, [2, 3, 0, 1]]
+    return rectangles_y
+
+def array_to_qrects(array):
+    qrects = []
+    for row in array:
+        x1, x2, y1, y2 = row
+        # QRect takes (x, y, width, height), so calculate width and height
+        width = x2 - x1 + 1
+        height = y2 - y1 + 1
+        qrects.append(QRect(x1, y1, width, height))
+    return qrects
+
+def create_raster_from_roi(roi: RegionOfInterest) -> np.ndarray:
+    bbox = roi.get_bounding_box()
+    pixels = roi.get_all_pixels()
+
+    xmin = bbox.topLeft().x()
+    ymin = bbox.topLeft().y()
+    
+    raster = np.zeros((bbox.height(), bbox.width()), dtype=np.uint8)
+    
+    for pixel in pixels:
+        pixel_x, pixel_y = pixel[0], pixel[1]
+        pixel_index_x, pixel_index_y = pixel_x - xmin, pixel_y - ymin
+        raster[pixel_index_y][pixel_index_x] = 1
+    return raster
+
+def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
+                  mode=SpectrumAverageMode.MEAN):
+    '''
+    Calculate a spectrum over a collection of points from the specified dataset.
+    The calculation mode can be specified with the mode argument.
+    The points argument can be any iterable that produces coordinates for this
+    function to use.
+    '''
+    spectra = []
+
+    # We make a raster out of all of the pixels in the ROI
+    raster = create_raster_from_roi(roi)
+
+    # We do a variant of the Run Line Encoding (RLE) algorithm in the x direction
+    # and the y direction
+    rect_x_axis = raster_to_combined_rectangles_x_axis(raster)
+    rect_y_axis = raster_to_combined_rectangles_y_axis(raster)
+    bbox = roi.get_bounding_box()
+
+    rects = None
+    if len(rect_x_axis) < len(rect_y_axis):
+        rects = rect_x_axis
+    else:
+        rects = rect_y_axis
+
+    # We need to make the rectangles we got from the 'RLE' algorithm
+    # be in the image coordinate system
+    rects[:,:2] += bbox.left()
+    rects[:,2:] += bbox.top()
+
+    # Accessing by rectangular blocks is faster than accessing point by point
+    qrects = array_to_qrects(rects)
+    for qrect in qrects:
+        s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
+        for i in range(s.shape[1]):
+            for j in range(s.shape[2]):
+                spectra.append(s[:,i,j])
+
+    assert(len(spectra) == len(roi.get_all_pixels()))
+
+    if len(spectra) > 1:
+        print("Spectra computing starting")
+        # Need to compute mean/median/... of the collection of spectra
+        if mode == SpectrumAverageMode.MEAN:
+            print("Spectra: ", type(spectra))
+            spectrum = np.nanmean(spectra, axis=0)
+        elif mode == SpectrumAverageMode.MEDIAN:
+            spectrum = np.nanmedian(spectra, axis=0)
+        else:
+            raise ValueError(f'Unrecognized average type {mode}')
+        print("Spectra computing ended")
+
+    else:
+        # Only one spectrum, don't need to compute mean/median
+        spectrum = spectra[0]
+
+    return spectrum
 
 def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
     '''
@@ -116,7 +290,7 @@ def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spectr
     Calculate a spectrum over a Region of Interest from the specified dataset.
     The calculation mode can be specified with the mode argument.
     '''
-    return calc_spectrum(dataset, roi.get_all_pixels(), mode)
+    return calc_spectrum_fast(dataset, roi, mode)
 
 
 #============================================================================
@@ -433,12 +607,14 @@ class RasterDataSetSpectrum(Spectrum):
         Returns a list of wavelength values corresponding to each band.  The
         individual values are astropy values-with-units.
         '''
+        # print(f"get_wavelengths: {self._dataset.band_list()}")
         bands =  [b['wavelength'] for b in self._dataset.band_list()]
 
         if filter_bad_bands:
             bad_bands = self._dataset.get_bad_bands()
             bands = [bands[i] for i in range(len(bands)) if bad_bands[i]]
 
+        # print(f"bands after: {bands}")
         return bands
 
     def _calculate_spectrum(self):

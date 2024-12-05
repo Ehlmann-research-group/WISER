@@ -14,44 +14,185 @@ from matplotlib import cm
 
 from .util import get_painter
 
-from wiser.raster.dataset import RasterDataSet, find_display_bands
+from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import StretchBase
-from wiser.raster.utils import normalize_ndarray
+from wiser.raster.utils import normalize_ndarray_using_njit
 
+from wiser.gui.app_state import ApplicationState
+
+from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 logger = logging.getLogger(__name__)
 
 
-def make_channel_image(dataset: RasterDataSet, band: int, stretch: StretchBase = None) -> np.ndarray:
+def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     '''
-    Given a raster data set, band index, and optional contrast stretch object,
-    this function generates color channel data into a NumPy array.  Elements in
+    Generates color channel data into a NumPy array. Elements in
     the output array will be in the range [0, 255].
     '''
-    # Extract the raw band data and associated statistics from the data set.
-    raw_data = dataset.get_band_data(band)
-    stats = dataset.get_band_stats(band)
+    # Assume stretch is None or callable
+    temp_data = normalized_band.astype(np.float32)
 
-    # Normalize the raw band data.
-    band_data = normalize_ndarray(raw_data,
-        minval=stats.get_min(), maxval=stats.get_max())
+    if stretch1 is not None:
+        stretch1.apply(temp_data)
 
-    # If a stretch is specified for the channel, apply it to the
-    # normalized band data.
-    if stretch is not None:
-        stretch.apply(band_data)
+    if stretch2 is not None:
+        stretch2.apply(temp_data)
 
-    # Clip the data to be in the range [0.0, 1.0].  This should not
-    # remove NaNs.
-    np.clip(band_data, 0.0, 1.0, out=band_data)
+    # Clip values to [0, 1]
+    np.clip(temp_data, 0.0, 1.0, out=temp_data)
 
-    # Finally, convert the normalized (and possibly stretched) band
-    # data into a color channel with values in the range [0, 255].
-    # TODO(donnie):  Is it faster to use uint8 for large images?
-    channel_data = (band_data * 255.0).astype(np.uint32)
+    temp_data = (temp_data * 255.0)
 
-    return channel_data
+    return temp_data.astype(np.uint8)
 
+@numba_njit_wrapper(non_njit_func=make_channel_image)
+def make_channel_image_using_numba(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
+    '''
+    Generates color channel data into a NumPy array. Elements in
+    the output array will be in the range [0, 255].
+    '''
+    # Assume stretch is None or callable
+    temp_data = normalized_band.astype(np.float32)
+
+    if stretch1 is not None:
+        stretch1.apply(temp_data)
+
+    if stretch2 is not None:
+        stretch2.apply(temp_data)
+
+    # Clip values to [0, 1]
+    for i in range(temp_data.shape[0]):
+        for j in range(temp_data.shape[1]):
+            temp_data[i, j] = max(0.0, min(1.0, temp_data[i, j]))
+
+    # Scale to [0, 255] and convert to uint8
+    for i in range(temp_data.shape[0]):
+        for j in range(temp_data.shape[1]):
+            temp_data[i, j] = temp_data[i, j] * 255.0
+
+    return temp_data.astype(np.uint8)
+
+
+def check_channel(c):
+    min_val = np.nanmin(c)
+    max_val = np.nanmax(c)
+    has_nan = np.isnan(min_val) or np.isnan(max_val)
+    assert not has_nan and 0 <= min_val <= 255 and 0 <= max_val <= 255, \
+        "Channel may only contain values in range 0..255, and no NaNs"
+
+
+@numba_njit_wrapper(non_njit_func=check_channel)
+def check_channel_using_numba(c):
+    min_val = np.nanmin(c)
+    max_val = np.nanmax(c)
+    has_nan = np.isnan(min_val) or np.isnan(max_val)
+    assert not has_nan and 0 <= min_val <= 255 and 0 <= max_val <= 255, \
+        "Channel may only contain values in range 0..255, and no NaNs"
+
+
+def make_rgb_image(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np.ndarray:
+    '''
+    Given a list of 3 color channels of the same dimensions, this function
+    combines them together into an RGB image.  The first, second and third
+    channels are correspondingly used for the red, green and blue channels of
+    the resulting image.
+
+    An exception is raised if:
+    *   A number of channels is specified other than 3.
+    *   Any channel is not of type ``np.uint8``, ``np.uint16``, or ``np.uint32``.
+    *   The channels do not all have the same dimensions (shape).
+
+    If optimizations are not enabled, the function also verifies that all
+    channel values are in the range [0, 255]; since this is an expensive check,
+    it is disabled if optimizations are turned on.
+    '''
+
+    if ch1.dtype not in [np.uint8, np.uint16, np.uint32]:
+        raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {ch1.dtype}')
+    
+    if ch2.dtype not in [np.uint8, np.uint16, np.uint32]:
+        raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {ch2.dtype}')
+    
+    if ch3.dtype not in [np.uint8, np.uint16, np.uint32]:
+        raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {ch3.dtype}')
+
+    if ch1.shape != ch2.shape or ch1.shape != ch3.shape or ch2.shape != ch3.shape:
+        raise ValueError(f'All channels must have the same dimensions')
+
+    # Expensive sanity checks:
+    if __debug__:
+        assert (0 <= np.amin(ch1) <= 255) and (0 <= np.amax(ch1) <= 255), \
+            'Channel may only contain values in range 0..255, and no NaNs'
+
+    rgb_data = np.zeros(ch1.shape, dtype=np.uint32)
+    rgb_data |= ch1
+    rgb_data = rgb_data << 8
+    rgb_data |= ch2
+    rgb_data = rgb_data << 8
+    rgb_data |= ch3
+    rgb_data |= 0xff000000
+
+    if isinstance(rgb_data, np.ma.MaskedArray):
+        rgb_data.fill_value = 0xff000000
+
+    # Qt5/PySide2 complains if the array is not contiguous.
+    if not rgb_data.flags['C_CONTIGUOUS']:
+        rgb_data = np.ascontiguousarray(rgb_data)
+
+    return rgb_data
+
+@numba_njit_wrapper(non_njit_func=make_rgb_image)
+def make_rgb_image_using_numba(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np.ndarray:
+    '''
+    Given three color channels of the same dimensions, this function
+    combines them together into an RGB image. The first, second, and third
+    channels are used for the red, green, and blue channels of the resulting image.
+
+    An exception is raised if:
+    * The channels do not all have the same dimensions (shape).
+    * Any channel is not of type ``np.uint8``.
+    * Any channel contains values outside the range [0, 255] or contains NaNs.
+
+    Note: This function assumes that masked arrays are not used.
+    '''
+
+    # Ensure all channels have the same dimensions
+    assert ch1.shape == ch2.shape and ch1.shape == ch3.shape, \
+        "All channels must have the same dimensions"
+
+    # Expensive sanity checks
+    check_channel_using_numba(ch1)
+    check_channel_using_numba(ch2)
+    check_channel_using_numba(ch3)
+
+    # Get the shape of the channels
+    shape = ch1.shape
+    rgb_data = np.zeros(shape, dtype=np.uint32)
+
+    # Flatten arrays for easier looping
+    r_flat = ch1.reshape((-1))
+    g_flat = ch2.reshape((-1))
+    b_flat = ch3.reshape((-1))
+    rgb_flat = rgb_data.reshape((-1))
+
+    n_elements = r_flat.size
+
+    for i in range(n_elements):
+        r = np.uint8(r_flat[i])
+        g = np.uint8(g_flat[i])
+        b = np.uint8(b_flat[i])
+        rgb_flat[i] |= r
+        rgb_flat[i] = rgb_flat[i] << 8
+        rgb_flat[i] |= g
+        rgb_flat[i] = rgb_flat[i] << 8
+        rgb_flat[i] |= b
+        rgb_flat[i] |= 0xff000000
+
+    # Reshape back to original shape
+    rgb_data = rgb_flat.reshape(shape)
+
+    return rgb_data
 
 def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
     '''
@@ -86,14 +227,30 @@ def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
 
     # Expensive sanity checks:
     if __debug__:
-        assert (0 <= np.amin(c) <= 255) and (0 <= np.amax(c) <= 255), \
+        assert (0 <= np.nanmin(c) <= 255) and (0 <= np.nanmax(c) <= 255), \
             'Channel may only contain values in range 0..255, and no NaNs'
+    
+    assert channels[0].dtype == np.uint8 and \
+            channels[1].dtype == np.uint8 and \
+            channels[2].dtype == np.uint8
 
-    rgb_data = (channels[0] << 16 |
-                channels[1] <<  8 |
-                channels[2]) | 0xff000000
-    if isinstance(rgb_data, np.ma.MaskedArray):
-        rgb_data.fill_value = 0xff000000
+    if isinstance(channels[0], np.ma.MaskedArray):
+        # Create a masked array of zeros with the same shape as the channels
+        rgb_data = np.ma.zeros(channels[0].shape, dtype=np.uint32)
+        rgb_data.mask = channels[0].mask
+    else:
+        # Create a regular array of zeros
+        rgb_data = np.zeros(channels[0].shape, dtype=np.uint32)
+
+    rgb_data |= channels[0]
+    rgb_data = rgb_data << 8
+    rgb_data |= channels[1]
+    rgb_data = rgb_data << 8
+    rgb_data |= channels[2]
+    rgb_data |= 0xff000000
+
+    if isinstance(channels[0], np.ma.MaskedArray):
+        rgb_data.fill_value = 0xff000000  # Set the fill value for the masked array
 
     # Qt5/PySide2 complains if the array is not contiguous.
     if not rgb_data.flags['C_CONTIGUOUS']:
@@ -115,12 +272,19 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
     channel values are in the range [0, 255]; since this is an expensive check,
     it is disabled if optimizations are turned on.
     '''
-
     def make_colormap_array(cmap):
         result = []
         for v in range(256):
             rgba = cmap(v, bytes=True)
-            result.append(rgba[0] << 16 | rgba[1] << 8 | rgba[2] | 0xff000000)
+            elem = np.uint32(0)
+            elem |= rgba[0]
+            elem = elem << 8
+            elem |= rgba[1]
+            elem = elem << 8
+            elem |= rgba[2]
+            elem |= 0xff000000
+
+            result.append(elem)
 
         return np.array(result, np.uint32)
 
@@ -133,9 +297,23 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
         assert (0 <= np.amin(channel) <= 255) and (0 <= np.amax(channel) <= 255), \
             'Channel may only contain values in range 0..255, and no NaNs'
 
+    if isinstance(channel, np.ma.MaskedArray):
+        # Create a masked array of zeros with the same shape as the channels
+        rgb_data = np.ma.zeros(channel.shape, dtype=np.uint32)
+        rgb_data.fill_value = 0xff000000  # Set the fill value for the masked array
+    else:
+        # Create a regular array of zeros
+        rgb_data = np.zeros(channel.shape, dtype=np.uint32)
+    
     if colormap is None:
         # Use the channel data to generate various gray RGB values.
-        rgb_data = (channel << 16 | channel << 8 | channel) | 0xff000000
+        
+        rgb_data |= channel
+        rgb_data = rgb_data << 8
+        rgb_data |= channel
+        rgb_data = rgb_data << 8
+        rgb_data |= channel
+        rgb_data |= 0xff000000
 
     else:
         # Map the channel data to RGB colors using the colormap.
@@ -151,7 +329,6 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
         rgb_data = np.ascontiguousarray(rgb_data)
 
     return rgb_data
-
 
 
 class ImageColors(enum.IntFlag):
@@ -308,7 +485,6 @@ class ImageScrollArea(QScrollArea):
         if 'scrollContentsBy' in self._forward:
             self._forward['scrollContentsBy'](self._rasterview, dx, dy)
 
-
 class RasterView(QWidget):
     '''
     A general-purpose widget for viewing raster datasets at varying zoom levels,
@@ -316,11 +492,13 @@ class RasterView(QWidget):
     regions of interest, etc.
     '''
 
-    def __init__(self, parent=None, forward=None):
+    def __init__(self, parent=None, forward=None, app_state: ApplicationState = None):
         super().__init__(parent=parent)
 
         if forward == None:
             forward = {}
+
+        self._app_state = app_state
 
         # Initialize fields in the object
         self._clear_members()
@@ -364,7 +542,6 @@ class RasterView(QWidget):
         A helper function to clear all raster dataset members when the dataset
         changes.  This way we don't accidentally leave anything out.
         '''
-
         self._raster_data = None
         self._display_bands = None
         self._colormap: Optional[str] = None
@@ -413,7 +590,6 @@ class RasterView(QWidget):
             self._stretches = None
 
         self.update_display_image()
-
 
     def get_raster_data(self) -> Optional[RasterDataSet]:
         '''
@@ -474,8 +650,8 @@ class RasterView(QWidget):
     def get_colormap(self) -> Optional[str]:
         return self._colormap
 
-
     def update_display_image(self, colors=ImageColors.RGB):
+        img_data = None
         if self._raster_data is None:
             # No raster data to display
             self._image_widget.set_dataset_info(None, self._scale_factor)
@@ -485,22 +661,59 @@ class RasterView(QWidget):
         # have data for it, and if we aren't told to explicitly regenerate it.
 
         assert len(self._display_bands) in [1, 3]
+        cache = self._raster_data.get_cache().get_render_cache()
+        key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches)
 
         time_1 = time.perf_counter()
-
-        if len(self._display_bands) == 3:
+        if cache.in_cache(key):
+            img_data = cache.get_cache_item(key)
+            time_2 = time.perf_counter()
+        elif len(self._display_bands) == 3:
             # Check each color band to see if we need to update it.
             color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
             for i in range(len(self._display_bands)):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Compute the contents of this color channel.
-                    self._display_data[i] = make_channel_image(self._raster_data,
-                        self._display_bands[i], self._stretches[i])
+            
+                    arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
+        
+                    band_data = arr
+                    band_mask = None
+                    if isinstance(arr, np.ma.masked_array):
+                        band_data = arr.data
+                        band_mask = arr.mask
+                    stretches = [None, None]
+                    if self._stretches[i]:
+                        stretches = self._stretches[i].get_stretches()
+                    new_data = make_channel_image_using_numba(band_data, stretches[0], stretches[1])
+
+                    new_arr = new_data
+                    if isinstance(arr, np.ma.masked_array):
+                        new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                        new_arr.data[band_mask] = 0
+
+                    self._display_data[i] = new_arr
 
             time_2 = time.perf_counter()
 
-            # Combine our individual color channel(s) into a single RGB image.
-            img_data = make_rgb_image(self._display_data)
+            use_njit = True
+            if use_njit:
+                if isinstance(self._display_data[0], np.ma.masked_array):
+                    band_masks = []
+                    for data in self._display_data:
+                        band_masks.append(data.mask)
+                    img_data = make_rgb_image_using_numba(self._display_data[0].data, self._display_data[1].data, self._display_data[2].data)
+                
+                    if not img_data.flags['C_CONTIGUOUS']:
+                        img_data = np.ascontiguousarray(img_data)
+                    
+                    mask = np.zeros(img_data.shape, dtype=bool)
+                    img_data = np.ma.masked_array(img_data, mask)
+                else:
+                    img_data = make_rgb_image_using_numba(self._display_data[0], self._display_data[1], self._display_data[2])
+            else:
+                img_data = make_rgb_image(self._display_data)
+            cache.add_cache_item(key, img_data)
 
         else:
             # This is a grayscale image.
@@ -509,8 +722,11 @@ class RasterView(QWidget):
                 # generate the first one, then duplicate it for the other two
                 # bands.
 
-                self._display_data[0] = make_channel_image(self._raster_data,
-                    self._display_bands[0], self._stretches[0])
+                arr = self._raster_data.get_band_data_normalized(self._display_bands[0])
+                stretches = [None, None]
+                if self._stretches[0]:
+                    stretches = self._stretches[0].get_stretches()
+                self._display_data[0] = make_channel_image_using_numba(arr, stretches[0], stretches[1])
 
                 self._display_data[1] = self._display_data[0]
                 self._display_data[2] = self._display_data[0]
@@ -519,10 +735,12 @@ class RasterView(QWidget):
 
             # Combine our individual color channel(s) into a single RGB image.
             img_data = make_grayscale_image(self._display_data[0], self._colormap)
+            cache.add_cache_item(key, img_data)
 
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
+        
         self._img_data = img_data
         self._img_data.flags.writeable = False
 
@@ -543,7 +761,6 @@ class RasterView(QWidget):
                      f'qt = {time_4 - time_3:0.02f}s')
 
         self._update_scaled_image()
-
 
     def get_unscaled_pixmap(self) -> QPixmap:
         '''
@@ -584,7 +801,6 @@ class RasterView(QWidget):
 
             self._update_scrollbar(self._scroll_area.verticalScrollBar(),
                 self._scroll_area.viewport().height(), scale_change)
-
 
     def _update_scrollbar(self, scrollbar, view_size, scale_change):
         # The scrollbar's value will be scaled by the scale_change value.  For
@@ -834,7 +1050,6 @@ class RasterView(QWidget):
 
         else:
             print(f'WARNING:  Unrecognized color # {color}')
-
         self.update_display_image(colors=color)
 
 

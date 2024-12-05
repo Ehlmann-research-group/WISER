@@ -9,6 +9,7 @@ from .geom import distance, lines_cross, manhattan_distance
 
 from .ui_selection import CONTROL_POINT_SIZE
 
+from .util import scale_qpoint_by_float
 
 def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
     '''
@@ -24,7 +25,7 @@ def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
     painter.setPen(pen)
 
     points = poly_sel.get_points()
-    points_scaled = [p * scale for p in points]
+    points_scaled = [scale_qpoint_by_float(p, scale) for p in points]
     for i in range(len(points)):
         painter.drawLine(points_scaled[i - 1], points_scaled[i])
 
@@ -121,10 +122,10 @@ class PolygonSelectionCreator(TaskDelegate):
 
         bad_point = False
         closed_loop = False
-
-        points_scaled = [p * scale for p in self._points]
+        points_scaled = [scale_qpoint_by_float(p, scale) \
+                         for p in self._points]
         if self._cursor_position is not None:
-            cp_scaled = self._cursor_position * scale
+            cp_scaled = scale_qpoint_by_float(self._cursor_position, scale)
 
             # Does the last line cross any earlier lines?
             last_line = QLine(points_scaled[-1], cp_scaled)
@@ -260,7 +261,7 @@ class PolygonSelectionEditor(TaskDelegate):
 
     def draw_state(self, painter):
         scale = self._rasterview.get_scale()
-        points_scaled = [p * scale for p in self._control_points]
+        points_scaled = [scale_qpoint_by_float(p, scale) for p in self._control_points]
 
         # Draw the polygon specified by all the points, using a dotted line.
 
