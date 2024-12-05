@@ -226,8 +226,8 @@ class ChannelStretchWidget(QWidget):
         self._update_histogram()
 
         # Set min and max bounds
-        self._min_bound = self.raw_to_norm_value(self._raw_band_stats.get_min())
-        self._max_bound = self.raw_to_norm_value(self._raw_band_stats.get_max()) 
+        self._min_bound = 0.0
+        self._max_bound = 1.0 
 
         # Set stretch low and high
         self.set_stretch_low(0.0)
