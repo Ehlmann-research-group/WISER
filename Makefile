@@ -50,7 +50,7 @@ build-mac : generated
 
 dist-mac : build-mac
 	# Codesign the built application
-	codesign -s $(AD_CODESIGN_KEY_NAME) --deep --force \
+	codesign -s "$(AD_CODESIGN_KEY_NAME)" --deep --force \
 		--entitlements install-mac/entitlements.plist \
 		-o runtime dist/$(APP_NAME).app
 
@@ -62,10 +62,14 @@ dist-mac : build-mac
 	rm dist/tmp.dmg
 
 	# Submit the disk image to Apple for notarization
-	xcrun altool --notarize -f dist/$(APP_NAME)-$(APP_VERSION).dmg \
-		--primary-bundle-id $(OSX_BUNDLE_ID) \
-		-u $(AD_USERNAME) -p $(AD_PASSWORD)
+	# xcrun altool --notarize -f dist/$(APP_NAME)-$(APP_VERSION).dmg \
+	# 	--primary-bundle-id $(OSX_BUNDLE_ID) \
+	# 	-u $(AD_USERNAME) -p $(AD_PASSWORD)
 
+	xcrun notarytool submit dist/$(APP_NAME)-$(APP_VERSION).dmg \
+		--apple-id $(AD_USERNAME) --team-id $(AD_TEAM_ID) --password $(AD_PASSWORD)
+# 
+# while true; do clear; xcrun notarytool info <request-uuid> --keychain-profile "MyProfile"; sleep 10; done
 
 # To debug PyInstaller issues:
 #   - drop the "--windowed" option
