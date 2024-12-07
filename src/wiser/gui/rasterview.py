@@ -16,7 +16,6 @@ from .util import get_painter
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import StretchBase
-from wiser.raster.utils import normalize_ndarray_using_njit
 
 from wiser.gui.app_state import ApplicationState
 
