@@ -10,7 +10,7 @@ from osgeo import osr
 
 from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from .utils import find_band_near_wavelength, normalize_ndarray_using_njit
+from .utils import find_band_near_wavelength, normalize_ndarray_using_njit, set_band
 from .data_cache import DataCache
 
 import time
@@ -574,25 +574,22 @@ class RasterDataSet:
         arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
             arr = arr.copy()
-            # Make mask for the bad band values
-            mask = np.array(self.get_bad_bands())
-            assert np.all((mask == 0) | (mask == 1)), "Bad bands mask contains values other than 0 or 1"
-            assert (arr.shape[0] == len(mask)), "Length of mask does not match number of spectra"
-    
-            # In the mask, 1 means keep and 0 means get rid of, I use XOR with 1 to reverse this
-            # because np's mask operation (arr[mask]) would switch all the values where the mask is 1
-            mask = np.where((mask==0)|(mask==1), mask^1, mask)
-            mask = mask.astype(bool)
-            for i in range(arr.shape[1]):
-                for j in range(arr.shape[2]):
-                    arr[:,i,j][mask] = np.nan
-            if self._data_ignore_value is not None:
-                mask_ignore_val = np.isclose(arr, self._data_ignore_value)
-                try:
-                    arr[mask_ignore_val] = np.nan
-                except BaseException as e:
-                    print(f"Exception occured when trying to mask array with np.nan:\n{e}")
-                    arr[mask_ignore_val] = DEFAULT_MASK_VALUE
+            for i, v in enumerate(self.get_bad_bands()):
+                if v == 0:
+                    # Band is marked "bad"
+                    try:
+                        set_band(arr, i, np.nan)
+                    except:
+                        set_band(arr, i, DEFAULT_MASK_VALUE)
+
+                elif (self._data_ignore_value is not None and
+                      math.isclose(arr[i], self._data_ignore_value)):
+                    # Band has the "data ignore" value
+                    try:
+                        set_band(arr, i, np.nan)
+                    except BaseException as e:
+                        print(f"Exception occured when trying to mask array with np.nan:\n{e}")
+                        set_band(arr, i, DEFAULT_MASK_VALUE)
         return arr
 
     def get_geo_transform(self) -> Tuple:

@@ -94,6 +94,17 @@ def get_band_values(input_bands: List[u.Quantity],
 
     return [convert_spectral(v, to_unit).value for v in input_bands]
 
+def set_band(arr: np.ndarray, band_index: int, value) -> None:
+    '''
+    Sets the specified band (axis 2 index) of a 3D array or the entire array if it is 2D to a given value.
+    '''
+    if arr.ndim == 2:
+        arr[band_index,:] = value
+    elif arr.ndim == 3:
+        arr[band_index,:,:] = value
+    else:
+        raise TypeError(f'The passed in array should only have either 2 or 3 dimensions, but it has: {arr.ndim}')
+
 
 #============================================================================
 # FINDING SUITABLE BANDS IN RASTER DATA SETS
