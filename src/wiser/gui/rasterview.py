@@ -723,11 +723,24 @@ class RasterView(QWidget):
                 # bands.
 
                 arr = self._raster_data.get_band_data_normalized(self._display_bands[0])
+
+                band_data = arr
+                band_mask = None
+                if isinstance(arr, np.ma.masked_array):
+                    band_data = arr.data
+                    band_mask = arr.mask
+
                 stretches = [None, None]
                 if self._stretches[0]:
                     stretches = self._stretches[0].get_stretches()
-                self._display_data[0] = make_channel_image_using_numba(arr, stretches[0], stretches[1])
+                new_data  = make_channel_image_using_numba(band_data, stretches[0], stretches[1])
 
+                new_arr = new_data
+                if isinstance(arr, np.ma.masked_array):
+                    new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                    new_arr.data[band_mask] = 0
+                
+                self._display_data[0] = new_arr
                 self._display_data[1] = self._display_data[0]
                 self._display_data[2] = self._display_data[0]
 
