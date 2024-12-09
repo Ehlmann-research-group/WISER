@@ -496,6 +496,8 @@ class DataVisualizerApp(QMainWindow):
             self.tr('JPEG 2000 raster files (*.jp2)'),
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
+            self.tr('PDS3 raster files (.*lbl)'),
+            self.tr('PDS4 raster files (*.lbl *.xml)'),
             # self.tr('PDS raster files (*.PDS *.IMG)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
             # self.tr('WISER project files (*.wiser)'),

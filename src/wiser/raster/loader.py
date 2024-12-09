@@ -10,7 +10,7 @@ from osgeo import gdal
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
     GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl,
-    JP2_GDALRasterDataImpl, FITS_GDALRasterDataImpl, PDS3_GDALRasterDataImpl)
+    JP2_GDALRasterDataImpl, FITS_GDALRasterDataImpl, PDS3_GDALRasterDataImpl, PDS4_GDALRasterDataImpl)
 
 
 
@@ -32,6 +32,7 @@ class RasterDataLoader:
             'JP2': JP2_GDALRasterDataImpl,
             'FITS': FITS_GDALRasterDataImpl,
             'PDS3': PDS3_GDALRasterDataImpl,
+            'PDS4': PDS4_GDALRasterDataImpl,
         }
 
         # This is a counter so we can generate names for unnamed datasets.
