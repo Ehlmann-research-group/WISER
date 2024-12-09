@@ -7,6 +7,7 @@ from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
 from wiser.raster.spectrum import calc_roi_spectrum
+from wiser.raster.data_cache import DataCache
 # from PySide2.QtCore import *
 from wiser.bandmath.types import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
@@ -41,8 +42,10 @@ def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType
         variables, {})
     result_name = 'test_result'
 
+    cache = DataCache()
+
     start_time = time.perf_counter()
-    (_, result_dataset) = bandmath.eval_bandmath_expr(equation, expr_info, result_name,
+    (_, result_dataset) = bandmath.eval_bandmath_expr(equation, expr_info, result_name, cache,
         variables, {}, use_old_method)
     end_time = time.perf_counter()
     return end_time-start_time, result_dataset
@@ -105,9 +108,10 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
     }
 
     loader = RasterDataLoader()
-    large_band_dataset = loader.load_from_file(large_band_dataset_path)[0]
-    normal_image_cube = loader.load_from_file(normal_image_cube_path)[0]
-    large_image_cube = loader.load_from_file(large_image_cube_path)[0]
+    data_cache = DataCache()
+    large_band_dataset = loader.load_from_file(large_band_dataset_path, data_cache)[0]
+    normal_image_cube = loader.load_from_file(normal_image_cube_path, data_cache)[0]
+    large_image_cube = loader.load_from_file(large_image_cube_path, data_cache)[0]
     b1 = large_band_dataset.get_band_data(0)
     b2 = large_band_dataset.get_band_data(1)
     b3 = large_band_dataset.get_band_data(2)
@@ -227,7 +231,8 @@ def test_both_methods(hdr_paths, N=1):
     sections below if you want to peak at the values that are not the same between the methods. 
     '''
     loader = RasterDataLoader()
-
+    data_cache = DataCache()
+    
     key_plus_1 = "+"
     key_mult = "*"
     key_div = "/"
@@ -286,7 +291,7 @@ def test_both_methods(hdr_paths, N=1):
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
-        dataset = loader.load_from_file(hdr_file)[0]
+        dataset = loader.load_from_file(hdr_file, data_cache)[0]
         band = dataset.get_band_data(0)
         band2 = dataset.get_band_data(1)
         band3 = dataset.get_band_data(2)

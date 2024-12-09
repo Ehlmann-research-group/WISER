@@ -38,7 +38,7 @@ class MainViewWidget(RasterPane):
             max_zoom_scale=16, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
             initial_zoom=1)
 
-        self._stretch_builder = StretchBuilderDialog(parent=self)
+        self._stretch_builder = StretchBuilderDialog(parent=self, app_state=app_state)
         self._export_image = ExportImageDialog(parent=self)
         self._link_view_scrolling = False
 
@@ -278,6 +278,10 @@ class MainViewWidget(RasterPane):
         # Finally, remove the dataset.
         self._app_state.remove_dataset(dataset.get_id())
 
+    
+    def _on_dataset_changed(self, act):
+        super()._on_dataset_changed(act)
+        self._app_state.mainview_dataset_changed.emit(self.get_rasterview().get_raster_data().get_id())
 
     def get_stretch_builder(self):
         return self._stretch_builder
@@ -393,3 +397,15 @@ class MainViewWidget(RasterPane):
             self.set_scale(rasterview.get_scale())
 
         self._update_zoom_widgets()
+
+    def _on_zoom_in(self, evt):
+        ''' Zoom in the zoom-view by one level. '''
+        super()._on_zoom_in(evt)
+        self.viewport_change.emit(self._get_rasterview_position(self.get_rasterview()))
+
+
+
+    def _on_zoom_out(self, evt):
+        ''' Zoom out the zoom-view by one level. '''
+        super()._on_zoom_out(evt)
+        self.viewport_change.emit(self._get_rasterview_position(self.get_rasterview()))

@@ -38,7 +38,7 @@ class RasterDataLoader:
         self._unnamed_datasets: int = 0
 
 
-    def load_from_file(self, path):
+    def load_from_file(self, path, data_cache = None):
         '''
         Load a raster data-set from the specified path.  Returns a
         :class:`RasterDataSet` object.
@@ -61,7 +61,7 @@ class RasterDataLoader:
 
         datasets = []
         for impl in impl_list:
-            ds = RasterDataSet(impl)
+            ds = RasterDataSet(impl, data_cache)
             files = ds.get_filepaths()
             if files:
                 name = os.path.basename(files[0])
@@ -92,7 +92,7 @@ class RasterDataLoader:
             raise ValueError(f'Unsupported format "{format}"')
 
 
-    def dataset_from_numpy_array(self, arr: np.ndarray) -> RasterDataSet:
+    def dataset_from_numpy_array(self, arr: np.ndarray, cache) -> RasterDataSet:
         '''
         Given a NumPy ndarray, this function returns a RasterDataSet object
         that uses the array for its raster data.  The input ndarray must have
@@ -106,11 +106,11 @@ class RasterDataLoader:
             raise ValueError('NumPy array must have 3 dimensions')
 
         impl = NumPyRasterDataImpl(arr)
-        return RasterDataSet(impl)
+        return RasterDataSet(impl, cache)
 
-    def dataset_from_gdal_dataset(self, dataset: gdal.Dataset) -> RasterDataSet:
+    def dataset_from_gdal_dataset(self, dataset: gdal.Dataset, cache) -> RasterDataSet:
         impl = ENVI_GDALRasterDataImpl(dataset)
-        return RasterDataSet(impl)
+        return RasterDataSet(impl, cache)
 
     # TODO(donnie):  Not presently needed - can instantiate a NumPyArraySpectrum
     #     object from a NumPy array...

@@ -146,7 +146,6 @@ class OperatorDivide(BandMathFunction):
 
                 rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
                 result_arr = lhs_value / rhs_value
-
                 # The result array should have the same dimensions as the LHS input
                 # array.
                 assert result_arr.ndim == 3

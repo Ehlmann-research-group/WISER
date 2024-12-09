@@ -11,7 +11,31 @@ from PySide2.QtWidgets import *
 import matplotlib
 import numpy as np
 
-import wiser.gui.generated.resources
+def get_plugin_fns(app_state):
+    # Collect functions from all plugins.
+    functions = {}
+    for (plugin_name, plugin) in app_state.get_plugins().items():
+        try:
+            plugin_fns = plugin.get_bandmath_functions()
+
+            # Make sure all function names are lowercase.
+            for k in list(plugin_fns.keys()):
+                lower_k = k.lower()
+                if k != lower_k:
+                    plugin_fns[lower_k] = plugin_fns[k]
+                    del plugin_fns[k]
+
+            # If any functions appear multiple times, make sure to
+            # report a warning about it.
+            for k in plugin_fns.keys():
+                if k in functions:
+                    print(f'WARNING:  Function "{k}" is defined ' +
+                            f'multiple times (last seen in plugin {plugin_name})')
+
+            functions.update(plugin_fns)
+        except:
+            pass
+    return functions
 
 def delete_all_files_in_folder(folder_path):
     # Check if the folder exists
@@ -31,6 +55,9 @@ def delete_all_files_in_folder(folder_path):
                 print(f"Skipping: {file_path} (not a file)")
     else:
         print(f"Directory {folder_path} does not exist.")
+
+def scale_qpoint_by_float(point: QPoint, scale: float):
+    return QPoint(float(point.x() * scale), float(point.y() * scale))
 
 def str_or_none(s: Optional[str]) -> str:
     '''

@@ -22,6 +22,8 @@ from .utils import (
     get_valid_ignore_value,
 )
 
+from wiser.raster.data_cache import DataCache
+
 from wiser.raster.dataset import RasterDataSet
 
 from osgeo import gdal
@@ -675,11 +677,9 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
     A Lark Transformer for evaluating band-math expressions.
     '''
     def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
-                       functions: Dict[str, Callable],
-                       shape: Tuple[int, int, int] = None):
+                       functions: Dict[str, Callable]):
         self._variables = variables
         self._functions = functions
-        self._shape = shape
         self._intermediate_running_total = 0
         self._max_intermediates = 0
     
@@ -797,7 +797,7 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
         logger.debug(' * unary_negate_expr')
         return self.find_current_interm_and_update_max(args[1], 0)
 
-def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str,
+def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None,
         use_old_method = False) -> BandMathValue:
@@ -851,7 +851,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     id_assigner = UniqueIDAssigner()
     id_assigner.visit(tree)
 
-    numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions, expr_info.shape)
+    numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions)
     numInterFinder.transform(tree)
     number_of_intermediates = numInterFinder.get_max_intermediates()
     logger.debug(f'Number of intermediates: {number_of_intermediates}')
@@ -875,7 +875,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal_type)
             # We declare the dataset write after so if any errors occur below,
             # the file gets destroyed (which happens in del of RasterDataSet)
-            out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal)
+            out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
             out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
             out_dataset.set_dirty()
             

@@ -22,7 +22,7 @@ from wiser.raster.stretch import StretchBase
 
 from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
-from wiser.gui.rasterview_metadata import RasterViewMetaData
+from wiser.raster.data_cache import DataCache
 
 
 class StateChange(enum.Enum):
@@ -57,6 +57,9 @@ class ApplicationState(QObject):
     # Signal:  the data-set with the specified ID was removed
     dataset_removed = Signal(int)
 
+    # Signal: the mainview dataset was changed
+    mainview_dataset_changed = Signal(int)
+
     # Signal:  a spectral library with the specified ID was added
     spectral_library_added = Signal(int)
 
@@ -85,6 +88,8 @@ class ApplicationState(QObject):
 
         # A reference to the overall UI
         self._app = app
+
+        self._cache = None
 
         # The plugins currently loaded into WISER.
         self._plugins: Dict[str, Plugin] = {}
@@ -133,8 +138,6 @@ class ApplicationState(QObject):
 
         self._config: ApplicationConfig = config
 
-        self._last_added_raster_display: RasterViewMetaData = None
-
 
     def _take_next_id(self) -> int:
         '''
@@ -181,6 +184,10 @@ class ApplicationState(QObject):
         the next load or save can start at the same directory.
         '''
         self._current_dir = current_dir
+
+
+    def set_data_cache(self, data_cache: DataCache):
+        self._cache = data_cache
 
 
     def update_cwd_from_path(self, path: str) -> None:
@@ -256,7 +263,7 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
         
-        raster_data_list = self._raster_data_loader.load_from_file(file_path)
+        raster_data_list = self._raster_data_loader.load_from_file(file_path, self._cache)
         
         for raster_data in raster_data_list:
             self.add_dataset(raster_data)
@@ -276,7 +283,6 @@ class ApplicationState(QObject):
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
-        self._last_added_raster_display = RasterViewMetaData(ds_id=ds_id)
         self.dataset_added.emit(ds_id)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
@@ -286,6 +292,9 @@ class ApplicationState(QObject):
         unrecognized then a KeyError will be raised.
         '''
         return self._datasets[ds_id]
+
+    def get_cache(self) -> DataCache:
+        return self._cache
 
     def num_datasets(self):
         ''' Return the number of datasets in the application state. '''
@@ -302,13 +311,23 @@ class ApplicationState(QObject):
     def remove_dataset(self, ds_id: int):
         '''
         Remove the dataset with the specified numeric ID from the application
-        state.  If the ID is unrecognized then a KeyError will be raised.
+        state and the cache. If the ID is unrecognized then a KeyError will 
+        be raised.
 
         The method will fire a signal indicating that the dataset was removed.
         '''
-        self._datasets[ds_id].delete_underlying_dataset()
-        del self._datasets[ds_id]
+        dataset_to_del = self._datasets[ds_id]
+        dataset_to_del.delete_underlying_dataset()
+        # First we remove it form the computation cache
+        comp_cache = self._cache.get_computation_cache()
+        comp_key = comp_cache.get_cache_key(dataset_to_del)
+        comp_cache.remove_cache_item(comp_key)
 
+        # Next we remove it from the render cache 
+        render_cache = self._cache.get_render_cache()
+        render_cache.clear_keys_from_partial(render_cache.get_partial_key(dataset_to_del))
+
+        del self._datasets[ds_id]
         # Remove all stretches that are associated with this data set
         for key in list(self._stretches.keys()):
             if key[0] == ds_id:
@@ -620,9 +639,3 @@ class ApplicationState(QObject):
 
         self._collected_spectra.clear()
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)
-    
-    def get_last_added_raster_display(self):
-        return self._last_added_raster_display
-
-    def set_last_added_raster_display(self, other: RasterViewMetaData):
-        self._last_added_raster_display = other

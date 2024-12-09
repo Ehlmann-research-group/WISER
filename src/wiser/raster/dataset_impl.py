@@ -1,9 +1,7 @@
 import abc
 import logging
-import math
 import os
 import pprint
-from urllib.parse import urlparse
 
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -19,6 +17,8 @@ from osgeo import gdal, gdalconst, gdal_array, osr
 from astropy.io import fits
 
 logger = logging.getLogger(__name__)
+
+CHUNK_WRITE_SIZE = 250000000
 
 class SaveState(Enum):
     IN_DISK_NOT_SAVED = 0
@@ -77,6 +77,9 @@ class RasterDataImpl(abc.ABC):
         pass
 
     def get_band_data(self, band_index) -> np.ndarray:
+        pass
+
+    def sample_band_data(self, band_index, sample_factor: int):
         pass
 
     def get_all_bands_at(self, x, y) -> np.ndarray:
@@ -299,6 +302,37 @@ class GDALRasterDataImpl(RasterDataImpl):
         except (RuntimeError, TypeError):
             np_array = band.ReadAsArray()
         print(f"get_band_data ended!")
+
+        return np_array
+    
+    def sample_band_data(self, band_index, sample_factor: int):
+        '''
+        Returns a numpy 2D array of the specified band's data but resampled. 
+        The first band is at index 0.
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+
+        # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
+        #     different raster bands can have different dimensions, data types,
+        #     etc.  Should probably do some sanity checking in the initializer.
+        # TODO(donnie):  This doesn't work with a virtual-memory array, but
+        #     maybe the non-virtual-memory approach is faster.
+        # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
+        #     xsize=1, ysize=1)
+        new_dataset = self.reopen_dataset()
+        x_size = new_dataset.RasterXSize
+        y_size = new_dataset.RasterYSize
+        buf_xsize = int(x_size/sample_factor)
+        buf_ysize = int(y_size/sample_factor)
+        band = new_dataset.GetRasterBand(band_index + 1)
+        np_array: Union[np.ndarray, np.ma.masked_array] = band.ReadAsArray(
+                                                            buf_xsize=buf_xsize, 
+                                                            buf_ysize=buf_ysize,
+                                                            resample_alg=gdal.GRIORA_Gauss)
 
         return np_array
 
@@ -829,6 +863,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_wavelength_units = options.get('wavelength_units')
         dst_bad_bands = []
         dst_index = 1
+
+        chunk_size = 0
         for band_info in src_dataset.band_list():
             src_index = band_info['index']
 
@@ -845,8 +881,13 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             # print(f'Source-array shape:  {src_data.shape}')
             dst_data = src_data[src_offset_y:src_offset_y+dst_height,
                                 src_offset_x:src_offset_x+dst_width]
+            # print(f"Destination-array size: {dst_data.size}")
             # print(f'Destination-array shape:  {dst_data.shape}')
             dst_band.WriteArray(dst_data, 0, 0)
+            chunk_size += dst_data.size
+            if chunk_size >= CHUNK_WRITE_SIZE:
+                chunk_size = 0
+                dst_gdal_dataset.FlushCache()
 
             # Metadata for the band
 
@@ -960,7 +1001,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         band_info = []
 
         md = self.gdal_dataset.GetMetadata('ENVI')
-        has_band_names = ('band_names' in md)
+        has_band_names = ('band names' in md)
 
         # Note:  GDAL indexes bands from 1, not 0.
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
@@ -1098,6 +1139,10 @@ class NumPyRasterDataImpl(RasterDataImpl):
 
     def get_band_data(self, band_index) -> np.ndarray:
         return self._arr[band_index]
+
+    
+    def sample_band_data(self, band_index, sample_factor: int):
+        return self._arr[band_index,::sample_factor,::sample_factor]
 
     def get_all_bands_at(self, x, y) -> np.ndarray:
         return self._arr[:, y, x]
