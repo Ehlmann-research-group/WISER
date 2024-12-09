@@ -581,15 +581,25 @@ class RasterDataSet:
                         set_band(arr, i, np.nan)
                     except:
                         set_band(arr, i, DEFAULT_MASK_VALUE)
+                elif self._data_ignore_value is not None:
+                    data_ignore_mask = np.isclose(arr, self._data_ignore_value)
+                    if data_ignore_mask.any():
+                        # Band has the "data ignore" value
+                        try:
+                            arr[data_ignore_mask] = np.nan
+                        except BaseException as e:
+                            print(f"Exception occured when trying to mask array with np.nan:\n{e}")
+                            arr[data_ignore_mask] = DEFAULT_MASK_VALUE
 
-                elif (self._data_ignore_value is not None and
-                      math.isclose(arr[i], self._data_ignore_value)):
-                    # Band has the "data ignore" value
-                    try:
-                        set_band(arr, i, np.nan)
-                    except BaseException as e:
-                        print(f"Exception occured when trying to mask array with np.nan:\n{e}")
-                        set_band(arr, i, DEFAULT_MASK_VALUE)
+                    # for elem in np.nditer(arr):
+                    #     if (self._data_ignore_value is not None and
+                    #         math.isclose(arr[i], self._data_ignore_value)):
+                    #         # Band has the "data ignore" value
+                    #         try:
+                    #             set_band(arr, i, np.nan)
+                    #         except BaseException as e:
+                    #             print(f"Exception occured when trying to mask array with np.nan:\n{e}")
+                    #             set_band(arr, i, DEFAULT_MASK_VALUE)
         return arr
 
     def get_geo_transform(self) -> Tuple:

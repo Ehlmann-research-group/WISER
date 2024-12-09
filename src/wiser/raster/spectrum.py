@@ -188,13 +188,22 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     qrects = array_to_qrects(rects)
     for qrect in qrects:
         s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
-        for spectrum in np.nditer(s):
-            spectra.append(spectrum)
+        ndim = s.ndim
+        if ndim == 2:
+            for i in range(s.shape[1]):
+                spectra.append(s[:,i])
+        elif ndim == 3:
+            for i in range(s.shape[1]):
+                for j in range(s.shape[2]):
+                    spectra.append(s[:,i,j])
+        else:
+            raise TypeError(f'Expected 2 or 3 dimensions in rectangular aray, but got {s.ndim}')
 
-    assert(len(spectra) == len(roi.get_all_pixels()))
+    assert(len(spectra) == len(roi.get_all_pixels()), f'Length of spectra is: {len(spectra)} while length of roi all pixels is: {len(roi.get_all_pixels())}')
 
     if len(spectra) > 1:
-        print("Spectra computing starting")
+        print(f"Mean Spectra computing starting: {len(spectra)}")
+        spectra = np.asarray(spectra)
         # Need to compute mean/median/... of the collection of spectra
         if mode == SpectrumAverageMode.MEAN:
             print("Spectra: ", type(spectra))
