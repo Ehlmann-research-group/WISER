@@ -231,14 +231,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         filtering will impact performance.
         '''
         new_dataset = self.reopen_dataset()
-        data_format = self.get_format()
-        # if data_format == DriverNames.NetCDF.value:
-        #     file_path = self.get_filepaths()[0]
-        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-        #     reflectance_dataset = gdal.Open(reflectance_subdataset_path)
-        #     np_array = reflectance_dataset.ReadAsArray()
-        # else:
-        #     print(f"Data format: {data_format}")
         try:
             np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
         except (RuntimeError, ValueError):
@@ -260,48 +252,15 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        # from netCDF4 import Dataset
-
-        # nc_file = Dataset(self.get_filepaths()[0])
-
-        # # List all available variables in the netCDF file
-        # print("Available variables in the netCDF file:")
-        # print(nc_file.variables.keys())
-
-        # # Look for a variable likely to contain wavelengths
-        # # Common variable names for wavelengths could be "wavelength", "wavelengths", "bands", etc.
-        # if 'wavelength' in nc_file.variables:
-        #     wavelengths = nc_file.variables['wavelength'][:]
-        #     print("Wavelengths:", wavelengths)
-        # elif 'bands' in nc_file.variables:
-        #     wavelengths = nc_file.variables['bands'][:]
-        #     print("Wavelengths (bands):", wavelengths)
-        # else:
-        #     print("No wavelength information found in the netCDF file.")
-
-        # # Close the netCDF file
-        # nc_file.close()
     
         print(f"get_band_data called!")
         # Note that GDAL indexes bands from 1, not 0.
-        data_format = self.get_format()
         new_dataset = self.reopen_dataset()
         band = new_dataset.GetRasterBand(band_index + 1)
-        print(f"subdatasets: {new_dataset.GetSubDatasets()}")
-        # print(f"new dataset meta data: {new_dataset.GetMetadata()}")
-        # if data_format == DriverNames.NetCDF.value:
-        #     file_path = self.get_filepaths()[0]
-        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-        #     print(f"reflectance_subdataset_path: {reflectance_subdataset_path}")
-        #     reflectance_dataset = gdal.Open(reflectance_subdataset_path)
-        #     np_array = reflectance_dataset.GetRasterBand(band_index + 1).ReadAsArray()
-        # else:
-        #     print(f"Data format: {data_format}")
         try:
             np_array = band.GetVirtualMemAutoArray()
         except (RuntimeError, TypeError):
             np_array = band.ReadAsArray()
-        print(f"get_band_data ended!")
 
         return np_array
     
@@ -353,21 +312,12 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        print(f"get_all_bands_at called!")
-        data_format = self.get_format()
-        # if data_format == DriverNames.NetCDF.value:
-        #     file_path = self.get_filepaths()[0]
-        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-        #     new_dataset = gdal.Open(reflectance_subdataset_path)
-        # else:
-        # print(f"Data format: {data_format}")
         new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),
         # so reshape into a 1D array with shape (bands).
         np_array = np_array.reshape(np_array.shape[0])
-        print(f"get_all_bands_at ended!")
 
         return np_array
 
@@ -375,21 +325,12 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         Returns a numpy 3D array of all the x & y values at the specified bands.
         '''
-        print(f"get_multiple_band_data called!")
-        data_format = self.get_format()
-        # if data_format == DriverNames.NetCDF.value:
-        #     file_path = self.get_filepaths()[0]
-        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-        #     new_dataset = gdal.Open(reflectance_subdataset_path)
-        # else:
-        # print(f"Data format: {data_format}")
         new_dataset = self.reopen_dataset()
         # Note that GDAL indexes bands from 1, not 0.
         band_list = [band+1 for band in band_list_orig]
 
         # Read the specified bands
         data = new_dataset.ReadAsArray(band_list=band_list)
-        print(f"get_multiple_band_data ended!")
 
         return data
 
@@ -406,17 +347,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         #     maybe the non-virtual-memory approach is faster.
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
-        print(f"get_all_bands_at_rect called!")
-        data_format = self.get_format()
-        # if data_format == DriverNames.NetCDF.value:
-        #     file_path = self.get_filepaths()[0]
-        #     reflectance_subdataset_path = get_netCDF_reflectance_path(file_path)
-        #     new_dataset = gdal.Open(reflectance_subdataset_path)
-        # else:
-        # print(f"Data format: {data_format}")
         new_dataset = self.reopen_dataset()
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
-        print(f"get_all_bands_at_rect ended!")
 
         return np_array
 
@@ -604,18 +536,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
         print(f"Total instances created: {len(instances_list)}")
         return instances_list
-        # if subdatasets:
-        #     # For this example, select the first subdataset
-        #     first_subdataset_name = subdatasets[0][0]
-        #     print(f"FIRST SUBDATASET NAME: {first_subdataset_name}")
-        #     gdal_dataset = gdal.Open(first_subdataset_name)
-        #     print(f"!!!!!!!!!!!!!! {gdal_dataset.GetFileList()}")
-        #     if gdal_dataset is None:
-        #         raise ValueError(f"Unable to open subdataset: {first_subdataset_name}")
-        # print(f"gdal dataset made as: {gdal_dataset}")
-        # instance = [cls(gdal_dataset)]
-        # instance.subdataset_name = first_subdataset_name
-        # return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)

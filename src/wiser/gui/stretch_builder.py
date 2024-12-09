@@ -393,7 +393,6 @@ class ChannelStretchWidget(QWidget):
 
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
-
     def _update_histogram(self):
         if self._norm_band_data is None:
             if self._dataset is None or self._band_index is None:
@@ -423,14 +422,18 @@ class ChannelStretchWidget(QWidget):
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = self._histogram_edges_raw
+
         elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = np.sqrt(self._histogram_edges_raw)
+
         elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = np.log2(1 + self._histogram_edges_raw)
+
         else:
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
+
         self._show_histogram()
 
 

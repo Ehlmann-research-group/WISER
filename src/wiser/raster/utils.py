@@ -47,8 +47,6 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
     "mhz"           : u.MHz,
 }
 
-# def get_netCDF_reflectance_path(file_path: str):
-#     return f'NETCDF:"{file_path}":reflectance'
 
 def get_netCDF_reflectance_path(file_path):
     """
