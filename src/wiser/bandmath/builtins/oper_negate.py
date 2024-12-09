@@ -61,10 +61,10 @@ class OperatorUnaryNegate(BandMathFunction):
         elif arg.type in [VariableType.IMAGE_CUBE,
                           VariableType.IMAGE_BAND,
                           VariableType.SPECTRUM]:
-            if index_list is not None:
-                if isinstance(index_list, int):
-                    index_list = [index_list]
-                arr = arg.as_numpy_array_by_bands(index_list)
+            if index_list_current is not None:
+                if isinstance(index_list_current, int):
+                    index_list_current = [index_list_current]
+                arr = arg.as_numpy_array_by_bands(index_list_current)
             else:
                 arr = arg.as_numpy_array()
             result_arr = -arr

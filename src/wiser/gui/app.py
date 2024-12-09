@@ -15,6 +15,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from osgeo import gdal
+
 from .app_config import PixelReticleType
 
 from wiser.bandmath.utils import TEMP_FOLDER_PATH
@@ -54,13 +56,14 @@ from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
     NumPyArraySpectrum)
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export
+from wiser.raster.data_cache import DataCache
 
 logger = logging.getLogger(__name__)
 
 
 # TODO(donnie):  We also need an "offline/local" location for the manual,
 #     for when it's downloaded to the local system.
-ONLINE_WISER_MANUAL_URL = 'http://users.cms.caltech.edu/~donnie/WISER/manual/'
+ONLINE_WISER_MANUAL_URL = 'https://ehlmann-research-group.github.io/WISER-UserManual/'
 
 
 class DataVisualizerApp(QMainWindow):
@@ -83,6 +86,8 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
+        self._data_cache = DataCache()
+        self._app_state.set_data_cache(self._data_cache)
 
         # Application Toolbars
 
@@ -181,7 +186,6 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
-
 
     def _init_menus(self):
 
@@ -745,31 +749,12 @@ class DataVisualizerApp(QMainWindow):
             # print(f'Spectral metadata comes from {expr_info.spectral_metadata_source}')
 
             # Collect functions from all plugins.
-            functions = {}
-            for (plugin_name, plugin) in self._app_state.get_plugins().items():
-                if isinstance(plugin, plugins.BandMathPlugin):
-                    plugin_fns = plugin.get_bandmath_functions()
-
-                    # Make sure all function names are lowercase.
-                    for k in list(plugin_fns.keys()):
-                        lower_k = k.lower()
-                        if k != lower_k:
-                            plugin_fns[lower_k] = plugin_fns[k]
-                            del plugin_fns[k]
-
-                    # If any functions appear multiple times, make sure to
-                    # report a warning about it.
-                    for k in plugin_fns.keys():
-                        if k in functions:
-                            print(f'WARNING:  Function "{k}" is defined ' +
-                                  f'multiple times (last seen in plugin {name})')
-
-                    functions.update(plugin_fns)
+            functions = get_plugin_fns(self._app_state)
 
             try:
                 if not result_name:
                     result_name = self.tr('Computed')
-                (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name,
+                (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name, self._data_cache,
                     variables, functions)
 
                 logger.debug(f'Result of band-math evaluation is type ' +
@@ -795,7 +780,7 @@ class DataVisualizerApp(QMainWindow):
                     self._app_state.add_dataset(new_dataset)
 
                 elif result_type == bandmath.VariableType.IMAGE_CUBE:
-                    new_dataset = loader.dataset_from_numpy_array(result)
+                    new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
 
                     if not result_name:
                         result_name = self.tr('Computed')
@@ -816,7 +801,7 @@ class DataVisualizerApp(QMainWindow):
                 elif result_type == bandmath.VariableType.IMAGE_BAND:
                     # Convert the image band into a 1-band image cube
                     result = result[np.newaxis, :]
-                    new_dataset = loader.dataset_from_numpy_array(result)
+                    new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
 
                     if not result_name:
                         result_name = self.tr('Computed')
@@ -1007,7 +992,7 @@ class DataVisualizerApp(QMainWindow):
         # print(f'Contrast stretch changed to:')
         # for s in stretches:
         #     print(f' * {s}')
-
+    
         self._app_state.set_stretches(ds_id, bands, stretches)
 
     def _on_zoom_visibility_changed(self, visible):
