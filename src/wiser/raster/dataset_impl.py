@@ -2,6 +2,7 @@ import abc
 import logging
 import os
 import pprint
+import pdr
 
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -508,7 +509,20 @@ class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
 
         if gdal_dataset is None:
             raise ValueError(f"Unable to open PDS3 file: {path}")
+
+        # # For future use to get more meta data
+        # pdr_dataset = pdr.read(path)
+        # print(f"PDR Metadata:")
+        # for key in pdr_dataset.keys():
+        #     value = pdr_dataset[key]
+        #     print(f"{key}: {value}")
     
+        # # Compare to the meta data pdr gives us. Pdr gives more
+        # metadata = gdal_dataset.GetMetadata()
+        # print(f"GDAL Metadata:")
+        # for key, value in metadata.items():
+        #     print(f"{key}: {value}")
+
         return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
@@ -528,7 +542,20 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
 
         if gdal_dataset is None:
             raise ValueError(f"Unable to open PDS3 file: {path}")
+
+        # # For future use to get more meta data
+        # pdr_dataset = pdr.read(path)
+        # print(f"PDR Metadata:")
+        # for key in pdr_dataset.keys():
+        #     value = pdr_dataset[key]
+        #     print(f"{key}: {value}")
     
+        # # Compare to the meta data pdr gives us. Pdr gives more
+        # metadata = gdal_dataset.GetMetadata()
+        # print(f"GDAL Metadata:")
+        # for key, value in metadata.items():
+        #     print(f"{key}: {value}")
+
         return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
