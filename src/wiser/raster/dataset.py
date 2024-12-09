@@ -574,8 +574,8 @@ class RasterDataSet:
         arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
             arr = arr.copy()
-            if np.issubdtype(arr.dtype, np.integer):
-                arr = arr.astype(np.float32, copy=False)
+            # if np.issubdtype(arr.dtype, np.integer):
+            #     arr = arr.astype(np.float32, copy=False)
             # Make mask for the bad band values
             mask = np.array(self.get_bad_bands())
             assert np.all((mask == 0) | (mask == 1)), "Bad bands mask contains values other than 0 or 1"
