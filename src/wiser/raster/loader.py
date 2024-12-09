@@ -1,18 +1,17 @@
 import logging
 import os
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List
 
 import numpy as np
 
-from osgeo import gdal, gdalconst, gdal_array
+from osgeo import gdal
 
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
     GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl,
-    JP2_GDALRasterDataImpl, FITS_GDALRasterDataImpl)
+    JP2_GDALRasterDataImpl, FITS_GDALRasterDataImpl, PDS3_GDALRasterDataImpl)
 
-from .spectrum import Spectrum
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +31,7 @@ class RasterDataLoader:
             'NetCDF': NetCDF_GDALRasterDataImpl,
             'JP2': JP2_GDALRasterDataImpl,
             'FITS': FITS_GDALRasterDataImpl,
+            'PDS3': PDS3_GDALRasterDataImpl,
         }
 
         # This is a counter so we can generate names for unnamed datasets.

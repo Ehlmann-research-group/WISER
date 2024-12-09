@@ -579,7 +579,6 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
     def try_load_file(cls, path: str) -> ['JP2_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
-        print("ATTEMPTING JP2")
         load_path = cls.get_load_filename(path)
         allowed_drivers = cls.get_jpeg2000_drivers()
         if not allowed_drivers:
