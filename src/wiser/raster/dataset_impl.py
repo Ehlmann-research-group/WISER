@@ -494,6 +494,26 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
+    @classmethod
+    def try_load_file(cls, path: str) -> ['PDS3_GDALRasterDataImpl']:
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+
+        gdal_dataset = gdal.OpenEx(
+            path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['PDS']
+        )
+
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open PDS3 file: {path}")
+    
+        return [cls(gdal_dataset)]
+
+    def __init__(self, gdal_dataset):
+        super().__init__(gdal_dataset)
+
 class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def try_load_file(cls, path: str) -> ['NetCDF_GDALRasterDataImpl']:
