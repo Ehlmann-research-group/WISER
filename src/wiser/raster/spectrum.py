@@ -188,9 +188,8 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     qrects = array_to_qrects(rects)
     for qrect in qrects:
         s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
-        for i in range(s.shape[1]):
-            for j in range(s.shape[2]):
-                spectra.append(s[:,i,j])
+        for spectrum in np.nditer(s):
+            spectra.append(spectrum)
 
     assert(len(spectra) == len(roi.get_all_pixels()))
 
