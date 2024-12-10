@@ -32,7 +32,7 @@ class RasterDataLoader:
             'JP2': JP2_GDALRasterDataImpl,
             'FITS': FITS_GDALRasterDataImpl,
             'PDS3': PDS3_GDALRasterDataImpl,
-            'PDS4': PDS4_GDALRasterDataImpl,
+            # 'PDS4': PDS4_GDALRasterDataImpl,
         }
 
         # This is a counter so we can generate names for unnamed datasets.
