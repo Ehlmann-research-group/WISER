@@ -32,7 +32,7 @@ class DriverNames(Enum):
     GTIFF = 'GTiff'
     ENVI = 'ENVI'
     NetCDF = 'netCDF'
-    JP2 = ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']
+    JP2 = 'JP2OpenJPEG' # ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']
 
 emit_data_names = set(['reflectance', 'reflectance_uncertainty', 'mask', \
                     'group_1_band_depth_unc', 'group_1_fit', 'group_2_band_depth_unc', \
@@ -405,6 +405,79 @@ class GDALRasterDataImpl(RasterDataImpl):
     def __del__(self):
         self.delete_dataset()
 
+
+class PDRRasterDataImpl(RasterDataImpl):
+
+    def __init__(self, pdr_dataset):
+        pass
+
+    def _validate_dataset(self):
+        pass
+
+    def get_format(self) -> str:
+        raise NotImplementedError()
+
+    def get_filepaths(self):
+        pass
+
+    def reopen_dataset(self):
+        pass
+
+    def get_width(self):
+        pass
+
+    def get_height(self):
+        pass
+
+    def num_bands(self):
+        pass
+
+    def get_elem_type(self) -> np.dtype:
+        pass
+
+    def get_image_data(self):
+        pass
+
+    def get_band_data(self, band_index, filter_data_ignore_value=True):
+        pass
+
+    def sample_band_data(self, band_index, sample_factor: int):
+        pass
+
+    def get_all_bands_at(self, x, y):
+        pass
+
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        pass
+
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
+        pass
+
+    def read_band_info(self) -> List[Dict[str, Any]]:
+        pass
+
+    def read_data_ignore_value(self) -> Optional[Number]:
+        pass
+
+    def read_geo_transform(self) -> Tuple:
+        pass
+
+    def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        pass
+
+    def get_save_state(self) -> SaveState:
+        pass
+
+    def set_save_state(self, save_state: SaveState):
+        pass
+
+    def delete_dataset(self) -> None:
+        pass
+
+    def __del__(self):
+    
+        pass
+
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def get_load_filename(cls, path: str) -> str:
@@ -615,6 +688,7 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
         for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
             if drv in driver_names:
                 jpeg2000_drivers.append(drv)
+        print(f'Found these jpeg2000 drivers: {jpeg2000_drivers}')
         return jpeg2000_drivers
 
     @classmethod
