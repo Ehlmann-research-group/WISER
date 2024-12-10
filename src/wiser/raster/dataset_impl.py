@@ -581,11 +581,9 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     def try_load_file(cls, path: str) -> ['JP2_PDRRasterDataImpl']:
 
         if not path.endswith('.JP2'):
-            print(f"COULDNT LOAD JP22222222222222222222222222")
             raise Exception(f"Can't load file {path} as JP2")
 
         pdr_dataset = pdr.read(path)
-        print(f"LOADED JP2222222222222222")
         return [cls(pdr_dataset)]
     
     def __init__(self, pdr_dataset):

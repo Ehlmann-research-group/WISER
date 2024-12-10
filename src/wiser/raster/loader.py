@@ -52,7 +52,6 @@ class RasterDataLoader:
         for (driver_name, impl_type) in self._formats.items():
             try:
                 impl_list = impl_type.try_load_file(path)
-                print(f"IMPL_LISTTTTTTTTTTT: {impl_list}")
             except Exception as e:
                 print(f"Exception: \n {e}")
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
