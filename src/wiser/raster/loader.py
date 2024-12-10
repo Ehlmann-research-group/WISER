@@ -10,7 +10,8 @@ from osgeo import gdal
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
     GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl,
-    JP2_GDALRasterDataImpl, FITS_GDALRasterDataImpl, PDS3_GDALRasterDataImpl, PDS4_GDALRasterDataImpl)
+    JP2_GDALRasterDataImpl, FITS_GDALRasterDataImpl, PDS3_GDALRasterDataImpl, PDS4_GDALRasterDataImpl,
+    JP2_PDRRasterDataImpl)
 
 
 
@@ -29,10 +30,10 @@ class RasterDataLoader:
             'ENVI': ENVI_GDALRasterDataImpl,
             'GTiff': GTiff_GDALRasterDataImpl,
             'NetCDF': NetCDF_GDALRasterDataImpl,
-            'JP2': JP2_GDALRasterDataImpl,
+            'JP2': JP2_PDRRasterDataImpl,
             'FITS': FITS_GDALRasterDataImpl,
             'PDS3': PDS3_GDALRasterDataImpl,
-            # 'PDS4': PDS4_GDALRasterDataImpl,
+            'PDS4': PDS4_GDALRasterDataImpl,
         }
 
         # This is a counter so we can generate names for unnamed datasets.
@@ -51,7 +52,7 @@ class RasterDataLoader:
         for (driver_name, impl_type) in self._formats.items():
             try:
                 impl_list = impl_type.try_load_file(path)
-
+                print(f"IMPL_LISTTTTTTTTTTT: {impl_list}")
             except Exception as e:
                 print(f"Exception: \n {e}")
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
