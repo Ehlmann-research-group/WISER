@@ -411,7 +411,6 @@ class GDALRasterDataImpl(RasterDataImpl):
     def __del__(self):
         self.delete_dataset()
 
-
 class PDRRasterDataImpl(RasterDataImpl):
 
     def __init__(self, pdr_dataset: pdr.Data):
@@ -623,7 +622,6 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
-
 class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def try_load_file(cls, path: str) -> ['FITS_GDALRasterDataImpl']:
@@ -696,24 +694,6 @@ class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
         if gdal_dataset is None:
             raise ValueError(f"Unable to open PDS3 file: {path}")
 
-        # # For future use to get more meta data
-        pdr_dataset = pdr.read(path)
-        # print(f"PDR Metadata:")
-        # for key in pdr_dataset.keys():
-        #     value = pdr_dataset[key]
-        #     print(f"{key}: {value}")
-    
-        # # Compare to the meta data pdr gives us. Pdr gives more
-        # metadata = gdal_dataset.GetMetadata()
-        # print(f"GDAL Metadata:")
-        # for key, value in metadata.items():
-        #     print(f"{key}: {value}")
-
-        img_data = pdr_dataset['IMAGE']
-        print(f"PDS3 Image data shape: {img_data.shape}")
-
-        print(f'GDAL image data shape: {gdal_dataset.ReadAsArray().shape}')
-
         return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
@@ -734,24 +714,6 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
 
         if gdal_dataset is None:
             raise ValueError(f"Unable to open PDS3 file: {path}")
-
-        # For future use to get more meta data
-        pdr_dataset = pdr.read(path)
-        # print(f"PDR Metadata:")
-        # for key in pdr_dataset.keys():
-        #     value = pdr_dataset[key]
-        #     print(f"{key}: {value}")
-    
-        # # Compare to the meta data pdr gives us. Pdr gives more
-        # metadata = gdal_dataset.GetMetadata()
-        # print(f"GDAL Metadata:")
-        # for key, value in metadata.items():
-        #     print(f"{key}: {value}")
-
-        img_data = pdr_dataset['IMAGE']
-        print(f"Image data shape: {img_data.shape}")
-
-        print(f'GDAL image data shape: {gdal_dataset.ReadAsArray().shape}')
 
         return [cls(gdal_dataset)]
 
