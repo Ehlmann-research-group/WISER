@@ -13,6 +13,8 @@ from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
     JP2_GDALRasterDataImpl, FITS_GDALRasterDataImpl, PDS3_GDALRasterDataImpl, PDS4_GDALRasterDataImpl,
     JP2_PDRRasterDataImpl)
 
+from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
+
 
 
 logger = logging.getLogger(__name__)
@@ -35,9 +37,34 @@ class RasterDataLoader:
             'PDS3': PDS3_GDALRasterDataImpl,
             'PDS4': PDS4_GDALRasterDataImpl,
         }
+    
+        # What to do when loading in each file format
+        self._format_loaders = {
+            ENVI_GDALRasterDataImpl: self.load_normal_dataset, 
+            GTiff_GDALRasterDataImpl: self.load_normal_dataset, 
+            NetCDF_GDALRasterDataImpl: self.load_normal_dataset, 
+            JP2_PDRRasterDataImpl: self.load_normal_dataset, 
+            FITS_GDALRasterDataImpl: self.load_FITS_dataset, 
+            PDS3_GDALRasterDataImpl: self.load_normal_dataset, 
+            PDS4_GDALRasterDataImpl: self.load_normal_dataset, 
+        }
 
         # This is a counter so we can generate names for unnamed datasets.
         self._unnamed_datasets: int = 0
+
+        self._fits_dialog = FitsDatasetLoadingDialog()
+
+    def load_normal_dataset(self, impl, data_cache):
+        '''
+        The normal way to load in a dataset
+        '''
+        return RasterDataSet(impl, data_cache)
+    
+    def load_FITS_dataset(self, impl, data_cache):
+        # We should show the Fits dialog which should return to us
+        result = self._fits_dialog.exec()
+        print(f"result: {result}")
+        return
 
 
     def load_from_file(self, path, data_cache = None):
@@ -62,6 +89,8 @@ class RasterDataLoader:
 
         datasets = []
         for impl in impl_list:
+            func = self._format_loaders(type(impl))
+            print(f"func: {func}")
             ds = RasterDataSet(impl, data_cache)
             files = ds.get_filepaths()
             if files:
