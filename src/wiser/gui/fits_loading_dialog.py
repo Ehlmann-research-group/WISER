@@ -1,6 +1,11 @@
 import enum
 
+import numpy as np
 from typing import List
+
+from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset_impl import RasterDataImpl, NumPyRasterDataImpl
+from wiser.raster.spectral_library import ListSpectralLibrary
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -11,6 +16,7 @@ from .generated.fits_dialog_ui import Ui_FitsDialog
 from astropy.io import fits
 
 class DataType(enum.Enum):
+    SPECTRUM = 'Spectrum'
     SPECTRA = 'Spectra'
     SINGLE_IMAGE_BAND = 'Image Band'
     MANY_IMAGE_BAND = 'Image Bands'
@@ -19,14 +25,14 @@ class DataType(enum.Enum):
 class FitsDatasetLoadingDialog(QDialog):
 
     # Takes in a fits file
-    def __init__(self, fits_gdal_dataset_impl, data_cache, parent=None):
+    def __init__(self, fits_gdal_dataset_impl: RasterDataImpl, data_cache, parent=None):
         super().__init__(parent=parent)
 
         # Set up the UI state
         self._ui = Ui_FitsDialog()
         self._ui.setupUi(self)
 
-        self._dataset = fits_gdal_dataset_impl
+        self._dataset_impl = fits_gdal_dataset_impl
         self._data_cache = data_cache
 
         filepath = fits_gdal_dataset_impl.get_filepaths()[0]
@@ -37,15 +43,22 @@ class FitsDatasetLoadingDialog(QDialog):
                 header = hdul[0].header
                 self._naxis = header['NAXIS'] 
                 self._axis_lengths = []
-                for i in range(self._naxis):
-                    self._axis_lengths.append(header[f'NAXIS{i+1}'])
+                if self._naxis == 1:
+                    self._axis_lengths.append(header[f'NAXIS{1}'])
+                elif self._naxis == 2:
+                    self._axis_lengths.append(fits_gdal_dataset_impl.get_height())
+                    self._axis_lengths.append(fits_gdal_dataset_impl.get_width())
+                elif self._naxis == 3:
+                    self._axis_lengths.append(fits_gdal_dataset_impl.num_bands())
+                    self._axis_lengths.append(fits_gdal_dataset_impl.get_height())
+                    self._axis_lengths.append(fits_gdal_dataset_impl.get_width())
         except BaseException as e:
             raise TypeError(f'Could not open {filepath} as fits file.')
 
         self._possible_datatypes: List[DataType] = []
         # Base on the number of axis, initialize what to show the user for axis interpretation
         if self._naxis == 1:
-            self._possible_datatypes.append(DataType.SPECTRA)
+            self._possible_datatypes.append(DataType.SPECTRUM)
         elif self._naxis == 2:
             self._possible_datatypes.append(DataType.SPECTRA)
             self._possible_datatypes.append(DataType.SINGLE_IMAGE_BAND)
@@ -115,8 +128,84 @@ class FitsDatasetLoadingDialog(QDialog):
         else:
             data_varying_options.setEnabled(True)
 
-    def accept():
+    def accept(self):
         # We get the axis interpreation and the data varying axis and (whether or not the data varying axis is greyed out)?
+        self.return_datasets: List = []
+        
+        axis_interpreation = self._ui.interp_opt_combo.currentData()
+        data_varying_axis = self._ui.data_vary_combo.currentData()
+
+        if axis_interpreation == DataType.IMAGE_CUBE or axis_interpreation == DataType.SINGLE_IMAGE_BAND:
+            self._dataset_impl.get_image_data()
+            self.return_datasets = [RasterDataSet(self._dataset_impl, self._data_cache)]
+        elif axis_interpreation == DataType.MANY_IMAGE_BAND:
+            numpy_raster_impl_list = []
+            if data_varying_axis == 0:
+                num_bands = self._dataset_impl.num_bands()
+                for i in range(num_bands):
+                    arr = self._dataset_impl.get_band_data(i)
+                    arr = arr[np.newaxis,:,:]
+                    print(f"MANY BAND Getting band data, shape: {arr.shape}")
+                    numpy_impl = NumPyRasterDataImpl(arr)
+                    numpy_raster_impl_list.append(numpy_impl)
+            elif data_varying_axis == 1:
+                # Means it varies along the height, so we want to span the width
+                height = self._dataset_impl.get_height()
+                raster_x_size = self._dataset_impl.get_width()
+                for i in range(height):
+                    print(f"MANY BAND: height: {height}")
+                    print(f"MANY BAND: raster_x_size / width: {raster_x_size}")
+                    arr = self._dataset_impl.get_all_bands_at_rect(0, i, raster_x_size, 1)
+                    print(f"MANY BAND: arr shape: axis 2: {arr.shape}")
+                    arr = arr.reshape((1, arr.shape[0], -1))  # 0 is the band index, I only move this so width is in same spot
+                    numpy_impl = NumPyRasterDataImpl(arr)
+                    numpy_raster_impl_list.append(numpy_impl)
+            elif data_varying_axis == 2:
+                # Means it varies along the width, so we want to span the height
+                width = self._dataset_impl.get_width()
+                raster_y_size = self._dataset_impl.get_height()
+                for i in range(width):
+                    print(f"MANY BAND: width: {width}")
+                    print(f"MANY BAND: raster_y_size / height: {raster_y_size}")
+                    arr = self._dataset_impl.get_all_bands_at_rect(i, 0, 1, raster_y_size)
+                    print(f"MANY BAND: arr shape: axis 1: {arr.shape}")
+                    arr = arr.reshape((1, -1, arr.shape[0]))  # 0 is the band index, I only move this so the height stays the same
+                    numpy_impl = NumPyRasterDataImpl(arr)
+                    numpy_raster_impl_list.append(numpy_impl)
+            else:
+                raise Exception(f'Data varying axis is somehow 3. Should be between 0 and 2')
+            
+            for i in range(len(numpy_raster_impl_list)):
+                numpy_impl = numpy_raster_impl_list[i]
+                ds = RasterDataSet(numpy_impl, self._data_cache)
+                ds.set_name(f'{ds.get_name()}_{i}')
+                self.return_datasets.append(ds)
+        elif axis_interpreation == DataType.SPECTRA:
+            spectra_list  = []
+            if data_varying_axis == 0:
+                # This will be the width
+                width = self._dataset_impl.get_width()
+                raster_y_size = self._dataset_impl.get_height()
+                for i in range(width):
+                    print(f"Spectra vary axis 0, width: {width}, raster_y_size/height: {raster_y_size}")
+                    arr = self._dataset_impl.get_all_bands_at_rect(i, 0, 1, raster_y_size)
+                    print(f"Arr shape in spectra, data vary 0: {arr.shape}")
+                    spectra_list.append(arr)
+            elif data_varying_axis == 1:
+                # This will be the height
+                height = self._dataset_impl.get_height()
+                raster_x_size = self._dataset_impl.get_width()
+                for i in range(height):
+                    print(f"Spectra vary axis 1")
+                    arr = self._dataset_impl.get_all_bands_at_rect(0, i, raster_x_size, 1)
+                    print(f"Arr shape in spectra, data vary 1: {arr.shape}")
+                    spectra_list.append(arr)
+            library = ListSpectralLibrary(spectra_list)
+        elif axis_interpreation == DataType.SPECTRUM:
+            spectra_list = []
+            print(f"Spectrum self._dataset_impl: {self._dataset_impl}")
+            spectra_list.append(np.squeeze(self._dataset_impl.get_image_data()))
+            library = ListSpectralLibrary(spectra_list)
 
         super().accept()
 
