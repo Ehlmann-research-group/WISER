@@ -19,8 +19,6 @@ from osgeo import gdal, gdalconst, gdal_array, osr
 
 from astropy.io import fits
 
-from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
-
 logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
@@ -413,6 +411,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def __del__(self):
         self.delete_dataset()
 
+
 class PDRRasterDataImpl(RasterDataImpl):
 
     def __init__(self, pdr_dataset: pdr.Data):
@@ -624,6 +623,7 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+
 class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def try_load_file(cls, path: str) -> ['FITS_GDALRasterDataImpl']:
@@ -692,6 +692,35 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
+
+    def get_image_data(self):
+        '''
+        Return a numpy array of the entire image. Since FITS files can be an image cube,
+        image band, or spectrum, this function is not gauranteed to return a specific 
+        dimension.
+
+        The numpy array is configured such that the pixel (x, y) values of band
+        b are at element array[b][x][y].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        new_dataset = self.reopen_dataset()
+        try:
+            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+        except (AttributeError, RuntimeError, ValueError):
+            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+            try:
+                hdul = fits.open(self.get_filepaths()[0])
+                np_array = hdul[0].data
+                np_array = new_dataset.ReadAsArray()
+            except AttributeError:
+                hdul = fits.open(self.get_filepaths()[0])
+                np_array = hdul[0].data
+
+        return np_array
 
 
 class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):

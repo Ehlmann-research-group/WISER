@@ -15,7 +15,7 @@ from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
 
 from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
 
-
+from PySide2.QtWidgets import QDialog
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,9 @@ class RasterDataLoader:
         self._fits_dialog = FitsDatasetLoadingDialog(impl, data_cache)
         result = self._fits_dialog.exec()
         print(f"result: {result}")
-        return
+        if result == QDialog.Accepted:
+           return self._fits_dialog.return_datasets
+        return []
 
 
     def load_from_file(self, path, data_cache = None):
