@@ -86,12 +86,39 @@ class FitsDatasetLoadingDialog(QDialog):
 
         for datatype in self._possible_datatypes:
             interpretation_options.addItem(datatype.value, datatype)
+        
+        if interpretation_options.count() <= 1:
+            interpretation_options.setEnabled(False)
+        
+        interpretation_options.currentIndexChanged.connect(self._on_interp_opt_changed)
     
     def _init_data_varying_options(self):
-        # Set up data varying axis
-        self.data_varying_options = self._ui.data_vary_combo
+        '''
+        Sets up the data varying axis. An example of this is if you had a 2D array that could
+        be either a collection of spectra or an image band. The data varying axis is the axis
+        along which are individual spectra.
+        '''
+        data_varying_options = self._ui.data_vary_combo
         for i in range(len(self._axis_lengths)):
-            self.data_varying_options.addItem(f'Dimension {i}', i)
+            data_varying_options.addItem(f'Dimension {i}', i)
+        
+        # We want to grey this out if image cube is selected. 
+        if data_varying_options.count() <= 1:
+            data_varying_options.setEnabled(False)
+    
+    def _on_interp_opt_changed(self):
+        interpretation_options = self._ui.interp_opt_combo
+        data_varying_options = self._ui.data_vary_combo
+        if interpretation_options.currentData() == DataType.IMAGE_CUBE or \
+            interpretation_options.currentData() == DataType.SINGLE_IMAGE_BAND:
+            data_varying_options.setEnabled(False)
+        else:
+            data_varying_options.setEnabled(True)
+
+    def accept():
+        # We get the axis interpreation and the data varying axis and (whether or not the data varying axis is greyed out)?
+
+        super().accept()
 
 
 
