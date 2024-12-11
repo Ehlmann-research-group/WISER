@@ -19,6 +19,8 @@ from osgeo import gdal, gdalconst, gdal_array, osr
 
 from astropy.io import fits
 
+from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
+
 logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
@@ -638,18 +640,29 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
         if gdal_dataset is None:
             raise ValueError(f"Unable to open FITS file: {path}")
 
-        with fits.open(path) as hdul:
-            # Access the primary header (or first HDU if multi-extension FITS)
-            header = hdul[0].header
+        # with fits.open(path) as hdul:
+        #     # Access the primary header (or first HDU if multi-extension FITS)
+        #     header = hdul[0].header
             
-            # Retrieve the number of dimensions (NAXIS) and size of each dimension (NAXIS1, NAXIS2, etc.)
-            naxis = header['NAXIS']
-            print(f"Number of dimensions (NAXIS) {naxis}")
-            for i in range(1, naxis + 1):
-                dimension_size = header[f'NAXIS{i}']
-                print(f"Size of dimension {i}: {dimension_size}")
+        #     # Retrieve the number of dimensions (NAXIS) and size of each dimension (NAXIS1, NAXIS2, etc.)
+        #     naxis = header['NAXIS']
+        #     print(f"Number of dimensions (NAXIS) {naxis}")
+        #     for i in range(1, naxis + 1):
+        #         dimension_size = header[f'NAXIS{i}']
+        #         print(f"Size of dimension {i}: {dimension_size}")
+        
 
-        # If NAXIS 
+        with fits.open(path) as hdul:
+            header = hdul[0].header
+            # print(f"HEADER:\n{header}")
+            _naxis = header['NAXIS'] 
+            _axis_lengths = []
+            for i in range(_naxis):
+                _axis_lengths.append(header[f'NAXIS{i+1}'])
+            
+            print(f"_naxis: {_naxis}")
+            print(f"_axis_lengths: {_axis_lengths}")
+
 
         if gdal_dataset is not None:
             # Get dimensions
@@ -673,7 +686,9 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
             else:
                 print("NAXIS information not found in metadata; interpreting dimensions via GDAL's band structure.")
 
-        return [cls(gdal_dataset)]
+        dataset = cls(gdal_dataset)
+
+        return [dataset]
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
