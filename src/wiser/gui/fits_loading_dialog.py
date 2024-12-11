@@ -16,7 +16,7 @@ class DataType(enum.Enum):
 class FitsDatasetLoadingDialog(QDialog):
 
     # Takes in a fits file
-    def __init__(self, fits_gdal_dataset_impl, parent=None):
+    def __init__(self, fits_gdal_dataset_impl, data_cache, parent=None):
         super().__init__(parent=parent)
 
         # Set up the UI state
@@ -24,6 +24,7 @@ class FitsDatasetLoadingDialog(QDialog):
         self._ui.setupUi(self)
 
         self._dataset = fits_gdal_dataset_impl
+        self._data_cache = data_cache
 
         filepath = fits_gdal_dataset_impl.get_filepaths()[0]
         # Initialize the naxis label
