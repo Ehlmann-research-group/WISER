@@ -52,16 +52,18 @@ class RasterDataLoader:
         # This is a counter so we can generate names for unnamed datasets.
         self._unnamed_datasets: int = 0
 
-        self._fits_dialog = FitsDatasetLoadingDialog()
 
-    def load_normal_dataset(self, impl, data_cache):
+    def load_normal_dataset(self, impl, data_cache) -> List[RasterDataSet]:
         '''
         The normal way to load in a dataset
         '''
-        return RasterDataSet(impl, data_cache)
+
+        # This returns a list because load_FITS_dataset could possibly return a list
+        return [RasterDataSet(impl, data_cache)]
     
-    def load_FITS_dataset(self, impl, data_cache):
+    def load_FITS_dataset(self, impl, data_cache) -> List[RasterDataSet]:
         # We should show the Fits dialog which should return to us
+        self._fits_dialog = FitsDatasetLoadingDialog(impl, data_cache)
         result = self._fits_dialog.exec()
         print(f"result: {result}")
         return
@@ -87,24 +89,26 @@ class RasterDataLoader:
         if impl_list is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
 
-        datasets = []
+        outer_datasets = []
         for impl in impl_list:
-            func = self._format_loaders(type(impl))
+            print(f"type(impl): {type(impl)}")
+            func = self._format_loaders[type(impl)]
             print(f"func: {func}")
-            ds = RasterDataSet(impl, data_cache)
-            files = ds.get_filepaths()
-            if files:
-                name = os.path.basename(files[0])
-            else:
-                name = os.path.basename(path)
-            subdataset_name = ds.get_subdataset_name()
-            if subdataset_name is not None:
-                name += ":" + subdataset_name.split(":")[-1]
+            datasets = func(impl, data_cache)
+            for ds in datasets:
+                files = ds.get_filepaths()
+                if files:
+                    name = os.path.basename(files[0])
+                else:
+                    name = os.path.basename(path)
+                subdataset_name = ds.get_subdataset_name()
+                if subdataset_name is not None:
+                    name += ":" + subdataset_name.split(":")[-1]
 
-            ds.set_name(name)
-            datasets.append(ds)
+                ds.set_name(name)
+                outer_datasets.append(ds)
 
-        return datasets
+        return outer_datasets
 
 
     def get_save_filenames(self, path: str, format: str = 'ENVI') -> List[str]:
