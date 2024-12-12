@@ -232,6 +232,8 @@ class FitsSpectraLoadingDialog(QDialog):
 
         self._init_wavelength_units()
 
+        self._init_spectrum_suffix()
+
         self._setup_line_edits()
 
     def _init_wavelength_units(self):
@@ -242,15 +244,6 @@ class FitsSpectraLoadingDialog(QDialog):
             append = self.tr('Other: ')
         for key, value in KNOWN_SPECTRAL_UNITS.items():
             self._ui.wavelength_units_combo.addItem(append + key, value)
-
-    def _init_possible_datatypes(self):
-        self._possible_datatypes: List[DataType] = []
-        if self._naxis == 2:
-            self._possible_datatypes.append(DataType.SPECTRA)
-        elif self._naxis == 1:
-            self._possible_datatypes.append(DataType.SPECTRUM)
-        else:
-            raise TypeError(f'Fits spectra file expected to have NAXIS=2 or 1, but NAXIS={self._naxis}')
 
     def _init_axis_lengths(self):
         # Set the axis length information
@@ -282,6 +275,15 @@ class FitsSpectraLoadingDialog(QDialog):
         
         data_varying_options.currentIndexChanged.connect(self._setup_line_edits)
     
+    def _init_spectrum_suffix(self):
+        line_edit = self._ui.spectrum_suffix_line_edit
+
+        regex = QRegularExpression(r'^[a-zA-Z0-9]*$')  # Matches only letters and digits
+        validator = QRegularExpressionValidator(regex, line_edit)
+
+        # Apply the validator to the QLineEdit
+        line_edit.setValidator(validator)
+
     def _setup_line_edits(self):
         print(f"setting up line edits again")
         print(f"self._ui.data_vary_combo.currentData(): {self._ui.data_vary_combo.currentData()}")
@@ -307,7 +309,13 @@ class FitsSpectraLoadingDialog(QDialog):
     def accept(self):
         self.return_datasets: List = []
 
-        filename = os.path.basename(self._filepath)
+        filename_suffix = self._ui.spectrum_suffix_line_edit.text()
+        print(f"filename_suffix: {filename_suffix}")
+        print(f"type(filename_suffix): {type(filename_suffix)}")
+        basename = os.path.basename(self._filepath)
+        filename, _ = os.path.splitext(basename) 
+        spectrum_name = filename if filename_suffix == "" else f'{filename}_{filename_suffix}'
+        print(f"spectrum_name: {spectrum_name}")
         data_varying_axis = self._ui.data_vary_combo.currentData()
         unit = self._ui.wavelength_units_combo.currentData()
 
@@ -331,11 +339,11 @@ class FitsSpectraLoadingDialog(QDialog):
         
         numpy_spectrum_list = []
         wavelengths = x_arr*unit
-        numpy_spectrum = NumPyArraySpectrum(arr=y_arr, name=filename, wavelengths=wavelengths, editable=False)
+        numpy_spectrum = NumPyArraySpectrum(arr=y_arr, name=spectrum_name, wavelengths=wavelengths, editable=False)
         numpy_spectrum_list.append(numpy_spectrum)
         # Next we must make spectral_list into a list of Spectrum objects instead of arrays
         self.spectral_library = ListSpectralLibrary(numpy_spectrum_list, \
-                                                    name=filename, \
+                                                    name=spectrum_name, \
                                                     path=self._filepath)
 
         super().accept()
