@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>286</width>
-    <height>307</height>
+    <height>345</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,7 +17,7 @@
    <property name="geometry">
     <rect>
      <x>100</x>
-     <y>260</y>
+     <y>310</y>
      <width>161</width>
      <height>32</height>
     </rect>
@@ -32,8 +32,8 @@
   <widget class="QLabel" name="naxis_label">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>30</y>
+     <x>10</x>
+     <y>20</y>
      <width>47</width>
      <height>14</height>
     </rect>
@@ -82,7 +82,7 @@
    <property name="geometry">
     <rect>
      <x>70</x>
-     <y>30</y>
+     <y>20</y>
      <width>47</width>
      <height>14</height>
     </rect>
@@ -104,7 +104,7 @@
     <string>X Axis Number</string>
    </property>
   </widget>
-  <widget class="QLabel" name="y_axis_label">
+  <widget class="QLabel" name="y_axis_line_edit_2">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -155,6 +155,32 @@
     <rect>
      <x>120</x>
      <y>230</y>
+     <width>113</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+  </widget>
+  <widget class="QLabel" name="spectrum_suffix_label">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>280</y>
+     <width>91</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Spectrum Suffix</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="spectrum_suffix_line_edit">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>280</y>
      <width>113</width>
      <height>20</height>
     </rect>
