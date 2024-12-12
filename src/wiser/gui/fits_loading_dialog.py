@@ -84,16 +84,14 @@ class FitsDatasetLoadingDialog(QDialog):
     def _init_interpretation_options(self):
         self._possible_datatypes: List[DataType] = []
         # Base on the number of axis, initialize what to show the user for axis interpretation
-        if self._naxis == 1:
-            self._possible_datatypes.append(DataType.SPECTRUM)
-        elif self._naxis == 2:
-            self._possible_datatypes.append(DataType.SPECTRA)
+        if self._naxis == 2:
             self._possible_datatypes.append(DataType.SINGLE_IMAGE_BAND)
         elif self._naxis == 3:
             self._possible_datatypes.append(DataType.MANY_IMAGE_BAND)
             self._possible_datatypes.append(DataType.IMAGE_CUBE)
         else:
-            raise Exception(f'WISER does not support naxis number greater than 3. Yours is {self._naxis}')
+            raise Exception(f"WISER does not support naxis numberother than 2 or 3 for datasets" +
+                            f"Yours is {self._naxis}. If your naxis is 1, then load it in as a spectra")
 
         # Set the combo box information
         interpretation_options = self._ui.interp_opt_combo
@@ -173,27 +171,6 @@ class FitsDatasetLoadingDialog(QDialog):
                 ds = RasterDataSet(numpy_impl, self._data_cache)
                 ds.set_name(f'{ds.get_name()}_{i}')
                 self.return_datasets.append(ds)
-        elif axis_interpretation == DataType.SPECTRA:
-            spectra_list  = []
-            if data_varying_axis == 0:
-                # This will be the width
-                width = self._dataset_impl.get_width()
-                raster_y_size = self._dataset_impl.get_height()
-                for i in range(width):
-                    arr = self._dataset_impl.get_all_bands_at_rect(i, 0, 1, raster_y_size)
-                    spectra_list.append(arr)
-            elif data_varying_axis == 1:
-                # This will be the height
-                height = self._dataset_impl.get_height()
-                raster_x_size = self._dataset_impl.get_width()
-                for i in range(height):
-                    arr = self._dataset_impl.get_all_bands_at_rect(0, i, raster_x_size, 1)
-                    spectra_list.append(arr)
-            library = ListSpectralLibrary(spectra_list)
-        elif axis_interpretation == DataType.SPECTRUM:
-            spectra_list = []
-            spectra_list.append(np.squeeze(self._dataset_impl.get_image_data()))
-            library = ListSpectralLibrary(spectra_list)
 
         super().accept()
 
