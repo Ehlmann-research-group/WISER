@@ -49,6 +49,7 @@ from . import bug_reporting
 from wiser import plugins
 
 from .bandmath_dialog import BandMathDialog
+from .fits_loading_dialog import FitsSpectraLoadingDialog
 from wiser import bandmath
 
 from wiser.raster.selection import SinglePixelSelection
@@ -234,6 +235,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._file_menu.addAction(self.tr('Import spectra from text file...'))
         act.triggered.connect(self.import_spectra_from_textfile)
+        
+        act = self._file_menu.addAction(self.tr('Import spectra from FITS file...'))
+        act.triggered.connect(self.import_spectra_from_fitsfile)
 
         self._file_menu.addSeparator()
 
@@ -733,6 +737,25 @@ class DataVisualizerApp(QMainWindow):
                 spectra = dialog.get_spectra()
                 library = ListSpectralLibrary(spectra, path=path)
                 self._app_state.add_spectral_library(library)
+    
+    def import_spectra_from_fitsfile(self):
+        selected = QFileDialog.getOpenFileName(self,
+            self.tr('Import Spectra from FITS File'),
+            self._app_state.get_current_dir(),
+            self.tr('FITS files (*.fits);;All Files (*)'))
+
+        if selected[0]:
+            # The user selected a file to import.  Load it, then show the dialog
+            # for interpreting/understanding the spectral data.
+
+            path = selected[0]
+            self._app_state.update_cwd_from_path(path)
+
+        
+            dialog = FitsSpectraLoadingDialog(path, parent=self)
+
+            result = dialog.exec()
+            print(f"result!: {result}")
 
 
     def show_bandmath_dialog(self):

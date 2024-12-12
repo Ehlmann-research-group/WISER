@@ -18,7 +18,8 @@ FILENAMES=\
 	export_image_ui.py \
 	export_plot_image_ui.py \
 	export_spectra_dialog_ui.py \
-	fits_dialog_ui.py \
+	fits_dataset_dialog_ui.py \
+	fits_spectra_dialog_ui.py \
 	geo_coords_dialog_ui.py \
 	image_coords_widget_ui.py \
 	import_spectra_text_ui.py \
