@@ -285,8 +285,6 @@ class FitsSpectraLoadingDialog(QDialog):
         line_edit.setValidator(validator)
 
     def _setup_line_edits(self):
-        print(f"setting up line edits again")
-        print(f"self._ui.data_vary_combo.currentData(): {self._ui.data_vary_combo.currentData()}")
         # Get the line edit 
         x_ax_line_edit = self._ui.x_axis_line_edit
         x_ax_line_edit.setText(str(DEFAULT_SPECTRAL_AXIS_NUMBER))
@@ -299,28 +297,18 @@ class FitsSpectraLoadingDialog(QDialog):
 
         x_ax_line_edit.setValidator(x_validator)
 
-        y_ax_line_edit = self._ui.y_axis_line_edit
-        y_ax_line_edit.setText(str(DEFAULT_SPECTRAL_AXIS_NUMBER))
-
-        y_validator = QIntValidator(min_line_edit_value, max_line_edit_value, y_ax_line_edit)
-
-        y_ax_line_edit.setValidator(y_validator)
-
     def accept(self):
         self.return_datasets: List = []
 
         filename_suffix = self._ui.spectrum_suffix_line_edit.text()
-        print(f"filename_suffix: {filename_suffix}")
-        print(f"type(filename_suffix): {type(filename_suffix)}")
         basename = os.path.basename(self._filepath)
         filename, _ = os.path.splitext(basename) 
         spectrum_name = filename if filename_suffix == "" else f'{filename}_{filename_suffix}'
-        print(f"spectrum_name: {spectrum_name}")
+
         data_varying_axis = self._ui.data_vary_combo.currentData()
         unit = self._ui.wavelength_units_combo.currentData()
 
         x_axis = int(self._ui.x_axis_line_edit.text())
-        y_axis = int(self._ui.y_axis_line_edit.text())
 
         x_arr  = []
         y_arrays = []
@@ -336,7 +324,7 @@ class FitsSpectraLoadingDialog(QDialog):
         elif data_varying_axis == 1:
             for i in range(self._data.shape[0]):
                 if i == x_axis:
-                    x_arr = self._data[x_axis,:]
+                    x_arr = self._data[i,:]
                     x_arr = np.squeeze(x_arr)
                 else:
                     y_arr = self._data[i,:]

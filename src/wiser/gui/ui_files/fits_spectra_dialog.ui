@@ -104,19 +104,6 @@
     <string>X Axis Number</string>
    </property>
   </widget>
-  <widget class="QLabel" name="y_axis_line_edit_2">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>230</y>
-     <width>91</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Y Axis Number</string>
-   </property>
-  </widget>
   <widget class="QLabel" name="data_vary_label">
    <property name="geometry">
     <rect>
@@ -148,19 +135,6 @@
      <width>113</width>
      <height>20</height>
     </rect>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="y_axis_line_edit">
-   <property name="geometry">
-    <rect>
-     <x>120</x>
-     <y>230</y>
-     <width>113</width>
-     <height>20</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string/>
    </property>
   </widget>
   <widget class="QLabel" name="spectrum_suffix_label">
