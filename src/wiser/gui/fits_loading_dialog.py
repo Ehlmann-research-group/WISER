@@ -1,11 +1,17 @@
+import os
+
 import enum
 
 import numpy as np
 from typing import List
 
+import re
+
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import RasterDataImpl, NumPyRasterDataImpl
 from wiser.raster.spectral_library import ListSpectralLibrary
+from wiser.raster.utils import KNOWN_SPECTRAL_UNITS
+from wiser.raster.spectrum import NumPyArraySpectrum
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -15,6 +21,9 @@ from .generated.fits_dataset_dialog_ui import Ui_FitsDialog
 from .generated.fits_spectra_dialog_ui import Ui_FitsSpectraDialog
 
 from astropy.io import fits
+from astropy import units as u
+
+DEFAULT_SPECTRAL_AXIS_NUMBER = 0
 
 class DataType(enum.Enum):
     SPECTRUM = 'Spectrum'
@@ -90,8 +99,8 @@ class FitsDatasetLoadingDialog(QDialog):
             self._possible_datatypes.append(DataType.MANY_IMAGE_BAND)
             self._possible_datatypes.append(DataType.IMAGE_CUBE)
         else:
-            raise Exception(f"WISER does not support naxis numberother than 2 or 3 for datasets" +
-                            f"Yours is {self._naxis}. If your naxis is 1, then load it in as a spectra")
+            raise Exception(f"WISER does not support naxis number other than 2 or 3 for datasets. " +
+                            f"Yours is {self._naxis}. If your naxis number is 1, then load it in as a spectra.")
 
         # Set the combo box information
         interpretation_options = self._ui.interp_opt_combo
@@ -175,6 +184,7 @@ class FitsDatasetLoadingDialog(QDialog):
         super().accept()
 
 class FitsSpectraLoadingDialog(QDialog):
+
     def __init__(self, filepath, parent=None):
         super().__init__(parent=parent)
         
@@ -191,8 +201,25 @@ class FitsSpectraLoadingDialog(QDialog):
                 self._data = hdul[0].data
                 self._naxis = self._header['NAXIS']
                 self._axis_lengths = []
+                self._units: List[u.Unit] = []
                 for i in range(self._naxis):
                     self._axis_lengths.append(self._header[f'NAXIS{i+1}'])
+                pattern = re.compile(r'unit', re.IGNORECASE)
+                # Go through each key in the fits file and parse it for unit. Make the units into astropy units
+                for key in self._header:
+                    if pattern.search(key):
+                        print(f"fits spectra Key: {key}")
+                        unit_str = self._header[key]
+                        print(f"fits spectra Value: {unit_str}, type: {type(unit_str)}")
+                        unit_value = None
+                        try:
+                            unit_value = u.Unit(unit_str)
+                            print(f"Type of unit value on startup: {type(unit_value)}")
+                            print(f"Unit_value: {unit_value}")
+                        except BaseException as e:
+                            continue
+                        self._units.append(unit_value)
+    
         except BaseException as e:
             raise TypeError(f'Error while loading in fits file at filepath: {filepath}.\nError: {e}')
     
@@ -202,7 +229,21 @@ class FitsSpectraLoadingDialog(QDialog):
         self._init_axis_lengths()
 
         self._init_data_varying_options()
-    
+
+        self._init_wavelength_units()
+
+        self._setup_line_edits()
+
+    def _init_wavelength_units(self):
+        append = self.tr('Yours: ')
+        if len(self._units) > 0:
+            for unit in self._units:
+                self._ui.wavelength_units_combo.addItem(append + unit.to_string(), unit)
+            append = self.tr('Other: ')
+        for key, value in KNOWN_SPECTRAL_UNITS.items():
+            self._ui.wavelength_units_combo.addItem(append + key, value)
+
+    def _init_possible_datatypes(self):
         self._possible_datatypes: List[DataType] = []
         if self._naxis == 2:
             self._possible_datatypes.append(DataType.SPECTRA)
@@ -238,30 +279,63 @@ class FitsSpectraLoadingDialog(QDialog):
         # We want to grey this out if image cube is selected. 
         if data_varying_options.count() <= 1:
             data_varying_options.setEnabled(False)
+        
+        data_varying_options.currentIndexChanged.connect(self._setup_line_edits)
     
+    def _setup_line_edits(self):
+        print(f"setting up line edits again")
+        print(f"self._ui.data_vary_combo.currentData(): {self._ui.data_vary_combo.currentData()}")
+        # Get the line edit 
+        x_ax_line_edit = self._ui.x_axis_line_edit
+        x_ax_line_edit.setText(str(DEFAULT_SPECTRAL_AXIS_NUMBER))
+
+        # Go through the currently selected data varying axis and get the min and max. Set that as the bounds for the line edit
+        max_line_edit_value = self._data.shape[1]-1 if self._ui.data_vary_combo.currentData() == 0 else self._data.shape[0]-1
+        min_line_edit_value = 0
+
+        x_validator = QIntValidator(min_line_edit_value, max_line_edit_value, x_ax_line_edit)
+
+        x_ax_line_edit.setValidator(x_validator)
+
+        y_ax_line_edit = self._ui.y_axis_line_edit
+        y_ax_line_edit.setText(str(DEFAULT_SPECTRAL_AXIS_NUMBER))
+
+        y_validator = QIntValidator(min_line_edit_value, max_line_edit_value, y_ax_line_edit)
+
+        y_ax_line_edit.setValidator(y_validator)
+
     def accept(self):
         self.return_datasets: List = []
 
+        filename = os.path.basename(self._filepath)
         data_varying_axis = self._ui.data_vary_combo.currentData()
+        unit = self._ui.wavelength_units_combo.currentData()
 
-        spectra_list  = []
+        x_axis = int(self._ui.x_axis_line_edit.text())
+        y_axis = int(self._ui.y_axis_line_edit.text())
+
+        x_arr  = []
+        y_arr = []
         if data_varying_axis == 0:
-            # This will be the width
-            width = self._data.shape[1]
-            for i in range(width):
-                arr = self._data[:,i:i+1]
-                print(f"data_varying axis is 1, shape: {arr.shape}")
-                spectra_list.append(arr)
+            x_arr = self._data[:,x_axis]
+            x_arr = np.squeeze(x_arr)
+    
+            y_arr = self._data[:,y_axis]
+            y_arr = np.squeeze(y_arr)
         elif data_varying_axis == 1:
-            # This will be the height
-            height = self._data.shape[0]
-            for i in range(height):
-                arr = self._data[i:i+1,:]
-                print(f"data_varying axis is 0, shape: {arr.shape}")
-                spectra_list.append(arr)
+            x_arr = self._data[x_axis,:]
+            x_arr = np.squeeze(x_arr)
+    
+            y_arr = self._data[y_axis,:]
+            y_arr = np.squeeze(y_arr)
+        
+        numpy_spectrum_list = []
+        wavelengths = x_arr*unit
+        numpy_spectrum = NumPyArraySpectrum(arr=y_arr, name=filename, wavelengths=wavelengths, editable=False)
+        numpy_spectrum_list.append(numpy_spectrum)
         # Next we must make spectral_list into a list of Spectrum objects instead of arrays
-        library = ListSpectralLibrary(spectra_list)
+        self.spectral_library = ListSpectralLibrary(numpy_spectrum_list, \
+                                                    name=filename, \
+                                                    path=self._filepath)
 
         super().accept()
-
-

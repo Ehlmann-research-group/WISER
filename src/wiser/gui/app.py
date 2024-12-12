@@ -755,7 +755,10 @@ class DataVisualizerApp(QMainWindow):
             dialog = FitsSpectraLoadingDialog(path, parent=self)
 
             result = dialog.exec()
-            print(f"result!: {result}")
+            if result == QDialog.Accepted:
+                library = dialog.spectral_library
+                self._app_state.add_spectral_library(library)
+                print(f"Added spectral library!")
 
 
     def show_bandmath_dialog(self):
