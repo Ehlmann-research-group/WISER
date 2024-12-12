@@ -323,24 +323,32 @@ class FitsSpectraLoadingDialog(QDialog):
         y_axis = int(self._ui.y_axis_line_edit.text())
 
         x_arr  = []
-        y_arr = []
+        y_arrays = []
         if data_varying_axis == 0:
-            x_arr = self._data[:,x_axis]
-            x_arr = np.squeeze(x_arr)
-    
-            y_arr = self._data[:,y_axis]
-            y_arr = np.squeeze(y_arr)
+            for i in range(self._data.shape[1]):
+                if i == x_axis:
+                    x_arr = self._data[:,i]
+                    x_arr = np.squeeze(x_arr)
+                else:
+                    y_arr = self._data[:,i]
+                    y_arr = np.squeeze(y_arr)
+                    y_arrays.append(y_arr)
         elif data_varying_axis == 1:
-            x_arr = self._data[x_axis,:]
-            x_arr = np.squeeze(x_arr)
-    
-            y_arr = self._data[y_axis,:]
-            y_arr = np.squeeze(y_arr)
+            for i in range(self._data.shape[0]):
+                if i == x_axis:
+                    x_arr = self._data[x_axis,:]
+                    x_arr = np.squeeze(x_arr)
+                else:
+                    y_arr = self._data[i,:]
+                    y_arr = np.squeeze(y_arr)
+                    y_arrays.append(y_arr)
         
         numpy_spectrum_list = []
         wavelengths = x_arr*unit
-        numpy_spectrum = NumPyArraySpectrum(arr=y_arr, name=spectrum_name, wavelengths=wavelengths, editable=False)
-        numpy_spectrum_list.append(numpy_spectrum)
+        for i in range(len(y_arrays)):
+            numpy_spectrum = NumPyArraySpectrum(arr=y_arrays[i], name=f'{spectrum_name}_{i}', wavelengths=wavelengths, editable=False)
+            numpy_spectrum_list.append(numpy_spectrum)
+            
         # Next we must make spectral_list into a list of Spectrum objects instead of arrays
         self.spectral_library = ListSpectralLibrary(numpy_spectrum_list, \
                                                     name=spectrum_name, \
