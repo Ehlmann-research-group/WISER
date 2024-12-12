@@ -11,7 +11,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .generated.fits_dialog_ui import Ui_FitsDialog
+from .generated.fits_dataset_dialog_ui import Ui_FitsDialog
+from .generated.fits_spectra_dialog_ui import Ui_FitsSpectraDialog
 
 from astropy.io import fits
 
@@ -54,19 +55,6 @@ class FitsDatasetLoadingDialog(QDialog):
                     self._axis_lengths.append(fits_gdal_dataset_impl.get_width())
         except BaseException as e:
             raise TypeError(f'Could not open {filepath} as fits file.')
-
-        self._possible_datatypes: List[DataType] = []
-        # Base on the number of axis, initialize what to show the user for axis interpretation
-        if self._naxis == 1:
-            self._possible_datatypes.append(DataType.SPECTRUM)
-        elif self._naxis == 2:
-            self._possible_datatypes.append(DataType.SPECTRA)
-            self._possible_datatypes.append(DataType.SINGLE_IMAGE_BAND)
-        elif self._naxis == 3:
-            self._possible_datatypes.append(DataType.MANY_IMAGE_BAND)
-            self._possible_datatypes.append(DataType.IMAGE_CUBE)
-        else:
-            raise Exception(f'WISER does not support naxis number greater than 3. Yours is {self._naxis}')
         
         # Set the naxis information
         self._ui.naxis_field.setText(str(self._naxis))
@@ -94,6 +82,19 @@ class FitsDatasetLoadingDialog(QDialog):
         group_box.setLayout(holding_box)
 
     def _init_interpretation_options(self):
+        self._possible_datatypes: List[DataType] = []
+        # Base on the number of axis, initialize what to show the user for axis interpretation
+        if self._naxis == 1:
+            self._possible_datatypes.append(DataType.SPECTRUM)
+        elif self._naxis == 2:
+            self._possible_datatypes.append(DataType.SPECTRA)
+            self._possible_datatypes.append(DataType.SINGLE_IMAGE_BAND)
+        elif self._naxis == 3:
+            self._possible_datatypes.append(DataType.MANY_IMAGE_BAND)
+            self._possible_datatypes.append(DataType.IMAGE_CUBE)
+        else:
+            raise Exception(f'WISER does not support naxis number greater than 3. Yours is {self._naxis}')
+
         # Set the combo box information
         interpretation_options = self._ui.interp_opt_combo
 
@@ -129,23 +130,21 @@ class FitsDatasetLoadingDialog(QDialog):
             data_varying_options.setEnabled(True)
 
     def accept(self):
-        # We get the axis interpreation and the data varying axis and (whether or not the data varying axis is greyed out)?
         self.return_datasets: List = []
         
-        axis_interpreation = self._ui.interp_opt_combo.currentData()
+        axis_interpretation = self._ui.interp_opt_combo.currentData()
         data_varying_axis = self._ui.data_vary_combo.currentData()
 
-        if axis_interpreation == DataType.IMAGE_CUBE or axis_interpreation == DataType.SINGLE_IMAGE_BAND:
+        if axis_interpretation == DataType.IMAGE_CUBE or axis_interpretation == DataType.SINGLE_IMAGE_BAND:
             self._dataset_impl.get_image_data()
             self.return_datasets = [RasterDataSet(self._dataset_impl, self._data_cache)]
-        elif axis_interpreation == DataType.MANY_IMAGE_BAND:
+        elif axis_interpretation == DataType.MANY_IMAGE_BAND:
             numpy_raster_impl_list = []
             if data_varying_axis == 0:
                 num_bands = self._dataset_impl.num_bands()
                 for i in range(num_bands):
                     arr = self._dataset_impl.get_band_data(i)
                     arr = arr[np.newaxis,:,:]
-                    print(f"MANY BAND Getting band data, shape: {arr.shape}")
                     numpy_impl = NumPyRasterDataImpl(arr)
                     numpy_raster_impl_list.append(numpy_impl)
             elif data_varying_axis == 1:
@@ -153,10 +152,7 @@ class FitsDatasetLoadingDialog(QDialog):
                 height = self._dataset_impl.get_height()
                 raster_x_size = self._dataset_impl.get_width()
                 for i in range(height):
-                    print(f"MANY BAND: height: {height}")
-                    print(f"MANY BAND: raster_x_size / width: {raster_x_size}")
                     arr = self._dataset_impl.get_all_bands_at_rect(0, i, raster_x_size, 1)
-                    print(f"MANY BAND: arr shape: axis 2: {arr.shape}")
                     arr = arr.reshape((1, arr.shape[0], -1))  # 0 is the band index, I only move this so width is in same spot
                     numpy_impl = NumPyRasterDataImpl(arr)
                     numpy_raster_impl_list.append(numpy_impl)
@@ -165,10 +161,7 @@ class FitsDatasetLoadingDialog(QDialog):
                 width = self._dataset_impl.get_width()
                 raster_y_size = self._dataset_impl.get_height()
                 for i in range(width):
-                    print(f"MANY BAND: width: {width}")
-                    print(f"MANY BAND: raster_y_size / height: {raster_y_size}")
                     arr = self._dataset_impl.get_all_bands_at_rect(i, 0, 1, raster_y_size)
-                    print(f"MANY BAND: arr shape: axis 1: {arr.shape}")
                     arr = arr.reshape((1, -1, arr.shape[0]))  # 0 is the band index, I only move this so the height stays the same
                     numpy_impl = NumPyRasterDataImpl(arr)
                     numpy_raster_impl_list.append(numpy_impl)
@@ -180,35 +173,118 @@ class FitsDatasetLoadingDialog(QDialog):
                 ds = RasterDataSet(numpy_impl, self._data_cache)
                 ds.set_name(f'{ds.get_name()}_{i}')
                 self.return_datasets.append(ds)
-        elif axis_interpreation == DataType.SPECTRA:
+        elif axis_interpretation == DataType.SPECTRA:
             spectra_list  = []
             if data_varying_axis == 0:
                 # This will be the width
                 width = self._dataset_impl.get_width()
                 raster_y_size = self._dataset_impl.get_height()
                 for i in range(width):
-                    print(f"Spectra vary axis 0, width: {width}, raster_y_size/height: {raster_y_size}")
                     arr = self._dataset_impl.get_all_bands_at_rect(i, 0, 1, raster_y_size)
-                    print(f"Arr shape in spectra, data vary 0: {arr.shape}")
                     spectra_list.append(arr)
             elif data_varying_axis == 1:
                 # This will be the height
                 height = self._dataset_impl.get_height()
                 raster_x_size = self._dataset_impl.get_width()
                 for i in range(height):
-                    print(f"Spectra vary axis 1")
                     arr = self._dataset_impl.get_all_bands_at_rect(0, i, raster_x_size, 1)
-                    print(f"Arr shape in spectra, data vary 1: {arr.shape}")
                     spectra_list.append(arr)
             library = ListSpectralLibrary(spectra_list)
-        elif axis_interpreation == DataType.SPECTRUM:
+        elif axis_interpretation == DataType.SPECTRUM:
             spectra_list = []
-            print(f"Spectrum self._dataset_impl: {self._dataset_impl}")
             spectra_list.append(np.squeeze(self._dataset_impl.get_image_data()))
             library = ListSpectralLibrary(spectra_list)
 
         super().accept()
 
+class FitsSpectraLoadingDialog(QDialog):
+    def __init__(self, filepath, parent=None):
+        super().__init__(parent=parent)
+        
+        # Set up the UI state
+        self._ui = Ui_FitsSpectraDialog()
+        self._ui.setupUi(self)
 
+        # Expects the fits file to have dimension 2
+        self._filepath = filepath
+
+        try:
+            with fits.open(self._filepath) as hdul:
+                self._header = hdul[0].header
+                self._data = hdul[0].data
+                self._naxis = self._header['NAXIS']
+                self._axis_lengths = []
+                for i in range(self._naxis):
+                    self._axis_lengths.append(self._header[f'NAXIS{i+1}'])
+        except BaseException as e:
+            raise TypeError(f'Error while loading in fits file at filepath: {filepath}.\nError: {e}')
+    
+        # Set the naxis information
+        self._ui.naxis_field.setText(str(self._naxis))
+
+        self._init_axis_lengths()
+
+        self._init_data_varying_options()
+    
+        self._possible_datatypes: List[DataType] = []
+        if self._naxis == 2:
+            self._possible_datatypes.append(DataType.SPECTRA)
+        elif self._naxis == 1:
+            self._possible_datatypes.append(DataType.SPECTRUM)
+        else:
+            raise TypeError(f'Fits spectra file expected to have NAXIS=2 or 1, but NAXIS={self._naxis}')
+
+    def _init_axis_lengths(self):
+        # Set the axis length information
+        group_box = self._ui.axis_lengths_group_box
+        holding_box = QVBoxLayout()
+        for i in range(len(self._axis_lengths)):
+            axis_length = self._axis_lengths[i]
+            hbox = QHBoxLayout()
+            axis_index_label = QLabel(f'Dimension {i}')
+            axis_length_label = QLabel(f'{axis_length}')
+            hbox.addWidget(axis_index_label)
+            hbox.addWidget(axis_length_label)
+            holding_box.addLayout(hbox)
+        group_box.setLayout(holding_box)
+        
+    def _init_data_varying_options(self):
+        '''
+        Sets up the data varying axis. An example of this is if you had a 2D array that could
+        be either a collection of spectra or an image band. The data varying axis is the axis
+        along which are individual spectra.
+        '''
+        data_varying_options = self._ui.data_vary_combo
+        for i in range(len(self._axis_lengths)):
+            data_varying_options.addItem(f'Dimension {i}', i)
+
+        # We want to grey this out if image cube is selected. 
+        if data_varying_options.count() <= 1:
+            data_varying_options.setEnabled(False)
+    
+    def accept(self):
+        self.return_datasets: List = []
+
+        data_varying_axis = self._ui.data_vary_combo.currentData()
+
+        spectra_list  = []
+        if data_varying_axis == 0:
+            # This will be the width
+            width = self._data.shape[1]
+            for i in range(width):
+                arr = self._data[:,i:i+1]
+                print(f"data_varying axis is 1, shape: {arr.shape}")
+                spectra_list.append(arr)
+        elif data_varying_axis == 1:
+            # This will be the height
+            height = self._data.shape[0]
+            for i in range(height):
+                arr = self._data[i:i+1,:]
+                print(f"data_varying axis is 0, shape: {arr.shape}")
+                spectra_list.append(arr)
+        # Next we must make spectral_list into a list of Spectrum objects instead of arrays
+        library = ListSpectralLibrary(spectra_list)
+
+        super().accept()
 
 

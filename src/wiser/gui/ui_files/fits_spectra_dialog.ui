@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>FitsDialog</class>
- <widget class="QDialog" name="FitsDialog">
+ <class>FitsSpectraDialog</class>
+ <widget class="QDialog" name="FitsSpectraDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Fits Spectra Loader</string>
   </property>
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
@@ -104,7 +104,7 @@
     <string>Data Varying Axis</string>
    </property>
   </widget>
-  <widget class="QComboBox" name="comboBox">
+  <widget class="QComboBox" name="data_vary_combo">
    <property name="geometry">
     <rect>
      <x>120</x>
@@ -120,7 +120,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>FitsDialog</receiver>
+   <receiver>FitsSpectraDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -136,7 +136,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>FitsDialog</receiver>
+   <receiver>FitsSpectraDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

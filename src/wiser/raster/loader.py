@@ -65,7 +65,7 @@ class RasterDataLoader:
         # We should show the Fits dialog which should return to us
         self._fits_dialog = FitsDatasetLoadingDialog(impl, data_cache)
         result = self._fits_dialog.exec()
-        print(f"result: {result}")
+    
         if result == QDialog.Accepted:
            return self._fits_dialog.return_datasets
         return []
@@ -93,7 +93,6 @@ class RasterDataLoader:
 
         outer_datasets = []
         for impl in impl_list:
-            print(f"type(impl): {type(impl)}")
             func = self._format_loaders[type(impl)]
             print(f"func: {func}")
             datasets = func(impl, data_cache)
