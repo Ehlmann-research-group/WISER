@@ -343,7 +343,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
         '''
-        Returns a numpy 2D array of the values of all bands at the specified
+        Returns a numpy 3D array of the values of all bands at the specified
         rectangle in the raster data.
         '''
 
@@ -355,8 +355,11 @@ class GDALRasterDataImpl(RasterDataImpl):
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
         new_dataset = self.reopen_dataset()
-        np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
+        np_array: np.ndarray = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 
+        # If the dataset is 1D, then the dimension of this wlil be 2D. We want to make it 3D
+        if np_array.ndim == 2:
+            np_array = np_array[np.newaxis,:,:]
         return np_array
 
     def read_band_info(self) -> List[Dict[str, Any]]:
