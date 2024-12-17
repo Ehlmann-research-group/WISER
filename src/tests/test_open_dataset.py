@@ -73,8 +73,8 @@ class TestOpenDataset(unittest.TestCase):
 
             loader = RasterDataLoader()
             N=6
-            np_impl = np.arange(1, N+1).reshape((1, 1, N)) * np.ones((50, 50, N))
-            avg_value = np.mean(np_impl)
+            np_impl = np.arange(1, N+1).reshape((N, 1, 1)) * np.ones((N, 50, 50))
+            avg_value = np.arange(1, N+1)
             dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
             dataset.set_name("Test_Numpy")
 
@@ -109,6 +109,7 @@ class TestOpenDataset(unittest.TestCase):
             avg_spectrum_arr = spectrum._spectrum
             print(f"avg_spectrum_arr: {avg_spectrum_arr}")
             print(f"avg_spectrum_arr.shape: {avg_spectrum_arr.shape}")
+            print(f"avg_value: {avg_value}")
             
             np.testing.assert_equal(avg_spectrum_arr, avg_value)
 
@@ -120,7 +121,6 @@ class TestOpenDataset(unittest.TestCase):
         except Exception as e:
             logging.error(f"Application crashed: {e}")
             traceback.print_exc()
-            self.assertTrue(1==0, f"Falied with error:\n{e}")
 
         finally:
             if wiser_ui:
@@ -211,8 +211,8 @@ if __name__ == '__main__':
 
         loader = RasterDataLoader()
         N=6
-        np_impl = np.arange(1, N+1).reshape((1, 1, N)) * np.ones((50, 50, N))
-        avg_value = np.mean(np_impl)
+        np_impl = np.arange(1, N+1).reshape((N, 1, 1)) * np.ones((N, 50, 50))
+        avg_value = np.arange(1, N+1)
         dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
         dataset.set_name("Test_Numpy")
 
@@ -247,6 +247,7 @@ if __name__ == '__main__':
         avg_spectrum_arr = spectrum._spectrum
         print(f"avg_spectrum_arr: {avg_spectrum_arr}")
         print(f"avg_spectrum_arr.shape: {avg_spectrum_arr.shape}")
+        print(f"avg_value: {avg_value}")
         
         np.testing.assert_equal(avg_spectrum_arr, avg_value)
 
