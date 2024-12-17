@@ -587,7 +587,10 @@ class RasterDataSet:
             mask = mask.astype(bool)
             for i in range(arr.shape[1]):
                 for j in range(arr.shape[2]):
-                    arr[:,i,j][mask] = np.nan
+                    try:
+                        arr[:,i,j][mask] = np.nan
+                    except BaseException as e:
+                        arr[:,i,j][mask] = DEFAULT_MASK_VALUE
             if self._data_ignore_value is not None:
                 mask_ignore_val = np.isclose(arr, self._data_ignore_value)
                 try:
