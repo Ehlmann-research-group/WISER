@@ -650,6 +650,7 @@ class RasterView(QWidget):
         return self._colormap
 
     def update_display_image(self, colors=ImageColors.RGB):
+        print(f"UPDATING DISPLAY IMAGE!")
         img_data = None
         if self._raster_data is None:
             # No raster data to display
@@ -661,7 +662,8 @@ class RasterView(QWidget):
 
         assert len(self._display_bands) in [1, 3]
         cache = self._raster_data.get_cache().get_render_cache()
-        key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches)
+        print(f"self._colormap: {self._colormap}")
+        key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches, self._colormap)
 
         time_1 = time.perf_counter()
         if cache.in_cache(key):
@@ -682,6 +684,7 @@ class RasterView(QWidget):
                         band_data = arr.data
                         band_mask = arr.mask
                     stretches = [None, None]
+                    print(f"self._stretches: {self._stretches}")
                     if self._stretches[i]:
                         stretches = self._stretches[i].get_stretches()
                     new_data = make_channel_image_using_numba(band_data, stretches[0], stretches[1])
@@ -716,6 +719,7 @@ class RasterView(QWidget):
             cache.add_cache_item(key, img_data)
 
         else:
+            print(f"Changing color map!!!")
             # This is a grayscale image.
             if colors != ImageColors.NONE:
                 # Regenerate the image.  Since all color bands are the same,
