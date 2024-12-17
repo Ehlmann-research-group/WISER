@@ -574,32 +574,30 @@ class RasterDataSet:
         arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
             arr = arr.copy()
-            for i, v in enumerate(self.get_bad_bands()):
-                if v == 0:
-                    # Band is marked "bad"
+            # if np.issubdtype(arr.dtype, np.integer):
+            #     arr = arr.astype(np.float32, copy=False)
+            # Make mask for the bad band values
+            mask = np.array(self.get_bad_bands())
+            assert np.all((mask == 0) | (mask == 1)), "Bad bands mask contains values other than 0 or 1"
+            assert (arr.shape[0] == len(mask)), "Length of mask does not match number of spectra"
+    
+            # In the mask, 1 means keep and 0 means get rid of, I use XOR with 1 to reverse this
+            # because np's mask operation (arr[mask]) would switch all the values where the mask is 1
+            mask = np.where((mask==0)|(mask==1), mask^1, mask)
+            mask = mask.astype(bool)
+            for i in range(arr.shape[1]):
+                for j in range(arr.shape[2]):
                     try:
-                        set_band(arr, i, np.nan)
-                    except:
-                        set_band(arr, i, DEFAULT_MASK_VALUE)
-                elif self._data_ignore_value is not None:
-                    data_ignore_mask = np.isclose(arr, self._data_ignore_value)
-                    if data_ignore_mask.any():
-                        # Band has the "data ignore" value
-                        try:
-                            arr[data_ignore_mask] = np.nan
-                        except BaseException as e:
-                            print(f"Exception occured when trying to mask array with np.nan:\n{e}")
-                            arr[data_ignore_mask] = DEFAULT_MASK_VALUE
-
-                    # for elem in np.nditer(arr):
-                    #     if (self._data_ignore_value is not None and
-                    #         math.isclose(arr[i], self._data_ignore_value)):
-                    #         # Band has the "data ignore" value
-                    #         try:
-                    #             set_band(arr, i, np.nan)
-                    #         except BaseException as e:
-                    #             print(f"Exception occured when trying to mask array with np.nan:\n{e}")
-                    #             set_band(arr, i, DEFAULT_MASK_VALUE)
+                        arr[:,i,j][mask] = np.nan
+                    except BaseException as e:
+                        arr[:,i,j][mask] = DEFAULT_MASK_VALUE
+            if self._data_ignore_value is not None:
+                mask_ignore_val = np.isclose(arr, self._data_ignore_value)
+                try:
+                    arr[mask_ignore_val] = np.nan
+                except BaseException as e:
+                    print(f"Exception occured when trying to mask array with np.nan:\n{e}")
+                    arr[mask_ignore_val] = DEFAULT_MASK_VALUE
         return arr
 
     def get_geo_transform(self) -> Tuple:
@@ -736,6 +734,12 @@ class RasterDataSet:
     
     def get_impl(self):
         return self._impl
+
+    def get_subdataset_name(self) -> str:
+        if hasattr(self._impl, 'subdataset_name'):
+            return self._impl.subdataset_name
+        else:
+            return None
 
     def delete_underlying_dataset(self):
         if hasattr(self._impl, 'delete_dataset'):

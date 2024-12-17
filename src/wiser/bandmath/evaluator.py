@@ -900,8 +900,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 if isinstance(result_value, (asyncio.Future, Coroutine)):
                     result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
                 res = result_value.value
-                assert (res.shape[0] == out_dataset_gdal.RasterXSize, \
-                        res.shape[1] == out_dataset_gdal.RasterYSize)
                 
                 future = eval._write_thread_pool.submit(write_raster_to_dataset, \
                                                     out_dataset_gdal, band_index_list_current, \

@@ -230,14 +230,9 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
         rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
 
     if rhs_future is not None:
-        print("Waiting for rhs future")
         rhs_value = await rhs_future
-        print("Got rhs future")
     if lhs_future is not None:
-        print("Waiting for lhs future")
-        print(f"lhs_future {lhs_future}")
         lhs_value = await lhs_future
-        print("Got lhs future")
     if should_be_the_same:
         rhs_value = lhs_value
     
