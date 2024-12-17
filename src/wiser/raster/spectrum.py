@@ -195,16 +195,13 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     assert(len(spectra) == len(roi.get_all_pixels()))
 
     if len(spectra) > 1:
-        print("Spectra computing starting")
         # Need to compute mean/median/... of the collection of spectra
         if mode == SpectrumAverageMode.MEAN:
-            print("Spectra: ", type(spectra))
             spectrum = np.nanmean(spectra, axis=0)
         elif mode == SpectrumAverageMode.MEDIAN:
             spectrum = np.nanmedian(spectra, axis=0)
         else:
             raise ValueError(f'Unrecognized average type {mode}')
-        print("Spectra computing ended")
 
     else:
         # Only one spectrum, don't need to compute mean/median
