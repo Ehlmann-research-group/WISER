@@ -8,15 +8,9 @@ import numpy as np
 
 import time
 
-from wiser.gui.app_state import ApplicationState
 from wiser.gui.app import DataVisualizerApp
 
-from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.roi import RegionOfInterest
-from wiser.raster.selection import RectangleSelection, PolygonSelection, MultiPixelSelection
-
-from wiser.raster.spectrum import ROIAverageSpectrum
 
 import logging
 import traceback
