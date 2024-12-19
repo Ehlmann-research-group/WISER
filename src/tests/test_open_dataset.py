@@ -25,38 +25,6 @@ from PySide2.QtWidgets import *
 
 app = QApplication([])  # Initialize the QApplication
 
-def run_function_in_ui(dataset_path, func):
-    wiser_ui = None
-
-    try:
-        # Set up the GUI
-        wiser_ui = DataVisualizerApp()
-        wiser_ui.show()
-
-        loader = RasterDataLoader()
-        dataset = loader.load_from_file(dataset_path)[0]
-
-        # Create an application state, no need to pass the app here
-        app_state = wiser_ui._app_state
-
-        # raster_pane = RasterPane(app_state)
-        app_state.add_dataset(dataset)
-
-        func(dataset, wiser_ui, app_state)
-
-        # This should happen X milliseconds after the above stuff runs
-        QTimer.singleShot(100, app.quit)
-        # Run the application event loop
-        app.exec_()
-
-    except Exception as e:
-        logging.error(f"Application crashed: {e}")
-        traceback.print_exc()
-
-    finally:
-        if wiser_ui:
-            wiser_ui.close()
-
 # Outside of this file, make a script that will test out opening each file type.
 
 # Maybe make a config file where you can put the paths to each file type that you have
@@ -107,9 +75,6 @@ class TestOpenDataset(unittest.TestCase):
             spectrum = ROIAverageSpectrum(main_view._rasterviews[(0,0)].get_raster_data(), roi_one_tenth)
             spectrum._calculate_spectrum()
             avg_spectrum_arr = spectrum._spectrum
-            print(f"avg_spectrum_arr: {avg_spectrum_arr}")
-            print(f"avg_spectrum_arr.shape: {avg_spectrum_arr.shape}")
-            print(f"avg_value: {avg_value}")
             
             np.testing.assert_equal(avg_spectrum_arr, avg_value)
 
@@ -140,8 +105,6 @@ class TestOpenDataset(unittest.TestCase):
             N=1
             np_impl = np.arange(1, height+1).reshape((1, height, 1)) * np.ones((N, height, width))
             avg_value = np.mean(np_impl)+10
-            print(f"avg_value: {avg_value}")
-            print(f"np_impl: {np_impl.shape}")
             dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
             dataset.set_name("Test_Numpy")
 
@@ -174,9 +137,6 @@ class TestOpenDataset(unittest.TestCase):
             spectrum = ROIAverageSpectrum(main_view._rasterviews[(0,0)].get_raster_data(), roi_one_tenth)
             spectrum._calculate_spectrum()
             avg_spectrum_arr = spectrum._spectrum
-            print(f"avg_spectrum_arr: {avg_spectrum_arr}")
-            print(f"avg_spectrum_arr.shape: {avg_spectrum_arr.shape}")
-            print(f"avg_value: {avg_value}")
             
             self.assertNotEqual(avg_spectrum_arr, avg_value)
 
