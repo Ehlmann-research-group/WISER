@@ -1,15 +1,11 @@
 import unittest
 
 import sys
-import os
 sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser")
 sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src")
 
-import time
-
 import numpy as np
 
-from wiser.gui.app_state import ApplicationState
 from wiser.gui.app import DataVisualizerApp
 from wiser.gui.rasterview import RasterView, make_channel_image_using_numba, \
     make_channel_image, make_rgb_image_using_numba, make_grayscale_image
