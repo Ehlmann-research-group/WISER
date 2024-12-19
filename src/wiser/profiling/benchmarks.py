@@ -171,7 +171,7 @@ def run_function_in_ui(dataset_path, func):
 
         func(dataset, wiser_ui, app_state)
 
-        # This should happen X milliseconds after the ahove stuff runs
+        # This should happen X milliseconds after the above stuff runs
         QTimer.singleShot(100, app.quit)
         # Run the application event loop
         app.exec_()

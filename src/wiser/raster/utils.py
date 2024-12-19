@@ -214,6 +214,9 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=Fals
     if maxval is None:
         maxval = np.nanmax(array)
 
+    if maxval == minval:
+        return np.zeros_like(array, dtype=np.float32)
+
     if in_place:
         array -= minval
         if maxval-minval == 0:
@@ -228,6 +231,8 @@ def normalize_ndarray_using_njit(data: np.ndarray, minval: float, maxval: float)
     """
     Normalize an array to the range [0, 1].
     """
+    if maxval == minval:
+        return np.zeros_like(data, dtype=np.float32)
     # Create an empty array with the same shape as `data` and dtype float32
     normalized = np.empty(data.shape, dtype=np.float32)
     
