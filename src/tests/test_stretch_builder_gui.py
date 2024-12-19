@@ -24,11 +24,10 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-app = QApplication([])  # Initialize the QApplication
-
 class TestStretchBuilderGUI(unittest.TestCase):
 
     def test_open_stretch_builder_gui(self):
+        app = QApplication.instance() or QApplication([])  # Initialize the QApplication
         wiser_ui = None
 
         try:
@@ -105,8 +104,11 @@ class TestStretchBuilderGUI(unittest.TestCase):
         finally:
             if wiser_ui:
                 wiser_ui.close()
+            app.quit()
+            del app
 
     def test_stretch_builder_histogram_gui(self):
+        app = QApplication.instance() or QApplication([])  # Initialize the QApplication
         wiser_ui = None
 
         try:
@@ -139,11 +141,6 @@ class TestStretchBuilderGUI(unittest.TestCase):
                                     [0.5 , 0.5 , 0.5 , 0.5 ],
                                     [0.75, 0.75, 0.75, 0.75],
                                     [1.  , 1.  , 1.  , 1.  ]]])
-            expected = np.array([[4280427042, 4280427042, 4280427042, 4280427042],
-                                [4283190348, 4283190348, 4283190348, 4283190348],
-                                [4286545791, 4286545791, 4286545791, 4286545791],
-                                [4290493371, 4290493371, 4290493371, 4290493371],
-                                [4294967295, 4294967295, 4294967295, 4294967295]])
             dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
             dataset.set_name("Test_Numpy")
 
@@ -192,6 +189,8 @@ class TestStretchBuilderGUI(unittest.TestCase):
         finally:
             if wiser_ui:
                 wiser_ui.close()
+            app.quit()
+            del app
 
     def test_normalize_array(self):
         arr = np.array([[1, 2, 3],
@@ -363,6 +362,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
         result = make_grayscale_image(ch1, colormap='cividis')
         np.testing.assert_array_almost_equal(result, expected)
 
-# if __name__ == '__main__':
-#     test = TestStretchBuilderGUI()
-#     test.test_stretch_builder_histogram_gui()
+if __name__ == '__main__':
+    test = TestStretchBuilderGUI()
+    test.test_open_stretch_builder_gui()
+    test.test_stretch_builder_histogram_gui()
