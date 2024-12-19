@@ -132,7 +132,7 @@ class RasterDataLoader:
         Given a NumPy ndarray, this function returns a RasterDataSet object
         that uses the array for its raster data.  The input ndarray must have
         three dimensions; they are interpreted as
-        [spatial_y][spatial_x][spectral].
+        [spectral][spatial_y][spatial_x].
 
         Raises a ValueError if the input array doesn't have 3 dimensions.
         '''

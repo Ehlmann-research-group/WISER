@@ -193,71 +193,6 @@ def make_rgb_image_using_numba(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray
 
     return rgb_data
 
-def make_rgb_image(channels: List[np.ndarray]) -> np.ndarray:
-    '''
-    Given a list of 3 color channels of the same dimensions, this function
-    combines them together into an RGB image.  The first, second and third
-    channels are correspondingly used for the red, green and blue channels of
-    the resulting image.
-
-    An exception is raised if:
-    *   A number of channels is specified other than 3.
-    *   Any channel is not of type ``np.uint8``, ``np.uint16``, or ``np.uint32``.
-    *   The channels do not all have the same dimensions (shape).
-
-    If optimizations are not enabled, the function also verifies that all
-    channel values are in the range [0, 255]; since this is an expensive check,
-    it is disabled if optimizations are turned on.
-    '''
-
-    # Make sure the correct number of channels were specified
-    if len(channels) != 3:
-        raise ValueError(f'Must specify 3 channels; got {len(channels)}')
-
-    # Make sure that all color channels have unsigned integer data
-    for c in channels:
-        if c.dtype not in [np.uint8, np.uint16, np.uint32]:
-            raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {c.dtype}')
-
-    # Make sure that all color channels have the same dimensions
-    for i in range(1, len(channels)):
-        if channels[i].shape != channels[0].shape:
-            raise ValueError(f'All channels must have the same dimensions')
-
-    # Expensive sanity checks:
-    if __debug__:
-        assert (0 <= np.nanmin(c) <= 255) and (0 <= np.nanmax(c) <= 255), \
-            'Channel may only contain values in range 0..255, and no NaNs'
-    
-    assert channels[0].dtype == np.uint8 and \
-            channels[1].dtype == np.uint8 and \
-            channels[2].dtype == np.uint8
-
-    if isinstance(channels[0], np.ma.MaskedArray):
-        # Create a masked array of zeros with the same shape as the channels
-        rgb_data = np.ma.zeros(channels[0].shape, dtype=np.uint32)
-        rgb_data.mask = channels[0].mask
-    else:
-        # Create a regular array of zeros
-        rgb_data = np.zeros(channels[0].shape, dtype=np.uint32)
-
-    rgb_data |= channels[0]
-    rgb_data = rgb_data << 8
-    rgb_data |= channels[1]
-    rgb_data = rgb_data << 8
-    rgb_data |= channels[2]
-    rgb_data |= 0xff000000
-
-    if isinstance(channels[0], np.ma.MaskedArray):
-        rgb_data.fill_value = 0xff000000  # Set the fill value for the masked array
-
-    # Qt5/PySide2 complains if the array is not contiguous.
-    if not rgb_data.flags['C_CONTIGUOUS']:
-        rgb_data = np.ascontiguousarray(rgb_data)
-
-    return rgb_data
-
-
 def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) -> np.ndarray:
     '''
     Given a single image channel, this function generates a grayscale image, or,
@@ -712,7 +647,7 @@ class RasterView(QWidget):
                 else:
                     img_data = make_rgb_image_using_numba(self._display_data[0], self._display_data[1], self._display_data[2])
             else:
-                img_data = make_rgb_image(self._display_data)
+                img_data = make_rgb_image(self._display_data[0], self._display_data[1], self._display_data[2])
             cache.add_cache_item(key, img_data)
 
         else:

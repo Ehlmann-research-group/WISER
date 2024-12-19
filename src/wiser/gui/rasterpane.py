@@ -6,8 +6,6 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import wiser.gui.generated.resources
-
 from .app_config import PixelReticleType
 from .band_chooser import BandChooserDialog
 from .dataset_chooser import DatasetChooser
@@ -20,9 +18,9 @@ from wiser import plugins
 
 from wiser.raster import roi_export
 from wiser.raster.dataset import RasterDataSet
-from wiser.raster.dataset import find_display_bands, find_truecolor_bands
+from wiser.raster.dataset import find_display_bands
 from wiser.raster.roi import RegionOfInterest
-from wiser.raster.selection import SelectionType, Selection, SinglePixelSelection
+from wiser.raster.selection import SelectionType, SinglePixelSelection
 from wiser.raster.spectra_export import export_roi_pixel_spectra
 from wiser.raster.spectrum import ROIAverageSpectrum
 
