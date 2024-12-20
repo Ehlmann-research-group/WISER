@@ -235,9 +235,6 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._file_menu.addAction(self.tr('Import spectra from text file...'))
         act.triggered.connect(self.import_spectra_from_textfile)
-        
-        act = self._file_menu.addAction(self.tr('Import spectra from FITS file...'))
-        act.triggered.connect(self.import_spectra_from_fitsfile)
 
         self._file_menu.addSeparator()
 
@@ -495,9 +492,9 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
-            self.tr('NetCDF raster files (*.nc)'),
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
+            self.tr('NetCDF raster files (*.nc)'),
             # self.tr('PDS raster files (*.PDS *.IMG)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
             # self.tr('WISER project files (*.wiser)'),
@@ -734,28 +731,6 @@ class DataVisualizerApp(QMainWindow):
                 spectra = dialog.get_spectra()
                 library = ListSpectralLibrary(spectra, path=path)
                 self._app_state.add_spectral_library(library)
-    
-    def import_spectra_from_fitsfile(self):
-        selected = QFileDialog.getOpenFileName(self,
-            self.tr('Import Spectra from FITS File'),
-            self._app_state.get_current_dir(),
-            self.tr('FITS files (*.fits);;All Files (*)'))
-
-        if selected[0]:
-            # The user selected a file to import.  Load it, then show the dialog
-            # for interpreting/understanding the spectral data.
-
-            path = selected[0]
-            self._app_state.update_cwd_from_path(path)
-
-        
-            dialog = FitsSpectraLoadingDialog(path, parent=self)
-
-            result = dialog.exec()
-            if result == QDialog.Accepted:
-                library = dialog.spectral_library
-                self._app_state.add_spectral_library(library)
-                print(f"Added spectral library!")
 
 
     def show_bandmath_dialog(self):
