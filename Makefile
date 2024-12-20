@@ -102,6 +102,7 @@ dist-win : generated
 		--exclude-module PyQt5 \
 		src\wiser\__main__.py
 
+	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" install-win\win-install.nsi
 
 clean:
 	$(MAKE) -C src clean
