@@ -50,7 +50,7 @@ InstallDir "$PROGRAMFILES64\WISER"
   ; That will have written an uninstaller binary for us.  Now we sign it with your
   ; favorite code signing tool.
 
-  !system '"C:\Program Files (x86)\Windows Kits\10\App Certification Kit\signtool" sign /f C:\Users\donnie\WISER-CodeSign.pfx /p WISER /t http://timestamp.sectigo.com "%TEMP%\Uninstall WISER.exe"' = 0
+  !system '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /f C:\Users\jgarc\OneDrive\Documents\WISER_windows_dist\Code_Signing_Certs\jgarciak_caltech_edu.cer /fd SHA256 /p WISER /t http://timestamp.sectigo.com "%TEMP%\Uninstall WISER.exe"' = 0
 
   ; Good.  Now we can carry on writing the real installer.
 
@@ -74,7 +74,7 @@ InstallDir "$PROGRAMFILES64\WISER"
 FunctionEnd
 
 !ifndef INNER
-!finalize '"C:\Program Files (x86)\Windows Kits\10\App Certification Kit\signtool" sign /f C:\Users\donnie\WISER-CodeSign.pfx /p WISER /t http://timestamp.sectigo.com "%1"' = 0
+!finalize '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /f C:\Users\jgarc\OneDrive\Documents\WISER_windows_dist\Code_Signing_Certs\jgarciak_caltech_edu.cer /fd SHA256 /p WISER /t http://timestamp.sectigo.com "%1"' = 0
 !endif
 
 ;--------------------------------

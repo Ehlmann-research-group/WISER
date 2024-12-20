@@ -144,6 +144,7 @@ class GeoCoordsDialog(QDialog):
 
         self._ui.btn_goto_coord.clicked.connect(self._on_goto_coordinates)
 
+        self._ui.btn_goto_pixel.clicked.connect(self._on_goto_pixel)
 
 
     def _populate_crs_combobox(self, combobox):
@@ -265,6 +266,19 @@ class GeoCoordsDialog(QDialog):
         pixel_x = result[0]
         pixel_y = result[1]
 
+        logger.debug(f'Pixel Coords = {pixel_x}, {pixel_y}')
+
+        if (pixel_x < 0 or pixel_x >= self._dataset.get_width() or
+            pixel_y < 0 or pixel_y >= self._dataset.get_height()):
+            QMessageBox.warning(self, self.tr('Coordinates Outside Image'),
+                self.tr('The specified coordinates are outside the current image.'))
+
+        else:
+            self.goto_coord.emit(self._dataset, QPoint(int(pixel_x), int(pixel_y)) )
+
+    def _on_goto_pixel(self, checked=False):
+        pixel_x = int(self._ui.ledit_x_pixel.text())
+        pixel_y = int(self._ui.ledit_y_pixel.text())
         logger.debug(f'Pixel Coords = {pixel_x}, {pixel_y}')
 
         if (pixel_x < 0 or pixel_x >= self._dataset.get_width() or

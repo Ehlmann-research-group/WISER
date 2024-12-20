@@ -1,5 +1,3 @@
-import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 10)
-
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
