@@ -91,18 +91,19 @@ dist-mac : build-mac
 # 	src\wiser\__main__.py
 # $(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" install-win\win-install.nsi
 dist-win : generated
-	pyinstaller --name $(APP_NAME) --noconfirm \
+	pyinstaller --log-level=DEBUG --name $(APP_NAME) --noconfirm \
 	    --icon icons\wiser.ico \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\platforms;platforms \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\iconengines;iconengines \
 		--add-data C:\Users\jgarc\anaconda3\envs\wiser-source\Library\bin\libiomp5md.dll;. \
 		--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
 		--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
+    	--hidden-import shiboken2 \
 		--collect-all osgeo \
 		--exclude-module PyQt5 \
-		src\wiser\__main__.py
+		src\wiser\__main__.py > debug_output.txt 2>&1
 
-	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" install-win\win-install.nsi
+	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 
 clean:
 	$(MAKE) -C src clean

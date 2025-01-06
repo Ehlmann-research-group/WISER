@@ -23,6 +23,10 @@ ManifestDPIAware True
   !error "ERROR:  WISER_VERSION must be defined on NSIS command-line with /D option"
 !endif
 
+!ifndef SHA1_THUMBPRINT
+  !error "ERROR:  SHA1_THUMBPRINT must be defined on NSIS command-line with /D option"
+!endif
+
 ; TODO(donnie):  Currently we build a 64-bit Python frozen app.
 InstallDir "$PROGRAMFILES64\WISER"
 
@@ -40,7 +44,7 @@ InstallDir "$PROGRAMFILES64\WISER"
   ; it is invoked, will just write the uninstaller to some location, and then exit.
 
   !echo "Performing inner invocation..."
-  !makensis '/NOCD /DINNER /DWISER_VERSION="${WISER_VERSION}" "install-win\win-install.nsi"' = 0
+  !makensis '/NOCD /DINNER /DWISER_VERSION="${WISER_VERSION}" /DSHA1_THUMBPRINT="${SHA1_THUMBPRINT}" "install-win\win-install.nsi"' = 0
 
   ; So now run that installer we just created as %TEMP%\tempinstaller.exe.  Since it
   ; calls quit the return value isn't zero.
@@ -50,7 +54,7 @@ InstallDir "$PROGRAMFILES64\WISER"
   ; That will have written an uninstaller binary for us.  Now we sign it with your
   ; favorite code signing tool.
 
-  !system '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /f C:\Users\jgarc\OneDrive\Documents\WISER_windows_dist\Code_Signing_Certs\jgarciak_caltech_edu.cer /fd SHA256 /p WISER /t http://timestamp.sectigo.com "%TEMP%\Uninstall WISER.exe"' = 0
+  !system '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%TEMP%\Uninstall WISER.exe"' = 0
 
   ; Good.  Now we can carry on writing the real installer.
 
@@ -74,7 +78,7 @@ InstallDir "$PROGRAMFILES64\WISER"
 FunctionEnd
 
 !ifndef INNER
-!finalize '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /f C:\Users\jgarc\OneDrive\Documents\WISER_windows_dist\Code_Signing_Certs\jgarciak_caltech_edu.cer /fd SHA256 /p WISER /t http://timestamp.sectigo.com "%1"' = 0
+!finalize '"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%1"' = 0
 !endif
 
 ;--------------------------------
