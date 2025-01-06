@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\bin\\libiomp5md.dll', '.'), ('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath')]
 binaries = [('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\plugins\\platforms', 'platforms'), ('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\plugins\\iconengines', 'iconengines')]
-hiddenimports = ['PySide2.QtSvg', 'PySide2.QtXml']
+hiddenimports = ['PySide2.QtSvg', 'PySide2.QtXml', 'shiboken2']
 tmp_ret = collect_all('osgeo')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
