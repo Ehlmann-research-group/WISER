@@ -20,5 +20,5 @@ AD_PASSWORD=your-app-specific-password
 #-----------------------------------------------------------------------------
 # Windows Secrets
 
-# TODO
+SHA1_THUMBPRINT=your.sha1.thumbprint.for.yubikey
 

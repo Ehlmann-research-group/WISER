@@ -9,9 +9,8 @@ from osgeo import gdal
 
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl,
-    JP2_GDALRasterDataImpl, FITS_GDALRasterDataImpl, PDS3_GDALRasterDataImpl, PDS4_GDALRasterDataImpl,
-    JP2_PDRRasterDataImpl)
+    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl
+    )
 
 from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
 
@@ -32,21 +31,13 @@ class RasterDataLoader:
             'ENVI': ENVI_GDALRasterDataImpl,
             'GTiff': GTiff_GDALRasterDataImpl,
             'NetCDF': NetCDF_GDALRasterDataImpl,
-            'JP2': JP2_PDRRasterDataImpl,
-            'FITS': FITS_GDALRasterDataImpl,
-            'PDS3': PDS3_GDALRasterDataImpl,
-            'PDS4': PDS4_GDALRasterDataImpl,
         }
     
         # What to do when loading in each file format
         self._format_loaders = {
             ENVI_GDALRasterDataImpl: self.load_normal_dataset, 
             GTiff_GDALRasterDataImpl: self.load_normal_dataset, 
-            NetCDF_GDALRasterDataImpl: self.load_normal_dataset, 
-            JP2_PDRRasterDataImpl: self.load_normal_dataset, 
-            FITS_GDALRasterDataImpl: self.load_FITS_dataset, 
-            PDS3_GDALRasterDataImpl: self.load_normal_dataset, 
-            PDS4_GDALRasterDataImpl: self.load_normal_dataset, 
+            NetCDF_GDALRasterDataImpl: self.load_normal_dataset,
         }
 
         # This is a counter so we can generate names for unnamed datasets.

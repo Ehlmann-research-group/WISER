@@ -51,7 +51,7 @@ def get_hdr_files(folder_path):
 # Set up logging to track crashes
 logging.basicConfig(filename="output/app_test.log", level=logging.DEBUG)
 
-def benchmark_function(dataset_paths, function_to_test, N=1, output_file='output/benchmark_results.txt'):
+def benchmark_function(dataset_paths, function_to_test, N=3, output_file='output/benchmark_results.txt'):
     """
     Benchmarks the provided function on a list of dataset paths.
 
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     dataset_6GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr"
     dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
-    dataset_list = [dataset_900mb, dataset_6B_3bands, dataset_15gb]
+    dataset_list = [dataset_15gb]
     benchmark_folder = 'C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks'
     N = 1
 
@@ -328,20 +328,20 @@ if __name__ == '__main__':
 
     succ_func = 0
     total_func = len(open_and_display_dataset_funcs) + len(use_stretch_builder_funcs) + len(roi_avg_funcs)
-    try:
-        print("Running open_and_display_dataset functions...")
-        for open_and_display_dataset_func in open_and_display_dataset_funcs:
-            benchmark_function(dataset_list, open_and_display_dataset_func, \
-                            output_file='output/display_dataset_results.txt')
-            succ_func +=1 
-    except BaseException as e:
-        print(f"Opening and displaying dataset failed with: \n {e}")
+    # try:
+    #     print("Running open_and_display_dataset functions...")
+    #     for open_and_display_dataset_func in open_and_display_dataset_funcs:
+    #         benchmark_function([dataset_6B_3bands], open_and_display_dataset_func, \
+    #                         output_file='output/display_dataset_results.txt', N=2)
+    #         succ_func +=1 
+    # except BaseException as e:
+    #     print(f"Opening and displaying dataset failed with: \n {e}")
 
     try:
         print("Running use_stretch_builder functions...")
         for stretch_builder_func in use_stretch_builder_funcs:
             benchmark_function(dataset_list, stretch_builder_func, \
-                            output_file='output/stretch_builder_results.txt')
+                            output_file=f'output/stretch_builder_results_{stretch_builder_func.__name__}.txt')
             succ_func +=1 
     except Exception as e:
         print(f"Error in use_stretch_builder: {e}")
@@ -350,7 +350,7 @@ if __name__ == '__main__':
         print("Running calculate_roi_average_spectrum functions...")
         for roi_avg_func in roi_avg_funcs:
             benchmark_function(dataset_list, roi_avg_func, \
-                            output_file='output/roi_avg_results.txt')
+                            output_file=f'output/roi_avg_results_{roi_avg_func.__name__}.txt')
             succ_func +=1 
     except Exception as e:
         print(f"Error in calculate_roi_average_spectrum: {e}")
