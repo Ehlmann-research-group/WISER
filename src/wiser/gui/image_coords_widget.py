@@ -170,12 +170,11 @@ class ImageCoordsWidget(QDialog):
         has_ds_and_point = (self._dataset is not None and
             self._pixel_coords is not None)
 
-        dataset_has_geo_srs = (self._dataset is not None and
-            self._dataset.get_spatial_ref() is not None)
+        has_dataset = self._dataset is not None
 
         # Update UI elements based on the current state.
+        self._ui.tbtn_geo_goto.setEnabled(has_dataset)
 
-        self._ui.tbtn_geo_goto.setEnabled(dataset_has_geo_srs)
         self._set_all_visible(has_ds_and_point)
         if not has_ds_and_point:
             return
@@ -198,6 +197,11 @@ class ImageCoordsWidget(QDialog):
 
         config = self._get_config_for_dataset(self._dataset)
         dialog = GeoCoordsDialog(self._dataset, config, parent=self)
+        dataset_has_geo_srs = (self._dataset is not None and
+            self._dataset.get_spatial_ref() is not None)
+        if not dataset_has_geo_srs:
+            dialog._ui.tabWidget.setTabVisible(0, False)
+            dialog._ui.tabWidget.setTabVisible(1, False)
         dialog.config_changed.connect(self._on_display_config_changed)
         dialog.goto_coord.connect(self._on_goto_coordinate)
 
