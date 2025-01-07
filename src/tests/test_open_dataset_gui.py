@@ -12,12 +12,66 @@ from wiser.gui.app import DataVisualizerApp
 
 from wiser.raster.loader import RasterDataLoader
 
+from test_utils.create_test_data import data
+
 import logging
 import traceback
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+
+def open_dataset(dataset_path: str):
+        app = QApplication.instance() or QApplication([])  # Initialize the QApplication   
+        wiser_ui = None
+
+        try:
+            # Set up the GUI
+            wiser_ui = DataVisualizerApp()
+            wiser_ui.show()
+
+            loader = RasterDataLoader()
+
+            dataset = loader.load_from_file(dataset_path, wiser_ui._data_cache)[0]
+            dataset.set_name("Test dataset")
+
+            
+            # Create an application state, no need to pass the app here
+            app_state = wiser_ui._app_state
+
+            app_state.add_dataset(dataset)
+
+            # Open the stretch builder dialog
+            wiser_ui._main_view._on_stretch_builder()
+
+            stretch_builder = wiser_ui._main_view.get_stretch_builder()
+
+            stretch_config = stretch_builder._stretch_config
+
+            stretch_config._ui.rb_stretch_equalize.click()
+            stretch_config._ui.rb_cond_log.click()
+            
+            main_view_arr = wiser_ui._main_view._rasterviews[(0,0)].get_image_data()
+            context_pane_arr = wiser_ui._context_pane._rasterviews[(0,0)].get_image_data()
+            zoom_pane_arr = wiser_ui._zoom_pane._rasterviews[(0,0)].get_image_data()
+            
+            np.testing.assert_equal(main_view_arr, context_pane_arr)
+            np.testing.assert_equal(main_view_arr, zoom_pane_arr)
+            
+            # This should happen X milliseconds after the above stuff runs
+            QTimer.singleShot(100, app.quit)
+            # Run the application event loop
+            app.exec_()
+
+        except Exception as e:
+            logging.error(f"Application crashed: {e}")
+            traceback.print_exc()
+            assert(1==0, f"Falied with error:\n{e}")
+        finally:
+            if wiser_ui:
+                wiser_ui.close()
+            app.quit()
+            del app
 
 class TestOpenDataset(unittest.TestCase):
 
@@ -84,7 +138,6 @@ class TestOpenDataset(unittest.TestCase):
             dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
             dataset.set_name("Test_Numpy")
 
-            
 
             # Create an application state, no need to pass the app here
             app_state = wiser_ui._app_state
@@ -128,7 +181,25 @@ class TestOpenDataset(unittest.TestCase):
             app.quit()
             del app
 
-# if __name__ == '__main__':
-#     test = TestOpenDataset()
-#     test.test_all_panes_same()
-#     test.test_all_panes_same_stretch_builder()
+    # Test to ensure we can open a hdr file. The truth test is if all the images are the same.
+    def test_open_hdr(self):
+        open_dataset("../test_utils/test_datasets/envi.hdr")
+
+    # Test to ensure we can open a tiff file. The truth test is if all the images are the same.
+    def test_open_tiff(self):
+        open_dataset("../test_utils/test_datasets/gtiff.tiff")
+
+    # Test to ensure we can open a nc file. The truth test is if all the images are the same.
+    def test_open_nc(self):
+        open_dataset("../test_utils/test_datasets/netcdf.nc")
+
+
+        
+
+if __name__ == '__main__':
+    test = TestOpenDataset()
+    # test.test_all_panes_same()
+    # test.test_all_panes_same_stretch_builder()
+    test.test_open_hdr()
+    test.test_open_tiff()
+    test.test_open_nc()

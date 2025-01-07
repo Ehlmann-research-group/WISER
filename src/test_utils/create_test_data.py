@@ -77,10 +77,11 @@ def create_netcdf_from_3d_array(array, output_filename):
     # Close the dataset
     ds.close()
 
+# 1. Create a 10x11x12 NumPy array
+#    Interpreted as 10 bands, each of shape 11x12
+data = np.arange(10 * 11 * 12, dtype=np.float32).reshape((10, 11, 12))
+
 def main():
-    # 1. Create a 10x11x12 NumPy array
-    #    Interpreted as 10 bands, each of shape 11x12
-    data = np.arange(10 * 11 * 12, dtype=np.float32).reshape((10, 11, 12))
 
     # 2. Write to ENVI (.hdr)
     #    Note that GDAL's ENVI driver will produce "test_envi.hdr" and "test_envi"
@@ -90,7 +91,7 @@ def main():
     # 3. Write to GeoTIFF (.tiff)
     create_raster(data, "test_datasets/gtiff.tiff", "GTiff")
 
-    create_netcdf_from_3d_array(data, "test_datasets/netcdf2.nc")
+    create_netcdf_from_3d_array(data, "test_datasets/netcdf.nc")
 
 if __name__ == "__main__":
     main()
