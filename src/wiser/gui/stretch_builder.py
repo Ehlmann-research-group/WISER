@@ -601,20 +601,24 @@ class StretchConfigWidget(QWidget):
             raise ValueError('Unrecognized conditioner-type UI state:  No buttons checked!')
 
     def _on_stretch_radio_button(self, checked, button_type):
+        print(f"_on_stretch_radio_button: {button_type}")
         self.general_type_changed.emit(button_type, None)
         self.stretch_type_changed.emit(button_type) # self.get_stretch_type())
 
     def _on_conditioner_radio_button(self, checked, button_type):
+        print(f"_on_conditioner_radio_button: {button_type}")
         self.general_type_changed.emit(None, button_type)
         self.conditioner_type_changed.emit(button_type) # self.get_conditioner_type())
 
     def _on_linear_2_5(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
+        print(f"_on_linear_2_5")
         self.general_type_changed.emit(StretchEnums.LINEAR_25, None)
         self.linear_stretch_pct.emit(2.5)
 
     def _on_linear_5_0(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
+        print(f"_on_linear_5_0")
         self.general_type_changed.emit(StretchEnums.LINEAR_50, None)
         self.linear_stretch_pct.emit(5.0)
 
@@ -857,6 +861,7 @@ class StretchBuilderDialog(QDialog):
             self._emit_stretch_changed(self.get_stretches())
 
     def _on_type_changed(self, stretch_type = None, cond_type = None):
+        print(f"_on_type_changed: {stretch_type}, {cond_type}")
         if self._dataset.get_id() not in self._dataset_states:
             self._dataset_states[self._dataset.get_id()] = [StretchEnums.LINEAR_FULL, CondEnums.NONE]
 
@@ -865,6 +870,8 @@ class StretchBuilderDialog(QDialog):
         
         if cond_type is not None:
             self._dataset_states[self._dataset.get_id()][1] = cond_type
+
+        print(f"self._dataset_states[self._dataset.get_id()]: {self._dataset_states[self._dataset.get_id()]}")
     
     def _on_link_sliders(self, checked):
         self._link_sliders = checked
@@ -1023,7 +1030,7 @@ class StretchBuilderDialog(QDialog):
         else:
             raise ValueError(f'display_bands must be 1 element or 3 elements; got {display_bands}')
 
-        self._load_dataset_stretches()
+        self._load_dataset_stretches(self._dataset.get_id())
 
         self._saved_stretches = stretches
 
