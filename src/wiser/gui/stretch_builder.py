@@ -631,26 +631,21 @@ class StretchConfigWidget(QWidget):
             raise ValueError('Unrecognized conditioner-type UI state:  No buttons checked!')
 
     def _on_stretch_radio_button(self, checked):
-        print(f"_on_stretch_radio_button")
         self.stretch_type_changed.emit() # self.get_stretch_type())
 
     def _on_conditioner_radio_button(self, checked):
-        print(f"_on_conditioner_radio_button")
         self.conditioner_type_changed.emit() # self.get_conditioner_type())
 
     def _on_button_press(self, stretch_type = None, cond_type = None):
-        print(f"_on_button_press: {stretch_type}, {cond_type}")
         self.general_type_changed.emit(stretch_type, cond_type)
 
     def _on_linear_2_5(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
-        print(f"_on_linear_2_5")
         self.general_type_changed.emit(StretchEnums.LINEAR_25, None)
         self.linear_stretch_pct.emit(2.5)
 
     def _on_linear_5_0(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
-        print(f"_on_linear_5_0")
         self.general_type_changed.emit(StretchEnums.LINEAR_50, None)
         self.linear_stretch_pct.emit(5.0)
 
@@ -871,7 +866,6 @@ class StretchBuilderDialog(QDialog):
 
     def _on_stretch_type_changed(self): # , stretch_type):
         stretch_type = self._stretch_config.get_stretch_type()
-        # print(f'Stretch type changed to {stretch_type}')
 
         for i in range(self._num_active_channels):
             self._channel_widgets[i].set_stretch_type(stretch_type)
@@ -882,7 +876,6 @@ class StretchBuilderDialog(QDialog):
 
     def _on_conditioner_type_changed(self): # , conditioner_type):
         conditioner_type = self._stretch_config.get_conditioner_type()
-        # print(f'Conditioner type changed to {conditioner_type}')
 
         for i in range(self._num_active_channels):
             self._channel_widgets[i].set_conditioner_type(conditioner_type)
@@ -891,7 +884,6 @@ class StretchBuilderDialog(QDialog):
             self._emit_stretch_changed(self.get_stretches())
 
     def _on_type_changed(self, stretch_type = None, cond_type = None):
-        print(f"_on_type_changed: {stretch_type}, {cond_type}")
         if self._dataset.get_id() not in self._dataset_states:
             self._dataset_states[self._dataset.get_id()] = [StretchEnums.LINEAR_FULL, CondEnums.NONE]
 
@@ -900,8 +892,6 @@ class StretchBuilderDialog(QDialog):
         
         if cond_type is not None:
             self._dataset_states[self._dataset.get_id()][1] = cond_type
-
-        print(f"self._dataset_states[self._dataset.get_id()]: {self._dataset_states[self._dataset.get_id()]}")
     
     def _on_link_sliders(self, checked):
         self._link_sliders = checked
@@ -943,6 +933,7 @@ class StretchBuilderDialog(QDialog):
             for i in range(3):
                 self._channel_widgets[i].set_min_max_bounds(min_val, max_val)
         '''
+
 
     def _on_linear_stretch_pct(self, percent: float):
         '''
@@ -1070,32 +1061,23 @@ class StretchBuilderDialog(QDialog):
         super().show()
 
     def _load_dataset_stretches(self, ds_id):
-        print(f"_load_dataset_stretches: {ds_id}")
         if ds_id in self._dataset_states:
-            print(f"self._dataset_states[ds_id]: {self._dataset_states[ds_id]}")
             stretch_enum, cond_enum = self._dataset_states[ds_id]
 
             if stretch_enum == StretchEnums.LINEAR_FULL:
-                print(f"Clicking: LINEAR_FULL")
                 self._stretch_config._ui.rb_stretch_none.click()
             elif stretch_enum == StretchEnums.LINEAR_25:
-                print(f"Clicking: LINEAR_25")
                 self._stretch_config._ui.button_linear_2_5.click()
             elif stretch_enum == StretchEnums.LINEAR_50:
-                print(f"Clicking: LINEAR_50")
                 self._stretch_config._ui.button_linear_5_0.click()
             elif stretch_enum == StretchEnums.EQUALIZE:
-                print(f"Clicking: EQUALIZE")
                 self._stretch_config._ui.rb_stretch_equalize.click()
             
             if cond_enum == CondEnums.NONE:
-                print(f"Clicking: NONE")
                 self._stretch_config._ui.rb_cond_none.click()
             elif cond_enum == CondEnums.SQRT:
-                print(f"Clicking: SQRT")
                 self._stretch_config._ui.rb_cond_sqrt.click()
             elif cond_enum == CondEnums.LOG:
-                print(f"Clicking: LOG")
                 self._stretch_config._ui.rb_cond_log.click()
         else:
             self._stretch_config._ui.rb_stretch_none.click()
