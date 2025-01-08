@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -14,6 +14,8 @@ from wiser.utils.numba_wrapper import numba_njit_wrapper
 import numpy as np
 import numpy.ma as ma
 
+from enum import Enum
+
 import matplotlib
 matplotlib.use('Qt5Agg')
 # TODO(donnie):  Seems to generate errors:
@@ -22,6 +24,17 @@ matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
+
+class StretchEnums(Enum):
+    LINEAR_FULL = 0
+    LINEAR_25 = 1
+    LINEAR_50 = 2
+    EQUALIZE = 3
+
+class CondEnums(Enum):
+    NONE = 0
+    SQRT = 1
+    LOG = 2
 
 def remove_nans(data):
     return data[~np.isnan(data)]
@@ -527,12 +540,13 @@ class StretchConfigWidget(QWidget):
     any conditioner that should also be applied.
     '''
 
-    stretch_type_changed = Signal()
+    stretch_type_changed = Signal(QAbstractButton)
 
-    conditioner_type_changed = Signal()
+    conditioner_type_changed = Signal(QAbstractButton)
 
     linear_stretch_pct = Signal(float)
 
+    general_type_changed = Signal(StretchEnums, CondEnums)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -542,13 +556,25 @@ class StretchConfigWidget(QWidget):
         self._ui.rb_stretch_none.setChecked(True)
         self._ui.rb_cond_none.setChecked(True)
 
-        self._ui.rb_stretch_none.clicked.connect(self._on_stretch_radio_button)
-        self._ui.rb_stretch_linear.clicked.connect(self._on_stretch_radio_button)
-        self._ui.rb_stretch_equalize.clicked.connect(self._on_stretch_radio_button)
+        self._ui.rb_stretch_none.clicked.connect(
+            lambda checked: self._on_stretch_radio_button(checked, StretchEnums.LINEAR_FULL)
+        )
+        self._ui.rb_stretch_linear.clicked.connect(
+            lambda checked: self._on_stretch_radio_button(checked, StretchEnums.LINEAR_25)
+        )
+        self._ui.rb_stretch_equalize.clicked.connect(
+            lambda checked: self._on_stretch_radio_button(checked, StretchEnums.EQUALIZE)
+        )
 
-        self._ui.rb_cond_none.clicked.connect(self._on_conditioner_radio_button)
-        self._ui.rb_cond_sqrt.clicked.connect(self._on_conditioner_radio_button)
-        self._ui.rb_cond_log.clicked.connect(self._on_conditioner_radio_button)
+        self._ui.rb_cond_none.clicked.connect(
+            lambda checked: self._on_conditioner_radio_button(checked, CondEnums.NONE)
+        )
+        self._ui.rb_cond_sqrt.clicked.connect(
+            lambda checked: self._on_conditioner_radio_button(checked, CondEnums.SQRT)
+        )
+        self._ui.rb_cond_log.clicked.connect(
+            lambda checked: self._on_conditioner_radio_button(checked, CondEnums.LOG)
+        )
 
         self._ui.button_linear_2_5.clicked.connect(self._on_linear_2_5)
         self._ui.button_linear_5_0.clicked.connect(self._on_linear_5_0)
@@ -574,18 +600,22 @@ class StretchConfigWidget(QWidget):
         else:
             raise ValueError('Unrecognized conditioner-type UI state:  No buttons checked!')
 
-    def _on_stretch_radio_button(self, checked):
-        self.stretch_type_changed.emit() # self.get_stretch_type())
+    def _on_stretch_radio_button(self, checked, button_type):
+        self.general_type_changed.emit(button_type, None)
+        self.stretch_type_changed.emit(button_type) # self.get_stretch_type())
 
-    def _on_conditioner_radio_button(self, checked):
-        self.conditioner_type_changed.emit() # self.get_conditioner_type())
+    def _on_conditioner_radio_button(self, checked, button_type):
+        self.general_type_changed.emit(None, button_type)
+        self.conditioner_type_changed.emit(button_type) # self.get_conditioner_type())
 
     def _on_linear_2_5(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
+        self.general_type_changed.emit(StretchEnums.LINEAR_25, None)
         self.linear_stretch_pct.emit(2.5)
 
     def _on_linear_5_0(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
+        self.general_type_changed.emit(StretchEnums.LINEAR_50, None)
         self.linear_stretch_pct.emit(5.0)
 
 
@@ -626,6 +656,10 @@ class StretchBuilderDialog(QDialog):
 
         layout = QGridLayout()
 
+        # Tuple has two items. The stretch and the conditioner. First is stretch,
+        # second is conditioner.
+        self._dataset_states: Dict[Tuple] = {}
+
         # Widget for the general stretch configuration
         self._stretch_config = StretchConfigWidget(parent=self)
         layout.addWidget(self._stretch_config, 0, 0)
@@ -637,6 +671,8 @@ class StretchBuilderDialog(QDialog):
             self._on_conditioner_type_changed)
 
         self._stretch_config.linear_stretch_pct.connect(self._on_linear_stretch_pct)
+
+        self._stretch_config.general_type_changed.connect(self._on_type_changed)
 
         # Widgets for the channels themselves
 
@@ -793,11 +829,13 @@ class StretchBuilderDialog(QDialog):
         Helper function to emit a stretch_changed event, along with the details
         of what dataset and display bands are involved.
         '''
+        print(f"stretches: {stretches}")
+        self._dataset_states[self._dataset.get_id()] = stretches
         self.stretch_changed.emit(self._dataset.get_id(), self._display_bands,
                                   stretches)
 
 
-    def _on_stretch_type_changed(self): # , stretch_type):
+    def _on_stretch_type_changed(self, pressed_button): # , stretch_type):
         stretch_type = self._stretch_config.get_stretch_type()
         # print(f'Stretch type changed to {stretch_type}')
 
@@ -808,7 +846,7 @@ class StretchBuilderDialog(QDialog):
             self._emit_stretch_changed(self.get_stretches())
 
 
-    def _on_conditioner_type_changed(self): # , conditioner_type):
+    def _on_conditioner_type_changed(self, pressed_button): # , conditioner_type):
         conditioner_type = self._stretch_config.get_conditioner_type()
         # print(f'Conditioner type changed to {conditioner_type}')
 
@@ -818,7 +856,16 @@ class StretchBuilderDialog(QDialog):
         if self._enable_stretch_changed_events:
             self._emit_stretch_changed(self.get_stretches())
 
+    def _on_type_changed(self, stretch_type = None, cond_type = None):
+        if self._dataset.get_id() not in self._dataset_states:
+            self._dataset_states[self._dataset.get_id()] = [StretchEnums.LINEAR_FULL, CondEnums.NONE]
 
+        if stretch_type is not None:
+            self._dataset_states[self._dataset.get_id()][0] = stretch_type
+        
+        if cond_type is not None:
+            self._dataset_states[self._dataset.get_id()][1] = cond_type
+    
     def _on_link_sliders(self, checked):
         self._link_sliders = checked
 
@@ -976,12 +1023,35 @@ class StretchBuilderDialog(QDialog):
         else:
             raise ValueError(f'display_bands must be 1 element or 3 elements; got {display_bands}')
 
+        self._load_dataset_stretches()
+
         self._saved_stretches = stretches
 
         self._enable_stretch_changed_events = True
 
         self.adjustSize()
         super().show()
+
+    def _load_dataset_stretches(self, ds_id):
+        if ds_id in self._dataset_states:
+            stretch_enum, cond_enum = self._dataset_states[ds_id]
+
+            if stretch_enum == StretchEnums.LINEAR_FULL:
+                self._stretch_config._ui.rb_stretch_none.click()
+            elif stretch_enum == StretchEnums.LINEAR_25:
+                self._stretch_config._ui.button_linear_2_5.click()
+            elif stretch_enum == StretchEnums.LINEAR_50:
+                self._stretch_config._ui.button_linear_5_0.click()
+            elif stretch_enum == StretchEnums.EQUALIZE:
+                self._stretch_config._ui.rb_stretch_equalize.click()
+            
+            if cond_enum == CondEnums.NONE:
+                self._stretch_config._ui.rb_cond_none.click()
+            elif cond_enum == CondEnums.SQRT:
+                self._stretch_config._ui.rb_cond_sqrt.click()
+            elif cond_enum == CondEnums.LOG:
+                self._stretch_config._ui.rb_cond_log.click()
+
 
 
     def closeEvent(self, event):
