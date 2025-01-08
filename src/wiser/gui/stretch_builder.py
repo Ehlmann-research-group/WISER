@@ -540,9 +540,9 @@ class StretchConfigWidget(QWidget):
     any conditioner that should also be applied.
     '''
 
-    stretch_type_changed = Signal(QAbstractButton)
+    stretch_type_changed = Signal()
 
-    conditioner_type_changed = Signal(QAbstractButton)
+    conditioner_type_changed = Signal()
 
     linear_stretch_pct = Signal(float)
 
@@ -556,24 +556,54 @@ class StretchConfigWidget(QWidget):
         self._ui.rb_stretch_none.setChecked(True)
         self._ui.rb_cond_none.setChecked(True)
 
+        # self._ui.rb_stretch_none.clicked.connect(
+        #     lambda checked: self._on_stretch_radio_button(checked, StretchEnums.LINEAR_FULL)
+        # )
+        # self._ui.rb_stretch_linear.clicked.connect(
+        #     lambda checked: self._on_stretch_radio_button(checked, StretchEnums.LINEAR_25)
+        # )
+        # self._ui.rb_stretch_equalize.clicked.connect(
+        #     lambda checked: self._on_stretch_radio_button(checked, StretchEnums.EQUALIZE)
+        # )
+
+        self._ui.rb_stretch_none.clicked.connect(self._on_stretch_radio_button)
+        self._ui.rb_stretch_linear.clicked.connect(self._on_stretch_radio_button)
+        self._ui.rb_stretch_equalize.clicked.connect(self._on_stretch_radio_button)
+
         self._ui.rb_stretch_none.clicked.connect(
-            lambda checked: self._on_stretch_radio_button(checked, StretchEnums.LINEAR_FULL)
-        )
-        self._ui.rb_stretch_linear.clicked.connect(
-            lambda checked: self._on_stretch_radio_button(checked, StretchEnums.LINEAR_25)
-        )
-        self._ui.rb_stretch_equalize.clicked.connect(
-            lambda checked: self._on_stretch_radio_button(checked, StretchEnums.EQUALIZE)
+            lambda checked: self._on_button_press(StretchEnums.LINEAR_FULL, None)
         )
 
+        self._ui.rb_stretch_linear.clicked.connect(
+            lambda checked: self._on_button_press(StretchEnums.LINEAR_25, None)
+        )
+
+        self._ui.rb_stretch_equalize.clicked.connect(
+            lambda checked: self._on_button_press(StretchEnums.EQUALIZE, None)
+        )
+
+        # self._ui.rb_cond_none.clicked.connect(
+        #     lambda checked: self._on_conditioner_radio_button(checked, CondEnums.NONE)
+        # )
+        # self._ui.rb_cond_sqrt.clicked.connect(
+        #     lambda checked: self._on_conditioner_radio_button(checked, CondEnums.SQRT)
+        # )
+        # self._ui.rb_cond_log.clicked.connect(
+        #     lambda checked: self._on_conditioner_radio_button(checked, CondEnums.LOG)
+        # )
+
+        self._ui.rb_cond_none.clicked.connect(self._on_conditioner_radio_button)
+        self._ui.rb_cond_sqrt.clicked.connect(self._on_conditioner_radio_button)
+        self._ui.rb_cond_log.clicked.connect(self._on_conditioner_radio_button)
+
         self._ui.rb_cond_none.clicked.connect(
-            lambda checked: self._on_conditioner_radio_button(checked, CondEnums.NONE)
+            lambda checked: self._on_button_press(None, CondEnums.NONE)
         )
         self._ui.rb_cond_sqrt.clicked.connect(
-            lambda checked: self._on_conditioner_radio_button(checked, CondEnums.SQRT)
+            lambda checked: self._on_button_press(None, CondEnums.SQRT)
         )
         self._ui.rb_cond_log.clicked.connect(
-            lambda checked: self._on_conditioner_radio_button(checked, CondEnums.LOG)
+            lambda checked: self._on_button_press(None, CondEnums.LOG)
         )
 
         self._ui.button_linear_2_5.clicked.connect(self._on_linear_2_5)
@@ -600,15 +630,17 @@ class StretchConfigWidget(QWidget):
         else:
             raise ValueError('Unrecognized conditioner-type UI state:  No buttons checked!')
 
-    def _on_stretch_radio_button(self, checked, button_type):
-        print(f"_on_stretch_radio_button: {button_type}")
-        self.general_type_changed.emit(button_type, None)
-        self.stretch_type_changed.emit(button_type) # self.get_stretch_type())
+    def _on_stretch_radio_button(self, checked):
+        print(f"_on_stretch_radio_button")
+        self.stretch_type_changed.emit() # self.get_stretch_type())
 
-    def _on_conditioner_radio_button(self, checked, button_type):
-        print(f"_on_conditioner_radio_button: {button_type}")
-        self.general_type_changed.emit(None, button_type)
-        self.conditioner_type_changed.emit(button_type) # self.get_conditioner_type())
+    def _on_conditioner_radio_button(self, checked):
+        print(f"_on_conditioner_radio_button")
+        self.conditioner_type_changed.emit() # self.get_conditioner_type())
+
+    def _on_button_press(self, stretch_type = None, cond_type = None):
+        print(f"_on_button_press: {stretch_type}, {cond_type}")
+        self.general_type_changed.emit(stretch_type, cond_type)
 
     def _on_linear_2_5(self, checked):
         self._ui.rb_stretch_linear.setChecked(True)
@@ -833,13 +865,11 @@ class StretchBuilderDialog(QDialog):
         Helper function to emit a stretch_changed event, along with the details
         of what dataset and display bands are involved.
         '''
-        print(f"stretches: {stretches}")
-        self._dataset_states[self._dataset.get_id()] = stretches
         self.stretch_changed.emit(self._dataset.get_id(), self._display_bands,
                                   stretches)
 
 
-    def _on_stretch_type_changed(self, pressed_button): # , stretch_type):
+    def _on_stretch_type_changed(self): # , stretch_type):
         stretch_type = self._stretch_config.get_stretch_type()
         # print(f'Stretch type changed to {stretch_type}')
 
@@ -850,7 +880,7 @@ class StretchBuilderDialog(QDialog):
             self._emit_stretch_changed(self.get_stretches())
 
 
-    def _on_conditioner_type_changed(self, pressed_button): # , conditioner_type):
+    def _on_conditioner_type_changed(self): # , conditioner_type):
         conditioner_type = self._stretch_config.get_conditioner_type()
         # print(f'Conditioner type changed to {conditioner_type}')
 
@@ -1040,24 +1070,37 @@ class StretchBuilderDialog(QDialog):
         super().show()
 
     def _load_dataset_stretches(self, ds_id):
+        print(f"_load_dataset_stretches: {ds_id}")
         if ds_id in self._dataset_states:
+            print(f"self._dataset_states[ds_id]: {self._dataset_states[ds_id]}")
             stretch_enum, cond_enum = self._dataset_states[ds_id]
 
             if stretch_enum == StretchEnums.LINEAR_FULL:
+                print(f"Clicking: LINEAR_FULL")
                 self._stretch_config._ui.rb_stretch_none.click()
             elif stretch_enum == StretchEnums.LINEAR_25:
+                print(f"Clicking: LINEAR_25")
                 self._stretch_config._ui.button_linear_2_5.click()
             elif stretch_enum == StretchEnums.LINEAR_50:
+                print(f"Clicking: LINEAR_50")
                 self._stretch_config._ui.button_linear_5_0.click()
             elif stretch_enum == StretchEnums.EQUALIZE:
+                print(f"Clicking: EQUALIZE")
                 self._stretch_config._ui.rb_stretch_equalize.click()
             
             if cond_enum == CondEnums.NONE:
+                print(f"Clicking: NONE")
                 self._stretch_config._ui.rb_cond_none.click()
             elif cond_enum == CondEnums.SQRT:
+                print(f"Clicking: SQRT")
                 self._stretch_config._ui.rb_cond_sqrt.click()
             elif cond_enum == CondEnums.LOG:
+                print(f"Clicking: LOG")
                 self._stretch_config._ui.rb_cond_log.click()
+        else:
+            self._stretch_config._ui.rb_stretch_none.click()
+            self._stretch_config._ui.rb_cond_none.click()
+
 
 
 
