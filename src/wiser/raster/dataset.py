@@ -431,11 +431,11 @@ class RasterDataSet:
         arr = None
         if self._data_cache:
             cache = self._data_cache.get_computation_cache()
-            key = cache.get_cache_key(self, band_index)
+            key = cache.get_cache_key(self, band_index, normalized=True)
             arr = cache.get_cache_item(key)
         if arr is None:
             arr = self._impl.get_band_data(band_index)
-            
+
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
         
