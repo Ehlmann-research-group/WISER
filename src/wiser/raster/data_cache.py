@@ -188,7 +188,7 @@ class ComputationCache(Cache):
     def __init__(self, capacity: int = 7000000000):
         super().__init__(capacity)
 
-    def get_cache_key(self, dataset, band_index: int = -1):
+    def get_cache_key(self, dataset, band_index: int = -1, normalized=False):
         """
         Creates and returns a unique cache key based on the dataset and band index.
 
@@ -200,7 +200,7 @@ class ComputationCache(Cache):
             int: A unique hash representing the cache key.
         """
         partial_key = self.get_partial_key(dataset)
-        cache_key = hash((dataset, band_index))
+        cache_key = hash((dataset, band_index, normalized))
         if partial_key not in self._key_lookup_table:
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)
