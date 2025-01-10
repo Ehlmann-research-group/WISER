@@ -204,7 +204,7 @@ class ComputationCache(Cache):
         if partial_key not in self._key_lookup_table:
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)
-        return hash((dataset, band_index))
+        return cache_key
     
     def get_partial_key(self, dataset):
         return hash((dataset))
