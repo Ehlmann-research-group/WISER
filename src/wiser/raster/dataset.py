@@ -617,6 +617,8 @@ class RasterDataSet:
         '''
         return self._geo_transform
 
+    def read_wkt_spatial_reference(self):
+        return self._impl.read_wkt_spatial_reference()
 
     def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
         '''
@@ -740,6 +742,9 @@ class RasterDataSet:
             return self._impl.subdataset_name
         else:
             return None
+
+    def get_gdal_dataset(self):
+        self._impl.get_gdal_dataset()
 
     def delete_underlying_dataset(self):
         if hasattr(self._impl, 'delete_dataset'):
