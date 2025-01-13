@@ -116,8 +116,8 @@ class RasterDataImpl(abc.ABC):
         # Default implementation returns an identity transform.
         return (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
-    def read_wkt_spatial_reference(self):
-        return NotImplementedError
+    def get_wkt_spatial_reference(self):
+        return None
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         return None
@@ -382,7 +382,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def read_geo_transform(self) -> Tuple:
         return self.gdal_dataset.GetGeoTransform()
 
-    def read_wkt_spatial_reference(self):
+    def get_wkt_spatial_reference(self):
         return self.gdal_dataset.GetProjection()
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
@@ -1082,8 +1082,11 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_gdal_dataset = driver.Create(path, dst_width, dst_height, dst_bands,
             gdal_elem_type, driver_options)
 
-        src_geotransform = src_dataset.get_geo_transform()
+        # Set the spatial reference and geotransform on the destination dataset
+        # This sets the 'map info' meta data variable when we create the envi
+        # header file below
 
+        src_geotransform = src_dataset.get_geo_transform()
         # Adjust geotransform for the subset
         subset_geotransform = (
             src_geotransform[0] + src_offset_x * src_geotransform[1] + src_offset_y * src_geotransform[2],
@@ -1093,14 +1096,11 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             src_geotransform[4],
             src_geotransform[5],
         )
-
-        # Get the spatial reference from the source dataset
-        src_projection = src_dataset.read_wkt_spatial_reference()
-
-        # Set the spatial reference and geotransform on the destination dataset
-        dst_gdal_dataset.SetProjection(src_projection)
         dst_gdal_dataset.SetGeoTransform(subset_geotransform)
-
+    
+        src_projection = src_dataset.get_wkt_spatial_reference()
+        dst_gdal_dataset.SetProjection(src_projection)
+    
         # if dst_default_display_bands is not None:
         #     str_default_display_bands = '{' + ','.join([str(b) for b in dst_default_display_bands]) + '}'
         #     print(f'Setting default display bands to {str_default_display_bands}')
@@ -1187,14 +1187,17 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_metadata['default bands'] = dst_default_display_bands
         dst_metadata['data ignore value'] = dst_data_ignore
 
-        if 'map info' in gdal_metadata and 'coordinate system string' in gdal_metadata:
-            print(f"SAVING MAP INFORMATION")
-            new_map_info = update_map_info(gdal_metadata['map info'], src_dataset, src_offset_x, src_offset_y)
-            print(f"NEW MAP INFO: {new_map_info}")
+        if src_dataset.has_geographic_info() is not None:
+            print(f"src_dataset has geographic info")
+            map_info = gdal_metadata['map info']
+            print(f"map_info string: {map_info}")
+
+            new_map_info = update_map_info(map_info, src_dataset, src_offset_x, src_offset_y)
+            print(f"new map info string: {new_map_info}")
             dst_metadata['map info'] = new_map_info
             dst_metadata['coordinate system string'] = '{' + dst_gdal_dataset.GetProjection() + '}'
-            print(f"coordinate system string type: {type(dst_gdal_dataset.GetProjection())}")
-            # print(f"coordinate system string: {dst_gdal_dataset.GetProjection()}")
+        else:
+            print(f"src_dataset does NOT have geograhpic info")
             
         del dst_gdal_dataset
 
