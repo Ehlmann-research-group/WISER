@@ -617,8 +617,8 @@ class RasterDataSet:
         '''
         return self._geo_transform
 
-    def read_wkt_spatial_reference(self):
-        return self._impl.read_wkt_spatial_reference()
+    def get_wkt_spatial_reference(self):
+        return self._impl.get_wkt_spatial_reference()
 
     def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
         '''
@@ -627,12 +627,8 @@ class RasterDataSet:
         '''
         return self._spatial_ref
 
-
-    '''
     def has_geographic_info(self) -> bool:
-        return self._spatial_ref is not None
-    '''
-
+        return self.get_wkt_spatial_reference() is not None
 
     def cache_band_stats(self, index, arr: np.ndarray):
         """
@@ -742,9 +738,6 @@ class RasterDataSet:
             return self._impl.subdataset_name
         else:
             return None
-
-    def get_gdal_dataset(self):
-        self._impl.get_gdal_dataset()
 
     def delete_underlying_dataset(self):
         if hasattr(self._impl, 'delete_dataset'):
