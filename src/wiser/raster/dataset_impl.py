@@ -1082,24 +1082,24 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_gdal_dataset = driver.Create(path, dst_width, dst_height, dst_bands,
             gdal_elem_type, driver_options)
 
-        # Set the spatial reference and geotransform on the destination dataset
-        # This sets the 'map info' meta data variable when we create the envi
-        # header file below
+        if src_dataset.has_geographic_info() is not None:
+            # Set the spatial reference and geotransform on the destination dataset
+            # This sets the 'map info' meta data variable when we create the envi
+            # header file below
+            src_projection = src_dataset.get_wkt_spatial_reference()
+            dst_gdal_dataset.SetProjection(src_projection)
 
-        src_geotransform = src_dataset.get_geo_transform()
-        # Adjust geotransform for the subset
-        subset_geotransform = (
-            src_geotransform[0] + src_offset_x * src_geotransform[1] + src_offset_y * src_geotransform[2],
-            src_geotransform[1],
-            src_geotransform[2],
-            src_geotransform[3] + src_offset_x * src_geotransform[4] + src_offset_y * src_geotransform[5],
-            src_geotransform[4],
-            src_geotransform[5],
-        )
-        dst_gdal_dataset.SetGeoTransform(subset_geotransform)
-    
-        src_projection = src_dataset.get_wkt_spatial_reference()
-        dst_gdal_dataset.SetProjection(src_projection)
+            src_geotransform = src_dataset.get_geo_transform()
+            # Adjust geotransform for the subset
+            subset_geotransform = (
+                src_geotransform[0] + src_offset_x * src_geotransform[1] + src_offset_y * src_geotransform[2],
+                src_geotransform[1],
+                src_geotransform[2],
+                src_geotransform[3] + src_offset_x * src_geotransform[4] + src_offset_y * src_geotransform[5],
+                src_geotransform[4],
+                src_geotransform[5],
+            )
+            dst_gdal_dataset.SetGeoTransform(subset_geotransform)
     
         # if dst_default_display_bands is not None:
         #     str_default_display_bands = '{' + ','.join([str(b) for b in dst_default_display_bands]) + '}'
@@ -1188,16 +1188,9 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_metadata['data ignore value'] = dst_data_ignore
 
         if src_dataset.has_geographic_info() is not None:
-            print(f"src_dataset has geographic info")
             map_info = gdal_metadata['map info']
-            print(f"map_info string: {map_info}")
-
-            new_map_info = update_map_info(map_info, src_dataset, src_offset_x, src_offset_y)
-            print(f"new map info string: {new_map_info}")
-            dst_metadata['map info'] = new_map_info
+            dst_metadata['map info'] = map_info
             dst_metadata['coordinate system string'] = '{' + dst_gdal_dataset.GetProjection() + '}'
-        else:
-            print(f"src_dataset does NOT have geograhpic info")
             
         del dst_gdal_dataset
 
