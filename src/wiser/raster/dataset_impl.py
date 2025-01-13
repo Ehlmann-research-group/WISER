@@ -936,39 +936,6 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             display_bands = [src_to_dst_mapping[b] for b in display_bands]
             return display_bands
 
-        def update_map_info(map_info_str, src_dataset, pixel_x, pixel_y):
-            """
-            Update the 'map info' string with real-world coordinates of a new pixel.
-            
-            Args:
-                map_info_str (str): Original 'map info' string from the ENVI dataset.
-                src_dataset: GDAL dataset object for geotransform information.
-                pixel_x (int): Column index of the new pixel in pixel space (0-based).
-                pixel_y (int): Row index of the new pixel in pixel space (0-based).
-            
-            Returns:
-                str: Updated 'map info' string.
-            """
-            # Split the map info string by commas
-            map_info_parts = map_info_str.strip("map info = {}").split(",")
-            
-            # Extract the geotransform from the dataset
-            geo_transform = src_dataset.get_geo_transform()
-            if geo_transform is None:
-                raise ValueError("The GDAL dataset does not have a valid geotransform.")
-            
-            # Compute the real-world coordinates (X, Y) for the specified pixel
-            x_real = geo_transform[0] + pixel_x * geo_transform[1] + pixel_y * geo_transform[2]
-            y_real = geo_transform[3] + pixel_x * geo_transform[4] + pixel_y * geo_transform[5]
-            
-            # Update the coordinates in the map info parts
-            map_info_parts[3] = f"{x_real:.6f}"  # Update X (easting)
-            map_info_parts[4] = f"{y_real:.6f}"  # Update Y (northing)
-            
-            # Reconstruct the map info string
-            updated_map_info = f"{{{', '.join(map_info_parts)}}}"
-            return updated_map_info
-
         if options is None:
             options = {}
 
