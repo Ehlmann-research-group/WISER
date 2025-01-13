@@ -116,6 +116,9 @@ class RasterDataImpl(abc.ABC):
         # Default implementation returns an identity transform.
         return (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
+    def read_wkt_spatial_reference(self):
+        return NotImplementedError
+
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         return None
 
@@ -378,6 +381,9 @@ class GDALRasterDataImpl(RasterDataImpl):
 
     def read_geo_transform(self) -> Tuple:
         return self.gdal_dataset.GetGeoTransform()
+
+    def read_wkt_spatial_reference(self):
+        return self.gdal_dataset.GetProjection()
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         spatial_ref = self.gdal_dataset.GetSpatialRef()
@@ -930,6 +936,38 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             display_bands = [src_to_dst_mapping[b] for b in display_bands]
             return display_bands
 
+        def update_map_info(map_info_str, src_dataset, pixel_x, pixel_y):
+            """
+            Update the 'map info' string with real-world coordinates of a new pixel.
+            
+            Args:
+                map_info_str (str): Original 'map info' string from the ENVI dataset.
+                src_dataset: GDAL dataset object for geotransform information.
+                pixel_x (int): Column index of the new pixel in pixel space (0-based).
+                pixel_y (int): Row index of the new pixel in pixel space (0-based).
+            
+            Returns:
+                str: Updated 'map info' string.
+            """
+            # Split the map info string by commas
+            map_info_parts = map_info_str.strip("map info = {}").split(",")
+            
+            # Extract the geotransform from the dataset
+            geo_transform = src_dataset.get_geo_transform()
+            if geo_transform is None:
+                raise ValueError("The GDAL dataset does not have a valid geotransform.")
+            
+            # Compute the real-world coordinates (X, Y) for the specified pixel
+            x_real = geo_transform[0] + pixel_x * geo_transform[1] + pixel_y * geo_transform[2]
+            y_real = geo_transform[3] + pixel_x * geo_transform[4] + pixel_y * geo_transform[5]
+            
+            # Update the coordinates in the map info parts
+            map_info_parts[3] = f"{x_real:.6f}"  # Update X (easting)
+            map_info_parts[4] = f"{y_real:.6f}"  # Update Y (northing)
+            
+            # Reconstruct the map info string
+            updated_map_info = f"{{{', '.join(map_info_parts)}}}"
+            return updated_map_info
 
         if options is None:
             options = {}
@@ -1044,6 +1082,25 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_gdal_dataset = driver.Create(path, dst_width, dst_height, dst_bands,
             gdal_elem_type, driver_options)
 
+        src_geotransform = src_dataset.get_geo_transform()
+
+        # Adjust geotransform for the subset
+        subset_geotransform = (
+            src_geotransform[0] + src_offset_x * src_geotransform[1] + src_offset_y * src_geotransform[2],
+            src_geotransform[1],
+            src_geotransform[2],
+            src_geotransform[3] + src_offset_x * src_geotransform[4] + src_offset_y * src_geotransform[5],
+            src_geotransform[4],
+            src_geotransform[5],
+        )
+
+        # Get the spatial reference from the source dataset
+        src_projection = src_dataset.read_wkt_spatial_reference()
+
+        # Set the spatial reference and geotransform on the destination dataset
+        dst_gdal_dataset.SetProjection(src_projection)
+        dst_gdal_dataset.SetGeoTransform(subset_geotransform)
+
         # if dst_default_display_bands is not None:
         #     str_default_display_bands = '{' + ','.join([str(b) for b in dst_default_display_bands]) + '}'
         #     print(f'Setting default display bands to {str_default_display_bands}')
@@ -1111,7 +1168,6 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         # Make sure all the data is written to the file.
         dst_gdal_dataset.FlushCache()
-        del dst_gdal_dataset
 
         # Generate the header file now.
         # TODO(donnie):  What to do if an exception is raised???
@@ -1130,6 +1186,17 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_metadata['description'] = dst_description
         dst_metadata['default bands'] = dst_default_display_bands
         dst_metadata['data ignore value'] = dst_data_ignore
+
+        if 'map info' in gdal_metadata and 'coordinate system string' in gdal_metadata:
+            print(f"SAVING MAP INFORMATION")
+            new_map_info = update_map_info(gdal_metadata['map info'], src_dataset, src_offset_x, src_offset_y)
+            print(f"NEW MAP INFO: {new_map_info}")
+            dst_metadata['map info'] = new_map_info
+            dst_metadata['coordinate system string'] = '{' + dst_gdal_dataset.GetProjection() + '}'
+            print(f"coordinate system string type: {type(dst_gdal_dataset.GetProjection())}")
+            # print(f"coordinate system string: {dst_gdal_dataset.GetProjection()}")
+            
+        del dst_gdal_dataset
 
         # If we have wavelengths, store the wavelength metadata
         if len(dst_wavelengths) == dst_bands:
