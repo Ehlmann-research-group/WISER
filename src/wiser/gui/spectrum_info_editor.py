@@ -90,7 +90,7 @@ class SpectrumInfoEditor(QDialog):
 
         # elif isinstance(spectrum, LibrarySpectrum):
         #     self._ui.lineedit_spectrum_type.setText(self.tr('Library spectrum'))
-        
+        #
         #     self._ui.lineedit_location.clear()
         #     self._ui.lineedit_location.setEnabled(False)
 
