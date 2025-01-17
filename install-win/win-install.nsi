@@ -105,6 +105,19 @@ FunctionEnd
 ; Installer Section
 
 Section "Install"
+  ; Check to see if the application already exists
+  ; If so, we run the uninstaller
+
+  ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
+  StrCmp $0 "" +2
+
+  ExecWait '"$0"'
+  
+  ; Force overwriting
+  SetOverwrite on
+
+  ; Clear INSTDIR
+  RMDIR /r "$INSTDIR"
 
   SetOutPath "$INSTDIR"
 
