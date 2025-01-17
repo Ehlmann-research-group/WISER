@@ -192,7 +192,7 @@ class ENVISpectralLibrary(SpectralLibrary):
                 name=self.get_spectrum_name(index),
                 source_name='ENVI',  # TODO(donnie):  Source name?
                 wavelengths=self.get_wavelengths(),
-                editable=False, discardable=False)
+                editable=True, discardable=False)
 
             # The spectrum's ID is a 2-tuple containing the library's ID and
             # the spectrum's index in the library.
