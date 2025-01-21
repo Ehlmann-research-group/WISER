@@ -1315,6 +1315,7 @@ class SpectrumPlot(QWidget):
                 spectrum_color = self._active_spectrum_color
                 spectrum.set_color(spectrum_color)
 
+            print(f"type of spectrum: {type(spectrum)}")
             display_info = self._add_spectrum_to_plot(spectrum, self._treeitem_active)
 
             # Update the tree-item for the active spectrum

@@ -157,10 +157,8 @@ def create_raster_from_roi(roi: RegionOfInterest) -> np.ndarray:
 def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
                   mode=SpectrumAverageMode.MEAN):
     '''
-    Calculate a spectrum over a collection of points from the specified dataset.
+    Calculate a spectrum over a region of interest from the specified dataset.
     The calculation mode can be specified with the mode argument.
-    The points argument can be any iterable that produces coordinates for this
-    function to use.
     '''
     spectra = []
 
@@ -187,7 +185,14 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     # Accessing by rectangular blocks is faster than accessing point by point
     qrects = array_to_qrects(rects)
     for qrect in qrects:
-        s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
+        try:
+            s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
+        except BaseException as e:
+            # TODO (Joshua G-K): Make this cleaner. Either check in impl or don't let user create
+            # ROIs that go out of bounds.
+            ignore_val = dataset.get_data_ignore_value() if dataset.get_data_ignore_value() != None else 0 
+            arr = np.ones((dataset.num_bands(),)) * ignore_val
+            return arr
         ndim = s.ndim
         if ndim == 2:
             for i in range(s.shape[1]):
