@@ -190,8 +190,7 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
         except BaseException as e:
             # TODO (Joshua G-K): Make this cleaner. Either check in impl or don't let user create
             # ROIs that go out of bounds.
-            ignore_val = dataset.get_data_ignore_value() if dataset.get_data_ignore_value() != None else 0 
-            arr = np.ones((dataset.num_bands(),)) * ignore_val
+            arr = np.full((dataset.num_bands(),), np.nan)
             return arr
         ndim = s.ndim
         if ndim == 2:
