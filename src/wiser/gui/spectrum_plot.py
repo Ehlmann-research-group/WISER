@@ -874,7 +874,6 @@ class SpectrumPlot(QWidget):
 
             if use_wavelengths:
                 unit_name = UNIT_NAME_MAPPING.get(self._x_units, "Wavelength")
-                print(f"self._x_units: {self._x_units}")
                 self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
                     labelpad=0, fontproperties=axes_font)
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
