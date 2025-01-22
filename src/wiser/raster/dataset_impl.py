@@ -798,8 +798,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 
                 # Check if the subdataset name is in the emit_data_names set
                 if subdataset_key in emit_data_names:
-                    print(f"Processing subdataset: {subdataset_key}")
-                    
                     # Open the subdataset
                     gdal_subdataset = gdal.Open(subdataset_name)
                     if gdal_subdataset is None:
@@ -812,7 +810,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                     # Add the instance to the list
                     instances_list.append(instance)
 
-        print(f"Total instances created: {len(instances_list)}")
         return instances_list
 
     def __init__(self, gdal_dataset):
