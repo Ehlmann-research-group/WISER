@@ -455,12 +455,12 @@ class RasterDataSet:
                 if band_max is None:
                     band_max = np.nanmax(filtered_arr)
             stats = BandStats(band_index, band_min, band_max)
-            # if isinstance(arr, np.ma.masked_array):
-            #     mask = arr.mask
-            #     arr = normalize_ndarray(arr.data, band_min, band_max)
-            #     arr = np.ma.masked_array(arr, mask=mask)
-            # else:
-            arr = normalize_ndarray(arr, band_min, band_max)
+            if isinstance(arr, np.ma.masked_array):
+                mask = arr.mask
+                arr = normalize_ndarray(arr.data, band_min, band_max)
+                arr = np.ma.masked_array(arr, mask=mask)
+            else:
+                arr = normalize_ndarray(arr, band_min, band_max)
 
             self._cached_band_stats[band_index] = stats
 

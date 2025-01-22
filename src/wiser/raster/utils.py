@@ -251,6 +251,8 @@ def normalize_ndarray(arr: np.ndarray, minval=None, maxval=None) -> Union[None, 
             normalize_ndarray_numba(arr.data, minval, maxval)
             arr = np.ma.masked_array(arr, mask=mask)
             return arr
+        else:
+            return normalize_ndarray_numba(arr, minval, maxval)
 
 
 def get_normalized_band(dataset, band_index):

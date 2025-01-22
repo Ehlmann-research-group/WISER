@@ -75,9 +75,9 @@ def make_channel_image_numba(normalized_band: np.ndarray, stretch1: StretchBase 
 
 def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     if normalized_band.nbytes < ARRAY_NUMBA_THRESHOLD:
-        make_channel_image_python(normalized_band, stretch1, stretch2)
+        return make_channel_image_python(normalized_band, stretch1, stretch2)
     else:
-        make_channel_image_numba(normalized_band, stretch1, stretch2)
+        return make_channel_image_numba(normalized_band, stretch1, stretch2)
 
 def check_channel(c):
     min_val = np.nanmin(c)
@@ -201,9 +201,9 @@ def make_rgb_image_numba(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> n
 
 def make_rgb_image(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray):
     if ch1.nbytes < ARRAY_NUMBA_THRESHOLD:
-        make_rgb_image_python(ch1, ch2, ch3)
+        return make_rgb_image_python(ch1, ch2, ch3)
     else:
-        make_rgb_image_numba(ch1, ch2, ch3)
+        return make_rgb_image_numba(ch1, ch2, ch3)
 
 
 def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) -> np.ndarray:

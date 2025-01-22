@@ -65,11 +65,11 @@ def remove_nans_numba(data):
 
     return nonan_data
 
-def remove_nans(data: np.ndarray):
+def remove_nans(data: np.ndarray) -> np.ndarray:
     if data.nbytes < ARRAY_NUMBA_THRESHOLD:
-        remove_nans_python(data)
+        return remove_nans_python(data)
     else:
-        remove_nans_numba(data)
+        return remove_nans_numba(data)
 
 def create_histogram_python(nonan_data: np.ndarray):
     return np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
@@ -98,11 +98,11 @@ def create_histogram_numba(nonan_data):
     bin_edges = np.linspace(min_val, max_val, bins + 1)
     return counts, bin_edges
 
-def create_histogram(nonan_data: np.ndarray):
+def create_histogram(nonan_data: np.ndarray) -> np.ndarray:
     if nonan_data.nbytes < ARRAY_NUMBA_THRESHOLD:
-        create_histogram_python(nonan_data)
+        return create_histogram_python(nonan_data)
     else:
-        create_histogram_numba(nonan_data)
+        return create_histogram_numba(nonan_data)
 
 def get_slider_percentage(slider, value=None):
     '''
