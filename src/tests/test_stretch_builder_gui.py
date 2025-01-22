@@ -7,12 +7,12 @@ sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src
 import numpy as np
 
 from wiser.gui.app import DataVisualizerApp
-from wiser.gui.rasterview import RasterView, make_channel_image_using_numba, \
-    make_channel_image, make_rgb_image_using_numba, make_grayscale_image
+from wiser.gui.rasterview import RasterView, make_channel_image_numba, \
+    make_channel_image_python, make_rgb_image_numba, make_grayscale_image
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.utils import normalize_ndarray_using_njit
+from wiser.raster.utils import normalize_ndarray_numba
 from wiser.raster.stretch import StretchBaseUsingNumba, StretchLinearUsingNumba, \
     StretchHistEqualizeUsingNumba, StretchSquareRootUsingNumba, StretchLog2UsingNumba, \
     StretchHistEqualize
@@ -201,7 +201,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
         expected = np.array([[0.0, 0.5, 1.0],
                              [0.0, 0.5, 1.0],
                              [0.0, 0.5, 1.0]], dtype=np.float32)
-        result = normalize_ndarray_using_njit(arr, minval, maxval)
+        result = normalize_ndarray_numba(arr, minval, maxval)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_normalize_array_same_min_max(self):
@@ -211,7 +211,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
         minval = 3
         maxval = 3
         expected = np.zeros_like(arr, dtype=np.float32)
-        result = normalize_ndarray_using_njit(arr, minval, maxval)
+        result = normalize_ndarray_numba(arr, minval, maxval)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_none_none(self):
@@ -221,7 +221,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
         expected = np.array([[0, 63, 127, 191, 255],
                         [0, 63, 127, 191, 255],
                         [0, 63, 127, 191, 255]])
-        result = make_channel_image_using_numba(arr, stretch1=None, stretch2=None)
+        result = make_channel_image_numba(arr, stretch1=None, stretch2=None)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_linear_none(self):
@@ -233,7 +233,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                              [0, 0, 127, 255, 255]], dtype=np.uint8)
         
         linear = StretchLinearUsingNumba(0.25, 0.75)
-        result = make_channel_image_using_numba(arr, stretch1=linear, stretch2=None)
+        result = make_channel_image_numba(arr, stretch1=linear, stretch2=None)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_equalize_none(self):
@@ -251,7 +251,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                              [51, 114, 178, 242, 255],
                              [51, 114, 178, 242, 255]], dtype=np.uint8)
 
-        result = make_channel_image_using_numba(arr, stretch1=stretch1, stretch2=None)
+        result = make_channel_image_numba(arr, stretch1=stretch1, stretch2=None)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_none_sqrt(self):
@@ -263,7 +263,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                              [0, 127, 180, 220, 255],
                              [0, 127, 180, 220, 255]], dtype=np.uint8)
 
-        result = make_channel_image_using_numba(arr, stretch1=None, stretch2=stretch2)
+        result = make_channel_image_numba(arr, stretch1=None, stretch2=stretch2)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_linear_sqrt(self):
@@ -276,7 +276,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                              [0, 0, 180, 255, 255],
                              [0, 0, 180, 255, 255]], dtype=np.uint8)
 
-        result = make_channel_image_using_numba(arr, stretch1=stretch1, stretch2=stretch2)
+        result = make_channel_image_numba(arr, stretch1=stretch1, stretch2=stretch2)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_equalize_sqrt(self):
@@ -291,7 +291,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                              [114,171,213,248,255],
                              [114,171,213,248,255]], dtype=np.uint8)
 
-        result = make_channel_image_using_numba(arr, stretch1=stretch1, stretch2=stretch2)
+        result = make_channel_image_numba(arr, stretch1=stretch1, stretch2=stretch2)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_none_log(self):
@@ -303,7 +303,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                              [0,82,149,205,255],
                              [0,82,149,205,255]], dtype=np.uint8)
 
-        result = make_channel_image_using_numba(arr, stretch1=None, stretch2=stretch2)
+        result = make_channel_image_numba(arr, stretch1=None, stretch2=stretch2)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_linear_log(self):
@@ -316,7 +316,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                              [0, 0, 149, 255, 255],
                              [0, 0, 149, 255, 255]], dtype=np.uint8)
 
-        result = make_channel_image_using_numba(arr, stretch1=stretch1, stretch2=stretch2)
+        result = make_channel_image_numba(arr, stretch1=stretch1, stretch2=stretch2)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_equalize_log(self):
@@ -331,7 +331,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                              [67,136,195,245,255],
                              [67,136,195,245,255]], dtype=np.uint8)
         
-        result = make_channel_image_using_numba(arr, stretch1=stretch1, stretch2=stretch2)
+        result = make_channel_image_numba(arr, stretch1=stretch1, stretch2=stretch2)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_rgb_image(self):
@@ -349,7 +349,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                             [4278455832, 4278521625, 4278587418],
                             [4278653211, 4278719004, 4278784797]])
         
-        result = make_rgb_image_using_numba(ch1, ch2, ch3)
+        result = make_rgb_image_numba(ch1, ch2, ch3)
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_grayscale_image(self):
