@@ -246,13 +246,7 @@ def normalize_ndarray(arr: np.ndarray, minval=None, maxval=None) -> Union[None, 
     if arr.nbytes < ARRAY_NUMBA_THRESHOLD:
         return normalize_ndarray_python(array=arr, minval=minval, maxval=maxval)
     else:
-        if isinstance(arr, np.ma.masked_array):
-            mask = arr.mask
-            normalize_ndarray_numba(arr.data, minval, maxval)
-            arr = np.ma.masked_array(arr, mask=mask)
-            return arr
-        else:
-            return normalize_ndarray_numba(arr, minval, maxval)
+        return normalize_ndarray_numba(arr, minval, maxval)
 
 
 def get_normalized_band(dataset, band_index):
