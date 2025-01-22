@@ -466,7 +466,6 @@ class BandMathEvaluatorAsync(AsyncTransformer):
 
     def __del__(self):
         self.stop()  # Ensure the loop and thread are stopped
-        print("Eval operator event loop and thread cleaned up")
 
 class BandMathEvaluator(lark.visitors.Transformer):
     '''
@@ -670,7 +669,6 @@ class BandMathEvaluator(lark.visitors.Transformer):
             self._loop_thread.join()
     def __del__(self):
         self.stop()  # Ensure the loop and thread are stopped
-        print("Eval operator event loop cleaned up")
 
 class NumberOfIntermediatesFinder(BandMathEvaluator):
     '''

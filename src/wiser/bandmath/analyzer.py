@@ -148,7 +148,6 @@ class BandMathAnalyzer(lark.visitors.Transformer):
 
         func_impl = self._functions[func_name]
         try:
-            print(f"func_args: {func_args}")
             return func_impl.analyze(func_args)
         except Exception as e:
             raise RuntimeError(f'Function "{func_name}" analysis error', e)

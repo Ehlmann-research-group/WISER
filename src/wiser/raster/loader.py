@@ -75,7 +75,6 @@ class RasterDataLoader:
             try:
                 impl_list = impl_type.try_load_file(path)
             except Exception as e:
-                print(f"Exception: \n {e}")
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
 
@@ -85,7 +84,6 @@ class RasterDataLoader:
         outer_datasets = []
         for impl in impl_list:
             func = self._format_loaders[type(impl)]
-            print(f"func: {func}")
             datasets = func(impl, data_cache)
             for ds in datasets:
                 files = ds.get_filepaths()
