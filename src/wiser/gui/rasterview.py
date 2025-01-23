@@ -520,7 +520,7 @@ class RasterView(QWidget):
 
         if stretches is not None and len(display_bands) != len(stretches):
             raise ValueError('display_bands and stretches must be the same length')
-
+        print(f"RasterView set_raster_data")
         self._clear_members()
 
         self._raster_data = raster_data
@@ -668,7 +668,7 @@ class RasterView(QWidget):
         else:
             print(f"Updating gray scale image")
             # This is a grayscale image.
-            if colors != ImageColors.NONE:
+            if colors != ImageColors.NONE or self._display_data[0] is None:
                 # Regenerate the image.  Since all color bands are the same,
                 # generate the first one, then duplicate it for the other two
                 # bands.
@@ -694,8 +694,6 @@ class RasterView(QWidget):
                 self._display_data[0] = new_arr
                 self._display_data[1] = self._display_data[0]
                 self._display_data[2] = self._display_data[0]
-            else:
-                print(f"Image colors is none")
 
             time_2 = time.perf_counter()
 
