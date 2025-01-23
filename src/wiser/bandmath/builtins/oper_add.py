@@ -128,7 +128,7 @@ class OperatorAdd(BandMathFunction):
                     index_list_current = [index_list_current]
                 if isinstance(index_list_next, int):
                     index_list_next = [index_list_next]
-                
+
                 lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
                                                             index_list_next, read_task_queue, \
                                                                 read_thread_pool, event_loop)
