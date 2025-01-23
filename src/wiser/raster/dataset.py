@@ -377,6 +377,8 @@ class RasterDataSet:
             arr = cache.get_cache_item(key)
         if arr is None:
             arr = self._impl.get_image_data()
+            if arr.ndim == 2:
+                arr = arr[np.newaxis,:,:]
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
             if self._data_cache:
