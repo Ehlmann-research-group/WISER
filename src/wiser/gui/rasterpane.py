@@ -999,6 +999,8 @@ class RasterPane(QWidget):
                 # Get the stretches at the same time, so that we only update the
                 # raster-view once.
                 stretches = self._app_state.get_stretches(ds_id, bands)
+                
+                print(f"raster pane set_display_bands: {bands}")
                 rv.set_display_bands(bands, stretches=stretches, colormap=colormap)
 
 
