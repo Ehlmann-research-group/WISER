@@ -15,6 +15,7 @@ from wiser.bandmath.utils import (
     get_lhs_rhs_values_async, get_result_dtype, MathOperations,
 )
 from wiser.raster.dataset import RasterDataSet
+import time
 
 class OperatorAdd(BandMathFunction):
     '''
@@ -104,7 +105,7 @@ class OperatorAdd(BandMathFunction):
         '''
         Add the LHS and RHS and return the result.
         '''
-    
+        print(f"oper_add apply")
         if len(args) != 2:
             raise Exception('+ requires exactly two arguments')
 
@@ -121,6 +122,7 @@ class OperatorAdd(BandMathFunction):
 
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
+            print(f"lhs is type image cube")
             # Dimensions:  [band][y][x]
             if index_list_current is not None:
                 # Lets us handle when the band index list just has one band
@@ -128,9 +130,13 @@ class OperatorAdd(BandMathFunction):
                     index_list_current = [index_list_current]
                 if isinstance(index_list_next, int):
                     index_list_next = [index_list_next]
+                
+                start_time = time.perf_counter()
                 lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
                                                             index_list_next, read_task_queue, \
                                                                 read_thread_pool, event_loop)
+                end_time = time.perf_counter()
+                print(f"Took get_lhs_rhs_values_async: {end_time-start_time:.6f}")
 
                 result_arr = lhs_value + rhs_value
                 assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
@@ -138,10 +144,16 @@ class OperatorAdd(BandMathFunction):
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
             else:
+                start_time = time.perf_counter()
                 lhs_value = lhs.as_numpy_array()
+                end_time = time.perf_counter()
+                print(f"Took as_numpy_array: {end_time-start_time:.6f}")
                 assert lhs_value.ndim == 3
 
+                start_time = time.perf_counter()
                 rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+                end_time = time.perf_counter()
+                print(f"Took make_image_cube_compatible: {end_time-start_time:.6f}")
                 result_arr = lhs_value + rhs_value
                 # The result array should have the same dimensions as the LHS input
                 # array.

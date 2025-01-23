@@ -19,6 +19,8 @@ from osgeo import gdal, gdalconst, gdal_array, osr
 
 from astropy.io import fits
 
+import time
+
 logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
@@ -240,12 +242,21 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        start_time = time.perf_counter()
         new_dataset = self.reopen_dataset()
+        end_time = time.perf_counter()
+        print(f"Time to reopen dataset: {end_time-start_time:.6f}")
         try:
+            start_time = time.perf_counter()
             np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+            end_time = time.perf_counter()
+            print(f"Time to GetVirtualMemArray: {end_time-start_time:.6f}")
         except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+            start_time = time.perf_counter()
             np_array = new_dataset.ReadAsArray()
+            end_time = time.perf_counter()
+            print(f"Time to ReadAsArray: {end_time-start_time:.6f}")
 
         return np_array
 
