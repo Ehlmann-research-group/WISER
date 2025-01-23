@@ -811,11 +811,9 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                     instance = cls(gdal_subdataset)
                     instance.subdataset_name = subdataset_name
                     instance.subdataset_key = subdataset_key
-                    print(f"subdataset_key: {subdataset_key}!!!!")
                     # Add the instance to the list
                     instances_list.append(instance)
 
-        print(f"Instances_list: {instances_list}")
         return instances_list
 
     

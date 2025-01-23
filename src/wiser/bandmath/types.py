@@ -156,12 +156,10 @@ class BandMathValue:
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):
-                print(f"Getting image data in as_numpy_array")
                 return self.value.get_image_data()
 
         elif self.type == VariableType.IMAGE_BAND:
             if isinstance(self.value, RasterDataBand):
-                print(f"getting band data")
                 return self.value.get_data()
 
         elif self.type == VariableType.SPECTRUM:

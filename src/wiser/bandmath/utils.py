@@ -189,21 +189,17 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
     should_be_the_same = False
     if not isinstance(lhs.value, np.ndarray):
         # Check to see if queue is empty. If it's not, then we can immediately get the data
-        start_time = time.perf_counter()
         if read_task_queue[LHS_KEY].empty():
             read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
             lhs_future = read_task_queue[LHS_KEY].get()[0]
         else:
             lhs_future = read_task_queue[LHS_KEY].get()[0]
-        end_time = time.perf_counter()
         should_read_next = should_continue_reading_bands(index_list_next, lhs)
         # Allows us to read data into the future so there's little down time in between I/O
         if should_read_next:
             read_lhs_future_onto_queue(lhs, index_list_next, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
     else:
-        start_time = time.perf_counter()
         lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
-        end_time = time.perf_counter()
 
     # We need to get lhs_value's shape since we may not have the actual array by this time
     lhs_value_shape = list(lhs.get_shape())  
@@ -685,8 +681,6 @@ def make_image_cube_compatible(arg: BandMathValue,
         # Dimensions:  [y][x]
         # NumPy will broadcast the band across the entire image, band by band.
         result = arg.as_numpy_array()
-        print(f"rhs result shape: {result.shape}")
-        print(f"cube_shape: {cube_shape}")
         assert result.ndim == 2
 
         if result.shape != cube_shape[1:]:

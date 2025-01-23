@@ -404,7 +404,6 @@ class RasterDataSet:
             arr = cache.get_cache_item(key)
         if arr is None:
             arr = self._impl.get_band_data(band_index)
-            print(f"get_band_data arr shape: {arr.shape}")
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
 

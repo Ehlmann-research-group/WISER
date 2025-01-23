@@ -104,7 +104,7 @@ class OperatorAdd(BandMathFunction):
         '''
         Add the LHS and RHS and return the result.
         '''
-        print(f"oper_add apply")
+
         if len(args) != 2:
             raise Exception('+ requires exactly two arguments')
 
