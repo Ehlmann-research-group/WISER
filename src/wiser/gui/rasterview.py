@@ -669,6 +669,7 @@ class RasterView(QWidget):
                 # Regenerate the image.  Since all color bands are the same,
                 # generate the first one, then duplicate it for the other two
                 # bands.
+
                 arr = self._raster_data.get_band_data_normalized(self._display_bands[0])
 
                 band_data = arr
