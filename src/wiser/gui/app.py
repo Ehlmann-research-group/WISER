@@ -873,7 +873,6 @@ class DataVisualizerApp(QMainWindow):
         logger.debug(f'on_display_bands_change({ds_id}, {bands}, ' +
                      f'{str_or_none(colormap)}, {is_global})')
         if is_global:
-            print(f"DataVisualizerApp _on_display_bands_change: {bands}")
             self._context_pane.set_display_bands(ds_id, bands, colormap=colormap)
             self._main_view.set_display_bands(ds_id, bands, colormap=colormap)
             self._zoom_pane.set_display_bands(ds_id, bands, colormap=colormap)

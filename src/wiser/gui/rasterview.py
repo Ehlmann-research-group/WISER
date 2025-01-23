@@ -498,7 +498,6 @@ class RasterView(QWidget):
         # that assembling the image is faster when only one color's band
         # changes.
 
-        print(f"Clear members called: self._display_data = [None, None, None]")
         self._display_data = [None, None, None]
         self._img_data = None
 
@@ -520,7 +519,7 @@ class RasterView(QWidget):
 
         if stretches is not None and len(display_bands) != len(stretches):
             raise ValueError('display_bands and stretches must be the same length')
-        print(f"RasterView set_raster_data")
+
         self._clear_members()
 
         self._raster_data = raster_data
@@ -590,7 +589,6 @@ class RasterView(QWidget):
             if self._display_bands[2] != display_bands[2]:
                 changed |= ImageColors.BLUE
 
-        print(f"raster view set_display_bands: {display_bands}")
         self._display_bands = display_bands
         self._colormap = colormap
         self.update_display_image(colors=changed)
@@ -666,13 +664,11 @@ class RasterView(QWidget):
             cache.add_cache_item(key, img_data)
 
         else:
-            print(f"Updating gray scale image")
             # This is a grayscale image.
             if colors != ImageColors.NONE or self._display_data[0] is None:
                 # Regenerate the image.  Since all color bands are the same,
                 # generate the first one, then duplicate it for the other two
                 # bands.
-                print(f"Image colors is not None")
                 arr = self._raster_data.get_band_data_normalized(self._display_bands[0])
 
                 band_data = arr
@@ -698,7 +694,6 @@ class RasterView(QWidget):
             time_2 = time.perf_counter()
 
             # Combine our individual color channel(s) into a single RGB image.
-            print(f"self._display_data[0]: {self._display_data[0]}")
             img_data = make_grayscale_image(self._display_data[0], self._colormap)
             cache.add_cache_item(key, img_data)
 

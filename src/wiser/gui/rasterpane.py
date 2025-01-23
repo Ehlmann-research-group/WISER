@@ -939,7 +939,6 @@ class RasterPane(QWidget):
         Sets the dataset being displayed in the specified view of the raster
         pane.
         '''
-        print(f"RasterPane show_dataset, ds_id: {dataset.get_id()}")
         rasterview = self.get_rasterview(rasterview_pos)
 
         # If the rasterview is already showing the specified dataset, skip!
@@ -1000,8 +999,7 @@ class RasterPane(QWidget):
                 # Get the stretches at the same time, so that we only update the
                 # raster-view once.
                 stretches = self._app_state.get_stretches(ds_id, bands)
-                
-                print(f"raster pane set_display_bands: {bands}")
+
                 rv.set_display_bands(bands, stretches=stretches, colormap=colormap)
 
 
