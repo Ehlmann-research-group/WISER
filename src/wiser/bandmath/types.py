@@ -161,6 +161,7 @@ class BandMathValue:
 
         elif self.type == VariableType.IMAGE_BAND:
             if isinstance(self.value, RasterDataBand):
+                print(f"getting band data")
                 return self.value.get_data()
 
         elif self.type == VariableType.SPECTRUM:
