@@ -23,8 +23,6 @@ from .types import VariableType, BandMathExprInfo, BandMathValue
 from wiser.raster.dataset import RasterDataSet
 from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE, LHS_KEY, RHS_KEY
 
-import time
-
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
 class MathOperations(Enum):
@@ -189,7 +187,6 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
     rhs_value = None
     rhs_future = None
     should_be_the_same = False
-    print(f"in get_lhs_rhs_values_async")
     if not isinstance(lhs.value, np.ndarray):
         # Check to see if queue is empty. If it's not, then we can immediately get the data
         start_time = time.perf_counter()
@@ -197,10 +194,8 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
             read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
             lhs_future = read_task_queue[LHS_KEY].get()[0]
         else:
-            print("LHS queue was not empty")
             lhs_future = read_task_queue[LHS_KEY].get()[0]
         end_time = time.perf_counter()
-        print(f"Took reading lhs from task queue: {end_time-start_time:.6f}")
         should_read_next = should_continue_reading_bands(index_list_next, lhs)
         # Allows us to read data into the future so there's little down time in between I/O
         if should_read_next:
@@ -209,7 +204,6 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
         start_time = time.perf_counter()
         lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
         end_time = time.perf_counter()
-        print(f"Took as numpy array by bands: {end_time-start_time:.6f}")
 
     # We need to get lhs_value's shape since we may not have the actual array by this time
     lhs_value_shape = list(lhs.get_shape())  
@@ -221,16 +215,12 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
         if isinstance(lhs.value, RasterDataSet) and isinstance(rhs.value, RasterDataSet) and lhs.value == rhs.value:
             should_be_the_same = True
         else:
-            start_time = time.perf_counter()
             if read_task_queue[RHS_KEY].empty():
                 read_rhs_future_onto_queue(rhs, lhs_value_shape, index_list_current, \
                                             event_loop, read_thread_pool, read_task_queue[RHS_KEY])
                 rhs_future = read_task_queue[RHS_KEY].get()[0]
             else:
-                print("RHS queue was not empty")
                 rhs_future = read_task_queue[RHS_KEY].get()[0]
-            end_time = time.perf_counter()
-            print(f"Took reading rhs from task queue: {end_time-start_time:.6f}")
             if should_read_next:
                 # We have to get the size of the next data to read
                 next_lhs_shape = list(lhs.get_shape())
@@ -239,10 +229,7 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
                 read_rhs_future_onto_queue(rhs, next_lhs_shape, index_list_next, \
                                             event_loop, read_thread_pool, read_task_queue[RHS_KEY])
     else:
-        start_time = time.perf_counter()
         rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
-        end_time = time.perf_counter()
-        print(f"Took make_image_cube_compatible_by_bands: {end_time-start_time:.6f}")
 
     if rhs_future is not None:
         rhs_value = await rhs_future

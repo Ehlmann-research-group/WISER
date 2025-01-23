@@ -19,8 +19,6 @@ from osgeo import gdal, gdalconst, gdal_array, osr
 
 from astropy.io import fits
 
-import time
-
 from netCDF4 import Dataset
 
 import xarray as xr
@@ -247,32 +245,12 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        start_time = time.perf_counter()
         new_dataset = self.reopen_dataset()
-        end_time = time.perf_counter()
-        print(f"Time to reopen dataset: {end_time-start_time:.6f}")
         try:
-            start_time = time.perf_counter()
             np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-            end_time = time.perf_counter()
-            print(f"Time to GetVirtualMemArray: {end_time-start_time:.6f}")
         except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            start_time = time.perf_counter()
             np_array = new_dataset.ReadAsArray()
-            end_time = time.perf_counter()
-            print(f"Time to ReadAsArray: {end_time-start_time:.6f}")
-
-            start_time = time.perf_counter()
-            filepaths = self.get_filepaths()
-            print(f"filepaths: {filepaths}")
-            netcdf_data = xr.open_dataset(filepaths[0])
-            data_vars = list(netcdf_data.data_vars.keys())
-            print("Data variables found:", data_vars)
-            np_array_2 = netcdf_data[data_vars[0]]
-            end_time = time.perf_counter()
-            print(f"Time to read netcdf: {end_time-start_time:.6f}")
-
         return np_array
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
@@ -853,53 +831,12 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print(f"IN NETCDF!!")
-        start_time = time.perf_counter()
         new_dataset = self.reopen_dataset()
-        end_time = time.perf_counter()
-        print(f"Time to reopen dataset: {end_time-start_time:.6f}")
-        logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-
-        filepaths = self.get_filepaths()
-        print(f"filepaths: {filepaths}")
-        netcdf_data = xr.open_dataset(filepaths[0])
-        data_vars = list(netcdf_data.data_vars.keys())
-        print("Data variables found:", data_vars)
-        print(f"self.subdataset_name: {self.subdataset_name}")
         try:
-            print(f"Trying to read netcdf data")
-            start_time = time.perf_counter()
-            data_array = netcdf_data[self.subdataset_key]
-            print(f"Type of netcdf array: {type(data_array)}")
-            print(f"array dims: {data_array.dims}")
-            bands_dim = 'bands'  # Adjust this based on the known dimension name in your dataset
-
-            # Check if the bands dimension exists in the dataset
-            if bands_dim in data_array.dims:
-                # Create the new dimension order with 'bands' first, keeping the others in the original order
-                new_dim_order = (bands_dim,) + tuple(dim for dim in data_array.dims if dim != bands_dim)
-                
-                # Reorder the array dimensions
-                data_array = data_array.transpose(*new_dim_order)
-            np_array = data_array.values
-            print(f"Type of netcdf array now: {type(np_array)}")
-            print(f"Shape of netcdf array now: {np_array.shape}")
-            end_time = time.perf_counter()
-            print(f"Time to read netcdf: {end_time-start_time:.6f}")
-        except BaseException as e:
-            print(f"Error when trying to loat .nc file with xarray:\n{e}")
-            logger.warning(f"Error when trying to loat .nc file with xarray:\n{e}")
-            start_time = time.perf_counter()
+            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+        except (RuntimeError, ValueError):
+            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
             np_array = new_dataset.ReadAsArray()
-            end_time = time.perf_counter()
-            print(f"Time to ReadAsArray: {end_time-start_time:.6f}")
-
-            
-            # start_time = time.perf_counter()
-            # np_array = new_dataset.ReadAsArray()
-            # end_time = time.perf_counter()
-            # print(f"Time to ReadAsArray: {end_time-start_time:.6f}")
-
         return np_array
 
     def __init__(self, gdal_dataset):

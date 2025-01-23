@@ -13,7 +13,6 @@ from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength, normalize_ndarray
 from .data_cache import DataCache
 
-import time
 from time import perf_counter
 
 Number = Union[int, float]
@@ -373,22 +372,14 @@ class RasterDataSet:
         '''
         arr = None
         if self._data_cache:
-            print(f"Getting cache keys")
             cache = self._data_cache.get_computation_cache()
             key = cache.get_cache_key(self)
             arr = cache.get_cache_item(key)
         if arr is None:
-            print(f"Cache arr is none")
             arr = self._impl.get_image_data()
-            if arr.ndim == 2:
-                arr = arr[np.newaxis,:,:]
-                print(f"Added axis, data is now show: {arr.shape}")
-            print(f"Got image data")
             if filter_data_ignore_value and self._data_ignore_value is not None:
-                print(f"Adding masked values ")
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
             if self._data_cache:
-                print(f"Adding arr to cache")
                 cache.add_cache_item(key, arr)
         return arr
 
