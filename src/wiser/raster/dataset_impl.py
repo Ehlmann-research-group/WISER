@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
 
+DEFAULT_WAVELENGTH_UNIT = u.nanometer
+
 class SaveState(Enum):
     IN_DISK_NOT_SAVED = 0
     IN_MEMORY_NOT_SAVED = 1
@@ -373,11 +375,18 @@ class GDALRasterDataImpl(RasterDataImpl):
         Specific formats may be able to report more detailed band info by
         reading the driver-specific metadata for the format.
         '''
+        print(f"GDALRasterDataImpl read_band_info")
         band_info = []
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
             band = self.gdal_dataset.GetRasterBand(band_index)
-            info = {'index':band_index - 1, 'description':band.GetDescription()}
+            info = {
+                    'index':band_index - 1, 
+                    'description':band.GetDescription(),
+                    'wavelength' : band_index * DEFAULT_WAVELENGTH_UNIT
+                    }
             band_info.append(info)
+            if band_index == 1:
+                print(f"first info: {info}")
         return band_info
 
     def read_data_ignore_value(self) -> Optional[Number]:
@@ -556,7 +565,8 @@ class PDRRasterDataImpl(RasterDataImpl):
         for band_index in range(self.num_bands()):
             info = {
                 'index' : band_index,
-                'description' : f'Band {band_index}'
+                'description' : f'Band {band_index}',
+                'wavelength' : band_index * u.m
             }
             band_info.append(info)
 
@@ -1245,7 +1255,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         don't handle:
         *   All raster bands have the same dimensions and data type
         '''
-
+        print(f"ENVI_GDALRasterDataImpl, read_band_info")
         band_info = []
 
         md = self.gdal_dataset.GetMetadata('ENVI')
@@ -1290,6 +1300,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
                         info['description'] = f'Band {band_index - 1}'
 
             band_info.append(info)
+            if band_index == 1:
+                print(f"first info: {info}")
 
         return band_info
 
@@ -1409,7 +1421,8 @@ class NumPyRasterDataImpl(RasterDataImpl):
         for band_index in range(self.num_bands()):
             info = {
                 'index' : band_index,
-                'description' : f'Band {band_index}'
+                'description' : f'Band {band_index}',
+                'wavelength' : band_index * u.m
             }
             band_info.append(info)
 

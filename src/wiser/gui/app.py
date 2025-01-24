@@ -826,8 +826,17 @@ class DataVisualizerApp(QMainWindow):
                     new_spectrum = NumPyArraySpectrum(result, name=result_name)
 
                     if expr_info.spectral_metadata_source:
+                        print(f"about to copy_spectral_metadata in app")
+                        print(f"type of result: {type(result)}")
+                        print(f"type of _calculate_spectrum of expr_info.spectral_metadata_source.value: {type(expr_info.spectral_metadata_source.value.get_spectrum())}")
+                        print(f"_calculate_spectrum of expr_info.spectral_metadata_source.value: {expr_info.spectral_metadata_source.value.get_spectrum()}")
+                        print(f"type of expr_info.spectral_metadata_source.value: {type(expr_info.spectral_metadata_source.value)}")
+                        print(f"expr_info.spectral_metadata_source.value: {expr_info.spectral_metadata_source.value}")
+                        print(f"type of expr_info.spectral_metadata_source: {type(expr_info.spectral_metadata_source)}")
+                        print(f"expr_info.spectral_metadata_source: {expr_info.spectral_metadata_source}")
                         new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
 
+                    print(f"about to set_active_spectrum")
                     self._app_state.set_active_spectrum(new_spectrum)
 
             except Exception as e:

@@ -3,7 +3,7 @@ from typing import Dict
 import numpy as np
 
 from .types import BandMathValue, BandMathFunction
-from .builtins.oper_builtin import OperatorTrigFunction, OperatorDotProduct
+from .builtins.oper_builtin import OperatorTrigFunction, OperatorTrigFunctionTwoArgs, OperatorDotProduct
 
 def get_builtin_functions() -> Dict[str, BandMathFunction]:
     '''
@@ -14,7 +14,7 @@ def get_builtin_functions() -> Dict[str, BandMathFunction]:
         'tan': OperatorTrigFunction(np.ma.tan),
         'sin': OperatorTrigFunction(np.ma.sin),
         'cos': OperatorTrigFunction(np.ma.cos),
-        'arctan2': OperatorTrigFunction(np.ma.arctan2),
+        'arctan2': OperatorTrigFunctionTwoArgs(np.ma.arctan2),
         'arctan': OperatorTrigFunction(np.ma.arctan),
         'arcsin': OperatorTrigFunction(np.ma.arcsin),
         'arccos': OperatorTrigFunction(np.ma.arccos),

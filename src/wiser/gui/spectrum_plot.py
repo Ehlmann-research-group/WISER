@@ -845,13 +845,15 @@ class SpectrumPlot(QWidget):
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
-
+        print(f"_add_spectrum_to_plot called")
         # Figure out whether we should use wavelengths or not in the plot.
         use_wavelengths = False
         if spectrum.has_wavelengths():
             # TODO(donnie):  This is ugly.  Find a way to expose wavelength units
             #     on datasets and spectra.
-            self._x_units = spectrum.get_wavelengths()[0].unit
+            print(f"SpectrumPlot _add_spectrum_to_plot, type of spectrum: {type(spectrum)}")
+            self._x_units = spectrum.get_wavelength_units()
+            print(f"Wavelength units retrieved: {self._x_units}")
 
             self._displayed_spectra_with_wavelengths += 1
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
@@ -1068,7 +1070,7 @@ class SpectrumPlot(QWidget):
         exists, the function returns a (spectrum, index) pair; if no such
         spectrum exists, the function returns (None, None).
         '''
-
+        print(f"_find_spectrum_point_nearest_selection nearest selection called")
         # Find all spectra with X-axis ranges that correspond to the xdata value
         # from the mouse click.
 

@@ -16,6 +16,7 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType
+from wiser.raster.dataset_impl import DEFAULT_WAVELENGTH_UNIT
 
 
 #============================================================================
@@ -370,6 +371,14 @@ class Spectrum(abc.ABC):
         '''
         raise NotImplementedError('Must be implemented in subclass')
 
+    
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        '''
+        Returns the astropy unit corresponding to the wavelength.
+        '''
+        raise NotImplementedError('Must be implemented in subclass')
+
     def get_spectrum(self) -> np.ndarray:
         '''
         Return the spectrum data as a 1D NumPy array.
@@ -477,6 +486,7 @@ class NumPyArraySpectrum(Spectrum):
         be used to clear the wavelength information, by passing in ``None`` as
         the argument.
         '''
+        print(f"set_wavelengths")
         if wavelengths is not None:
             if len(wavelengths) != self.num_bands():
                 raise ValueError(f'Spectrum has {self.num_bands()} bands, but ' +
@@ -486,10 +496,16 @@ class NumPyArraySpectrum(Spectrum):
             wavelengths = list(wavelengths)
 
         self._wavelengths = wavelengths
-
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        if self.has_wavelengths():
+            if isinstance(self._wavelengths, u.Quantity):
+                return self._wavelengths[0].unit
+        return DEFAULT_WAVELENGTH_UNIT
 
     def copy_spectral_metadata(self, source):
         if isinstance(source, RasterDataSet):
+            print(f"Copying spectral metadata for raster dataset")
             src_wavelengths = None
             if source.has_wavelengths():
                 src_wavelengths = [b['wavelength'] for b in source.band_list()]
@@ -497,6 +513,7 @@ class NumPyArraySpectrum(Spectrum):
             self.set_wavelengths(src_wavelengths)
 
         elif isinstance(source, Spectrum):
+            print(f"Copying spectral metadata for spectrum, type source: {type(source)}")
             self.set_wavelengths(source.get_wavelengths())
 
         else:
@@ -616,15 +633,30 @@ class RasterDataSetSpectrum(Spectrum):
         Returns a list of wavelength values corresponding to each band.  The
         individual values are astropy values-with-units.
         '''
-        # print(f"get_wavelengths: {self._dataset.band_list()}")
-        bands =  [b['wavelength'] for b in self._dataset.band_list()]
+        print(f"get_wavelengths called")
+        # for b in self._dataset.band_list():
+        #     print(f"b: {b}")
+        b0 = self._dataset.band_list()[0]
+        if 'wavelength' in b0:
+            key = 'wavelength'
+        else:
+            key = 'index'
+        print(f"get_wavelengths key: {key}")
+        bands =  [b[key] for b in self._dataset.band_list()]
 
         if filter_bad_bands:
             bad_bands = self._dataset.get_bad_bands()
             bands = [bands[i] for i in range(len(bands)) if bad_bands[i]]
 
-        # print(f"bands after: {bands}")
         return bands
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        if self.has_wavelengths():
+            optional_unit = self._dataset.get_band_unit()
+        if optional_unit is not None:
+            return optional_unit
+        
+        return DEFAULT_WAVELENGTH_UNIT
 
     def _calculate_spectrum(self):
         '''

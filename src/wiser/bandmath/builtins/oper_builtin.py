@@ -5,7 +5,7 @@ import numpy as np
 
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.utils import (
-    reorder_args,
+    reorder_args, make_image_cube_compatible,
     check_image_cube_compatible, check_spectrum_compatible,
     get_result_dtype, MathOperations,
 )
@@ -17,7 +17,7 @@ class OperatorTrigFunction(BandMathFunction):
         self._func = func
 
     def _report_type_error(self, arg_type):
-        raise TypeError(f'Operand {arg_type} not compatible for ArcTangent operation.')
+        raise TypeError(f'Operand {arg_type} not compatible for trig operation.')
 
     def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
         # ArcTangent should only take one argument
@@ -46,7 +46,7 @@ class OperatorTrigFunction(BandMathFunction):
 
     def apply(self, args: List[BandMathValue]) -> BandMathValue:
         if len(args) != 1:
-            raise BandMathEvalError('ArcTangent function requires exactly one argument.')
+            raise BandMathEvalError(f'{self._func.__name__} requires exactly one argument.')
 
         arg = args[0]
 
@@ -59,10 +59,152 @@ class OperatorTrigFunction(BandMathFunction):
         # Return a new BandMathValue with the same type and the computed array
         return BandMathValue(arg.type, result_arr)
 
+class OperatorTrigFunctionTwoArgs(BandMathFunction):
+
+    def __init__(self, func: np.ufunc):
+        self._func = func
+
+    def _report_type_error(self, lhs_type, rhs_type):
+        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for two argument trig operation')
+
+    def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
+        # ArcTangent should only take one argument
+        if len(infos) != 2:
+            raise ValueError(f'{self._func.__name__} requires exactly two arguments.')
+
+        lhs = infos[0]
+        rhs = infos[1]
+        
+        (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
+
+        # If they result type are the same
+        if (lhs.result_type == rhs.result_type):
+            # Output type will be the same as the input type
+            info = BandMathExprInfo(lhs.result_type)
+            info.shape = lhs.shape
+            info.elem_type = get_result_dtype(lhs.elem_type, None, \
+                                              MathOperations.TRIG_FUNCTION)
+            info.spatial_metadata_source = lhs.spatial_metadata_source
+            info.spectral_metadata_source = lhs.spectral_metadata_source
+            return info
+        elif (lhs.result_type == VariableType.IMAGE_CUBE):
+            check_image_cube_compatible(rhs, lhs.shape)
+
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE)
+            info.shape = lhs.shape
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
+                                              MathOperations.TRIG_FUNCTION)
+            info.spatial_metadata_source = lhs.spatial_metadata_source
+            info.spectral_metadata_source = lhs.spectral_metadata_source
+            return info
+        # elif (lhs.result_type == VariableType.IMAGE_CUBE and 
+        #       rhs.result_type == VariableType.IMAGE_BAND):
+        #     check_image_cube_compatible(rhs, lhs.shape)
+
+        #     info = BandMathExprInfo(VariableType.IMAGE_CUBE)
+        #     info.shape = lhs.shape
+        #     info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
+        #                                       MathOperations.TRIG_FUNCTION)
+        #     info.spatial_metadata_source = lhs.spatial_metadata_source
+        #     info.spectral_metadata_source = lhs.spectral_metadata_source
+        #     return info
+        # elif (lhs.result_type == VariableType.IMAGE_CUBE and 
+        #       rhs.result_type == VariableType.SPECTRUM):
+        #     check_image_cube_compatible(rhs, lhs.shape)
+
+        #     info = BandMathExprInfo(VariableType.IMAGE_CUBE)
+        #     info.shape = lhs.shape
+        #     info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
+        #                                       MathOperations.TRIG_FUNCTION)
+        #     info.spatial_metadata_source = lhs.spatial_metadata_source
+        #     info.spectral_metadata_source = lhs.spectral_metadata_source
+        #     return info
+        elif rhs.result_type == VariableType.NUMBER:
+            # We don't check if the types are compatible here 
+            # because a number can only be matched with an
+            # image band, image spectrum, or number here which
+            # it will be compatible with
+            info = BandMathExprInfo(lhs.result_type)
+            info.shape = lhs.shape
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
+                                              MathOperations.TRIG_FUNCTION)
+            info.spatial_metadata_source = lhs.spatial_metadata_source
+            info.spectral_metadata_source = lhs.spectral_metadata_source
+            return info
+
+        self._report_type_error(lhs.result_type, rhs.result_type)
+        
+
+
+            
+
+        # # If lhs is image cube and rhs is image band,
+
+        # # if lhs is image cube and rhs is spectrum
+
+        # # If rhs is a number
+
+
+
+        # arg_info = infos[0]
+
+        # if arg_info.result_type not in [VariableType.IMAGE_CUBE,
+        #                                 VariableType.IMAGE_BAND, 
+        #                                 VariableType.SPECTRUM, 
+        #                                 VariableType.NUMBER]:
+        #     self._report_type_error(arg_info.result_type)
+
+        # # Output type will be the same as the input type
+        # info = BandMathExprInfo(arg_info.result_type)
+        # info.shape = arg_info.shape
+        # info.elem_type = get_result_dtype(arg_info.elem_type, None, \
+        #                                       MathOperations.TRIG_FUNCTION)
+
+        # # twp argument trig functions can be done between image cube / image band, same types,
+        # # image cube/spectrum, anything and a number
+
+
+        # # Propagate metadata
+        # info.spatial_metadata_source = arg_info.spatial_metadata_source
+        # info.spectral_metadata_source = arg_info.spectral_metadata_source
+        # return info
+
+    def apply(self, args: List[BandMathValue]) -> BandMathValue:
+        if len(args) != 2:
+            raise BandMathEvalError(f'{self._func.__name__} requires exactly two arguments.')
+
+        lhs = args[0]
+        rhs = args[1]
+
+        (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
+
+        # Get the underlying NumPy array
+        lhs_value = lhs.as_numpy_array()
+
+        if lhs.type == VariableType.IMAGE_CUBE:
+            rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
+            result_arr = self._func(lhs_value, rhs_value)
+        elif rhs.type == VariableType.NUMBER:
+            rhs_value = np.array([rhs.value])
+            print(f"rhs_value_arr: {rhs_value}")
+            result_arr = self._func(lhs_value, rhs_value)
+        else:
+            rhs_value = rhs.as_numpy_array()
+            result_arr = self._func(lhs_value, rhs_value)
+
+
+        print(f"input_arr_1 shape: {lhs_value.shape}")
+        print(f"input_arr_2 shape: {rhs_value.shape}")
+
+        print(f"result_arr shape: {result_arr.shape}")
+
+        # Return a new BandMathValue with the same type and the computed array
+        return BandMathValue(lhs.type, result_arr)
+
 class OperatorDotProduct(BandMathFunction):
 
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for +')
+        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for dotproduct')
 
     def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
 
