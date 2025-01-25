@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
 
-DEFAULT_WAVELENGTH_UNIT = u.nanometer
 
 class SaveState(Enum):
     IN_DISK_NOT_SAVED = 0
@@ -382,7 +381,6 @@ class GDALRasterDataImpl(RasterDataImpl):
             info = {
                     'index':band_index - 1, 
                     'description':band.GetDescription(),
-                    'wavelength' : band_index * DEFAULT_WAVELENGTH_UNIT
                     }
             band_info.append(info)
             if band_index == 1:
@@ -566,7 +564,6 @@ class PDRRasterDataImpl(RasterDataImpl):
             info = {
                 'index' : band_index,
                 'description' : f'Band {band_index}',
-                'wavelength' : band_index * u.m
             }
             band_info.append(info)
 
@@ -1422,7 +1419,6 @@ class NumPyRasterDataImpl(RasterDataImpl):
             info = {
                 'index' : band_index,
                 'description' : f'Band {band_index}',
-                'wavelength' : band_index * u.m
             }
             band_info.append(info)
 

@@ -183,6 +183,7 @@ class SpectrumDisplayInfo:
         linewidth = 0.5
 
         if use_wavelengths:
+            print(f"generate_plot use_wavelengths")
             # We should only be told to use wavelengths if all displayed spectra
             # have wavelengths for the bands.
             assert(self._spectrum.has_wavelengths())
@@ -200,6 +201,7 @@ class SpectrumDisplayInfo:
             assert(len(lines) == 1)
             self._line2d = lines[0]
         else:
+            print(f"generate_plot else use_wavelengths")
             # If we don't have wavelengths, each spectrum is just a series of
             # values.  We can of course plot this, but we can't guarantee it
             # will be meaningful if there are multiple plots from different
@@ -861,29 +863,36 @@ class SpectrumPlot(QWidget):
 
         axes_font = get_font_properties(self._font_name, self._font_size['axes'])
         if use_wavelengths == self._plot_uses_wavelengths:
+            print(f"use_wavelengths == self._plot_uses_wavelengths ")
+            print(f"use_wavelengths value: {use_wavelengths}")
             for _, single_display_info in self._spectrum_display_info.items():
+                print(f"in for loop, self._x_units: {self._x_units}")
                 # Nothing has changed, so just generate a plot for the new spectrum
                 single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
-                unit_name = UNIT_NAME_MAPPING.get(self._x_units, "Wavelength")
-                if unit_name is not None:
+                unit_name = UNIT_NAME_MAPPING.get(self._x_units, None)
+                if unit_name is not None and use_wavelengths:
                     self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
                         labelpad=0, fontproperties=axes_font)
                 else:
                     self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=axes_font)
 
         else:
+            print(f"else called")
             # Need to regenerate all plots with the new "use wavelengths" value
 
             if use_wavelengths:
+                print(f"else, use_wavelengths")
                 unit_name = UNIT_NAME_MAPPING.get(self._x_units, "Wavelength")
                 self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
                     labelpad=0, fontproperties=axes_font)
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
             else:
+                print(f"else, else use_wavelengths")
                 self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=axes_font)
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
 
             for other_info in self._spectrum_display_info.values():
+                print(f"geneating plots in for loop")
                 other_info.generate_plot(self._axes, use_wavelengths, self._x_units)
 
             self._plot_uses_wavelengths = use_wavelengths

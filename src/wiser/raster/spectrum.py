@@ -16,7 +16,6 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType
-from wiser.raster.dataset_impl import DEFAULT_WAVELENGTH_UNIT
 
 
 #============================================================================
@@ -467,7 +466,9 @@ class NumPyArraySpectrum(Spectrum):
         Returns True if this spectrum has wavelength units for all bands, False
         otherwise.
         '''
-        return (self._wavelengths is not None)
+        print(f"Numpy spectra array has wavelengths? {isinstance(self._wavelengths[0], u.Quantity)}")
+        print(f"self._wavelengths[0]: {self._wavelengths[0]}")
+        return isinstance(self._wavelengths[0], u.Quantity)
 
     def get_wavelengths(self) -> List[u.Quantity]:
         '''
@@ -499,9 +500,9 @@ class NumPyArraySpectrum(Spectrum):
     
     def get_wavelength_units(self) -> Optional[u.Unit]:
         if self.has_wavelengths():
-            if isinstance(self._wavelengths, u.Quantity):
+            if isinstance(self._wavelengths[0], u.Quantity):
                 return self._wavelengths[0].unit
-        return DEFAULT_WAVELENGTH_UNIT
+        return None
 
     def copy_spectral_metadata(self, source):
         if isinstance(source, RasterDataSet):
@@ -652,11 +653,9 @@ class RasterDataSetSpectrum(Spectrum):
     
     def get_wavelength_units(self) -> Optional[u.Unit]:
         if self.has_wavelengths():
-            optional_unit = self._dataset.get_band_unit()
-        if optional_unit is not None:
-            return optional_unit
-        
-        return DEFAULT_WAVELENGTH_UNIT
+            return self._dataset.get_band_unit()
+
+        return None
 
     def _calculate_spectrum(self):
         '''
