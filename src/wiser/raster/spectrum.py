@@ -466,8 +466,6 @@ class NumPyArraySpectrum(Spectrum):
         Returns True if this spectrum has wavelength units for all bands, False
         otherwise.
         '''
-        print(f"Numpy spectra array has wavelengths? {isinstance(self._wavelengths[0], u.Quantity)}")
-        print(f"self._wavelengths[0]: {self._wavelengths[0]}")
         return isinstance(self._wavelengths[0], u.Quantity)
 
     def get_wavelengths(self) -> List[u.Quantity]:
@@ -487,7 +485,6 @@ class NumPyArraySpectrum(Spectrum):
         be used to clear the wavelength information, by passing in ``None`` as
         the argument.
         '''
-        print(f"set_wavelengths")
         if wavelengths is not None:
             if len(wavelengths) != self.num_bands():
                 raise ValueError(f'Spectrum has {self.num_bands()} bands, but ' +
@@ -506,7 +503,6 @@ class NumPyArraySpectrum(Spectrum):
 
     def copy_spectral_metadata(self, source):
         if isinstance(source, RasterDataSet):
-            print(f"Copying spectral metadata for raster dataset")
             src_wavelengths = None
             if source.has_wavelengths():
                 src_wavelengths = [b['wavelength'] for b in source.band_list()]
@@ -514,7 +510,6 @@ class NumPyArraySpectrum(Spectrum):
             self.set_wavelengths(src_wavelengths)
 
         elif isinstance(source, Spectrum):
-            print(f"Copying spectral metadata for spectrum, type source: {type(source)}")
             self.set_wavelengths(source.get_wavelengths())
 
         else:
@@ -634,15 +629,11 @@ class RasterDataSetSpectrum(Spectrum):
         Returns a list of wavelength values corresponding to each band.  The
         individual values are astropy values-with-units.
         '''
-        print(f"get_wavelengths called")
-        # for b in self._dataset.band_list():
-        #     print(f"b: {b}")
         b0 = self._dataset.band_list()[0]
         if 'wavelength' in b0:
             key = 'wavelength'
         else:
             key = 'index'
-        print(f"get_wavelengths key: {key}")
         bands =  [b[key] for b in self._dataset.band_list()]
 
         if filter_bad_bands:

@@ -661,8 +661,6 @@ class RasterDataSet:
         self._default_display_bands = dataset._default_display_bands
         self._data_ignore_value = dataset._data_ignore_value
 
-        print(f"RASTERDATASET copy_metadata_from self._band_info: {self._band_info}")
-    
         self._has_wavelengths = self._compute_has_wavelengths()
 
         self.set_dirty()
@@ -697,7 +695,6 @@ class RasterDataSet:
 
 
     def copy_spectral_metadata(self, source: Union['RasterDataSet', 'Spectrum']) -> None:
-        print(f"RASTERDATASET copy_spectral_metadata")
         if isinstance(source, RasterDataSet):
             self._band_info = copy.deepcopy(source._band_info)
             self._bad_bands = list(source._bad_bands)
@@ -707,7 +704,6 @@ class RasterDataSet:
             self._has_wavelengths = self._compute_has_wavelengths()
 
         elif isinstance(source, Spectrum):
-            print(f"is instance spectrum.....")
             self._band_info = []
             if source.has_wavelengths():
                 for (band_index, wavelength) in enumerate(source.get_wavelengths()):

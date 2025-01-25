@@ -135,40 +135,6 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
         self._report_type_error(lhs.result_type, rhs.result_type)
         
 
-
-            
-
-        # # If lhs is image cube and rhs is image band,
-
-        # # if lhs is image cube and rhs is spectrum
-
-        # # If rhs is a number
-
-
-
-        # arg_info = infos[0]
-
-        # if arg_info.result_type not in [VariableType.IMAGE_CUBE,
-        #                                 VariableType.IMAGE_BAND, 
-        #                                 VariableType.SPECTRUM, 
-        #                                 VariableType.NUMBER]:
-        #     self._report_type_error(arg_info.result_type)
-
-        # # Output type will be the same as the input type
-        # info = BandMathExprInfo(arg_info.result_type)
-        # info.shape = arg_info.shape
-        # info.elem_type = get_result_dtype(arg_info.elem_type, None, \
-        #                                       MathOperations.TRIG_FUNCTION)
-
-        # # twp argument trig functions can be done between image cube / image band, same types,
-        # # image cube/spectrum, anything and a number
-
-
-        # # Propagate metadata
-        # info.spatial_metadata_source = arg_info.spatial_metadata_source
-        # info.spectral_metadata_source = arg_info.spectral_metadata_source
-        # return info
-
     def apply(self, args: List[BandMathValue]) -> BandMathValue:
         if len(args) != 2:
             raise BandMathEvalError(f'{self._func.__name__} requires exactly two arguments.')
@@ -186,17 +152,10 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
             result_arr = self._func(lhs_value, rhs_value)
         elif rhs.type == VariableType.NUMBER:
             rhs_value = np.array([rhs.value])
-            print(f"rhs_value_arr: {rhs_value}")
             result_arr = self._func(lhs_value, rhs_value)
         else:
             rhs_value = rhs.as_numpy_array()
             result_arr = self._func(lhs_value, rhs_value)
-
-
-        print(f"input_arr_1 shape: {lhs_value.shape}")
-        print(f"input_arr_2 shape: {rhs_value.shape}")
-
-        print(f"result_arr shape: {result_arr.shape}")
 
         # Return a new BandMathValue with the same type and the computed array
         return BandMathValue(lhs.type, result_arr)
