@@ -97,28 +97,6 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
             return info
-        # elif (lhs.result_type == VariableType.IMAGE_CUBE and 
-        #       rhs.result_type == VariableType.IMAGE_BAND):
-        #     check_image_cube_compatible(rhs, lhs.shape)
-
-        #     info = BandMathExprInfo(VariableType.IMAGE_CUBE)
-        #     info.shape = lhs.shape
-        #     info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
-        #                                       MathOperations.TRIG_FUNCTION)
-        #     info.spatial_metadata_source = lhs.spatial_metadata_source
-        #     info.spectral_metadata_source = lhs.spectral_metadata_source
-        #     return info
-        # elif (lhs.result_type == VariableType.IMAGE_CUBE and 
-        #       rhs.result_type == VariableType.SPECTRUM):
-        #     check_image_cube_compatible(rhs, lhs.shape)
-
-        #     info = BandMathExprInfo(VariableType.IMAGE_CUBE)
-        #     info.shape = lhs.shape
-        #     info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
-        #                                       MathOperations.TRIG_FUNCTION)
-        #     info.spatial_metadata_source = lhs.spatial_metadata_source
-        #     info.spectral_metadata_source = lhs.spectral_metadata_source
-        #     return info
         elif rhs.result_type == VariableType.NUMBER:
             # We don't check if the types are compatible here 
             # because a number can only be matched with an
