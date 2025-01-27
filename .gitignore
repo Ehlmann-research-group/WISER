@@ -20,3 +20,5 @@ Secret.mk
 
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*
+
+sign_files.sh
