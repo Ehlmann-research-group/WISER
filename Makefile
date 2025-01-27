@@ -45,14 +45,14 @@ typecheck:
 
 build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
-	pyinstaller --noconfirm --log-level=DEBUG WISER-macOS.spec > build_output.log 2>&1
+	pyinstaller --noconfirm WISER-macOS.spec
 
 
 dist-mac : build-mac
 	# Codesign the built application
 	codesign -s "$(AD_CODESIGN_KEY_NAME)" --deep --force \
 		--entitlements install-mac/entitlements.plist \
-		--options=runtime dist/$(APP_NAME).app
+		-o runtime dist/$(APP_NAME).app
 
 	# Generate a .dmg file containing the Mac application.
 	hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ \
