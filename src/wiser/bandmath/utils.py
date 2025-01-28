@@ -193,7 +193,6 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
             read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
             lhs_future = read_task_queue[LHS_KEY].get()[0]
         else:
-            print("LHS queue was not empty")
             lhs_future = read_task_queue[LHS_KEY].get()[0]
         should_read_next = should_continue_reading_bands(index_list_next, lhs)
         # Allows us to read data into the future so there's little down time in between I/O
@@ -217,7 +216,6 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
                                             event_loop, read_thread_pool, read_task_queue[RHS_KEY])
                 rhs_future = read_task_queue[RHS_KEY].get()[0]
             else:
-                print("RHS queue was not empty")
                 rhs_future = read_task_queue[RHS_KEY].get()[0]
             if should_read_next:
                 # We have to get the size of the next data to read
@@ -230,14 +228,9 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
         rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
 
     if rhs_future is not None:
-        print("Waiting for rhs future")
         rhs_value = await rhs_future
-        print("Got rhs future")
     if lhs_future is not None:
-        print("Waiting for lhs future")
-        print(f"lhs_future {lhs_future}")
         lhs_value = await lhs_future
-        print("Got lhs future")
     if should_be_the_same:
         rhs_value = lhs_value
     
@@ -692,7 +685,7 @@ def make_image_cube_compatible(arg: BandMathValue,
 
         if result.shape != cube_shape[1:]:
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
-                                 arg.type, arg.shape)
+                                 arg.type, result.shape)
 
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]

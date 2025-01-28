@@ -9,6 +9,7 @@ from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
+from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
 from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 import numpy as np
@@ -23,11 +24,11 @@ import matplotlib.pyplot as plt
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-def remove_nans(data):
+def remove_nans_python(data):
     return data[~np.isnan(data)]
 
-@numba_njit_wrapper(non_njit_func=remove_nans)
-def remove_nans_using_numba(data):
+@numba_njit_wrapper(non_njit_func=remove_nans_python)
+def remove_nans_numba(data):
     """
     Extracts non-NaN values from a 2D NumPy array and returns them as a 1D array.
 
@@ -64,11 +65,17 @@ def remove_nans_using_numba(data):
 
     return nonan_data
 
-def create_histogram(nonan_data: np.ndarray):
+def remove_nans(data: np.ndarray) -> np.ndarray:
+    if data.nbytes < ARRAY_NUMBA_THRESHOLD:
+        return remove_nans_python(data)
+    else:
+        return remove_nans_numba(data)
+
+def create_histogram_python(nonan_data: np.ndarray):
     return np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
 
-@numba_njit_wrapper(non_njit_func=create_histogram)
-def create_histogram_using_numba(nonan_data):
+@numba_njit_wrapper(non_njit_func=create_histogram_python)
+def create_histogram_numba(nonan_data):
     '''
     Creates a histogram and uses numba to speed up the below code.
 
@@ -90,6 +97,12 @@ def create_histogram_using_numba(nonan_data):
 
     bin_edges = np.linspace(min_val, max_val, bins + 1)
     return counts, bin_edges
+
+def create_histogram(nonan_data: np.ndarray) -> np.ndarray:
+    if nonan_data.nbytes < ARRAY_NUMBA_THRESHOLD:
+        return create_histogram_python(nonan_data)
+    else:
+        return create_histogram_numba(nonan_data)
 
 def get_slider_percentage(slider, value=None):
     '''
@@ -226,8 +239,8 @@ class ChannelStretchWidget(QWidget):
         self._update_histogram()
 
         # Set min and max bounds
-        self._min_bound = self.raw_to_norm_value(self._raw_band_stats.get_min())
-        self._max_bound = self.raw_to_norm_value(self._raw_band_stats.get_max()) 
+        self._min_bound = 0.0
+        self._max_bound = 1.0 
 
         # Set stretch low and high
         self.set_stretch_low(0.0)
@@ -404,7 +417,7 @@ class ChannelStretchWidget(QWidget):
             norm_data = self._norm_band_data.data
         else:
             norm_data = self._norm_band_data 
-        nonan_data = remove_nans_using_numba(norm_data)
+        nonan_data = remove_nans(norm_data)
 
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
@@ -415,7 +428,7 @@ class ChannelStretchWidget(QWidget):
                 cache.get_cache_item(key)
         else:
             self._histogram_bins_raw, self._histogram_edges_raw = \
-                create_histogram_using_numba(nonan_data)
+                create_histogram(nonan_data)
             cache.add_cache_item(key, (self._histogram_bins_raw, self._histogram_edges_raw))
 
         # Apply conditioner to the histogram, if necessary.

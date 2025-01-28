@@ -1,10 +1,13 @@
 from typing import Dict, List, Optional, Union
 
+from osgeo import gdal
+
 import numpy as np
 from astropy import units as u
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper
 
+ARRAY_NUMBA_THRESHOLD = 150000000 # 150 MB
 
 # For easier typing in this module
 Number = Union[int, float]
@@ -45,6 +48,28 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
     "mhz"           : u.MHz,
 }
 
+
+def get_netCDF_reflectance_path(file_path):
+    """
+    Checks for the presence of reflectance and reflectance uncertainty subdatasets.
+    Returns the path to reflectance if available, otherwise falls back to reflectance uncertainty.
+    """
+    # Open the netCDF file with GDAL
+    dataset = gdal.Open(file_path)
+
+    # Get the list of subdatasets
+    subdatasets = dataset.GetSubDatasets()
+
+    # Check for reflectance and reflectance uncertainty
+    for subdataset, _ in subdatasets:
+        if "reflectance" in subdataset:
+            return subdataset
+        elif "reflectance_uncertainty" in subdataset:
+            return subdataset
+        elif "mask" in subdataset:
+            return subdataset
+
+    raise Exception(f'netCDF file type is not supported!')
 
 def get_spectral_unit(unit_str: str) -> u.Unit:
     '''
@@ -93,6 +118,17 @@ def get_band_values(input_bands: List[u.Quantity],
         to_unit = input_bands[0].unit
 
     return [convert_spectral(v, to_unit).value for v in input_bands]
+
+def set_band(arr: np.ndarray, band_index: int, value) -> None:
+    '''
+    Sets the specified band (axis 2 index) of a 3D array or the entire array if it is 2D to a given value.
+    '''
+    if arr.ndim == 2:
+        arr[band_index,:] = value
+    elif arr.ndim == 3:
+        arr[band_index,:,:] = value
+    else:
+        raise TypeError(f'The passed in array should only have either 2 or 3 dimensions, but it has: {arr.ndim}')
 
 
 #============================================================================
@@ -165,8 +201,7 @@ def find_closest_value(values: List[Number], input_value: Number,
 #============================================================================
 # COMMON BAND-MATH OPERATIONS
 
-
-def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
+def normalize_ndarray_python(array: np.ndarray, minval=None, maxval=None) -> Union[None, np.ndarray]:
     '''
     Normalize the specified array, generating a new array to return to the
     caller.  The minimum and maximum values can be specified if already known,
@@ -179,20 +214,18 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=Fals
     if maxval is None:
         maxval = np.nanmax(array)
 
-    if in_place:
-        array -= minval
-        if maxval-minval == 0:
-            array.fill(0.0)
-        else:
-            np.divide(array, (maxval - minval), out=array, dtype=np.float32)
-    else:
-        return (array - minval) / (maxval - minval)
+    if maxval == minval:
+        return np.zeros_like(array, dtype=np.float32)
+
+    return (array - minval) / (maxval - minval)
     
-@numba_njit_wrapper(non_njit_func=normalize_ndarray)
-def normalize_ndarray_using_njit(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
+@numba_njit_wrapper(non_njit_func=normalize_ndarray_python)
+def normalize_ndarray_numba(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
     """
     Normalize an array to the range [0, 1].
     """
+    if maxval == minval:
+        return np.zeros_like(data, dtype=np.float32)
     # Create an empty array with the same shape as `data` and dtype float32
     normalized = np.empty(data.shape, dtype=np.float32)
     
@@ -208,6 +241,13 @@ def normalize_ndarray_using_njit(data: np.ndarray, minval: float, maxval: float)
             normalized.flat[idx] = 0.0  # Handle NaN or Inf
     
     return normalized
+
+def normalize_ndarray(arr: np.ndarray, minval=None, maxval=None) -> Union[None, np.ndarray]:
+    if arr.nbytes < ARRAY_NUMBA_THRESHOLD:
+        return normalize_ndarray_python(array=arr, minval=minval, maxval=maxval)
+    else:
+        return normalize_ndarray_numba(arr, minval, maxval)
+
 
 def get_normalized_band(dataset, band_index):
     '''
@@ -236,7 +276,7 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
     if isinstance(band_data, np.ma.masked_array):
         band_data_mask = band_data.mask
         band_data = band_data.data 
-    norm_data = normalize_ndarray_using_njit(band_data, stats.get_min(), stats.get_max())
+    norm_data = normalize_ndarray(band_data, stats.get_min(), stats.get_max())
     if isinstance(band_data, np.ma.masked_array):
         band_data = np.ma.masked_array(band_data, mask=band_data_mask)
 

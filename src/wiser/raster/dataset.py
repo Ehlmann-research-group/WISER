@@ -10,10 +10,9 @@ from osgeo import osr
 
 from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from .utils import find_band_near_wavelength, normalize_ndarray_using_njit
+from .utils import find_band_near_wavelength, normalize_ndarray
 from .data_cache import DataCache
 
-import time
 from time import perf_counter
 
 Number = Union[int, float]
@@ -378,7 +377,8 @@ class RasterDataSet:
             arr = cache.get_cache_item(key)
         if arr is None:
             arr = self._impl.get_image_data()
-
+            if arr.ndim == 2:
+                arr = arr[np.newaxis,:,:]
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
             if self._data_cache:
@@ -431,11 +431,11 @@ class RasterDataSet:
         arr = None
         if self._data_cache:
             cache = self._data_cache.get_computation_cache()
-            key = cache.get_cache_key(self, band_index)
+            key = cache.get_cache_key(self, band_index, normalized=True)
             arr = cache.get_cache_item(key)
         if arr is None:
             arr = self._impl.get_band_data(band_index)
-            
+
             if filter_data_ignore_value and self._data_ignore_value is not None:
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
         
@@ -457,10 +457,10 @@ class RasterDataSet:
             stats = BandStats(band_index, band_min, band_max)
             if isinstance(arr, np.ma.masked_array):
                 mask = arr.mask
-                arr = normalize_ndarray_using_njit(arr.data, band_min, band_max)
+                arr = normalize_ndarray(arr.data, band_min, band_max)
                 arr = np.ma.masked_array(arr, mask=mask)
             else:
-                arr = normalize_ndarray_using_njit(arr, band_min, band_max)
+                arr = normalize_ndarray(arr, band_min, band_max)
 
             self._cached_band_stats[band_index] = stats
 
@@ -574,6 +574,8 @@ class RasterDataSet:
         arr = self._impl.get_all_bands_at_rect(x, y, dx, dy)
         if filter_bad_values:
             arr = arr.copy()
+            # if np.issubdtype(arr.dtype, np.integer):
+            #     arr = arr.astype(np.float32, copy=False)
             # Make mask for the bad band values
             mask = np.array(self.get_bad_bands())
             assert np.all((mask == 0) | (mask == 1)), "Bad bands mask contains values other than 0 or 1"
@@ -585,7 +587,10 @@ class RasterDataSet:
             mask = mask.astype(bool)
             for i in range(arr.shape[1]):
                 for j in range(arr.shape[2]):
-                    arr[:,i,j][mask] = np.nan
+                    try:
+                        arr[:,i,j][mask] = np.nan
+                    except BaseException as e:
+                        arr[:,i,j][mask] = DEFAULT_MASK_VALUE
             if self._data_ignore_value is not None:
                 mask_ignore_val = np.isclose(arr, self._data_ignore_value)
                 try:
@@ -612,6 +617,8 @@ class RasterDataSet:
         '''
         return self._geo_transform
 
+    def get_wkt_spatial_reference(self):
+        return self._impl.get_wkt_spatial_reference()
 
     def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
         '''
@@ -620,12 +627,8 @@ class RasterDataSet:
         '''
         return self._spatial_ref
 
-
-    '''
     def has_geographic_info(self) -> bool:
-        return self._spatial_ref is not None
-    '''
-
+        return self.get_wkt_spatial_reference() is not None
 
     def cache_band_stats(self, index, arr: np.ndarray):
         """
@@ -651,7 +654,6 @@ class RasterDataSet:
         if dataset.num_bands() != self.num_bands():
             raise ValueError(f'This dataset has {self.num_bands()} bands; ' +
                              f'source dataset has {dataset.num_bands()} bands')
-
         # Copy across all the metadata!
         self._description = dataset._description
         self._band_info = copy.deepcopy(dataset._band_info)
@@ -729,6 +731,12 @@ class RasterDataSet:
     
     def get_impl(self):
         return self._impl
+
+    def get_subdataset_name(self) -> str:
+        if hasattr(self._impl, 'subdataset_name'):
+            return self._impl.subdataset_name
+        else:
+            return None
 
     def delete_underlying_dataset(self):
         if hasattr(self._impl, 'delete_dataset'):

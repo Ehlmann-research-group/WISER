@@ -94,6 +94,8 @@ class SpectrumInfoEditor(QDialog):
         #     self._ui.lineedit_location.clear()
         #     self._ui.lineedit_location.setEnabled(False)
 
+            self._ui.lineedit_name.setEnabled(False)
+
         # Average Mode
 
         self._ui.combobox_avg_mode.clear()

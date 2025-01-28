@@ -49,6 +49,7 @@ from . import bug_reporting
 from wiser import plugins
 
 from .bandmath_dialog import BandMathDialog
+from .fits_loading_dialog import FitsSpectraLoadingDialog
 from wiser import bandmath
 
 from wiser.raster.selection import SinglePixelSelection
@@ -493,6 +494,7 @@ class DataVisualizerApp(QMainWindow):
         supported_formats = [
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
+            self.tr('NetCDF raster files (*.nc)'),
             # self.tr('PDS raster files (*.PDS *.IMG)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
             # self.tr('WISER project files (*.wiser)'),

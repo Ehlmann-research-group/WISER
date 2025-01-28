@@ -1,18 +1,20 @@
 import logging
 import os
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List
 
 import numpy as np
 
-from osgeo import gdal, gdalconst, gdal_array
+from osgeo import gdal
 
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl)
+    GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl
+    )
 
-from .spectrum import Spectrum
+from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
 
+from PySide2.QtWidgets import QDialog
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +30,36 @@ class RasterDataLoader:
         self._formats = {
             'ENVI': ENVI_GDALRasterDataImpl,
             'GTiff': GTiff_GDALRasterDataImpl,
+            'NetCDF': NetCDF_GDALRasterDataImpl,
+        }
+    
+        # What to do when loading in each file format
+        self._format_loaders = {
+            ENVI_GDALRasterDataImpl: self.load_normal_dataset, 
+            GTiff_GDALRasterDataImpl: self.load_normal_dataset, 
+            NetCDF_GDALRasterDataImpl: self.load_normal_dataset,
         }
 
         # This is a counter so we can generate names for unnamed datasets.
         self._unnamed_datasets: int = 0
+
+
+    def load_normal_dataset(self, impl, data_cache) -> List[RasterDataSet]:
+        '''
+        The normal way to load in a dataset
+        '''
+
+        # This returns a list because load_FITS_dataset could possibly return a list
+        return [RasterDataSet(impl, data_cache)]
+    
+    def load_FITS_dataset(self, impl, data_cache) -> List[RasterDataSet]:
+        # We should show the Fits dialog which should return to us
+        self._fits_dialog = FitsDatasetLoadingDialog(impl, data_cache)
+        result = self._fits_dialog.exec()
+    
+        if result == QDialog.Accepted:
+           return self._fits_dialog.return_datasets
+        return []
 
 
     def load_from_file(self, path, data_cache = None):
@@ -42,27 +70,35 @@ class RasterDataLoader:
 
         # Iterate through all supported formats, and try to use each one to
         # load the raster data.
-        impl = None
+        impl_list = None
         for (driver_name, impl_type) in self._formats.items():
             try:
-                impl = impl_type.try_load_file(path)
-
+                impl_list = impl_type.try_load_file(path)
             except Exception as e:
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
 
-        if impl is None:
+        if impl_list is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
 
-        ds = RasterDataSet(impl, data_cache)
-        files = ds.get_filepaths()
-        if files:
-            name = os.path.basename(files[0])
-        else:
-            name = os.path.basename(path)
-        ds.set_name(name)
+        outer_datasets = []
+        for impl in impl_list:
+            func = self._format_loaders[type(impl)]
+            datasets = func(impl, data_cache)
+            for ds in datasets:
+                files = ds.get_filepaths()
+                if files:
+                    name = os.path.basename(files[0])
+                else:
+                    name = os.path.basename(path)
+                subdataset_name = ds.get_subdataset_name()
+                if subdataset_name is not None:
+                    name += ":" + subdataset_name.split(":")[-1]
 
-        return ds
+                ds.set_name(name)
+                outer_datasets.append(ds)
+
+        return outer_datasets
 
 
     def get_save_filenames(self, path: str, format: str = 'ENVI') -> List[str]:
@@ -85,7 +121,7 @@ class RasterDataLoader:
         Given a NumPy ndarray, this function returns a RasterDataSet object
         that uses the array for its raster data.  The input ndarray must have
         three dimensions; they are interpreted as
-        [spatial_y][spatial_x][spectral].
+        [spectral][spatial_y][spatial_x].
 
         Raises a ValueError if the input array doesn't have 3 dimensions.
         '''

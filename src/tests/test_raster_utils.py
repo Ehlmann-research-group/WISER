@@ -218,12 +218,12 @@ class TestRasterUtils(unittest.TestCase):
 
 
     #======================================================
-    # normalize_ndarray_using_njit()
+    # normalize_ndarray_numba()
 
     def test_normalize_njit_1d_minmax_specified(self):
         inp = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        out = utils.normalize_ndarray_using_njit(inp, 2.0, 4.0)
+        out = utils.normalize_ndarray_numba(inp, 2.0, 4.0)
 
         self.assertAlmostEqual(out[0], -0.50)
         self.assertAlmostEqual(out[1],  0.00)
