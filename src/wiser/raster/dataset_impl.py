@@ -19,10 +19,6 @@ from osgeo import gdal, gdalconst, gdal_array, osr
 
 from astropy.io import fits
 
-from netCDF4 import Dataset
-
-import xarray as xr
-
 logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
