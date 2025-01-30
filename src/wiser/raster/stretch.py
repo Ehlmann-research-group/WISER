@@ -311,8 +311,8 @@ class StretchLinearUsingNumba:
         self.set_bounds(lower, upper)
 
     def __str__(self):
-        return (f'StretchLinearUsingNumba[lower={self._lower:.3f}, upper={self._upper:.3f}, ' +
-                f'slope={self._slope:.3f}, offset={self._offset:.3f}]')
+        return ('StretchLinearUsingNumba[lower=' + round(self._lower, 3) + ', upper=' + round(self._upper, 3) + ', ' +
+                'slope=' + round(self._slope, 3) + 'offset=self._offset:.3f]')
 
 
     def set_bounds(self, lower, upper):

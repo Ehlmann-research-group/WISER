@@ -250,6 +250,86 @@ class ChannelStretchWidget(QWidget):
         self._ui.lineedit_min_bound.setText(f'{self._raw_band_stats.get_min() :.6f}')
         self._ui.lineedit_max_bound.setText(f'{self._raw_band_stats.get_max() :.6f}')
 
+    def load_existing_stretch_details(self, stretch):
+        # valid_stretches = set([type(None), type(StretchBase), type(StretchBaseUsingNumba), 
+        #                       type(StretchLinear), type(StretchLinearUsingNumba), 
+        #                       type(StretchHistEqualize), type(StretchHistEqualizeUsingNumba),
+        #                       type(StretchSquareRoot), type(StretchSquareRootUsingNumba),
+        #                       type(StretchLog2), type(StretchLog2UsingNumba),
+        #                       type(StretchComposite)]
+        #                       )
+        valid_stretches = (StretchBase, StretchBaseUsingNumba, 
+                              StretchLinear, StretchLinearUsingNumba, 
+                              StretchHistEqualize, StretchHistEqualizeUsingNumba,
+                              StretchSquareRoot, StretchSquareRootUsingNumba,
+                              StretchLog2, StretchLog2UsingNumba,
+                              StretchComposite
+                              )
+        # # First we have to have a cache for each channel's minimum and maximum values.
+
+        # # Either is a composite stretch or one of the two types of stretches.
+
+        # # If its a composite stretch, we get the two types of stretches.
+        # #   For the conditioner stretch we simply called set_conditioner_type
+        # #    For the stretch we call set_stretch_type and then if its a linear stretch
+        # #    We get the lower and upper and set those by doing set_stretch_low and 
+        # #    set_stretch_high then doing on_low_high_changed
+        # print(f"Stretch type: {type(stretch)}")
+        # If it's a stretch type composite 
+        if stretch is None:
+            self.set_conditioner_type(ConditionerType.NO_CONDITIONER)
+            return
+        
+        if not isinstance(stretch, valid_stretches):
+            raise ValueError(f"The stretch {type(stretch)} is not a valid stretch")
+        
+    
+
+        if isinstance(stretch, StretchComposite):
+            print(f"stretch is composite")
+            # print(f"stretch left is {stretch.first()}")
+            # print(f"stretch right is {stretch.second()}")
+            self._load_individual_stretch(stretch.first())
+            self._load_individual_stretch(stretch.second())
+        else:
+            self._load_individual_stretch(stretch)
+        return
+    
+    def _load_individual_stretch(self, stretch):
+        '''
+        Loads stretches that are not StretchComposite.
+
+        Args - stretch should be of type StretchBase
+        '''
+        print(f"type(stretch): {type(stretch)}")
+        if isinstance(stretch, (StretchBase, StretchBaseUsingNumba)):
+            print(f"stretch of type StretchBase")
+            self.set_stretch_type(StretchType.NO_STRETCH)
+            self.set_stretch_low(0.0)
+            self.set_stretch_high(1.0)
+            self._on_low_slider_changed()
+            self._on_high_slider_changed()
+        elif isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
+            print(f"stretch of type StretchLinear")
+            self.set_stretch_type(StretchType.LINEAR_STRETCH)
+            self.set_stretch_low(stretch._lower)
+            self.set_stretch_high(stretch._upper)
+            self._on_low_slider_changed()
+            self._on_high_slider_changed()
+        elif isinstance(stretch, (StretchHistEqualize, StretchHistEqualizeUsingNumba)):
+            self.set_stretch_type(StretchType.EQUALIZE_STRETCH)
+        elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
+            self.set_conditioner_type(ConditionerType.SQRT_CONDITIONER)
+        elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
+            self.set_conditioner_type(ConditionerType.LOG_CONDITIONER)
+        else:
+            raise ValueError(f"Stretch {stretch} not recognized")
+
+        
+        return
+
+
+
     def set_stretch_type(self, stretch_type):
         self._stretch_type = stretch_type
         self.enable_stretch_ui(stretch_type == StretchType.LINEAR_STRETCH)
@@ -968,6 +1048,8 @@ class StretchBuilderDialog(QDialog):
                 self._channel_widgets[i].set_band(dataset, display_bands[i])
                 # TODO(donnie):  Set existing stretch details
                 self._channel_widgets[i].show()
+                # We need to set this histogram and stretch low, stretch high bounds
+                self._channel_widgets[i].load_existing_stretch_details(stretches[i])
 
             self._cb_link_sliders.show()
             self._cb_link_min_max.show()
@@ -988,6 +1070,8 @@ class StretchBuilderDialog(QDialog):
 
         else:
             raise ValueError(f'display_bands must be 1 element or 3 elements; got {display_bands}')
+
+        # Set the StretchConfigWidget to the appropriate values 
 
         self._saved_stretches = stretches
 
