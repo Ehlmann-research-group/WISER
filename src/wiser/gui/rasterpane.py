@@ -1177,6 +1177,8 @@ class RasterPane(QWidget):
             if rv_ds is not None and rv_ds.get_id() == ds_id:
                 rv.set_raster_data(None, None)
 
+        self._update_rasterview_toolbars()
+
         if self._app_state.num_datasets() == 0:
             self._act_band_chooser.setEnabled(False)
 
