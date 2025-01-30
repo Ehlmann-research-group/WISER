@@ -120,7 +120,7 @@ class TiledRasterView(RasterView):
     def update_toolbar_state(self):
         '''
         Updates the toolbar's state to match the current application state.
-        This includes synchronizing the list of datasets in the datset-chooser
+        This includes synchronizing the list of datasets in the dataset-chooser
         with the datasets in the application, and also updating the button
         enabled-state based on what tasks should be available to users.
         '''
