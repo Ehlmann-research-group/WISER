@@ -311,8 +311,7 @@ class StretchLinearUsingNumba:
         self.set_bounds(lower, upper)
 
     def __str__(self):
-        return ('StretchLinearUsingNumba[lower=' + round(self._lower, 3) + ', upper=' + round(self._upper, 3) + ', ' +
-                'slope=' + round(self._slope, 3) + 'offset=self._offset:.3f]')
+        return 'StretchLinearUsingNumba'
 
 
     def set_bounds(self, lower, upper):
@@ -504,6 +503,9 @@ class StretchHistEqualizeUsingNumba:
             self._cdf == other._cdf and
             self._histo_edges == other._histo_edges
         )
+    
+    def __str__(self):
+        return 'StretchHistEqualizeUsingNumba'
 
     def get_stretches(self):
         return [self, None]

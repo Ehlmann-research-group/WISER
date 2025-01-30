@@ -276,8 +276,9 @@ class ChannelStretchWidget(QWidget):
         # #    set_stretch_high then doing on_low_high_changed
         # print(f"Stretch type: {type(stretch)}")
         # If it's a stretch type composite 
+        print(f"!!!Stretch: {stretch}")
         if stretch is None:
-            self.set_conditioner_type(ConditionerType.NO_CONDITIONER)
+            self._load_individual_stretch(stretch)
             return
         
         if not isinstance(stretch, valid_stretches):
@@ -304,24 +305,31 @@ class ChannelStretchWidget(QWidget):
         print(f"type(stretch): {type(stretch)}")
         if isinstance(stretch, (StretchBase, StretchBaseUsingNumba)):
             print(f"stretch of type StretchBase")
-            self.set_stretch_type(StretchType.NO_STRETCH)
             self.set_stretch_low(0.0)
             self.set_stretch_high(1.0)
             self._on_low_slider_changed()
             self._on_high_slider_changed()
+            self.set_stretch_type(StretchType.NO_STRETCH)
         elif isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
             print(f"stretch of type StretchLinear")
-            self.set_stretch_type(StretchType.LINEAR_STRETCH)
             self.set_stretch_low(stretch._lower)
             self.set_stretch_high(stretch._upper)
             self._on_low_slider_changed()
             self._on_high_slider_changed()
+            self.set_stretch_type(StretchType.LINEAR_STRETCH)
         elif isinstance(stretch, (StretchHistEqualize, StretchHistEqualizeUsingNumba)):
             self.set_stretch_type(StretchType.EQUALIZE_STRETCH)
         elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
             self.set_conditioner_type(ConditionerType.SQRT_CONDITIONER)
         elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
             self.set_conditioner_type(ConditionerType.LOG_CONDITIONER)
+        elif stretch is None:
+            self.set_stretch_low(0.0)
+            self.set_stretch_high(1.0)
+            self._on_low_slider_changed()
+            self._on_high_slider_changed()
+            self.set_stretch_type(StretchType.NO_STRETCH)
+            self.set_conditioner_type(ConditionerType.NO_CONDITIONER)
         else:
             raise ValueError(f"Stretch {stretch} not recognized")
 
@@ -1026,6 +1034,63 @@ class StretchBuilderDialog(QDialog):
            self._enable_stretch_changed_events:
             self._emit_stretch_changed(self.get_stretches())
 
+    def _load_stretch(self, stretch, part_of_composite):
+        if isinstance(stretch, (StretchBase, StretchBaseUsingNumba)):
+            print(f"stretch of type StretchBase")
+            self._stretch_config._ui.rb_stretch_none.setChecked(True)
+            if not part_of_composite:
+                self._stretch_config._ui.rb_cond_none.setChecked(True)
+        elif isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
+            print(f"stretch of type StretchLinear")
+            self._stretch_config._ui.rb_stretch_linear.setChecked(True)
+            if not part_of_composite:
+                self._stretch_config._ui.rb_cond_none.setChecked(True)
+        elif isinstance(stretch, (StretchHistEqualize, StretchHistEqualizeUsingNumba)):
+            self._stretch_config._ui.rb_stretch_equalize.setChecked(True)
+            if not part_of_composite:
+                self._stretch_config._ui.rb_cond_none.setChecked(True)
+        elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
+            self._stretch_config._ui.rb_cond_sqrt.setChecked(True)
+            if not part_of_composite:
+                self._stretch_config._ui.rb_stretch_none.setChecked(True)
+        elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
+            self._stretch_config._ui.rb_cond_log.setChecked(True)
+            if not part_of_composite:
+                self._stretch_config._ui.rb_stretch_none.setChecked(True)
+        elif stretch is None:
+            self._stretch_config._ui.rb_stretch_none.setChecked(True)
+            self._stretch_config._ui.rb_cond_none.setChecked(True)
+        else:
+            raise ValueError(f"Stretch {stretch} not recognized")
+
+
+    def _load_existing_stretch_config(self, stretch):
+        if isinstance(stretch, StretchComposite):
+            self._load_stretch(stretch.first(), part_of_composite=True)
+            self._load_stretch(stretch.second(), part_of_composite=True)
+        else:
+            self._load_stretch(stretch, part_of_composite=False)
+        # elif isinstance(stretch, (StretchBase, StretchBaseUsingNumba)):
+        #     self._stretch_config._ui.rb_stretch_none.setChecked(True)
+        #     self._stretch_config._ui.rb_cond_none.setChecked(True)
+        # elif isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
+        #     self._stretch_config._ui.rb_stretch_linear.setChecked(True)
+        #     self._stretch_config._ui.rb_cond_none.setChecked(True)
+        # elif isinstance(stretch, (StretchHistEqualize, StretchHistEqualizeUsingNumba)):
+        #     self._stretch_config._ui.rb_stretch_equalize.setChecked(True)
+        #     self._stretch_config._ui.rb_cond_none.setChecked(True)
+        # elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
+        #     self._stretch_config._ui.rb_stretch_none.setChecked(True)
+        #     self._stretch_config._ui.rb_cond_sqrt.setChecked(True)
+        # elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
+        #     self._stretch_config._ui.rb_stretch_none.setChecked(True)
+        #     self._stretch_config._ui.rb_cond_log.setChecked(True)
+        # elif stretch is None:
+        #     self._stretch_config._ui.rb_stretch_none.setChecked(True)
+        #     self._stretch_config._ui.rb_cond_none.setChecked(True)
+        # else:
+        #     raise ValueError(f"Stretch {stretch} not recognized")
+
     def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
         self._enable_stretch_changed_events = False
 
@@ -1061,6 +1126,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[0].set_band(dataset, display_bands[0])
             # TODO(donnie):  Set existing stretch details
             self._channel_widgets[0].show()
+            self._channel_widgets[0].load_existing_stretch_details(stretches[0])
 
             self._channel_widgets[1].hide()
             self._channel_widgets[2].hide()
@@ -1072,6 +1138,8 @@ class StretchBuilderDialog(QDialog):
             raise ValueError(f'display_bands must be 1 element or 3 elements; got {display_bands}')
 
         # Set the StretchConfigWidget to the appropriate values 
+
+        self._load_existing_stretch_config(stretches[0])
 
         self._saved_stretches = stretches
 
