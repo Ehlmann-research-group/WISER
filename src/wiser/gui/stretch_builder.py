@@ -71,11 +71,11 @@ def remove_nans(data: np.ndarray) -> np.ndarray:
     else:
         return remove_nans_numba(data)
 
-def create_histogram_python(nonan_data: np.ndarray):
-    return np.histogram(nonan_data, bins=512, range=(0.0, 1.0))
+def create_histogram_python(nonan_data: np.ndarray, min_bound, max_bound):
+    return np.histogram(nonan_data, bins=512, range=(min_bound, max_bound))
 
 @numba_njit_wrapper(non_njit_func=create_histogram_python)
-def create_histogram_numba(nonan_data):
+def create_histogram_numba(nonan_data, min_bound, max_bound):
     '''
     Creates a histogram and uses numba to speed up the below code.
 
@@ -83,8 +83,8 @@ def create_histogram_numba(nonan_data):
     - nonan_data (np.ndarray): A numpy array that shouldn't contain nans
     '''
     bins = 512
-    min_val = 0.0
-    max_val = 1.0
+    min_val = min_bound
+    max_val = max_bound
     counts = np.zeros(bins, dtype=np.int64)
     bin_width = (max_val - min_val) / bins
 
@@ -98,11 +98,11 @@ def create_histogram_numba(nonan_data):
     bin_edges = np.linspace(min_val, max_val, bins + 1)
     return counts, bin_edges
 
-def create_histogram(nonan_data: np.ndarray) -> np.ndarray:
+def create_histogram(nonan_data: np.ndarray, min_bound, max_bound) -> np.ndarray:
     if nonan_data.nbytes < ARRAY_NUMBA_THRESHOLD:
-        return create_histogram_python(nonan_data)
+        return create_histogram_python(nonan_data, min_bound, max_bound)
     else:
-        return create_histogram_numba(nonan_data)
+        return create_histogram_numba(nonan_data, min_bound, max_bound)
 
 def get_slider_percentage(slider, value=None):
     '''
@@ -229,6 +229,7 @@ class ChannelStretchWidget(QWidget):
     def get_normalized_band(self, dataset, band_index):
         self._dataset = dataset
         self._band_index = band_index
+        self._raw_band_data = dataset.get_band_data(band_index)
         self._norm_band_data = dataset.get_band_data_normalized(band_index)
         self._raw_band_stats = dataset.get_band_stats(band_index, None)
 
@@ -383,22 +384,32 @@ class ChannelStretchWidget(QWidget):
         self._ui.lineedit_min_bound.setText(f'{self.norm_to_raw_value(self._min_bound):.6f}')
         self._ui.lineedit_max_bound.setText(f'{self.norm_to_raw_value(self._max_bound):.6f}')
 
-        self.get_normalized_band(self._dataset, self._band_index)  # This refreshes self._norm_band_data
+        # self.get_normalized_band(self._dataset, self._band_index)  # This refreshes self._norm_band_data
         
-        print(f"self._min_bound right before: {self._min_bound}")
-        print(f"self._max_bound right before: {self._max_bound}")
-        print(f"self._norm_band_data min before: {ma.min(self._norm_band_data)}")
-        print(f"self._norm_band_data max before: {ma.max(self._norm_band_data)}")
-        self._norm_band_data = ma.masked_outside(self._norm_band_data, self._min_bound, self._max_bound)
-        if self._prev_norm_band_data is not None:
-            print(f"sum norm_band_data: {ma.sum(self._prev_norm_band_data - self._norm_band_data)}")
-            print(f"all close bins: {ma.allclose(self._prev_norm_band_data, self._norm_band_data)}")
+        # print(f"self._min_bound right before: {self._min_bound}")
+        # print(f"self._max_bound right before: {self._max_bound}")
+        # print(f"self._norm_band_data min before: {ma.min(self._norm_band_data)}")
+        # print(f"self._norm_band_data max before: {ma.max(self._norm_band_data)}")
+        # self._norm_band_data = ma.masked_outside(self._norm_band_data, self._min_bound, self._max_bound)
+        # if self._prev_norm_band_data is not None:
+        #     print(f"sum norm_band_data: {ma.sum(self._prev_norm_band_data - self._norm_band_data)}")
+        #     print(f"all close bins: {ma.allclose(self._prev_norm_band_data, self._norm_band_data)}")
 
-        self._prev_norm_band_data = self._norm_band_data
-        print(f"self._norm_band_data min: {ma.min(self._norm_band_data)}")
-        print(f"self._norm_band_data max: {ma.max(self._norm_band_data)}")
-        print(f"self._norm_band_data sum: {ma.sum(self._norm_band_data)}")
-        print(f"self._norm_band_data sum data: {ma.sum(self._norm_band_data.data)}")
+        # self._prev_norm_band_data = self._norm_band_data
+        # print(f"self._norm_band_data min: {ma.min(self._norm_band_data)}")
+        # print(f"self._norm_band_data max: {ma.max(self._norm_band_data)}")
+        # print(f"self._norm_band_data sum: {ma.sum(self._norm_band_data)}")
+        # print(f"self._norm_band_data sum data: {ma.sum(self._norm_band_data.data)}")
+        
+        # raw_min = self.norm_to_raw_value(self._min_bound)
+        # raw_max = self.norm_to_raw_value(self._max_bound)
+        # print(f"raw_min: {raw_min}")
+        # print(f"raw_max: {raw_max}")
+        # data = ma.masked_outside(self._raw_band_data, 
+        #                          raw_min, 
+        #                          raw_max)
+        # self._norm_band_data = (data - raw_min) / (raw_max - raw_min)
+
         self._update_histogram()
 
     def enable_stretch_ui(self, enabled):
@@ -556,7 +567,7 @@ class ChannelStretchWidget(QWidget):
             print(f"getting cached histogram")
         else:
             self._histogram_bins_raw, self._histogram_edges_raw = \
-                create_histogram(nonan_data)
+                create_histogram(nonan_data, self._min_bound, self._max_bound)
             cache.add_cache_item(key, (self._histogram_bins_raw, self._histogram_edges_raw))
             print(f"creating new histogram")
 
