@@ -394,6 +394,7 @@ class ChannelStretchWidget(QWidget):
         # print(f"self._max_bound right before: {self._max_bound}")
         # print(f"self._norm_band_data min before: {ma.min(self._norm_band_data)}")
         # print(f"self._norm_band_data max before: {ma.max(self._norm_band_data)}")
+        self.get_normalized_band(self._dataset, self._band_index)
         self._norm_band_data = ma.masked_outside(self._norm_band_data,
                                                  self.raw_to_norm_value(self._min_bound), 
                                                  self.raw_to_norm_value(self._max_bound))
@@ -595,8 +596,8 @@ class ChannelStretchWidget(QWidget):
             cache.add_cache_item(key, (self._histogram_bins_raw, self._histogram_edges_raw))
             print(f"creating new histogram")
 
-        print(f"self._histogram_bins_raw: {self._histogram_bins_raw}")
-        # print(f"self._histogram_edges_raw: {self._histogram_edges_raw}")
+        # print(f"self._histogram_bins_raw: {self._histogram_bins_raw}")
+        print(f"self._histogram_edges_raw: {self._histogram_edges_raw}")
 
         # Apply conditioner to the histogram, if necessary.
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
@@ -667,11 +668,14 @@ class ChannelStretchWidget(QWidget):
             high_line = self.norm_to_bounded_value(self._stretch_high)
             print(f"low_line: {low_line}")
             print(f"high_line: {high_line}")
-            self._low_line = self._histogram_axes.axvline(low_line, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
-            self._high_line = self._histogram_axes.axvline(high_line, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
+            test_low = self.raw_to_norm_value(low_line)
+            test_high = self.raw_to_norm_value(high_line)
+            self._low_line = self._histogram_axes.axvline(test_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
+            self._high_line = self._histogram_axes.axvline(test_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
         # print(f"drawing histogram!!")
         self._histogram_canvas.draw()
+
 
     def _on_low_slider_changed(self):
         # Compute the percentage from the slider position
@@ -706,8 +710,8 @@ class ChannelStretchWidget(QWidget):
             self._ui.slider_stretch_high, value=value)
 
         # Update the displayed "high stretch" value
-        value = self.norm_to_bounded_value(self._stretch_high)
-        self._ui.lineedit_stretch_high.setText(f'{value:.6f}')
+        display_value = self.norm_to_bounded_value(self._stretch_high)
+        self._ui.lineedit_stretch_high.setText(f'{display_value:.6f}')
 
         self._show_histogram(update_lines_only=True)
 
@@ -962,6 +966,9 @@ class StretchBuilderDialog(QDialog):
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
             bins, edges = channel.get_histogram()
+            if channel_no == 0:
+                print(f"_get_channel_stretch, bins: {bins}")
+                print(f"_get_channel_stretch, edges: {edges}")
             stretch = StretchHistEqualizeUsingNumba(bins, edges)
 
         else:

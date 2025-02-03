@@ -425,7 +425,7 @@ class StretchHistEqualize(StretchBase):
         Make sure when you are hashing this, you only need the 
         information that it's a histogram stretch
         '''
-        return (self._name)
+        return (self._name, *self._histo_edges, *self._cdf)
 
     def __hash__(self):
         return hash(self.get_hash_tuple())
@@ -486,12 +486,33 @@ class StretchHistEqualizeUsingNumba:
             for j in range(out.shape[1]):
                 a[i, j] = out[i, j]
 
+    def hash_array(self, arr):
+        '''
+        Hashes an array using FNV-1a hashing. Numba does not support 
+        easy ways to hash arrays, so I decided to manually hash it. 
+        ChatGPT wrote this function.
+        '''
+        # Make sure the array is contiguous
+        arr = np.ascontiguousarray(arr)
+        
+        # For float32 arrays, view the bits as uint32.
+        # (Adjust the dtype and bit reinterpretation for other types.)
+        a_int = arr.view(np.uint32)
+        
+        # FNV-1a 32-bit parameters
+        h = np.uint32(2166136261)
+        fnv_prime = np.uint32(16777619)
+        
+        for i in range(a_int.size):
+            h = (h ^ a_int[i]) * fnv_prime
+        return h
+
     def get_hash_tuple(self):
         '''
         Make sure when you are hashing this, you only need the 
         information that it's a histogram stretch
         '''
-        return (self._name)
+        return (self._name, self.hash_array(self._histo_edges), self.hash_array(self._cdf))
 
     def __hash__(self):
         return hash(self.get_hash_tuple())

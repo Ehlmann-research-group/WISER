@@ -4,7 +4,7 @@ try:
     from numba import jit
     from numba.experimental import jitclass
     from numba import types, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64
-    NUMBA_AVAILABLE = True
+    NUMBA_AVAILABLE = False
 
     def numpy_spec_to_numba_spec(numpy_spec, default_array_dtype=float32):
         """
