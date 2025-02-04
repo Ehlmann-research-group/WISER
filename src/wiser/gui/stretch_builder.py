@@ -413,11 +413,6 @@ class ChannelStretchWidget(QWidget):
         '''
         if min_bound >= max_bound:
             raise ValueError(f'min_bound must be less than max_bound; got ({min_bound}, {max_bound})')
-        # print(f"set_min_max_bounds")
-        # print(f"min_bound: {min_bound}")
-        # print(f"max_bound: {max_bound}")
-        # print(f"self._min_bound: {self._min_bound}")
-        # print(f"self._max_bound: {self._max_bound}")
 
         self._min_bound = min_bound
         self._max_bound = max_bound
@@ -425,37 +420,6 @@ class ChannelStretchWidget(QWidget):
         self._ui.lineedit_min_bound.setText(f'{self._min_bound:.6f}')
         self._ui.lineedit_max_bound.setText(f'{self._max_bound:.6f}')
 
-        # self.get_normalized_band(self._dataset, self._band_index)  # This refreshes self._norm_band_data
-        
-        # print(f"self._min_bound right before: {self._min_bound}")
-        # print(f"self._max_bound right before: {self._max_bound}")
-        # print(f"self._norm_band_data min before: {ma.min(self._norm_band_data)}")
-        # print(f"self._norm_band_data max before: {ma.max(self._norm_band_data)}")
-        # self.get_normalized_band(self._dataset, self._band_index)
-        # self._norm_band_data = ma.masked_outside(self._norm_band_data,
-        #                                          self.raw_to_norm_value(self._min_bound), 
-        #                                          self.raw_to_norm_value(self._max_bound))
-        # print(f"set_min_max_bounds, self._min_bound: {self._min_bound}")
-        # print(f"set_min_max_bounds, self._max_bound: {self._max_bound}")
-        # print(f"set_min_max_bounds, self.raw_to_norm_value(self._min_bound): {self.raw_to_norm_value(self._min_bound)}")
-        # print(f"set_min_max_bounds, self.raw_to_norm_value(self._max_bound): {self.raw_to_norm_value(self._max_bound)}")
-
-
-        # self._norm_band_data = (self._norm_band_data - self._min_bound ) / (self._max_bound - self._min_bound)
-        # if self._prev_norm_band_data is not None:
-        #     print(f"sum norm_band_data: {ma.sum(self._prev_norm_band_data - self._norm_band_data)}")
-        #     print(f"all close bins: {ma.allclose(self._prev_norm_band_data, self._norm_band_data)}")
-
-        # self._prev_norm_band_data = self._norm_band_data
-        # print(f"self._norm_band_data min: {ma.min(self._norm_band_data)}")
-        # print(f"self._norm_band_data max: {ma.max(self._norm_band_data)}")
-        # print(f"self._norm_band_data sum: {ma.sum(self._norm_band_data)}")
-        # print(f"self._norm_band_data sum data: {ma.sum(self._norm_band_data.data)}")
-        
-        # raw_min = self.norm_to_raw_value(self._min_bound)
-        # raw_max = self.norm_to_raw_value(self._max_bound)
-        # print(f"raw_min: {raw_min}")
-        # print(f"raw_max: {raw_max}")
         data = ma.masked_outside(self._raw_band_data, 
                                  self._min_bound, 
                                  self._max_bound)
@@ -486,13 +450,11 @@ class ChannelStretchWidget(QWidget):
         values, which may not reflect the actual minimum and maximum values of
         the band data.
         '''
-        # print(f"set_stretch_low")
         slider_range = self._ui.slider_stretch_low.maximum() - self._ui.slider_stretch_low.minimum()
         slider_value = value * slider_range
         self._ui.slider_stretch_low.setValue(int(slider_value))
 
         raw_value = self.norm_to_bounded_value(self._stretch_low)
-        # raw_value = self._stretch_low * (self._max_bound - self._min_bound) + self._min_bound 
         self._ui.lineedit_stretch_low.setText(f'{raw_value:.6f}')
 
     def get_stretch_high(self):
@@ -533,10 +495,8 @@ class ChannelStretchWidget(QWidget):
         applied.
         '''
         band_stretch_low = self.norm_to_bounded_value(self._stretch_low)
-        # band_stretch_low = self._min_bound + self._stretch_low * (self._max_bound - self._min_bound)
         # Min bound is the minimum of the stretch range
         band_stretch_high = self.norm_to_bounded_value(self._stretch_high)
-        # band_stretch_high = self._min_bound + self._stretch_high * (self._max_bound - self._min_bound)
 
         return (band_stretch_low, band_stretch_high)
 
@@ -551,7 +511,6 @@ class ChannelStretchWidget(QWidget):
 
 
     def set_linear_stretch_pct(self, percent):
-        print(f"set_linear_stretch_pct")
         # Based on the current histogram, figure out where the
         (idx_low, idx_high) = hist_limits_for_pct(
             self._histogram_bins, self._histogram_edges, percent)
@@ -567,7 +526,6 @@ class ChannelStretchWidget(QWidget):
         the band data.  In other words, all band data is included in the
         histogram calculation.
         '''
-        print(f"on reset bounds")
         self.set_min_max_bounds(self._raw_band_stats.get_min(), self._raw_band_stats.get_max())
 
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
@@ -579,76 +537,50 @@ class ChannelStretchWidget(QWidget):
         that are outside of this range, and recompute the histogram based on the
         specified bounds.
         '''
-        # print(f"_on_apply_bounds")
         self.set_min_max_bounds(float(self._ui.lineedit_min_bound.text()),
                                 float(self._ui.lineedit_max_bound.text()))
-        # print(f"min raw: {float(self._ui.lineedit_min_bound.text())}")
-        # print(f"min norm: {self.raw_to_norm_value(float(self._ui.lineedit_min_bound.text()))}")
-        # print(f"max raw: {float(self._ui.lineedit_max_bound.text())}")
-        # print(f"max norm: {self.raw_to_norm_value(float(self._ui.lineedit_max_bound.text()))}")
-        # print(f"min bound: {self._min_bound}")
-        # print(f"_max_bound: {self._max_bound}")
+
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
     def _update_histogram(self):
-        # print(f"_update_histogram")
         if self._norm_band_data is None:
-            # print(f"self._norm_band_data is None")
             if self._dataset is None or self._band_index is None:
-                # print(f"self._dataset is None or self._band_index is None")
                 return
             else:
-                # print(f"self.get_normalized_band(self._dataset, self._band_index)")
                 self.get_normalized_band(self._dataset, self._band_index)
 
         if isinstance(self._norm_band_data, np.ma.masked_array):
             norm_data = self._norm_band_data.compressed()
         else:
-            norm_data = self._norm_band_data 
-        # print(f"norm_data: {norm_data}")
+            norm_data = self._norm_band_data
         nonan_data = remove_nans(norm_data)
-        # print(f"just got nonan_data")
-        # print(f"nonan_data.shape: {nonan_data.shape}")
 
         # The "raw" histogram is based solely on the filtered and normalized
         # band data.  That is, no conditioner has been applied to the histogram.
         cache = self._app_state.get_cache().get_histogram_cache()
-        # print(f"getting key, self._min_bound: {self._min_bound}")
-        # print(f"getting key, self._max_bound: {self._max_bound}")
         key = cache.get_cache_key(self._dataset, self._band_index, 
                                   self._conditioner_type, self._stretch_type,
                                   self._min_bound, self._max_bound)
-        # print(f"key: {key}")
-        # print(f"self._min_bound: {self._min_bound}, {self._band_index}, channel no: {self._channel_no}")
-        # print(f"self._max_bound: {self._max_bound}, {self._band_index}, channel no: {self._channel_no}")
         if cache.in_cache(key):
             self._histogram_bins_raw, self._histogram_edges_raw = \
                 cache.get_cache_item(key)
-            # print(f"getting cached histogram")
         else:
             self._histogram_bins_raw, self._histogram_edges_raw = \
                 create_histogram(nonan_data, 
                                  0.0, 
                                  1.0)
             cache.add_cache_item(key, (self._histogram_bins_raw, self._histogram_edges_raw))
-            # print(f"creating new histogram")
-
-        # print(f"self._histogram_bins_raw: {self._histogram_bins_raw}")
-        # print(f"self._histogram_edges_raw: {self._histogram_edges_raw}")
 
         # Apply conditioner to the histogram, if necessary.
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
-            # print(f"APPLYING NO CONDITIONER")
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = self._histogram_edges_raw
 
         elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
-            # print(f"APPLYING SQRT CONDITIONER")
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = np.sqrt(self._histogram_edges_raw)
 
         elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
-            # print(f"APPLYING LOG CONDITIONER")
             self._histogram_bins = self._histogram_bins_raw
             self._histogram_edges = np.log2(1 + self._histogram_edges_raw)
 
@@ -659,11 +591,7 @@ class ChannelStretchWidget(QWidget):
 
 
     def _show_histogram(self, update_lines_only=False):
-        # print(f"showing histogram")
-        # print(f"self._stretch_low: {self._stretch_low}")
-        # print(f"self._stretch_high: {self._stretch_high}")
         if self._norm_band_data is None:
-            # print(f"self._norm_band_data is none")
             return
 
         if not update_lines_only:
@@ -674,18 +602,8 @@ class ChannelStretchWidget(QWidget):
             self._histogram_axes.margins(0, 0)
 
             if self._histogram_bins is None or self._histogram_edges is None:
-                # print(f"self._histogram_bins is None or self._histogram_edges is None")
                 return
-            # if self._prev_hist_bins is not None and self._prev_hist_edges is not None:
-                # print(f"sum bins: {np.sum(self._prev_hist_bins - self._histogram_bins)}")
-                # print(f"all close bins: {np.allclose(self._prev_hist_bins, self._histogram_bins)}")
-                # print(f"sum edges: {np.sum(self._prev_hist_edges - self._histogram_edges)}")
-                # print(f"all close edges: {np.allclose(self._prev_hist_edges, self._histogram_edges)}")
-            self._prev_hist_bins = self._histogram_bins
-            self._prev_hist_edges = self._histogram_edges
 
-            # print(f"redoing histogram!!!!")
-            # print(f"self._histogram_edges: {self._histogram_edges}")
             self._histogram_axes.hist(self._histogram_edges[:-1],
                                       self._histogram_edges,
                                       weights=self._histogram_bins,
@@ -693,7 +611,6 @@ class ChannelStretchWidget(QWidget):
                                       color=self._histogram_color.name())
 
         if update_lines_only and self._low_line is not None:
-            # print(f"just removing lines")
             self._low_line.remove()
             self._high_line.remove()
 
@@ -701,25 +618,9 @@ class ChannelStretchWidget(QWidget):
             self._high_line = None
 
         if self._draw_stretch_lines:
-            # print(f"just redoing lines")
-            # if self._channel_no == 0:
-                # print(f"self._stretch_low: {self._stretch_low}")
-                # print(f"self._stretch_high: {self._stretch_high}")
-            low_line = self.norm_to_bounded_value(self._stretch_low)
-            high_line = self.norm_to_bounded_value(self._stretch_high)
-            # when we have 0.5, 0.7 (smaller range), bounded_value will
-            # be the same. When we have 
-            # print(f"low_line: {low_line}")
-            # print(f"high_line: {high_line}")
-            test_low = self.raw_to_histogram_value(low_line)
-            test_high = self.raw_to_histogram_value(high_line)
-            # When the range is smaller
-            # print(f"test_low: {test_low}")
-            # print(f"test_high: {test_high}")
             self._low_line = self._histogram_axes.axvline(self._stretch_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
             self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
-        # print(f"drawing histogram!!")
         self._histogram_canvas.draw()
 
 
@@ -728,7 +629,7 @@ class ChannelStretchWidget(QWidget):
         value = self._ui.slider_stretch_low.value()
         self._stretch_low = get_slider_percentage(
             self._ui.slider_stretch_low, value=value)
-        # print(f"low slider value: {self._stretch_low}")
+
         # Update the displayed "low stretch" value
         display_value = self.norm_to_bounded_value(self._stretch_low)
 
@@ -999,11 +900,7 @@ class StretchBuilderDialog(QDialog):
             # to translate the channel's stretch bounds to the band's min/max
             # values.
             (band_min, band_max) = channel.get_band_min_max()
-            # print(f"band_min: {band_min}")
-            # print(f"band_max: {band_max}")
             (band_stretch_low, band_stretch_high) = channel.get_band_stretch_bounds()
-            # print(f"band_stretch_low: {band_stretch_low}")
-            # print(f"band_stretch_high: {band_stretch_high}")
 
             # TODO: (Joshua): Get rid of this
             range = band_max - band_min
@@ -1014,9 +911,6 @@ class StretchBuilderDialog(QDialog):
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
             bins, edges = channel.get_histogram()
-            if channel_no == 0:
-                print(f"_get_channel_stretch, bins: {bins}")
-                print(f"_get_channel_stretch, edges: {edges}")
             stretch = StretchHistEqualizeUsingNumba(bins, edges)
 
         else:
@@ -1162,12 +1056,10 @@ class StretchBuilderDialog(QDialog):
         # because the "link min/max bounds" option is only visible when all
         # channels are visible.
         # print(f'Channel {channel_no} min/max set to [{min_bound}, {max_bound}]')
-        print(f"_on_channel_minmax_changed")
         if self._link_min_max:
             # print(f"self._link_min_max")
             for c in self._channel_widgets:
                 if c.get_channel_no() != channel_no:
-                    # print(f"setting bounds: {min_bound}, {max_bound}")
                     c.set_min_max_bounds(min_bound, max_bound)
                 key = (c.get_dataset_id(), c.get_band_index())
                 self._existing_stretch_min_max_state[key] = (min_bound, max_bound)
@@ -1205,9 +1097,9 @@ class StretchBuilderDialog(QDialog):
            self._enable_stretch_changed_events:
             self._emit_stretch_changed(self.get_stretches())
 
+
     def _load_stretch(self, stretch, part_of_composite):
         if isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
-            print(f"stretch of type StretchLinear")
             self._stretch_config._ui.rb_stretch_linear.setChecked(True)
             if not part_of_composite:
                 self._stretch_config._ui.rb_cond_none.setChecked(True)
@@ -1242,26 +1134,7 @@ class StretchBuilderDialog(QDialog):
             self._load_stretch(stretch.second(), part_of_composite=True)
         else:
             self._load_stretch(stretch, part_of_composite=False)
-        # elif isinstance(stretch, (StretchBase, StretchBaseUsingNumba)):
-        #     self._stretch_config._ui.rb_stretch_none.setChecked(True)
-        #     self._stretch_config._ui.rb_cond_none.setChecked(True)
-        # elif isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
-        #     self._stretch_config._ui.rb_stretch_linear.setChecked(True)
-        #     self._stretch_config._ui.rb_cond_none.setChecked(True)
-        # elif isinstance(stretch, (StretchHistEqualize, StretchHistEqualizeUsingNumba)):
-        #     self._stretch_config._ui.rb_stretch_equalize.setChecked(True)
-        #     self._stretch_config._ui.rb_cond_none.setChecked(True)
-        # elif isinstance(stretch, (StretchSquareRoot, StretchSquareRootUsingNumba)):
-        #     self._stretch_config._ui.rb_stretch_none.setChecked(True)
-        #     self._stretch_config._ui.rb_cond_sqrt.setChecked(True)
-        # elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
-        #     self._stretch_config._ui.rb_stretch_none.setChecked(True)
-        #     self._stretch_config._ui.rb_cond_log.setChecked(True)
-        # elif stretch is None:
-        #     self._stretch_config._ui.rb_stretch_none.setChecked(True)
-        #     self._stretch_config._ui.rb_cond_none.setChecked(True)
-        # else:
-        #     raise ValueError(f"Stretch {stretch} not recognized")
+
 
     def show(self, dataset: RasterDataSet, display_bands: Tuple, stretches):
         self._enable_stretch_changed_events = False
@@ -1324,7 +1197,6 @@ class StretchBuilderDialog(QDialog):
             raise ValueError(f'display_bands must be 1 element or 3 elements; got {display_bands}')
 
         # Set the StretchConfigWidget to the appropriate values 
-
         self._load_existing_stretch_state(stretches[0])
 
         self._saved_stretches = stretches
@@ -1349,6 +1221,5 @@ class StretchBuilderDialog(QDialog):
         the originally-saved stretches so that the UI reverts back to the way
         it was.
         '''
-        print(f"REJECTED")
         self._emit_stretch_changed(self._saved_stretches)
         super().reject()
