@@ -170,7 +170,7 @@ class ChannelStretchWidget(QWidget):
 
         # Low and high endpoints for stretch calculations; these are always
         # in the range 0..1 (i.e. 0% - 100%).
-        self._stretch_low = 0 
+        self._stretch_low = 0
         self._stretch_high = 1
 
         # Information about the histogram itself
@@ -355,8 +355,6 @@ class ChannelStretchWidget(QWidget):
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
 
         return hist_value
-    
-    # def stretch_to_histogram_value(self, stretch):
         
 
     def set_min_max_bounds(self, min_bound, max_bound):
@@ -1009,7 +1007,6 @@ class StretchBuilderDialog(QDialog):
         # channels are visible.
         # print(f'Channel {channel_no} min/max set to [{min_bound}, {max_bound}]')
         if self._link_min_max:
-            # print(f"self._link_min_max")
             for c in self._channel_widgets:
                 if c.get_channel_no() != channel_no:
                     c.set_min_max_bounds(min_bound, max_bound)
