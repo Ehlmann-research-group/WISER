@@ -315,13 +315,13 @@ class ChannelStretchWidget(QWidget):
 
         Args - stretch should be of type StretchBase
         '''
-        print(f"type(stretch): {type(stretch)}")
+        # print(f"type(stretch): {type(stretch)}")
         
         if isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
-            if self._channel_no == 0:
-                print(f"stretch of type StretchLinear")
-                print(f"stretch._lower: {stretch._lower}")
-                print(f"stretch._upper: {stretch._upper}")
+            # if self._channel_no == 0:
+            #     print(f"stretch of type StretchLinear")
+            #     print(f"stretch._lower: {stretch._lower}")
+            #     print(f"stretch._upper: {stretch._upper}")
             self.set_stretch_low(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._lower))) # For this we'd have to go from normalized to bounded to normalized
             self.set_stretch_high(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._upper)))
             self._on_low_slider_changed()
@@ -334,7 +334,7 @@ class ChannelStretchWidget(QWidget):
         elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
             self.set_conditioner_type(ConditionerType.LOG_CONDITIONER)
         elif isinstance(stretch, (StretchBase, StretchBaseUsingNumba)):
-            print(f"stretch of type StretchBase")
+            # print(f"stretch of type StretchBase")
             self.set_stretch_low(0.0)
             self.set_stretch_high(1.0)
             self._on_low_slider_changed()
@@ -702,9 +702,9 @@ class ChannelStretchWidget(QWidget):
 
         if self._draw_stretch_lines:
             # print(f"just redoing lines")
-            if self._channel_no == 0:
-                print(f"self._stretch_low: {self._stretch_low}")
-                print(f"self._stretch_high: {self._stretch_high}")
+            # if self._channel_no == 0:
+                # print(f"self._stretch_low: {self._stretch_low}")
+                # print(f"self._stretch_high: {self._stretch_high}")
             low_line = self.norm_to_bounded_value(self._stretch_low)
             high_line = self.norm_to_bounded_value(self._stretch_high)
             # when we have 0.5, 0.7 (smaller range), bounded_value will
@@ -1349,5 +1349,6 @@ class StretchBuilderDialog(QDialog):
         the originally-saved stretches so that the UI reverts back to the way
         it was.
         '''
+        print(f"REJECTED")
         self._emit_stretch_changed(self._saved_stretches)
         super().reject()
