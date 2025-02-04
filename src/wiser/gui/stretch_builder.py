@@ -1107,7 +1107,6 @@ class StretchBuilderDialog(QDialog):
                 self._channel_widgets[i].set_band(dataset, display_bands[i])
                 # TODO(donnie):  Set existing stretch details
                 min_max = self._existing_stretch_min_max_state.get((dataset.get_id(), display_bands[i]), None)
-                print(f"min_max: {min_max}")
                 if min_max is not None:
                     self._channel_widgets[i].set_min_max_bounds(
                         min_max[0],
