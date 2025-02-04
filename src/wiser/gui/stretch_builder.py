@@ -373,6 +373,7 @@ class ChannelStretchWidget(QWidget):
 
     def raw_to_histogram_value(self, raw_value):
         norm_value = self.raw_to_norm_value(raw_value)
+        print(f"raw_to_histogram_value, norm_value: {norm_value}")
 
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
             print(f"ConditionerType.NO_CONDITIONER")
@@ -388,6 +389,9 @@ class ChannelStretchWidget(QWidget):
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
 
         return hist_value
+    
+    # def stretch_to_histogram_value(self, stretch):
+        
 
     def set_min_max_bounds(self, min_bound, max_bound):
         '''
@@ -684,16 +688,21 @@ class ChannelStretchWidget(QWidget):
 
         if self._draw_stretch_lines:
             # print(f"just redoing lines")
+            print(f"self._stretch_low: {self._stretch_low}")
+            print(f"self._stretch_high: {self._stretch_high}")
             low_line = self.norm_to_bounded_value(self._stretch_low)
             high_line = self.norm_to_bounded_value(self._stretch_high)
-            # print(f"low_line: {low_line}")
-            # print(f"high_line: {high_line}")
+            # when we have 0.5, 0.7 (smaller range), bounded_value will
+            # be the same. When we have 
+            print(f"low_line: {low_line}")
+            print(f"high_line: {high_line}")
             test_low = self.raw_to_histogram_value(low_line)
             test_high = self.raw_to_histogram_value(high_line)
+            # When the range is smaller
             print(f"test_low: {test_low}")
             print(f"test_high: {test_high}")
-            self._low_line = self._histogram_axes.axvline(test_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
-            self._high_line = self._histogram_axes.axvline(test_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
+            self._low_line = self._histogram_axes.axvline(self._stretch_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
+            self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
         # print(f"drawing histogram!!")
         self._histogram_canvas.draw()
