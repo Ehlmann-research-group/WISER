@@ -230,6 +230,7 @@ class ChannelStretchWidget(QWidget):
     def get_normalized_band(self, dataset, band_index):
         self._dataset = dataset
         self._band_index = band_index
+        self._raw_band_data = dataset.get_band_data(band_index)
         self._norm_band_data = dataset.get_band_data_normalized(band_index)
         self._raw_band_stats = dataset.get_band_stats(band_index, None)
 
@@ -417,10 +418,10 @@ class ChannelStretchWidget(QWidget):
         # print(f"self._max_bound right before: {self._max_bound}")
         # print(f"self._norm_band_data min before: {ma.min(self._norm_band_data)}")
         # print(f"self._norm_band_data max before: {ma.max(self._norm_band_data)}")
-        self.get_normalized_band(self._dataset, self._band_index)
-        self._norm_band_data = ma.masked_outside(self._norm_band_data,
-                                                 self.raw_to_norm_value(self._min_bound), 
-                                                 self.raw_to_norm_value(self._max_bound))
+        # self.get_normalized_band(self._dataset, self._band_index)
+        # self._norm_band_data = ma.masked_outside(self._norm_band_data,
+        #                                          self.raw_to_norm_value(self._min_bound), 
+        #                                          self.raw_to_norm_value(self._max_bound))
         # print(f"set_min_max_bounds, self._min_bound: {self._min_bound}")
         # print(f"set_min_max_bounds, self._max_bound: {self._max_bound}")
         # print(f"set_min_max_bounds, self.raw_to_norm_value(self._min_bound): {self.raw_to_norm_value(self._min_bound)}")
@@ -442,10 +443,10 @@ class ChannelStretchWidget(QWidget):
         # raw_max = self.norm_to_raw_value(self._max_bound)
         # print(f"raw_min: {raw_min}")
         # print(f"raw_max: {raw_max}")
-        # data = ma.masked_outside(self._raw_band_data, 
-        #                          raw_min, 
-        #                          raw_max)
-        # self._norm_band_data = (data - raw_min) / (raw_max - raw_min)
+        data = ma.masked_outside(self._raw_band_data, 
+                                 self._min_bound, 
+                                 self._max_bound)
+        self._norm_band_data = (data - self._min_bound) / (self._max_bound - self._min_bound)
 
         self._update_histogram()
 
@@ -614,8 +615,8 @@ class ChannelStretchWidget(QWidget):
         else:
             self._histogram_bins_raw, self._histogram_edges_raw = \
                 create_histogram(nonan_data, 
-                                 self.raw_to_norm_value(self._min_bound), 
-                                 self.raw_to_norm_value(self._max_bound))
+                                 0.0, 
+                                 1.0)
             cache.add_cache_item(key, (self._histogram_bins_raw, self._histogram_edges_raw))
             # print(f"creating new histogram")
 
