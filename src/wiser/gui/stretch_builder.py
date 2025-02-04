@@ -257,6 +257,12 @@ class ChannelStretchWidget(QWidget):
         self._ui.lineedit_min_bound.setText(f'{self._raw_band_stats.get_min() :.6f}')
         self._ui.lineedit_max_bound.setText(f'{self._raw_band_stats.get_max() :.6f}')
 
+    def get_dataset_id(self):
+        return self._dataset.get_id()
+    
+    def get_band_index(self):
+        return self._band_index
+
     def load_existing_stretch_details(self, stretch):
         # valid_stretches = set([type(None), type(StretchBase), type(StretchBaseUsingNumba), 
         #                       type(StretchLinear), type(StretchLinearUsingNumba), 
@@ -312,9 +318,12 @@ class ChannelStretchWidget(QWidget):
         print(f"type(stretch): {type(stretch)}")
         
         if isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
-            print(f"stretch of type StretchLinear")
-            self.set_stretch_low(stretch._lower)
-            self.set_stretch_high(stretch._upper)
+            if self._channel_no == 0:
+                print(f"stretch of type StretchLinear")
+                print(f"stretch._lower: {stretch._lower}")
+                print(f"stretch._upper: {stretch._upper}")
+            self.set_stretch_low(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._lower))) # For this we'd have to go from normalized to bounded to normalized
+            self.set_stretch_high(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._upper)))
             self._on_low_slider_changed()
             self._on_high_slider_changed()
             self.set_stretch_type(StretchType.LINEAR_STRETCH)
@@ -368,22 +377,26 @@ class ChannelStretchWidget(QWidget):
         value_range = self._max_bound - self._min_bound
         return (norm_value * value_range) + self._min_bound
 
+    def bounded_value_to_normalize_bounded(self, bounded_value):
+        value_range = self._max_bound - self._min_bound
+        return (bounded_value - self._min_bound) / value_range
+
     def raw_to_norm_value(self, raw_value):
         value_range = self._raw_band_stats.get_max() - self._raw_band_stats.get_min()
         return (raw_value - self._raw_band_stats.get_min()) / value_range
 
     def raw_to_histogram_value(self, raw_value):
         norm_value = self.raw_to_norm_value(raw_value)
-        print(f"raw_to_histogram_value, norm_value: {norm_value}")
+        # print(f"raw_to_histogram_value, norm_value: {norm_value}")
 
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
-            print(f"ConditionerType.NO_CONDITIONER")
+            # print(f"ConditionerType.NO_CONDITIONER")
             hist_value = norm_value
         elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
-            print(f"ConditionerType.SQRT_CONDITIONER")
+            # print(f"ConditionerType.SQRT_CONDITIONER")
             hist_value = np.sqrt(norm_value)
         elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
-            print(f"ConditionerType.LOG_CONDITIONER")
+            # print(f"ConditionerType.LOG_CONDITIONER")
             
             hist_value = np.log2(1+norm_value)
         else:
@@ -473,7 +486,7 @@ class ChannelStretchWidget(QWidget):
         values, which may not reflect the actual minimum and maximum values of
         the band data.
         '''
-        print(f"set_stretch_low")
+        # print(f"set_stretch_low")
         slider_range = self._ui.slider_stretch_low.maximum() - self._ui.slider_stretch_low.minimum()
         slider_value = value * slider_range
         self._ui.slider_stretch_low.setValue(int(slider_value))
@@ -672,7 +685,7 @@ class ChannelStretchWidget(QWidget):
             self._prev_hist_edges = self._histogram_edges
 
             # print(f"redoing histogram!!!!")
-            print(f"self._histogram_edges: {self._histogram_edges}")
+            # print(f"self._histogram_edges: {self._histogram_edges}")
             self._histogram_axes.hist(self._histogram_edges[:-1],
                                       self._histogram_edges,
                                       weights=self._histogram_bins,
@@ -689,19 +702,20 @@ class ChannelStretchWidget(QWidget):
 
         if self._draw_stretch_lines:
             # print(f"just redoing lines")
-            print(f"self._stretch_low: {self._stretch_low}")
-            print(f"self._stretch_high: {self._stretch_high}")
+            if self._channel_no == 0:
+                print(f"self._stretch_low: {self._stretch_low}")
+                print(f"self._stretch_high: {self._stretch_high}")
             low_line = self.norm_to_bounded_value(self._stretch_low)
             high_line = self.norm_to_bounded_value(self._stretch_high)
             # when we have 0.5, 0.7 (smaller range), bounded_value will
             # be the same. When we have 
-            print(f"low_line: {low_line}")
-            print(f"high_line: {high_line}")
+            # print(f"low_line: {low_line}")
+            # print(f"high_line: {high_line}")
             test_low = self.raw_to_histogram_value(low_line)
             test_high = self.raw_to_histogram_value(high_line)
             # When the range is smaller
-            print(f"test_low: {test_low}")
-            print(f"test_high: {test_high}")
+            # print(f"test_low: {test_low}")
+            # print(f"test_high: {test_high}")
             self._low_line = self._histogram_axes.axvline(self._stretch_low, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
             self._high_line = self._histogram_axes.axvline(self._stretch_high, color='#000000', alpha=0.5, linewidth=0.5, linestyle='dashed')
 
@@ -864,6 +878,8 @@ class StretchBuilderDialog(QDialog):
 
         self._enable_stretch_changed_events = True
 
+        self._existing_stretch_min_max_state = {}
+
         layout = QGridLayout()
 
         # Widget for the general stretch configuration
@@ -983,11 +999,11 @@ class StretchBuilderDialog(QDialog):
             # to translate the channel's stretch bounds to the band's min/max
             # values.
             (band_min, band_max) = channel.get_band_min_max()
-            print(f"band_min: {band_min}")
-            print(f"band_max: {band_max}")
+            # print(f"band_min: {band_min}")
+            # print(f"band_max: {band_max}")
             (band_stretch_low, band_stretch_high) = channel.get_band_stretch_bounds()
-            print(f"band_stretch_low: {band_stretch_low}")
-            print(f"band_stretch_high: {band_stretch_high}")
+            # print(f"band_stretch_low: {band_stretch_low}")
+            # print(f"band_stretch_high: {band_stretch_high}")
 
             # TODO: (Joshua): Get rid of this
             range = band_max - band_min
@@ -1153,6 +1169,12 @@ class StretchBuilderDialog(QDialog):
                 if c.get_channel_no() != channel_no:
                     # print(f"setting bounds: {min_bound}, {max_bound}")
                     c.set_min_max_bounds(min_bound, max_bound)
+                key = (c.get_dataset_id(), c.get_band_index())
+                self._existing_stretch_min_max_state[key] = (min_bound, max_bound)
+        else:
+            channel_widget = self._channel_widgets[channel_no]
+            key = (channel_widget.get_dataset_id(), channel_widget.get_band_index())
+            self._existing_stretch_min_max_state[key] = (min_bound, max_bound)
 
 
     def _on_channel_stretch_low_changed(self, channel_no, stretch_low):
@@ -1214,7 +1236,7 @@ class StretchBuilderDialog(QDialog):
             raise ValueError(f"Stretch {stretch} not recognized")
 
 
-    def _load_existing_stretch_config(self, stretch):
+    def  _load_existing_stretch_state(self, stretch):
         if isinstance(stretch, StretchComposite):
             self._load_stretch(stretch.first(), part_of_composite=True)
             self._load_stretch(stretch.second(), part_of_composite=True)
@@ -1261,9 +1283,16 @@ class StretchBuilderDialog(QDialog):
                 self._channel_widgets[i].set_title(titles[i])
                 self._channel_widgets[i].set_histogram_color(colors[i])
                 self._channel_widgets[i].set_band(dataset, display_bands[i])
+                # TODO(donnie):  Set existing stretch details
+                min_max = self._existing_stretch_min_max_state.get((dataset.get_id(), display_bands[i]), None)
+                print(f"min_max: {min_max}")
+                if min_max is not None:
+                    self._channel_widgets[i].set_min_max_bounds(
+                        min_max[0],
+                        min_max[1]
+                    )
                 # We need to set this histogram and stretch low, stretch high bounds
                 self._channel_widgets[i].load_existing_stretch_details(stretches[i])
-                # TODO(donnie):  Set existing stretch details
                 self._channel_widgets[i].show()
 
             self._cb_link_sliders.show()
@@ -1274,9 +1303,15 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[0].set_title(self.tr('Grayscale Channel'))
             self._channel_widgets[0].set_histogram_color(QColor('black'))
             self._channel_widgets[0].set_band(dataset, display_bands[0])
+            # TODO(donnie):  Set existing stretch details
+            min_max = self._existing_stretch_min_max_state.get((dataset, display_bands[0]), None)
+            if min_max is not None:
+                self._channel_widgets[0].set_min_max_bounds(
+                    min_max[0],
+                    min_max[1]
+                )
             # We need to set this histogram and stretch low, stretch high bounds, and min & max
             self._channel_widgets[0].load_existing_stretch_details(stretches[0])
-            # TODO(donnie):  Set existing stretch details
             self._channel_widgets[0].show()
 
             self._channel_widgets[1].hide()
@@ -1290,7 +1325,7 @@ class StretchBuilderDialog(QDialog):
 
         # Set the StretchConfigWidget to the appropriate values 
 
-        self._load_existing_stretch_config(stretches[0])
+        self._load_existing_stretch_state(stretches[0])
 
         self._saved_stretches = stretches
 
