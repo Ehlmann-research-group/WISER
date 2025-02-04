@@ -355,6 +355,22 @@ class ApplicationState(QObject):
 
         return True
 
+    def multiple_displayed_datasets_same_size(self):
+        # Get access to the displayed datasets
+        displayed_datasets = self._app._main_view.get_visible_datasets()
+        # If len is less than 2 return false
+        if len(displayed_datasets) < 2:
+            return False
+
+        # Else, make sure they're all the same size 
+        ds0_dim = (displayed_datasets[0].get_width(), displayed_datasets[0].get_height())
+        for ds in displayed_datasets[1:]:
+            ds_dim = (ds.get_width(), ds.get_height())
+            if ds_dim != ds0_dim:
+                return False
+
+        return True
+
 
     def unique_dataset_name(self, candidate):
         ds_names = {ds.get_name() for ds in self._datasets.values()}

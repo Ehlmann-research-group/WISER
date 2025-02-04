@@ -316,6 +316,14 @@ class MainViewWidget(RasterPane):
     def is_scrolling_linked(self):
         return self._link_view_scrolling
 
+    
+    def on_rasterview_dataset_changed(self):
+        # We only do something if link_view_scroll is true, if not we do nothing
+        if self._link_view_scrolling:
+            if not self._app_state.multiple_displayed_datasets_same_size():
+                self._act_link_view_scroll.setChecked(False)
+                self._link_view_scrolling = False
+
 
     def _on_link_view_scroll(self, checked):
         '''
@@ -323,8 +331,7 @@ class MainViewWidget(RasterPane):
         scrolling.  When raster-view scrolling is linked, all raster views must
         be updated to show the same coordinates as the top left raster view.
         '''
-
-        if checked and not self._app_state.multiple_datasets_same_size():
+        if checked and not self._app_state.multiple_displayed_datasets_same_size():
             # TODO(donnie):  Not sure if it's better to tell the user why the
             #     view scrolling can't be linked, or to disable it.  For now,
             #     we tell the user why it isn't possible.
