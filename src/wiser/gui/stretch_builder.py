@@ -216,10 +216,6 @@ class ChannelStretchWidget(QWidget):
         self._ui.slider_stretch_high.sliderReleased.connect(self._on_high_slider_released)
         self._ui.slider_stretch_high.valueChanged.connect(self._on_high_slider_clicked)
 
-        self._prev_hist_bins = None
-        self._prev_hist_edges = None
-        self._prev_norm_band_data = None
-
 
     def set_title(self, title):
         self._ui.groupbox_channel.setTitle(title)
@@ -241,7 +237,6 @@ class ChannelStretchWidget(QWidget):
         histograms can be recomputed as the stretch conditioner is changed, or
         the endpoints over which to compute the histogram are modified.
         '''
-        print(f"set_band")
         self.get_normalized_band(dataset, band_index)
         self._update_histogram()
 
@@ -264,64 +259,30 @@ class ChannelStretchWidget(QWidget):
         return self._band_index
 
     def load_existing_stretch_details(self, stretch):
-        # valid_stretches = set([type(None), type(StretchBase), type(StretchBaseUsingNumba), 
-        #                       type(StretchLinear), type(StretchLinearUsingNumba), 
-        #                       type(StretchHistEqualize), type(StretchHistEqualizeUsingNumba),
-        #                       type(StretchSquareRoot), type(StretchSquareRootUsingNumba),
-        #                       type(StretchLog2), type(StretchLog2UsingNumba),
-        #                       type(StretchComposite)]
-        #                       )
         valid_stretches = (StretchBase, StretchBaseUsingNumba, 
                               StretchLinear, StretchLinearUsingNumba, 
                               StretchHistEqualize, StretchHistEqualizeUsingNumba,
                               StretchSquareRoot, StretchSquareRootUsingNumba,
                               StretchLog2, StretchLog2UsingNumba,
-                              StretchComposite
-                              )
-        # # First we have to have a cache for each channel's minimum and maximum values.
+                              StretchComposite)
 
-        # # Either is a composite stretch or one of the two types of stretches.
-
-        # # If its a composite stretch, we get the two types of stretches.
-        # #   For the conditioner stretch we simply called set_conditioner_type
-        # #    For the stretch we call set_stretch_type and then if its a linear stretch
-        # #    We get the lower and upper and set those by doing set_stretch_low and 
-        # #    set_stretch_high then doing on_low_high_changed
-        # print(f"Stretch type: {type(stretch)}")
-        # If it's a stretch type composite 
-        print(f"!!!Stretch: {stretch}")
         if stretch is None:
             self._load_individual_stretch(stretch)
             return
-        
+
         if not isinstance(stretch, valid_stretches):
             raise ValueError(f"The stretch {type(stretch)} is not a valid stretch")
-        
-    
 
         if isinstance(stretch, StretchComposite):
-            print(f"stretch is composite")
-            # print(f"stretch left is {stretch.first()}")
-            # print(f"stretch right is {stretch.second()}")
             self._load_individual_stretch(stretch.first())
             self._load_individual_stretch(stretch.second())
         else:
             self._load_individual_stretch(stretch)
         return
-    
-    def _load_individual_stretch(self, stretch):
-        '''
-        Loads stretches that are not StretchComposite.
 
-        Args - stretch should be of type StretchBase
-        '''
-        # print(f"type(stretch): {type(stretch)}")
-        
+
+    def _load_individual_stretch(self, stretch):
         if isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
-            # if self._channel_no == 0:
-            #     print(f"stretch of type StretchLinear")
-            #     print(f"stretch._lower: {stretch._lower}")
-            #     print(f"stretch._upper: {stretch._upper}")
             self.set_stretch_low(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._lower))) # For this we'd have to go from normalized to bounded to normalized
             self.set_stretch_high(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._upper)))
             self._on_low_slider_changed()
@@ -334,7 +295,6 @@ class ChannelStretchWidget(QWidget):
         elif isinstance(stretch, (StretchLog2, StretchLog2UsingNumba)):
             self.set_conditioner_type(ConditionerType.LOG_CONDITIONER)
         elif isinstance(stretch, (StretchBase, StretchBaseUsingNumba)):
-            # print(f"stretch of type StretchBase")
             self.set_stretch_low(0.0)
             self.set_stretch_high(1.0)
             self._on_low_slider_changed()
@@ -349,9 +309,6 @@ class ChannelStretchWidget(QWidget):
             self.set_conditioner_type(ConditionerType.NO_CONDITIONER)
         else:
             raise ValueError(f"Stretch {stretch} not recognized")
-
-        
-        return
 
 
     def set_stretch_type(self, stretch_type):
@@ -387,17 +344,12 @@ class ChannelStretchWidget(QWidget):
 
     def raw_to_histogram_value(self, raw_value):
         norm_value = self.raw_to_norm_value(raw_value)
-        # print(f"raw_to_histogram_value, norm_value: {norm_value}")
 
         if self._conditioner_type == ConditionerType.NO_CONDITIONER:
-            # print(f"ConditionerType.NO_CONDITIONER")
             hist_value = norm_value
         elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
-            # print(f"ConditionerType.SQRT_CONDITIONER")
             hist_value = np.sqrt(norm_value)
         elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
-            # print(f"ConditionerType.LOG_CONDITIONER")
-            
             hist_value = np.log2(1+norm_value)
         else:
             raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
