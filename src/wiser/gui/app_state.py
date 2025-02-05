@@ -356,9 +356,13 @@ class ApplicationState(QObject):
         return True
 
     def multiple_displayed_datasets_same_size(self):
+        '''
+        This function returns True if there are multiple visible datasets and
+        they are all the same size.
+        '''
         # Get access to the displayed datasets
         displayed_datasets = self._app._main_view.get_visible_datasets()
-        # If len is less than 2 return false
+
         if len(displayed_datasets) < 2:
             return False
 
