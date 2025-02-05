@@ -609,33 +609,26 @@ class ChannelStretchWidget(QWidget):
             self._on_high_slider_changed()
     
     def validate_stretch_low_string(self, stretch_low_text):
-        if any(x.isalpha() for x in stretch_low_text):
-            QMessageBox.critical(self, 
-                                 "Invalid Input",
-                                 "Stretch low can't contain alphabetic characters",
-                                 QMessageBox.Ok)
-            return False
-
         try:
             stretch_low_value = float(stretch_low_text)
         except BaseException as e:
             QMessageBox.critical(self, 
                                  "Invalid Input",
-                                 "Stretch low is not a valid float",
+                                 "Stretch Low is not a valid float",
                                  QMessageBox.Ok)
             return False
 
         if stretch_low_value < self._min_bound:
             QMessageBox.critical(self, 
                                  "Invalid Input",
-                                 "Stretch low value can not be greater than the minimum bound",
+                                 "Stretch Low value can not be greater than the minimum bound",
                                  QMessageBox.Ok)
             return False
 
         if stretch_low_value > self.norm_to_bounded_value(self._stretch_high):
             QMessageBox.critical(self, 
                                  "Invalid Input",
-                                 "Stretch low value can not be greater than stretch high value",
+                                 "Stretch Low value can not be greater than stretch high value",
                                  QMessageBox.Ok)
             return False
 
@@ -656,40 +649,32 @@ class ChannelStretchWidget(QWidget):
         self._on_low_slider_changed()
 
     def validate_stretch_high_string(self, stretch_high_text):
-        if any(x.isalpha() for x in stretch_high_text):
-            QMessageBox.critical(self, 
-                                "Invalid Input",
-                                "Stretch high can't contain alphabetic characters",
-                                QMessageBox.Ok)
-            return False
-
         try:
             stretch_high_value = float(stretch_high_text)
         except BaseException as e:
             QMessageBox.critical(self, 
                                 "Invalid Input",
-                                "Stretch high is not a valid float",
+                                "Stretch High is not a valid float",
                                 QMessageBox.Ok)
             return False
 
         if stretch_high_value > self._max_bound:
             QMessageBox.critical(self, 
                                 "Invalid Input",
-                                "Stretch high value can not be greater than the maximum bound",
+                                "Stretch High value can not be greater than the maximum bound",
                                 QMessageBox.Ok)
             return False
 
         if stretch_high_value < self.norm_to_bounded_value(self._stretch_low):
             QMessageBox.critical(self, 
                                 "Invalid Input",
-                                "Stretch high value can not be less than stretch low value",
+                                "Stretch High value can not be less than stretch low value",
                                 QMessageBox.Ok)
             return False
 
         return True
 
     def _set_stretch_high_from_ledit(self):
-        # Get the text in the self._ui.lineedit_stretch_low
         stretch_high_text = self._ui.lineedit_stretch_high.text()
 
         # Check to make sure the string is valid
