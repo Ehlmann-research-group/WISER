@@ -183,9 +183,6 @@ class ChannelStretchWidget(QWidget):
         #============================================================
         # User Interface Config:
 
-        self._ui.lineedit_stretch_low.setEnabled(False)
-        self._ui.lineedit_stretch_high.setEnabled(False)
-
         self._histogram_figure, self._histogram_axes = plt.subplots(constrained_layout=True)
         self._histogram_figure.set_constrained_layout_pads(w_pad=0, h_pad=0, wspace=0, hspace=0)
         self._histogram_axes.tick_params(direction='in', labelsize=4, pad=2, width=0.5,
@@ -360,7 +357,8 @@ class ChannelStretchWidget(QWidget):
         self._update_histogram()
 
     def enable_stretch_ui(self, enabled):
-        for w in [self._ui.slider_stretch_low, self._ui.slider_stretch_high]:
+        for w in [self._ui.slider_stretch_low, self._ui.slider_stretch_high,
+                  self._ui.lineedit_stretch_low, self._ui.lineedit_stretch_high]:
             w.setEnabled(enabled)
 
         self._draw_stretch_lines = enabled

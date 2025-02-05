@@ -616,6 +616,10 @@ class RasterPane(QWidget):
 
 
     def get_visible_datasets(self) -> List[RasterDataSet]:
+        '''
+        Returns all of the datasets that are displayed in all of the 
+        RasterViews under this RasterPane
+        '''
         visible_ds = []
         for rasterview in self._rasterviews.values():
             if rasterview._raster_data is not None:
