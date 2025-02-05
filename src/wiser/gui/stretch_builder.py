@@ -1056,7 +1056,7 @@ class StretchBuilderDialog(QDialog):
             raise ValueError(f"Stretch {stretch} not recognized")
 
 
-    def  _load_existing_stretch_state(self, stretch):
+    def _load_existing_stretch_state(self, stretch):
         if isinstance(stretch, StretchComposite):
             self._load_stretch(stretch.first(), part_of_composite=True)
             self._load_stretch(stretch.second(), part_of_composite=True)
