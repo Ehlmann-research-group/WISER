@@ -276,10 +276,12 @@ class ChannelStretchWidget(QWidget):
             self._load_individual_stretch(stretch)
         return
 
-
     def _load_individual_stretch(self, stretch):
         if isinstance(stretch, (StretchLinear, StretchLinearUsingNumba)):
-            self.set_stretch_low(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._lower))) # For this we'd have to go from normalized to bounded to normalized
+            # Since stretch._lower is between 0 and 1 and represents the normalized value, we have to 
+            # make it into the raw value (what it is in the data). But since self._stretch_low is 
+            # relative to the min and max bounds, we have to normalize it relative to the bounds
+            self.set_stretch_low(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._lower)))
             self.set_stretch_high(self.bounded_value_to_normalize_bounded(self.norm_to_raw_value(stretch._upper)))
             self._on_low_slider_changed()
             self._on_high_slider_changed()
@@ -333,25 +335,6 @@ class ChannelStretchWidget(QWidget):
     def bounded_value_to_normalize_bounded(self, bounded_value):
         value_range = self._max_bound - self._min_bound
         return (bounded_value - self._min_bound) / value_range
-
-    def raw_to_norm_value(self, raw_value):
-        value_range = self._raw_band_stats.get_max() - self._raw_band_stats.get_min()
-        return (raw_value - self._raw_band_stats.get_min()) / value_range
-
-    def raw_to_histogram_value(self, raw_value):
-        norm_value = self.raw_to_norm_value(raw_value)
-
-        if self._conditioner_type == ConditionerType.NO_CONDITIONER:
-            hist_value = norm_value
-        elif self._conditioner_type == ConditionerType.SQRT_CONDITIONER:
-            hist_value = np.sqrt(norm_value)
-        elif self._conditioner_type == ConditionerType.LOG_CONDITIONER:
-            hist_value = np.log2(1+norm_value)
-        else:
-            raise ValueError(f'Unexpected conditioner type {self._conditioner_type}')
-
-        return hist_value
-        
 
     def set_min_max_bounds(self, min_bound, max_bound):
         '''
@@ -1006,11 +989,11 @@ class StretchBuilderDialog(QDialog):
             for c in self._channel_widgets:
                 if c.get_channel_no() != channel_no:
                     c.set_min_max_bounds(min_bound, max_bound)
-                key = (c.get_dataset_id(), c.get_band_index())
+                key = (channel_no, c.get_dataset_id(), c.get_band_index())
                 self._existing_stretch_min_max_state[key] = (min_bound, max_bound)
         else:
             channel_widget = self._channel_widgets[channel_no]
-            key = (channel_widget.get_dataset_id(), channel_widget.get_band_index())
+            key = (channel_no, channel_widget.get_dataset_id(), channel_widget.get_band_index())
             self._existing_stretch_min_max_state[key] = (min_bound, max_bound)
 
 
@@ -1102,7 +1085,7 @@ class StretchBuilderDialog(QDialog):
                 self._channel_widgets[i].set_histogram_color(colors[i])
                 self._channel_widgets[i].set_band(dataset, display_bands[i])
                 # TODO(donnie):  Set existing stretch details
-                min_max = self._existing_stretch_min_max_state.get((dataset.get_id(), display_bands[i]), None)
+                min_max = self._existing_stretch_min_max_state.get((i, dataset.get_id(), display_bands[i]), None)
                 if min_max is not None:
                     self._channel_widgets[i].set_min_max_bounds(
                         min_max[0],
@@ -1121,7 +1104,7 @@ class StretchBuilderDialog(QDialog):
             self._channel_widgets[0].set_histogram_color(QColor('black'))
             self._channel_widgets[0].set_band(dataset, display_bands[0])
             # TODO(donnie):  Set existing stretch details
-            min_max = self._existing_stretch_min_max_state.get((dataset, display_bands[0]), None)
+            min_max = self._existing_stretch_min_max_state.get((0, dataset, display_bands[0]), None)
             if min_max is not None:
                 self._channel_widgets[0].set_min_max_bounds(
                     min_max[0],
