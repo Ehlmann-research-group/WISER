@@ -266,11 +266,7 @@ class ChannelStretchWidget(QWidget):
                               StretchLog2, StretchLog2UsingNumba,
                               StretchComposite)
 
-        if stretch is None:
-            self._load_individual_stretch(stretch)
-            return
-
-        if not isinstance(stretch, valid_stretches):
+        if stretch is not None and not isinstance(stretch, valid_stretches):
             raise ValueError(f"The stretch {type(stretch)} is not a valid stretch")
 
         if isinstance(stretch, StretchComposite):
