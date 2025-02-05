@@ -790,6 +790,8 @@ class StretchBuilderDialog(QDialog):
             # Fallback for <Qt 5.14
             screen_height = self.window().windowHandle().screen().size().height()
 
+        accept_rejection_region_height = 75
+        screen_height -= accept_rejection_region_height
         dialog_height = self.size().height()
         scroll_height = self._channels_scrollarea.size().height()
         channels_minheight = self._channels_scrollarea.widget().minimumSize().height()
