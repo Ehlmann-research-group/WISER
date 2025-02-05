@@ -318,11 +318,11 @@ class MainViewWidget(RasterPane):
 
     
     def on_rasterview_dataset_changed(self):
-        """
+        '''
         Currently, this function is used to change the dataset link state when
         a new dataset is showed to a raster view. If the new dataset's dimensions
         does not match the currently displayed datasets, we stop linking.
-        """
+        '''
         # We only do something if link_view_scroll is true, if not we do nothing
         if self._link_view_scrolling:
             if not self._app_state.multiple_displayed_datasets_same_size():
