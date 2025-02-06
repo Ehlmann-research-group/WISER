@@ -264,9 +264,10 @@ class HistogramCache(Cache):
         for value in values:
             self._size += value.nbytes
     
-    def get_cache_key(self, dataset,band_index: int, stretch_type, conditioner_type):
+    def get_cache_key(self, dataset,band_index: int, stretch_type, conditioner_type, \
+                      min_bound, max_bound):
         partial_key = self.get_partial_key(dataset)
-        cache_key = hash((dataset, band_index, stretch_type, conditioner_type))
+        cache_key = hash((dataset, band_index, stretch_type, conditioner_type, min_bound, max_bound))
         if partial_key not in self._key_lookup_table:
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)

@@ -120,7 +120,7 @@ class TiledRasterView(RasterView):
     def update_toolbar_state(self):
         '''
         Updates the toolbar's state to match the current application state.
-        This includes synchronizing the list of datasets in the datset-chooser
+        This includes synchronizing the list of datasets in the dataset-chooser
         with the datasets in the application, and also updating the button
         enabled-state based on what tasks should be available to users.
         '''
@@ -615,6 +615,18 @@ class RasterPane(QWidget):
         return self._app_state
 
 
+    def get_visible_datasets(self) -> List[RasterDataSet]:
+        '''
+        Returns all of the datasets that are displayed in all of the 
+        RasterViews under this RasterPane
+        '''
+        visible_ds = []
+        for rasterview in self._rasterviews.values():
+            if rasterview._raster_data is not None:
+                visible_ds.append(rasterview._raster_data)
+        return visible_ds
+
+
     def get_scale(self):
         '''
         Returns the current zoom scale of this raster pane.  Even when a pane
@@ -953,6 +965,8 @@ class RasterPane(QWidget):
             stretches = self._app_state.get_stretches(ds_id, bands)
 
         rasterview.set_raster_data(dataset, bands, stretches)
+        if hasattr(self, "_link_view_scrolling"):
+            self.on_rasterview_dataset_changed()
 
 
     def is_showing_dataset(self, dataset) -> Optional[Tuple[int, int]]:
@@ -979,7 +993,6 @@ class RasterPane(QWidget):
                     return pos
 
         return None
-
 
     def set_display_bands(self, ds_id: int, bands: Tuple, colormap: Optional[str] = None):
         # TODO(donnie):  Verify the dataset ID?
@@ -1176,6 +1189,8 @@ class RasterPane(QWidget):
             rv_ds = rv.get_raster_data()
             if rv_ds is not None and rv_ds.get_id() == ds_id:
                 rv.set_raster_data(None, None)
+
+        self._update_rasterview_toolbars()
 
         if self._app_state.num_datasets() == 0:
             self._act_band_chooser.setEnabled(False)
