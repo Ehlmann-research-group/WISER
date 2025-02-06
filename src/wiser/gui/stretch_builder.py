@@ -30,40 +30,63 @@ def remove_nans_python(data):
 @numba_njit_wrapper(non_njit_func=remove_nans_python)
 def remove_nans_numba(data):
     """
-    Extracts non-NaN values from a 2D NumPy array and returns them as a 1D array.
+    Extracts non-NaN values from a 1D or 2D NumPy array and returns them as a 1D array.
 
-    Parameters:
+    Parameters
     ----------
-    norm_band_data : np.ndarray
-        A 2D NumPy array from which NaN values are to be removed.
+    data : np.ndarray
+        A 1D or 2D NumPy array from which NaN values are to be removed.
 
-    Returns:
+    Returns
     -------
     nonan_data : np.ndarray
-        A 1D NumPy array containing all non-NaN elements from `norm_band_data`.
+        A 1D NumPy array containing all non-NaN elements from `data`.
     """
-    rows, cols = data.shape
-    count = 0
-
-    # First pass: Count the number of non-NaN elements
-    for i in range(rows):
-        for j in range(cols):
-            if not np.isnan(data[i, j]):
+    # Handle 1D arrays
+    if data.ndim == 1:
+        n = data.shape[0]
+        count = 0
+        # First pass: count non-NaN elements
+        for i in range(n):
+            if not np.isnan(data[i]):
                 count += 1
 
-    # Allocate the output array with the exact size needed
-    nonan_data = np.empty(count, dtype=data.dtype)
-
-    # Second pass: Populate the nonan_data array with non-NaN elements
-    idx = 0
-    for i in range(rows):
-        for j in range(cols):
-            value = data[i, j]
-            if not np.isnan(value):
-                nonan_data[idx] = value
+        # Allocate the output array
+        nonan_data = np.empty(count, dtype=data.dtype)
+        idx = 0
+        # Second pass: store non-NaN elements
+        for i in range(n):
+            if not np.isnan(data[i]):
+                nonan_data[idx] = data[i]
                 idx += 1
 
-    return nonan_data
+        return nonan_data
+
+    # Handle 2D arrays
+    elif data.ndim == 2:
+        rows, cols = data.shape
+        count = 0
+        # First pass: count non-NaN elements
+        for i in range(rows):
+            for j in range(cols):
+                if not np.isnan(data[i, j]):
+                    count += 1
+
+        # Allocate the output array
+        nonan_data = np.empty(count, dtype=data.dtype)
+        idx = 0
+        # Second pass: store non-NaN elements
+        for i in range(rows):
+            for j in range(cols):
+                if not np.isnan(data[i, j]):
+                    nonan_data[idx] = data[i, j]
+                    idx += 1
+
+        return nonan_data
+
+    else:
+        # If the input is not 1D or 2D, we raise an error.
+        raise ValueError("Input array must be either 1D or 2D.")
 
 def remove_nans(data: np.ndarray) -> np.ndarray:
     if data.nbytes < ARRAY_NUMBA_THRESHOLD:
