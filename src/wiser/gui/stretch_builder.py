@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -908,6 +908,35 @@ class StretchBuilderDialog(QDialog):
         # the smaller of the two heights.
         self.resize(QSize(self.size().width(), min(screen_height, ideal_height)))
 
+    def _get_channel_stretch_type(self,
+                                  channel: ChannelStretchWidget,
+                                  stretch_conditioner_type: Union[StretchType, ConditionerType]
+                                  ) -> Union[StretchBase, None]:
+
+        ds_id = channel.get_dataset_id()
+        dataset: RasterDataSet = self._app_state.get_dataset(ds_id)
+
+        memory_size = dataset.get_band_memory_size()
+
+        useJIT = False
+        if memory_size > ARRAY_NUMBA_THRESHOLD:
+            useJIT = True
+
+        if stretch_conditioner_type == StretchType.LINEAR_STRETCH:
+            return StretchLinearUsingNumba if useJIT else StretchLinear
+        elif stretch_conditioner_type == StretchType.EQUALIZE_STRETCH:
+            return StretchHistEqualizeUsingNumba if useJIT else StretchHistEqualize
+        elif stretch_conditioner_type == StretchType.NO_STRETCH:
+            return StretchBaseUsingNumba if useJIT else StretchBase
+        elif stretch_conditioner_type == ConditionerType.SQRT_CONDITIONER:
+            return StretchSquareRootUsingNumba if useJIT else StretchSquareRoot
+        elif stretch_conditioner_type == ConditionerType.LOG_CONDITIONER:
+            return StretchLog2UsingNumba if useJIT else StretchLog2
+        elif stretch_conditioner_type == ConditionerType.NO_CONDITIONER:
+            ValueError(f'Conditioner type of {stretch_conditioner_type} is not supported in this function.')
+        else:
+            ValueError(f'Conditioner type of {stretch_conditioner_type} not recognized.')
+
 
     def _get_channel_stretch(self, channel_no):
         if channel_no < 0 or channel_no >= self._num_active_channels:
@@ -940,16 +969,16 @@ class StretchBuilderDialog(QDialog):
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
 
-            stretch = StretchLinearUsingNumba(low, high)
+            stretch = self._get_channel_stretch_type(channel, stretch_type)(low, high)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
             bins, edges = channel.get_histogram()
-            stretch = StretchHistEqualizeUsingNumba(bins, edges)
+            stretch = self._get_channel_stretch_type(channel, stretch_type)(bins, edges)
 
         else:
             # No stretch
             assert stretch_type == StretchType.NO_STRETCH
-            stretch = StretchBaseUsingNumba()
+            stretch = self._get_channel_stretch_type(channel, stretch_type)()
 
         #=================================
         # CONDITIONER
@@ -957,10 +986,12 @@ class StretchBuilderDialog(QDialog):
         conditioner_type = self._stretch_config.get_conditioner_type()
 
         if conditioner_type == ConditionerType.SQRT_CONDITIONER:
-            stretch = StretchComposite(StretchSquareRootUsingNumba(), stretch)
+            stretch = StretchComposite(self._get_channel_stretch_type(channel, conditioner_type)(),
+                                       stretch)
 
         elif conditioner_type == ConditionerType.LOG_CONDITIONER:
-            stretch = StretchComposite(StretchLog2UsingNumba(), stretch)
+            stretch = StretchComposite(self._get_channel_stretch_type(channel, conditioner_type)(),
+                                       stretch)
 
         else:
             assert conditioner_type == ConditionerType.NO_CONDITIONER
@@ -973,7 +1004,6 @@ class StretchBuilderDialog(QDialog):
         Generate a list of StretchBase objects that reflect the current UI
         configuration, one per channel currently being manipulated.
         '''
-
         return [self._get_channel_stretch(i)
                 for i in range(self._num_active_channels)]
 
@@ -988,8 +1018,9 @@ class StretchBuilderDialog(QDialog):
 
 
     def _on_stretch_type_changed(self): # , stretch_type):
-        stretch_type = self._stretch_config.get_stretch_type()
         # print(f'Stretch type changed to {stretch_type}')
+
+        stretch_type = self._stretch_config.get_stretch_type()
 
         for i in range(self._num_active_channels):
             self._channel_widgets[i].set_stretch_type(stretch_type)
