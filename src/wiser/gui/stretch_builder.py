@@ -183,6 +183,9 @@ class ChannelStretchWidget(QWidget):
         #============================================================
         # User Interface Config:
 
+        self._ui.lineedit_stretch_low.installEventFilter(self)
+        self._ui.lineedit_stretch_high.installEventFilter(self)
+
         self._histogram_figure, self._histogram_axes = plt.subplots(constrained_layout=True)
         self._histogram_figure.set_constrained_layout_pads(w_pad=0, h_pad=0, wspace=0, hspace=0)
         self._histogram_axes.tick_params(direction='in', labelsize=4, pad=2, width=0.5,
@@ -471,6 +474,7 @@ class ChannelStretchWidget(QWidget):
 
         self.min_max_changed.emit(self._channel_no, self._min_bound, self._max_bound)
 
+
     def _update_histogram(self):
         if self._norm_band_data is None:
             if self._dataset is None or self._band_index is None:
@@ -603,6 +607,104 @@ class ChannelStretchWidget(QWidget):
     def _on_high_slider_clicked(self):
         if not self._high_slider_is_sliding:
             self._on_high_slider_changed()
+    
+    def validate_stretch_low_string(self, stretch_low_text):
+        try:
+            stretch_low_value = float(stretch_low_text)
+        except BaseException as e:
+            self._ui.lineedit_stretch_low.clearFocus()
+            QMessageBox.critical(self, 
+                                 "Invalid Input",
+                                 "Stretch Low is not a valid float",
+                                 QMessageBox.Ok)
+            return False
+
+        if stretch_low_value < self._min_bound:
+            self._ui.lineedit_stretch_low.clearFocus()
+            QMessageBox.critical(self, 
+                                 "Invalid Input",
+                                 "Stretch Low value can not be greater than the minimum bound",
+                                 QMessageBox.Ok)
+            return False
+
+        if stretch_low_value > self.norm_to_bounded_value(self._stretch_high):
+            self._ui.lineedit_stretch_low.clearFocus()
+            QMessageBox.critical(self, 
+                                 "Invalid Input",
+                                 "Stretch Low value can not be greater than stretch high value",
+                                 QMessageBox.Ok)
+            return False
+
+        return True
+
+    def _set_stretch_low_from_ledit(self):
+        # Get the text in the self._ui.lineedit_stretch_low
+        stretch_low_text = self._ui.lineedit_stretch_low.text()
+
+        # Check to make sure the string is valid
+        is_stretch_low_valid = self.validate_stretch_low_string(stretch_low_text)
+        
+        if not is_stretch_low_valid:
+            return
+    
+        stretch_low_value = float(stretch_low_text)
+        self.set_stretch_low(self.bounded_value_to_normalize_bounded(stretch_low_value))
+        self._on_low_slider_changed()
+
+    def validate_stretch_high_string(self, stretch_high_text):
+        try:
+            stretch_high_value = float(stretch_high_text)
+        except BaseException as e:
+            self._ui.lineedit_stretch_high.clearFocus()
+            QMessageBox.critical(self, 
+                                "Invalid Input",
+                                "Stretch High is not a valid float",
+                                QMessageBox.Ok)
+            return False
+
+        if stretch_high_value > self._max_bound:
+            self._ui.lineedit_stretch_high.clearFocus()
+            QMessageBox.critical(self, 
+                                "Invalid Input",
+                                "Stretch High value can not be greater than the maximum bound",
+                                QMessageBox.Ok)
+            return False
+
+        if stretch_high_value < self.norm_to_bounded_value(self._stretch_low):
+            self._ui.lineedit_stretch_high.clearFocus()
+            QMessageBox.critical(self, 
+                                "Invalid Input",
+                                "Stretch High value can not be less than stretch low value",
+                                QMessageBox.Ok)
+            return False
+
+        return True
+
+    def _set_stretch_high_from_ledit(self):
+        stretch_high_text = self._ui.lineedit_stretch_high.text()
+
+        # Check to make sure the string is valid
+        is_stretch_high_valid = self.validate_stretch_high_string(stretch_high_text)
+        
+        if not is_stretch_high_valid:
+            return
+    
+        stretch_high_value = float(stretch_high_text)
+        self.set_stretch_high(self.bounded_value_to_normalize_bounded(stretch_high_value))
+        self._on_high_slider_changed()
+
+    def eventFilter(self, obj: QObject, event: QEvent):
+        if obj == self._ui.lineedit_stretch_low and (event.type() == QEvent.KeyRelease
+                                                     or event.type() == QEvent.KeyPress):
+            if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+                self._set_stretch_low_from_ledit()
+                return True
+        elif obj == self._ui.lineedit_stretch_high and (event.type() == QEvent.KeyRelease
+                                                     or event.type() == QEvent.KeyPress):
+            if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+                self._set_stretch_high_from_ledit()
+                return True
+        return False
 
 class StretchConfigWidget(QWidget):
     '''
