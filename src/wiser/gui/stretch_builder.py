@@ -612,6 +612,7 @@ class ChannelStretchWidget(QWidget):
         try:
             stretch_low_value = float(stretch_low_text)
         except BaseException as e:
+            self._ui.lineedit_stretch_low.clearFocus()
             QMessageBox.critical(self, 
                                  "Invalid Input",
                                  "Stretch Low is not a valid float",
@@ -619,6 +620,7 @@ class ChannelStretchWidget(QWidget):
             return False
 
         if stretch_low_value < self._min_bound:
+            self._ui.lineedit_stretch_low.clearFocus()
             QMessageBox.critical(self, 
                                  "Invalid Input",
                                  "Stretch Low value can not be greater than the minimum bound",
@@ -626,6 +628,7 @@ class ChannelStretchWidget(QWidget):
             return False
 
         if stretch_low_value > self.norm_to_bounded_value(self._stretch_high):
+            self._ui.lineedit_stretch_low.clearFocus()
             QMessageBox.critical(self, 
                                  "Invalid Input",
                                  "Stretch Low value can not be greater than stretch high value",
@@ -652,6 +655,7 @@ class ChannelStretchWidget(QWidget):
         try:
             stretch_high_value = float(stretch_high_text)
         except BaseException as e:
+            self._ui.lineedit_stretch_high.clearFocus()
             QMessageBox.critical(self, 
                                 "Invalid Input",
                                 "Stretch High is not a valid float",
@@ -659,6 +663,7 @@ class ChannelStretchWidget(QWidget):
             return False
 
         if stretch_high_value > self._max_bound:
+            self._ui.lineedit_stretch_high.clearFocus()
             QMessageBox.critical(self, 
                                 "Invalid Input",
                                 "Stretch High value can not be greater than the maximum bound",
@@ -666,6 +671,7 @@ class ChannelStretchWidget(QWidget):
             return False
 
         if stretch_high_value < self.norm_to_bounded_value(self._stretch_low):
+            self._ui.lineedit_stretch_high.clearFocus()
             QMessageBox.critical(self, 
                                 "Invalid Input",
                                 "Stretch High value can not be less than stretch low value",
