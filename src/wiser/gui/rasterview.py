@@ -19,7 +19,7 @@ from wiser.raster.stretch import StretchBase
 
 from wiser.gui.app_state import ApplicationState
 
-from wiser.utils.numba_wrapper import numba_njit_wrapper
+from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,7 @@ def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None
     if normalized_band.nbytes < ARRAY_NUMBA_THRESHOLD:
         return make_channel_image_python(normalized_band, stretch1, stretch2)
     else:
+        normalized_band = convert_to_float32_if_needed(normalized_band)
         return make_channel_image_numba(normalized_band, stretch1, stretch2)
 
 def check_channel(c):
@@ -203,6 +204,7 @@ def make_rgb_image(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray):
     if ch1.nbytes < ARRAY_NUMBA_THRESHOLD:
         return make_rgb_image_python(ch1, ch2, ch3)
     else:
+        ch1, ch2, ch3 = convert_to_float32_if_needed(ch1, ch2, ch3)
         return make_rgb_image_numba(ch1, ch2, ch3)
 
 

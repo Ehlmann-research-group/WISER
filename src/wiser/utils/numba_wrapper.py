@@ -109,3 +109,40 @@ def numba_jitclass_wrapper(numpy_spec, nonjit_class):
         else:
             return nonjit_class
     return decorator
+
+def convert_to_float32_if_needed(*args):
+    """
+    This function accepts a variable number of arguments. For each argument:
+      1. If it is NOT a NumPy array or a NumPy number, it is returned as is.
+      2. If it is a NumPy array or a NumPy number, check if its dtype/kind is float.
+         - If it's float but NOT float32, convert/cast it to float32.
+      3. Return all arguments in their original order, possibly with changed types.
+    This function is meant to ensure no float's get into numba that are not float32.
+    Numba also accepts float64, but we currently do not use float64.
+    """
+    result = []
+    for arg in args:
+        # Check if `arg` is a NumPy array or a NumPy scalar
+        if isinstance(arg, (np.ndarray, np.number)):
+
+            # If it's an array, check its dtype
+            if isinstance(arg, np.ndarray):
+                # Check if dtype is floating
+                if np.issubdtype(arg.dtype, np.floating):
+                    # If not float32, convert to float32
+                    if arg.dtype != np.float32:
+                        arg = arg.astype(np.float32)
+     
+            # If it's a NumPy scalar (np.number)
+            else:
+                # Check if the scalar is float-like
+                if np.issubdtype(arg.dtype, np.floating):
+                    # If not already float32, convert it
+                    if not isinstance(arg, np.float32):
+                        arg = np.float32(arg)
+
+        # Append the (possibly converted) argument to the result
+        result.append(arg)
+
+    # Return the new list of arguments
+    return result

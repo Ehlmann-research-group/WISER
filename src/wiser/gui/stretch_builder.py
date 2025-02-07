@@ -10,7 +10,7 @@ from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
-from wiser.utils.numba_wrapper import numba_njit_wrapper
+from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 
 import numpy as np
 import numpy.ma as ma
@@ -92,6 +92,7 @@ def remove_nans(data: np.ndarray) -> np.ndarray:
     if data.nbytes < ARRAY_NUMBA_THRESHOLD:
         return remove_nans_python(data)
     else:
+        data = convert_to_float32_if_needed(data)
         return remove_nans_numba(data)
 
 def create_histogram_python(nonan_data: np.ndarray, min_bound, max_bound):
@@ -125,6 +126,7 @@ def create_histogram(nonan_data: np.ndarray, min_bound, max_bound) -> np.ndarray
     if nonan_data.nbytes < ARRAY_NUMBA_THRESHOLD:
         return create_histogram_python(nonan_data, min_bound, max_bound)
     else:
+        nonan_data, min_bound, max_bound = convert_to_float32_if_needed(nonan_data, min_bound, max_bound)
         return create_histogram_numba(nonan_data, min_bound, max_bound)
 
 def get_slider_percentage(slider, value=None):
