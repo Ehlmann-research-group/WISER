@@ -228,7 +228,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         return self.gdal_dataset.RasterCount
 
     def get_elem_type(self) -> np.dtype:
-        return gdal_array.GDALTypeCodeToNumericTypeCode(self.gdal_data_type)
+        elem_type = gdal_array.GDALTypeCodeToNumericTypeCode(int(self.gdal_data_type))
+        return np.dtype(elem_type)
 
     def get_image_data(self):
         '''

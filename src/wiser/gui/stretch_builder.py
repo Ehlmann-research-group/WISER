@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -10,7 +10,7 @@ from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.stretch import *
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
-from wiser.utils.numba_wrapper import numba_njit_wrapper
+from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 
 import numpy as np
 import numpy.ma as ma
@@ -30,45 +30,69 @@ def remove_nans_python(data):
 @numba_njit_wrapper(non_njit_func=remove_nans_python)
 def remove_nans_numba(data):
     """
-    Extracts non-NaN values from a 2D NumPy array and returns them as a 1D array.
+    Extracts non-NaN values from a 1D or 2D NumPy array and returns them as a 1D array.
 
-    Parameters:
+    Parameters
     ----------
-    norm_band_data : np.ndarray
-        A 2D NumPy array from which NaN values are to be removed.
+    data : np.ndarray
+        A 1D or 2D NumPy array from which NaN values are to be removed.
 
-    Returns:
+    Returns
     -------
     nonan_data : np.ndarray
-        A 1D NumPy array containing all non-NaN elements from `norm_band_data`.
+        A 1D NumPy array containing all non-NaN elements from `data`.
     """
-    rows, cols = data.shape
-    count = 0
-
-    # First pass: Count the number of non-NaN elements
-    for i in range(rows):
-        for j in range(cols):
-            if not np.isnan(data[i, j]):
+    # Handle 1D arrays
+    if data.ndim == 1:
+        n = data.shape[0]
+        count = 0
+        # First pass: count non-NaN elements
+        for i in range(n):
+            if not np.isnan(data[i]):
                 count += 1
 
-    # Allocate the output array with the exact size needed
-    nonan_data = np.empty(count, dtype=data.dtype)
-
-    # Second pass: Populate the nonan_data array with non-NaN elements
-    idx = 0
-    for i in range(rows):
-        for j in range(cols):
-            value = data[i, j]
-            if not np.isnan(value):
-                nonan_data[idx] = value
+        # Allocate the output array
+        nonan_data = np.empty(count, dtype=data.dtype)
+        idx = 0
+        # Second pass: store non-NaN elements
+        for i in range(n):
+            if not np.isnan(data[i]):
+                nonan_data[idx] = data[i]
                 idx += 1
 
-    return nonan_data
+        return nonan_data
+
+    # Handle 2D arrays
+    elif data.ndim == 2:
+        rows, cols = data.shape
+        count = 0
+        # First pass: count non-NaN elements
+        for i in range(rows):
+            for j in range(cols):
+                if not np.isnan(data[i, j]):
+                    count += 1
+
+        # Allocate the output array
+        nonan_data = np.empty(count, dtype=data.dtype)
+        idx = 0
+        # Second pass: store non-NaN elements
+        for i in range(rows):
+            for j in range(cols):
+                if not np.isnan(data[i, j]):
+                    nonan_data[idx] = data[i, j]
+                    idx += 1
+
+        return nonan_data
+
+    else:
+        # If the input is not 1D or 2D, we raise an error.
+        raise ValueError("Input array must be either 1D or 2D.")
 
 def remove_nans(data: np.ndarray) -> np.ndarray:
     if data.nbytes < ARRAY_NUMBA_THRESHOLD:
         return remove_nans_python(data)
     else:
+        data = convert_to_float32_if_needed(data)
         return remove_nans_numba(data)
 
 def create_histogram_python(nonan_data: np.ndarray, min_bound, max_bound):
@@ -102,6 +126,7 @@ def create_histogram(nonan_data: np.ndarray, min_bound, max_bound) -> np.ndarray
     if nonan_data.nbytes < ARRAY_NUMBA_THRESHOLD:
         return create_histogram_python(nonan_data, min_bound, max_bound)
     else:
+        nonan_data, min_bound, max_bound = convert_to_float32_if_needed(nonan_data, min_bound, max_bound)
         return create_histogram_numba(nonan_data, min_bound, max_bound)
 
 def get_slider_percentage(slider, value=None):
@@ -908,6 +933,35 @@ class StretchBuilderDialog(QDialog):
         # the smaller of the two heights.
         self.resize(QSize(self.size().width(), min(screen_height, ideal_height)))
 
+    def _get_channel_stretch_type(self,
+                                  channel: ChannelStretchWidget,
+                                  stretch_conditioner_type: Union[StretchType, ConditionerType]
+                                  ) -> Union[StretchBase, None]:
+
+        ds_id = channel.get_dataset_id()
+        dataset: RasterDataSet = self._app_state.get_dataset(ds_id)
+
+        memory_size = dataset.get_band_memory_size()
+
+        useJIT = False
+        if memory_size > ARRAY_NUMBA_THRESHOLD:
+            useJIT = True
+
+        if stretch_conditioner_type == StretchType.LINEAR_STRETCH:
+            return StretchLinearUsingNumba if useJIT else StretchLinear
+        elif stretch_conditioner_type == StretchType.EQUALIZE_STRETCH:
+            return StretchHistEqualizeUsingNumba if useJIT else StretchHistEqualize
+        elif stretch_conditioner_type == StretchType.NO_STRETCH:
+            return StretchBaseUsingNumba if useJIT else StretchBase
+        elif stretch_conditioner_type == ConditionerType.SQRT_CONDITIONER:
+            return StretchSquareRootUsingNumba if useJIT else StretchSquareRoot
+        elif stretch_conditioner_type == ConditionerType.LOG_CONDITIONER:
+            return StretchLog2UsingNumba if useJIT else StretchLog2
+        elif stretch_conditioner_type == ConditionerType.NO_CONDITIONER:
+            ValueError(f'Conditioner type of {stretch_conditioner_type} is not supported in this function.')
+        else:
+            ValueError(f'Conditioner type of {stretch_conditioner_type} not recognized.')
+
 
     def _get_channel_stretch(self, channel_no):
         if channel_no < 0 or channel_no >= self._num_active_channels:
@@ -940,16 +994,16 @@ class StretchBuilderDialog(QDialog):
             low  = (band_stretch_low  - band_min) / range
             high = (band_stretch_high - band_min) / range
 
-            stretch = StretchLinearUsingNumba(low, high)
+            stretch = self._get_channel_stretch_type(channel, stretch_type)(low, high)
 
         elif stretch_type == StretchType.EQUALIZE_STRETCH:
             bins, edges = channel.get_histogram()
-            stretch = StretchHistEqualizeUsingNumba(bins, edges)
+            stretch = self._get_channel_stretch_type(channel, stretch_type)(bins, edges)
 
         else:
             # No stretch
             assert stretch_type == StretchType.NO_STRETCH
-            stretch = StretchBaseUsingNumba()
+            stretch = self._get_channel_stretch_type(channel, stretch_type)()
 
         #=================================
         # CONDITIONER
@@ -957,10 +1011,12 @@ class StretchBuilderDialog(QDialog):
         conditioner_type = self._stretch_config.get_conditioner_type()
 
         if conditioner_type == ConditionerType.SQRT_CONDITIONER:
-            stretch = StretchComposite(StretchSquareRootUsingNumba(), stretch)
+            stretch = StretchComposite(self._get_channel_stretch_type(channel, conditioner_type)(),
+                                       stretch)
 
         elif conditioner_type == ConditionerType.LOG_CONDITIONER:
-            stretch = StretchComposite(StretchLog2UsingNumba(), stretch)
+            stretch = StretchComposite(self._get_channel_stretch_type(channel, conditioner_type)(),
+                                       stretch)
 
         else:
             assert conditioner_type == ConditionerType.NO_CONDITIONER
@@ -973,7 +1029,6 @@ class StretchBuilderDialog(QDialog):
         Generate a list of StretchBase objects that reflect the current UI
         configuration, one per channel currently being manipulated.
         '''
-
         return [self._get_channel_stretch(i)
                 for i in range(self._num_active_channels)]
 
@@ -988,8 +1043,9 @@ class StretchBuilderDialog(QDialog):
 
 
     def _on_stretch_type_changed(self): # , stretch_type):
-        stretch_type = self._stretch_config.get_stretch_type()
         # print(f'Stretch type changed to {stretch_type}')
+
+        stretch_type = self._stretch_config.get_stretch_type()
 
         for i in range(self._num_active_channels):
             self._channel_widgets[i].set_stretch_type(stretch_type)
