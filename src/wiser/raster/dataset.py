@@ -745,7 +745,7 @@ class RasterDataSet:
         return False
 
     def __hash__(self):
-        return hash(tuple(self.get_filepaths()))
+        return self._id
 
     def __eq__(self, other) -> bool:
         if isinstance(other, RasterDataSet):
