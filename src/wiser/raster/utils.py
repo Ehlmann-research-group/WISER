@@ -5,7 +5,7 @@ from osgeo import gdal
 import numpy as np
 from astropy import units as u
 
-from wiser.utils.numba_wrapper import numba_njit_wrapper
+from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 
 ARRAY_NUMBA_THRESHOLD = 150000000 # 150 MB
 
@@ -246,6 +246,7 @@ def normalize_ndarray(arr: np.ndarray, minval=None, maxval=None) -> Union[None, 
     if arr.nbytes < ARRAY_NUMBA_THRESHOLD:
         return normalize_ndarray_python(array=arr, minval=minval, maxval=maxval)
     else:
+        arr, minval, maxval = convert_to_float32_if_needed(arr, minval, maxval)
         return normalize_ndarray_numba(arr, minval, maxval)
 
 
