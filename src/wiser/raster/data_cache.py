@@ -3,6 +3,10 @@ from collections import OrderedDict
 
 import numpy as np
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class Cache:
     """
     A generic cache implementation using an ordered dictionary to store key-value pairs with size management.
@@ -67,7 +71,7 @@ class Cache:
         """
         data_size = value.nbytes
         if data_size > self._capacity:
-            print(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
+            logger.debug(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
             return
         if self._size + data_size > self._capacity:
             self._evict()
