@@ -188,6 +188,8 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
+        print("GDAL Python module is located at:", gdal.__file__)
+
     def _init_menus(self):
 
         # Configure the menus based on the OS/platform
