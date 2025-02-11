@@ -15,8 +15,6 @@ if getattr(sys, 'frozen', False):
     # relative to sys._MEIPASS:
     plugin_path = os.path.join(sys._MEIPASS, "gdalplugins")
     os.environ["GDAL_DRIVER_PATH"] = plugin_path
-    print(f"ADDING PLUGINS TO GDAL_DRIVER_PATH")
-os.environ["CPL_DEBUG"] = "ON"
 
 #============================================================================
 # ESSENTIAL DEBUG CONFIGURATION

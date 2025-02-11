@@ -188,15 +188,6 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
-        print("GDAL Python module is located at:", gdal.__file__)
-        gdal_driver_path = os.environ["GDAL_DRIVER_PATH"]
-        print(f"os.environ[\"GDAL_DRIVER_PATH\"]: {gdal_driver_path}")
-        driver = gdal.GetDriverByName("netCDF")
-        if driver is not None:
-            print("NetCDF driver found!")
-        else:
-            print("NetCDF driver NOT found.")
-
     def _init_menus(self):
 
         # Configure the menus based on the OS/platform

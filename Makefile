@@ -78,24 +78,17 @@ dist-win : generated
 	    --icon icons\wiser.ico \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\platforms;platforms \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\iconengines;iconengines \
-		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\drivers.ini;gdalplugins \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_FITS.dll;gdalplugins \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_netCDF.dll;gdalplugins \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF4.dll;gdalplugins \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF5.dll;gdalplugins \
-		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\drivers.ini;. \
-		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_FITS.dll;. \
-		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_netCDF.dll;. \
-		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF4.dll;. \
-		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF5.dll;. \
-		--add-data C:\Users\jgarc\anaconda3\envs\wiser-source-2\Library\bin\libiomp5md.dll;. \
 		--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
 		--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
 		--collect-all osgeo \
 		--exclude-module PyQt5 \
 		src\wiser\__main__.py > debug_output.txt 2>&1
 
-# $(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
+	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 
 clean:
 	$(MAKE) -C src clean
