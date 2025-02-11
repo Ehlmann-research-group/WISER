@@ -86,7 +86,7 @@ dist-win : generated
 		--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
 		--collect-all osgeo \
 		--exclude-module PyQt5 \
-		src\wiser\__main__.py > debug_output.txt 2>&1
+		src\wiser\__main__.py
 
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 
