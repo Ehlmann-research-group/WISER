@@ -77,7 +77,6 @@ class RasterDataLoader:
             except Exception as e:
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
-
         if impl_list is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
 

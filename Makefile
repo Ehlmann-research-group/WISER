@@ -78,7 +78,10 @@ dist-win : generated
 	    --icon icons\wiser.ico \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\platforms;platforms \
 		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\iconengines;iconengines \
-		--add-data C:\Users\jgarc\anaconda3\envs\wiser-source\Library\bin\libiomp5md.dll;. \
+		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_FITS.dll;gdalplugins \
+		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_netCDF.dll;gdalplugins \
+		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF4.dll;gdalplugins \
+		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF5.dll;gdalplugins \
 		--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
 		--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
 		--collect-all osgeo \
