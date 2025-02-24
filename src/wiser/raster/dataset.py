@@ -71,7 +71,9 @@ def reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset: "Rast
         pass
     else: # Else its GeographicLinkState.SPATIAL
         geo_coords = reference_dataset.to_geographic_coords((x, y))
+        print(f"geo_coords: {geo_coords}")
         transformed_center = target_dataset.geo_to_pixel_coords(geo_coords)
+        print(f"transformed_center: {transformed_center}")
 
         x = transformed_center[0]
         y = transformed_center[1]
@@ -692,8 +694,7 @@ class RasterDataSet:
         gx, gy = geo_coords
         px = origin_px + gx * width + gy * x_rotation
         py = origin_py + gx * y_rotation + gy * height
-
-        return (int(px), int(py))
+        return (int(px+0.5), int(py+0.5))  # +0.5 for rounding
 
     def is_pixel_in_image_bounds(self, pixel: Tuple[int, int]) -> bool:
         """
