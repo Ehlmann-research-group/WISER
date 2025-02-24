@@ -71,9 +71,7 @@ def reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset: "Rast
         pass
     elif link_state == GeographicLinkState.SPATIAL:
         geo_coords = reference_dataset.to_geographic_coords((x, y))
-        print(f"geo_coords: {geo_coords}")
         transformed_center = target_dataset.geo_to_pixel_coords(geo_coords)
-        print(f"transformed_center: {transformed_center}")
 
         x = transformed_center[0]
         y = transformed_center[1]
