@@ -354,6 +354,58 @@ class ApplicationState(QObject):
                 return False
 
         return True
+    
+    def multiple_datasets_link_compatible(self):
+        
+        same_size = self.multiple_datasets_same_size()
+        if same_size:
+            return same_size, GeographicLinkState.PIXEL
+        
+        datasets = list(self._datasets.values())
+        ds0_srs = datasets[0].get_spatial_ref()
+        if ds0_srs == None:
+            return False, GeographicLinkState.NO_LINK
+        
+        for ds in datasets[1:]:
+            ds_srs = ds.get_spatial_ref()
+            if ds_srs == None or not ds0_srs.IsSame(ds_srs):
+                return False, GeographicLinkState.NO_LINK
+
+        return True, GeographicLinkState.SPATIAL
+
+    def multiple_displayed_datasets_link_compatible(self) -> Tuple[bool, GeographicLinkState]:
+        
+        displayed_datasets = self._app._main_view.get_visible_datasets()
+
+        same_size = True
+        if len(displayed_datasets) < 2:
+            print(f"len(displayed_datasets) < 2")
+            return False
+
+        # Else, make sure they're all the same size 
+        ds0_dim = (displayed_datasets[0].get_width(), displayed_datasets[0].get_height())
+        for ds in displayed_datasets[1:]:
+            ds_dim = (ds.get_width(), ds.get_height())
+            if ds_dim != ds0_dim:
+                same_size = False
+
+        if same_size:
+            print(f"PIXEL SYNC")
+            return same_size, GeographicLinkState.PIXEL
+
+        ds0_srs = displayed_datasets[0].get_spatial_ref()
+        if ds0_srs == None:
+            print(f"ds0_srs == None")
+            return False, GeographicLinkState.NO_LINK
+        
+        for ds in displayed_datasets[1:]:
+            ds_srs = ds.get_spatial_ref()
+            if ds_srs == None or not ds0_srs.IsSame(ds_srs):
+                print(f"ds_srs == None or not ds0_srs.IsSame(ds_srs)")
+                return False, GeographicLinkState.NO_LINK
+
+        print(f"SPATIAL SYNC")
+        return True, GeographicLinkState.SPATIAL
 
     def multiple_displayed_datasets_same_size(self):
         '''

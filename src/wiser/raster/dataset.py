@@ -5,8 +5,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from astropy import units as u
+import enum
 
-from osgeo import osr
+from osgeo import osr, gdal
 
 from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
@@ -19,6 +20,11 @@ Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
 DEFAULT_MASK_VALUE = 0
+
+class GeographicLinkState(enum.Enum):
+    NO_LINK = 0
+    PIXEL = 1
+    SPATIAL = 2
 
 def pixel_coord_to_geo_coord(pixel_coord: Tuple[Number, Number],
         geo_transform: Tuple[Number, Number, Number, Number, Number, Number]) -> Tuple[Number, Number]:
@@ -47,7 +53,29 @@ def geo_coord_to_angular_coord(geo_coord: Tuple[Number, Number], spatial_ref) ->
     ang_spatial_ref = spatial_ref.CloneGeogCS()
     coord_xform = osr.CoordinateTransformation(spatial_ref, ang_spatial_ref)
     return coord_xform.TransformPoint(geo_x, geo_y)
+    
+def reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset: "RasterDataSet", \
+                                    target_dataset: "RasterDataSet") -> Optional[Tuple[int, int]]:
+    x, y = reference_pixel
+    if reference_dataset is None:
+        return 
 
+    if target_dataset is None:
+        return
+    
+    link_state = target_dataset.determine_link_state(reference_dataset)
+    if link_state == GeographicLinkState.NO_LINK:
+        return
+    elif link_state == GeographicLinkState.PIXEL:
+        # Pixel links mean the datasets have the same width and height
+        pass
+    else: # Else its GeographicLinkState.SPATIAL
+        geo_coords = reference_dataset.to_geographic_coords((x, y))
+        transformed_center = target_dataset.geo_to_pixel_coords(geo_coords)
+
+        x = transformed_center[0]
+        y = transformed_center[1]
+    return (x, y)
 
 class BandStats:
     '''
@@ -640,14 +668,119 @@ class RasterDataSet:
             band_stats = BandStats(index, band_min, band_max)
             self._cached_band_stats[index] = band_stats
 
-
     def to_geographic_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
+        if self._spatial_ref is None:
+            return None
+
+        geo_coord = pixel_coord_to_geo_coord(pixel_coord, self._geo_transform)
+        return geo_coord
+
+    def to_angular_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
         if self._spatial_ref is None:
             return None
 
         geo_coord = pixel_coord_to_geo_coord(pixel_coord, self._geo_transform)
         ang_coord = geo_coord_to_angular_coord(geo_coord, self._spatial_ref)
         return ang_coord
+
+    def geo_to_pixel_coords(self, geo_coords: Tuple[float, float]) -> Optional[Tuple[int, int]]:
+        if self._geo_transform is None:
+            return None
+        
+        inv_geo_transform = gdal.InvGeoTransform(self._geo_transform)
+        origin_px, width, x_rotation, origin_py, y_rotation, height = inv_geo_transform
+        gx, gy = geo_coords
+        px = origin_px + gx * width + gy * x_rotation
+        py = origin_py + gx * y_rotation + gy * height
+
+        return (int(px), int(py))
+
+    def is_pixel_in_image_bounds(self, pixel: Tuple[int, int]) -> bool:
+        """
+        Checks to see if the pixel is in the bounds of the image.
+
+        The 0th index of pixel corresponds to the width (x-coordinate) and the 1st index 
+        corresponds to the height (y-coordinate). The coordinate (0, 0) is the top left 
+        most valid pixel.
+        
+        Args:
+            - pixel: The pixel that we want to know is inbounds or not
+
+        Returns:
+            True if the pixel is within the bounds of the image, False otherwise.
+        """
+        x, y = pixel
+        width = self.get_width()
+        height = self.get_height()
+        
+        # Check if the pixel is within the valid coordinate range:
+        return 0 <= x < width and 0 <= y < height
+
+    def is_spatial_coord_in_spatial_bounds(self, spatial_coord: Tuple[float, float]) -> bool:
+        """
+        Checks to see if the spatial coordinate is in the spatial bounds of the image.
+
+        The 0th index of spatial_coord corresponds to the x coordinate in spatial terms,
+        and the 1st index corresponds to the y coordinate. The spatial extent of the image is
+        determined using self._geo_transform (as returned by GDAL's GetGeoTransform) along with
+        the image dimensions from self.get_width() (x direction) and self.get_height() (y direction).
+
+        Args:
+            - spatial_coord: The spatial coordinate that we want to know is inbounds or not
+
+        Returns:
+            True if the spatial coordinate is within the spatial bounds of the image, False otherwise.
+        """
+        # Retrieve the geo transform tuple
+        gt = self._geo_transform
+        origin_x, pixel_width, _, origin_y, _, pixel_height = gt
+
+        # Get the image dimensions in pixels
+        width = self.get_width()
+        height = self.get_height()
+
+        # Compute the spatial coordinate of the image's opposite corner.
+        # For the x direction:
+        end_x = origin_x + pixel_width * width
+        # For the y direction:
+        end_y = origin_y + pixel_height * height
+
+        # Determine the min and max bounds in the x and y directions.
+        # This accounts for cases where pixel_width or pixel_height might be negative.
+        min_x = min(origin_x, end_x)
+        max_x = max(origin_x, end_x)
+        min_y = min(origin_y, end_y)
+        max_y = max(origin_y, end_y)
+
+        # Unpack the provided spatial coordinate.
+        x, y = spatial_coord
+
+        # Check if the coordinate is within the computed spatial bounds.
+        return (min_x <= x <= max_x) and (min_y <= y <= max_y)
+
+    def determine_link_state(self, dataset: "RasterDataSet") -> GeographicLinkState:
+        """
+        Tests to see if the passed in dataset is compatible to link with the current dataset
+        Returns:
+            0 is no link,
+            1 is pixel link, 
+            2 is spatial link
+        """
+        ds0_dim = (self.get_width(), self.get_height())
+        ds_dim = (dataset.get_width(), dataset.get_height())
+
+        if ds_dim == ds0_dim:
+            return GeographicLinkState.PIXEL
+        
+        ds0_srs = self.get_spatial_ref()
+        
+        ds_srs = dataset.get_spatial_ref()
+        if ds0_srs == None or ds_srs == None or not ds0_srs.IsSame(ds_srs):
+            return GeographicLinkState.NO_LINK
+        
+        return GeographicLinkState.SPATIAL
+        
+
 
 
     def copy_metadata_from(self, dataset: 'RasterDataSet') -> None:

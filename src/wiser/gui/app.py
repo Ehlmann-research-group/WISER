@@ -50,6 +50,7 @@ from wiser import plugins
 
 from .bandmath_dialog import BandMathDialog
 from .fits_loading_dialog import FitsSpectraLoadingDialog
+from .registration_dialog import RegistrationDialog
 from wiser import bandmath
 
 from wiser.raster.selection import SinglePixelSelection
@@ -269,6 +270,10 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
+
+        
+        act = self._tools_menu.addAction(self.tr('Co-Registration'))
+        act.triggered.connect(self.show_registration_dialog)
 
         # Help menu
 
@@ -837,6 +842,11 @@ class DataVisualizerApp(QMainWindow):
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
 
+    def show_registration_dialog(self):
+        dialog = RegistrationDialog(self._app_state)
+        if dialog.exec() == QDialog.Accepted:
+            print("Pressed accept!")
+
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         '''
@@ -907,18 +917,25 @@ class DataVisualizerApp(QMainWindow):
         # TODO(donnie):  Handle this!!  Need to iterate through all raster-views
         #     and draw their viewports in the context pane.  If the main view
         #     has linked scrolling enabled, we only need to draw one box though.
+        # print(f"_on_mainview_viewport_change")
         if rasterview_position is None:
             return
 
         if self._main_view.is_multi_view() and not self._main_view.is_scrolling_linked():
             # Get a list of all visible regions from all views
-            visible_region = self._main_view.get_all_visible_regions()
+            visible_region = self._main_view.get_all_regions()
+            rasterview = self._main_view.get_all_rasterviews()
         else:
             rasterview = self._main_view.get_rasterview(rasterview_position)
             visible_region = rasterview.get_visible_region()
 
-        self._context_pane.set_viewport_highlight(visible_region)
+            # Context pane's set_viewport_highlight takes in lists
+            rasterview = [rasterview]
+            visible_region = [visible_region]
 
+        # print(f"_on_mainview_viewport_change, setting context pane's viewport highlight")
+        self._context_pane.set_viewport_highlight(visible_region, rasterview)
+        return
 
     def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point):
         '''
@@ -931,6 +948,7 @@ class DataVisualizerApp(QMainWindow):
         that if they were hidden and are then shown, they will still contain the
         relevant information.
         '''
+        print(f"app.py _on_mainview_raster_pixel_select")
         if self._app_state.num_datasets() == 0:
             return
 
@@ -952,12 +970,16 @@ class DataVisualizerApp(QMainWindow):
 
         # App behavior varies when we are in linked mode vs. not in linked mode
         if self._main_view.is_scrolling_linked():
+            print(f"linked")
             # Linked scrolling:  Don't change the dataset of any other panes;
             # just show the corresponding data in those panes' datasets.
 
-            sel = SinglePixelSelection(ds_point, None)
-
-            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+            sel = SinglePixelSelection(ds_point, ds)
+        
+            print(f"about to set_pixel_highlight for _main_view")
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, are_views_linked=True)
+            
+            print(f"about to set_pixel_highlight for _zoom_pane")
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the "active spectrum" based on the current config and the
@@ -965,6 +987,7 @@ class DataVisualizerApp(QMainWindow):
             self._update_active_spectrum(spectrum_ds, ds_point)
 
         else:
+            print(f"not linked")
             # Non-linked scrolling:  Change the dataset of other panes before
             # updating them to show the clicked data.
 
@@ -972,9 +995,11 @@ class DataVisualizerApp(QMainWindow):
 
             self._context_pane.show_dataset(ds)
 
+            print(f"about to set_pixel_highlight for _main_view")
             self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
             self._zoom_pane.show_dataset(ds)
+            print(f"about to set_pixel_highlight for _zoom_pane")
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the "active spectrum" based on the current config and the
@@ -1009,10 +1034,11 @@ class DataVisualizerApp(QMainWindow):
 
     def _update_zoom_viewport_highlight(self):
         visible_area = None
+        rv = self._zoom_pane.get_rasterview()
         if self._zoom_pane.isVisible():
             visible_area = self._zoom_pane.get_rasterview().get_visible_region()
 
-        self._main_view.set_viewport_highlight(visible_area)
+        self._main_view.set_viewport_highlight(visible_area, rv)
 
 
     def _on_zoom_raster_pixel_select(self, rasterview_position, ds_point):
@@ -1052,10 +1078,11 @@ class DataVisualizerApp(QMainWindow):
             # Linked scrolling:  Don't change the dataset of any other panes;
             # just show the corresponding data in those panes' datasets.
 
-            sel = SinglePixelSelection(ds_point, None)
+            sel = SinglePixelSelection(ds_point, ds)
 
             # Update the main and zoom windows to show the selected dataset and pixel.
-            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, 
+                                                are_views_linked=True)
             self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
             # Set the "active spectrum" based on the current config and the

@@ -1,11 +1,15 @@
+from typing import List, Union, Dict
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 import wiser.gui.generated.resources
 
-from .rasterview import ScaleToFitMode
+from .rasterview import ScaleToFitMode, RasterView
 from .rasterpane import RasterPane
+
+from .util import get_painter
 
 
 class ContextPane(RasterPane):
@@ -19,6 +23,8 @@ class ContextPane(RasterPane):
     def __init__(self, app_state, parent=None):
         super().__init__(app_state=app_state, parent=parent,
             size_hint=QSize(200, 200))
+    
+        self._viewport_highlight: Dict[int, List[Union[QRect, QRectF]]] = None
 
 
     def _init_toolbar(self):
@@ -102,3 +108,51 @@ class ContextPane(RasterPane):
             # Just zoom such that one of the dimensions fits.
             self.get_rasterview().scale_image_to_fit(
                 mode=ScaleToFitMode.FIT_ONE_DIMENSION)
+
+            
+    def set_viewport_highlight(self, viewports: List[Union[QRect, QRectF]], \
+                               rasterviews: List[RasterView]):
+        '''
+        Sets the "viewport highlight" to be displayed in this raster-pane.  This
+        is used to allow the Context Pane to show the Main View viewport. This 
+        function is triggered by a scroll event in the mainview. Although we collect all
+        rasterviews from the mainview, we only want those rasterviews that are compatible
+        with the rasterview displayed in the context pane to display.
+        '''
+        
+        self.create_viewport_highlight_dictionary(viewports, rasterviews)
+
+        # If the specified viewport highlight region is not entirely within this
+        # raster-view's visible area, scroll such that the viewport highlight is
+        # in the middle of the raster-view's visible area. This is only done if 
+        # the context pane has one item in the viewport because it doesn't make
+        # sense to make two points be in the middle of the raster-view's visible
+        # area.
+
+        # This will update on all the rasterviews in Context Pane although, as of 
+        # 02/20/2025, there is only one rasterview in Context Pane. 
+
+        # The call to update causes the highlight boxes to be drawn in Context
+        # Pane's rasterview. However, the rasterview will only draw the boxes
+        # that have the same dataset id as the rasterview.
+
+        for rv in self._rasterviews.values():
+            visible = rv.get_visible_region()
+            if visible is None or viewports is None or len(viewports) > 1:
+                # print(f"Updating context pane")
+                rv.update()
+                continue
+            
+            # TLDR: Its not possible for the first element in viewports to be none 
+            # if viewports just has one element. This situation would arise
+            # if the context pane displayed a dataset but none of the 
+            # rasterviews did, but in that case, there is no viewport_highlight
+            # to set so this function would never be called. 
+            if not visible.contains(viewports[0]):
+                center = viewports[0].center()
+                # TODO (Joshua G-K): Make this compatible with geographic linking
+                rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterviews[0])
+
+            # print(f"Updating context pane")
+            # Repaint raster-view
+            rv.update()

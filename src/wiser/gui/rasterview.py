@@ -14,7 +14,7 @@ from matplotlib import cm
 
 from .util import get_painter
 
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, GeographicLinkState, reference_pixel_to_target_pixel_ds
 from wiser.raster.stretch import StretchBase
 
 from wiser.gui.app_state import ApplicationState
@@ -22,8 +22,9 @@ from wiser.gui.app_state import ApplicationState
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
 
-logger = logging.getLogger(__name__)
+import pdb
 
+logger = logging.getLogger(__name__)
 
 def make_channel_image_python(normalized_band: np.ndarray, stretch1: StretchBase = None, stretch2: StretchBase = None) -> np.ndarray:
     '''
@@ -279,6 +280,20 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
 
     return rgb_data
 
+def reference_pixel_to_target_pixel_rasterview(reference_pixel: Tuple[int, int], reference_rasterview: "RasterView", \
+                                    target_rasterview: "RasterView") -> Optional[Tuple[int, int]]:
+    if reference_rasterview is not None:
+        # We must change x and y such that they are in the correct coordinates
+        reference_dataset = reference_rasterview.get_raster_data()
+        if reference_dataset is None:
+            return 
+        
+        target_dataset = target_rasterview._raster_data
+        if target_dataset is None:
+            return
+        
+    return reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset, target_dataset)
+    
 
 class ImageColors(enum.IntFlag):
     '''
@@ -421,18 +436,46 @@ class ImageScrollArea(QScrollArea):
     potentially larger than the available display-area.  The main reason we
     subclass QScrollArea is simply to forward viewport-scroll events from the
     scroll-area to the RasterView, which can then act accordingly.
+
+    All calls to this class that can trigger scrollContentsBy should be done below.
+    In order to prevent infinite recursion, when a call triggers scrollContentsBy, 
+    we must tell scrollContentsBy whether to propagate the scroll and strictly control
+    this logic.
     '''
 
     def __init__(self, rasterview, forward, parent=None):
         super().__init__(parent)
         self._rasterview = rasterview
         self._forward = forward
+        self.propagate_scroll = True  # External objects control whether signals should be propagated or not
+
+    def ensureVisible(self, x: int, y: int, xmargin: int, ymargin: int):
+        self.propagate_scroll = False
+        super().ensureVisible(x, y, xmargin, ymargin)
+        self.propagate_scroll = True
+
+    def _update_scrollbar_no_propagation(self, scrollbar, value):
+        '''
+        Updates a scrollbar that belongs to this scroll area. This function should only 
+        be called on each rasterview and should not be expected to do any propagation.
+        '''
+        # We first set propagate scroll to False because we 
+        # want to make sure this does not cause sync_scroll_link to call.
+        # This is because we expect the call to this function to be done
+        # to all rasterviews individually and so to not propagate
+        self.propagate_scroll = False
+        scrollbar.setValue(value)
+        # We must set to True after so that when the user scrolls, we still sync
+        # the scroll across views. 
+        self.propagate_scroll = True
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
 
+        # pdb.set_trace()
+        # print(f"SCROLL CONTENTS BYYYYYY, dx: {dx}, dy: {dy}")
         if 'scrollContentsBy' in self._forward:
-            self._forward['scrollContentsBy'](self._rasterview, dx, dy)
+            self._forward['scrollContentsBy'](self._rasterview, dx, dy, self.propagate_scroll)
 
 class RasterView(QWidget):
     '''
@@ -744,7 +787,7 @@ class RasterView(QWidget):
         return self._img_data
 
 
-    def _update_scaled_image(self, old_scale_factor=None):
+    def _update_scaled_image(self, old_scale_factor=None, propagate_scroll=False):
         self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
         # self._scroll_area.setVisible(True)
 
@@ -760,12 +803,12 @@ class RasterView(QWidget):
             scale_change = self._scale_factor / old_scale_factor
 
             self._update_scrollbar(self._scroll_area.horizontalScrollBar(),
-                self._scroll_area.viewport().width(), scale_change)
+                self._scroll_area.viewport().width(), scale_change, propagate_scroll)
 
             self._update_scrollbar(self._scroll_area.verticalScrollBar(),
-                self._scroll_area.viewport().height(), scale_change)
+                self._scroll_area.viewport().height(), scale_change, propagate_scroll)
 
-    def _update_scrollbar(self, scrollbar, view_size, scale_change):
+    def _update_scrollbar(self, scrollbar, view_size, scale_change, propagate_scroll=False):
         # The scrollbar's value will be scaled by the scale_change value.  For
         # example, if the original scale was 100% and the new scale is 200%,
         # the scale_change value will be 200%/100%, or 2.  To keep the same area
@@ -775,14 +818,20 @@ class RasterView(QWidget):
         # That said, the
 
         view_diff = view_size * (scale_change - 1)
-        scrollbar.setValue(scrollbar.value() * scale_change + view_diff / 2)
+        scrollbar_value = scrollbar.value() * scale_change + view_diff / 2
+        # print(f"scale_change: {scale_change}")
+        # print(f"view_size: {view_size}")
+        # print(f"scrollbar_value: {scrollbar.value()}")
+        # print(f"scrollbar_value: {scrollbar_used_value}")
+        self._scroll_area.propagate_scroll = propagate_scroll
+        self._scroll_area._update_scrollbar_no_propagation(scrollbar, scrollbar_value)
 
 
     def get_scale(self):
         ''' Returns the current scale factor for the raster image. '''
         return self._scale_factor
 
-    def scale_image(self, factor):
+    def scale_image(self, factor, propagate_scale=False):
         '''
         Scales the raster image by the specified factor.  Note that this is an
         absolute operation, not an incremental operation; repeatedly calling
@@ -800,7 +849,7 @@ class RasterView(QWidget):
         if factor != self._scale_factor:
             old_factor = self._scale_factor
             self._scale_factor = factor
-            self._update_scaled_image(old_scale_factor=old_factor)
+            self._update_scaled_image(old_scale_factor=old_factor, propagate_scroll=propagate_scale)
 
     def scale_image_to_fit(self, mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS):
         '''
@@ -913,10 +962,32 @@ class RasterView(QWidget):
         Sets the state of the horizontal and vertical scrollbars to the
         specified values.  The state value must be a 2-tuple of (horizontal
         scrollbar value, vertical scrollbar value), as returned by
-        get_scrollbar_state().
+        get_scrollbar_state(). This function does not cause the scrollbar
+        value to be propagated to other rasterviews. 
         '''
-        self._scroll_area.horizontalScrollBar().setValue(state[0])
-        self._scroll_area.verticalScrollBar().setValue(state[1])
+        self._scroll_area.propagate_scroll = False
+        self._scroll_area._update_scrollbar_no_propagation(
+            self._scroll_area.horizontalScrollBar(),
+            state[0]
+        )
+        self._scroll_area._update_scrollbar_no_propagation(
+            self._scroll_area.verticalScrollBar(),
+            state[1]
+        )
+    
+    # def set_scrollbar_state_to_center(self, center: Tuple[int, int]):
+    #     self._scroll_area.propagate_scroll = False
+
+    #     stateH = center[0] - self._scroll_area.viewport().height() / 2
+    #     if stateH < 0:
+    #         stateH = 0
+    #     self._scroll_area.verticalScrollBar().setValue(stateH)
+
+    #     self._scroll_area.horizontalScrollBar().setValue(center[0])
+    #     stateV = center[1] - self._scroll_area.viewport().height() / 2
+    #     if stateV < 0:
+    #         stateV = 0
+    #     self._scroll_area.verticalScrollBar().setValue(stateV)
 
 
     def get_visible_region(self) -> Optional[QRect]:
@@ -926,8 +997,8 @@ class RasterView(QWidget):
         integer (x, y, width, height) values indicating the visible region.
 
         If the raster-view has no data set then None is returned.
-        '''
 
+        '''
         if self._raster_data is None:
             return None
 
@@ -946,9 +1017,60 @@ class RasterView(QWidget):
         # print(f'Visible region = {visible_region}')
 
         return visible_region
+    
+    def get_visible_region_center(self) -> Optional[Tuple[int, int]]:
+        if self._raster_data is None:
+            return None
+        visible_region = self.get_visible_region()
+        return (visible_region.x() + visible_region.width() / 2, \
+                visible_region.y() + visible_region.height() / 2)
 
+    def check_in_visible_region(self, point: Tuple[int, int]):
+        # Checks to see if the point is within bounds of the region
+        # get visible region
+        visible_region = self.get_visible_region()
 
-    def make_point_visible(self, x, y, margin=0.5):
+        x = point[0]
+        y = point[1]
+
+        visible_x_start = visible_region.x()
+        visible_x_end = visible_region.x() + visible_region.width()
+
+        visible_y_start = visible_region.y()
+        visible_y_end = visible_region.y() + visible_region.height()
+
+        if visible_x_start <= x < visible_x_end and \
+            visible_y_start <= y <= visible_y_end:
+            return True
+        
+        return False
+    
+    def check_center_showable(self, center: Tuple[int, int]) -> bool:
+        h_size = int(self._scroll_area.viewport().width() / self._scale_factor)
+        v_size = int(self._scroll_area.viewport().height() / self._scale_factor)
+
+        h_size = min(h_size, self._raster_data.get_width())
+        v_size = min(v_size, self._raster_data.get_height())
+
+        center_x, center_y = center
+
+        center_x_start = center_x - h_size / 2
+        center_x_end = center_x + h_size / 2
+        center_y_start = center_y - v_size / 2
+        center_y_end = center_y + v_size / 2
+
+        dataset_x_end = self._raster_data.get_width()
+        dataset_y_end = self._raster_data.get_height()
+
+        if (center_x_start < 0 or center_x_start >= dataset_x_end
+            or center_x_end < 0 or center_x_end >= dataset_x_end 
+            or center_y_start < 0 or center_y_start >= dataset_y_end 
+            or center_y_end < 0 or center_y_end >= dataset_y_end):
+            return False
+
+        return True
+
+    def make_point_visible(self, x, y, margin=0.5, reference_rasterview: "RasterView" = None):
         '''
         Make the specified (x, y) coordinate of the raster dataset visible in
         the view.
@@ -970,12 +1092,18 @@ class RasterView(QWidget):
         '''
 
         if margin < 0 or margin > 0.5:
-            raise ValueError(f'margin must be in the range [0, 0.5, got {margin}]')
-
+            raise ValueError(f'margin must be in the range [0, 0.5], got {margin}')
+        
+        if reference_rasterview is not None:
+            target_pixel = reference_pixel_to_target_pixel_rasterview((x, y), reference_rasterview, self)
+            if target_pixel is None:
+                return
+            x, y = target_pixel
         # Scroll the scroll-area to make the specified point visible.  The point
         # also needs scaled based on the current scale factor.  Finally, specify
         # a margin that's half the viewing area, so that the point will be in
         # the center of the area, if possible.
+        self._scroll_area.propagate_scroll = False
         self._scroll_area.ensureVisible(
             x * self._scale_factor, y * self._scale_factor,
             self._scroll_area.viewport().width() * margin,

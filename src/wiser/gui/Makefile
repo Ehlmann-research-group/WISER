@@ -23,6 +23,7 @@ FILENAMES=\
 	geo_coords_dialog_ui.py \
 	image_coords_widget_ui.py \
 	import_spectra_text_ui.py \
+	registration_dialog_ui.py \
 	roi_info_editor_ui.py \
 	save_dataset_advanced_details_ui.py \
 	save_dataset_basic_details_ui.py \
