@@ -33,7 +33,6 @@ from .ui_selection_multi_pixel import MultiPixelSelectionCreator, MultiPixelSele
 
 from wiser.gui.rasterview import GeographicLinkState
 
-import pdb
 
 class RecenterMode(Enum):
     '''
@@ -546,22 +545,12 @@ class RasterPane(QWidget):
         If the specified rasterview is not recognized in the pane, None is
         returned.
         '''
-        # print(f"============== self._rasterviews =============== \n {self._rasterviews}")
-        # pdb.set_trace()
         for pos, rv in self._rasterviews.items():
             if rv is rasterview:
                 return pos
 
         return None
-    
-    def _get_rasterview_position_from_dataset(self, dataset: RasterDataSet) -> Optional[List[Tuple[int, int]]]:
-        rv_positions = []
-        ds_id = dataset.get_id()
-        for pos, rv in self._rasterviews.items():
-            rv_ds_id = rv.get_raster_data().get_id()
-            if rv_ds_id == ds_id:
-                rv_positions.append(pos)
-        return rv_positions
+
 
     def get_app_state(self):
         return self._app_state
@@ -631,7 +620,6 @@ class RasterPane(QWidget):
         '''
         Returns a list of all regions. None regions are included.
         '''
-        # Get the list of all regions
         regions = []
         for rv in self._rasterviews.values():
             region = rv.get_visible_region()
@@ -752,7 +740,6 @@ class RasterPane(QWidget):
         This function is called when the scroll-area moves around.  Fire an
         event that the visible region of the raster-view has changed.
         '''
-        print(f"afterscrollrasterpane")
         self._emit_viewport_change()
 
 
@@ -1077,9 +1064,8 @@ class RasterPane(QWidget):
             f"Number of rasterviews and viewports passed in are not the same!" + \
             f"Number of rasterviews: {len(rasterviews)}. Number of viewports: {len(viewports)}"
     
-        # We reset the viewport highlight variable because
-        # we don't want past highlights affecting the current
-        # frames highlights
+        # We reset the viewport highlight variable because we don't want past 
+        # highlights affecting the current frame's highlights
         self._viewport_highlight = {}
 
         for i in range(len(rasterviews)):
@@ -1106,8 +1092,6 @@ class RasterPane(QWidget):
         viewports. The function just has basic functionality. If it does not meet
         the expectation for your subclass, then override it. 
         '''
-        # print(f'{self}:  Setting viewport highlight to {viewport}!!!')
-
         # We make sure both the viewport and rasterviews are lists
         if not isinstance(rasterview, list):
             rasterviews = [rasterview]
@@ -1146,7 +1130,7 @@ class RasterPane(QWidget):
             else:    
                 self._viewport_highlight[ds_id] = [rv_viewport]
 
-        # Whatever class subclasses this should implement the rest of this function.
+        # NOTE: Whatever class subclasses this should implement the rest of this function.
         # This implementation should call rv.update() on all the rasterviews (or just
         # the rasterviews you want to call it on) and possibly center some of the 
         # rasterviews around the viewport
@@ -1161,7 +1145,6 @@ class RasterPane(QWidget):
         used by both the main image window and the zoom window, to indicate the
         pixel most recently selected by the user.
         '''
-        print(f"in set_pixel_highlight")
         self._pixel_highlight = pixel_sel
 
         coord = None
@@ -1183,7 +1166,6 @@ class RasterPane(QWidget):
                 # we are missing something that is necessary to display a pixel
                 # selection anyway.  Just update the rasterview to remove any
                 # pixel selection, then move on.
-                print(f"rv_dataset is None or visible is None or pixel_sel is None or dataset is None")
                 rasterview.update()
                 continue
 
@@ -1192,9 +1174,6 @@ class RasterPane(QWidget):
                 # showing a different dataset.  Update the rasterview to remove
                 # any pixel selection, and move on. The views are not linked so 
                 # we don't want to do anything
-                print(f"not are_views_linked or dataset.determine_link_state(rv_dataset) == GeographicLinkState.NO_LINK")
-                print(f"are_views_linked: {are_views_linked}")
-                print(f"determined link state: {dataset.determine_link_state(rv_dataset)}")
                 rasterview.update()
                 continue
 
@@ -1203,7 +1182,6 @@ class RasterPane(QWidget):
                 # determine_link_state will never return NO_LINK and if the datasets
                 # are the same then this won't return NO_LINK. I say this based off the
                 # above if statement.
-                print(f"dataset.determine_link_state(rv_dataset) == GeographicLinkState.NO_LINK")
                 rasterview.update()
                 continue
 
@@ -1216,7 +1194,6 @@ class RasterPane(QWidget):
             target_pixel = reference_pixel_to_target_pixel_ds((coord.x(), coord.y()), reference_dataset=dataset,
                                                              target_dataset=rv_dataset)
             target_coord = QPoint(*target_pixel)
-            print(f"Made it to target pixel, coords are: {target_coord}")
             do_recenter = False
             if recenter == RecenterMode.ALWAYS:
                 do_recenter = True
@@ -1790,7 +1767,6 @@ class RasterPane(QWidget):
         if not compatible_highlights:
             return
 
-
         # Draw the viewport highlight.
         with get_painter(widget) as painter:
             color = self._app_state.get_config('raster.viewport_highlight_color')
@@ -1811,6 +1787,20 @@ class RasterPane(QWidget):
                 painter.drawRect(scaled)
 
     def _get_compatible_highlights(self, ds_id) -> List[Union[QRect, QRectF]]:
+        """
+        Retrieves a list of highlight regions (QRect or QRectF) that are compatible 
+        with the given dataset based on its link state with other datasets.
+
+        Args:
+            ds_id (str): The identifier of the target dataset.
+
+        Returns:
+            List[Union[QRect, QRectF]]: A list of compatible highlight regions, 
+            transformed if necessary based on the link state.
+
+        Raises:
+            ValueError: If an unexpected GeographicLinkState is encountered.
+        """
         target_ds = self._app_state.get_dataset(ds_id)
         compatible_highlights = []
         # Loop through the keys and vaues in self._viewport_highlight 

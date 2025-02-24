@@ -841,9 +841,11 @@ class DataVisualizerApp(QMainWindow):
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
 
+
     def show_registration_dialog(self):
         dialog = RegistrationDialog(self._app_state)
         if dialog.exec() == QDialog.Accepted:
+            # TODO (Joshua G-K): Implement co-registration
             print("Pressed accept!")
 
 
@@ -916,7 +918,6 @@ class DataVisualizerApp(QMainWindow):
         # TODO(donnie):  Handle this!!  Need to iterate through all raster-views
         #     and draw their viewports in the context pane.  If the main view
         #     has linked scrolling enabled, we only need to draw one box though.
-        # print(f"_on_mainview_viewport_change")
         if rasterview_position is None:
             return
 
@@ -932,7 +933,6 @@ class DataVisualizerApp(QMainWindow):
             rasterview = [rasterview]
             visible_region = [visible_region]
 
-        # print(f"_on_mainview_viewport_change, setting context pane's viewport highlight")
         self._context_pane.set_viewport_highlight(visible_region, rasterview)
         return
 
@@ -947,7 +947,6 @@ class DataVisualizerApp(QMainWindow):
         that if they were hidden and are then shown, they will still contain the
         relevant information.
         '''
-        print(f"app.py _on_mainview_raster_pixel_select")
         if self._app_state.num_datasets() == 0:
             return
 
@@ -969,16 +968,13 @@ class DataVisualizerApp(QMainWindow):
 
         # App behavior varies when we are in linked mode vs. not in linked mode
         if self._main_view.is_scrolling_linked():
-            print(f"linked")
             # Linked scrolling:  Don't change the dataset of any other panes;
             # just show the corresponding data in those panes' datasets.
 
             sel = SinglePixelSelection(ds_point, ds)
-        
-            print(f"about to set_pixel_highlight for _main_view")
+
             self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, are_views_linked=True)
-            
-            print(f"about to set_pixel_highlight for _zoom_pane")
+
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the "active spectrum" based on the current config and the
@@ -986,7 +982,6 @@ class DataVisualizerApp(QMainWindow):
             self._update_active_spectrum(spectrum_ds, ds_point)
 
         else:
-            print(f"not linked")
             # Non-linked scrolling:  Change the dataset of other panes before
             # updating them to show the clicked data.
 
@@ -994,11 +989,9 @@ class DataVisualizerApp(QMainWindow):
 
             self._context_pane.show_dataset(ds)
 
-            print(f"about to set_pixel_highlight for _main_view")
             self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
             self._zoom_pane.show_dataset(ds)
-            print(f"about to set_pixel_highlight for _zoom_pane")
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the "active spectrum" based on the current config and the

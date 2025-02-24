@@ -280,8 +280,9 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
 
     return rgb_data
 
-def reference_pixel_to_target_pixel_rasterview(reference_pixel: Tuple[int, int], reference_rasterview: "RasterView", \
-                                    target_rasterview: "RasterView") -> Optional[Tuple[int, int]]:
+def reference_pixel_to_target_pixel_rasterview(reference_pixel: Tuple[int, int], 
+                                               reference_rasterview: "RasterView", \
+                                               target_rasterview: "RasterView") -> Optional[Tuple[int, int]]:
     if reference_rasterview is not None:
         # We must change x and y such that they are in the correct coordinates
         reference_dataset = reference_rasterview.get_raster_data()
@@ -450,8 +451,14 @@ class ImageScrollArea(QScrollArea):
         self.propagate_scroll = True  # External objects control whether signals should be propagated or not
 
     def ensureVisible(self, x: int, y: int, xmargin: int, ymargin: int):
+        # We don't want to propagate scroll, because if this ensureVisible call is based
+        # on geo-linking, then it will cause infinite recursion
         self.propagate_scroll = False
         super().ensureVisible(x, y, xmargin, ymargin)
+        # We still want to have propagate scroll be true for when the user actually scrolls
+        # and images are linked. We want this scroll to have the other images scroll, so 
+        # usually we will want to set propagate scroll back to true after doing an operation
+        # that we don't want to propagate
         self.propagate_scroll = True
 
     def _update_scrollbar_no_propagation(self, scrollbar, value):
@@ -459,21 +466,13 @@ class ImageScrollArea(QScrollArea):
         Updates a scrollbar that belongs to this scroll area. This function should only 
         be called on each rasterview and should not be expected to do any propagation.
         '''
-        # We first set propagate scroll to False because we 
-        # want to make sure this does not cause sync_scroll_link to call.
-        # This is because we expect the call to this function to be done
-        # to all rasterviews individually and so to not propagate
         self.propagate_scroll = False
         scrollbar.setValue(value)
-        # We must set to True after so that when the user scrolls, we still sync
-        # the scroll across views. 
         self.propagate_scroll = True
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
 
-        # pdb.set_trace()
-        # print(f"SCROLL CONTENTS BYYYYYY, dx: {dx}, dy: {dy}")
         if 'scrollContentsBy' in self._forward:
             self._forward['scrollContentsBy'](self._rasterview, dx, dy, self.propagate_scroll)
 
@@ -815,14 +814,8 @@ class RasterView(QWidget):
         # within the scroll-area's viewport, the scrollbar's value needs to be
         # multiplied by the scale_change.
 
-        # That said, the
-
         view_diff = view_size * (scale_change - 1)
         scrollbar_value = scrollbar.value() * scale_change + view_diff / 2
-        # print(f"scale_change: {scale_change}")
-        # print(f"view_size: {view_size}")
-        # print(f"scrollbar_value: {scrollbar.value()}")
-        # print(f"scrollbar_value: {scrollbar_used_value}")
         self._scroll_area.propagate_scroll = propagate_scroll
         self._scroll_area._update_scrollbar_no_propagation(scrollbar, scrollbar_value)
 
@@ -974,20 +967,6 @@ class RasterView(QWidget):
             self._scroll_area.verticalScrollBar(),
             state[1]
         )
-    
-    # def set_scrollbar_state_to_center(self, center: Tuple[int, int]):
-    #     self._scroll_area.propagate_scroll = False
-
-    #     stateH = center[0] - self._scroll_area.viewport().height() / 2
-    #     if stateH < 0:
-    #         stateH = 0
-    #     self._scroll_area.verticalScrollBar().setValue(stateH)
-
-    #     self._scroll_area.horizontalScrollBar().setValue(center[0])
-    #     stateV = center[1] - self._scroll_area.viewport().height() / 2
-    #     if stateV < 0:
-    #         stateV = 0
-    #     self._scroll_area.verticalScrollBar().setValue(stateV)
 
 
     def get_visible_region(self) -> Optional[QRect]:
@@ -997,7 +976,6 @@ class RasterView(QWidget):
         integer (x, y, width, height) values indicating the visible region.
 
         If the raster-view has no data set then None is returned.
-
         '''
         if self._raster_data is None:
             return None
@@ -1044,31 +1022,6 @@ class RasterView(QWidget):
             return True
         
         return False
-    
-    def check_center_showable(self, center: Tuple[int, int]) -> bool:
-        h_size = int(self._scroll_area.viewport().width() / self._scale_factor)
-        v_size = int(self._scroll_area.viewport().height() / self._scale_factor)
-
-        h_size = min(h_size, self._raster_data.get_width())
-        v_size = min(v_size, self._raster_data.get_height())
-
-        center_x, center_y = center
-
-        center_x_start = center_x - h_size / 2
-        center_x_end = center_x + h_size / 2
-        center_y_start = center_y - v_size / 2
-        center_y_end = center_y + v_size / 2
-
-        dataset_x_end = self._raster_data.get_width()
-        dataset_y_end = self._raster_data.get_height()
-
-        if (center_x_start < 0 or center_x_start >= dataset_x_end
-            or center_x_end < 0 or center_x_end >= dataset_x_end 
-            or center_y_start < 0 or center_y_start >= dataset_y_end 
-            or center_y_end < 0 or center_y_end >= dataset_y_end):
-            return False
-
-        return True
 
     def make_point_visible(self, x, y, margin=0.5, reference_rasterview: "RasterView" = None):
         '''
@@ -1099,6 +1052,7 @@ class RasterView(QWidget):
             if target_pixel is None:
                 return
             x, y = target_pixel
+
         # Scroll the scroll-area to make the specified point visible.  The point
         # also needs scaled based on the current scale factor.  Finally, specify
         # a margin that's half the viewing area, so that the point will be in

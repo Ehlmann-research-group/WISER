@@ -26,11 +26,8 @@ from wiser.raster import roi_export
 
 from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
 
-from .util import get_painter
 
 logger = logging.getLogger(__name__)
-
-import pdb
 
 class MainViewWidget(RasterPane):
     '''
@@ -52,8 +49,6 @@ class MainViewWidget(RasterPane):
             self._set_link_views_button_state()
 
         self._set_dataset_tools_button_state()
-
-        self._viewport_highlight: Dict[int, Union[QRect, QRectF]] = None
 
 
     def _init_toolbar(self):
@@ -384,10 +379,7 @@ class MainViewWidget(RasterPane):
         # viewport-changed event.
         super()._afterRasterScroll(rasterview, dx, dy, propagate_scroll)
         if propagate_scroll:
-            print(f"PROPAGATING SYNC SCROLL")
             self._sync_scroll_state(rasterview)
-        else:
-            print(f"NOT PROPAGATING SYNC SCROLL")
 
 
     def _sync_scroll_state(self, rasterview: RasterView) -> None:
@@ -396,37 +388,14 @@ class MainViewWidget(RasterPane):
         in this pane.  The source rasterview to take the scroll state from is
         specified as the argument.
         '''
-        # print(f"sync_scroll_state")
-        # sb_state = rasterview.get_scrollbar_state()
-        # if len(self._rasterviews) > 1 and self._link_view_scrolling:
-        #     for rv in self._rasterviews.values():
-        #         # Skip the rasterview that generated the scroll event
-        #         if rv is rasterview:
-        #             continue
-
-        #         rv.set_scrollbar_state(sb_state)
-
-        # MAKING REG: So it seems the scroll bar state is just top left 
-        # pixel coordinate of the part of the image that is visible on
-        # screen.
-        print(f"_sync_scroll_state rasterview: {rasterview}")
         sb_state = rasterview.get_scrollbar_state()
         center_screen = rasterview.get_visible_region_center()
-        orig_geo_coords = rasterview._raster_data.to_geographic_coords(center_screen)
-        orig_geo_coords_sb_state = rasterview._raster_data.to_geographic_coords(sb_state)
-        # print(f"orig_geo_coords: {orig_geo_coords}")
-        # print(f"Center screen: {center_screen}")
         link_state = self._link_view_state
-        # print(f"sb_state / scale factor: {sb_state[0] / rasterview._scale_factor}, {sb_state[1] / rasterview._scale_factor}")
-        # print(f"sb_state : {sb_state}")
-        # print(f"self._link_view_state: {self._link_view_state}")
         if len(self._rasterviews) > 1 and self._link_view_scrolling:
             for rv in self._rasterviews.values():
                 # Skip the rasterview that generated the scroll event
                 if rv is rasterview:
                     continue
-
-                # rv.set_scrollbar_state(sb_state)
 
                 # If we are linkinging by pixel, we simply do so
                 if link_state == GeographicLinkState.PIXEL:
@@ -436,30 +405,12 @@ class MainViewWidget(RasterPane):
                     ds = rv.get_raster_data()
                     if ds is None:
                         continue
-                    # For the datasets in the other rasterviews, we must go from
-                    # geographic coordinates to spatial coordinates
-                    transformed_screen_center = ds.geo_to_pixel_coords(orig_geo_coords)
-                    transformed_sb_state = ds.geo_to_pixel_coords(orig_geo_coords_sb_state)
-                    # Now we should check to see if the pixel coordinates are in the bounds
-                    # of the dataset image 
-                    if ds.is_pixel_in_image_bounds(transformed_screen_center): # This needs to be changed to raster view
-                        # print(f"transformed_screen_center: {transformed_screen_center}")
-                        # print(f"transformed geo coords: {ds.to_geographic_coords(transformed_screen_center)}")
-                        # print(f"transformed geo ds_id: {ds.get_id()}")
-                        # print(f"is in image bounds: {ds.is_pixel_in_image_bounds(transformed_screen_center)}")
-                        # print(f"Is center showable? {rv.check_center_showable(transformed_screen_center)}")
-                        x = transformed_screen_center[0]
-                        y = transformed_screen_center[1]
-                        # print(f"transformed_screen_center: {transformed_screen_center}")
-                        # print(f"transformed_sb_state: {transformed_sb_state}")
-                        rv.make_point_visible(x, y, margin=0.5)
 
-                
-                    # rv.set_scrollbar_state_to_center(transformed_screen_center)
-                    # rv.set_scrollbar_state_to_center(transformed_sb_state)
+                    x = center_screen[0]
+                    y = center_screen[1]
+                    rv.make_point_visible(x, y, margin=0.5, reference_rasterview=rasterview)
                 else:
                     raise ValueError(f"Geographic link state is incorrect: {link_state}")
-        print(f"((((((((((((((((((()))))))))))))))))))")
 
     def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):
         '''
@@ -467,7 +418,7 @@ class MainViewWidget(RasterPane):
         is used to allow the Main View to show the Zoom Pane viewport.
 
         This function always only takes in one viewport and one rasterview because
-        the viewport and rasterview is coming from the Zoom Pane.
+        the Zoom Pane only has one viewport and rasterview.
         '''
         dataset = rasterview.get_raster_data()
         if dataset is None:
@@ -481,9 +432,6 @@ class MainViewWidget(RasterPane):
             # If the specified viewport highlight region is not entirely within this
             # raster-view's visible area, scroll such that the viewport highlight is
             # in the middle of the raster-view's visible area.
-
-            # TODO(donnie):  Do we want to force all raster-views to switch to
-            #     displaying the viewport?
             for rv in self._rasterviews.values():
                 visible = rv.get_visible_region()
                 if visible is None or viewport is None:
@@ -492,10 +440,6 @@ class MainViewWidget(RasterPane):
 
                 if not visible.contains(viewport):
                     center = viewport.center()
-                    # TODO (Joshua G-K): Make this compatible with geographic linking.
-                    # Currently, this will have undesired behavior when you have to 
-                    # spatially linked rasterviews and this function is called on the 
-                    # one of the rasterviews. It will not go to the correct pixel coordinate
                     rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
                 # Repaint raster-view
@@ -508,26 +452,26 @@ class MainViewWidget(RasterPane):
                 if rv_dataset is None or visible is None:
                     rv.update()
                     continue
-                
-                # TODO (Joshua G-K): Make this work for datasets that are link compatible
+
                 if dataset.determine_link_state(rv_dataset) == GeographicLinkState.NO_LINK:
                     # The selection's dataset was specified, and the rasterview is
-                    # showing a different dataset.  Update the rasterview to remove
+                    # showing an uncompatible dataset.  Update the rasterview to remove
                     # any viewport highlight from the zoom pane, and move on.
                     rv.update()
                     continue
 
                 if viewport is None:
+                    # The case when the zoom pane is not displaying anything. We just want
+                    # to update the rasterview and move on
                     rv.update()
                     continue
 
-                # Now we know this rasterview has the same dataset behind it as
-                # the one passed into the function from zoom pane and we have
+                # Now we know this rasterview has a compatible dataset behind it
+                # as the one passed into the function from zoom pane and we have
                 # a valid viewport. So we want to make sure the visible region 
                 # can be shown.
                 if not visible.contains(viewport):
                     center = viewport.center()
-                    # We don't use a reference_rasterview here because 
                     rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
                 # Repaint raster-view
@@ -536,9 +480,8 @@ class MainViewWidget(RasterPane):
     def _draw_viewport_highlight(self, rasterview, widget, paint_event):
         '''
         This helper function draws the viewport highlight in this raster-pane.
-        The color to draw with is taken from the application state's config.
 
-        If there is no viewport highlight, this is a no-op.
+        It mainly relies on the parent class's implementation.
         '''
         if self._viewport_highlight is not None:
             assert(len(list(self._viewport_highlight.values())) == 1), "self._viewport_highlight has more than 1 entry"

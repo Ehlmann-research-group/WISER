@@ -9,8 +9,6 @@ import wiser.gui.generated.resources
 from .rasterview import ScaleToFitMode, RasterView
 from .rasterpane import RasterPane
 
-from .util import get_painter
-
 
 class ContextPane(RasterPane):
     '''
@@ -23,8 +21,6 @@ class ContextPane(RasterPane):
     def __init__(self, app_state, parent=None):
         super().__init__(app_state=app_state, parent=parent,
             size_hint=QSize(200, 200))
-    
-        self._viewport_highlight: Dict[int, List[Union[QRect, QRectF]]] = None
 
 
     def _init_toolbar(self):
@@ -139,11 +135,10 @@ class ContextPane(RasterPane):
         for rv in self._rasterviews.values():
             visible = rv.get_visible_region()
             if visible is None or viewports is None or len(viewports) > 1:
-                # print(f"Updating context pane")
                 rv.update()
                 continue
             
-            # TLDR: Its not possible for the first element in viewports to be none 
+            # Extra Note: Its not possible for the first element in viewports to be none 
             # if viewports just has one element. This situation would arise
             # if the context pane displayed a dataset but none of the 
             # rasterviews did, but in that case, there is no viewport_highlight
@@ -153,6 +148,5 @@ class ContextPane(RasterPane):
                 # TODO (Joshua G-K): Make this compatible with geographic linking
                 rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterviews[0])
 
-            # print(f"Updating context pane")
             # Repaint raster-view
             rv.update()

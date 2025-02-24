@@ -379,7 +379,6 @@ class ApplicationState(QObject):
 
         same_size = True
         if len(displayed_datasets) < 2:
-            print(f"len(displayed_datasets) < 2")
             return False
 
         # Else, make sure they're all the same size 
@@ -390,21 +389,17 @@ class ApplicationState(QObject):
                 same_size = False
 
         if same_size:
-            print(f"PIXEL SYNC")
             return same_size, GeographicLinkState.PIXEL
 
         ds0_srs = displayed_datasets[0].get_spatial_ref()
         if ds0_srs == None:
-            print(f"ds0_srs == None")
             return False, GeographicLinkState.NO_LINK
         
         for ds in displayed_datasets[1:]:
             ds_srs = ds.get_spatial_ref()
             if ds_srs == None or not ds0_srs.IsSame(ds_srs):
-                print(f"ds_srs == None or not ds0_srs.IsSame(ds_srs)")
                 return False, GeographicLinkState.NO_LINK
 
-        print(f"SPATIAL SYNC")
         return True, GeographicLinkState.SPATIAL
 
     def multiple_displayed_datasets_same_size(self):

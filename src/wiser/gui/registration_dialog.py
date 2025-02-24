@@ -70,8 +70,6 @@ class RegistrationDialog(QDialog):
         if not has_path:
             return
 
-        # format = self._ui.cbox_save_format.currentText()
-
         loader = self._app_state.get_loader()
         filenames = loader.get_save_filenames(path)
 
