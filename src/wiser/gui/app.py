@@ -271,7 +271,6 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
 
-        
         act = self._tools_menu.addAction(self.tr('Co-Registration'))
         act.triggered.connect(self.show_registration_dialog)
 
