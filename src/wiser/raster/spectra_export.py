@@ -437,7 +437,7 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
         wavelengths = None
         if spectrum_data.has_wavelengths():
             wavelengths = spectrum_data.wavelength_values
-
+        print(f"IMPORTNG SPECTRA")
         spectrum = NumPyArraySpectrum(values, name=spectrum_data.spectrum_name,
             source_name=source_name, wavelengths=wavelengths)
 

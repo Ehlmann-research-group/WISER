@@ -77,7 +77,7 @@ def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None
     if normalized_band.nbytes < ARRAY_NUMBA_THRESHOLD:
         return make_channel_image_python(normalized_band, stretch1, stretch2)
     else:
-        normalized_band = convert_to_float32_if_needed(normalized_band)
+        normalized_band = convert_to_float32_if_needed(normalized_band)[0]
         return make_channel_image_numba(normalized_band, stretch1, stretch2)
 
 def check_channel(c):
@@ -600,6 +600,7 @@ class RasterView(QWidget):
         return self._colormap
 
     def update_display_image(self, colors=ImageColors.RGB):
+        import pdb
         img_data = None
         if self._raster_data is None:
             # No raster data to display
@@ -625,7 +626,7 @@ class RasterView(QWidget):
                     # Compute the contents of this color channel.
             
                     arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
-        
+                    # pdb.set_trace()
                     band_data = arr
                     band_mask = None
                     if isinstance(arr, np.ma.masked_array):

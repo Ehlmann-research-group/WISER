@@ -466,7 +466,7 @@ class RasterDataSet:
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
-
+        assert arr.ndim == 2, f"Array returned from get_band_data_normalized does not have 2 dimensions. Instead has {arr.ndim}"
         return arr
     
     def sample_band_data(self, band_index: int, sample_factor: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:

@@ -327,6 +327,7 @@ def np_dtype_to_gdal(np_dtype):
         np.dtype('uint16'): gdal.GDT_UInt16,
         np.dtype('int32'): gdal.GDT_Int32,
         np.dtype('uint32'): gdal.GDT_UInt32,
+        np.dtype('float16'): gdal.GDT_Float32,
         np.dtype('float32'): gdal.GDT_Float32,
         np.dtype('float64'): gdal.GDT_Float64,
         np.dtype('complex64'): gdal.GDT_CFloat32,
