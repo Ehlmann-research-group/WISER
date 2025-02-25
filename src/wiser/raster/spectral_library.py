@@ -89,7 +89,6 @@ class ListSpectralLibrary(SpectralLibrary):
     different numbers of bands, band details, band units, etc.
     '''
     def __init__(self, spectra: List[Spectrum], **kwargs):
-        print(f"ListSpectralLibrary, spectra: {spectra[0]}")
         self._spectra = spectra
 
         self._name = kwargs.pop('name', None)

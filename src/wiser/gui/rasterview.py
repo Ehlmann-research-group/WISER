@@ -600,7 +600,6 @@ class RasterView(QWidget):
         return self._colormap
 
     def update_display_image(self, colors=ImageColors.RGB):
-        import pdb
         img_data = None
         if self._raster_data is None:
             # No raster data to display
@@ -626,7 +625,7 @@ class RasterView(QWidget):
                     # Compute the contents of this color channel.
             
                     arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
-                    # pdb.set_trace()
+
                     band_data = arr
                     band_mask = None
                     if isinstance(arr, np.ma.masked_array):
