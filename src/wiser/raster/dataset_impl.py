@@ -384,7 +384,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def read_geo_transform(self) -> Tuple:
         return self.gdal_dataset.GetGeoTransform()
 
-    def get_wkt_spatial_reference(self):
+    def get_wkt_spatial_reference(self) -> Optional[str]:
         return self.gdal_dataset.GetProjection()
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
@@ -1073,7 +1073,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             # Set the spatial reference and geotransform on the destination dataset
             # This sets the 'map info' meta data variable when we create the envi
             # header file below
-            src_projection = src_dataset.get_wkt_spatial_reference()
+            src_spatial_ref: osr.SpatialReference = src_dataset.get_spatial_ref()
+            src_projection = src_spatial_ref.ExportToWkt()
             dst_gdal_dataset.SetProjection(src_projection)
 
             src_geotransform = src_dataset.get_geo_transform()
