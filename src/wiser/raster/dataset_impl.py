@@ -1069,7 +1069,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_gdal_dataset = driver.Create(path, dst_width, dst_height, dst_bands,
             gdal_elem_type, driver_options)
 
-        if src_dataset.has_geographic_info() is not None:
+        if src_dataset.has_geographic_info():
             # Set the spatial reference and geotransform on the destination dataset
             # This sets the 'map info' meta data variable when we create the envi
             # header file below
@@ -1174,7 +1174,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_metadata['default bands'] = dst_default_display_bands
         dst_metadata['data ignore value'] = dst_data_ignore
 
-        if src_dataset.has_geographic_info() is not None:
+        if src_dataset.has_geographic_info():
             map_info = gdal_metadata['map info']
             dst_metadata['map info'] = map_info
             dst_metadata['coordinate system string'] = '{' + dst_gdal_dataset.GetProjection() + '}'
