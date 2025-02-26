@@ -1,4 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
+import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
+
 from PyInstaller.utils.hooks import collect_all
 
 datas = [('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath')]
