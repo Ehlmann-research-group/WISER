@@ -92,7 +92,7 @@ def remove_nans(data: np.ndarray) -> np.ndarray:
     if data.nbytes < ARRAY_NUMBA_THRESHOLD:
         return remove_nans_python(data)
     else:
-        data = convert_to_float32_if_needed(data)
+        data = convert_to_float32_if_needed(data)[0]
         return remove_nans_numba(data)
 
 def create_histogram_python(nonan_data: np.ndarray, min_bound, max_bound):

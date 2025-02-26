@@ -384,7 +384,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def read_geo_transform(self) -> Tuple:
         return self.gdal_dataset.GetGeoTransform()
 
-    def get_wkt_spatial_reference(self):
+    def get_wkt_spatial_reference(self) -> Optional[str]:
         return self.gdal_dataset.GetProjection()
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
@@ -1069,11 +1069,12 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_gdal_dataset = driver.Create(path, dst_width, dst_height, dst_bands,
             gdal_elem_type, driver_options)
 
-        if src_dataset.has_geographic_info() is not None:
+        if src_dataset.has_geographic_info():
             # Set the spatial reference and geotransform on the destination dataset
             # This sets the 'map info' meta data variable when we create the envi
             # header file below
-            src_projection = src_dataset.get_wkt_spatial_reference()
+            src_spatial_ref: osr.SpatialReference = src_dataset.get_spatial_ref()
+            src_projection = src_spatial_ref.ExportToWkt()
             dst_gdal_dataset.SetProjection(src_projection)
 
             src_geotransform = src_dataset.get_geo_transform()
@@ -1155,6 +1156,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         # Make sure all the data is written to the file.
         dst_gdal_dataset.FlushCache()
+        del dst_gdal_dataset
 
         # Generate the header file now.
         # TODO(donnie):  What to do if an exception is raised???
@@ -1174,12 +1176,10 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_metadata['default bands'] = dst_default_display_bands
         dst_metadata['data ignore value'] = dst_data_ignore
 
-        if src_dataset.has_geographic_info() is not None:
+        if src_dataset.has_geographic_info():
             map_info = gdal_metadata['map info']
             dst_metadata['map info'] = map_info
-            dst_metadata['coordinate system string'] = '{' + dst_gdal_dataset.GetProjection() + '}'
-            
-        del dst_gdal_dataset
+            dst_metadata['coordinate system string'] = '{' + src_dataset.get_spatial_ref().ExportToWkt() + '}'
 
         # If we have wavelengths, store the wavelength metadata
         if len(dst_wavelengths) == dst_bands:
