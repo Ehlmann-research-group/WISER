@@ -1156,6 +1156,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
         # Make sure all the data is written to the file.
         dst_gdal_dataset.FlushCache()
+        del dst_gdal_dataset
 
         # Generate the header file now.
         # TODO(donnie):  What to do if an exception is raised???
@@ -1178,9 +1179,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         if src_dataset.has_geographic_info():
             map_info = gdal_metadata['map info']
             dst_metadata['map info'] = map_info
-            dst_metadata['coordinate system string'] = '{' + dst_gdal_dataset.GetProjection() + '}'
-            
-        del dst_gdal_dataset
+            dst_metadata['coordinate system string'] = '{' + src_dataset.get_spatial_ref().ExportToWkt() + '}'
 
         # If we have wavelengths, store the wavelength metadata
         if len(dst_wavelengths) == dst_bands:
