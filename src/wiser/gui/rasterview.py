@@ -1045,8 +1045,9 @@ class RasterView(QWidget):
         x = coord.x()
         y = coord.y()
         dataset = self._raster_data
-        bounds_x = dataset.get_width()
-        bounds_y = dataset.get_height()
-        if 0 <= x < bounds_x and 0 <= y < bounds_y:
-            return True
+        if dataset is not None:
+            bounds_x = dataset.get_width()
+            bounds_y = dataset.get_height()
+            if 0 <= x < bounds_x and 0 <= y < bounds_y:
+                return True
         return False
