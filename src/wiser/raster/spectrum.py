@@ -705,7 +705,7 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
         this object, based on its current configuration.
         '''
         (x, y) = self._point
-        print(f"calculating spectrum at: {x}, {y}")
+
         if self._area == (1, 1):
             self._spectrum = self._dataset.get_all_bands_at(x, y)
 

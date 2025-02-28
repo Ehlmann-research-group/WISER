@@ -373,7 +373,6 @@ class ImageWidget(QWidget):
             self._forward['mousePressEvent'](self._rasterview, mouse_event)
 
     def mouseReleaseEvent(self, mouse_event):
-        print(f"Mouse release event!!")
         if 'mouseReleaseEvent' in self._forward:
             self._forward['mouseReleaseEvent'](self._rasterview, mouse_event)
 
@@ -1048,9 +1047,6 @@ class RasterView(QWidget):
         dataset = self._raster_data
         bounds_x = dataset.get_width()
         bounds_y = dataset.get_height()
-        print(f"bounds_x: {bounds_x}")
-        print(f"bounds_y: {bounds_y}")
         if 0 <= x < bounds_x and 0 <= y < bounds_y:
             return True
-        print(f"WAMP WAMP GOT FALSE!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         return False

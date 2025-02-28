@@ -323,7 +323,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
         new_dataset = self.reopen_dataset()
-        print(f"impl, x= {x}, y={y}")
         np_array = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=1, ysize=1)
 
         # The numpy array comes back as a 3D array with the shape (bands,1,1),

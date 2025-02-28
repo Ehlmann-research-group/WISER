@@ -675,14 +675,12 @@ class RasterPane(QWidget):
         translates the click event's coordinates into the location on the
         raster data set.
         '''
-        print(f"On raster mouse release, raster pane")
         if not isinstance(mouse_event, QMouseEvent):
             return
 
         # print(f'MouseEvent at pos={mouse_event.pos()}, localPos={mouse_event.localPos()}')
 
         if self._has_delegate_for_rasterview(rasterview):
-            print(f"has delegate")
             done = self._task_delegate.on_mouse_release(mouse_event)
             self._update_delegate(done)
 
@@ -693,9 +691,7 @@ class RasterPane(QWidget):
                 # Map the coordinate of the mouse-event to the actual raster-image
                 # pixel that was clicked, then emit a signal.
                 r_coord = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-                print(f"r_coord: {r_coord}")
                 if rasterview.is_raster_coord_in_bounds(r_coord):
-                    print(f"Coord in bounds!!")
                     rasterview_pos = self._get_rasterview_position(rasterview)
                     self.click_pixel.emit(rasterview_pos, r_coord)
 
