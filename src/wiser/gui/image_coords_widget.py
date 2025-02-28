@@ -197,16 +197,12 @@ class ImageCoordsWidget(QDialog):
 
         visible_datasets: List[RasterDataSet] = self._app._main_view.get_visible_datasets()
         possible_default_rv = self._app._main_view.get_rasterview_with_data()
-        # This is the case where our dataset is not visible, but there are still 
+        # This is the case where our dataset is not visible, but there are still
         # datasets visible. In this case, we want to use go to pixel on one of the
-        # visible datases. 
+        # visible datases.
         if self._dataset not in visible_datasets and possible_default_rv is not None:
-            print(f"Previous dataset is not visible in mainview, switching off!")
             default_dataset = possible_default_rv.get_raster_data()
-            print(f"Previous ds: {self._dataset}")
-            print(f"Switched to: {default_dataset}")
             self.update_coords(default_dataset, None)
-        
 
         config = self._get_config_for_dataset(self._dataset)
         dialog = GeoCoordsDialog(self._dataset, config, parent=self)
