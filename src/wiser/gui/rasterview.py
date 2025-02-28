@@ -1034,7 +1034,7 @@ class RasterView(QWidget):
         # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
         # it rounds to the nearest point, and we just want truncation/floor.
         return QPoint(int(scaled.x()), int(scaled.y()))
-    
+
     def is_raster_coord_in_bounds(self, coord: QPointF):
         '''
         Take a raster coordinate and ensure it is in bounds of the dataset being displayed.
