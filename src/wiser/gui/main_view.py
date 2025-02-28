@@ -77,6 +77,10 @@ class MainViewWidget(RasterPane):
         self._act_stretch_builder.triggered.connect(self._on_stretch_builder)
 
 
+    def add_to_dataset_chooser_trigger(self, func):
+        self._dataset_chooser.triggered.connect(func)
+
+
     def _init_view_tools(self):
         '''
         Initialize view management tools.  This subclass has the ability to show
