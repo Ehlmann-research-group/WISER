@@ -20,7 +20,7 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.gui.rasterview import RasterView
 
 
-class TestModel:
+class WiserTestModel:
     '''
     This class serves as a layer between running tests and interactin with WISER's internals.
 
@@ -55,14 +55,15 @@ class TestModel:
         self.app_state = self.main_window._app_state
         self.data_cache = self.main_window._data_cache
     
-    def _close_app(self):
+    def close_app(self):
         self._tear_down_windows()
-        self.app.quit()
+        if hasattr(self, "app"):
+            self.app.quit()
 
-        del self.app
+            del self.app
     
     def __del__(self):
-        self._close_app()
+        self.close_app()
 
     def reset(self):
         '''
@@ -92,6 +93,7 @@ class TestModel:
         elif isinstance(dataset_info, (np.ndarray, np.ma.masked_array)):
             dataset_arr = dataset_info
             dataset = self.raster_data_loader.dataset_from_numpy_array(dataset_arr, self.data_cache)
+            dataset.set_name(f"NumpyArray{dataset.get_id()}")
         else:
             raise ValueError(f"Dataset_info should either be a numpy array or string, " +
                              f"not {type(dataset)}!")
@@ -177,6 +179,10 @@ class TestModel:
     def get_main_view_rv_scroll_state(self, rv_pos: Tuple[int, int]):
         raise NotImplementedError
     
+    def get_main_view_rv_data(self, rv_pos: Tuple[int, int]) -> np.ndarray:
+        rv = self.main_window._main_view.get_rasterview(rv_pos)
+        return rv._img_data
+
     def get_main_view_rv_visible_region(self, rv_pos: Tuple[int, int]):
         raise NotImplementedError
 
@@ -212,5 +218,5 @@ class TestModel:
 
 
 if __name__ == '__main__':
-    test_model = TestModel()
+    test_model = WiserTestModel()
         
