@@ -6,11 +6,19 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 target_dir = os.path.abspath(os.path.join(script_dir, ".."))
 sys.path.append(target_dir)
 
+import numpy as np
+from typing import Tuple, Union
+
 from PySide2.QtTest import QTest
 from PySide2.QtWidgets import QApplication
-from wiser.gui.app import DataVisualizerApp
 from PySide2.QtTest import QTest
 from PySide2.QtCore import Qt
+
+from wiser.gui.app import DataVisualizerApp
+from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset import RasterDataSet
+from wiser.gui.rasterview import RasterView
+
 
 class TestModel:
     '''
@@ -30,9 +38,10 @@ class TestModel:
 
     def __init__(self):
         self.app = QApplication.instance() or QApplication([])
-        self.main_window = DataVisualizerApp()
-        self.main_window.setAttribute(Qt.WA_DontShowOnScreen)
-        self.main_window.show()
+
+        self._set_up()
+
+        self.raster_data_loader = RasterDataLoader()
     
     def _tear_down_windows(self):
         QApplication.closeAllWindows()
@@ -42,6 +51,18 @@ class TestModel:
         self.main_window = DataVisualizerApp()
         self.main_window.setAttribute(Qt.WA_DontShowOnScreen)
         self.main_window.show()
+    
+        self.app_state = self.main_window._app_state
+        self.data_cache = self.main_window._data_cache
+    
+    def _close_app(self):
+        self._tear_down_windows()
+        self.app.quit()
+
+        del self.app
+    
+    def __del__(self):
+        self._close_app()
 
     def reset(self):
         '''
@@ -49,10 +70,147 @@ class TestModel:
         '''
         self._tear_down_windows()
         self._set_up()
-    
-    def _close_app(self):
-        self._tear_down_windows()
-        self.app.quit()
 
-        del self.app
+    #==========================================
+    # Code for interfacing with the application
+    #==========================================
+
+    #==========================================
+    # Loading datasets and spectra
+
+    def load_dataset(self, dataset_info: Union[str, np.ndarray, np.ma.masked_array]) -> RasterDataSet:
+        '''
+        Loads in a dataset, adds it to app state, returns the dataset
+
+        Arguments:
+        - dataset_info. Can either be a string for a file path or a nump array
+        '''
+        dataset = None
+        if isinstance(dataset_info, str):
+            dataset_path = dataset_info
+            dataset = self.raster_data_loader.load_from_file(dataset_path, self.data_cache)[0]
+        elif isinstance(dataset_info, (np.ndarray, np.ma.masked_array)):
+            dataset_arr = dataset_info
+            dataset = self.raster_data_loader.dataset_from_numpy_array(dataset_arr, self.data_cache)
+        else:
+            raise ValueError(f"Dataset_info should either be a numpy array or string, " +
+                             f"not {type(dataset)}!")
+        
+        self.app_state.add_dataset(dataset)
+
+        return dataset
+
+    def load_spectra(self, spectra_path):
+        raise NotImplementedError("load_spectra not implemented yet ")
+    
+    #==========================================
+    # Zoom Pane state retrieval and setting
+
+    # State retrieval
+
+    def get_zoom_pane_dataset(self):
+        raise NotImplementedError
+    
+    def get_zoom_pane_rasterview(self):
+        raise NotImplementedError
+    
+    def get_zoom_pane_region(self):
+        raise NotImplementedError
+    
+    def get_zoom_pane_scroll_state(self):
+        raise NotImplementedError
+
+    def get_zoom_pane_selected_pixel(self):
+        raise NotImplementedError
+    
+    def get_zoom_pane_center_pixel(self):
+        raise NotImplementedError
+    
+    def get_zoom_pane_image_size(self):
+        raise NotImplementedError
+
+    # State setting
+
+    def set_zoom_pane_dataset(self, dataset):
+        raise NotImplementedError
+    
+    def scroll_zoom_pane(self, dx, dy):
+        raise NotImplementedError
+
+    def select_pixel_zoom_pane(self, pixel: Tuple[int, int]):
+        raise NotImplementedError
+
+    #==========================================
+    # Context Pane state retrieval and setting
+
+    # State retrieval
+
+    def get_context_pane_dataset(self):
+        raise NotImplementedError
+
+    def get_context_pane_rasterview(self):
+        raise NotImplementedError
+
+    def get_context_pane_highlight_regions(self):
+        raise NotImplementedError
+
+    # State setting
+
+    def set_context_pane_dataset(self):
+        raise NotImplementedError
+    
+    def select_pixel_context_pane(self, pixel: Tuple[int, int]):
+        raise NotImplementedError
+
+
+    #==========================================
+    # Main View state retrieval and setting
+
+    # State retrieval
+
+    def get_main_view_rv_clicked_pixel(self, rv_pos: Tuple[int, int]):
+        raise NotImplementedError
+    
+    def get_main_view_rv_center_pixel(self, rv_pos: Tuple[int, int]):
+        raise NotImplementedError
+    
+    def get_main_view_rv_scroll_state(self, rv_pos: Tuple[int, int]):
+        raise NotImplementedError
+    
+    def get_main_view_rv_visible_region(self, rv_pos: Tuple[int, int]):
+        raise NotImplementedError
+
+    def get_main_view_rv_highlight_region(self, rv_pos: Tuple[int, int]):
+        raise NotImplementedError
+    
+    def get_main_view_link_state(self):
+        raise NotImplementedError
+
+    # State setting
+
+    def click_link_button(self):
+        raise NotImplementedError
+    
+    def click_main_view_zoom_in(self):
+        raise NotImplementedError
+    
+    def click_main_view_zoom_out(self):
+        raise NotImplementedError
+    
+    def scroll_main_view_rv(self, dx, dy):
+        raise NotImplementedError
+    
+    def click_pixel_main_view_rv(self, rv_pos: Tuple[int, int]):
+        raise NotImplementedError
+    
+    def change_main_view_layout(self, rows: int, cols: int):
+        raise NotImplementedError
+    
+    
+        
+
+
+
+if __name__ == '__main__':
+    test_model = TestModel()
         

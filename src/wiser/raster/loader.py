@@ -62,9 +62,9 @@ class RasterDataLoader:
         return []
 
 
-    def load_from_file(self, path, data_cache = None):
+    def load_from_file(self, path, data_cache = None) -> List[RasterDataSet]:
         '''
-        Load a raster data-set from the specified path.  Returns a
+        Load a raster data-set from the specified path.  Returns a list of 
         :class:`RasterDataSet` object.
         '''
 
