@@ -691,9 +691,9 @@ class RasterPane(QWidget):
                 # Map the coordinate of the mouse-event to the actual raster-image
                 # pixel that was clicked, then emit a signal.
                 r_coord = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-
-                rasterview_pos = self._get_rasterview_position(rasterview)
-                self.click_pixel.emit(rasterview_pos, r_coord)
+                if rasterview.is_raster_coord_in_bounds(r_coord):
+                    rasterview_pos = self._get_rasterview_position(rasterview)
+                    self.click_pixel.emit(rasterview_pos, r_coord)
 
 
     def _onRasterKeyPress(self, rasterview, key_event):
