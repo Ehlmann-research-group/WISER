@@ -134,7 +134,6 @@ class DataVisualizerApp(QMainWindow):
 
         self._main_view = MainViewWidget(self._app_state)
         self.setCentralWidget(self._main_view)
-        self._main_view.add_to_dataset_chooser_trigger(self._change_image_widget_dataset)
 
         self._image_toolbar = self._main_view.get_toolbar()
         self.addToolBar(self._image_toolbar)
@@ -368,20 +367,6 @@ class DataVisualizerApp(QMainWindow):
 
     def show_status_text(self, text: str, seconds: int=0):
         self.statusBar().showMessage(text, seconds * 1000)
-
-
-    def _change_image_widget_dataset(self, action: QAction):
-        act_data = action.data()
-
-        ds_id = None
-        if act_data is not None:
-            rv_pos, ds_id = act_data
-        else:
-            return
-
-        dataset = self._app_state.get_dataset(ds_id)
-        if dataset is not None:
-            self._image_coords.update_coords(dataset, None)
 
     def _on_dataset_added(self, ds_id: int):
         self._update_dataset_menus()

@@ -583,7 +583,7 @@ class RasterPane(QWidget):
         '''
         If there is a rasterview with data. This function returns the first it finds. It
         starts from (0, 0), then goes across columns then down rows.
-        
+
         An example traversal for a 2x2 grid would be (0, 0) -> (0, 1) -> (1, 0) -> (1, 1)
         '''
         rows, cols = self.get_num_views()
@@ -593,9 +593,8 @@ class RasterPane(QWidget):
                 rv = self.get_rasterview((row, col))
                 if rv.get_raster_data() is not None:
                     return rv
-        
-        return None
 
+        return None
 
 
     def update_all_rasterviews(self):
