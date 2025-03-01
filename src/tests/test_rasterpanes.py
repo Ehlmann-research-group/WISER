@@ -26,7 +26,7 @@ class TestRasterPanes(unittest.TestCase):
         self.test_model.close_app()
         del self.test_model
 
-    def test_open_mainview(self):
+    def test_open_main_view(self):
         self.test_model = WiserTestModel()
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
@@ -63,7 +63,7 @@ class TestRasterPanes(unittest.TestCase):
         self.test_model.close_app()
 
         
-    def test_open_mainview2(self):
+    def test_open_context_pane(self):
         self.test_model = WiserTestModel()
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
@@ -91,7 +91,7 @@ class TestRasterPanes(unittest.TestCase):
         
         self.test_model.load_dataset(np_impl)
 
-        rv_data = self.test_model.get_main_view_rv_data((0, 0))
+        rv_data = self.test_model.get_context_pane_image_data()
 
         equal = np.array_equal(expected, rv_data)
 
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     
     test_model.load_dataset(np_impl)
 
-    rv_data = test_model.get_main_view_rv_data((0, 0))
+    rv_data = test_model.get_context_pane_image_data()
 
     assert rv_data == expected
 

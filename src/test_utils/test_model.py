@@ -54,6 +54,12 @@ class WiserTestModel:
     
         self.app_state = self.main_window._app_state
         self.data_cache = self.main_window._data_cache
+
+        self.context_pane = self.main_window._context_pane
+
+        self.main_view = self.main_window._main_view
+
+        self.zoom_pane = self.main_window._zoom_pane
     
     def close_app(self):
         self._tear_down_windows()
@@ -152,6 +158,10 @@ class WiserTestModel:
 
     def get_context_pane_rasterview(self):
         raise NotImplementedError
+
+    def get_context_pane_image_data(self):
+        rv = self.context_pane.get_rasterview()
+        return rv._img_data
 
     def get_context_pane_highlight_regions(self):
         raise NotImplementedError
