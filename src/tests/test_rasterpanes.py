@@ -1,7 +1,7 @@
 import unittest
 
-# import tests.context
-import context
+import tests.context
+# import context
 from wiser.raster import utils
 
 from test_utils.test_model import WiserTestModel
@@ -45,60 +45,61 @@ class TestRasterPanes(unittest.TestCase):
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
                                 [0.75, 0.75, 0.75, 0.75],
                                 [1.  , 1.  , 1.  , 1.  ]]])
-        expected = np.array([[4280427042, 4280427042, 4280427042, 4280427042],
-                            [4283190348, 4283190348, 4283190348, 4283190348],
+
+        expected = np.array([[4278190080, 4278190080, 4278190080, 4278190080],
+                            [4282335039, 4282335039, 4282335039, 4282335039],
                             [4286545791, 4286545791, 4286545791, 4286545791],
-                            [4290493371, 4290493371, 4290493371, 4290493371],
+                            [4290756543, 4290756543, 4290756543, 4290756543],
                             [4294967295, 4294967295, 4294967295, 4294967295]])
         
         self.test_model.load_dataset(np_impl)
 
         rv_data = self.test_model.get_main_view_rv_data((0, 0))
 
-        print(f"rv_data: {rv_data}")
+        equal = np.array_equal(expected, rv_data)
+
+        self.assertTrue(equal)
+
         self.test_model.close_app()
 
-# if __name__ == '__main__':
-#     test_panes = TestRasterPanes()
-#     test_panes.test_open_mainview()
+        
+    def test_open_mainview2(self):
+        self.test_model = WiserTestModel()
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+
+        expected = np.array([[4278190080, 4278190080, 4278190080, 4278190080],
+                            [4282335039, 4282335039, 4282335039, 4282335039],
+                            [4286545791, 4286545791, 4286545791, 4286545791],
+                            [4290756543, 4290756543, 4290756543, 4290756543],
+                            [4294967295, 4294967295, 4294967295, 4294967295]])
+        
+        self.test_model.load_dataset(np_impl)
+
+        rv_data = self.test_model.get_main_view_rv_data((0, 0))
+
+        equal = np.array_equal(expected, rv_data)
+
+        self.assertTrue(equal)
+
+        self.test_model.close_app()
     
 if __name__ == '__main__':
-    # app = QApplication.instance() or QApplication([])
-    # main_window = DataVisualizerApp()
-    # np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-    #                         [0.25, 0.25, 0.25, 0.25],
-    #                         [0.5 , 0.5 , 0.5 , 0.5 ],
-    #                         [0.75, 0.75, 0.75, 0.75],
-    #                         [1.  , 1.  , 1.  , 1.  ]],
-
-    #                     [[0.  , 0.  , 0.  , 0.  ],
-    #                         [0.25, 0.25, 0.25, 0.25],
-    #                         [0.5 , 0.5 , 0.5 , 0.5 ],
-    #                         [0.75, 0.75, 0.75, 0.75],
-    #                         [1.  , 1.  , 1.  , 1.  ]],
-
-    #                     [[0.  , 0.  , 0.  , 0.  ],
-    #                         [0.25, 0.25, 0.25, 0.25],
-    #                         [0.5 , 0.5 , 0.5 , 0.5 ],
-    #                         [0.75, 0.75, 0.75, 0.75],
-    #                         [1.  , 1.  , 1.  , 1.  ]]])
-    # expected = np.array([[4280427042, 4280427042, 4280427042, 4280427042],
-    #                     [4283190348, 4283190348, 4283190348, 4283190348],
-    #                     [4286545791, 4286545791, 4286545791, 4286545791],
-    #                     [4290493371, 4290493371, 4290493371, 4290493371],
-    #                     [4294967295, 4294967295, 4294967295, 4294967295]])
-    # raster_data_loader = RasterDataLoader()
-    # data_cache = main_window._data_cache
-    # app_state = main_window._app_state
-    # dataset = raster_data_loader.dataset_from_numpy_array(np_impl, data_cache)
-    # dataset.set_name("1")
-    # app_state.add_dataset(dataset)
-
-    # rv_data = main_window._main_view.get_rasterview((0, 0))._img_data
-
-    # print(f"rv_data: {rv_data}")
-
     test_model = WiserTestModel()
     np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                             [0.25, 0.25, 0.25, 0.25],
@@ -117,15 +118,16 @@ if __name__ == '__main__':
                             [0.5 , 0.5 , 0.5 , 0.5 ],
                             [0.75, 0.75, 0.75, 0.75],
                             [1.  , 1.  , 1.  , 1.  ]]])
-    expected = np.array([[4280427042, 4280427042, 4280427042, 4280427042],
-                        [4283190348, 4283190348, 4283190348, 4283190348],
+    expected = np.array([[4278190080, 4278190080, 4278190080, 4278190080],
+                        [4282335039, 4282335039, 4282335039, 4282335039],
                         [4286545791, 4286545791, 4286545791, 4286545791],
-                        [4290493371, 4290493371, 4290493371, 4290493371],
+                        [4290756543, 4290756543, 4290756543, 4290756543],
                         [4294967295, 4294967295, 4294967295, 4294967295]])
     
     test_model.load_dataset(np_impl)
 
     rv_data = test_model.get_main_view_rv_data((0, 0))
 
+    assert rv_data == expected
+
     print(f"rv_data: {rv_data}")
-    # test_model.close_app()
