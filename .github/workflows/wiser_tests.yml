@@ -27,3 +27,12 @@ jobs:
               working-directory: "src\\tests"
               run: pwd
 
+            
+            - name: Conda env list
+              working-directory: "src\\tests"
+              run: conda env list 
+
+              
+            - name: Conda info env
+              working-directory: "src\\tests"
+              run: conda info --env
