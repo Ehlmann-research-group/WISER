@@ -10,9 +10,9 @@ import numpy as np
 from typing import Tuple, Union
 
 from PySide2.QtTest import QTest
-from PySide2.QtWidgets import QApplication
-from PySide2.QtTest import QTest
-from PySide2.QtCore import Qt
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
 
 from wiser.gui.app import DataVisualizerApp
 from wiser.raster.loader import RasterDataLoader
@@ -158,8 +158,8 @@ class WiserTestModel:
     def get_context_pane_dataset(self):
         raise NotImplementedError
 
-    def get_context_pane_rasterview(self):
-        raise NotImplementedError
+    def get_context_pane_rasterview(self) -> RasterView:
+        return self.context_pane.get_rasterview()
 
     def get_context_pane_image_data(self):
         rv = self.context_pane.get_rasterview()
@@ -167,6 +167,9 @@ class WiserTestModel:
 
     def get_context_pane_highlight_regions(self):
         return self.context_pane._viewport_highlight
+    
+    def get_context_pane_screen_size(self) -> QSize:
+        return self.context_pane.get_rasterview()._image_widget.size()
 
     # State setting
 
@@ -183,8 +186,30 @@ class WiserTestModel:
             raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
 
     
-    def select_pixel_context_pane(self, pixel: Tuple[int, int]):
-        raise NotImplementedError
+    def select_pixel_context_pane(self, pixel: Tuple[int, int]) -> Tuple[int, int]:
+        '''
+        Given a pixel in image coordinates, selects the corresponding
+        raster pixel. This function outputs the raster pixel coordinate
+        of the input pixel.
+        '''
+        x = pixel[0]
+        y = pixel[1]
+
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,            # event type
+            QPointF(x, y),           # local (widget) position
+            Qt.LeftButton,                       # which button changed state
+            Qt.MouseButtons(Qt.LeftButton),      # state of all mouse buttons
+            Qt.NoModifier                         # keyboard modifiers (e.g. Ctrl, Shift)
+        )
+
+        context_rv = self.get_context_pane_rasterview()
+
+        context_rv._image_widget.mouseReleaseEvent(mouse_event)
+
+        raster_coord = context_rv.image_coord_to_raster_coord(QPointF(x, y))
+
+        return (raster_coord.x(), raster_coord.y())
 
 
     #==========================================

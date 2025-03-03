@@ -8,6 +8,7 @@ from test_utils.test_model import WiserTestModel
 
 import numpy as np
 from astropy import units as u
+import time
 
 from PySide2.QtTest import QTest
 from PySide2.QtCore import *
@@ -100,7 +101,7 @@ class TestRasterPanes(unittest.TestCase):
         self.test_model.close_app()
     
 if __name__ == '__main__':
-    test_model = WiserTestModel()
+    test_model = WiserTestModel(use_gui=True)
 
     np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                             [0.25, 0.25, 0.25, 0.25],
@@ -123,7 +124,10 @@ if __name__ == '__main__':
 
     ds = test_model.load_dataset(np_impl)
 
-    test_model.set_context_pane_dataset(ds.get_id())
+    pixel = (test_model.get_context_pane_screen_size().width()/2,
+            test_model.get_context_pane_screen_size().height()/2)
 
-    
-    test_model.close_app()
+    raster_pixel = test_model.select_pixel_context_pane(pixel)
+
+    test_model.app.exec_()
+    QTimer.singleShot(20000, test_model.close_app)
