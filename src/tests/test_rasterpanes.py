@@ -122,12 +122,49 @@ if __name__ == '__main__':
                             [1.  , 1.  , 1.  , 1.  ]]])
 
 
-    ds = test_model.load_dataset(np_impl)
+    np_impl2 = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [0.  , 0.  , 0.  , 0.  ]],
 
-    pixel = (test_model.get_context_pane_screen_size().width()/2,
-            test_model.get_context_pane_screen_size().height()/2)
+                        [[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [0.  , 0.  , 0.  , 0.  ]],
 
-    raster_pixel = test_model.select_pixel_context_pane(pixel)
+                        [[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [0.  , 0.  , 0.  , 0.  ]]])
+
+    
+    np_impl3 = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                            [0., 0., 0., 0.],
+                            [0. , 0. , 0. , 0. ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [0.  , 0.  , 0.  , 0.  ]],
+
+                        [[0.  , 0.  , 0.  , 0.  ],
+                            [0., 0., 0., 0.],
+                            [0. , 0. , 0. , 0. ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [0.  , 0.  , 0.  , 0.  ]],
+
+                        [[0.  , 0.  , 0.  , 0.  ],
+                            [0., 0., 0., 0.],
+                            [0. , 0. , 0. , 0. ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [0.  , 0.  , 0.  , 0.  ]]])
+
+    ds1 = test_model.load_dataset(np_impl)
+    ds2 = test_model.load_dataset(np_impl2)
+    ds3 = test_model.load_dataset(np_impl3)
+
+
+    raster_pixel = test_model.set_context_pane_dataset(ds2.get_id())
 
     test_model.app.exec_()
     QTimer.singleShot(20000, test_model.close_app)

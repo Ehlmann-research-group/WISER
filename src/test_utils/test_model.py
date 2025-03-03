@@ -101,7 +101,7 @@ class WiserTestModel:
         elif isinstance(dataset_info, (np.ndarray, np.ma.masked_array)):
             dataset_arr = dataset_info
             dataset = self.raster_data_loader.dataset_from_numpy_array(dataset_arr, self.data_cache)
-            dataset.set_name(f"NumpyArray{dataset.get_id()}")
+            dataset.set_name(f"NumpyArray{self.app_state._next_id}")
         else:
             raise ValueError(f"Dataset_info should either be a numpy array or string, " +
                              f"not {type(dataset)}!")
@@ -181,9 +181,10 @@ class WiserTestModel:
 
         if ds_id not in self.app_state._datasets:
             raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
+
         action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
         if action:
-            action.trigger()
+            self.context_pane._on_dataset_changed(action)
         else:
             raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
 
@@ -260,10 +261,6 @@ class WiserTestModel:
     
     def change_main_view_layout(self, rows: int, cols: int):
         raise NotImplementedError
-    
-    
-        
-
 
 
 if __name__ == '__main__':
