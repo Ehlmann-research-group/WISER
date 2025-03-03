@@ -36,8 +36,9 @@ class WiserTestModel:
     We should have this class create one instance of the application. We need a reset button 
     '''
 
-    def __init__(self):
+    def __init__(self, use_gui=False):
         self.app = QApplication.instance() or QApplication([])
+        self.use_gui = use_gui
 
         self._set_up()
 
@@ -49,7 +50,8 @@ class WiserTestModel:
 
     def _set_up(self):
         self.main_window = DataVisualizerApp()
-        self.main_window.setAttribute(Qt.WA_DontShowOnScreen)
+        if not self.use_gui:
+            self.main_window.setAttribute(Qt.WA_DontShowOnScreen)
         self.main_window.show()
     
         self.app_state = self.main_window._app_state
@@ -164,12 +166,22 @@ class WiserTestModel:
         return rv._img_data
 
     def get_context_pane_highlight_regions(self):
-        raise NotImplementedError
+        return self.context_pane._viewport_highlight
 
     # State setting
 
-    def set_context_pane_dataset(self):
-        raise NotImplementedError
+    def set_context_pane_dataset(self, ds_id):
+        dataset_menu = self.context_pane._dataset_chooser._dataset_menu
+        QTest.mouseClick(dataset_menu, Qt.LeftButton)
+
+        if ds_id not in self.app_state._datasets:
+            raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
+        action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
+        if action:
+            action.trigger()
+        else:
+            raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
+
     
     def select_pixel_context_pane(self, pixel: Tuple[int, int]):
         raise NotImplementedError
