@@ -10,28 +10,27 @@ jobs:
             matrix:
                 os: [windows-latest]
 
-        steps:
-            - name: Checkout codebase
-              uses: actions/checkout@v4
+        steps:  
+            - name: Setup Cached Conda Environment
+              uses: actions/cache@v3
+              env:
+                    CACHE_NUMBER: 0
+              with:
+                path: ~/conda_pkgs_dir
+                key:
+                    ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+                    hashFiles('etc/wiser-source.yml') }}
 
-            - name: Setup Conda Environment
-              uses: conda-incubator/setup-miniconda@v3
+            - uses: conda-incubator/setup-miniconda@v3
               with:
                 activate-environment: wiser-source
                 environment-file: etc/wiser-source.yml
                 python-version: 3.9.21
+                channel-priority: strict
                 channels: conda-forge
                 auto-activate-base: false
+                use-only-tar-bz2: true # This needs to be set for caching to work properly
     
             - name: Go to test folder
               working-directory: "src\\tests"
               run: pwd
-
-            - name: Without going to test folder
-              run: pwd
-            
-            - name: Conda env list
-              run: conda env list 
-
-            - name: Conda info env
-              run: conda info --env
