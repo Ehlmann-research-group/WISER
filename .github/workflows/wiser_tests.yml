@@ -29,7 +29,6 @@ jobs:
                 activate-environment: wiser-source
                 environment-file: etc/wiser-source.yml
                 python-version: 3.9.21
-                channel-priority: strict
                 channels: conda-forge
                 auto-activate-base: false
                 use-only-tar-bz2: true # This needs to be set for caching to work properly
