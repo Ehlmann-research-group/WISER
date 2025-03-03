@@ -12,8 +12,8 @@ dependencies:
   - bottleneck
   - netcdf4
   - xarray
-  - scipy==1.13.1
-  - numpy==1.26.4
+  - scipy>=1.13.1
+  - numpy>=1.26.4
   - libgdal-netcdf
   - libgdal-fits
   - jax
