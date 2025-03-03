@@ -10,7 +10,10 @@ jobs:
             matrix:
                 os: [windows-latest]
 
-        steps:  
+        steps:            
+            - name: Checkout codebase
+              uses: actions/checkout@v4
+
             - name: Setup Cached Conda Environment
               uses: actions/cache@v3
               env:
