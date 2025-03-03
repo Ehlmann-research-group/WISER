@@ -156,7 +156,9 @@ class WiserTestModel:
     # State retrieval
 
     def get_context_pane_dataset(self):
-        raise NotImplementedError
+        rv = self.context_pane.get_rasterview()
+        ds = rv._raster_data
+        return ds
 
     def get_context_pane_rasterview(self) -> RasterView:
         return self.context_pane.get_rasterview()
