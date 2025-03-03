@@ -1,0 +1,32 @@
+name: Run tests
+
+on: [push]
+
+jobs:
+    run-tests:
+        name: Run WISER Tests
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [windows-latest, macos-latest]
+
+        steps:
+            - name: Checkout codebase
+              uses: actions/checkout@v4
+
+            - name: Setup Conda Environment
+              uses: conda-incubator/setup-miniconda@v3
+              with:
+                activate-environment: wiser-source
+                environment-file: etc/wiser-source.yml
+                python-version: 3.9.21
+                channels: conda-forge
+                auto-activate-base: false
+                
+            - name: Go to test folder
+              run:
+              working-directory: "src\\tests"
+    
+            - name: Confirm
+              run: pwd
+
