@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - conda-forge::blas
+  - conda-forge::blas[build=openblas]
   - python==3.9.21
   - matplotlib
   - astropy

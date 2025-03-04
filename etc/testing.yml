@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - conda-forge::blas[build=openblas]
+  - conda-forge::blas
   - python==3.9.21
   - matplotlib
   - scipy>=1.13.1
