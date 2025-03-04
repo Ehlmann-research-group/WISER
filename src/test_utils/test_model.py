@@ -227,16 +227,40 @@ class WiserTestModel:
     def get_main_view_rv_clicked_pixel(self, rv_pos: Tuple[int, int]):
         raise NotImplementedError
     
-    def get_main_view_rv_center_pixel(self, rv_pos: Tuple[int, int]):
-        raise NotImplementedError
+    def get_main_view_rv_center_raster_coord(self, rv_pos: Tuple[int, int]):
+        '''
+        Returns the center of the rasterview in display pixel coordinates and in 
+        the coordinate space of the rasterview (so the top-left of the rasterview
+        is zero zero)
+
+        The more zoomed out the rasterview is, the more inaccurate the center
+        coordinate is. It may not match up with click_raster_coord_main_view_rv.
+        '''
+        rv = self.get_main_view_rv(rv_pos)
+        center_local_pos_x = rv._image_widget.width()/2
+        center_local_pos_y = rv._image_widget.height()/2
+        raster_coord = rv.image_coord_to_raster_coord(QPointF(center_local_pos_x, center_local_pos_y),
+                                                      round_nearest=True)
+        return (raster_coord.x(), raster_coord.y())
+
+    def get_main_view_rv_center_local_pixel(self, rv_pos: Tuple[int, int]):
+        '''
+        Returns the center of the rasterview in display pixel coordinates and in 
+        the coordinate space of the rasterview (so the top-left of the rasterview
+        is zero zero)
+        '''
+        rv = self.get_main_view_rv(rv_pos)
+        center_local_pos_x = rv._image_widget.width()/2
+        center_local_pos_y = rv._image_widget.height()/2
+        return (center_local_pos_x, center_local_pos_y)
     
     def get_main_view_rv_scroll_state(self, rv_pos: Tuple[int, int]) -> Tuple[int, int]:
-        rv = self.main_window._main_view.get_rasterview(rv_pos)
+        rv = self.get_main_view_rv(rv_pos)
         scroll_state = rv.get_scrollbar_state()
         raise scroll_state
     
     def get_main_view_rv_data(self, rv_pos: Tuple[int, int]) -> np.ndarray:
-        rv = self.main_window._main_view.get_rasterview(rv_pos)
+        rv = self.get_main_view_rv(rv_pos)
         return rv._img_data
 
     def get_main_view_rv_visible_region(self, rv_pos: Tuple[int, int]) -> Union[QRect, None]:
@@ -271,6 +295,10 @@ class WiserTestModel:
         raise NotImplementedError
     
     def click_pixel_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
+        '''
+        Clicks on the rasterview at rv_pos. The location clicked is in display coordinates
+        with the rasterview's image widget as the coordinate system. 
+        '''
         x = pixel[0]
         y = pixel[1]
 
@@ -286,9 +314,28 @@ class WiserTestModel:
 
         rv._image_widget.mouseReleaseEvent(mouse_event)
 
-        raster_coord = rv.image_coord_to_raster_coord(QPointF(x, y))
+        raster_coord = rv.image_coord_to_raster_coord(QPointF(x, y), round_nearest=True)
 
         return (raster_coord.x(), raster_coord.y())
+
+    def click_raster_coord_main_view_rv(self, rv_pos: Tuple[int, int], raster_coord: Tuple[int, int]):
+        '''
+        Clicks on the rasterview at rv_pos. The pixel clicked is in raster coords
+        '''
+        rv = self.get_main_view_rv(rv_pos)
+
+        rv_point = QPointF(raster_coord[0], raster_coord[1])
+        image_coord = rv.raster_coord_to_image_coord(rv_point, round_nearest=True)
+
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,            # event type
+            QPointF(image_coord.x(), image_coord.y()),           # local (widget) position
+            Qt.LeftButton,                       # which button changed state
+            Qt.MouseButtons(Qt.LeftButton),      # state of all mouse buttons
+            Qt.NoModifier                         # keyboard modifiers (e.g. Ctrl, Shift)
+        )
+
+        rv._image_widget.mouseReleaseEvent(mouse_event)
     
     def set_main_view_layout(self, layout: Tuple[int, int]):
         rows, cols = layout

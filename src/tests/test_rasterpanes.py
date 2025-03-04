@@ -174,10 +174,11 @@ if __name__ == '__main__':
 
     test_model.click_link_button()
 
-    isVisible = test_model.click_zoom_pane_display_toggle()
-    isVisible = test_model.click_context_pane_display_toggle()
-    isVisible = test_model.click_spectrum_plot_display_toggle()
-    isVisible = test_model.click_dataset_info_display_toggle()
+    print(f"ds1.get_width()/2, ds1.get_height()/2: {ds1.get_width()/2, ds1.get_height()/2}")
+
+    test_model.click_raster_coord_main_view_rv((0, 0), (ds1.get_width()/2, ds1.get_height()/2))
+
+    print(f"Mainview (0, 0) center raster: {test_model.get_main_view_rv_center_raster_coord((0, 0))}")
 
     test_model.app.exec_()
     QTimer.singleShot(20000, test_model.close_app)

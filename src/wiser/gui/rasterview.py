@@ -1016,7 +1016,7 @@ class RasterView(QWidget):
         self.update_display_image(colors=color)
 
 
-    def image_coord_to_raster_coord(self, position: Union[QPoint, QPointF]) -> QPointF:
+    def image_coord_to_raster_coord(self, position: Union[QPoint, QPointF], round_nearest=False) -> QPointF:
         '''
         Takes a position in screen space as a QPointF object, and translates it
         into a 2-tuple containing the (X, Y) coordinates of the position within
@@ -1031,6 +1031,30 @@ class RasterView(QWidget):
         # Scale the screen position into the dataset's coordinate system.
         scaled = position / self._scale_factor
 
-        # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
-        # it rounds to the nearest point, and we just want truncation/floor.
-        return QPoint(int(scaled.x()), int(scaled.y()))
+        if round_nearest:
+            return scaled.toPoint()
+        else:
+            # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
+            # it rounds to the nearest point, and we just want truncation/floor.
+            return QPoint(int(scaled.x()), int(scaled.y()))
+    
+    def raster_coord_to_image_coord(self, raster_coord: Union[QPoint, QPointF], round_nearest=False) -> QPointF:
+        '''
+        Takes a raster coordinate and translates it to an image coordinate in screen space.
+
+        This does round to the nearest integer
+        '''
+        if isinstance(raster_coord, QPoint):
+            raster_coord = QPointF(raster_coord)
+        elif not isinstance(raster_coord, QPointF):
+            raise TypeError('This function requires a QPoint or QPointF ' +
+                            f'argument; got {type(raster_coord)}')
+        
+        scaled = raster_coord * self._scale_factor
+
+        if round_nearest:
+            return scaled.toPoint()
+        else:
+            # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
+            # it rounds to the nearest point, and we just want truncation/floor.
+            return QPoint(int(scaled.x()), int(scaled.y()))
