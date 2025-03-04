@@ -175,8 +175,9 @@ if __name__ == '__main__':
     test_model.click_link_button()
 
     isVisible = test_model.click_zoom_pane_display_toggle()
-
-    print(f"is zoom pane visible: {isVisible}")
+    isVisible = test_model.click_context_pane_display_toggle()
+    isVisible = test_model.click_spectrum_plot_display_toggle()
+    isVisible = test_model.click_dataset_info_display_toggle()
 
     test_model.app.exec_()
     QTimer.singleShot(20000, test_model.close_app)

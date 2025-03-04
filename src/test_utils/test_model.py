@@ -330,18 +330,28 @@ class WiserTestModel:
     #==========================================
     # General
 
-    def click_zoom_pane_display_toggle(self):
+
+    def click_pane_display_toggle(self, pane_name: str):
         for act in self.main_window._main_toolbar.actions():
             parent = act.parent()
             name = parent.objectName()
             print(f"name: {name}")
-            if name == 'zoom_pane':
+            if name == pane_name:
                 act.trigger()
                 return parent.isVisible()
         return False
 
+    def click_zoom_pane_display_toggle(self):
+        self.click_pane_display_toggle('zoom_pane')
 
+    def click_context_pane_display_toggle(self):
+        self.click_pane_display_toggle('context_pane')
 
+    def click_spectrum_plot_display_toggle(self):
+        self.click_pane_display_toggle('spectrum_plot')
+
+    def click_dataset_info_display_toggle(self):
+        self.click_pane_display_toggle('dataset_info')
 
 if __name__ == '__main__':
     test_model = WiserTestModel()
