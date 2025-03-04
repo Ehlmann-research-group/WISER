@@ -6,9 +6,23 @@ dependencies:
   - conda-forge::blas
   - python
   - matplotlib
+  - astropy
+  - pyinstaller
+  - dask
+  - bottleneck
+  - netcdf4
+  - xarray
   - scipy
   - numpy
+  - libgdal-netcdf
+  - libgdal-fits
+  - jax
   - numba
+  - pdr
   - gdal
+  - openjpeg
+  - numcodecs
+  - cfitsio
+  - zlib
   - pyside2
 prefix: C:\Users\jgarc\anaconda3\envs\wiser-source

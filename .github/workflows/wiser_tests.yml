@@ -24,6 +24,8 @@ jobs:
                 key:
                     ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
                     hashFiles('etc/testing.yml') }}
+                restore-keys: |
+                  ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-
 
             - uses: conda-incubator/setup-miniconda@v3
               with:
