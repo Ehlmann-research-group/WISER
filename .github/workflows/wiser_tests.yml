@@ -23,7 +23,7 @@ jobs:
                 path: ~/conda_pkgs_dir
                 key:
                     ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
-                    hashFiles('etc/testing.yml') }}
+                    hashFiles('etc/wiser-source.yml') }}
                 restore-keys: |
                   ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-
 
@@ -31,7 +31,7 @@ jobs:
               with:
                 auto-update-conda: true
                 activate-environment: wiser-source
-                environment-file: etc/testing.yml
+                environment-file: etc/wiser-source.yml
                 channels: conda-forge
                 auto-activate-base: false
                 use-only-tar-bz2: false # This needs to be set for caching to work properly\
