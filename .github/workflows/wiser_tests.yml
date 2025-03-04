@@ -1,6 +1,6 @@
 name: Run tests
 
-on: []
+on: [push]
 
 jobs:
     run-tests:
@@ -22,16 +22,21 @@ jobs:
                 path: ~/conda_pkgs_dir
                 key:
                     ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
-                    hashFiles('etc/wiser-source.yml') }}
+                    hashFiles('etc/testing.yml') }}
 
             - uses: conda-incubator/setup-miniconda@v3
               with:
                 activate-environment: wiser-source
-                environment-file: etc/wiser-source.yml
+                environment-file: etc/testing.yml
                 python-version: 3.9.21
                 channels: conda-forge
                 auto-activate-base: false
-                use-only-tar-bz2: true # This needs to be set for caching to work properly
+                use-only-tar-bz2: true # This needs to be set for caching to work properly\
+
+            - name: Update environment
+              run:
+                conda env update -n wiser-source -f etc/testing.yml
+              if: steps.cache.outputs.cache-hit != 'true'
             
             # - name: Setup pip dependencies
             #   uses: actions/setup-python@v5

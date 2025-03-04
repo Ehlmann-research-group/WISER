@@ -230,21 +230,25 @@ class WiserTestModel:
     def get_main_view_rv_center_pixel(self, rv_pos: Tuple[int, int]):
         raise NotImplementedError
     
-    def get_main_view_rv_scroll_state(self, rv_pos: Tuple[int, int]):
-        raise NotImplementedError
+    def get_main_view_rv_scroll_state(self, rv_pos: Tuple[int, int]) -> Tuple[int, int]:
+        rv = self.main_window._main_view.get_rasterview(rv_pos)
+        scroll_state = rv.get_scrollbar_state()
+        raise scroll_state
     
     def get_main_view_rv_data(self, rv_pos: Tuple[int, int]) -> np.ndarray:
         rv = self.main_window._main_view.get_rasterview(rv_pos)
         return rv._img_data
 
-    def get_main_view_rv_visible_region(self, rv_pos: Tuple[int, int]):
-        raise NotImplementedError
+    def get_main_view_rv_visible_region(self, rv_pos: Tuple[int, int]) -> Union[QRect, None]:
+        rv = self.main_view.get_rasterview(rv_pos)
+        visible_region = rv.get_visible_region()
+        return visible_region
 
-    def get_main_view_rv_highlight_region(self, rv_pos: Tuple[int, int]):
-        raise NotImplementedError
-    
-    def get_main_view_link_state(self):
-        raise NotImplementedError
+    def get_main_view_highlight_region(self, rv_pos: Tuple[int, int]):
+        return self.context_pane._viewport_highlight
+
+    def is_main_view_linked(self):
+        return self.main_view._link_view_scrolling
 
     # State setting
 

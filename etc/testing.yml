@@ -1,0 +1,14 @@
+name: wiser-source
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - conda-forge::blas[build=openblas]
+  - python==3.9.21
+  - matplotlib
+  - scipy>=1.13.1
+  - numpy>=1.26.4
+  - numba>=0.60.0
+  - gdal==3.10.1
+  - pyside2
+prefix: C:\Users\jgarc\anaconda3\envs\wiser-source
