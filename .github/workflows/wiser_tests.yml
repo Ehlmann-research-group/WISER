@@ -36,6 +36,18 @@ jobs:
               run:
                 conda env update -n wiser-source -f etc/testing.yml
               if: steps.cache.outputs.cache-hit != 'true'
+
+            - name: Testing cache hit true
+              run: echo CACHE HIT
+              if: steps.cache.outputs.cache-hit == 'true'
+
+              
+            - name: Testing cache hit false
+              run: echo CACHE MISS
+              if: steps.cache.outputs.cache-hit != 'true'
+
+
+              # Testing cache
             
             # - name: Setup pip dependencies
             #   uses: actions/setup-python@v5
