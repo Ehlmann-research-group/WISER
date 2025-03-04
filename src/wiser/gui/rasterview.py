@@ -1044,6 +1044,7 @@ class RasterView(QWidget):
 
         This does round to the nearest integer
         '''
+        print(f"raster_coord: {raster_coord}")
         if isinstance(raster_coord, QPoint):
             raster_coord = QPointF(raster_coord)
         elif not isinstance(raster_coord, QPointF):
@@ -1051,7 +1052,8 @@ class RasterView(QWidget):
                             f'argument; got {type(raster_coord)}')
         
         scaled = raster_coord * self._scale_factor
-
+        print(f"Image coord: {scaled}")
+        print(f"self._scale_factor: {self._scale_factor}")
         if round_nearest:
             return scaled.toPoint()
         else:

@@ -169,16 +169,13 @@ if __name__ == '__main__':
     test_model.set_main_view_rv((1, 0), ds2.get_id())
 
     test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
     test_model.click_main_view_zoom_out()
 
     test_model.click_link_button()
 
-    print(f"ds1.get_width()/2, ds1.get_height()/2: {ds1.get_width()/2, ds1.get_height()/2}")
-
     test_model.click_raster_coord_main_view_rv((0, 0), (ds1.get_width()/2, ds1.get_height()/2))
 
-    print(f"Mainview (0, 0) center raster: {test_model.get_main_view_rv_center_raster_coord((0, 0))}")
+    print(f"get_main_view_rv_clicked_raster_coord: {test_model.get_main_view_rv_clicked_raster_coord((0, 0))}")
 
     test_model.app.exec_()
     QTimer.singleShot(20000, test_model.close_app)

@@ -7,7 +7,7 @@ target_dir = os.path.abspath(os.path.join(script_dir, ".."))
 sys.path.append(target_dir)
 
 import numpy as np
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 
 from PySide2.QtTest import QTest
 from PySide2.QtCore import *
@@ -224,8 +224,22 @@ class WiserTestModel:
     def get_main_view_rv(self, rv_pos: Tuple[int, int]):
         return self.main_view.get_rasterview(rv_pos)
 
-    def get_main_view_rv_clicked_pixel(self, rv_pos: Tuple[int, int]):
-        raise NotImplementedError
+    def get_main_view_rv_clicked_raster_coord(self, rv_pos: Tuple[int, int]) -> Optional[Tuple[int, int]]:
+        pixel_selection = self.main_view._pixel_highlight
+        if pixel_selection is None:
+            return
+        if pixel_selection.get_dataset() == None:
+            pixel = pixel_selection.get_pixel()
+            return (pixel.x(), pixel.y())
+        # Use rv_pos to get the ds_id for the rv
+        rv = self.get_main_view_rv(rv_pos)
+        ds = rv._raster_data
+        if ds is None:
+            return
+        ds_id = ds.get_id()
+        if ds_id == pixel_selection.get_dataset().get_id():
+            pixel = pixel_selection.get_pixel()
+            return (pixel.x(), pixel.y())
     
     def get_main_view_rv_center_raster_coord(self, rv_pos: Tuple[int, int]):
         '''
@@ -320,22 +334,11 @@ class WiserTestModel:
 
     def click_raster_coord_main_view_rv(self, rv_pos: Tuple[int, int], raster_coord: Tuple[int, int]):
         '''
-        Clicks on the rasterview at rv_pos. The pixel clicked is in raster coords
+        Clicks on the rasterview at rv_pos. The pixel clicked is in raster coords. This function
+        ignores delegates that are on the rasterview 
         '''
-        rv = self.get_main_view_rv(rv_pos)
-
-        rv_point = QPointF(raster_coord[0], raster_coord[1])
-        image_coord = rv.raster_coord_to_image_coord(rv_point, round_nearest=True)
-
-        mouse_event = QMouseEvent(
-            QEvent.MouseButtonRelease,            # event type
-            QPointF(image_coord.x(), image_coord.y()),           # local (widget) position
-            Qt.LeftButton,                       # which button changed state
-            Qt.MouseButtons(Qt.LeftButton),      # state of all mouse buttons
-            Qt.NoModifier                         # keyboard modifiers (e.g. Ctrl, Shift)
-        )
-
-        rv._image_widget.mouseReleaseEvent(mouse_event)
+        raster_point = QPoint(int(raster_coord[0]), int(raster_coord[1]))
+        self.main_view.click_pixel.emit(rv_pos, raster_point)
     
     def set_main_view_layout(self, layout: Tuple[int, int]):
         rows, cols = layout
