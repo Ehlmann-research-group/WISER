@@ -9,6 +9,6 @@ dependencies:
   - scipy>=1.13.1
   - numpy>=1.26.4
   - numba>=0.60.0
-  - gdal==3.10.1
+  - gdal>=3.9.3
   - pyside2
 prefix: C:\Users\jgarc\anaconda3\envs\wiser-source
