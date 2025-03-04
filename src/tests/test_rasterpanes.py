@@ -172,5 +172,11 @@ if __name__ == '__main__':
     test_model.click_main_view_zoom_in()
     test_model.click_main_view_zoom_out()
 
+    test_model.click_link_button()
+
+    isVisible = test_model.click_zoom_pane_display_toggle()
+
+    print(f"is zoom pane visible: {isVisible}")
+
     test_model.app.exec_()
     QTimer.singleShot(20000, test_model.close_app)

@@ -325,6 +325,21 @@ class WiserTestModel:
                 raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
         else:
             raise ValueError(f"The rasterview at {rv_pos} is not a rasterview")
+        
+
+    #==========================================
+    # General
+
+    def click_zoom_pane_display_toggle(self):
+        for act in self.main_window._main_toolbar.actions():
+            parent = act.parent()
+            name = parent.objectName()
+            print(f"name: {name}")
+            if name == 'zoom_pane':
+                act.trigger()
+                return parent.isVisible()
+        return False
+
 
 
 
