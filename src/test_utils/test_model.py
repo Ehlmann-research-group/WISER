@@ -18,6 +18,7 @@ from wiser.gui.app import DataVisualizerApp
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
 from wiser.gui.rasterview import RasterView
+from wiser.gui.rasterpane import TiledRasterView, RasterPane
 
 
 class WiserTestModel:
@@ -220,6 +221,9 @@ class WiserTestModel:
 
     # State retrieval
 
+    def get_main_view_rv(self, rv_pos: Tuple[int, int]):
+        return self.main_view.get_rasterview(rv_pos)
+
     def get_main_view_rv_clicked_pixel(self, rv_pos: Tuple[int, int]):
         raise NotImplementedError
     
@@ -244,23 +248,84 @@ class WiserTestModel:
 
     # State setting
 
-    def click_link_button(self):
-        raise NotImplementedError
+    def click_link_button(self) -> bool:
+        '''
+        Clicks on the link view scrolling button. Returns the state of
+        link view. (Either true or false)
+        '''
+        self.main_view._act_link_view_scroll.trigger()
+
+        return self.main_view._link_view_scrolling
     
     def click_main_view_zoom_in(self):
-        raise NotImplementedError
+        self.main_view._act_zoom_in.trigger()
     
     def click_main_view_zoom_out(self):
-        raise NotImplementedError
+        self.main_view._act_zoom_out.trigger()
     
     def scroll_main_view_rv(self, dx, dy):
         raise NotImplementedError
     
-    def click_pixel_main_view_rv(self, rv_pos: Tuple[int, int]):
-        raise NotImplementedError
+    def click_pixel_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
+        x = pixel[0]
+        y = pixel[1]
+
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,            # event type
+            QPointF(x, y),           # local (widget) position
+            Qt.LeftButton,                       # which button changed state
+            Qt.MouseButtons(Qt.LeftButton),      # state of all mouse buttons
+            Qt.NoModifier                         # keyboard modifiers (e.g. Ctrl, Shift)
+        )
+
+        rv = self.get_main_view_rv(rv_pos)
+
+        rv._image_widget.mouseReleaseEvent(mouse_event)
+
+        raster_coord = rv.image_coord_to_raster_coord(QPointF(x, y))
+
+        return (raster_coord.x(), raster_coord.y())
     
-    def change_main_view_layout(self, rows: int, cols: int):
-        raise NotImplementedError
+    def set_main_view_layout(self, layout: Tuple[int, int]):
+        rows, cols = layout
+        action = QAction()
+        action.setData((rows, cols))
+        if rows == -1 or cols == -1:
+            raise ValueError("Neither rows nor cols can be -1")
+        self.main_view._on_split_views(action)
+    
+    def set_main_view_rv(self, rv_pos: Tuple[int, int], ds_id: int):
+        rv = self.get_main_view_rv(rv_pos)
+
+        if isinstance(rv, TiledRasterView):
+            index = None
+            combo_box = rv._cbox_dataset_chooser
+            # Go through each index and make sure ds_id is in one of them
+            for i in range(combo_box.count()):
+                cbox_ds_id = combo_box.itemData(i)
+                if cbox_ds_id == ds_id:
+                    index = i
+                    break
+            if index == None:
+                raise ValueError(f"Dataset belonging to id {ds_id} is not in dataset chooser")
+            
+            # Now we switch the rv to the correct dataset
+            rv._on_switch_to_dataset(index)
+        elif isinstance(RasterView):
+            dataset_menu = self.main_view._dataset_chooser._dataset_menu
+            QTest.mouseClick(dataset_menu, Qt.LeftButton)
+
+            if ds_id not in self.app_state._datasets:
+                raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
+
+            action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
+            if action:
+                self.main_view._on_dataset_changed(action)
+            else:
+                raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
+        else:
+            raise ValueError(f"The rasterview at {rv_pos} is not a rasterview")
+
 
 
 if __name__ == '__main__':

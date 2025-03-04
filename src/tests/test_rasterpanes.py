@@ -163,8 +163,14 @@ if __name__ == '__main__':
     ds2 = test_model.load_dataset(np_impl2)
     ds3 = test_model.load_dataset(np_impl3)
 
+    test_model.set_main_view_layout((2, 1))
 
-    raster_pixel = test_model.set_context_pane_dataset(ds2.get_id())
+    test_model.set_main_view_rv((0, 0), ds1.get_id())
+    test_model.set_main_view_rv((1, 0), ds2.get_id())
+
+    test_model.click_main_view_zoom_in()
+    test_model.click_main_view_zoom_in()
+    test_model.click_main_view_zoom_out()
 
     test_model.app.exec_()
     QTimer.singleShot(20000, test_model.close_app)
