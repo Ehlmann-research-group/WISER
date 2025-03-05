@@ -43,6 +43,8 @@ class WiserTestModel:
     '''
 
     def __init__(self, use_gui=False):
+        if not use_gui:
+            os.environ["QT_QPA_PLATFORM"] = "offscreen"
         self.app = QApplication.instance() or QApplication([])
         self.use_gui = use_gui
 
@@ -189,6 +191,9 @@ class WiserTestModel:
 
 
     # region State retrieval
+
+    def get_zoom_pane_image_data(self):
+        return self.get_zoom_pane_rasterview()._img_data
 
     def get_zoom_pane_dataset(self):
         return self.get_zoom_pane_rasterview()._raster_data

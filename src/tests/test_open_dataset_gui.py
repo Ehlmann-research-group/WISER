@@ -1,25 +1,8 @@
 import unittest
 
-import sys
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser")
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src")
-
 import numpy as np
 
-import time
-
-from wiser.gui.app_state import ApplicationState
-from wiser.gui.app import DataVisualizerApp
-
-from wiser.raster.dataset import RasterDataSet
-from wiser.raster.loader import RasterDataLoader
-from wiser.raster.roi import RegionOfInterest
-from wiser.raster.selection import RectangleSelection, PolygonSelection, MultiPixelSelection
-
-from wiser.raster.spectrum import ROIAverageSpectrum
-
-import logging
-import traceback
+from test_utils.test_model import WiserTestModel
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -27,114 +10,70 @@ from PySide2.QtWidgets import *
 
 class TestOpenDataset(unittest.TestCase):
 
-    # Test to ensure all raster pane's (Context, Zoom, Mainview) have the same data when we first open them
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
     def test_all_panes_same(self):
-        app = QApplication.instance() or QApplication([])  # Initialize the QApplication   
-        wiser_ui = None
-
-        try:
-            # Set up the GUI
-            wiser_ui = DataVisualizerApp()
-            wiser_ui.show()
-
-            loader = RasterDataLoader()
-            N=6
-            np_impl = np.arange(1, N+1).reshape((N, 1, 1)) * np.ones((N, 50, 50))
-            dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
-            dataset.set_name("Test_Numpy")
-
             
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-            # Create an application state, no need to pass the app here
-            app_state = wiser_ui._app_state
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-            # raster_pane = RasterPane(app_state)
-            app_state.add_dataset(dataset)
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+        
+        self.test_model.load_dataset(np_impl)
 
-            main_view_arr = wiser_ui._main_view._rasterviews[(0,0)].get_image_data()
-            context_pane_arr = wiser_ui._context_pane._rasterviews[(0,0)].get_image_data()
-            zoom_pane_arr = wiser_ui._zoom_pane._rasterviews[(0,0)].get_image_data()
-    
-            np.testing.assert_equal(main_view_arr, context_pane_arr)
-            np.testing.assert_equal(main_view_arr, zoom_pane_arr)
+        main_view_arr = self.test_model.get_main_view_rv_data()
+        context_pane_arr = self.test_model.get_context_pane_image_data()
+        zoom_pane_arr = self.test_model.get_zoom_pane_image_data()
 
-            # This should happen X milliseconds after the above stuff runs
-            QTimer.singleShot(100, app.quit)
-            # Run the application event loop
-            app.exec_()
+        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(main_view_arr, zoom_pane_arr)
+        self.assertTrue(all_equal)
 
-        except Exception as e:
-            logging.error(f"Application crashed: {e}")
-            traceback.print_exc()
-            self.assertTrue(1==0, f"Falied with error:\n{e}")
-
-        finally:
-            if wiser_ui:
-                wiser_ui.close()
-            app.quit()
-            del app
-
-    # Test to ensure all raster pane's have the same image data after applying stretches
-    def test_all_panes_same_stretch_builder(self):
-        app = QApplication.instance() or QApplication([])  # Initialize the QApplication   
-        wiser_ui = None
-
-        try:
-            # Set up the GUI
-            wiser_ui = DataVisualizerApp()
-            wiser_ui.show()
-
-            loader = RasterDataLoader()
-            N=6
-            np_impl = np.arange(1, N+1).reshape((N, 1, 1)) * np.ones((N, 50, 50))
-            dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
-            dataset.set_name("Test_Numpy")
-
+    def test_all_panes_same_stretch_builder1(self):
             
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-            # Create an application state, no need to pass the app here
-            app_state = wiser_ui._app_state
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-            # raster_pane = RasterPane(app_state)
-            app_state.add_dataset(dataset)
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+        
+        self.test_model.load_dataset(np_impl)
 
-            # Open the stretch builder dialog
-            wiser_ui._main_view._on_stretch_builder()
+        self.test_model.click_stretch_hist_equalize()
+        self.test_model.click_log_conditioner()
 
-            stretch_builder = wiser_ui._main_view.get_stretch_builder()
+        main_view_arr = self.test_model.get_main_view_rv_data()
+        context_pane_arr = self.test_model.get_context_pane_image_data()
+        zoom_pane_arr = self.test_model.get_zoom_pane_image_data()
 
-            stretch_config = stretch_builder._stretch_config
-
-            stretch_config._ui.rb_stretch_equalize.click()
-            stretch_config._ui.rb_cond_log.click()
-
-            # Get the arrays and ensure they're all the same
-            main_view_arr = wiser_ui._main_view._rasterviews[(0,0)].get_image_data()
-            context_pane_arr = wiser_ui._context_pane._rasterviews[(0,0)].get_image_data()
-            zoom_pane_arr = wiser_ui._zoom_pane._rasterviews[(0,0)].get_image_data()
-    
-            np.testing.assert_equal(main_view_arr, context_pane_arr)
-            np.testing.assert_equal(main_view_arr, zoom_pane_arr)
-
-            # This should happen X milliseconds after the above stuff runs
-            QTimer.singleShot(100, app.quit)
-            # Run the application event loop
-            app.exec_()
-
-            time.sleep(6)
-
-        except Exception as e:
-            logging.error(f"Application crashed: {e}")
-            traceback.print_exc()
-            self.assertTrue(1==0, f"Falied with error:\n{e}")
-
-        finally:
-            if wiser_ui:
-                wiser_ui.close()
-            app.quit()
-            del app
-
-# if __name__ == '__main__':
-#     test = TestOpenDataset()
-#     test.test_all_panes_same()
-#     test.test_all_panes_same_stretch_builder()
+        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(main_view_arr, zoom_pane_arr)
+        self.assertTrue(all_equal)
