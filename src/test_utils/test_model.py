@@ -7,6 +7,8 @@ target_dir = os.path.abspath(os.path.join(script_dir, ".."))
 sys.path.append(target_dir)
 
 import numpy as np
+from astropy import units as u
+
 from typing import Tuple, Union, Optional
 
 from PySide2.QtTest import QTest
@@ -57,6 +59,8 @@ class WiserTestModel:
     
         self.app_state = self.main_window._app_state
         self.data_cache = self.main_window._data_cache
+
+        self.spectrum_plot = self.main_window._spectrum_plot
 
         self.context_pane = self.main_window._context_pane
 
@@ -114,6 +118,36 @@ class WiserTestModel:
     def load_spectra(self, spectra_path):
         raise NotImplementedError("load_spectra not implemented yet ")
     
+    #==========================================
+    # Spectrum plot state retrieval and setting
+
+    # State retrieval
+
+    def get_spectrum_plot_active_spectra(self):
+        raise NotImplementedError
+
+    def get_spectrum_plot_displayed_spectra(self):
+        raise NotImplementedError
+
+    def get_spectrum_plot_collected_spectra(self):
+        raise NotImplementedError
+    
+    def get_spectrum_plot_x_units(self) -> u.Unit:
+        return self.spectrum_plot.get_x_units()
+    
+
+    # State setting
+
+    def collect_spectrum_plot_spectra(self, spectrum_identifier):
+        raise NotImplementedError
+    
+    def import_ascii_spectra(self, file_path: str):
+        raise NotImplementedError
+    
+    def import_spectral_library(self, file_path: str):
+        raise NotImplementedError
+    
+
     #==========================================
     # Zoom Pane state retrieval and setting
 
