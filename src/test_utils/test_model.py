@@ -120,36 +120,103 @@ class WiserTestModel:
     # State retrieval
 
     def get_zoom_pane_dataset(self):
-        raise NotImplementedError
+        return self.get_zoom_pane_rasterview()._raster_data
     
     def get_zoom_pane_rasterview(self):
-        raise NotImplementedError
+        return self.zoom_pane.get_rasterview()
     
-    def get_zoom_pane_region(self):
-        raise NotImplementedError
+    def get_zoom_pane_region(self) -> Optional[QRect]:
+        rv = self.get_zoom_pane_rasterview()
+        return rv.get_visible_region()
     
-    def get_zoom_pane_scroll_state(self):
-        raise NotImplementedError
+    def get_zoom_pane_scroll_state(self) -> Tuple[int, int]:
+        rv = self.get_zoom_pane_rasterview()
+        scroll_state = rv.get_scrollbar_state()
+        return scroll_state
 
     def get_zoom_pane_selected_pixel(self):
-        raise NotImplementedError
+        pixel_selection = self.zoom_pane._pixel_highlight
+        if pixel_selection is None:
+            return
+        if pixel_selection.get_dataset() == None:
+            pixel = pixel_selection.get_pixel()
+            return (pixel.x(), pixel.y())
+        # Use rv_pos to get the ds_id for the rv
+        rv = self.get_zoom_pane_rasterview()
+        ds = rv._raster_data
+        if ds is None:
+            return
+        ds_id = ds.get_id()
+        if ds_id == pixel_selection.get_dataset().get_id():
+            pixel = pixel_selection.get_pixel()
+            return (pixel.x(), pixel.y())
     
-    def get_zoom_pane_center_pixel(self):
-        raise NotImplementedError
+    def get_zoom_pane_center_raster_coord(self):
+        '''
+        Returns the center raster coordinate of the zoom pane's visible region
+        '''
+        qrect = self.get_zoom_pane_region()
+        center = QPointF(qrect.topLeft()) + QPointF(qrect.width(), qrect.height())/2
+        return center
+        # rv = self.get_zoom_pane_rasterview()
+        # center_local_pos_x = rv._image_widget.width()/2
+        # center_local_pos_y = rv._image_widget.height()/2
+        # raster_coord = rv.image_coord_to_raster_coord(QPointF(center_local_pos_x, center_local_pos_y),
+        #                                               round_nearest=True)
+        # return (raster_coord.x(), raster_coord.y())
     
-    def get_zoom_pane_image_size(self):
-        raise NotImplementedError
+    def get_zoom_pane_image_size(self) -> Tuple[int, int]:
+        '''
+        Gets the size of visible region in raster coordinates
+        '''
+        return (self.get_zoom_pane_region().width(), self.get_zoom_pane_region().height())
 
     # State setting
 
-    def set_zoom_pane_dataset(self, dataset):
-        raise NotImplementedError
+    def set_zoom_pane_dataset(self, ds_id):
+        rv = self.get_zoom_pane_rasterview()
+
+        dataset_menu = self.zoom_pane._dataset_chooser._dataset_menu
+        QTest.mouseClick(dataset_menu, Qt.LeftButton)
+
+        if ds_id not in self.app_state._datasets:
+            raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
+
+        action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
+        if action:
+            self.zoom_pane._on_dataset_changed(action)
+        else:
+            raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
     
     def scroll_zoom_pane(self, dx, dy):
-        raise NotImplementedError
+        rv = self.get_zoom_pane_rasterview()
+        rv._scroll_area.scrollContentsBy(dx, dy)
 
-    def select_pixel_zoom_pane(self, pixel: Tuple[int, int]):
-        raise NotImplementedError
+    def select_raster_coord_zoom_pane(self, raster_coord: Tuple[int, int]):
+        '''
+        Clicks on the zoom pane's rasterview. The pixel clicked is in raster coords.
+        This function ignores delegates that are on the rasterview 
+        '''
+        raster_point = QPoint(int(raster_coord[0]), int(raster_coord[1]))
+        print(f"raster_point: {raster_point}")
+        self.zoom_pane.click_pixel.emit((0, 0), raster_point)
+
+    def set_zoom_pane_zoom_level(self, scale: int):
+        '''
+        Sets the zoom pane's zoom level. Scale should non-negative
+        and non-zero. The zoom level will show up as {scale*100}%
+        '''
+        if scale <= 0:
+            return
+        rv = self.get_zoom_pane_rasterview()
+        rv._scale_factor = scale+1
+        self.zoom_pane._on_zoom_in(None)
+
+    def click_zoom_pane_zoom_in(self):
+        self.zoom_pane._act_zoom_in.trigger()
+    
+    def click_zoom_pane_zoom_out(self):
+        self.zoom_pane._act_zoom_out.trigger()
 
     #==========================================
     # Context Pane state retrieval and setting
@@ -218,6 +285,7 @@ class WiserTestModel:
 
     #==========================================
     # Main View state retrieval and setting
+    #==========================================
 
     # State retrieval
 
@@ -305,8 +373,9 @@ class WiserTestModel:
     def click_main_view_zoom_out(self):
         self.main_view._act_zoom_out.trigger()
     
-    def scroll_main_view_rv(self, dx, dy):
-        raise NotImplementedError
+    def scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
+        rv = self.get_main_view_rv(rv_pos)
+        rv._scroll_area.scrollContentsBy(dx, dy)
     
     def click_pixel_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
         '''
@@ -389,7 +458,6 @@ class WiserTestModel:
         for act in self.main_window._main_toolbar.actions():
             parent = act.parent()
             name = parent.objectName()
-            print(f"name: {name}")
             if name == pane_name:
                 act.trigger()
                 return parent.isVisible()

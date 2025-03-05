@@ -102,80 +102,68 @@ class TestRasterPanes(unittest.TestCase):
     
 if __name__ == '__main__':
     test_model = WiserTestModel(use_gui=True)
-
-    np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [1.  , 1.  , 1.  , 1.  ]],
-
-                        [[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [1.  , 1.  , 1.  , 1.  ]],
-
-                        [[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [1.  , 1.  , 1.  , 1.  ]]])
-
-
-    np_impl2 = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [0.  , 0.  , 0.  , 0.  ]],
-
-                        [[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [0.  , 0.  , 0.  , 0.  ]],
-
-                        [[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [0.  , 0.  , 0.  , 0.  ]]])
-
     
-    np_impl3 = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                            [0., 0., 0., 0.],
-                            [0. , 0. , 0. , 0. ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [0.  , 0.  , 0.  , 0.  ]],
+    # Create first array
+    rows, cols, channels = 50, 50, 3
+    # Create a vertical gradient from 0 to 1: shape (50,1)
+    row_values = np.linspace(0, 1, rows).reshape(rows, 1)
+    # Tile the values horizontally to get a 50x50 array
+    impl = np.tile(row_values, (1, cols))
+    # Repeat the 2D array across 3 channels to get a 3x50x50 array
+    np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
-                        [[0.  , 0.  , 0.  , 0.  ],
-                            [0., 0., 0., 0.],
-                            [0. , 0. , 0. , 0. ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [0.  , 0.  , 0.  , 0.  ]],
+    # Create second array
+    rows, cols, channels = 50, 50, 3
+    # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
+    row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+    impl2 = np.tile(row_values, (1, cols))
+    np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
-                        [[0.  , 0.  , 0.  , 0.  ],
-                            [0., 0., 0., 0.],
-                            [0. , 0. , 0. , 0. ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [0.  , 0.  , 0.  , 0.  ]]])
+    # Create third array
+    rows, cols, channels = 50, 50, 3
+    # Start with an array of zeros (50x1)
+    row_values = np.zeros((rows, 1))
+    # Choose the row index corresponding to 75% of the height.
+    nonzero_index = int(0.75 * (rows - 1))
+    row_values[nonzero_index] = 0.75
+    impl3 = np.tile(row_values, (1, cols))
+    np_impl3 = np.repeat(impl3[np.newaxis, :, :], channels, axis=0)
 
     ds1 = test_model.load_dataset(np_impl)
     ds2 = test_model.load_dataset(np_impl2)
-    ds3 = test_model.load_dataset(np_impl3)
+
+    test_model.click_zoom_pane_display_toggle()
 
     test_model.set_main_view_layout((2, 1))
 
     test_model.set_main_view_rv((0, 0), ds1.get_id())
     test_model.set_main_view_rv((1, 0), ds2.get_id())
 
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_out()
+    test_model.click_zoom_pane_zoom_in()
+    test_model.click_zoom_pane_zoom_out()
+    test_model.set_zoom_pane_zoom_level(10)
 
-    test_model.click_link_button()
+    print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
+    test_model.click_zoom_pane_zoom_out()
+    test_model.click_zoom_pane_zoom_out()
+    # The zoom pane image size should increase. Since we zoomed out it shoild show more pixels
+    print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
 
-    test_model.click_raster_coord_main_view_rv((0, 0), (ds1.get_width()/2, ds1.get_height()/2))
+    print(f"test_model.get_zoom_pane_center_raster_coord(): {test_model.get_zoom_pane_center_raster_coord()}")
 
-    print(f"get_main_view_rv_clicked_raster_coord: {test_model.get_main_view_rv_clicked_raster_coord((0, 0))}")
+    test_model.select_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
+
+    print(f"test_model.get_zoom_pane_selected_pixel(): {test_model.get_zoom_pane_selected_pixel()}")
+
+    print(f"test_model.get_zoom_pane_scroll_state(): {test_model.get_zoom_pane_scroll_state()}")
+
+    print(f"test_model.get_zoom_pane_region(): {test_model.get_zoom_pane_region()}")
+
+    # Try commenting this line out to show that it works
+    test_model.set_zoom_pane_dataset(ds1.get_id())
+
+    print(f"test_model.get_zoom_pane_dataset(): {test_model.get_zoom_pane_dataset().get_id()}")
+
 
     test_model.app.exec_()
     QTimer.singleShot(20000, test_model.close_app)
