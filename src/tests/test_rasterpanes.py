@@ -18,6 +18,7 @@ from PySide2.QtWidgets import *
 from wiser.gui.app import DataVisualizerApp
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
 
 class TestRasterPanes(unittest.TestCase):
 
@@ -129,43 +130,49 @@ if __name__ == '__main__':
     impl3 = np.tile(row_values, (1, cols))
     np_impl3 = np.repeat(impl3[np.newaxis, :, :], channels, axis=0)
 
+    spectrum_impl = np.linspace(0, 1, 3)
+    spectrum = NumPyArraySpectrum(spectrum_impl, name="spectrum")
+
     ds1 = test_model.load_dataset(np_impl)
     ds2 = test_model.load_dataset(np_impl2)
 
     test_model.click_zoom_pane_display_toggle()
+    test_model.click_spectrum_plot_display_toggle()
 
     test_model.set_main_view_layout((2, 1))
 
     test_model.set_main_view_rv((0, 0), ds1.get_id())
     test_model.set_main_view_rv((1, 0), ds2.get_id())
 
-    test_model.click_zoom_pane_zoom_in()
-    test_model.click_zoom_pane_zoom_out()
-    test_model.set_zoom_pane_zoom_level(10)
-
-    print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
-    test_model.click_zoom_pane_zoom_out()
-    test_model.click_zoom_pane_zoom_out()
-    # The zoom pane image size should increase. Since we zoomed out it shoild show more pixels
-    print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
-
-    print(f"test_model.get_zoom_pane_center_raster_coord(): {test_model.get_zoom_pane_center_raster_coord()}")
-
     test_model.select_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
 
-    print(f"test_model.get_zoom_pane_selected_pixel(): {test_model.get_zoom_pane_selected_pixel()}")
+    test_model.import_spectral_library(
+        "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\SpectralLibraries\\usgs_resampHeadwallSWIR.hdr")
+    test_model.import_spectra([spectrum])
+    print(f"active spectrum: {test_model.get_active_spectrum().get_spectrum()}")
 
-    print(f"test_model.get_zoom_pane_scroll_state(): {test_model.get_zoom_pane_scroll_state()}")
+    displayed_spectra = test_model.get_displayed_spectra()
+    for spectrum in displayed_spectra:
+        print(f"displayed spectrum: {spectrum.get_spectrum()}")
+    
+    test_model.collect_active_spectrum()
 
-    print(f"test_model.get_zoom_pane_region(): {test_model.get_zoom_pane_region()}")
+    test_model.select_raster_coord_zoom_pane((ds2.get_width()/3, ds2.get_height()/3))
 
-    # Try commenting this line out to show that it works
-    test_model.set_zoom_pane_dataset(ds1.get_id())
+    test_model.collect_active_spectrum()
 
-    print(f"test_model.get_zoom_pane_dataset(): {test_model.get_zoom_pane_dataset().get_id()}")
+    test_model.remove_collected_spectrum(0)
 
+    test_model.select_raster_coord_zoom_pane((ds2.get_width()/4, ds2.get_height()/4))
+    
+    test_model.collect_active_spectrum()
 
-    # test_model.scroll_main_view_rv((0, 0), -20, -20)
+    test_model.remove_all_collected_spectra()
+
+    spectrum = SpectrumAtPoint(ds2, (ds2.get_width()/5, ds2.get_height()/5))
+
+    test_model.set_active_spectrum(spectrum)
+
     QTimer.singleShot(10000, lambda : test_model.scroll_zoom_pane(-20, -20))
 
     test_model.app.exec_()

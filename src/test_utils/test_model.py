@@ -9,7 +9,7 @@ sys.path.append(target_dir)
 import numpy as np
 from astropy import units as u
 
-from typing import Tuple, Union, Optional
+from typing import Tuple, Union, Optional, List
 
 from PySide2.QtTest import QTest
 from PySide2.QtCore import *
@@ -17,10 +17,13 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from wiser.gui.app import DataVisualizerApp
-from wiser.raster.loader import RasterDataLoader
-from wiser.raster.dataset import RasterDataSet
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import TiledRasterView, RasterPane
+
+from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset import RasterDataSet
+from wiser.raster.spectrum import Spectrum
+from wiser.raster.spectral_library import ListSpectralLibrary
 
 
 class WiserTestModel:
@@ -115,22 +118,42 @@ class WiserTestModel:
 
         return dataset
 
-    def load_spectra(self, spectra_path):
-        raise NotImplementedError("load_spectra not implemented yet ")
+    def import_ascii_spectra(self, file_path: str):
+        '''
+        In the future, we want to implement this function to interact with ImportSpectraTextDialog
+        '''
+        raise NotImplementedError
+    
+    def import_spectral_library(self, file_path: str):
+        '''
+        Imports a spectral library.
+        '''
+        self.app_state.open_file(file_path)
+    
+    def import_spectra(self, spectra: List[Spectrum], path='placeholder'):
+        '''
+        Imports the spectra. Path is just used as a name here.
+        '''
+        library = ListSpectralLibrary(spectra, path=path)
+        self.app_state.add_spectral_library(library)
     
     #==========================================
     # Spectrum plot state retrieval and setting
 
     # State retrieval
 
-    def get_spectrum_plot_active_spectra(self):
-        raise NotImplementedError
+    def get_active_spectrum(self) -> Optional[Spectrum]:
+        return self.app_state._active_spectrum
 
-    def get_spectrum_plot_displayed_spectra(self):
-        raise NotImplementedError
+    def get_displayed_spectra(self) -> List[Spectrum]:
+        spectrum_display_info = self.spectrum_plot._spectrum_display_info.values()
+        spectra = []
+        for display_info in spectrum_display_info:
+            spectra.append(display_info._spectrum)
+        return spectra
 
-    def get_spectrum_plot_collected_spectra(self):
-        raise NotImplementedError
+    def get_collected_spectra(self) -> List[Spectrum]:
+        return self.app_state.get_collected_spectra()
     
     def get_spectrum_plot_x_units(self) -> u.Unit:
         return self.spectrum_plot.get_x_units()
@@ -138,14 +161,20 @@ class WiserTestModel:
 
     # State setting
 
-    def collect_spectrum_plot_spectra(self, spectrum_identifier):
-        raise NotImplementedError
+    def remove_all_collected_spectra(self):
+        self.app_state.remove_all_collected_spectra()
     
-    def import_ascii_spectra(self, file_path: str):
-        raise NotImplementedError
+    def remove_collected_spectrum(self, index: int):
+        self.app_state.remove_collected_spectrum(index)
+
+    def collect_spectrum(self, spectrum: Spectrum):
+        self.app_state.collect_spectrum(spectrum)
     
-    def import_spectral_library(self, file_path: str):
-        raise NotImplementedError
+    def collect_active_spectrum(self):
+        self.app_state.collect_active_spectrum()
+
+    def set_active_spectrum(self, spectrum: Spectrum):
+        self.app_state.set_active_spectrum(spectrum)
     
 
     #==========================================
