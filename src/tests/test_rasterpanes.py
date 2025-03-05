@@ -197,7 +197,7 @@ if __name__ == '__main__':
     test_model.set_active_spectrum(spectrum)
 
     # test_model.scroll_main_view_rv((0, 0), -20, -20)
-    QTimer.singleShot(10000, lambda : test_model.scroll_zoom_pane(-20, -20))
+    # QTimer.singleShot(10000, lambda : test_model.scroll_zoom_pane(-20, -20))
 
+    QTimer.singleShot(100, test_model.close_app)
     test_model.app.exec_()
-    QTimer.singleShot(20000, test_model.close_app)

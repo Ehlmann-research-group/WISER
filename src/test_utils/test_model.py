@@ -71,6 +71,10 @@ class WiserTestModel:
 
         self.zoom_pane = self.main_window._zoom_pane
     
+    def run(self):
+        QTimer.singleShot(100, self.close_app)
+        self.app.exec_()
+
     def close_app(self):
         self._tear_down_windows()
         if hasattr(self, "app"):
