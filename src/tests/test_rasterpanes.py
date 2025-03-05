@@ -165,5 +165,8 @@ if __name__ == '__main__':
     print(f"test_model.get_zoom_pane_dataset(): {test_model.get_zoom_pane_dataset().get_id()}")
 
 
+    # test_model.scroll_main_view_rv((0, 0), -20, -20)
+    QTimer.singleShot(10000, lambda : test_model.scroll_zoom_pane(-20, -20))
+
     test_model.app.exec_()
     QTimer.singleShot(20000, test_model.close_app)

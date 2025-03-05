@@ -190,7 +190,14 @@ class WiserTestModel:
     
     def scroll_zoom_pane(self, dx, dy):
         rv = self.get_zoom_pane_rasterview()
-        rv._scroll_area.scrollContentsBy(dx, dy)
+        scroll_area =  rv._scroll_area
+        scroll_area.verticalScrollBar().setValue(
+            scroll_area.verticalScrollBar().value() + dy
+        )
+        scroll_area.horizontalScrollBar().setValue(
+            scroll_area.horizontalScrollBar().value() + dx
+        )
+        # rv._scroll_area.scrollContentsBy(dx, dy)
 
     def select_raster_coord_zoom_pane(self, raster_coord: Tuple[int, int]):
         '''
@@ -375,7 +382,14 @@ class WiserTestModel:
     
     def scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
         rv = self.get_main_view_rv(rv_pos)
-        rv._scroll_area.scrollContentsBy(dx, dy)
+        scroll_area =  rv._scroll_area
+        scroll_area.verticalScrollBar().setValue(
+            scroll_area.verticalScrollBar().value() + dy
+        )
+        scroll_area.horizontalScrollBar().setValue(
+            scroll_area.horizontalScrollBar().value() + dx
+        )
+
     
     def click_pixel_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
         '''
