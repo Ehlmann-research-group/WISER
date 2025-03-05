@@ -144,7 +144,30 @@ if __name__ == '__main__':
     test_model.set_main_view_rv((0, 0), ds1.get_id())
     test_model.set_main_view_rv((1, 0), ds2.get_id())
 
+    # test_model.click_zoom_pane_zoom_in()
+    # test_model.click_zoom_pane_zoom_out()
+    # test_model.set_zoom_pane_zoom_level(10)
+
+    # print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
+    # test_model.click_zoom_pane_zoom_out()
+    # test_model.click_zoom_pane_zoom_out()
+    # # The zoom pane image size should increase. Since we zoomed out it shoild show more pixels
+    # print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
+
+    # print(f"test_model.get_zoom_pane_center_raster_coord(): {test_model.get_zoom_pane_center_raster_coord()}")
+
     test_model.select_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
+
+    # print(f"test_model.get_zoom_pane_selected_pixel(): {test_model.get_zoom_pane_selected_pixel()}")
+
+    # print(f"test_model.get_zoom_pane_scroll_state(): {test_model.get_zoom_pane_scroll_state()}")
+
+    # print(f"test_model.get_zoom_pane_region(): {test_model.get_zoom_pane_region()}")
+
+    # # Try commenting this line out to show that it works
+    # test_model.set_zoom_pane_dataset(ds1.get_id())
+
+    # print(f"test_model.get_zoom_pane_dataset(): {test_model.get_zoom_pane_dataset().get_id()}")
 
     test_model.import_spectral_library(
         "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\SpectralLibraries\\usgs_resampHeadwallSWIR.hdr")
@@ -169,10 +192,11 @@ if __name__ == '__main__':
 
     test_model.remove_all_collected_spectra()
 
-    spectrum = SpectrumAtPoint(ds2, (ds2.get_width()/5, ds2.get_height()/5))
+    spectrum = SpectrumAtPoint(ds2, (ds2.get_width()//5, ds2.get_height()//5))
 
     test_model.set_active_spectrum(spectrum)
 
+    # test_model.scroll_main_view_rv((0, 0), -20, -20)
     QTimer.singleShot(10000, lambda : test_model.scroll_zoom_pane(-20, -20))
 
     test_model.app.exec_()
