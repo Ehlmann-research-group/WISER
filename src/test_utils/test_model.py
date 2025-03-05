@@ -142,9 +142,11 @@ class WiserTestModel:
         self.app_state.add_spectral_library(library)
     
     #==========================================
-    # Spectrum plot state retrieval and setting
+    # region Spectrum plot state retrieval and setting
+    #==========================================
 
-    # State retrieval
+
+    # region State retrieval
 
     def get_active_spectrum(self) -> Optional[Spectrum]:
         return self.app_state._active_spectrum
@@ -163,7 +165,7 @@ class WiserTestModel:
         return self.spectrum_plot.get_x_units()
     
 
-    # State setting
+    # region State setting
 
     def remove_all_collected_spectra(self):
         self.app_state.remove_all_collected_spectra()
@@ -182,9 +184,11 @@ class WiserTestModel:
     
 
     #==========================================
-    # Zoom Pane state retrieval and setting
+    # region Zoom Pane state retrieval and setting
+    #==========================================
 
-    # State retrieval
+
+    # region State retrieval
 
     def get_zoom_pane_dataset(self):
         return self.get_zoom_pane_rasterview()._raster_data
@@ -232,8 +236,8 @@ class WiserTestModel:
         '''
         return (self.get_zoom_pane_region().width(), self.get_zoom_pane_region().height())
 
-    # State setting
 
+    # region State setting
     def set_zoom_pane_dataset(self, ds_id):
         rv = self.get_zoom_pane_rasterview()
 
@@ -286,11 +290,13 @@ class WiserTestModel:
     def click_zoom_pane_zoom_out(self):
         self.zoom_pane._act_zoom_out.trigger()
 
+
     #==========================================
-    # Context Pane state retrieval and setting
+    # region Context Pane state retrieval and setting
+    #==========================================
 
-    # State retrieval
 
+    # region State retrieval
     def get_context_pane_dataset(self):
         rv = self.context_pane.get_rasterview()
         ds = rv._raster_data
@@ -309,7 +315,8 @@ class WiserTestModel:
     def get_context_pane_screen_size(self) -> QSize:
         return self.context_pane.get_rasterview()._image_widget.size()
 
-    # State setting
+
+    # region State setting
 
     def set_context_pane_dataset(self, ds_id):
         dataset_menu = self.context_pane._dataset_chooser._dataset_menu
@@ -352,12 +359,13 @@ class WiserTestModel:
 
 
     #==========================================
-    # Main View state retrieval and setting
+    # region Main View state retrieval and setting
     #==========================================
 
-    # State retrieval
 
-    def get_main_view_rv(self, rv_pos: Tuple[int, int]):
+    # region State retrieval
+
+    def get_main_view_rv(self, rv_pos: Tuple[int, int] = (0, 0)):
         return self.main_view.get_rasterview(rv_pos)
 
     def get_main_view_rv_clicked_raster_coord(self, rv_pos: Tuple[int, int]) -> Optional[Tuple[int, int]]:
@@ -409,7 +417,7 @@ class WiserTestModel:
         scroll_state = rv.get_scrollbar_state()
         raise scroll_state
     
-    def get_main_view_rv_data(self, rv_pos: Tuple[int, int]) -> np.ndarray:
+    def get_main_view_rv_data(self, rv_pos: Tuple[int, int] = (0, 0)) -> np.ndarray:
         rv = self.get_main_view_rv(rv_pos)
         return rv._img_data
 
@@ -424,7 +432,7 @@ class WiserTestModel:
     def is_main_view_linked(self):
         return self.main_view._link_view_scrolling
 
-    # State setting
+    # region State setting
 
     def click_link_button(self) -> bool:
         '''
@@ -523,10 +531,80 @@ class WiserTestModel:
                 raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
         else:
             raise ValueError(f"The rasterview at {rv_pos} is not a rasterview")
-        
+
 
     #==========================================
-    # General
+    # region Stretch Builder state retrieval and setting
+    #==========================================
+
+
+    # region State retrieval
+    def get_stretch_builder(self, rv_pos: Tuple[int, int] = (0,0)):
+        '''
+        Returns the stretch builder for main view. Even when the main view is in grid view,
+        the stretch builder instance is shared across the rasterviews. It is just opened
+        with different parameters each time. 
+
+        This function thus gives you the state of the stretch builder as it was last opened
+        '''
+        rv = self.get_main_view_rv(rv_pos)
+        if isinstance(rv, TiledRasterView):
+            rv._act_stretch_builder.trigger()
+        elif isinstance(rv, RasterView):
+            self.main_view._act_stretch_builder.trigger()
+        else:
+            raise ValueError(f"The rasterview at {rv_pos} is not a rasterview")
+        return self.main_view._stretch_builder
+    
+    def get_stretch_config(self, rv_pos: Tuple[int, int] = (0,0)):
+        return self.get_stretch_builder(rv_pos)._stretch_config
+
+    def get_channel_widget(self, index: int, rv_pos: Tuple[int, int] = (0,0)):
+        return self.get_stretch_builder(rv_pos)._channel_widgets[index]
+    
+    def get_channel_widget_raw_hist_info(self, index: int, rv_pos: Tuple[int, int] = (0,0)):
+        channel_widget = self.get_channel_widget(index, rv_pos)
+        return (channel_widget._histogram_bins_raw, channel_widget._histogram_edges_raw)
+    
+    # region State setting
+    def click_stretch_full_linear(self, rv_pos: Tuple[int, int] = (0,0)):
+        stretch_config = self.get_stretch_config(rv_pos)
+        stretch_config._ui.rb_stretch_none.click()
+
+    def click_stretch_linear(self, rv_pos: Tuple[int, int] = (0,0)):
+        stretch_config = self.get_stretch_config(rv_pos)
+        stretch_config._ui.rb_stretch_linear.click()
+
+    def click_stretch_linear_2_5(self, rv_pos: Tuple[int, int] = (0,0)):
+        stretch_config = self.get_stretch_config(rv_pos)
+        stretch_config._ui.button_linear_2_5.click()
+
+    def click_stretch_linear_5_0(self, rv_pos: Tuple[int, int] = (0,0)):
+        stretch_config = self.get_stretch_config(rv_pos)
+        stretch_config._ui.button_linear_5_0.click()
+
+    def click_stretch_hist_equalize(self, rv_pos: Tuple[int, int] = (0,0)):
+        stretch_config = self.get_stretch_config(rv_pos)
+        stretch_config._ui.rb_stretch_equalize.click()
+
+    def click_none_conditioner(self, rv_pos: Tuple[int, int] = (0,0)):
+        stretch_config = self.get_stretch_config(rv_pos)
+        stretch_config._ui.rb_cond_none.click()
+    
+    def click_sqrt_conditioner(self, rv_pos: Tuple[int, int] = (0,0)):
+        stretch_config = self.get_stretch_config(rv_pos)
+        stretch_config._ui.rb_cond_sqrt.click()
+    
+    def click_log_conditioner(self, rv_pos: Tuple[int, int] = (0,0)):
+        stretch_config = self.get_stretch_config(rv_pos)
+        stretch_config._ui.rb_cond_log.click()
+
+
+
+
+    #==========================================
+    # region General
+    #==========================================
 
 
     def click_pane_display_toggle(self, pane_name: str):

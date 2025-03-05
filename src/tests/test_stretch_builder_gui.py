@@ -6,6 +6,8 @@ sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src
 
 import numpy as np
 
+from test_utils.test_model import WiserTestModel
+
 from wiser.gui.app import DataVisualizerApp
 from wiser.gui.rasterview import RasterView, make_channel_image_numba, \
     make_channel_image_python, make_rgb_image_numba, make_grayscale_image
@@ -26,86 +28,49 @@ from PySide2.QtWidgets import *
 
 class TestStretchBuilderGUI(unittest.TestCase):
 
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+    
+     
     def test_open_stretch_builder_gui(self):
-        app = QApplication.instance() or QApplication([])  # Initialize the QApplication
-        wiser_ui = None
-
-        try:
-            # Set up the GUI
-            wiser_ui = DataVisualizerApp()
-            wiser_ui.show()
-
-            loader = RasterDataLoader()
             
-            # Create unmpy array dataset
-            height=50
-            width=50
-            N=1
-            np_impl = np.arange(1, height+1).reshape((1, height, 1)) * np.ones((N, height, width))
-            
-            np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]],
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-                                [[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]],
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-                                [[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]]])
-            expected = np.array([[4280427042, 4280427042, 4280427042, 4280427042],
-                                [4283190348, 4283190348, 4283190348, 4283190348],
-                                [4286545791, 4286545791, 4286545791, 4286545791],
-                                [4290493371, 4290493371, 4290493371, 4290493371],
-                                [4294967295, 4294967295, 4294967295, 4294967295]])
-            dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
-            dataset.set_name("Test_Numpy")
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+        expected = np.array([[4280427042, 4280427042, 4280427042, 4280427042],
+                            [4283190348, 4283190348, 4283190348, 4283190348],
+                            [4286545791, 4286545791, 4286545791, 4286545791],
+                            [4290493371, 4290493371, 4290493371, 4290493371],
+                            [4294967295, 4294967295, 4294967295, 4294967295]])
 
-            # Create an application state, no need to pass the app here
-            app_state = wiser_ui._app_state
+        self.test_model.load_dataset(np_impl)
 
-            app_state.add_dataset(dataset)
+        self.test_model.get_stretch_builder()
 
-            # Open the stretch builder dialog
-            wiser_ui._main_view._on_stretch_builder()
+        self.test_model.click_stretch_hist_equalize()
+        self.test_model.click_log_conditioner()
 
-            stretch_builder = wiser_ui._main_view.get_stretch_builder()
+        result_arr = self.test_model.get_main_view_rv_data()
 
-            stretch_config = stretch_builder._stretch_config
-
-            stretch_config._ui.rb_stretch_equalize.click()
-            stretch_config._ui.rb_cond_log.click()
-
-            rasterview: RasterView = wiser_ui._main_view._rasterviews[(0,0)]
-
-            result = rasterview._img_data
-
-            np.testing.assert_array_almost_equal(result, expected)
-            # Change the stretch to different things
-
-            # This should happen X milliseconds after the above stuff runs
-            QTimer.singleShot(100, app.quit)
-            # Run the application event loop
-            app.exec_()
-            # time.sleep(5)
-
-        except Exception as e:
-            logging.error(f"Application crashed: {e}")
-            traceback.print_exc()
-            self.assertEqual(1==0, f"Error occured:\{e}")
-
-        finally:
-            if wiser_ui:
-                wiser_ui.close()
-            app.quit()
-            del app
+        self.assertTrue(np.array_equal(result_arr, expected))
 
     def test_stretch_builder_histogram_gui(self):
         app = QApplication.instance() or QApplication([])  # Initialize the QApplication
