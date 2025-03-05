@@ -193,7 +193,6 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
             read_lhs_future_onto_queue(lhs, index_list_current, event_loop, read_thread_pool, read_task_queue[LHS_KEY])
             lhs_future = read_task_queue[LHS_KEY].get()[0]
         else:
-            print("LHS queue was not empty")
             lhs_future = read_task_queue[LHS_KEY].get()[0]
         should_read_next = should_continue_reading_bands(index_list_next, lhs)
         # Allows us to read data into the future so there's little down time in between I/O
@@ -217,7 +216,6 @@ async def get_lhs_rhs_values_async(lhs: BandMathValue, rhs: BandMathValue, index
                                             event_loop, read_thread_pool, read_task_queue[RHS_KEY])
                 rhs_future = read_task_queue[RHS_KEY].get()[0]
             else:
-                print("RHS queue was not empty")
                 rhs_future = read_task_queue[RHS_KEY].get()[0]
             if should_read_next:
                 # We have to get the size of the next data to read
@@ -329,6 +327,7 @@ def np_dtype_to_gdal(np_dtype):
         np.dtype('uint16'): gdal.GDT_UInt16,
         np.dtype('int32'): gdal.GDT_Int32,
         np.dtype('uint32'): gdal.GDT_UInt32,
+        np.dtype('float16'): gdal.GDT_Float32,
         np.dtype('float32'): gdal.GDT_Float32,
         np.dtype('float64'): gdal.GDT_Float64,
         np.dtype('complex64'): gdal.GDT_CFloat32,
@@ -687,7 +686,7 @@ def make_image_cube_compatible(arg: BandMathValue,
 
         if result.shape != cube_shape[1:]:
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
-                                 arg.type, arg.shape)
+                                 arg.type, result.shape)
 
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]

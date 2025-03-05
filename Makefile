@@ -62,14 +62,8 @@ dist-mac : build-mac
 	rm dist/tmp.dmg
 
 	# Submit the disk image to Apple for notarization
-	# xcrun altool --notarize -f dist/$(APP_NAME)-$(APP_VERSION).dmg \
-	# 	--primary-bundle-id $(OSX_BUNDLE_ID) \
-	# 	-u $(AD_USERNAME) -p $(AD_PASSWORD)
-
 	xcrun notarytool submit dist/$(APP_NAME)-$(APP_VERSION).dmg \
 		--apple-id $(AD_USERNAME) --team-id $(AD_TEAM_ID) --password $(AD_PASSWORD)
-# 
-# while true; do clear; xcrun notarytool info <request-uuid> --keychain-profile "MyProfile"; sleep 10; done
 
 # To debug PyInstaller issues:
 #   - drop the "--windowed" option
@@ -80,16 +74,20 @@ dist-mac : build-mac
 # resources, which require a few steps just to get the icons to even
 # show up in the frozen UI.
 dist-win : generated
-	pyinstaller --log-level=DEBUG --name $(APP_NAME) --noconfirm \
-	    --icon icons\wiser.ico \
-		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\platforms;platforms \
-		--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\iconengines;iconengines \
-		--add-data C:\Users\jgarc\anaconda3\envs\wiser-source\Library\bin\libiomp5md.dll;. \
-		--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
-		--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
-		--collect-all osgeo \
-		--exclude-module PyQt5 \
-		src\wiser\__main__.py
+# pyinstaller --log-level=DEBUG --name $(APP_NAME) --noconfirm \
+#     --icon icons\wiser.ico \
+# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\platforms;platforms \
+# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\iconengines;iconengines \
+# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_FITS.dll;gdalplugins \
+# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_netCDF.dll;gdalplugins \
+# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF4.dll;gdalplugins \
+# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF5.dll;gdalplugins \
+# 	--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
+# 	--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
+# 	--collect-all osgeo \
+# 	--exclude-module PyQt5 \
+# 	src\wiser\__main__.py
+	pyinstaller WISER.spec
 
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 

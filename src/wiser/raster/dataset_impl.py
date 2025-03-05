@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
 
+
 class SaveState(Enum):
     IN_DISK_NOT_SAVED = 0
     IN_MEMORY_NOT_SAVED = 1
@@ -116,6 +117,9 @@ class RasterDataImpl(abc.ABC):
         # Default implementation returns an identity transform.
         return (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
+    def get_wkt_spatial_reference(self):
+        return None
+
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         return None
 
@@ -131,6 +135,7 @@ class GDALRasterDataImpl(RasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__()
         self.gdal_dataset = gdal_dataset
+        self.subdataset_key = None
         self.subdataset_name = None
         self.data_ignore: Optional[Union[float, int]] = None
         self._validate_dataset()
@@ -223,7 +228,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         return self.gdal_dataset.RasterCount
 
     def get_elem_type(self) -> np.dtype:
-        return gdal_array.GDALTypeCodeToNumericTypeCode(self.gdal_data_type)
+        elem_type = gdal_array.GDALTypeCodeToNumericTypeCode(int(self.gdal_data_type))
+        return np.dtype(elem_type)
 
     def get_image_data(self):
         '''
@@ -243,7 +249,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
             np_array = new_dataset.ReadAsArray()
-
         return np_array
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
@@ -378,6 +383,9 @@ class GDALRasterDataImpl(RasterDataImpl):
 
     def read_geo_transform(self) -> Tuple:
         return self.gdal_dataset.GetGeoTransform()
+
+    def get_wkt_spatial_reference(self) -> Optional[str]:
+        return self.gdal_dataset.GetProjection()
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         spatial_ref = self.gdal_dataset.GetSpatialRef()
@@ -792,8 +800,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 
                 # Check if the subdataset name is in the emit_data_names set
                 if subdataset_key in emit_data_names:
-                    print(f"Processing subdataset: {subdataset_key}")
-                    
                     # Open the subdataset
                     gdal_subdataset = gdal.Open(subdataset_name)
                     if gdal_subdataset is None:
@@ -802,12 +808,32 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                     # Create an instance of the class for each matching subdataset
                     instance = cls(gdal_subdataset)
                     instance.subdataset_name = subdataset_name
-                    
+                    instance.subdataset_key = subdataset_key
                     # Add the instance to the list
                     instances_list.append(instance)
 
-        print(f"Total instances created: {len(instances_list)}")
         return instances_list
+
+    
+    def get_image_data(self):
+        '''
+        Returns a numpy 3D array of the entire image cube.
+
+        The numpy array is configured such that the pixel (x, y) values of band
+        b are at element array[b][x][y].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        '''
+        new_dataset = self.reopen_dataset()
+        try:
+            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+        except (RuntimeError, ValueError):
+            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+            np_array = new_dataset.ReadAsArray()
+        return np_array
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
@@ -930,7 +956,6 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             display_bands = [src_to_dst_mapping[b] for b in display_bands]
             return display_bands
 
-
         if options is None:
             options = {}
 
@@ -1044,6 +1069,26 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_gdal_dataset = driver.Create(path, dst_width, dst_height, dst_bands,
             gdal_elem_type, driver_options)
 
+        if src_dataset.has_geographic_info():
+            # Set the spatial reference and geotransform on the destination dataset
+            # This sets the 'map info' meta data variable when we create the envi
+            # header file below
+            src_spatial_ref: osr.SpatialReference = src_dataset.get_spatial_ref()
+            src_projection = src_spatial_ref.ExportToWkt()
+            dst_gdal_dataset.SetProjection(src_projection)
+
+            src_geotransform = src_dataset.get_geo_transform()
+            # Adjust geotransform for the subset
+            subset_geotransform = (
+                src_geotransform[0] + src_offset_x * src_geotransform[1] + src_offset_y * src_geotransform[2],
+                src_geotransform[1],
+                src_geotransform[2],
+                src_geotransform[3] + src_offset_x * src_geotransform[4] + src_offset_y * src_geotransform[5],
+                src_geotransform[4],
+                src_geotransform[5],
+            )
+            dst_gdal_dataset.SetGeoTransform(subset_geotransform)
+    
         # if dst_default_display_bands is not None:
         #     str_default_display_bands = '{' + ','.join([str(b) for b in dst_default_display_bands]) + '}'
         #     print(f'Setting default display bands to {str_default_display_bands}')
@@ -1131,6 +1176,11 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         dst_metadata['default bands'] = dst_default_display_bands
         dst_metadata['data ignore value'] = dst_data_ignore
 
+        if src_dataset.has_geographic_info():
+            map_info = gdal_metadata['map info']
+            dst_metadata['map info'] = map_info
+            dst_metadata['coordinate system string'] = '{' + src_dataset.get_spatial_ref().ExportToWkt() + '}'
+
         # If we have wavelengths, store the wavelength metadata
         if len(dst_wavelengths) == dst_bands:
             dst_metadata['wavelength'] = dst_wavelengths
@@ -1193,7 +1243,6 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         don't handle:
         *   All raster bands have the same dimensions and data type
         '''
-
         band_info = []
 
         md = self.gdal_dataset.GetMetadata('ENVI')

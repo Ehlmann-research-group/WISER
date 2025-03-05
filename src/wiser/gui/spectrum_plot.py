@@ -845,13 +845,12 @@ class SpectrumPlot(QWidget):
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
-
         # Figure out whether we should use wavelengths or not in the plot.
         use_wavelengths = False
         if spectrum.has_wavelengths():
             # TODO(donnie):  This is ugly.  Find a way to expose wavelength units
             #     on datasets and spectra.
-            self._x_units = spectrum.get_wavelengths()[0].unit
+            self._x_units = spectrum.get_wavelength_units()
 
             self._displayed_spectra_with_wavelengths += 1
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
@@ -862,8 +861,8 @@ class SpectrumPlot(QWidget):
             for _, single_display_info in self._spectrum_display_info.items():
                 # Nothing has changed, so just generate a plot for the new spectrum
                 single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
-                unit_name = UNIT_NAME_MAPPING.get(self._x_units, "Wavelength")
-                if unit_name is not None:
+                unit_name = UNIT_NAME_MAPPING.get(self._x_units, None)
+                if unit_name is not None and use_wavelengths:
                     self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
                         labelpad=0, fontproperties=axes_font)
                 else:
@@ -874,7 +873,6 @@ class SpectrumPlot(QWidget):
 
             if use_wavelengths:
                 unit_name = UNIT_NAME_MAPPING.get(self._x_units, "Wavelength")
-                print(f"self._x_units: {self._x_units}")
                 self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
                     labelpad=0, fontproperties=axes_font)
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
@@ -1069,7 +1067,6 @@ class SpectrumPlot(QWidget):
         exists, the function returns a (spectrum, index) pair; if no such
         spectrum exists, the function returns (None, None).
         '''
-
         # Find all spectra with X-axis ranges that correspond to the xdata value
         # from the mouse click.
 

@@ -5,8 +5,9 @@ from osgeo import gdal
 import numpy as np
 from astropy import units as u
 
-from wiser.utils.numba_wrapper import numba_njit_wrapper
+from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 
+ARRAY_NUMBA_THRESHOLD = 150000000 # 150 MB
 
 # For easier typing in this module
 Number = Union[int, float]
@@ -200,8 +201,7 @@ def find_closest_value(values: List[Number], input_value: Number,
 #============================================================================
 # COMMON BAND-MATH OPERATIONS
 
-
-def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=False) -> Union[None, np.ndarray]:
+def normalize_ndarray_python(array: np.ndarray, minval=None, maxval=None) -> Union[None, np.ndarray]:
     '''
     Normalize the specified array, generating a new array to return to the
     caller.  The minimum and maximum values can be specified if already known,
@@ -217,17 +217,10 @@ def normalize_ndarray(array: np.ndarray, minval=None, maxval=None, in_place=Fals
     if maxval == minval:
         return np.zeros_like(array, dtype=np.float32)
 
-    if in_place:
-        array -= minval
-        if maxval-minval == 0:
-            array.fill(0.0)
-        else:
-            np.divide(array, (maxval - minval), out=array, dtype=np.float32)
-    else:
-        return (array - minval) / (maxval - minval)
+    return (array - minval) / (maxval - minval)
     
-@numba_njit_wrapper(non_njit_func=normalize_ndarray)
-def normalize_ndarray_using_njit(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
+@numba_njit_wrapper(non_njit_func=normalize_ndarray_python)
+def normalize_ndarray_numba(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
     """
     Normalize an array to the range [0, 1].
     """
@@ -248,6 +241,14 @@ def normalize_ndarray_using_njit(data: np.ndarray, minval: float, maxval: float)
             normalized.flat[idx] = 0.0  # Handle NaN or Inf
     
     return normalized
+
+def normalize_ndarray(arr: np.ndarray, minval=None, maxval=None) -> Union[None, np.ndarray]:
+    if arr.nbytes < ARRAY_NUMBA_THRESHOLD:
+        return normalize_ndarray_python(array=arr, minval=minval, maxval=maxval)
+    else:
+        arr, minval, maxval = convert_to_float32_if_needed(arr, minval, maxval)
+        return normalize_ndarray_numba(arr, minval, maxval)
+
 
 def get_normalized_band(dataset, band_index):
     '''
@@ -276,7 +277,7 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
     if isinstance(band_data, np.ma.masked_array):
         band_data_mask = band_data.mask
         band_data = band_data.data 
-    norm_data = normalize_ndarray_using_njit(band_data, stats.get_min(), stats.get_max())
+    norm_data = normalize_ndarray(band_data, stats.get_min(), stats.get_max())
     if isinstance(band_data, np.ma.masked_array):
         band_data = np.ma.masked_array(band_data, mask=band_data_mask)
 

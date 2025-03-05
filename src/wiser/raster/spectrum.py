@@ -157,10 +157,8 @@ def create_raster_from_roi(roi: RegionOfInterest) -> np.ndarray:
 def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
                   mode=SpectrumAverageMode.MEAN):
     '''
-    Calculate a spectrum over a collection of points from the specified dataset.
+    Calculate a spectrum over a region of interest from the specified dataset.
     The calculation mode can be specified with the mode argument.
-    The points argument can be any iterable that produces coordinates for this
-    function to use.
     '''
     spectra = []
 
@@ -187,7 +185,13 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     # Accessing by rectangular blocks is faster than accessing point by point
     qrects = array_to_qrects(rects)
     for qrect in qrects:
-        s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
+        try:
+            s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
+        except BaseException as e:
+            # TODO (Joshua G-K): Make this cleaner. Either check in impl or don't let user create
+            # ROIs that go out of bounds.
+            arr = np.full((dataset.num_bands(),), np.nan)
+            return arr
         ndim = s.ndim
         if ndim == 2:
             for i in range(s.shape[1]):
@@ -366,6 +370,14 @@ class Spectrum(abc.ABC):
         '''
         raise NotImplementedError('Must be implemented in subclass')
 
+    
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        '''
+        Returns the astropy unit corresponding to the wavelength.
+        '''
+        raise NotImplementedError('Must be implemented in subclass')
+
     def get_spectrum(self) -> np.ndarray:
         '''
         Return the spectrum data as a 1D NumPy array.
@@ -454,7 +466,9 @@ class NumPyArraySpectrum(Spectrum):
         Returns True if this spectrum has wavelength units for all bands, False
         otherwise.
         '''
-        return (self._wavelengths is not None)
+        if self._wavelengths is None:
+            return False
+        return isinstance(self._wavelengths[0], u.Quantity)
 
     def get_wavelengths(self) -> List[u.Quantity]:
         '''
@@ -482,7 +496,12 @@ class NumPyArraySpectrum(Spectrum):
             wavelengths = list(wavelengths)
 
         self._wavelengths = wavelengths
-
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        if self.has_wavelengths():
+            if isinstance(self._wavelengths[0], u.Quantity):
+                return self._wavelengths[0].unit
+        return None
 
     def copy_spectral_metadata(self, source):
         if isinstance(source, RasterDataSet):
@@ -612,15 +631,24 @@ class RasterDataSetSpectrum(Spectrum):
         Returns a list of wavelength values corresponding to each band.  The
         individual values are astropy values-with-units.
         '''
-        # print(f"get_wavelengths: {self._dataset.band_list()}")
-        bands =  [b['wavelength'] for b in self._dataset.band_list()]
+        b0 = self._dataset.band_list()[0]
+        if 'wavelength' in b0:
+            key = 'wavelength'
+        else:
+            key = 'index'
+        bands =  [b[key] for b in self._dataset.band_list()]
 
         if filter_bad_bands:
             bad_bands = self._dataset.get_bad_bands()
             bands = [bands[i] for i in range(len(bands)) if bad_bands[i]]
 
-        # print(f"bands after: {bands}")
         return bands
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        if self.has_wavelengths():
+            return self._dataset.get_band_unit()
+
+        return None
 
     def _calculate_spectrum(self):
         '''

@@ -2,17 +2,28 @@
 
 block_cipher = None
 
-
-a = Analysis(['src/wiser/__main__.py'],
-             pathex=['/Users/donnie/Projects/WISER'],
-             binaries=[],
-             datas=[
+existing_datas = [
                  ('./LICENSE', '.'),
                  ('./src/wiser/bandmath/bandmath.lark', 'wiser/bandmath'),
-             ],
-             hiddenimports=[
+             ]
+
+existing_hidden_imports = [
                  'PySide2.QtXml',
-             ],
+             ]
+
+existing_binaries = [
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/drivers.ini', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_FITS.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
+    ]  
+
+a = Analysis(['src/wiser/__main__.py'],
+             pathex=['/Users/joshuagk/Documents/WISER'],
+             binaries=existing_binaries,
+             datas=existing_datas,
+             hiddenimports=existing_hidden_imports,
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
@@ -20,6 +31,7 @@ a = Analysis(['src/wiser/__main__.py'],
              win_private_assemblies=False,
              cipher=block_cipher,
              noarchive=False)
+
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 exe = EXE(pyz,

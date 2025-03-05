@@ -3,6 +3,10 @@ from collections import OrderedDict
 
 import numpy as np
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class Cache:
     """
     A generic cache implementation using an ordered dictionary to store key-value pairs with size management.
@@ -67,7 +71,7 @@ class Cache:
         """
         data_size = value.nbytes
         if data_size > self._capacity:
-            print(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
+            logger.debug(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
             return
         if self._size + data_size > self._capacity:
             self._evict()
@@ -188,7 +192,7 @@ class ComputationCache(Cache):
     def __init__(self, capacity: int = 7000000000):
         super().__init__(capacity)
 
-    def get_cache_key(self, dataset, band_index: int = -1):
+    def get_cache_key(self, dataset, band_index: int = -1, normalized=False):
         """
         Creates and returns a unique cache key based on the dataset and band index.
 
@@ -200,11 +204,11 @@ class ComputationCache(Cache):
             int: A unique hash representing the cache key.
         """
         partial_key = self.get_partial_key(dataset)
-        cache_key = hash((dataset, band_index))
+        cache_key = hash((dataset, band_index, normalized))
         if partial_key not in self._key_lookup_table:
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)
-        return hash((dataset, band_index))
+        return cache_key
     
     def get_partial_key(self, dataset):
         return hash((dataset))
@@ -264,9 +268,10 @@ class HistogramCache(Cache):
         for value in values:
             self._size += value.nbytes
     
-    def get_cache_key(self, dataset,band_index: int, stretch_type, conditioner_type):
+    def get_cache_key(self, dataset,band_index: int, stretch_type, conditioner_type, \
+                      min_bound, max_bound):
         partial_key = self.get_partial_key(dataset)
-        cache_key = hash((dataset, band_index, stretch_type, conditioner_type))
+        cache_key = hash((dataset, band_index, stretch_type, conditioner_type, min_bound, max_bound))
         if partial_key not in self._key_lookup_table:
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)
