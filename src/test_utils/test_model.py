@@ -192,12 +192,6 @@ class WiserTestModel:
         qrect = self.get_zoom_pane_region()
         center = QPointF(qrect.topLeft()) + QPointF(qrect.width(), qrect.height())/2
         return center
-        # rv = self.get_zoom_pane_rasterview()
-        # center_local_pos_x = rv._image_widget.width()/2
-        # center_local_pos_y = rv._image_widget.height()/2
-        # raster_coord = rv.image_coord_to_raster_coord(QPointF(center_local_pos_x, center_local_pos_y),
-        #                                               round_nearest=True)
-        # return (raster_coord.x(), raster_coord.y())
     
     def get_zoom_pane_image_size(self) -> Tuple[int, int]:
         '''
