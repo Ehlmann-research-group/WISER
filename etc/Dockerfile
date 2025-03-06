@@ -8,11 +8,11 @@ RUN conda env create -f WISER-etc/wiser-source.yml
 
 RUN conda init
 
-SHELL ["/bin/bash", "-c"]
+SHELL ["conda", "run", "-n", "wiser-source", "/bin/bash", "-c"]
 
 ENV PATH /opt/conda/envs/myenv/bin:$PATH
 
-RUN source /opt/conda/etc/profile.d/conda.sh && conda activate wiser-source && pip install --no-cache-dir -r WISER-etc/requirements.txt
+RUN pip install --no-cache-dir -r WISER-etc/requirements.txt
 
 RUN Xvfb :1 -screen 0 1024x768x16 &
 
