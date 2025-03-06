@@ -16,6 +16,10 @@ jobs:
             - name: Check github workspace
               run: echo ${{ github.workspace }}
 
+              
+            - name: List github workspace
+              run: ls ${{ github.workspace }}
+
             - name: Pull docker image
               run: docker pull jgarciak/wiser-env:0.1.8
 
