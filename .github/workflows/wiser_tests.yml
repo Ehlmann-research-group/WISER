@@ -1,0 +1,37 @@
+name: Run tests
+
+on: [push]
+
+jobs:
+    run-tests:
+        name: Run WISER Tests
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest]
+        steps:            
+            - name: Checkout codebase
+              uses: actions/checkout@v4
+            
+            - name: Check github workspace
+              run: echo ${{ github.workspace }}
+
+              
+            - name: List github workspace
+              run: ls ${{ github.workspace }}
+
+            - name: Make generated
+              run: make generated
+
+            - name: Pull docker image
+              run: docker pull jgarciak/wiser-env:0.1.8
+
+            # - name: Build docker image
+            #   run: docker build -f etc/Dockerfile .
+            
+            - name: Run tests in container
+              run: |
+                docker run --rm \
+                --mount type=bind,src=${{ github.workspace }},dst=/WISER \
+                jgarciak/wiser-env:0.1.8 \
+                conda run -n wiser-source /bin/bash -c "cd WISER/src/tests && pytest ."
