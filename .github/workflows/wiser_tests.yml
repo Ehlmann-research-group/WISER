@@ -16,6 +16,9 @@ jobs:
             - name: Check github workspace
               run: echo ${{ github.workspace }}
 
+            - name: Pull docker image
+              run: docker pull jgarciak/wiser-env:0.1.8
+
             - name: Build docker image
               run: docker build -t jgarciak/wiser-env:0.1.8 .
             
@@ -25,4 +28,3 @@ jobs:
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
                 jgarciak/wiser-env:0.1.8 \
                 bash -c "conda activate wiser-source && cd src/tests && pytest ."
-  
