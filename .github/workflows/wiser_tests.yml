@@ -19,8 +19,8 @@ jobs:
             - name: Pull docker image
               run: docker pull jgarciak/wiser-env:0.1.8
 
-            - name: Build docker image
-              run: docker build -t jgarciak/wiser-env:0.1.8 .
+            # - name: Build docker image
+            #   run: docker build -t jgarciak/wiser-env:0.1.8 .
             
             - name: Run tests in container
               run: |
