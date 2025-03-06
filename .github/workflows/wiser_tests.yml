@@ -20,9 +20,6 @@ jobs:
             - name: List github workspace
               run: ls ${{ github.workspace }}
 
-            - name: Make generated
-              run: make generated
-
             - name: Pull docker image
               run: docker pull jgarciak/wiser-env:0.1.8
 
@@ -34,4 +31,4 @@ jobs:
                 docker run --rm \
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
                 jgarciak/wiser-env:0.1.8 \
-                conda run -n wiser-source /bin/bash -c "cd WISER/src/tests && pytest ."
+                conda run -n wiser-source /bin/bash -c "make generated && cd WISER/src/tests && pytest ."
