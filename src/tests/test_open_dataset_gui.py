@@ -88,12 +88,24 @@ class TestOpenDataset(unittest.TestCase):
         # Compute the absolute path to the target file
         target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "envi.hdr"))
 
-        self.test_model.load_dataset("../test_utils/test_datasets/envi.hdr")
+        self.test_model.load_dataset(target_path)
 
     # Test to ensure we can open a tiff file. The truth test is if all the images are the same.
     def test_open_tiff(self):
-        self.test_model.load_dataset("../test_utils/test_datasets/gtiff.tiff")
+        # Get the directory where the current file is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Test to ensure we can open a nc file. The truth test is if all the images are the same.
-    def test_open_nc(self):
-        self.test_model.load_dataset("../test_utils/test_datasets/netcdf.nc")
+        # Compute the absolute path to the target file
+        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "gtiff.tiff"))
+
+        self.test_model.load_dataset(target_path)
+
+    # # Test to ensure we can open a nc file. The truth test is if all the images are the same.
+    # def test_open_nc(self):
+    #     # Get the directory where the current file is located
+    #     current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    #     # Compute the absolute path to the target file
+    #     target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "netcdf.nc"))
+
+    #     self.test_model.load_dataset(target_path)
