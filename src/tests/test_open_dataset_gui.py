@@ -1,3 +1,5 @@
+import os
+
 import unittest
 
 import numpy as np
@@ -80,6 +82,12 @@ class TestOpenDataset(unittest.TestCase):
     
     # Test to ensure we can open a hdr file. The truth test is if all the images are the same.
     def test_open_hdr(self):
+        # Get the directory where the current file is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Compute the absolute path to the target file
+        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "envi.hdr"))
+
         self.test_model.load_dataset("../test_utils/test_datasets/envi.hdr")
 
     # Test to ensure we can open a tiff file. The truth test is if all the images are the same.
