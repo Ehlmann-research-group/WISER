@@ -25,6 +25,12 @@ jobs:
             - name: List github workspace src/test_utils/test_datasets
               run: ls ${{ github.workspace }}/src/test_utils/test_datasets
 
+            - name: List readability
+              run: |
+                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/envi.hdr
+                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/gtiff.tiff
+                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/netcdf.nc
+
             - name: Pull docker image
               run: docker pull jgarciak/wiser-env:0.1.11
 
