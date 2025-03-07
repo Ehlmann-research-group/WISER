@@ -16,19 +16,18 @@ jobs:
             - name: Check github workspace
               run: echo ${{ github.workspace }}
 
-              
             - name: List github workspace
               run: ls ${{ github.workspace }}
 
             - name: Pull docker image
-              run: docker pull jgarciak/wiser-env:0.1.8
+              run: docker pull jgarciak/wiser-env:0.1.10
 
             # - name: Build docker image
             #   run: docker build -f etc/Dockerfile .
-            
+
             - name: Run tests in container
               run: |
                 docker run --rm \
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
-                jgarciak/wiser-env:0.1.8 \
-                conda run -n wiser-source /bin/bash -c "cd WISER/src/tests && pytest ."
+                jgarciak/wiser-env:0.1.10 \
+                conda run -n wiser-source /bin/bash -c "make generated && cd WISER/src/tests && pytest ."
