@@ -1,0 +1,23 @@
+ENVI
+description = {
+test_datasets/envi}
+samples = 12
+lines   = 11
+bands   = 10
+header offset = 0
+file type = ENVI Standard
+data type = 4
+interleave = bsq
+byte order = 0
+band names = {
+Band 1,
+Band 2,
+Band 3,
+Band 4,
+Band 5,
+Band 6,
+Band 7,
+Band 8,
+Band 9,
+Band 10}
+data ignore value = -9999

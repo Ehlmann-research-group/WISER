@@ -579,6 +579,24 @@ class RasterPane(QWidget):
         return self._rasterviews[rasterview_pos]
 
 
+    def get_rasterview_with_data(self) -> Optional[RasterView]:
+        '''
+        If there is a rasterview with data. This function returns the first it finds. It
+        starts from (0, 0), then goes across columns then down rows.
+
+        An example traversal for a 2x2 grid would be (0, 0) -> (0, 1) -> (1, 0) -> (1, 1)
+        '''
+        rows, cols = self.get_num_views()
+
+        for col in range(cols):
+            for row in range(rows):
+                rv = self.get_rasterview((row, col))
+                if rv.get_raster_data() is not None:
+                    return rv
+
+        return None
+
+
     def update_all_rasterviews(self):
         '''
         Cause all rasterviews in this pane to repaint themselves.
@@ -691,9 +709,9 @@ class RasterPane(QWidget):
                 # Map the coordinate of the mouse-event to the actual raster-image
                 # pixel that was clicked, then emit a signal.
                 r_coord = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
-
-                rasterview_pos = self._get_rasterview_position(rasterview)
-                self.click_pixel.emit(rasterview_pos, r_coord)
+                if rasterview.is_raster_coord_in_bounds(r_coord):
+                    rasterview_pos = self._get_rasterview_position(rasterview)
+                    self.click_pixel.emit(rasterview_pos, r_coord)
 
 
     def _onRasterKeyPress(self, rasterview, key_event):

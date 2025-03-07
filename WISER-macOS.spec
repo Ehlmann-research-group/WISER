@@ -11,9 +11,17 @@ existing_hidden_imports = [
                  'PySide2.QtXml',
              ]
 
+existing_binaries = [
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/drivers.ini', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_FITS.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
+    ]  
+
 a = Analysis(['src/wiser/__main__.py'],
              pathex=['/Users/joshuagk/Documents/WISER'],
-             binaries=[],
+             binaries=existing_binaries,
              datas=existing_datas,
              hiddenimports=existing_hidden_imports,
              hookspath=[],

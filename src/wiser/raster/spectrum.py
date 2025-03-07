@@ -466,6 +466,8 @@ class NumPyArraySpectrum(Spectrum):
         Returns True if this spectrum has wavelength units for all bands, False
         otherwise.
         '''
+        if self._wavelengths is None:
+            return False
         return isinstance(self._wavelengths[0], u.Quantity)
 
     def get_wavelengths(self) -> List[u.Quantity]:

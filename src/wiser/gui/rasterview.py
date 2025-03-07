@@ -77,7 +77,7 @@ def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None
     if normalized_band.nbytes < ARRAY_NUMBA_THRESHOLD:
         return make_channel_image_python(normalized_band, stretch1, stretch2)
     else:
-        normalized_band = convert_to_float32_if_needed(normalized_band)
+        normalized_band = convert_to_float32_if_needed(normalized_band)[0]
         return make_channel_image_numba(normalized_band, stretch1, stretch2)
 
 def check_channel(c):
@@ -625,7 +625,7 @@ class RasterView(QWidget):
                     # Compute the contents of this color channel.
             
                     arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
-        
+
                     band_data = arr
                     band_mask = None
                     if isinstance(arr, np.ma.masked_array):
@@ -1034,3 +1034,20 @@ class RasterView(QWidget):
         # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
         # it rounds to the nearest point, and we just want truncation/floor.
         return QPoint(int(scaled.x()), int(scaled.y()))
+
+    def is_raster_coord_in_bounds(self, coord: QPointF):
+        '''
+        Take a raster coordinate and ensure it is in bounds of the dataset being displayed.
+
+        Arguments:
+        - coord, First entry is x (width), second is y (height)
+        '''
+        x = coord.x()
+        y = coord.y()
+        dataset = self._raster_data
+        if dataset is not None:
+            bounds_x = dataset.get_width()
+            bounds_y = dataset.get_height()
+            if 0 <= x < bounds_x and 0 <= y < bounds_y:
+                return True
+        return False
