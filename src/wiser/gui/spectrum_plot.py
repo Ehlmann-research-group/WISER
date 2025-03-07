@@ -368,7 +368,7 @@ class SpectrumPlotDatasetChooser(DatasetChooser):
         # Add an action for each dataset
         for dataset in self._app_state.get_datasets():
             # TODO(donnie):  Eventually, include the path if the name isn't unique.
-            act = QAction(dataset.get_name(), parent=menu)
+            act = QAction(dataset.get_name(), menu)
             act.setCheckable(True)
             act_data = (rasterview_pos, dataset.get_id())
             act.setData(act_data)

@@ -94,7 +94,7 @@ class DataVisualizerApp(QMainWindow):
 
         self._init_menus()
 
-        self._main_toolbar = self.addToolBar(self.tr('Main'))
+        self._main_toolbar: QToolBar = self.addToolBar(self.tr('Main'))
         self._main_toolbar.setObjectName('main_toolbar') # Needed for UI persistence
         self._init_toolbars()
 
