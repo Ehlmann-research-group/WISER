@@ -77,3 +77,15 @@ class TestOpenDataset(unittest.TestCase):
 
         all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(main_view_arr, zoom_pane_arr)
         self.assertTrue(all_equal)
+    
+    # Test to ensure we can open a hdr file. The truth test is if all the images are the same.
+    def test_open_hdr(self):
+        self.test_model.load_dataset("../test_utils/test_datasets/envi.hdr")
+
+    # Test to ensure we can open a tiff file. The truth test is if all the images are the same.
+    def test_open_tiff(self):
+        self.test_model.load_dataset("../test_utils/test_datasets/gtiff.tiff")
+
+    # Test to ensure we can open a nc file. The truth test is if all the images are the same.
+    def test_open_nc(self):
+        self.test_model.load_dataset("../test_utils/test_datasets/netcdf.nc")

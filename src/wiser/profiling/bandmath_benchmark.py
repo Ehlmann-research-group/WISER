@@ -1,13 +1,14 @@
 import sys
 import os
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser")
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection
 from wiser.raster.spectrum import calc_roi_spectrum
 from wiser.raster.data_cache import DataCache
+
+from wiser.gui.app_state import ApplicationState
 # from PySide2.QtCore import *
 from wiser.bandmath.types import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
@@ -107,11 +108,16 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
         keyD2: 'ld*(2.718)**0.2', 
     }
 
+    app_state = ApplicationState(None)
     loader = RasterDataLoader()
     data_cache = DataCache()
     large_band_dataset = loader.load_from_file(large_band_dataset_path, data_cache)[0]
     normal_image_cube = loader.load_from_file(normal_image_cube_path, data_cache)[0]
     large_image_cube = loader.load_from_file(large_image_cube_path, data_cache)[0]
+    # Below is done to give the datasets a ds_id
+    app_state.add_dataset(large_band_dataset)
+    app_state.add_dataset(normal_image_cube)
+    app_state.add_dataset(large_image_cube)
     b1 = large_band_dataset.get_band_data(0)
     b2 = large_band_dataset.get_band_data(1)
     b3 = large_band_dataset.get_band_data(2)
@@ -288,10 +294,13 @@ def test_both_methods(hdr_paths, N=1):
     total_close = 0
     total_comparisons = 0
     hdr_files = get_hdr_files(hdr_paths)
+    app_state = ApplicationState(None)
     for hdr_file in hdr_files:
         base_name = os.path.basename(hdr_file)
         print(f"Going through file: {base_name}")
         dataset = loader.load_from_file(hdr_file, data_cache)[0]
+        # Used to give the dataset a ds_id
+        app_state.add_dataset(dataset)
         band = dataset.get_band_data(0)
         band2 = dataset.get_band_data(1)
         band3 = dataset.get_band_data(2)
