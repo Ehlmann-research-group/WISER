@@ -645,11 +645,6 @@ class RasterDataSetSpectrum(Spectrum):
     def get_wavelength_units(self) -> Optional[u.Unit]:
         '''
         Gets the wavelength units.
-
-        TODO (Joshua G-K): We need to find a better way to expose this. We can't 
-        just use self._dataset.get_band_units() because this reads from dataset_impl.
-        If the dataset_impl is not a gdal dataset (for example if its a numpy dataset)
-        then it will automatically return none. Consider using self._dataset._band_info.
         '''
         return self.get_wavelengths()[0].unit
 
