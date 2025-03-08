@@ -203,8 +203,6 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
         else:
             raise TypeError(f'Expected 2 or 3 dimensions in rectangular aray, but got {s.ndim}')
 
-    assert(len(spectra) == len(roi.get_all_pixels()), f'Length of spectra is: {len(spectra)} while length of roi all pixels is: {len(roi.get_all_pixels())}')
-
     if len(spectra) > 1:
         spectra = np.asarray(spectra)
         # Need to compute mean/median/... of the collection of spectra
