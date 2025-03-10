@@ -648,7 +648,7 @@ class ChannelStretchWidget(QWidget):
             self._ui.lineedit_stretch_low.clearFocus()
             QMessageBox.critical(self, 
                                  "Invalid Input",
-                                 "Stretch Low value can not be greater than the minimum bound",
+                                 "Stretch Low value can not be less than the minimum bound",
                                  QMessageBox.Ok)
             return False
 
