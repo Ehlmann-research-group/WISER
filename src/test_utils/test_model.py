@@ -505,15 +505,50 @@ class WiserTestModel:
     def click_main_view_zoom_out(self):
         self.main_view._act_zoom_out.trigger()
     
-    def scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
+    def scroll_main_view_rv_dx(self, rv_pos: Tuple[int, int], dx: int):
+        self._scroll_main_view_rv(rv_pos, dx=dx, dy=0)
+        
+    def scroll_main_view_rv_dy(self, rv_pos: Tuple[int, int], dy: int):
+        self._scroll_main_view_rv(rv_pos, dx=0, dy=dy)
+
+    def _scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
+        '''
+        Scrolls the specified main view rasterview by either dx, or dy.
+
+        One of either dx or dy should be zero.  
+
+        An LLM wrote this code.
+        '''
+        dx *= 2
+        dy *= 2
+        # Get the raster view and its scroll area
         rv = self.get_main_view_rv(rv_pos)
-        scroll_area =  rv._scroll_area
-        scroll_area.verticalScrollBar().setValue(
-            scroll_area.verticalScrollBar().value() + dy
+        scroll_area = rv._scroll_area
+
+        # The viewport is the widget that actually receives the wheel events.
+        viewport = scroll_area.viewport()
+
+        # Choose a position within the viewport (e.g., its center)
+        pos = QPointF(viewport.width() / 2, viewport.height() / 2)
+        global_pos = viewport.mapToGlobal(pos.toPoint())
+
+        # Create a QWheelEvent.
+        # Here, angleDelta is set to a QPoint(dx, dy). In Qt, a typical "notch" of the mouse wheel is 120 units.
+        wheel_event = QWheelEvent(
+            pos,                   # local position (QPointF)
+            global_pos,            # global position (QPointF)
+            QPoint(0, 0),          # pixelDelta (unused here)
+            QPoint(dx, dy),        # angleDelta: values such as 120 typically indicate one notch
+            Qt.NoButton,           # buttons (wheel events usually have no button pressed)
+            Qt.NoModifier,         # keyboard modifiers
+            Qt.ScrollUpdate,       # scroll phase: ScrollUpdate indicates the wheel is in motion
+            False,                 # inverted scrolling: False means normal behavior
         )
-        scroll_area.horizontalScrollBar().setValue(
-            scroll_area.horizontalScrollBar().value() + dx
-        )
+
+        # Post the event to the viewport so that it is handled as if a user scrolled.
+        self.app.postEvent(viewport, wheel_event)
+        QTimer.singleShot(0, self.app.quit)
+        self.app.exec_()
 
     
     def click_pixel_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
