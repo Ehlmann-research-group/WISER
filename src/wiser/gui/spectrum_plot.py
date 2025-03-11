@@ -842,6 +842,7 @@ class SpectrumPlot(QWidget):
     def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
         return self._dataset
 
+
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
@@ -856,6 +857,15 @@ class SpectrumPlot(QWidget):
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
                 use_wavelengths = True
 
+        self._refresh_wavelengths(use_wavelengths)
+
+        # Show the plot's color in the tree widget
+        treeitem.setIcon(0, display_info.get_icon())
+
+        return display_info
+
+
+    def _refresh_wavelengths(self, use_wavelengths: bool):
         axes_font = get_font_properties(self._font_name, self._font_size['axes'])
         if use_wavelengths == self._plot_uses_wavelengths:
             for _, single_display_info in self._spectrum_display_info.items():
@@ -885,11 +895,6 @@ class SpectrumPlot(QWidget):
 
             self._plot_uses_wavelengths = use_wavelengths
 
-        # Show the plot's color in the tree widget
-        treeitem.setIcon(0, display_info.get_icon())
-
-        return display_info
-
 
     def _remove_spectrum_from_plot(self, spectrum, treeitem):
         id = spectrum.get_id()
@@ -913,6 +918,11 @@ class SpectrumPlot(QWidget):
         if self._click is not None and self._click.get_spectrum() is spectrum:
             self._click.remove_plot()
             self._click = None
+
+        use_wavelengths = False
+        if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
+            use_wavelengths = True
+        self._refresh_wavelengths(use_wavelengths)
 
 
     def _on_plot_context_menu(self, event):
