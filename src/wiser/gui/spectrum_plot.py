@@ -858,7 +858,15 @@ class SpectrumPlot(QWidget):
 
         axes_font = get_font_properties(self._font_name, self._font_size['axes'])
         if use_wavelengths == self._plot_uses_wavelengths:
-            display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
+            for _, single_display_info in self._spectrum_display_info.items():
+                # Nothing has changed, so just generate a plot for the new spectrum
+                single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
+                unit_name = UNIT_NAME_MAPPING.get(self._x_units, None)
+                if unit_name is not None and use_wavelengths:
+                    self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
+                        labelpad=0, fontproperties=axes_font)
+                else:
+                    self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=axes_font)
 
         else:
             # Need to regenerate all plots with the new "use wavelengths" value
