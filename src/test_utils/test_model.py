@@ -18,13 +18,17 @@ from PySide2.QtWidgets import *
 
 from wiser.gui.app import DataVisualizerApp
 from wiser.gui.rasterview import RasterView
-from wiser.gui.rasterpane import TiledRasterView, RasterPane
+from wiser.gui.rasterpane import TiledRasterView
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import ListSpectralLibrary
 
+class LoggingApplication(QApplication):
+    def notify(self, receiver, event):
+        # print(f"Processing event {event} (type: {event.type()}) on {receiver}")
+        return super().notify(receiver, event)
 
 class WiserTestModel:
     '''
@@ -45,7 +49,7 @@ class WiserTestModel:
     def __init__(self, use_gui=False):
         if not use_gui:
             os.environ["QT_QPA_PLATFORM"] = "offscreen"
-        self.app = QApplication.instance() or QApplication([])
+        self.app = LoggingApplication.instance() or LoggingApplication([])
         self.use_gui = use_gui
 
         self._set_up()
@@ -53,8 +57,8 @@ class WiserTestModel:
         self.raster_data_loader = RasterDataLoader()
     
     def _tear_down_windows(self):
-        QApplication.closeAllWindows()
-        QApplication.processEvents()
+        LoggingApplication.closeAllWindows()
+        LoggingApplication.processEvents()
 
     def _set_up(self):
         self.main_window = DataVisualizerApp()
@@ -83,6 +87,9 @@ class WiserTestModel:
             self.app.quit()
 
             del self.app
+
+    def quit_app(self):
+        self.app.quit()
     
     def __del__(self):
         self.close_app()
@@ -144,7 +151,7 @@ class WiserTestModel:
         self.app_state.add_spectral_library(library)
     
     #==========================================
-    # region Spectrum plot state retrieval and setting
+    # region Spectrum Plot
     #==========================================
 
 
@@ -183,10 +190,23 @@ class WiserTestModel:
 
     def set_active_spectrum(self, spectrum: Spectrum):
         self.app_state.set_active_spectrum(spectrum)
-    
+
+    def click_spectrum_plot(self, x_value, y_value):
+        '''
+        The place to click on the spectrum plot. x_value and y_value
+        can be though of as in terms of the points on the plot. For 
+        example, if you had points (500, 0.5) and (600, 1), you can enter
+        (540, 0.5) and it will find the nearest point of (500, 0.5)
+
+        Arguments:
+        - x_value, a number
+        - y_value, a number
+        '''
+        self.spectrum_plot._update_spectrum_mouse_click(pick_location=(x_value, y_value))
+
 
     #==========================================
-    # region Zoom Pane state retrieval and setting
+    # region Zoom Pane
     #==========================================
 
 
@@ -258,24 +278,53 @@ class WiserTestModel:
         else:
             raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
     
-    def scroll_zoom_pane(self, dx, dy):
-        rv = self.get_zoom_pane_rasterview()
-        scroll_area =  rv._scroll_area
-        scroll_area.verticalScrollBar().setValue(
-            scroll_area.verticalScrollBar().value() + dy
-        )
-        scroll_area.horizontalScrollBar().setValue(
-            scroll_area.horizontalScrollBar().value() + dx
-        )
-        # rv._scroll_area.scrollContentsBy(dx, dy)
+    def scroll_zoom_pane_dx(self, dx):
+        self._scroll_zoom_pane(dx, 0)
 
-    def select_raster_coord_zoom_pane(self, raster_coord: Tuple[int, int]):
+    def scroll_zoom_pane_dy(self, dy):
+        self._scroll_zoom_pane(0, dy)
+
+    def _scroll_zoom_pane(self, dx, dy):
+        '''
+        Scrolls the zoom pane by either dx, or dy. 
+
+        An LLM wrote this code.
+        '''
+        dx *= 2
+        dy *= 2
+        # Get the raster view and its scroll area
+        rv = self.get_zoom_pane_rasterview()
+        scroll_area = rv._scroll_area
+
+        # The viewport is the widget that actually receives the wheel events.
+        viewport = scroll_area.viewport()
+
+        # Choose a position within the viewport (e.g., its center)
+        pos = QPointF(viewport.width() / 2, viewport.height() / 2)
+        global_pos = viewport.mapToGlobal(pos.toPoint())
+
+        # Create a QWheelEvent.
+        # Here, angleDelta is set to a QPoint(dx, dy). In Qt, a typical "notch" of the mouse wheel is 120 units.
+        wheel_event = QWheelEvent(
+            pos,                   # local position (QPointF)
+            global_pos,            # global position (QPointF)
+            QPoint(0, 0),          # pixelDelta (unused here)
+            QPoint(dx, dy),        # angleDelta: values such as 120 typically indicate one notch
+            Qt.NoButton,           # buttons (wheel events usually have no button pressed)
+            Qt.NoModifier,         # keyboard modifiers
+            Qt.ScrollUpdate,       # scroll phase: ScrollUpdate indicates the wheel is in motion
+            False,                 # inverted scrolling: False means normal behavior
+        )
+
+        # Post the event to the viewport so that it is handled as if a user scrolled.
+        self.app.postEvent(viewport, wheel_event)
+
+    def click_raster_coord_zoom_pane(self, raster_coord: Tuple[int, int]):
         '''
         Clicks on the zoom pane's rasterview. The pixel clicked is in raster coords.
         This function ignores delegates that are on the rasterview 
         '''
         raster_point = QPoint(int(raster_coord[0]), int(raster_coord[1]))
-        print(f"raster_point: {raster_point}")
         self.zoom_pane.click_pixel.emit((0, 0), raster_point)
 
     def set_zoom_pane_zoom_level(self, scale: int):
@@ -297,7 +346,7 @@ class WiserTestModel:
 
 
     #==========================================
-    # region Context Pane state retrieval and setting
+    # region Context Pane
     #==========================================
 
 
@@ -337,7 +386,7 @@ class WiserTestModel:
             raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
 
     
-    def select_pixel_context_pane(self, pixel: Tuple[int, int]) -> Tuple[int, int]:
+    def click_pixel_context_pane(self, pixel: Tuple[int, int]) -> Tuple[int, int]:
         '''
         Given a pixel in image coordinates, selects the corresponding
         raster pixel. This function outputs the raster pixel coordinate
@@ -364,7 +413,7 @@ class WiserTestModel:
 
 
     #==========================================
-    # region Main View state retrieval and setting
+    # region Main View
     #==========================================
 
 

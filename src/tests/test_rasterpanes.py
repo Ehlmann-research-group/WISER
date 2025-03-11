@@ -30,7 +30,6 @@ class TestRasterPanes(unittest.TestCase):
         del self.test_model
 
     def test_open_main_view(self):
-        self.test_model = WiserTestModel()
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -66,7 +65,6 @@ class TestRasterPanes(unittest.TestCase):
         self.test_model.close_app()
         
     def test_open_context_pane(self):
-        self.test_model = WiserTestModel()
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -156,7 +154,7 @@ if __name__ == '__main__':
 
     # print(f"test_model.get_zoom_pane_center_raster_coord(): {test_model.get_zoom_pane_center_raster_coord()}")
 
-    test_model.select_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
+    test_model.click_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
 
     # print(f"test_model.get_zoom_pane_selected_pixel(): {test_model.get_zoom_pane_selected_pixel()}")
 
@@ -180,13 +178,13 @@ if __name__ == '__main__':
     
     test_model.collect_active_spectrum()
 
-    test_model.select_raster_coord_zoom_pane((ds2.get_width()/3, ds2.get_height()/3))
+    test_model.click_raster_coord_zoom_pane((ds2.get_width()/3, ds2.get_height()/3))
 
     test_model.collect_active_spectrum()
 
     test_model.remove_collected_spectrum(0)
 
-    test_model.select_raster_coord_zoom_pane((ds2.get_width()/4, ds2.get_height()/4))
+    test_model.click_raster_coord_zoom_pane((ds2.get_width()/4, ds2.get_height()/4))
     
     test_model.collect_active_spectrum()
 
