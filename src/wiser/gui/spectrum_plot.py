@@ -867,9 +867,11 @@ class SpectrumPlot(QWidget):
 
     def _refresh_wavelengths(self, use_wavelengths: bool):
         axes_font = get_font_properties(self._font_name, self._font_size['axes'])
+
+        if self._x_units is None:
+            self._x_units = u.nanometer
+    
         if use_wavelengths == self._plot_uses_wavelengths:
-            if self._x_units is None:
-                self._x_units = u.nanometer
             for _, single_display_info in self._spectrum_display_info.items():
                 # Nothing has changed, so just generate a plot for the new spectrum
                 single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
