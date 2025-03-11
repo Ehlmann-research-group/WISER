@@ -705,15 +705,22 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
         (x, y) = self._point
 
         if self._area == (1, 1):
-            self._spectrum = self._dataset.get_all_bands_at(x, y)
+            try:
+                self._spectrum = self._dataset.get_all_bands_at(x, y)
+            except:
+                self._spectrum = np.full((self._dataset.num_bands(),1), np.nan)
+
 
         else:
             (width, height) = self._area
             left = x - (width - 1) / 2
             top = y - (height - 1) / 2
             rect = QRect(left, top, width, height)
-            self._spectrum = calc_rect_spectrum(self._dataset, rect,
+            try:
+                self._spectrum = calc_rect_spectrum(self._dataset, rect,
                                                 mode=self._avg_mode)
+            except:
+                self._spectrum = np.full((width,height), np.nan)
 
     def get_point(self):
         return self._point
