@@ -55,8 +55,7 @@ if __name__ == '__main__':
         # Repeat the 2D array across 3 channels to get a 3x50x50 array
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
-        test_model.load_dataset(np_impl)
-
+        ds = test_model.load_dataset(np_impl)
 
         pixel_to_click = (0, 0)
 
