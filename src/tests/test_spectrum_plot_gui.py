@@ -79,10 +79,5 @@ if __name__ == '__main__':
         test_model.set_zoom_pane_zoom_level(9)
         test_model.scroll_zoom_pane_dx(100)
         test_model.scroll_zoom_pane_dy(100)
-
-        QTimer.singleShot(10, test_model.app.quit)
-        test_model.app.exec_()
-
-        active_spectrum = test_model.get_active_spectrum()
-
-        print(f"spec array: {active_spectrum.get_spectrum()}")
+    
+        print("We can continue on after calling app.exec_()")

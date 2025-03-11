@@ -430,6 +430,8 @@ class ImageScrollArea(QScrollArea):
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
+        print(f"dx: {dx}")
+        print(f"dy: {dy}")
 
         if 'scrollContentsBy' in self._forward:
             self._forward['scrollContentsBy'](self._rasterview, dx, dy)

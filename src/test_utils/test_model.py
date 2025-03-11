@@ -318,6 +318,8 @@ class WiserTestModel:
 
         # Post the event to the viewport so that it is handled as if a user scrolled.
         self.app.postEvent(viewport, wheel_event)
+        QTimer.singleShot(0, self.app.quit)
+        self.app.exec_()
 
     def click_raster_coord_zoom_pane(self, raster_coord: Tuple[int, int]):
         '''
