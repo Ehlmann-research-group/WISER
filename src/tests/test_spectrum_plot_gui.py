@@ -1,7 +1,7 @@
 import unittest
 
-# import tests.context
-import context
+import tests.context
+# import context
 
 from test_utils.test_model import WiserTestModel
 
@@ -28,13 +28,13 @@ class TestSpectrumPlotUI(unittest.TestCase):
                                 [0.75, 0.75, 0.75, 0.75],
                                 [1.  , 1.  , 1.  , 1.  ]],
 
-                            [[0.  , 0.  , 0.  , 0.  ],
+                            [[1.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
                                 [0.75, 0.75, 0.75, 0.75],
                                 [1.  , 1.  , 1.  , 1.  ]],
 
-                            [[0.  , 0.  , 0.  , 0.  ],
+                            [[0.5  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
                                 [0.75, 0.75, 0.75, 0.75],
@@ -42,7 +42,22 @@ class TestSpectrumPlotUI(unittest.TestCase):
         
         self.test_model.load_dataset(np_impl)
 
-        self.test_model.click_spectrum_plot_display_toggle(1, 0.5)
+        self.test_model.click_pixel_main_view_rv((0, 0), (0, 0))
+
+        self.test_model.click_spectrum_plot(1, 0.5)
+
+        active_spectrum = self.test_model.get_active_spectrum()
+
+        active_spectrum_arr = active_spectrum.get_spectrum()
+
+        expected_spectrum_arr = np.array([0, 1, 0.5])
+
+        self.assertTrue(np.array_equal(active_spectrum_arr, expected_spectrum_arr))
+
+        clicked_point = self.test_model.get_clicked_spectrum_plot_point()
+
+        self.assertTrue(np.array_equal(np.array(clicked_point), np.array((1., 1.0))))
+
 
 if __name__ == '__main__':
         test_model = WiserTestModel(use_gui=True)

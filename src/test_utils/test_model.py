@@ -19,6 +19,7 @@ from PySide2.QtWidgets import *
 from wiser.gui.app import DataVisualizerApp
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import TiledRasterView
+from wiser.gui.spectrum_plot import SpectrumPointDisplayInfo
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
@@ -173,6 +174,20 @@ class WiserTestModel:
     def get_spectrum_plot_x_units(self) -> u.Unit:
         return self.spectrum_plot.get_x_units()
     
+    def get_clicked_spectrum_plot_display_info(self) -> Optional[SpectrumPointDisplayInfo]:
+        return self.spectrum_plot._click
+    
+    def get_clicked_spectrum_plot_point(self) -> Tuple[float, float]:
+        click = self.get_clicked_spectrum_plot_display_info()
+        y_value = click._spectrum.get_spectrum()[click._band_index]
+        x_value = click._spectrum.get_wavelengths()[click._band_index]
+        return (x_value, y_value)
+
+    def get_spectrum_plot_x_units(self) -> Optional[u.Unit]:
+        return self.spectrum_plot._x_units
+
+    def get_spectrum_plot_use_wavelengths(self) -> Optional[bool]: 
+        return self.spectrum_plot._plot_uses_wavelengths
 
     # region State setting
 

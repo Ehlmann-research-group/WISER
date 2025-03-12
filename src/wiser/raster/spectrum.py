@@ -644,7 +644,7 @@ class RasterDataSetSpectrum(Spectrum):
     
     def get_wavelength_units(self) -> Optional[u.Unit]:
         if self.has_wavelengths():
-            return self._dataset.get_band_unit()
+            return self.get_wavelengths()[0].unit
 
         return None
 

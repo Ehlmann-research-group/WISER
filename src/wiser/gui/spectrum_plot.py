@@ -222,7 +222,7 @@ class SpectrumPointDisplayInfo:
     information for a specific point being displayed.
     '''
 
-    def __init__(self, spectrum, band_index: int, use_wavelength: bool,
+    def __init__(self, spectrum: Spectrum, band_index: int, use_wavelength: bool,
                  band_units=None, marker_type='s', crosshair=True):
         '''
         The marker_type value specifies what kind of marker to use on the plot
