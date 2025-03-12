@@ -103,6 +103,10 @@ class WiserTestModel:
         self._set_up()
 
     #==========================================
+    # region App Events
+    #==========================================
+
+    #==========================================
     # Code for interfacing with the application
     #==========================================
 
@@ -218,6 +222,38 @@ class WiserTestModel:
         - y_value, a number
         '''
         self.spectrum_plot._update_spectrum_mouse_click(pick_location=(x_value, y_value))
+    
+    def remove_active_spectrum(self):
+        tree_item = QTreeWidgetItem()
+        tree_item.setData(0, Qt.UserRole, self.get_active_spectrum())
+        self.spectrum_plot._on_discard_spectrum(tree_item, display_confirm=False)
+
+    def set_spectrum_plot_dataset(self, ds_id: int):
+        '''
+        Sets the dataset for the spectrum plot to sample from. If ds_id is below zero, we set to
+        using the clicked dataset.
+        '''
+        print(f"set_spectrum_plot_dataset, {ds_id}")
+        if ds_id < 0:
+            ds_id = -1
+        
+        ds_chooser = self.spectrum_plot._dataset_chooser
+        menu = ds_chooser._dataset_menu
+
+        for act in menu.actions():
+            # The data() for each dataset action is stored as a tuple
+            #   (rasterview_pos, dataset_id).
+            act_data = act.data()
+            if act_data is not None:
+                _, dataset_id = act_data
+                if dataset_id == ds_id:
+                    print(f"WE HAVE A MATCH")
+                    act.trigger()  # Programmatically "click" this action
+                    ds_chooser._on_dataset_changed(act)
+                    self.spectrum_plot._on_dataset_changed(act)
+                    break
+        
+
 
 
     #==========================================
@@ -566,10 +602,13 @@ class WiserTestModel:
         self.app.exec_()
 
     
-    def click_pixel_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
+    def click_display_coord_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
         '''
         Clicks on the rasterview at rv_pos. The location clicked is in display coordinates
-        with the rasterview's image widget as the coordinate system. 
+        with the rasterview's image widget as the coordinate system. Display coordinates is
+        the Qt coordinate system. This is different from raster coordinates which are a in
+        the image coordinate system (so if the dataset was 500x600, valid values would just
+        be in the 500x600 range)
         '''
         x = pixel[0]
         y = pixel[1]

@@ -44,7 +44,7 @@ class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
 
         self.test_model.load_dataset(np_impl)
 
-        self.test_model.click_pixel_main_view_rv((0, 0), pixel_to_click)
+        self.test_model.click_raster_coord_main_view_rv((0, 0), pixel_to_click)
 
         spectrum = self.test_model.get_active_spectrum()
 
@@ -76,13 +76,13 @@ class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
 
         self.test_model.load_dataset(np_impl)
 
-        self.test_model.click_pixel_main_view_rv((0, 0), pixel_to_click)
+        self.test_model.click_raster_coord_main_view_rv((0, 0), pixel_to_click)
 
         self.test_model.collect_active_spectrum()
 
         pixel_to_click = (1, 1)
 
-        self.test_model.click_pixel_main_view_rv((0, 0), pixel_to_click)
+        self.test_model.click_raster_coord_main_view_rv((0, 0), pixel_to_click)
 
         spectrum = self.test_model.get_active_spectrum()
 

@@ -1554,17 +1554,18 @@ class SpectrumPlot(QWidget):
         self._draw_spectra()
 
 
-    def _on_discard_spectrum(self, treeitem):
+    def _on_discard_spectrum(self, treeitem, display_confirm = True):
         spectrum = treeitem.data(0, Qt.UserRole)
 
-        # Get confirmation from the user.
-        confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
-            self.tr('Are you sure you want to discard this spectrum?') +
-            '\n\n' + spectrum.get_name())
+        if display_confirm:
+            # Get confirmation from the user.
+            confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
+                self.tr('Are you sure you want to discard this spectrum?') +
+                '\n\n' + spectrum.get_name())
 
-        if confirm != QMessageBox.Yes:
-            # User canceled the discard operation.
-            return
+            if confirm != QMessageBox.Yes:
+                # User canceled the discard operation.
+                return
 
         # If we got here, we are discarding the spectrum.
         if treeitem.parent() is self._treeitem_collected:
