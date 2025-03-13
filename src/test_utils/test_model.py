@@ -26,6 +26,8 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import ListSpectralLibrary
 
+from .test_event_loop_functions import FunctionEvent
+
 class LoggingApplication(QApplication):
     def notify(self, receiver, event):
         # print(f"Processing event {event} (type: {event.type()}) on {receiver}")
@@ -77,9 +79,11 @@ class WiserTestModel:
         self.main_view = self.main_window._main_view
 
         self.zoom_pane = self.main_window._zoom_pane
+
+        self.testing_widget = self.main_window._invisible_testing_widget
     
     def run(self):
-        QTimer.singleShot(100, self.close_app)
+        QTimer.singleShot(10, self.app.quit)
         self.app.exec_()
 
     def close_app(self):
@@ -272,7 +276,7 @@ class WiserTestModel:
     def get_zoom_pane_rasterview(self):
         return self.zoom_pane.get_rasterview()
     
-    def get_zoom_pane_region(self) -> Optional[QRect]:
+    def get_zoom_pane_visible_region(self) -> Optional[QRect]:
         rv = self.get_zoom_pane_rasterview()
         return rv.get_visible_region()
     
@@ -298,19 +302,19 @@ class WiserTestModel:
             pixel = pixel_selection.get_pixel()
             return (pixel.x(), pixel.y())
     
-    def get_zoom_pane_center_raster_coord(self):
+    def get_zoom_pane_center_raster_point(self):
         '''
         Returns the center raster coordinate of the zoom pane's visible region
         '''
-        qrect = self.get_zoom_pane_region()
-        center = QPointF(qrect.topLeft()) + QPointF(qrect.width(), qrect.height())/2
+        qrect = self.get_zoom_pane_visible_region()
+        center = qrect.center() # QPointF(qrect.topLeft()) + QPointF(qrect.width(), qrect.height())/2
         return center
     
     def get_zoom_pane_image_size(self) -> Tuple[int, int]:
         '''
         Gets the size of visible region in raster coordinates
         '''
-        return (self.get_zoom_pane_region().width(), self.get_zoom_pane_region().height())
+        return (self.get_zoom_pane_visible_region().width(), self.get_zoom_pane_visible_region().height())
 
 
     # region State setting
@@ -377,8 +381,24 @@ class WiserTestModel:
         Clicks on the zoom pane's rasterview. The pixel clicked is in raster coords.
         This function ignores delegates that are on the rasterview 
         '''
-        raster_point = QPoint(int(raster_coord[0]), int(raster_coord[1]))
-        self.zoom_pane.click_pixel.emit((0, 0), raster_point)
+        def click():
+            raster_point = QPoint(int(raster_coord[0]), int(raster_coord[1]))
+            self.zoom_pane.click_pixel.emit((0, 0), raster_point)
+        
+        raster_point = QPoint(raster_coord[0], raster_coord[1])
+
+        zoom_pane_region = self.get_zoom_pane_visible_region()
+
+        if zoom_pane_region.contains(raster_point):
+            function_event = FunctionEvent(click)
+
+            self.app.postEvent(self.testing_widget, function_event)
+            self.run()
+        else:
+            raise ValueError(f"QPoint must be in zoom pane region." + 
+                             f"QPoint: {raster_point}, Zoom Region: {zoom_pane_region}")
+
+
 
     def set_zoom_pane_zoom_level(self, scale: int):
         '''
@@ -494,24 +514,26 @@ class WiserTestModel:
     
     def get_main_view_rv_center_raster_coord(self, rv_pos: Tuple[int, int]):
         '''
-        Returns the center of the rasterview in display pixel coordinates and in 
-        the coordinate space of the rasterview (so the top-left of the rasterview
+        Returns the center of the rasterview's visible region in raster coordinates
+        and in the coordinate space of the rasterview (so the top-left of the rasterview
         is zero zero)
 
         The more zoomed out the rasterview is, the more inaccurate the center
         coordinate is. It may not match up with click_raster_coord_main_view_rv.
         '''
-        rv = self.get_main_view_rv(rv_pos)
-        center_local_pos_x = rv._image_widget.width()/2
-        center_local_pos_y = rv._image_widget.height()/2
-        raster_coord = rv.image_coord_to_raster_coord(QPointF(center_local_pos_x, center_local_pos_y),
-                                                      round_nearest=True)
-        return (raster_coord.x(), raster_coord.y())
+        # rv = self.get_main_view_rv(rv_pos)
+        # center_local_pos_x = rv._image_widget.width()/2
+        # center_local_pos_y = rv._image_widget.height()/2
+        # raster_coord = rv.image_coord_to_raster_coord(QPointF(center_local_pos_x, center_local_pos_y),
+                                                    #   round_nearest=True)
+        visible_region = self.get_main_view_rv_visible_region(rv_pos)
+        center_point = visible_region.center()
+        return (center_point.x(), center_point.y())
 
-    def get_main_view_rv_center_local_pixel(self, rv_pos: Tuple[int, int]):
+    def get_main_view_rv_center_display_coord(self, rv_pos: Tuple[int, int]):
         '''
-        Returns the center of the rasterview in display pixel coordinates and in 
-        the coordinate space of the rasterview (so the top-left of the rasterview
+        Returns the center of the rasterview's visible region in display pixel coordinates 
+        and in the coordinate space of the rasterview (so the top-left of the rasterview
         is zero zero)
         '''
         rv = self.get_main_view_rv(rv_pos)
@@ -598,8 +620,7 @@ class WiserTestModel:
 
         # Post the event to the viewport so that it is handled as if a user scrolled.
         self.app.postEvent(viewport, wheel_event)
-        QTimer.singleShot(0, self.app.quit)
-        self.app.exec_()
+        self.run()
 
     
     def click_display_coord_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):

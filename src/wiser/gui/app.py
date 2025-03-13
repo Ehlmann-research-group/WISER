@@ -1032,6 +1032,7 @@ class DataVisualizerApp(QMainWindow):
         that if they were hidden and are then shown, they will still contain the
         relevant information.
         '''
+        print(f"ON ZOOM PANE RASTER PIXEL SELECT")
         # In the zoom pane, the rasterview position should always be (0, 0).
         assert rasterview_position == (0, 0)
 

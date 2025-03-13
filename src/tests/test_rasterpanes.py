@@ -152,7 +152,7 @@ if __name__ == '__main__':
     # # The zoom pane image size should increase. Since we zoomed out it shoild show more pixels
     # print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
 
-    # print(f"test_model.get_zoom_pane_center_raster_coord(): {test_model.get_zoom_pane_center_raster_coord()}")
+    # print(f"test_model.get_zoom_pane_center_raster_point(): {test_model.get_zoom_pane_center_raster_point()}")
 
     test_model.click_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
 
     # print(f"test_model.get_zoom_pane_scroll_state(): {test_model.get_zoom_pane_scroll_state()}")
 
-    # print(f"test_model.get_zoom_pane_region(): {test_model.get_zoom_pane_region()}")
+    # print(f"test_model.get_zoom_pane_visible_region(): {test_model.get_zoom_pane_visible_region()}")
 
     # # Try commenting this line out to show that it works
     # test_model.set_zoom_pane_dataset(ds1.get_id())
