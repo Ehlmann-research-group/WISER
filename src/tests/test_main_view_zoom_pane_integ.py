@@ -2,8 +2,8 @@ import os
 
 import unittest
 
-import tests.context
-# import context
+# import tests.context
+import context
 
 from typing import Tuple, Union
 
@@ -292,13 +292,15 @@ if __name__ == '__main__':
     test_model.click_main_view_zoom_in()
     test_model.click_main_view_zoom_in()
 
-    # Make mainview scroll to top left
-    test_model.scroll_main_view_rv_dx((0,0), 1000)
-    test_model.scroll_main_view_rv_dx((0,0), 1000)
-    test_model.scroll_main_view_rv_dy((0,0), 1000)
-    test_model.scroll_main_view_rv_dy((0,0), 1000)
+    # # Make mainview scroll to top left
+    # test_model.scroll_main_view_rv_dx((0,0), 1000)
+    # test_model.scroll_main_view_rv_dx((0,0), 1000)
+    # test_model.scroll_main_view_rv_dy((0,0), 1000)
+    # test_model.scroll_main_view_rv_dy((0,0), 1000)
 
-    test_model.scroll_zoom_pane_dx(-1000)
+    # test_model.scroll_zoom_pane_dx(-1000)
+
+    test_model.scroll_main_view_rv_dx_dy((0,0), 500, 500)
 
     # Ensure the visible regions overlap
     mv_region = test_model.get_main_view_rv_visible_region((0, 0))
