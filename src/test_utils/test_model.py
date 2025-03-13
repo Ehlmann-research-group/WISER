@@ -578,7 +578,7 @@ class WiserTestModel:
     def click_main_view_zoom_out(self):
         self.main_view._act_zoom_out.trigger()
     
-    def scroll_main_view_rv_dx_dy(self, rv_pos: Tuple[int, int], dx: int, dy: int):
+    def scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
         
         def scroll():
             rv = self.get_main_view_rv(rv_pos)
