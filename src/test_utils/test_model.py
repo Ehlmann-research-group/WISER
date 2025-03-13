@@ -534,7 +534,7 @@ class WiserTestModel:
         return visible_region
 
     def get_main_view_highlight_region(self, rv_pos: Tuple[int, int]):
-        return self.context_pane._viewport_highlight
+        return self.main_view._viewport_highlight
 
     def is_main_view_linked(self):
         return self.main_view._link_view_scrolling
