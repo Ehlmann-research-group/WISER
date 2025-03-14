@@ -969,8 +969,6 @@ class RasterPane(QWidget):
         Sets the dataset being displayed in the specified view of the raster
         pane.
         '''
-        # TODO (Joshua G-K) Have this update what has a checked mark. 
-
         rasterview = self.get_rasterview(rasterview_pos)
 
         # If the rasterview is already showing the specified dataset, skip!
@@ -988,7 +986,7 @@ class RasterPane(QWidget):
         if dataset is not None and self._num_views == (1, 1):
             self._dataset_chooser.check_dataset(dataset.get_id())
 
-        # This is a check to see if this is MainView
+        # This is a check to see if this rasterpane is MainView
         if hasattr(self, "_link_view_scrolling"):
             self.on_rasterview_dataset_changed()
 

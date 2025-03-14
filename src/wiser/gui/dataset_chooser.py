@@ -82,7 +82,6 @@ class DatasetChooser(QToolButton):
 
 
     def _add_dataset_menu_items(self, menu: QMenu, rasterview_pos=(0, 0)):
-        print(f"Basic dataset chooser menu items")
         # Find the action that is currently selected (if any)
         current_data = None
         for act in menu.actions():
@@ -120,7 +119,7 @@ class DatasetChooser(QToolButton):
             # print(f"act_ds_id: {act_ds_id}")
             if act_ds_id == ds_id:
                 act.setChecked(True)
-    
+
     def _uncheck_all(self, menu: QMenu):
         for act in menu.actions():
             act.setChecked(False)
