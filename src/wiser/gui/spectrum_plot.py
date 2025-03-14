@@ -413,7 +413,7 @@ class SpectrumPlot(QWidget):
         # General configuration for the spectrum plot
 
         # What dataset are we showing spectra from on new mouse-clicks?
-        self._dataset = None
+        self._dataset: RasterDataSet = None
 
         # Are we displaying a legend?
         self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
@@ -477,6 +477,8 @@ class SpectrumPlot(QWidget):
 
         self._app_state.spectral_library_added.connect(self._on_spectral_library_added)
         self._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
+
+        self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
 
     def _init_ui(self):
@@ -837,7 +839,12 @@ class SpectrumPlot(QWidget):
             self._dataset = self._app_state.get_dataset(ds_id)
         else:
             self._dataset = None
+    
+    def _on_dataset_removed(self, ds_id):
+        current_ds_id = self._dataset.get_id()
 
+        if current_ds_id == ds_id:
+            self._dataset = None
 
     def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
         return self._dataset
