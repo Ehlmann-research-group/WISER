@@ -10,6 +10,10 @@ from .generated.export_plot_image_ui import Ui_ExportPlotImageDialog
 
 from .util import generate_unused_filename
 
+# Do not get rid of these imports! They're needed for pyinstaller.
+import matplotlib.backends.backend_pdf
+import matplotlib.backends.backend_svg
+import matplotlib.backends.backend_ps
 
 
 class ExportPlotImageDialog(QDialog):
