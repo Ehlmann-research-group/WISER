@@ -458,10 +458,30 @@ class WiserTestModel:
         else:
             raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
 
+
+    def click_raster_coord_context_pane(self, pixel: Tuple[int, int]):
+        x = pixel[0]
+        y = pixel[1]
+
+        context_rv = self.get_context_pane_rasterview()
+
+        display_point = context_rv.raster_coord_to_image_coord(QPointF(x, y), round_nearest=True)
+        
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,            # event type
+            QPointF(display_point.x(), display_point.y()),           # local (widget) position
+            Qt.LeftButton,                       # which button changed state
+            Qt.MouseButtons(Qt.LeftButton),      # state of all mouse buttons
+            Qt.NoModifier                         # keyboard modifiers (e.g. Ctrl, Shift)
+        )
+
+        self.app.postEvent(context_rv._image_widget, mouse_event)
+        self.run()
+
     
-    def click_pixel_context_pane(self, pixel: Tuple[int, int]) -> Tuple[int, int]:
+    def click_display_coord_context_pane(self, pixel: Tuple[int, int]) -> Tuple[int, int]:
         '''
-        Given a pixel in image coordinates, selects the corresponding
+        Given a pixel in display coordinates, selects the corresponding
         raster pixel. This function outputs the raster pixel coordinate
         of the input pixel.
         '''
@@ -480,9 +500,9 @@ class WiserTestModel:
 
         context_rv._image_widget.mouseReleaseEvent(mouse_event)
 
-        raster_coord = context_rv.image_coord_to_raster_coord(QPointF(x, y))
+        raster_point = context_rv.image_coord_to_raster_coord(QPointF(x, y))
 
-        return (raster_coord.x(), raster_coord.y())
+        return (raster_point.x(), raster_point.y())
 
 
     #==========================================

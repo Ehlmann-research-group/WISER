@@ -165,8 +165,6 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         self.test_model.load_dataset(np_impl)
 
-        pixel = (79, 79)
-
         # Get the main view and zoom pane in a position where the main view
         # would have to snap to the zoom pane when zoom pane is clicked
         self.test_model.click_zoom_pane_display_toggle()
