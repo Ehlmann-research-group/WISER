@@ -850,20 +850,6 @@ class SpectrumPlot(QWidget):
 
             if current_ds_id == ds_id:
                 self._dataset = None
-        
-        # # Because the SpectrumPlotDatasetChooser resets itself every time
-        # # a dataset is removed, we have to set it to the correct dataset
-        # current_ds_id = self._dataset.get_id() if self._dataset is not None else -1
-        # print(f"current_ds_id: {current_ds_id}")
-        # for act in self._dataset_chooser._dataset_menu.actions():
-        #     act_ds_id = act.data()[1]
-        #     print(f"act_ds_id: {act_ds_id}")
-        #     if act_ds_id == current_ds_id:
-        #         act.setChecked(True)
-            
-
-
-
 
     def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
         return self._dataset
