@@ -58,9 +58,6 @@ class DatasetChooser(QToolButton):
         current list of datasets in the application state.
         '''
 
-        # Remove all existing actions
-        self._dataset_menu.clear()
-
         if self._rasterpane is not None:
             num_views = self._rasterpane.get_num_views()
         else:
@@ -84,12 +81,15 @@ class DatasetChooser(QToolButton):
             self._add_dataset_menu_items(self._dataset_menu)
 
 
-    def _add_dataset_menu_items(self, menu, rasterview_pos=(0, 0)):
+    def _add_dataset_menu_items(self, menu: QMenu, rasterview_pos=(0, 0)):
         # Find the action that is currently selected (if any)
         current_data = None
         for act in menu.actions():
             if act.isChecked():
                 current_data = act.data()
+
+        # Remove all existing actions
+        menu.clear()
 
         # Add an action for each dataset
         for dataset in self._app_state.get_datasets():

@@ -352,16 +352,19 @@ class SpectrumPlotDatasetChooser(DatasetChooser):
         option.
         '''
 
-        # Find the action that is currently selected (if any)
+        # Find the action that is currently selected (if any) 
         current_data = None
         for act in self._dataset_menu.actions():
             if act.isChecked():
                 current_data = act.data()
 
-        act = menu.addAction(self.tr('Use clicked dataset'))
-        act.setCheckable(True)
-        act.setChecked(True)
-        act.setData( (None, -1) )
+        # Remove all existing actions
+        menu.clear()
+
+        actDefault: QAction = menu.addAction(self.tr('Use clicked dataset'))
+        actDefault.setCheckable(True)
+        actDefault.setChecked(True)
+        actDefault.setData( (None, -1) )
 
         menu.addSeparator()
 
@@ -374,6 +377,7 @@ class SpectrumPlotDatasetChooser(DatasetChooser):
             act.setData(act_data)
             if act_data == current_data:
                 act.setChecked(True)
+                actDefault.setChecked(False)
 
             menu.addAction(act)
 
@@ -841,10 +845,25 @@ class SpectrumPlot(QWidget):
             self._dataset = None
     
     def _on_dataset_removed(self, ds_id):
-        current_ds_id = self._dataset.get_id()
+        if self._dataset:
+            current_ds_id = self._dataset.get_id()
 
-        if current_ds_id == ds_id:
-            self._dataset = None
+            if current_ds_id == ds_id:
+                self._dataset = None
+        
+        # # Because the SpectrumPlotDatasetChooser resets itself every time
+        # # a dataset is removed, we have to set it to the correct dataset
+        # current_ds_id = self._dataset.get_id() if self._dataset is not None else -1
+        # print(f"current_ds_id: {current_ds_id}")
+        # for act in self._dataset_chooser._dataset_menu.actions():
+        #     act_ds_id = act.data()[1]
+        #     print(f"act_ds_id: {act_ds_id}")
+        #     if act_ds_id == current_ds_id:
+        #         act.setChecked(True)
+            
+
+
+
 
     def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
         return self._dataset
