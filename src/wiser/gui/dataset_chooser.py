@@ -82,6 +82,7 @@ class DatasetChooser(QToolButton):
 
 
     def _add_dataset_menu_items(self, menu: QMenu, rasterview_pos=(0, 0)):
+        print(f"Basic dataset chooser menu items")
         # Find the action that is currently selected (if any)
         current_data = None
         for act in menu.actions():
@@ -103,6 +104,26 @@ class DatasetChooser(QToolButton):
 
             menu.addAction(act)
 
+    def check_dataset(self, ds_id: int):
+        '''
+        Checks the desired dataset in the dataset chooser. This
+        function should only be called if the num views is (1, 1).
+        '''
+        if self._rasterpane.get_num_views() != (1, 1):
+            raise ValueError(f"The function check_dataset should only be called when raster " +
+                             f"pane has one view")
+
+        self._uncheck_all(self._dataset_menu)
+
+        for act in self._dataset_menu.actions():
+            act_ds_id = act.data()[1]
+            # print(f"act_ds_id: {act_ds_id}")
+            if act_ds_id == ds_id:
+                act.setChecked(True)
+    
+    def _uncheck_all(self, menu: QMenu):
+        for act in menu.actions():
+            act.setChecked(False)
 
     def _on_dataset_changed(self, act: QAction):
         '''
