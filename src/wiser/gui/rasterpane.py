@@ -983,6 +983,10 @@ class RasterPane(QWidget):
             stretches = self._app_state.get_stretches(ds_id, bands)
 
         rasterview.set_raster_data(dataset, bands, stretches)
+        if dataset is not None and self._num_views == (1, 1):
+            self._dataset_chooser.check_dataset(dataset.get_id())
+
+        # This is a check to see if this rasterpane is MainView
         if hasattr(self, "_link_view_scrolling"):
             self.on_rasterview_dataset_changed()
 
