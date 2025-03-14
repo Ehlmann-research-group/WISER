@@ -352,7 +352,7 @@ class SpectrumPlotDatasetChooser(DatasetChooser):
         option.
         '''
 
-        # Find the action that is currently selected (if any) 
+        # Find the action that is currently selected (if any)
         current_data = None
         for act in self._dataset_menu.actions():
             if act.isChecked():

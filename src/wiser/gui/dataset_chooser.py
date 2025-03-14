@@ -116,7 +116,6 @@ class DatasetChooser(QToolButton):
 
         for act in self._dataset_menu.actions():
             act_ds_id = act.data()[1]
-            # print(f"act_ds_id: {act_ds_id}")
             if act_ds_id == ds_id:
                 act.setChecked(True)
 
