@@ -203,8 +203,6 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
         else:
             raise TypeError(f'Expected 2 or 3 dimensions in rectangular aray, but got {s.ndim}')
 
-    assert(len(spectra) == len(roi.get_all_pixels()), f'Length of spectra is: {len(spectra)} while length of roi all pixels is: {len(roi.get_all_pixels())}')
-
     if len(spectra) > 1:
         spectra = np.asarray(spectra)
         # Need to compute mean/median/... of the collection of spectra
@@ -645,10 +643,10 @@ class RasterDataSetSpectrum(Spectrum):
         return bands
     
     def get_wavelength_units(self) -> Optional[u.Unit]:
-        if self.has_wavelengths():
-            return self._dataset.get_band_unit()
-
-        return None
+        '''
+        Gets the wavelength units.
+        '''
+        return self.get_wavelengths()[0].unit
 
     def _calculate_spectrum(self):
         '''
@@ -707,15 +705,22 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
         (x, y) = self._point
 
         if self._area == (1, 1):
-            self._spectrum = self._dataset.get_all_bands_at(x, y)
+            try:
+                self._spectrum = self._dataset.get_all_bands_at(x, y)
+            except:
+                self._spectrum = np.full((self._dataset.num_bands(),1), np.nan)
+
 
         else:
             (width, height) = self._area
             left = x - (width - 1) / 2
             top = y - (height - 1) / 2
             rect = QRect(left, top, width, height)
-            self._spectrum = calc_rect_spectrum(self._dataset, rect,
+            try:
+                self._spectrum = calc_rect_spectrum(self._dataset, rect,
                                                 mode=self._avg_mode)
+            except:
+                self._spectrum = np.full((width,height), np.nan)
 
     def get_point(self):
         return self._point
