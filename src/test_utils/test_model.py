@@ -779,6 +779,14 @@ class WiserTestModel:
         channel_stretch = self.get_channel_stretch(i=i, rv_pos=rv_pos)
         return channel_stretch._norm_band_data
     
+    def get_stretch_builder_slider_link_state(self, rv_pos: Tuple[int, int] = (0, 0)) -> bool:
+        stretch_builder = self.get_stretch_builder(rv_pos)
+        return stretch_builder._cb_link_sliders.isChecked()
+
+    def get_stretch_builder_min_max_link_state(self, rv_pos: Tuple[int, int] = (0, 0)) -> bool:
+        stretch_builder = self.get_stretch_builder(rv_pos)
+        return stretch_builder._cb_link_min_max.isChecked()
+
     # region State setting
     def click_stretch_full_linear(self, rv_pos: Tuple[int, int] = (0,0)):
         stretch_config = self.get_stretch_config(rv_pos)
@@ -831,7 +839,7 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-    def set_stretch_builder_slider_link_state(self, link_state :bool, rv_pos: Tuple[int, int] = (0,0)):
+    def set_stretch_builder_slider_link_state(self, link_state: bool, rv_pos: Tuple[int, int] = (0,0)):
         def func():
             stretch_builder = self.get_stretch_builder(rv_pos)
             stretch_builder._cb_link_sliders.setChecked(link_state)
@@ -841,7 +849,7 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-    def set_stretch_builder_min_max_link_state(self, link_state :bool, rv_pos: Tuple[int, int] = (0,0)):
+    def set_stretch_builder_min_max_link_state(self, link_state: bool, rv_pos: Tuple[int, int] = (0,0)):
         def func():
             stretch_builder = self.get_stretch_builder(rv_pos)
             stretch_builder._cb_link_min_max.setChecked(link_state)
@@ -850,6 +858,15 @@ class WiserTestModel:
 
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
+
+    def close_stretch_builder(self, rv_pos: Tuple[int, int] = (0,0)):
+        '''
+        Gets and then closes stretch builder. It may seem redundant to open then close
+        stretch builder, but if stretch builder is already open and you want to close it,
+        then this works.
+        '''
+        stretch_builder = self.get_stretch_builder(rv_pos)
+        stretch_builder.accept()
 
 
     #==========================================
@@ -879,5 +896,6 @@ class WiserTestModel:
         self.click_pane_display_toggle('dataset_info')
 
 if __name__ == '__main__':
+
     test_model = WiserTestModel()
         

@@ -167,7 +167,9 @@ class TestStretchBuilderGUI(unittest.TestCase):
 
         self.test_model.set_stretch_builder_min_max_link_state(True)
         self.test_model.set_channel_stretch_min_max(i=0, stretch_min=0.25, stretch_max=0.75)
-    
+
+        # Each call to get_channel_stretch_norm_data causes the stretch builder to reopen.
+        # This helps us test caching. 
         norm_data0 = self.test_model.get_channel_stretch_norm_data(i=0)
         norm_data1 = self.test_model.get_channel_stretch_norm_data(i=1)
         norm_data2 = self.test_model.get_channel_stretch_norm_data(i=2)
@@ -180,6 +182,59 @@ class TestStretchBuilderGUI(unittest.TestCase):
 
         close = np.allclose(norm_data2, expected_norm_data)
         self.assertTrue(close)
+
+    def test_save_link_state(self):
+        # Create first array
+        rows, cols, channels = 50, 50, 3
+        # Create a vertical gradient from 0 to 1: shape (50,1)
+        row_values = np.linspace(0, 1, rows).reshape(rows, 1)
+        # Tile the values horizontally to get a 50x50 array
+        impl = np.tile(row_values, (1, cols))
+        # Repeat the 2D array across 3 channels to get a 3x50x50 array
+        np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
+
+        # Create second array
+        rows, cols, channels = 50, 50, 3
+        # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        impl2 = np.tile(row_values, (1, cols))
+        np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
+
+        ds1 = self.test_model.load_dataset(np_impl)
+
+        ds2 = self.test_model.load_dataset(np_impl2)
+
+        # Set dataset2's link state
+        self.test_model.set_stretch_builder_min_max_link_state(True)
+
+        self.test_model.close_stretch_builder()
+
+        # Set dataset 1's link state
+        self.test_model.set_main_view_rv((0, 0), ds1.get_id())
+
+        self.test_model.set_stretch_builder_slider_link_state(True)
+
+        self.test_model.close_stretch_builder()
+
+        # Now we make sure the stretch builder saved the state for ds2
+        self.test_model.set_main_view_rv((0, 0), ds2.get_id())
+
+        link_slider_state = self.test_model.get_stretch_builder_slider_link_state()
+        link_min_max_state = self.test_model.get_stretch_builder_min_max_link_state()
+
+        self.assertTrue(link_slider_state == False)
+        self.assertTrue(link_min_max_state == True)
+
+        # Now we make sure the stretch builder saved the state for ds1
+        self.test_model.set_main_view_rv((0, 0), ds1.get_id())
+
+        link_slider_state = self.test_model.get_stretch_builder_slider_link_state()
+        link_min_max_state = self.test_model.get_stretch_builder_min_max_link_state()
+
+        self.assertTrue(link_slider_state == True)
+        self.assertTrue(link_min_max_state == False)
+
+        
 
     def test_normalize_array(self):
         arr = np.array([[1, 2, 3],
