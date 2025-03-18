@@ -838,6 +838,9 @@ class StretchBuilderDialog(QDialog):
         print(f"reseting stretch builder!!")
         self._existing_stretch_min_max_state = {}
 
+        self._existing_slider_link_state = {}
+        self._existing_min_max_link_state = {}
+
         layout = QGridLayout()
 
         # Widget for the general stretch configuration
@@ -900,7 +903,6 @@ class StretchBuilderDialog(QDialog):
         layout.addWidget(buttons)
 
         self.setLayout(layout)
-
 
     def showEvent(self, event: QShowEvent):
         # The scroll-area that contains the channels won't take up its full
@@ -1068,7 +1070,10 @@ class StretchBuilderDialog(QDialog):
 
     def _on_link_sliders(self, checked):
         self._link_sliders = checked
-
+        key = self._get_key_from_all_channels()
+        print(f"_on_link_sliders, key: {key}")
+        print(f"_on_link_sliders, checked: {checked}")
+        self._existing_slider_link_state[key] = checked
         # If the "link sliders" option was checked, update all the sliders to
         # match.
         if checked:
@@ -1092,7 +1097,8 @@ class StretchBuilderDialog(QDialog):
 
     def _on_link_min_max(self, checked):
         self._link_min_max = checked
-
+        key = self._get_key_from_all_channels()
+        self._existing_min_max_link_state[key] = checked
         # If the "link min/max" option was checked, update all the min/max
         # values to be the same.
         '''
@@ -1150,13 +1156,22 @@ class StretchBuilderDialog(QDialog):
             for c in self._channel_widgets:
                 if c.get_channel_no() != channel_no:
                     c.set_min_max_bounds(min_bound, max_bound)
-                key = (c.get_channel_no(), c.get_dataset_id(), c.get_band_index())
+                key = self._get_key_from_channel(c)
                 self._existing_stretch_min_max_state[key] = (min_bound, max_bound)
         else:
             channel_widget = self._channel_widgets[channel_no]
-            key = (channel_no, channel_widget.get_dataset_id(), channel_widget.get_band_index())
+            key = self._get_key_from_channel(channel_widget)
             self._existing_stretch_min_max_state[key] = (min_bound, max_bound)
 
+    def _get_key_from_channel(self, c: ChannelStretchWidget) -> Tuple[int, int, int]:
+        return (c.get_channel_no(), c.get_dataset_id(), c.get_band_index())
+    
+    def _get_key_from_all_channels(self):
+        key_list = []
+        for c in self._channel_widgets:
+            for key_value in self._get_key_from_channel(c):
+                key_list.append(key_value)
+        return tuple(key_list)
 
     def _on_channel_stretch_low_changed(self, channel_no, stretch_low):
         # Note:  This code doesn't use the self._num_active_channels value,
@@ -1258,6 +1273,25 @@ class StretchBuilderDialog(QDialog):
 
             self._cb_link_sliders.show()
             self._cb_link_min_max.show()
+
+            key = self._get_key_from_all_channels()
+            link_slider_check = self._existing_slider_link_state.get(key, None)
+            if link_slider_check is not None:
+                self._cb_link_sliders.setChecked(link_slider_check)
+                self._on_link_sliders(link_slider_check)
+            else:
+                self._cb_link_sliders.setChecked(False)
+                self._on_link_sliders(False)
+
+            
+            link_min_max_check = self._existing_min_max_link_state.get(key, None)
+            if link_min_max_check is not None:
+                self._cb_link_min_max.setChecked(link_min_max_check)
+                self._on_link_min_max(link_min_max_check)
+            else:
+                self._cb_link_min_max.setChecked(False)
+                self._on_link_min_max(False)
+            
 
         elif len(display_bands) == 1:
             # Initialize grayscale stretch building
