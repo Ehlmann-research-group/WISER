@@ -1276,7 +1276,7 @@ class StretchBuilderDialog(QDialog):
             if link_slider_check is not None:
                 self._cb_link_sliders.setChecked(link_slider_check)
                 self._on_link_sliders(link_slider_check)
-            else:
+            else:  # If it is None, then it hasn't been set and so we should set it to unchecked (False)
                 self._cb_link_sliders.setChecked(False)
                 self._on_link_sliders(False)
             
