@@ -2,6 +2,9 @@ import unittest
 
 import numpy as np
 
+import tests.context
+# import context
+
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.rasterview import RasterView, make_channel_image_numba, \
@@ -97,6 +100,86 @@ class TestStretchBuilderGUI(unittest.TestCase):
 
         self.assertTrue(np.allclose(hist_bins_raw_2, histogram_bins_expected))
         self.assertTrue(np.allclose(hist_edges_raw_2, histogram_edges_expected))
+    
+    def test_apply_min_max_bounds(self):
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+
+        expected_norm_data = np.array([[np.nan, np.nan, np.nan, np.nan],
+                                       [0.0, 0.0, 0.0, 0.0],
+                                       [0.5, 0.5, 0.5, 0.5],
+                                       [1.0, 1.0, 1.0, 1.0],
+                                       [np.nan, np.nan, np.nan, np.nan]])
+
+        self.test_model.load_dataset(np_impl)
+        
+        channel_index = 0
+
+        self.test_model.set_channel_stretch_min_max(i=channel_index, stretch_min=0.25, stretch_max=0.75)
+    
+        norm_data = self.test_model.get_channel_stretch_norm_data(i=channel_index)
+
+        close = np.allclose(norm_data, expected_norm_data)
+
+        self.assertTrue(close)
+
+    def test_apply_min_max_bounds_while_linked(self):
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+
+        expected_norm_data = np.array([[np.nan, np.nan, np.nan, np.nan],
+                                       [0.0, 0.0, 0.0, 0.0],
+                                       [0.5, 0.5, 0.5, 0.5],
+                                       [1.0, 1.0, 1.0, 1.0],
+                                       [np.nan, np.nan, np.nan, np.nan]])
+
+        self.test_model.load_dataset(np_impl)
+
+        self.test_model.set_stretch_builder_min_max_link_state(True)
+        self.test_model.set_channel_stretch_min_max(i=0, stretch_min=0.25, stretch_max=0.75)
+    
+        norm_data0 = self.test_model.get_channel_stretch_norm_data(i=0)
+        norm_data1 = self.test_model.get_channel_stretch_norm_data(i=1)
+        norm_data2 = self.test_model.get_channel_stretch_norm_data(i=2)
+
+        close = np.allclose(norm_data0, expected_norm_data)
+        self.assertTrue(close)
+
+        close = np.allclose(norm_data1, expected_norm_data)
+        self.assertTrue(close)
+
+        close = np.allclose(norm_data2, expected_norm_data)
+        self.assertTrue(close)
 
     def test_normalize_array(self):
         arr = np.array([[1, 2, 3],
@@ -269,6 +352,36 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
 if __name__ == '__main__':
-    test = TestStretchBuilderGUI()
-    test.test_open_stretch_builder_gui()
-    test.test_stretch_builder_histogram_gui()
+    # test = TestStretchBuilderGUI()
+    # test.test_open_stretch_builder_gui()
+    # test.test_stretch_builder_histogram_gui()
+
+    test_model = WiserTestModel(use_gui=True)
+    
+    np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [1.  , 1.  , 1.  , 1.  ]],
+
+                        [[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [1.  , 1.  , 1.  , 1.  ]],
+
+                        [[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [1.  , 1.  , 1.  , 1.  ]]])
+    
+    test_model.load_dataset(np_impl)
+
+    test_model.set_stretch_builder_min_max_link_state(True)
+    test_model.set_channel_stretch_min_max(i=0, stretch_min=0.25, stretch_max=0.75)
+
+    test_model.set_stretch_builder_slider_link_state(True)
+
+    test_model.app.exec_()
+    

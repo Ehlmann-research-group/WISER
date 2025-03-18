@@ -381,7 +381,7 @@ class ChannelStretchWidget(QWidget):
                                  self._min_bound, 
                                  self._max_bound)
         self._norm_band_data = (data - self._min_bound) / (self._max_bound - self._min_bound)
-
+        print(f"norm data: {self._norm_band_data}")
         self._update_histogram()
 
     def enable_stretch_ui(self, enabled):

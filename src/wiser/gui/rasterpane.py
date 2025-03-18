@@ -576,6 +576,10 @@ class RasterPane(QWidget):
         raster-pane.  The default (row, column) value is (0, 0), which can be
         used by panes that will only ever have one raster-view.
         '''
+        print(f"self._rasterviews: {list(self._rasterviews.keys())[0]}")
+        print(f"rasterview_pos: {rasterview_pos}")
+        # import pdb
+        # pdb.set_trace()
         return self._rasterviews[rasterview_pos]
 
 

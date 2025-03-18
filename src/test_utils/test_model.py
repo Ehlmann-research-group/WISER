@@ -768,6 +768,16 @@ class WiserTestModel:
     def get_channel_widget_raw_hist_info(self, index: int, rv_pos: Tuple[int, int] = (0,0)):
         channel_widget = self.get_channel_widget(index, rv_pos)
         return (channel_widget._histogram_bins_raw, channel_widget._histogram_edges_raw)
+
+    def get_channel_stretch(self, i: int, rv_pos: Tuple[int, int] = (0, 0)):
+        '''
+        Gets the channel stretch at the specified index
+        '''
+        return self.get_stretch_builder(rv_pos)._channel_widgets[i]
+    
+    def get_channel_stretch_norm_data(self, i: int, rv_pos: Tuple[int, int] = (0, 0)) -> np.ndarray:
+        channel_stretch = self.get_channel_stretch(i=i, rv_pos=rv_pos)
+        return channel_stretch._norm_band_data
     
     # region State setting
     def click_stretch_full_linear(self, rv_pos: Tuple[int, int] = (0,0)):
@@ -802,7 +812,44 @@ class WiserTestModel:
         stretch_config = self.get_stretch_config(rv_pos)
         stretch_config._ui.rb_cond_log.click()
 
+    def set_channel_stretch_min_max(self, i: int, stretch_min: float = None, stretch_max: float = None, rv_pos: Tuple[int, int] = (0,0)):
+        def func():
+            channel_stretch = self.get_channel_stretch(i, rv_pos)
+            min_ledit = channel_stretch._ui.lineedit_min_bound
+            max_ledit = channel_stretch._ui.lineedit_max_bound
+            apply_button = channel_stretch._ui.button_apply_bounds
+            if stretch_min is not None:
+                min_ledit.clear()
+                QTest.keyClicks(min_ledit, str(stretch_min))
+            if stretch_max is not None:
+                max_ledit.clear()
+                QTest.keyClicks(max_ledit, str(stretch_max))
+            QTest.mouseClick(apply_button, Qt.LeftButton)
 
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+    def set_stretch_builder_slider_link_state(self, link_state :bool, rv_pos: Tuple[int, int] = (0,0)):
+        def func():
+            stretch_builder = self.get_stretch_builder(rv_pos)
+            stretch_builder._cb_link_sliders.setChecked(link_state)
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+    def set_stretch_builder_min_max_link_state(self, link_state :bool, rv_pos: Tuple[int, int] = (0,0)):
+        def func():
+            stretch_builder = self.get_stretch_builder(rv_pos)
+            stretch_builder._cb_link_min_max.setChecked(link_state)
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
 
     #==========================================
