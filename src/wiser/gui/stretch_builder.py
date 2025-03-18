@@ -835,7 +835,6 @@ class StretchBuilderDialog(QDialog):
 
         self._enable_stretch_changed_events = True
 
-        print(f"reseting stretch builder!!")
         self._existing_stretch_min_max_state = {}
 
         self._existing_slider_link_state = {}
@@ -1071,8 +1070,6 @@ class StretchBuilderDialog(QDialog):
     def _on_link_sliders(self, checked):
         self._link_sliders = checked
         key = self._get_key_from_all_channels()
-        print(f"_on_link_sliders, key: {key}")
-        print(f"_on_link_sliders, checked: {checked}")
         self._existing_slider_link_state[key] = checked
         # If the "link sliders" option was checked, update all the sliders to
         # match.
@@ -1282,7 +1279,6 @@ class StretchBuilderDialog(QDialog):
             else:
                 self._cb_link_sliders.setChecked(False)
                 self._on_link_sliders(False)
-
             
             link_min_max_check = self._existing_min_max_link_state.get(key, None)
             if link_min_max_check is not None:
