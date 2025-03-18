@@ -835,6 +835,7 @@ class StretchBuilderDialog(QDialog):
 
         self._enable_stretch_changed_events = True
 
+        print(f"reseting stretch builder!!")
         self._existing_stretch_min_max_state = {}
 
         layout = QGridLayout()
@@ -1149,7 +1150,7 @@ class StretchBuilderDialog(QDialog):
             for c in self._channel_widgets:
                 if c.get_channel_no() != channel_no:
                     c.set_min_max_bounds(min_bound, max_bound)
-                key = (channel_no, c.get_dataset_id(), c.get_band_index())
+                key = (c.get_channel_no(), c.get_dataset_id(), c.get_band_index())
                 self._existing_stretch_min_max_state[key] = (min_bound, max_bound)
         else:
             channel_widget = self._channel_widgets[channel_no]
