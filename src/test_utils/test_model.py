@@ -238,7 +238,6 @@ class WiserTestModel:
         Sets the dataset for the spectrum plot to sample from. If ds_id is below zero, we set to
         using the clicked dataset.
         '''
-        print(f"set_spectrum_plot_dataset, {ds_id}")
         if ds_id < 0:
             ds_id = -1
         
@@ -252,7 +251,6 @@ class WiserTestModel:
             if act_data is not None:
                 _, dataset_id = act_data
                 if dataset_id == ds_id:
-                    print(f"WE HAVE A MATCH")
                     act.trigger()  # Programmatically "click" this action
                     ds_chooser._on_dataset_changed(act)
                     self.spectrum_plot._on_dataset_changed(act)
