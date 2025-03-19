@@ -772,7 +772,7 @@ class WiserTestModel:
         return (channel_widget._histogram_bins_raw, channel_widget._histogram_edges_raw)
 
     def get_channel_stretch_norm_data(self, i: int, rv_pos: Tuple[int, int] = (0, 0)) -> np.ndarray:
-        channel_stretch = self.get_channel_stretch(i=i, rv_pos=rv_pos)
+        channel_stretch = self.get_channel_stretch(index=i, rv_pos=rv_pos)
         return channel_stretch._norm_band_data
     
     def get_stretch_builder_slider_link_state(self, rv_pos: Tuple[int, int] = (0, 0)) -> bool:
