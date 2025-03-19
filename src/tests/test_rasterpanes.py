@@ -56,7 +56,7 @@ class TestRasterPanes(unittest.TestCase):
         
         self.test_model.load_dataset(np_impl)
 
-        rv_data = self.test_model.get_main_view_rv_data((0, 0))
+        rv_data = self.test_model.get_main_view_rv_image_data((0, 0))
 
         equal = np.array_equal(expected, rv_data)
 

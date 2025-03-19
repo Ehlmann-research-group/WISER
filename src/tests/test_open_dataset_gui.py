@@ -41,7 +41,7 @@ class TestOpenDataset(unittest.TestCase):
         
         self.test_model.load_dataset(np_impl)
 
-        main_view_arr = self.test_model.get_main_view_rv_data()
+        main_view_arr = self.test_model.get_main_view_rv_image_data()
         context_pane_arr = self.test_model.get_context_pane_image_data()
         zoom_pane_arr = self.test_model.get_zoom_pane_image_data()
 
@@ -73,7 +73,7 @@ class TestOpenDataset(unittest.TestCase):
         self.test_model.click_stretch_hist_equalize()
         self.test_model.click_log_conditioner()
 
-        main_view_arr = self.test_model.get_main_view_rv_data()
+        main_view_arr = self.test_model.get_main_view_rv_image_data()
         context_pane_arr = self.test_model.get_context_pane_image_data()
         zoom_pane_arr = self.test_model.get_zoom_pane_image_data()
 

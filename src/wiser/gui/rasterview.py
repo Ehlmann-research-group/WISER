@@ -705,7 +705,7 @@ class RasterView(QWidget):
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
-        
+
         self._img_data = img_data
         self._img_data.flags.writeable = False
 

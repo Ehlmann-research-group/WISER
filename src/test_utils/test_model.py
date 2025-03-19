@@ -567,7 +567,7 @@ class WiserTestModel:
         scroll_state = rv.get_scrollbar_state()
         raise scroll_state
     
-    def get_main_view_rv_data(self, rv_pos: Tuple[int, int] = (0, 0)) -> np.ndarray:
+    def get_main_view_rv_image_data(self, rv_pos: Tuple[int, int] = (0, 0)) -> np.ndarray:
         rv = self.get_main_view_rv(rv_pos)
         return rv._img_data
 
