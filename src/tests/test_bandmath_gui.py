@@ -7,14 +7,6 @@ import tests.context
 
 from test_utils.test_model import WiserTestModel
 
-from wiser.gui.rasterview import RasterView, make_channel_image_numba, \
-    make_channel_image_python, make_rgb_image_numba, make_grayscale_image
-
-from wiser.raster.utils import normalize_ndarray_numba
-from wiser.raster.stretch import StretchBaseUsingNumba, StretchLinearUsingNumba, \
-    StretchHistEqualizeUsingNumba, StretchSquareRootUsingNumba, StretchLog2UsingNumba, \
-    StretchHistEqualize
-
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
