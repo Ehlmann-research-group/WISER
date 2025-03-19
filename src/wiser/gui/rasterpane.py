@@ -1083,7 +1083,6 @@ class RasterPane(QWidget):
         used by both the main image window and the zoom window, to indicate the
         pixel most recently selected by the user.
         '''
-        print(f"SET pixel highlight")
         self._pixel_highlight = pixel_sel
 
         coord = None
@@ -1120,9 +1119,7 @@ class RasterPane(QWidget):
                 do_recenter = True
             elif recenter == RecenterMode.IF_NOT_VISIBLE:
                 do_recenter = not visible.contains(coord)
-            print(f"RECENTER: {recenter}")
             if do_recenter:
-                print(f"DO RECENTER")
                 # Scroll the raster-view such that the pixel is in the middle of the
                 # raster-view's visible area.
                 rasterview.make_point_visible(coord.x(), coord.y())
