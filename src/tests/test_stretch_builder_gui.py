@@ -277,7 +277,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
 
         close = np.allclose(context_pane_rv_img_data, expected_norm_data)
         self.assertTrue(close)
-    
+
     def test_stretch_low_high_slider(self):
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],

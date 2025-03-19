@@ -938,8 +938,11 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-        
-        
+    #==========================================
+    # region Bandmath 
+    #==========================================
+    
+    # TODO (Joshua G-K): Write the way to interface with bandmath
 
     #==========================================
     # region General
