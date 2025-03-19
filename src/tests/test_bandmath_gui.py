@@ -2,8 +2,8 @@ import unittest
 
 import numpy as np
 
-# import tests.context
-import context
+import tests.context
+# import context
 
 from test_utils.test_model import WiserTestModel
 
