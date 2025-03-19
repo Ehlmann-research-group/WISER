@@ -2,8 +2,8 @@ import unittest
 
 import numpy as np
 
-import tests.context
-# import context
+# import tests.context
+import context
 
 from test_utils.test_model import WiserTestModel
 
@@ -88,9 +88,9 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.test_model.click_stretch_hist_equalize()
         self.test_model.click_log_conditioner()
         
-        hist_bins_raw_0, hist_edges_raw_0 = self.test_model.get_channel_widget_raw_hist_info(0)
-        hist_bins_raw_1, hist_edges_raw_1 = self.test_model.get_channel_widget_raw_hist_info(1)
-        hist_bins_raw_2, hist_edges_raw_2 = self.test_model.get_channel_widget_raw_hist_info(2)
+        hist_bins_raw_0, hist_edges_raw_0 = self.test_model.get_channel_stretch_raw_hist_info(0)
+        hist_bins_raw_1, hist_edges_raw_1 = self.test_model.get_channel_stretch_raw_hist_info(1)
+        hist_bins_raw_2, hist_edges_raw_2 = self.test_model.get_channel_stretch_raw_hist_info(2)
 
         self.assertTrue(np.allclose(hist_bins_raw_0, histogram_bins_expected))
         self.assertTrue(np.allclose(hist_edges_raw_0, histogram_edges_expected))
@@ -407,36 +407,58 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
 if __name__ == '__main__':
+    test_model = WiserTestModel(use_gui=True)
     # test = TestStretchBuilderGUI()
     # test.test_open_stretch_builder_gui()
     # test.test_stretch_builder_histogram_gui()
 
-    test_model = WiserTestModel(use_gui=True)
-    
-    np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [1.  , 1.  , 1.  , 1.  ]],
+    # Create first array
+    rows, cols, channels = 50, 50, 3
+    # Create a vertical gradient from 0 to 1: shape (50,1)
+    row_values = np.linspace(0, 1, rows).reshape(rows, 1)
+    # Tile the values horizontally to get a 50x50 array
+    impl = np.tile(row_values, (1, cols))
+    # Repeat the 2D array across 3 channels to get a 3x50x50 array
+    np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
-                        [[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [1.  , 1.  , 1.  , 1.  ]],
+    # Create second array
+    rows, cols, channels = 50, 50, 3
+    # Create 49 linearly spaced values from 0 to 1.0 and then append a 0
+    row_values = np.concatenate((np.linspace(0, 1.0, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+    impl2 = np.tile(row_values, (1, cols))
+    np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
-                        [[0.  , 0.  , 0.  , 0.  ],
-                            [0.25, 0.25, 0.25, 0.25],
-                            [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
-                            [1.  , 1.  , 1.  , 1.  ]]])
-    
-    test_model.load_dataset(np_impl)
+    ds1 = test_model.load_dataset(np_impl)
 
+    ds2 = test_model.load_dataset(np_impl2)
+
+    # Set dataset2's link state
     test_model.set_stretch_builder_min_max_link_state(True)
-    test_model.set_channel_stretch_min_max(i=0, stretch_min=0.25, stretch_max=0.75)
+    test_model.click_stretch_linear()
+    test_model.set_stretch_low_slider(0, 0.25)
+    test_model.set_stretch_high_slider(0, 0.65)
 
-    test_model.set_stretch_builder_slider_link_state(True)
+    # test_model.close_stretch_builder()
+
+    # # Set dataset 1's link state
+    # test_model.set_main_view_rv((0, 0), ds1.get_id())
+
+    # test_model.set_stretch_builder_slider_link_state(True)
+    # test_model.click_stretch_linear()
+
+    # test_model.close_stretch_builder()
+
+    # # Now we make sure the stretch builder saved the state for ds2
+    # test_model.set_main_view_rv((0, 0), ds2.get_id())
+
+    # link_slider_state = test_model.get_stretch_builder_slider_link_state()
+    # link_min_max_state = test_model.get_stretch_builder_min_max_link_state()
+
+    # # Now we make sure the stretch builder saved the state for ds1
+    # test_model.set_main_view_rv((0, 0), ds1.get_id())
+
+    # link_slider_state = test_model.get_stretch_builder_slider_link_state()
+    # link_min_max_state = test_model.get_stretch_builder_min_max_link_state()
 
     test_model.app.exec_()
     

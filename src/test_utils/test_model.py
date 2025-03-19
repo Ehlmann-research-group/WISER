@@ -20,6 +20,7 @@ from wiser.gui.app import DataVisualizerApp
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import TiledRasterView
 from wiser.gui.spectrum_plot import SpectrumPointDisplayInfo
+from wiser.gui.stretch_builder import ChannelStretchWidget
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
@@ -762,19 +763,16 @@ class WiserTestModel:
     def get_stretch_config(self, rv_pos: Tuple[int, int] = (0,0)):
         return self.get_stretch_builder(rv_pos)._stretch_config
 
-    def get_channel_widget(self, index: int, rv_pos: Tuple[int, int] = (0,0)):
-        return self.get_stretch_builder(rv_pos)._channel_widgets[index]
-    
-    def get_channel_widget_raw_hist_info(self, index: int, rv_pos: Tuple[int, int] = (0,0)):
-        channel_widget = self.get_channel_widget(index, rv_pos)
-        return (channel_widget._histogram_bins_raw, channel_widget._histogram_edges_raw)
-
-    def get_channel_stretch(self, i: int, rv_pos: Tuple[int, int] = (0, 0)):
+    def get_channel_stretch(self, index: int, rv_pos: Tuple[int, int] = (0,0)) -> ChannelStretchWidget:
         '''
         Gets the channel stretch at the specified index
         '''
-        return self.get_stretch_builder(rv_pos)._channel_widgets[i]
+        return self.get_stretch_builder(rv_pos)._channel_widgets[index]
     
+    def get_channel_stretch_raw_hist_info(self, index: int, rv_pos: Tuple[int, int] = (0,0)):
+        channel_widget = self.get_channel_stretch(index, rv_pos)
+        return (channel_widget._histogram_bins_raw, channel_widget._histogram_edges_raw)
+
     def get_channel_stretch_norm_data(self, i: int, rv_pos: Tuple[int, int] = (0, 0)) -> np.ndarray:
         channel_stretch = self.get_channel_stretch(i=i, rv_pos=rv_pos)
         return channel_stretch._norm_band_data
@@ -865,9 +863,83 @@ class WiserTestModel:
         stretch builder, but if stretch builder is already open and you want to close it,
         then this works.
         '''
-        stretch_builder = self.get_stretch_builder(rv_pos)
-        stretch_builder.accept()
+        def func():
+            stretch_builder = self.get_stretch_builder(rv_pos)
+            # stretch_builder.accept()
+            QTest.keyClick(stretch_builder, Qt.Key_Escape)
+        function_event = FunctionEvent(func)
 
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+    def set_stretch_low_ledit(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0,0)):
+        '''
+        Set the stretch low of the specified channel. Make sure to set the channel to linear
+        stretch first
+        '''
+        def func():
+            channel_stretch_widget = self.get_channel_stretch(channel_index, rv_pos)
+            stretch_low_ledit = channel_stretch_widget._ui.lineedit_stretch_low
+            stretch_low_ledit.clear()
+            QTest.keyClicks(stretch_low_ledit, str(value))
+            QTest.keyClick(stretch_low_ledit, Qt.Key_Enter)
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+    def set_stretch_high_ledit(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0,0)):
+        '''
+        Set the stretch high of the specified channel. Make sure to set the channel to linear
+        stretch first
+        '''
+        def func():
+            channel_stretch_widget = self.get_channel_stretch(channel_index, rv_pos)
+            stretch_high_ledit = channel_stretch_widget._ui.lineedit_stretch_high
+            stretch_high_ledit.clear()
+            QTest.keyClicks(stretch_high_ledit, str(value))
+            QTest.keyClick(stretch_high_ledit, Qt.Key_Enter)
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+    def set_stretch_low_slider(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0,0)):
+        '''
+        Set the stretch low slider value. This slider only has value range [0, 1], so it is in normalized form
+        '''
+        def func():
+            channel_stretch_widget = self.get_channel_stretch(channel_index, rv_pos)
+            stretch_low_slider = channel_stretch_widget._ui.slider_stretch_low
+            slider_range = stretch_low_slider.maximum() - stretch_low_slider.minimum()
+            slider_value = value * slider_range
+            stretch_low_slider.setValue(slider_value)
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+    def set_stretch_high_slider(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0,0)):
+        '''
+        Set the stretch high slider value. Slider value should be in the range between 0 and 1.
+        '''
+        def func():
+            channel_stretch_widget = self.get_channel_stretch(channel_index, rv_pos)
+            stretch_high_slider = channel_stretch_widget._ui.slider_stretch_high
+            slider_range = stretch_high_slider.maximum() - stretch_high_slider.minimum()
+            slider_value = value * slider_range
+            stretch_high_slider.setValue(slider_value)
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+        
+        
 
     #==========================================
     # region General
