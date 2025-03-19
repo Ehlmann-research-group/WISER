@@ -709,7 +709,6 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
                 self._spectrum = self._dataset.get_all_bands_at(x, y)
             except:
                 self._spectrum = np.full((self._dataset.num_bands(),), np.nan)
-            print(f"self._spectrum: {self._spectrum}")
         else:
             (width, height) = self._area
             left = x - (width - 1) / 2

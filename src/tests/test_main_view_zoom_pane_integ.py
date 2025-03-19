@@ -43,8 +43,6 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         diff_similar = abs(pixel1_diff - pixel2_diff) <= 2 
 
         epsilon = 2
-        print(f"diff_similar: {diff_similar}")
-        print(f"abs(pixel1[0]-pixel2[0]): {abs(pixel1[0]-pixel2[0])}")
         return abs(pixel1[0]-pixel2[0]) <= epsilon and diff_similar
 
     def test_click_mv_highlight_zp(self):
@@ -205,8 +203,6 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         center_pixel_zp = self.test_model.get_zoom_pane_center_raster_point()
         center_pixel_mv = self.test_model.get_main_view_rv_center_raster_coord((0, 0))
 
-        print(f"center_pixel_zp: {center_pixel_zp}!!!!!!")
-        print(f"center_pixel_mv: {center_pixel_mv}!!!!!!!!!!")
         self.assertTrue(self.are_pixels_close(center_pixel_mv, center_pixel_zp))
     
     
@@ -255,8 +251,6 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         center_pixel_zp = self.test_model.get_zoom_pane_center_raster_point()
         center_pixel_mv = self.test_model.get_main_view_rv_center_raster_coord((0, 0))
 
-        print(f"center_pixel_zp: {center_pixel_zp}!!!!!!")
-        print(f"center_pixel_mv: {center_pixel_mv}!!!!!!!!!!")
         self.assertTrue(self.are_pixels_close(center_pixel_zp, center_pixel_mv))
 
 
@@ -307,7 +301,7 @@ if __name__ == '__main__':
     center_pixel_zp = test_model.get_zoom_pane_center_raster_point()
     center_pixel_mv = test_model.get_main_view_rv_center_raster_coord((0, 0))
 
-    print(f"center_pixel_zp: {center_pixel_zp}!!!!!!")
-    print(f"center_pixel_mv: {center_pixel_mv}!!!!!!!!!!")
+    print(f"center_pixel_zp: {center_pixel_zp}!")
+    print(f"center_pixel_mv: {center_pixel_mv}!")
 
     test_model.app.exec_()
