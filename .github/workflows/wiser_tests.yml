@@ -34,9 +34,6 @@ jobs:
             - name: Pull docker image
               run: docker pull jgarciak/wiser-env:0.1.13
 
-            # - name: Build docker image
-            #   run: docker build -f etc/Dockerfile .
-
             - name: Run tests in container
               run: |
                 docker run --rm \
