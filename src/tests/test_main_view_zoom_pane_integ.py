@@ -46,6 +46,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         return abs(pixel1[0]-pixel2[0]) <= epsilon and diff_similar
 
     def test_click_mv_highlight_zp(self):
+        '''
+        Clicks in mainview. Makes sure the zoom pane's clicked pixel is the 
+        same as main view's.
+        '''
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -65,7 +69,11 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         self.assertTrue(pixel==zp_pixel)
 
-    def test_mv_highlight_equal_zp_highlight(self):
+    def test_mv_highlight_equal_zp_region(self):
+        '''
+        Zooms into zoom pane. Then clicks in main view. Ensures the main view's 
+        yellow highlight box is the same as zoom pane's visible region.
+        '''
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -98,7 +106,9 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
     def test_click_mv_zp_region_overlap(self):
         '''
-        Tests to see if clicking in the zoom pane region snaps the main view rv to it
+        Tests to see if clicking in the zoom pane region snaps the main view rv to it.
+        Note that the zoompane visible region and the mainview visible region aren't going
+        to be equal, so we just check that they overlap.
         '''
         # Create first array
         rows, cols, channels = 100, 100, 3
@@ -131,7 +141,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         self.assertTrue(mv_region.intersects(zp_region))
 
-    def test_click_zp_highlight_mv(self):
+    def test_click_zp_highlight_pixel_mv(self):
+        '''
+        Tests that clicking in zoom pane also creates the click in mainview 
+        '''
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -152,6 +165,13 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(pixel == mv_pixel)
 
     def test_click_zp_move_mv(self):
+        '''
+        Tries to separate the mainview and zoom pane. Then clicks in the zoom pane
+        and checks if the main view moved to the click. Also checks if the main view
+        has the same pixel clicked as the zoom pane. Due to some rounding issues with how
+        we do clicks in test_model, a nearby pixel is highlighted clicked. This issue
+        isn't present in the actual application.
+        '''
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -208,6 +228,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
     
 
     def test_scroll_zp_move_mv(self):
+        '''
+        Zooms in zoom pane and mainview. Then scrolls zoom pane to ensure
+        the mainview follows. 
+        '''
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)

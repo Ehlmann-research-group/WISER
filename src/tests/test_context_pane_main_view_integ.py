@@ -22,6 +22,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         del self.test_model
 
     def test_click_cp_visible_mv(self):
+        '''
+        Clicks in the context pane and ensures the clicked point is visible in the main view
+        '''
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -56,6 +59,10 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         
     def test_cp_highlight_equal_mv_after_zoom(self):
+        '''
+        First zoom in. Then click in the context pane. The context pane highlight box
+        should be the same as the main view's visible region.
+        '''
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -85,6 +92,10 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.assertTrue(cp_highlight == mv_region)
 
     def test_cp_highlight_equal_mv_after_scroll(self):
+        '''
+        First zoom in. Then scroll the mainview. The context pane's highlight box should be
+        the same as the main view'sa visible region. 
+        '''
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -124,6 +135,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.assertTrue(cp_highlight == mv_region)
 
 if __name__ == '__main__':
+    '''
+    Code to make sure new tests work as desired
+    '''
     test_model = WiserTestModel(use_gui=True)
     
     # Create first array

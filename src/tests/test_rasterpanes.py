@@ -30,6 +30,9 @@ class TestRasterPanes(unittest.TestCase):
         del self.test_model
 
     def test_open_main_view(self):
+        '''
+        Ensures that the image data in main view's rasterview is correct when opening.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -65,6 +68,9 @@ class TestRasterPanes(unittest.TestCase):
         self.test_model.close_app()
         
     def test_open_context_pane(self):
+        '''
+        Ensures that the image data in context pane's rasterview is correct when opening.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],

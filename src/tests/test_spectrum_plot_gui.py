@@ -25,6 +25,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         del self.test_model
 
     def test_click(self):
+        '''
+        Clicks on mainview to get a spectrum. Ensures that spectrum is accurate. Simulates a click
+        on the spectrum (not through a QEvent, just by calling a function in spectrum_plot). Ensures
+        the clicked location is accurate.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -62,6 +67,10 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(np.array_equal(np.array(clicked_point), np.array((1., 1.0))))
 
     def test_wavelength_main_view(self):
+        '''
+        Loads in an envi dataset. Ensures there are correct units on it's spectra in spectrum plot
+        after clicking in main view.
+        '''
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
@@ -74,6 +83,10 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(spectrum_plot_units == correct_unit)
 
     def test_wavelength_zoom_pane(self):
+        '''
+        Loads in an envi dataset. Ensures there are correct units on it's spectra in spectrum plot
+        after clicking in zoom pane.
+        '''
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
@@ -86,6 +99,10 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(spectrum_plot_units == correct_unit)
     
     def test_changing_wavelengths(self):
+        '''
+        Loads in two datasets with different units. Ensures spectrum plot can
+        switch between the two units when clicking between the datasets.
+        '''
         self.test_model.set_main_view_layout((1, 2))
 
         # This will be in the (0, 0) raster view position
@@ -115,6 +132,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(spectrum_plot_units == correct_unit)
     
     def test_no_use_wavelengths(self):
+        '''
+        Loads in a dataset with units. Clicks on it. Loads in a dataset
+        without units. Clicks on it. Ensures the spectrum plot doesn't have
+        units.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -160,6 +182,13 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(False == plot_use_wavelengths)
     
     def test_use_wavelengths(self):
+        '''
+        Loads in a dataset with units and one without units.
+        Clicks on both datasets and saves a spectrum inm both
+        and ensures the units in spectrum plot update accordingly.
+        Then discard the non-unit spectrum and ensure spectrum plot
+        updates accordingly.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -212,6 +241,10 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(True == plot_use_wavelengths)
 
     def test_switch_clicked_dataset(self):
+        '''
+        Ensures the active spectrum updates correctly when clicking
+        between two datasets
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -255,12 +288,14 @@ class TestSpectrumPlotUI(unittest.TestCase):
     
         ds2 = self.test_model.load_dataset(np_impl2)
 
+        # Click on ds2 to get spectrum and ensure that that its correct
         self.test_model.click_raster_coord_main_view_rv((0, 0), pixel)
 
         active_spectrum_arr = self.test_model.get_active_spectrum().get_spectrum()
 
         self.assertTrue(np.array_equal(active_spectrum_arr, np.array([0., 1., 0.5])))
 
+        # Click on ds2 to get spectrum and ensure that that its correct
         self.test_model.set_spectrum_plot_dataset(ds1.get_id())
 
         self.test_model.click_raster_coord_main_view_rv((0, 0), pixel)
@@ -319,6 +354,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         self.test_model.set_spectrum_plot_dataset(ds1.get_id())
 
+        # This pixel is out of bounds for ds1
         self.test_model.click_raster_coord_main_view_rv((0, 0), pixel)
 
         active_spectrum_arr = self.test_model.get_active_spectrum().get_spectrum()

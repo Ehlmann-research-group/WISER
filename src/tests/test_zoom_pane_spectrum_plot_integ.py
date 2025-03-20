@@ -22,6 +22,9 @@ class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
         del self.test_model
 
     def test_click_zoom_pane(self):
+        '''
+        Clicks in zoom pane and ensures the active spectrum in spectrum plot is correct.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -54,6 +57,9 @@ class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
         self.assertTrue(np.array_equal(expected_array, spectrum_array))
 
     def test_collecting_spectra(self):
+        '''
+        Clicks in zoom pane, collects the spectrum, and ensures the collected spectrum is correct.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],

@@ -29,7 +29,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         del self.test_model
      
     def test_open_stretch_builder_gui(self):
-            
+        '''
+        Ensures that the mainview rasterview image data changes correctly after applying
+        stretches and conditioners in stretch builder.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -63,6 +66,9 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(np.array_equal(result_arr, expected))
 
     def test_stretch_builder_histogram_gui(self):
+        '''
+        Ensures the histograms are correct.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -102,6 +108,9 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(np.allclose(hist_edges_raw_2, histogram_edges_expected))
     
     def test_apply_min_max_bounds(self):
+        '''
+        Ensures apply min and max bounds work.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -139,6 +148,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(close)
 
     def test_apply_min_max_bounds_while_linked(self):
+        '''
+        Ensures the proper min and max bounds are applied to all ChannelStretchWidgets when
+        linked.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -184,6 +197,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(close)
 
     def test_save_link_state(self):
+        '''
+        Ensures that we save correctly save the slider link state in stretch builder
+        when switching between datasets.
+        '''
         # Create first array
         rows, cols, channels = 50, 50, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -235,6 +252,9 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(link_min_max_state == False)
 
     def test_stretch_low_high_ledit(self):
+        '''
+        Ensures the stretch low and high line edits work
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -279,6 +299,9 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(close)
 
     def test_stretch_low_high_slider(self):
+        '''
+        Ensures the stretch low and high sliders work
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
