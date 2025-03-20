@@ -53,7 +53,7 @@ class WiserTestModel:
     def __init__(self, use_gui=False):
         if not use_gui:
             os.environ["QT_QPA_PLATFORM"] = "offscreen"
-        self.app = LoggingApplication.instance() or LoggingApplication([])
+        self.app = QApplication.instance() or QApplication([])
         self.use_gui = use_gui
 
         self._set_up()
@@ -61,8 +61,8 @@ class WiserTestModel:
         self.raster_data_loader = RasterDataLoader()
     
     def _tear_down_windows(self):
-        LoggingApplication.closeAllWindows()
-        LoggingApplication.processEvents()
+        QApplication.closeAllWindows()
+        QApplication.processEvents()
 
     def _set_up(self):
         self.main_window = DataVisualizerApp()
