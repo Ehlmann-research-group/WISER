@@ -3,7 +3,7 @@ import logging
 import os
 import pprint
 import pdr
-import cv2
+# import cv2
 from pdr.loaders.datawrap import ReadArray 
 
 from enum import Enum
@@ -511,19 +511,19 @@ class PDRRasterDataImpl(RasterDataImpl):
             raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_band_data')
 
 
-    def sample_band_data(self, band_index, sample_factor: int):
-        # We can either use OpenCV's pyrDown() which just halves each dimension: https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html#gaf9bba239dfca11654cb7f50f889fc2ff 
-        # Or we can use OpenCV's pyrUp() which can  do arbitrary resizing.
-        if self.ndims == 2:
-            arr = self.pdr_dataset['IMAGE']
-        elif self.ndims == 3:
-            arr = self.pdr_dataset['IMAGE'][band_index,:,:]
-        else:
-            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in sample_band_data')
+    # def sample_band_data(self, band_index, sample_factor: int):
+    #     # We can either use OpenCV's pyrDown() which just halves each dimension: https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html#gaf9bba239dfca11654cb7f50f889fc2ff 
+    #     # Or we can use OpenCV's pyrUp() which can  do arbitrary resizing.
+    #     if self.ndims == 2:
+    #         arr = self.pdr_dataset['IMAGE']
+    #     elif self.ndims == 3:
+    #         arr = self.pdr_dataset['IMAGE'][band_index,:,:]
+    #     else:
+    #         raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in sample_band_data')
 
-        new_width = self.get_width() // sample_factor
-        new_height = self.get_height() // sample_factor
-        return cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
+    #     new_width = self.get_width() // sample_factor
+    #     new_height = self.get_height() // sample_factor
+    #     return cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
     def get_all_bands_at(self, x, y):
         if self.ndims == 2:
