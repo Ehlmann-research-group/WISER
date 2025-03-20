@@ -59,6 +59,8 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export
 from wiser.raster.data_cache import DataCache
 
+from test_utils.test_event_loop_functions import TestingWidget
+
 logger = logging.getLogger(__name__)
 
 
@@ -187,6 +189,11 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+
+        #=======================================
+        # TESTING ITEMS
+
+        self._invisible_testing_widget = TestingWidget()
 
     def _init_menus(self):
 

@@ -222,7 +222,7 @@ class SpectrumPointDisplayInfo:
     information for a specific point being displayed.
     '''
 
-    def __init__(self, spectrum, band_index: int, use_wavelength: bool,
+    def __init__(self, spectrum: Spectrum, band_index: int, use_wavelength: bool,
                  band_units=None, marker_type='s', crosshair=True):
         '''
         The marker_type value specifies what kind of marker to use on the plot
@@ -1554,17 +1554,18 @@ class SpectrumPlot(QWidget):
         self._draw_spectra()
 
 
-    def _on_discard_spectrum(self, treeitem):
+    def _on_discard_spectrum(self, treeitem, display_confirm = True):
         spectrum = treeitem.data(0, Qt.UserRole)
 
-        # Get confirmation from the user.
-        confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
-            self.tr('Are you sure you want to discard this spectrum?') +
-            '\n\n' + spectrum.get_name())
+        if display_confirm:
+            # Get confirmation from the user.
+            confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
+                self.tr('Are you sure you want to discard this spectrum?') +
+                '\n\n' + spectrum.get_name())
 
-        if confirm != QMessageBox.Yes:
-            # User canceled the discard operation.
-            return
+            if confirm != QMessageBox.Yes:
+                # User canceled the discard operation.
+                return
 
         # If we got here, we are discarding the spectrum.
         if treeitem.parent() is self._treeitem_collected:

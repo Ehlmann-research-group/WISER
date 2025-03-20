@@ -381,7 +381,6 @@ class ChannelStretchWidget(QWidget):
                                  self._min_bound, 
                                  self._max_bound)
         self._norm_band_data = (data - self._min_bound) / (self._max_bound - self._min_bound)
-
         self._update_histogram()
 
     def enable_stretch_ui(self, enabled):
@@ -1069,6 +1068,7 @@ class StretchBuilderDialog(QDialog):
 
     def _on_link_sliders(self, checked):
         self._link_sliders = checked
+        assert(self._link_sliders == self._cb_link_sliders.isChecked())
         key = self._get_key_from_all_channels()
         self._existing_slider_link_state[key] = checked
         # If the "link sliders" option was checked, update all the sliders to
@@ -1094,6 +1094,7 @@ class StretchBuilderDialog(QDialog):
 
     def _on_link_min_max(self, checked):
         self._link_min_max = checked
+        assert(self._link_min_max == self._cb_link_min_max.isChecked())
         key = self._get_key_from_all_channels()
         self._existing_min_max_link_state[key] = checked
         # If the "link min/max" option was checked, update all the min/max

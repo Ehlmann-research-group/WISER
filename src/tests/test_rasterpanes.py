@@ -30,7 +30,9 @@ class TestRasterPanes(unittest.TestCase):
         del self.test_model
 
     def test_open_main_view(self):
-        self.test_model = WiserTestModel()
+        '''
+        Ensures that the image data in main view's rasterview is correct when opening.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -57,7 +59,7 @@ class TestRasterPanes(unittest.TestCase):
         
         self.test_model.load_dataset(np_impl)
 
-        rv_data = self.test_model.get_main_view_rv_data((0, 0))
+        rv_data = self.test_model.get_main_view_rv_image_data((0, 0))
 
         equal = np.array_equal(expected, rv_data)
 
@@ -66,7 +68,9 @@ class TestRasterPanes(unittest.TestCase):
         self.test_model.close_app()
         
     def test_open_context_pane(self):
-        self.test_model = WiserTestModel()
+        '''
+        Ensures that the image data in context pane's rasterview is correct when opening.
+        '''
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -154,15 +158,15 @@ if __name__ == '__main__':
     # # The zoom pane image size should increase. Since we zoomed out it shoild show more pixels
     # print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
 
-    # print(f"test_model.get_zoom_pane_center_raster_coord(): {test_model.get_zoom_pane_center_raster_coord()}")
+    # print(f"test_model.get_zoom_pane_center_raster_point(): {test_model.get_zoom_pane_center_raster_point()}")
 
-    test_model.select_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
+    test_model.click_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
 
     # print(f"test_model.get_zoom_pane_selected_pixel(): {test_model.get_zoom_pane_selected_pixel()}")
 
     # print(f"test_model.get_zoom_pane_scroll_state(): {test_model.get_zoom_pane_scroll_state()}")
 
-    # print(f"test_model.get_zoom_pane_region(): {test_model.get_zoom_pane_region()}")
+    # print(f"test_model.get_zoom_pane_visible_region(): {test_model.get_zoom_pane_visible_region()}")
 
     # # Try commenting this line out to show that it works
     # test_model.set_zoom_pane_dataset(ds1.get_id())
@@ -180,13 +184,13 @@ if __name__ == '__main__':
     
     test_model.collect_active_spectrum()
 
-    test_model.select_raster_coord_zoom_pane((ds2.get_width()/3, ds2.get_height()/3))
+    test_model.click_raster_coord_zoom_pane((ds2.get_width()/3, ds2.get_height()/3))
 
     test_model.collect_active_spectrum()
 
     test_model.remove_collected_spectrum(0)
 
-    test_model.select_raster_coord_zoom_pane((ds2.get_width()/4, ds2.get_height()/4))
+    test_model.click_raster_coord_zoom_pane((ds2.get_width()/4, ds2.get_height()/4))
     
     test_model.collect_active_spectrum()
 

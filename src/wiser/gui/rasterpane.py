@@ -1119,7 +1119,6 @@ class RasterPane(QWidget):
                 do_recenter = True
             elif recenter == RecenterMode.IF_NOT_VISIBLE:
                 do_recenter = not visible.contains(coord)
-
             if do_recenter:
                 # Scroll the raster-view such that the pixel is in the middle of the
                 # raster-view's visible area.

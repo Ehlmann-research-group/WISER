@@ -16,8 +16,6 @@ ENV PATH /opt/conda/envs/myenv/bin:$PATH
 
 RUN pip install --no-cache-dir -r WISER-etc/requirements.txt
 
-RUN Xvfb :1 -screen 0 1024x768x16 &
-
-RUN export DISPLAY=:1
+RUN apt-get update && apt-get install -y xvfb
 
 ENTRYPOINT [ "WISER-etc/entry_point.sh" ]
