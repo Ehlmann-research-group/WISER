@@ -3,7 +3,7 @@ import logging
 import os
 import pprint
 import pdr
-import cv2
+# import cv2
 from pdr.loaders.datawrap import ReadArray 
 
 from enum import Enum
@@ -523,7 +523,7 @@ class PDRRasterDataImpl(RasterDataImpl):
 
         new_width = self.get_width() // sample_factor
         new_height = self.get_height() // sample_factor
-        return cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        # return cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
     def get_all_bands_at(self, x, y):
         if self.ndims == 2:
