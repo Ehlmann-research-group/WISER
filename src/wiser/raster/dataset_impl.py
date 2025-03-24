@@ -511,18 +511,18 @@ class PDRRasterDataImpl(RasterDataImpl):
             raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_band_data')
 
 
-    def sample_band_data(self, band_index, sample_factor: int):
-        # We can either use OpenCV's pyrDown() which just halves each dimension: https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html#gaf9bba239dfca11654cb7f50f889fc2ff 
-        # Or we can use OpenCV's pyrUp() which can  do arbitrary resizing.
-        if self.ndims == 2:
-            arr = self.pdr_dataset['IMAGE']
-        elif self.ndims == 3:
-            arr = self.pdr_dataset['IMAGE'][band_index,:,:]
-        else:
-            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in sample_band_data')
+    # def sample_band_data(self, band_index, sample_factor: int):
+    #     # We can either use OpenCV's pyrDown() which just halves each dimension: https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html#gaf9bba239dfca11654cb7f50f889fc2ff 
+    #     # Or we can use OpenCV's pyrUp() which can  do arbitrary resizing.
+    #     if self.ndims == 2:
+    #         arr = self.pdr_dataset['IMAGE']
+    #     elif self.ndims == 3:
+    #         arr = self.pdr_dataset['IMAGE'][band_index,:,:]
+    #     else:
+    #         raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in sample_band_data')
 
-        new_width = self.get_width() // sample_factor
-        new_height = self.get_height() // sample_factor
+    #     new_width = self.get_width() // sample_factor
+    #     new_height = self.get_height() // sample_factor
         # return cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
     def get_all_bands_at(self, x, y):
@@ -632,6 +632,30 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
+    @classmethod
+    def get_load_filename(cls, path: str) -> str:
+        """
+        For ASCII Grid files, ensure the file has a .asc extension.
+        """
+        if not path.lower().endswith('.asc'):
+            raise ValueError(f"Expected an .asc file, got: {path}")
+        return path
+
+    @classmethod
+    def try_load_file(cls, path: str) -> ['ASC_GDALRasterDataImpl']:
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        load_path = cls.get_load_filename(path)
+        gdal_dataset = gdal.OpenEx(load_path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['AAIGrid'])
+        if gdal_dataset is None:
+            raise IOError(f"Could not open dataset: {load_path}")
+        return [cls(gdal_dataset)]
+
+    def __init__(self, gdal_dataset):
+        super().__init__(gdal_dataset)
 
 class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
