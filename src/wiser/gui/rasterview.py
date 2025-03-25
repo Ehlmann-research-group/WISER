@@ -78,7 +78,7 @@ def make_channel_image(normalized_band: np.ndarray, stretch1: StretchBase = None
     if normalized_band.nbytes < ARRAY_NUMBA_THRESHOLD:
         return make_channel_image_python(normalized_band, stretch1, stretch2)
     else:
-        normalized_band = convert_to_float32_if_needed(normalized_band)
+        normalized_band = convert_to_float32_if_needed(normalized_band)[0]
         return make_channel_image_numba(normalized_band, stretch1, stretch2)
 
 def check_channel(c):

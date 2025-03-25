@@ -496,14 +496,17 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
+            self.tr('All supported files (*.img *.hdr *.tiff *.tif *.tfw *.nc *.sli *.hdr, *.JP2 *.PDS *.lbl)'),
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
             self.tr('NetCDF raster files (*.nc)'),
-            # self.tr('PDS raster files (*.PDS *.IMG)'),
+            self.tr('JP2 files (*.JP2)'),
+            self.tr('PDS raster files (*.PDS *.img *lnl)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
             # self.tr('WISER project files (*.wiser)'),
             self.tr('All files (*)'),
         ]
+
 
         # Let the user select one or more files to open.
         selected = QFileDialog.getOpenFileNames(self,

@@ -790,7 +790,7 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
         )
 
         if gdal_dataset is None:
-            raise ValueError(f"Unable to open PDS3 file: {path}")
+            raise ValueError(f"Unable to open PDS4 file: {path}")
 
         return [cls(gdal_dataset)]
 
