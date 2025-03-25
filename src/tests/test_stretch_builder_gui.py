@@ -1,24 +1,19 @@
 import unittest
 
-import sys
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser")
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src")
-
 import numpy as np
 
-from wiser.gui.app import DataVisualizerApp
+import tests.context
+# import context
+
+from test_utils.test_model import WiserTestModel
+
 from wiser.gui.rasterview import RasterView, make_channel_image_numba, \
     make_channel_image_python, make_rgb_image_numba, make_grayscale_image
 
-from wiser.raster.dataset import RasterDataSet
-from wiser.raster.loader import RasterDataLoader
 from wiser.raster.utils import normalize_ndarray_numba
 from wiser.raster.stretch import StretchBaseUsingNumba, StretchLinearUsingNumba, \
     StretchHistEqualizeUsingNumba, StretchSquareRootUsingNumba, StretchLog2UsingNumba, \
     StretchHistEqualize
-
-import logging
-import traceback
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -26,171 +21,331 @@ from PySide2.QtWidgets import *
 
 class TestStretchBuilderGUI(unittest.TestCase):
 
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+     
     def test_open_stretch_builder_gui(self):
-        app = QApplication.instance() or QApplication([])  # Initialize the QApplication
-        wiser_ui = None
+        '''
+        Ensures that the mainview rasterview image data changes correctly after applying
+        stretches and conditioners in stretch builder.
+        '''
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-        try:
-            # Set up the GUI
-            wiser_ui = DataVisualizerApp()
-            wiser_ui.show()
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-            loader = RasterDataLoader()
-            
-            # Create unmpy array dataset
-            height=50
-            width=50
-            N=1
-            np_impl = np.arange(1, height+1).reshape((1, height, 1)) * np.ones((N, height, width))
-            
-            np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]],
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+        expected = np.array([[4280427042, 4280427042, 4280427042, 4280427042],
+                            [4283190348, 4283190348, 4283190348, 4283190348],
+                            [4286545791, 4286545791, 4286545791, 4286545791],
+                            [4290493371, 4290493371, 4290493371, 4290493371],
+                            [4294967295, 4294967295, 4294967295, 4294967295]])
 
-                                [[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]],
+        self.test_model.load_dataset(np_impl)
 
-                                [[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]]])
-            expected = np.array([[4280427042, 4280427042, 4280427042, 4280427042],
-                                [4283190348, 4283190348, 4283190348, 4283190348],
-                                [4286545791, 4286545791, 4286545791, 4286545791],
-                                [4290493371, 4290493371, 4290493371, 4290493371],
-                                [4294967295, 4294967295, 4294967295, 4294967295]])
-            dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
-            dataset.set_name("Test_Numpy")
+        self.test_model.click_stretch_hist_equalize()
+        self.test_model.click_log_conditioner()
 
-            # Create an application state, no need to pass the app here
-            app_state = wiser_ui._app_state
+        result_arr = self.test_model.get_main_view_rv_image_data()
 
-            app_state.add_dataset(dataset)
-
-            # Open the stretch builder dialog
-            wiser_ui._main_view._on_stretch_builder()
-
-            stretch_builder = wiser_ui._main_view.get_stretch_builder()
-
-            stretch_config = stretch_builder._stretch_config
-
-            stretch_config._ui.rb_stretch_equalize.click()
-            stretch_config._ui.rb_cond_log.click()
-
-            rasterview: RasterView = wiser_ui._main_view._rasterviews[(0,0)]
-
-            result = rasterview._img_data
-
-            np.testing.assert_array_almost_equal(result, expected)
-            # Change the stretch to different things
-
-            # This should happen X milliseconds after the above stuff runs
-            QTimer.singleShot(100, app.quit)
-            # Run the application event loop
-            app.exec_()
-            # time.sleep(5)
-
-        except Exception as e:
-            logging.error(f"Application crashed: {e}")
-            traceback.print_exc()
-            self.assertEqual(1==0, f"Error occured:\{e}")
-
-        finally:
-            if wiser_ui:
-                wiser_ui.close()
-            app.quit()
-            del app
+        self.assertTrue(np.array_equal(result_arr, expected))
 
     def test_stretch_builder_histogram_gui(self):
-        app = QApplication.instance() or QApplication([])  # Initialize the QApplication
-        wiser_ui = None
+        '''
+        Ensures the histograms are correct.
+        '''
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-        try:
-            # Set up the GUI
-            wiser_ui = DataVisualizerApp()
-            wiser_ui.show()
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-            loader = RasterDataLoader()
-            
-            # Create unmpy array dataset
-            height=50
-            width=50
-            N=1
-            np_impl = np.arange(1, height+1).reshape((1, height, 1)) * np.ones((N, height, width))
-            
-            np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]],
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
 
-                                [[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]],
+        histogram_bins_expected, histogram_edges_expected = np.histogram(np_impl[0], bins=512, range=(0.0, 1.0))
 
-                                [[0.  , 0.  , 0.  , 0.  ],
-                                    [0.25, 0.25, 0.25, 0.25],
-                                    [0.5 , 0.5 , 0.5 , 0.5 ],
-                                    [0.75, 0.75, 0.75, 0.75],
-                                    [1.  , 1.  , 1.  , 1.  ]]])
-            dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
-            dataset.set_name("Test_Numpy")
+        self.test_model.load_dataset(np_impl)
 
-            # Create an application state, no need to pass the app here
-            app_state = wiser_ui._app_state
+        self.test_model.click_stretch_hist_equalize()
+        self.test_model.click_log_conditioner()
+        
+        hist_bins_raw_0, hist_edges_raw_0 = self.test_model.get_channel_stretch_raw_hist_info(0)
+        hist_bins_raw_1, hist_edges_raw_1 = self.test_model.get_channel_stretch_raw_hist_info(1)
+        hist_bins_raw_2, hist_edges_raw_2 = self.test_model.get_channel_stretch_raw_hist_info(2)
 
-            app_state.add_dataset(dataset)
+        self.assertTrue(np.allclose(hist_bins_raw_0, histogram_bins_expected))
+        self.assertTrue(np.allclose(hist_edges_raw_0, histogram_edges_expected))
 
-            # Open the stretch builder dialog
-            wiser_ui._main_view._on_stretch_builder()
+        self.assertTrue(np.allclose(hist_bins_raw_1, histogram_bins_expected))
+        self.assertTrue(np.allclose(hist_edges_raw_1, histogram_edges_expected))
 
-            stretch_builder = wiser_ui._main_view.get_stretch_builder()
+        self.assertTrue(np.allclose(hist_bins_raw_2, histogram_bins_expected))
+        self.assertTrue(np.allclose(hist_edges_raw_2, histogram_edges_expected))
+    
+    def test_apply_min_max_bounds(self):
+        '''
+        Ensures apply min and max bounds work.
+        '''
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-            stretch_config = stretch_builder._stretch_config
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
 
-            stretch_config._ui.rb_stretch_equalize.click()
-            stretch_config._ui.rb_cond_log.click()
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
 
-            channel_stretch_0 = stretch_builder._channel_widgets[0]
-            channel_stretch_1 = stretch_builder._channel_widgets[1]
-            channel_stretch_2 = stretch_builder._channel_widgets[2]
+        expected_norm_data = np.array([[np.nan, np.nan, np.nan, np.nan],
+                                       [0.0, 0.0, 0.0, 0.0],
+                                       [0.5, 0.5, 0.5, 0.5],
+                                       [1.0, 1.0, 1.0, 1.0],
+                                       [np.nan, np.nan, np.nan, np.nan]])
 
-            histogram_bins_expected, histogram_edges_expected = np.histogram(np_impl[0], bins=512, range=(0.0, 1.0))
+        self.test_model.load_dataset(np_impl)
+        
+        channel_index = 0
 
-            np.testing.assert_array_almost_equal(channel_stretch_0._histogram_bins_raw, histogram_bins_expected)
-            np.testing.assert_array_almost_equal(channel_stretch_0._histogram_edges_raw, histogram_edges_expected)
-            
-            np.testing.assert_array_almost_equal(channel_stretch_1._histogram_bins_raw, histogram_bins_expected)
-            np.testing.assert_array_almost_equal(channel_stretch_1._histogram_edges_raw, histogram_edges_expected)
-            
-            np.testing.assert_array_almost_equal(channel_stretch_2._histogram_bins_raw, histogram_bins_expected)
-            np.testing.assert_array_almost_equal(channel_stretch_2._histogram_edges_raw, histogram_edges_expected)
-            # Change the stretch to different things
+        self.test_model.set_channel_stretch_min_max(i=channel_index, stretch_min=0.25, stretch_max=0.75)
+    
+        norm_data = self.test_model.get_channel_stretch_norm_data(i=channel_index)
 
-            # This should happen X milliseconds after the above stuff runs
-            QTimer.singleShot(100, app.quit)
-            # Run the application event loop
-            app.exec_()
-            # time.sleep(5)
+        close = np.allclose(norm_data, expected_norm_data)
 
-        except Exception as e:
-            logging.error(f"Application crashed: {e}")
-            traceback.print_exc()
-            self.assertEqual(1==0, f"Error occured:\{e}")
+        self.assertTrue(close)
 
-        finally:
-            if wiser_ui:
-                wiser_ui.close()
-            app.quit()
-            del app
+    def test_apply_min_max_bounds_while_linked(self):
+        '''
+        Ensures the proper min and max bounds are applied to all ChannelStretchWidgets when
+        linked.
+        '''
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+
+        expected_norm_data = np.array([[np.nan, np.nan, np.nan, np.nan],
+                                       [0.0, 0.0, 0.0, 0.0],
+                                       [0.5, 0.5, 0.5, 0.5],
+                                       [1.0, 1.0, 1.0, 1.0],
+                                       [np.nan, np.nan, np.nan, np.nan]])
+
+        self.test_model.load_dataset(np_impl)
+
+        self.test_model.set_stretch_builder_min_max_link_state(True)
+        self.test_model.set_channel_stretch_min_max(i=0, stretch_min=0.25, stretch_max=0.75)
+
+        # Each call to get_channel_stretch_norm_data causes the stretch builder to reopen.
+        # This helps us test caching. 
+        norm_data0 = self.test_model.get_channel_stretch_norm_data(i=0)
+        norm_data1 = self.test_model.get_channel_stretch_norm_data(i=1)
+        norm_data2 = self.test_model.get_channel_stretch_norm_data(i=2)
+
+        close = np.allclose(norm_data0, expected_norm_data)
+        self.assertTrue(close)
+
+        close = np.allclose(norm_data1, expected_norm_data)
+        self.assertTrue(close)
+
+        close = np.allclose(norm_data2, expected_norm_data)
+        self.assertTrue(close)
+
+    def test_save_link_state(self):
+        '''
+        Ensures that we save correctly save the slider link state in stretch builder
+        when switching between datasets.
+        '''
+        # Create first array
+        rows, cols, channels = 50, 50, 3
+        # Create a vertical gradient from 0 to 1: shape (50,1)
+        row_values = np.linspace(0, 1, rows).reshape(rows, 1)
+        # Tile the values horizontally to get a 50x50 array
+        impl = np.tile(row_values, (1, cols))
+        # Repeat the 2D array across 3 channels to get a 3x50x50 array
+        np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
+
+        # Create second array
+        rows, cols, channels = 50, 50, 3
+        # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        impl2 = np.tile(row_values, (1, cols))
+        np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
+
+        ds1 = self.test_model.load_dataset(np_impl)
+
+        ds2 = self.test_model.load_dataset(np_impl2)
+
+        # Set dataset2's link state
+        self.test_model.set_stretch_builder_min_max_link_state(True)
+
+        self.test_model.close_stretch_builder()
+
+        # Set dataset 1's link state
+        self.test_model.set_main_view_rv((0, 0), ds1.get_id())
+
+        self.test_model.set_stretch_builder_slider_link_state(True)
+
+        self.test_model.close_stretch_builder()
+
+        # Now we make sure the stretch builder saved the state for ds2
+        self.test_model.set_main_view_rv((0, 0), ds2.get_id())
+
+        link_slider_state = self.test_model.get_stretch_builder_slider_link_state()
+        link_min_max_state = self.test_model.get_stretch_builder_min_max_link_state()
+
+        self.assertTrue(link_slider_state == False)
+        self.assertTrue(link_min_max_state == True)
+
+        # Now we make sure the stretch builder saved the state for ds1
+        self.test_model.set_main_view_rv((0, 0), ds1.get_id())
+
+        link_slider_state = self.test_model.get_stretch_builder_slider_link_state()
+        link_min_max_state = self.test_model.get_stretch_builder_min_max_link_state()
+
+        self.assertTrue(link_slider_state == True)
+        self.assertTrue(link_min_max_state == False)
+
+    def test_stretch_low_high_ledit(self):
+        '''
+        Ensures the stretch low and high line edits work
+        '''
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+
+        expected_norm_data = np.array([[4278190080, 4278190080, 4278190080, 4278190080],
+                                        [4282335039, 4282335039, 4282335039, 4282335039],
+                                        [4286545791, 4286545791, 4286545791, 4286545791],
+                                        [4290756543, 4290756543, 4290756543, 4290756543],
+                                        [4294967295, 4294967295, 4294967295, 4294967295]])
+
+        self.test_model.load_dataset(np_impl)
+
+        self.test_model.set_stretch_builder_min_max_link_state(True)
+        self.test_model.set_stretch_low_ledit(0, 0.25)
+        self.test_model.set_stretch_high_ledit(0, 0.75)
+
+        main_view_rv_img_data = self.test_model.get_main_view_rv_image_data()
+        zoom_pane_rv_img_data = self.test_model.get_zoom_pane_image_data()
+        context_pane_rv_img_data = self.test_model.get_context_pane_image_data()
+
+        close = np.allclose(main_view_rv_img_data, expected_norm_data)
+        self.assertTrue(close)
+
+        close = np.allclose(zoom_pane_rv_img_data, expected_norm_data)
+        self.assertTrue(close)
+
+        close = np.allclose(context_pane_rv_img_data, expected_norm_data)
+        self.assertTrue(close)
+
+    def test_stretch_low_high_slider(self):
+        '''
+        Ensures the stretch low and high sliders work
+        '''
+        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]],
+
+                            [[0.  , 0.  , 0.  , 0.  ],
+                                [0.25, 0.25, 0.25, 0.25],
+                                [0.5 , 0.5 , 0.5 , 0.5 ],
+                                [0.75, 0.75, 0.75, 0.75],
+                                [1.  , 1.  , 1.  , 1.  ]]])
+
+        expected_norm_data = np.array([[4278190080, 4278190080, 4278190080, 4278190080],
+                                        [4282335039, 4282335039, 4282335039, 4282335039],
+                                        [4286545791, 4286545791, 4286545791, 4286545791],
+                                        [4290756543, 4290756543, 4290756543, 4290756543],
+                                        [4294967295, 4294967295, 4294967295, 4294967295]])
+
+        self.test_model.load_dataset(np_impl)
+
+        self.test_model.set_stretch_builder_min_max_link_state(True)
+        self.test_model.set_stretch_low_slider(0, 0.25)
+        self.test_model.set_stretch_high_slider(0, 0.75)
+
+        main_view_rv_img_data = self.test_model.get_main_view_rv_image_data()
+        zoom_pane_rv_img_data = self.test_model.get_zoom_pane_image_data()
+        context_pane_rv_img_data = self.test_model.get_context_pane_image_data()
+
+        close = np.allclose(main_view_rv_img_data, expected_norm_data)
+        self.assertTrue(close)
+
+        close = np.allclose(zoom_pane_rv_img_data, expected_norm_data)
+        self.assertTrue(close)
+
+        close = np.allclose(context_pane_rv_img_data, expected_norm_data)
+        self.assertTrue(close)
+
+
 
     def test_normalize_array(self):
         arr = np.array([[1, 2, 3],
@@ -363,6 +518,44 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
 if __name__ == '__main__':
-    test = TestStretchBuilderGUI()
-    test.test_open_stretch_builder_gui()
-    test.test_stretch_builder_histogram_gui()
+    test_model = WiserTestModel(use_gui=True)
+    # test = TestStretchBuilderGUI()
+    # test.test_open_stretch_builder_gui()
+    # test.test_stretch_builder_histogram_gui()
+
+    np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [1.  , 1.  , 1.  , 1.  ]],
+
+                        [[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [1.  , 1.  , 1.  , 1.  ]],
+
+                        [[0.  , 0.  , 0.  , 0.  ],
+                            [0.25, 0.25, 0.25, 0.25],
+                            [0.5 , 0.5 , 0.5 , 0.5 ],
+                            [0.75, 0.75, 0.75, 0.75],
+                            [1.  , 1.  , 1.  , 1.  ]]])
+
+    expected_norm_data = np.array([[np.nan, np.nan, np.nan, np.nan],
+                                    [0.0, 0.0, 0.0, 0.0],
+                                    [0.5, 0.5, 0.5, 0.5],
+                                    [1.0, 1.0, 1.0, 1.0],
+                                    [np.nan, np.nan, np.nan, np.nan]])
+
+    test_model.load_dataset(np_impl)
+
+    test_model.set_stretch_builder_min_max_link_state(True)
+    test_model.set_stretch_low_slider(0, 0.25)
+    test_model.set_stretch_high_slider(0, 0.75)
+
+    main_view_rv_img_data = test_model.get_main_view_rv_image_data()
+    zoom_pane_rv_img_data = test_model.get_zoom_pane_image_data()
+    context_pane_rv_img_data = test_model.get_context_pane_image_data()
+
+    test_model.app.exec_()
+    

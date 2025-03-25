@@ -1,7 +1,6 @@
 import sys
 import os
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser")
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import calc_roi_spectrum

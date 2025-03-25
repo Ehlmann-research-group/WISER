@@ -60,6 +60,8 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export
 from wiser.raster.data_cache import DataCache
 
+from test_utils.test_event_loop_functions import TestingWidget
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,7 +97,7 @@ class DataVisualizerApp(QMainWindow):
 
         self._init_menus()
 
-        self._main_toolbar = self.addToolBar(self.tr('Main'))
+        self._main_toolbar: QToolBar = self.addToolBar(self.tr('Main'))
         self._main_toolbar.setObjectName('main_toolbar') # Needed for UI persistence
         self._init_toolbars()
 
@@ -188,6 +190,11 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
+
+        #=======================================
+        # TESTING ITEMS
+
+        self._invisible_testing_widget = TestingWidget()
 
     def _init_menus(self):
 
@@ -372,7 +379,6 @@ class DataVisualizerApp(QMainWindow):
     def show_status_text(self, text: str, seconds: int=0):
         self.statusBar().showMessage(text, seconds * 1000)
 
-
     def _on_dataset_added(self, ds_id: int):
         self._update_dataset_menus()
         self._image_coords.update_coords(self._app_state.get_dataset(ds_id), None)
@@ -504,7 +510,7 @@ class DataVisualizerApp(QMainWindow):
             self.tr('PDS raster files (*.PDS *.img *lnl)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
             # self.tr('WISER project files (*.wiser)'),
-            self.tr('All files (*)'),
+            # self.tr('All files (*)'),
         ]
 
 

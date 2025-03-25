@@ -1,0 +1,41 @@
+name: Run tests
+
+on: [push]
+
+jobs:
+    run-tests:
+        name: Run WISER Tests
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest]
+        steps:            
+            - name: Checkout codebase
+              uses: actions/checkout@v4
+            
+            - name: Check github workspace
+              run: echo ${{ github.workspace }}
+
+            - name: List github workspace src
+              run: ls ${{ github.workspace }}/src
+
+            - name: List github workspace src/test_utils
+              run: ls ${{ github.workspace }}/src/test_utils
+
+            - name: List github workspace src/test_utils/test_datasets
+              run: ls ${{ github.workspace }}/src/test_utils/test_datasets
+
+            - name: List readability
+              run: |
+                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/envi.hdr
+                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/gtiff.tiff
+                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/netcdf.nc
+
+            - name: Pull docker image
+              run: docker pull jgarciak/wiser-env:0.1.13
+
+            - name: Run tests in container
+              run: |
+                docker run --rm \
+                --mount type=bind,src=${{ github.workspace }},dst=/WISER \
+                jgarciak/wiser-env:0.1.13

@@ -667,7 +667,7 @@ class RasterView(QWidget):
                     # Compute the contents of this color channel.
             
                     arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
-        
+
                     band_data = arr
                     band_mask = None
                     if isinstance(arr, np.ma.masked_array):
@@ -745,7 +745,7 @@ class RasterView(QWidget):
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python
         # will reclaim the memory and Qt will start to display garbage.
-        
+
         self._img_data = img_data
         self._img_data.flags.writeable = False
 
@@ -1098,7 +1098,7 @@ class RasterView(QWidget):
         self.update_display_image(colors=color)
 
 
-    def image_coord_to_raster_coord(self, position: Union[QPoint, QPointF]) -> QPointF:
+    def image_coord_to_raster_coord(self, position: Union[QPoint, QPointF], round_nearest=False) -> QPointF:
         '''
         Takes a position in screen space as a QPointF object, and translates it
         into a 2-tuple containing the (X, Y) coordinates of the position within
@@ -1113,6 +1113,45 @@ class RasterView(QWidget):
         # Scale the screen position into the dataset's coordinate system.
         scaled = position / self._scale_factor
 
-        # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
-        # it rounds to the nearest point, and we just want truncation/floor.
-        return QPoint(int(scaled.x()), int(scaled.y()))
+        if round_nearest:
+            return scaled.toPoint()
+        else:
+            # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
+            # it rounds to the nearest point, and we just want truncation/floor.
+            return QPoint(int(scaled.x()), int(scaled.y()))
+    
+    def raster_coord_to_image_coord(self, raster_coord: Union[QPoint, QPointF], round_nearest=False) -> QPointF:
+        '''
+        Takes a raster coordinate and translates it to an image coordinate in screen space.
+
+        This does round to the nearest integer
+        '''
+        if isinstance(raster_coord, QPoint):
+            raster_coord = QPointF(raster_coord)
+        elif not isinstance(raster_coord, QPointF):
+            raise TypeError('This function requires a QPoint or QPointF ' +
+                            f'argument; got {type(raster_coord)}')
+        
+        scaled = raster_coord * self._scale_factor
+        if round_nearest:
+            return scaled.toPoint()
+        else:
+            # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
+            # it rounds to the nearest point, and we just want truncation/floor.
+            return QPoint(int(scaled.x()), int(scaled.y()))
+        
+    def is_raster_coord_in_bounds(self, coord: QPointF):
+        '''
+        Take a raster coordinate and ensure it is in bounds of the dataset being displayed.
+        Arguments:
+        - coord, First entry is x (width), second is y (height)
+        '''
+        x = coord.x()
+        y = coord.y()
+        dataset = self._raster_data
+        if dataset is not None:
+            bounds_x = dataset.get_width()
+            bounds_y = dataset.get_height()
+            if 0 <= x < bounds_x and 0 <= y < bounds_y:
+                return True
+        return False

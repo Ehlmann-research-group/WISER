@@ -1,0 +1,28 @@
+﻿name: wiser-source
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - conda-forge::blas
+  - python==3.9.21
+  - matplotlib
+  - astropy
+  - pyinstaller
+  - dask
+  - bottleneck
+  - netcdf4
+  - xarray
+  - scipy>=1.13.1
+  - numpy>=1.26.4
+  - libgdal-netcdf
+  - libgdal-fits
+  - jax
+  - numba=0.60.0
+  - pdr
+  - gdal==3.10.1
+  - openjpeg
+  - numcodecs
+  - cfitsio
+  - zlib
+  - pyside2
+prefix: C:\Users\jgarc\anaconda3\envs\wiser-source

@@ -222,7 +222,7 @@ class SpectrumPointDisplayInfo:
     information for a specific point being displayed.
     '''
 
-    def __init__(self, spectrum, band_index: int, use_wavelength: bool,
+    def __init__(self, spectrum: Spectrum, band_index: int, use_wavelength: bool,
                  band_units=None, marker_type='s', crosshair=True):
         '''
         The marker_type value specifies what kind of marker to use on the plot
@@ -358,22 +358,26 @@ class SpectrumPlotDatasetChooser(DatasetChooser):
             if act.isChecked():
                 current_data = act.data()
 
-        act = menu.addAction(self.tr('Use clicked dataset'))
-        act.setCheckable(True)
-        act.setChecked(True)
-        act.setData( (None, -1) )
+        # Remove all existing actions
+        menu.clear()
+
+        actDefault: QAction = menu.addAction(self.tr('Use clicked dataset'))
+        actDefault.setCheckable(True)
+        actDefault.setChecked(True)
+        actDefault.setData( (None, -1) )
 
         menu.addSeparator()
 
         # Add an action for each dataset
         for dataset in self._app_state.get_datasets():
             # TODO(donnie):  Eventually, include the path if the name isn't unique.
-            act = QAction(dataset.get_name(), parent=menu)
+            act = QAction(dataset.get_name(), menu)
             act.setCheckable(True)
             act_data = (rasterview_pos, dataset.get_id())
             act.setData(act_data)
             if act_data == current_data:
                 act.setChecked(True)
+                actDefault.setChecked(False)
 
             menu.addAction(act)
 
@@ -413,7 +417,7 @@ class SpectrumPlot(QWidget):
         # General configuration for the spectrum plot
 
         # What dataset are we showing spectra from on new mouse-clicks?
-        self._dataset = None
+        self._dataset: RasterDataSet = None
 
         # Are we displaying a legend?
         self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
@@ -477,6 +481,8 @@ class SpectrumPlot(QWidget):
 
         self._app_state.spectral_library_added.connect(self._on_spectral_library_added)
         self._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
+
+        self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
 
     def _init_ui(self):
@@ -837,10 +843,17 @@ class SpectrumPlot(QWidget):
             self._dataset = self._app_state.get_dataset(ds_id)
         else:
             self._dataset = None
+    
+    def _on_dataset_removed(self, ds_id):
+        if self._dataset:
+            current_ds_id = self._dataset.get_id()
 
+            if current_ds_id == ds_id:
+                self._dataset = None
 
     def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
         return self._dataset
+
 
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
@@ -856,7 +869,20 @@ class SpectrumPlot(QWidget):
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
                 use_wavelengths = True
 
+        self._refresh_wavelengths(use_wavelengths)
+
+        # Show the plot's color in the tree widget
+        treeitem.setIcon(0, display_info.get_icon())
+
+        return display_info
+
+
+    def _refresh_wavelengths(self, use_wavelengths: bool):
         axes_font = get_font_properties(self._font_name, self._font_size['axes'])
+
+        if self._x_units is None:
+            self._x_units = u.nanometer
+    
         if use_wavelengths == self._plot_uses_wavelengths:
             for _, single_display_info in self._spectrum_display_info.items():
                 # Nothing has changed, so just generate a plot for the new spectrum
@@ -885,11 +911,6 @@ class SpectrumPlot(QWidget):
 
             self._plot_uses_wavelengths = use_wavelengths
 
-        # Show the plot's color in the tree widget
-        treeitem.setIcon(0, display_info.get_icon())
-
-        return display_info
-
 
     def _remove_spectrum_from_plot(self, spectrum, treeitem):
         id = spectrum.get_id()
@@ -913,6 +934,11 @@ class SpectrumPlot(QWidget):
         if self._click is not None and self._click.get_spectrum() is spectrum:
             self._click.remove_plot()
             self._click = None
+
+        use_wavelengths = False
+        if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
+            use_wavelengths = True
+        self._refresh_wavelengths(use_wavelengths)
 
 
     def _on_plot_context_menu(self, event):
@@ -1540,17 +1566,18 @@ class SpectrumPlot(QWidget):
         self._draw_spectra()
 
 
-    def _on_discard_spectrum(self, treeitem):
+    def _on_discard_spectrum(self, treeitem, display_confirm = True):
         spectrum = treeitem.data(0, Qt.UserRole)
 
-        # Get confirmation from the user.
-        confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
-            self.tr('Are you sure you want to discard this spectrum?') +
-            '\n\n' + spectrum.get_name())
+        if display_confirm:
+            # Get confirmation from the user.
+            confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
+                self.tr('Are you sure you want to discard this spectrum?') +
+                '\n\n' + spectrum.get_name())
 
-        if confirm != QMessageBox.Yes:
-            # User canceled the discard operation.
-            return
+            if confirm != QMessageBox.Yes:
+                # User canceled the discard operation.
+                return
 
         # If we got here, we are discarding the spectrum.
         if treeitem.parent() is self._treeitem_collected:

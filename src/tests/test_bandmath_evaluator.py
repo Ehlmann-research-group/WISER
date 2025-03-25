@@ -1,11 +1,10 @@
 import sys
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src\\wiser")
-sys.path.append("C:\\Users\\jgarc\\OneDrive\\Documents\\Schmidt-Code\\WISER\\src")
+import os
 
 import unittest
 import numpy as np
 
-# import tests.context
+import tests.context
 
 from wiser import bandmath
 from wiser.bandmath import VariableType
