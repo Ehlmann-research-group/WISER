@@ -643,10 +643,10 @@ class RasterDataSetSpectrum(Spectrum):
         return bands
     
     def get_wavelength_units(self) -> Optional[u.Unit]:
-        if self.has_wavelengths():
-            return self.get_wavelengths()[0].unit
-
-        return None
+        '''
+        Gets the wavelength units.
+        '''
+        return self.get_wavelengths()[0].unit
 
     def _calculate_spectrum(self):
         '''
@@ -708,7 +708,9 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
             try:
                 self._spectrum = self._dataset.get_all_bands_at(x, y)
             except:
-                self._spectrum = np.full((self._dataset.num_bands(),), np.nan)
+                self._spectrum = np.full((self._dataset.num_bands(),1), np.nan)
+
+
         else:
             (width, height) = self._area
             left = x - (width - 1) / 2

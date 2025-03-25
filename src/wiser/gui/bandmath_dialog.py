@@ -532,13 +532,11 @@ class BandMathDialog(QDialog):
         When a variable's type changes, the dialog must show a new value-chooser
         for that variable.
         '''
-        print(f'Variable {var_name} type change to {type_index}')
         var_row = self._find_variable_in_bindings(var_name)
         if var_row == -1:
             raise AssertionError(f'Received unrecognized variable name {var_name}')
 
         var_type = self._ui.tbl_variables.cellWidget(var_row, 1).currentData()
-        print(f' * New type is {var_type}')
         value_widget = self._make_value_widget(var_type)
         self._ui.tbl_variables.setCellWidget(var_row, 2, value_widget)
 
