@@ -99,7 +99,7 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         self.test_model.click_raster_coord_main_view_rv((0, 0), pixel)
 
-        mv_highlight_region = self.test_model.get_main_view_highlight_region((0, 0))
+        mv_highlight_region = self.test_model.get_main_view_highlight_region((0, 0))[0]
         zp_region = self.test_model.get_zoom_pane_visible_region()
 
         self.assertTrue(mv_highlight_region == zp_region)
