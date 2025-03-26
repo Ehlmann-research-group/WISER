@@ -705,6 +705,9 @@ class RasterDataSet:
             return None
         
         inv_geo_transform = gdal.InvGeoTransform(self._geo_transform)
+        if inv_geo_transform is None:
+            raise ValueError("Geo transform of dataset is not invertible!")
+
         origin_px, width, x_rotation, origin_py, y_rotation, height = inv_geo_transform
         gx, gy = geo_coords
         px = origin_px + gx * width + gy * x_rotation
