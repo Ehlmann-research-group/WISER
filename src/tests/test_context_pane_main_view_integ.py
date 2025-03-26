@@ -72,7 +72,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         # Repeat the 2D array across 3 channels to get a 3x50x50 array
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
-        self.test_model.load_dataset(np_impl)
+        ds = self.test_model.load_dataset(np_impl)
 
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
@@ -85,7 +85,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
 
-        cp_highlight = self.test_model.get_context_pane_highlight_regions()
+        cp_highlight = self.test_model.get_context_pane_highlight_region(ds.get_id())[0]
 
         mv_region = self.test_model.get_main_view_rv_visible_region((0, 0))
 
@@ -105,7 +105,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         # Repeat the 2D array across 3 channels to get a 3x50x50 array
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
-        self.test_model.load_dataset(np_impl)
+        ds = self.test_model.load_dataset(np_impl)
 
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
@@ -120,7 +120,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         self.test_model.scroll_main_view_rv_dx((0, 0), -100)
 
-        cp_highlight = self.test_model.get_context_pane_highlight_regions()
+        cp_highlight = self.test_model.get_context_pane_highlight_region(ds.get_id())[0]
 
         mv_region = self.test_model.get_main_view_rv_visible_region((0, 0))
 
@@ -128,7 +128,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         self.test_model.scroll_main_view_rv_dy((0, 0), -100)
 
-        cp_highlight = self.test_model.get_context_pane_highlight_regions()
+        cp_highlight = self.test_model.get_context_pane_highlight_region(ds.get_id())[0]
 
         mv_region = self.test_model.get_main_view_rv_visible_region((0, 0))
 

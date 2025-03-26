@@ -298,6 +298,9 @@ class RasterPane(QWidget):
         self._zoom_options = zoom_options
         self._initial_zoom = initial_zoom
 
+        # The key is for the dataset the viewport belongs to. 
+        # The value is a list of viewports because one dataset
+        # can show up in the context pane multiple times.
         self._viewport_highlight: Dict[int, List[Union[QRect, QRectF]]] = None
         self._pixel_highlight: SinglePixelSelection = None
 

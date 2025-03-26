@@ -9,7 +9,7 @@ sys.path.append(target_dir)
 import numpy as np
 from astropy import units as u
 
-from typing import Tuple, Union, Optional, List
+from typing import Tuple, Union, Optional, List, Dict
 
 from PySide2.QtTest import QTest
 from PySide2.QtCore import *
@@ -435,7 +435,10 @@ class WiserTestModel:
         rv = self.context_pane.get_rasterview()
         return rv._img_data
 
-    def get_context_pane_highlight_regions(self):
+    def get_context_pane_highlight_region(self, ds_id) -> List[Union[QRect, QRectF]]:
+        return self.context_pane._viewport_highlight[ds_id]
+
+    def get_context_pane_highlight_regions(self) -> Dict[int, List[Union[QRect, QRectF]]]:
         return self.context_pane._viewport_highlight
     
     def get_context_pane_screen_size(self) -> QSize:
@@ -575,7 +578,9 @@ class WiserTestModel:
         return visible_region
 
     def get_main_view_highlight_region(self, rv_pos: Tuple[int, int]):
-        return self.main_view._viewport_highlight
+        rv = self.get_main_view_rv(rv_pos)
+        ds_id = rv.get_raster_data().get_id()
+        return self.main_view._viewport_highlight[ds_id]
 
     def is_main_view_linked(self):
         return self.main_view._link_view_scrolling
