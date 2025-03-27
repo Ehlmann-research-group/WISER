@@ -874,7 +874,6 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
         for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
             if drv in driver_names:
                 jpeg2000_drivers.append(drv)
-        print(f'Found these jpeg2000 drivers: {jpeg2000_drivers}')
         return jpeg2000_drivers
 
     @classmethod
