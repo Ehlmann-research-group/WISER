@@ -1814,7 +1814,8 @@ class RasterPane(QWidget):
     def _get_compatible_highlights(self, ds_id) -> List[Union[QRect, QRectF]]:
         """
         Retrieves a list of highlight regions (QRect or QRectF) that are compatible 
-        with the given dataset based on its link state with other datasets.
+        with the given dataset. Compatibility here is just if the datasets are the
+        same.
 
         Args:
             ds_id (str): The identifier of the target dataset.
@@ -1826,25 +1827,8 @@ class RasterPane(QWidget):
         Raises:
             ValueError: If an unexpected GeographicLinkState is encountered.
         """
-        target_ds = self._app_state.get_dataset(ds_id)
-        compatible_highlights = []
-        # Loop through the keys and vaues in self._viewport_highlight 
-        for reference_ds_id, viewports in self._viewport_highlight.items():
-            # Use app state to get the datasets for both
-            reference_ds = self._app_state.get_dataset(reference_ds_id)
-            # Check if they are link compatible
-            link_state = target_ds.determine_link_state(reference_ds)
-            for viewport in viewports:
-                if link_state == GeographicLinkState.NO_LINK:
-                    continue
-                elif link_state == GeographicLinkState.PIXEL:
-                    compatible_highlights.append(viewport)
-                elif link_state == GeographicLinkState.SPATIAL:
-                    transformed_viewport = self._transform_viewport(viewport, reference_ds, target_ds)
-                    compatible_highlights.append(transformed_viewport)
-                else:
-                    raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
-        return compatible_highlights
+        viewports = self._viewport_highlight.get(ds_id, None)
+        return viewports
 
     def _transform_viewport(self, viewport: QRect, reference_dataset: RasterDataSet, \
                             target_dataset: RasterDataSet) -> QRect:
