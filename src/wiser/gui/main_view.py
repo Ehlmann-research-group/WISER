@@ -390,6 +390,8 @@ class MainViewWidget(RasterPane):
         '''
         sb_state = rasterview.get_scrollbar_state()
         center_screen = rasterview.get_visible_region_center()
+        if sb_state or center_screen is None:
+            return
         link_state = self._link_view_state
         if len(self._rasterviews) > 1 and self._link_view_scrolling:
             for rv in self._rasterviews.values():
