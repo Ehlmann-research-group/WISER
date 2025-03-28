@@ -1,7 +1,7 @@
 import logging
 import os
 import traceback
-from typing import Union, Dict, List
+from typing import Union, Dict, List, Optional
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -486,7 +486,7 @@ class MainViewWidget(RasterPane):
             assert(len(list(self._viewport_highlight.values())) == 1), "self._viewport_highlight has more than 1 entry"
         super()._draw_viewport_highlight(rasterview, widget, paint_event)
 
-    def _get_compatible_highlights(self, ds_id) -> List[Union[QRect, QRectF]]:
+    def _get_compatible_highlights(self, ds_id) -> Optional[List[Union[QRect, QRectF]]]:
         """
         Retrieves a list of highlight regions (QRect or QRectF) that are compatible
         with the given dataset based on its link state with other datasets.
@@ -501,6 +501,9 @@ class MainViewWidget(RasterPane):
         Raises:
             ValueError: If an unexpected GeographicLinkState is encountered.
         """
+        if self._viewport_highlight is None:
+            return None
+
         if self._link_view_scrolling:
             target_ds = self._app_state.get_dataset(ds_id)
             compatible_highlights = []

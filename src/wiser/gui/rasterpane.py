@@ -1811,7 +1811,7 @@ class RasterPane(QWidget):
 
                 painter.drawRect(scaled)
 
-    def _get_compatible_highlights(self, ds_id) -> List[Union[QRect, QRectF]]:
+    def _get_compatible_highlights(self, ds_id: int) -> Optional[List[Union[QRect, QRectF]]]:
         """
         Retrieves a list of highlight regions (QRect or QRectF) that are compatible 
         with the given dataset. Compatibility here is just if the datasets are the
@@ -1827,8 +1827,10 @@ class RasterPane(QWidget):
         Raises:
             ValueError: If an unexpected GeographicLinkState is encountered.
         """
-        viewports = self._viewport_highlight.get(ds_id, None)
-        return viewports
+        if self._viewport_highlight:
+            viewports = self._viewport_highlight.get(ds_id, None)
+            return viewports
+        return None
 
     def _transform_viewport(self, viewport: QRect, reference_dataset: RasterDataSet, \
                             target_dataset: RasterDataSet) -> QRect:

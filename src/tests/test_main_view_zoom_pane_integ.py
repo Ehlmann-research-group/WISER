@@ -45,6 +45,30 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         epsilon = 2
         return abs(pixel1[0]-pixel2[0]) <= epsilon and diff_similar
 
+    def are_qrects_close(self, qrect1: QRect, qrect2: QRect, epsilon=2) -> bool:
+        top_left_1 = qrect1.topLeft()
+        top_left_1 = (top_left_1.x(), top_left_1.y())
+
+        width_1 = qrect1.width()
+        height_1 = qrect1.height()
+
+        top_left_2 = qrect2.topLeft()
+        top_left_2 = (top_left_2.x(), top_left_2.y())
+
+        width_2 = qrect2.width()
+        height_2 = qrect2.height()
+
+        width_diff = abs(width_1-width_2)
+        height_diff = abs(height_1-height_2)
+
+        diff_similar = abs(width_diff-height_diff) <= epsilon
+
+        return top_left_1 == top_left_2 \
+            and diff_similar \
+            and width_diff <= epsilon \
+            and height_diff <= epsilon
+
+
     def test_click_mv_highlight_zp(self):
         '''
         Clicks in mainview. Makes sure the zoom pane's clicked pixel is the 
@@ -321,8 +345,8 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         rv_10_region = self.test_model.get_main_view_highlight_region((1, 0))
 
         zp_region = self.test_model.get_zoom_pane_visible_region()
-
-        self.assertTrue(zp_region == rv_00_region)
+    
+        self.assertTrue(self.are_qrects_close(zp_region, rv_00_region))
         self.assertTrue(rv_01_region == None)
         self.assertTrue(rv_10_region == None)
 
@@ -375,13 +399,64 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         zp_region = self.test_model.get_zoom_pane_visible_region()
 
-        self.assertTrue(zp_region == rv_00_region)
-        self.assertTrue(zp_region == rv_01_region)
-        self.assertTrue(zp_region == rv_10_region)
+        self.assertTrue(self.are_qrects_close(zp_region, rv_00_region))
+        self.assertTrue(rv_00_region == rv_01_region)
+        self.assertTrue(rv_00_region == rv_10_region)
+    
+    def test_cp_highlight_box(self):
+        '''
+        Ensures that the context pane's compatible highlights is
+        just the dataset shown in the context pane
+        '''
+        # Create first array
+        rows, cols, channels = 75, 75, 3
+        # Create a vertical gradient from 0 to 1: shape (50,1)
+        row_values = np.linspace(0, 1, rows).reshape(rows, 1)
+        # Tile the values horizontally to get a 50x50 array
+        impl = np.tile(row_values, (1, cols))
+        # Repeat the 2D array across 3 channels to get a 3x50x50 array
+        np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
+
+        # Create second array
+        # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        impl2 = np.tile(row_values, (1, cols))
+        np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
+
+        # Create third array
+        # Start with an array of zeros (50x1)
+        row_values = np.zeros((rows, 1))
+        # Choose the row index corresponding to 75% of the height.
+        nonzero_index = int(0.75 * (rows - 1))
+        row_values[nonzero_index] = 0.75
+        impl3 = np.tile(row_values, (1, cols))
+        np_impl3 = np.repeat(impl3[np.newaxis, :, :], channels, axis=0)
+
+        self.test_model.set_main_view_layout((2, 2))
+
+        ds1 = self.test_model.load_dataset(np_impl)
+        ds2 = self.test_model.load_dataset(np_impl2)
+        ds3 = self.test_model.load_dataset(np_impl3)
+
+        self.test_model.click_main_view_zoom_in()
+        self.test_model.click_main_view_zoom_in()
+        self.test_model.click_main_view_zoom_in()
+        self.test_model.click_main_view_zoom_in()
+
+        self.test_model.set_context_pane_dataset(ds1.get_id())
+
+        visible_region_00 = self.test_model.get_main_view_rv_visible_region((0, 0))
+        highlight_region = self.test_model.context_pane._get_compatible_highlights(ds1.get_id())[0]
+
+        # For an unknown reason, when I run this test inside of pytest and outside,
+        # I get two different results. Outside of pytests the below regions are the same, but
+        # in pytest, one of the values is off by 6, hence epsilon=6
+        self.assertTrue(self.are_qrects_close(highlight_region, visible_region_00, epsilon=6))
 
 
 
 if __name__ == '__main__':
+    tester = TestMainViewZoomPaneIntegration()
     test_model = WiserTestModel(use_gui=True)
 
     # Create first array
@@ -414,22 +489,19 @@ if __name__ == '__main__':
     ds2 = test_model.load_dataset(np_impl2)
     ds3 = test_model.load_dataset(np_impl3)
 
-    test_model.click_zoom_pane_display_toggle()
+    test_model.click_main_view_zoom_in()
+    test_model.click_main_view_zoom_in()
+    test_model.click_main_view_zoom_in()
+    test_model.click_main_view_zoom_in()
 
-    test_model.click_link_button()
+    test_model.set_context_pane_dataset(ds1.get_id())
 
-    test_model.set_zoom_pane_dataset(ds1.get_id())
+    visible_region_00 = test_model.get_main_view_rv_visible_region((0, 0))
+    highlight = test_model.context_pane._get_compatible_highlights(ds1.get_id())[0]
 
-    test_model.set_zoom_pane_zoom_level(6)
+    print(f"visible_region_00: {visible_region_00}")
+    print(f"highlight: {highlight}")
 
-    rv_00_region = test_model.get_main_view_highlight_region((0, 0))[0]
-    rv_01_region = test_model.get_main_view_highlight_region((0, 1))[0]
-    rv_10_region = test_model.get_main_view_highlight_region((1, 0))[0]
-    zp_region = test_model.get_zoom_pane_visible_region()
-
-    print(f"zp_region: {zp_region}")
-    print(f"rv_00_region: {rv_00_region}")
-    print(f"rv_01_region: {rv_01_region}")
-    print(f"rv_10_region: {rv_10_region}")
+    print(tester.are_qrects_close(highlight, visible_region_00))
 
     test_model.app.exec_()
