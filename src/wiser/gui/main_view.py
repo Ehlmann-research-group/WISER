@@ -515,6 +515,9 @@ class MainViewWidget(RasterPane):
                 # Check if they are link compatible
                 link_state = target_ds.determine_link_state(reference_ds)
                 for viewport in viewports:
+                    # Happens when you close out of zoom pane
+                    if viewport is None:
+                        continue
                     if link_state == GeographicLinkState.NO_LINK:
                         continue
                     elif link_state == GeographicLinkState.PIXEL:
