@@ -216,7 +216,7 @@ class ContextPane(RasterPane):
         rasterviews from the mainview, we only want those rasterviews that are compatible
         with the rasterview displayed in the context pane to display.
         '''
-
+        print(f"SETTING VIEWPORT HIGHLIGHT")
         self.create_viewport_highlight_dictionary(viewports, rasterviews)
 
         # If the specified viewport highlight region is not entirely within this

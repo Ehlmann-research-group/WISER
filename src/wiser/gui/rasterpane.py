@@ -691,6 +691,7 @@ class RasterPane(QWidget):
         Override the QtWidget resizeEvent() virtual method to fire an event that
         the visible region of the raster-view has changed.
         '''
+        print(f"RESIZE EVENT")
         self._emit_viewport_change()
 
 

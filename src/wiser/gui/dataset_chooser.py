@@ -114,15 +114,13 @@ class DatasetChooser(QToolButton):
 
         self._uncheck_all(self._dataset_menu)
 
-        print(f"STARTING CHECK====")
         for act in self._dataset_menu.actions():
-            print(f"Act: {act}, data: {act.data()}, name: {act.text()}")
+
             if act.isSeparator():
                 continue
             act_ds_id = act.data()[1]
             if act_ds_id == ds_id:
                 act.setChecked(True)
-        print(f"ENDING CHECK====")
 
     def _uncheck_all(self, menu: QMenu):
         for act in menu.actions():
