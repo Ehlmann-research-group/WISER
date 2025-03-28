@@ -581,7 +581,6 @@ class WiserTestModel:
         rv = self.get_main_view_rv(rv_pos)
         ds_id = rv.get_raster_data().get_id()
         return self.main_view._get_compatible_highlights(ds_id)
-        # return self.main_view._viewport_highlight.get(ds_id, None)
 
     def is_main_view_linked(self):
         return self.main_view._link_view_scrolling
