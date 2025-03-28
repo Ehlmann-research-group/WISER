@@ -224,8 +224,6 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         center_pixel_mv = self.test_model.get_main_view_rv_center_raster_coord((0, 0))
 
         self.assertTrue(self.are_pixels_close(center_pixel_mv, center_pixel_zp))
-    
-    
 
     def test_scroll_zp_move_mv(self):
         '''
@@ -277,12 +275,117 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         self.assertTrue(self.are_pixels_close(center_pixel_zp, center_pixel_mv))
 
+    def test_not_linked_highlight_box(self):
+        '''
+        Ensures that when raster views aren't linked, the highlight box
+        only shows up in the rasterview's with the correct dataset
+        '''
+        # Create first array
+        rows, cols, channels = 75, 75, 3
+        # Create a vertical gradient from 0 to 1: shape (50,1)
+        row_values = np.linspace(0, 1, rows).reshape(rows, 1)
+        # Tile the values horizontally to get a 50x50 array
+        impl = np.tile(row_values, (1, cols))
+        # Repeat the 2D array across 3 channels to get a 3x50x50 array
+        np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
+
+        # Create second array
+        # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        impl2 = np.tile(row_values, (1, cols))
+        np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
+
+        # Create third array
+        # Start with an array of zeros (50x1)
+        row_values = np.zeros((rows, 1))
+        # Choose the row index corresponding to 75% of the height.
+        nonzero_index = int(0.75 * (rows - 1))
+        row_values[nonzero_index] = 0.75
+        impl3 = np.tile(row_values, (1, cols))
+        np_impl3 = np.repeat(impl3[np.newaxis, :, :], channels, axis=0)
+
+        self.test_model.set_main_view_layout((2, 2))
+
+        ds1 = self.test_model.load_dataset(np_impl)
+        ds2 = self.test_model.load_dataset(np_impl2)
+        ds3 = self.test_model.load_dataset(np_impl3)
+
+        self.test_model.click_zoom_pane_display_toggle()
+
+        self.test_model.set_zoom_pane_dataset(ds1.get_id())
+
+        self.test_model.set_zoom_pane_zoom_level(6)
+
+        rv_00_region = self.test_model.get_main_view_highlight_region((0, 0))[0]
+        rv_01_region = self.test_model.get_main_view_highlight_region((0, 1))
+        rv_10_region = self.test_model.get_main_view_highlight_region((1, 0))
+
+        zp_region = self.test_model.get_zoom_pane_visible_region()
+
+        self.assertTrue(zp_region == rv_00_region)
+        self.assertTrue(rv_01_region == None)
+        self.assertTrue(rv_10_region == None)
+
+    def test_linked_highlight_box(self):
+        '''
+        Ensures that when raster views aren't linked, the highlight box
+        only shows up in the rasterview's with the correct dataset
+        '''
+        # Create first array
+        rows, cols, channels = 75, 75, 3
+        # Create a vertical gradient from 0 to 1: shape (50,1)
+        row_values = np.linspace(0, 1, rows).reshape(rows, 1)
+        # Tile the values horizontally to get a 50x50 array
+        impl = np.tile(row_values, (1, cols))
+        # Repeat the 2D array across 3 channels to get a 3x50x50 array
+        np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
+
+        # Create second array
+        # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        impl2 = np.tile(row_values, (1, cols))
+        np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
+
+        # Create third array
+        # Start with an array of zeros (50x1)
+        row_values = np.zeros((rows, 1))
+        # Choose the row index corresponding to 75% of the height.
+        nonzero_index = int(0.75 * (rows - 1))
+        row_values[nonzero_index] = 0.75
+        impl3 = np.tile(row_values, (1, cols))
+        np_impl3 = np.repeat(impl3[np.newaxis, :, :], channels, axis=0)
+
+        self.test_model.set_main_view_layout((2, 2))
+
+        ds1 = self.test_model.load_dataset(np_impl)
+        ds2 = self.test_model.load_dataset(np_impl2)
+        ds3 = self.test_model.load_dataset(np_impl3)
+
+        self.test_model.click_zoom_pane_display_toggle()
+
+        self.test_model.click_link_button()
+
+        self.test_model.set_zoom_pane_dataset(ds1.get_id())
+
+        self.test_model.set_zoom_pane_zoom_level(6)
+
+        rv_00_region = self.test_model.get_main_view_highlight_region((0, 0))[0]
+        rv_01_region = self.test_model.get_main_view_highlight_region((0, 1))[0]
+        rv_10_region = self.test_model.get_main_view_highlight_region((1, 0))[0]
+
+        zp_region = self.test_model.get_zoom_pane_visible_region()
+
+        self.assertTrue(zp_region == rv_00_region)
+        self.assertTrue(zp_region == rv_01_region)
+        self.assertTrue(zp_region == rv_10_region)
+
+
 
 if __name__ == '__main__':
     test_model = WiserTestModel(use_gui=True)
 
     # Create first array
-    rows, cols, channels = 100, 100, 3
+    rows, cols, channels = 75, 75, 3
     # Create a vertical gradient from 0 to 1: shape (50,1)
     row_values = np.linspace(0, 1, rows).reshape(rows, 1)
     # Tile the values horizontally to get a 50x50 array
@@ -290,42 +393,43 @@ if __name__ == '__main__':
     # Repeat the 2D array across 3 channels to get a 3x50x50 array
     np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
+    # Create second array
+    # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
+    row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+    impl2 = np.tile(row_values, (1, cols))
+    np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
-    test_model.load_dataset(np_impl)
+    # Create third array
+    # Start with an array of zeros (50x1)
+    row_values = np.zeros((rows, 1))
+    # Choose the row index corresponding to 75% of the height.
+    nonzero_index = int(0.75 * (rows - 1))
+    row_values[nonzero_index] = 0.75
+    impl3 = np.tile(row_values, (1, cols))
+    np_impl3 = np.repeat(impl3[np.newaxis, :, :], channels, axis=0)
 
-    # Get the main view and zoom pane in a position where the main view
-    # would have to snap to the zoom pane when zoom pane is clicked
+    test_model.set_main_view_layout((2, 2))
+
+    ds1 = test_model.load_dataset(np_impl)
+    ds2 = test_model.load_dataset(np_impl2)
+    ds3 = test_model.load_dataset(np_impl3)
+
     test_model.click_zoom_pane_display_toggle()
-    test_model.set_zoom_pane_zoom_level(4)
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
-    test_model.click_main_view_zoom_in()
 
-    # # Make mainview scroll to top left
-    # test_model.scroll_main_view_rv_dx((0,0), 1000)
-    # test_model.scroll_main_view_rv_dx((0,0), 1000)
-    # test_model.scroll_main_view_rv_dy((0,0), 1000)
-    # test_model.scroll_main_view_rv_dy((0,0), 1000)
+    test_model.click_link_button()
 
-    # test_model.scroll_zoom_pane_dx(-1000)
+    test_model.set_zoom_pane_dataset(ds1.get_id())
 
-    test_model.scroll_main_view_rv((0,0), 500, 500)
+    test_model.set_zoom_pane_zoom_level(6)
 
-    # Ensure the visible regions overlap
-    mv_region = test_model.get_main_view_rv_visible_region((0, 0))
+    rv_00_region = test_model.get_main_view_highlight_region((0, 0))[0]
+    rv_01_region = test_model.get_main_view_highlight_region((0, 1))[0]
+    rv_10_region = test_model.get_main_view_highlight_region((1, 0))[0]
     zp_region = test_model.get_zoom_pane_visible_region()
 
-    center_pixel_zp = test_model.get_zoom_pane_center_raster_point()
-    center_pixel_mv = test_model.get_main_view_rv_center_raster_coord((0, 0))
-
-    print(f"center_pixel_zp: {center_pixel_zp}!")
-    print(f"center_pixel_mv: {center_pixel_mv}!")
+    print(f"zp_region: {zp_region}")
+    print(f"rv_00_region: {rv_00_region}")
+    print(f"rv_01_region: {rv_01_region}")
+    print(f"rv_10_region: {rv_10_region}")
 
     test_model.app.exec_()

@@ -352,17 +352,21 @@ class MainViewWidget(RasterPane):
 
             self._act_link_view_scroll.setChecked(False)
             return
-
+        print(f"_on_link_view_scroll")
         # If we got here, we can link or unlink view scrolling.
         self._link_view_scrolling = checked
         self._link_view_state = link_type
         if checked:
+            print(f"checked!")
             self._app_state.show_status_text(self.tr('Linked view scrolling is ON'), 5)
 
             # Sync scroll state of all raster views to the one in the top left.
             self._sync_scroll_state(self.get_rasterview())
         else:
+            print(f"not checked!")
             self._app_state.show_status_text(self.tr('Linked view scrolling is OFF'), 5)
+            for rv in self._rasterviews.values():
+                rv.update()
 
 
     def _afterRasterScroll(self, rasterview, dx, dy, propagate_scroll):
@@ -390,27 +394,38 @@ class MainViewWidget(RasterPane):
         '''
         sb_state = rasterview.get_scrollbar_state()
         center_screen = rasterview.get_visible_region_center()
-        if sb_state or center_screen is None:
+        if sb_state is None or center_screen is None:
+            print(f"sb_state: {sb_state}, center_screen: {center_screen}")
             return
         link_state = self._link_view_state
+        print(f"about to if statement")
         if len(self._rasterviews) > 1 and self._link_view_scrolling:
             for rv in self._rasterviews.values():
+                print(f"sync scroll state for loop")
                 # Skip the rasterview that generated the scroll event
                 if rv is rasterview:
+                    print(f"continuing")
                     continue
 
+                # Even if we do not have to move the rv to make the point visible or scroll
+                # we will want to update the raster view so the highlight box gets updated
+                rv.update()
                 # If we are linkinging by pixel, we simply do so
                 if link_state == GeographicLinkState.PIXEL:
+                    print(f"setting scroll bar state")
                     rv.set_scrollbar_state(sb_state)
                 # Now we are linking by spatial reference system
                 elif link_state == GeographicLinkState.SPATIAL:
                     ds = rv.get_raster_data()
                     if ds is None:
+                        print(f"ds is None")
                         continue
-
+                    
+                    print(f"making point visible")
                     x = center_screen[0]
                     y = center_screen[1]
                     rv.make_point_visible(x, y, margin=0.5, reference_rasterview=rasterview)
+
                 else:
                     raise ValueError(f"Geographic link state is incorrect: {link_state}")
 
