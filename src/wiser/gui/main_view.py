@@ -529,8 +529,7 @@ class MainViewWidget(RasterPane):
                         raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
             return compatible_highlights
         else:
-            viewports = self._viewport_highlight.get(ds_id, None)
-            return viewports
+            return super()._get_compatible_highlights(ds_id)
 
     def _draw_pixel_highlight(self, rasterview, widget, paint_event):
         if self._pixel_highlight is None:
