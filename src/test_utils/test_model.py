@@ -141,6 +141,9 @@ class WiserTestModel:
 
         return dataset
 
+    def close_dataset(self, ds_id: int):
+        self.main_window._on_close_dataset(ds_id)
+
     def import_ascii_spectra(self, file_path: str):
         '''
         In the future, we want to implement this function to interact with ImportSpectraTextDialog
