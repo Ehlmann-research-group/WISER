@@ -404,17 +404,35 @@ class WiserTestModel:
         Sets the zoom pane's zoom level. Scale should non-negative
         and non-zero. The zoom level will show up as {scale*100}%
         '''
-        if scale <= 0:
-            return
-        rv = self.get_zoom_pane_rasterview()
-        rv._scale_factor = scale+1
-        self.zoom_pane._on_zoom_in(None)
+        def func():
+            if scale <= 0:
+                return
+            rv = self.get_zoom_pane_rasterview()
+            rv._scale_factor = scale+1
+            self.zoom_pane._on_zoom_in(None)
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
     def click_zoom_pane_zoom_in(self):
-        self.zoom_pane._act_zoom_in.trigger()
+        def func():
+            self.zoom_pane._act_zoom_in.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
     
     def click_zoom_pane_zoom_out(self):
-        self.zoom_pane._act_zoom_out.trigger()
+        def func():
+            self.zoom_pane._act_zoom_out.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
 
     #==========================================
@@ -580,7 +598,7 @@ class WiserTestModel:
     def get_main_view_highlight_region(self, rv_pos: Tuple[int, int]):
         rv = self.get_main_view_rv(rv_pos)
         ds_id = rv.get_raster_data().get_id()
-        return self.main_view._viewport_highlight[ds_id]
+        return self.main_view._get_compatible_highlights(ds_id)
 
     def is_main_view_linked(self):
         return self.main_view._link_view_scrolling
@@ -597,13 +615,25 @@ class WiserTestModel:
         return self.main_view._link_view_scrolling
     
     def click_main_view_zoom_in(self):
-        self.main_view._act_zoom_in.trigger()
+        def func():
+            self.main_view._act_zoom_in.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
     
     def click_main_view_zoom_out(self):
-        self.main_view._act_zoom_out.trigger()
+        def func():
+            self.main_view._act_zoom_out.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
     
     def scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
-        
+
         def scroll():
             rv = self.get_main_view_rv(rv_pos)
             scroll_area =  rv._scroll_area

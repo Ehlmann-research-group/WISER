@@ -1,7 +1,7 @@
 import logging
 import os
 import traceback
-from typing import Union, Dict
+from typing import Union, Dict, List, Optional
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -363,6 +363,10 @@ class MainViewWidget(RasterPane):
             self._sync_scroll_state(self.get_rasterview())
         else:
             self._app_state.show_status_text(self.tr('Linked view scrolling is OFF'), 5)
+            # We want this to updatethe main view raster view's highlight box, so the linked
+            # highlight boxes go away when we stop linking
+            for rv in self._rasterviews.values():
+                rv.update()
 
 
     def _afterRasterScroll(self, rasterview, dx, dy, propagate_scroll):
@@ -390,6 +394,8 @@ class MainViewWidget(RasterPane):
         '''
         sb_state = rasterview.get_scrollbar_state()
         center_screen = rasterview.get_visible_region_center()
+        if sb_state is None or center_screen is None:
+            return
         link_state = self._link_view_state
         if len(self._rasterviews) > 1 and self._link_view_scrolling:
             for rv in self._rasterviews.values():
@@ -397,6 +403,9 @@ class MainViewWidget(RasterPane):
                 if rv is rasterview:
                     continue
 
+                # Even if we do not have to move the rv to make the point visible or scroll
+                # we will want to update the raster view so the highlight box gets updated
+                rv.update()
                 # If we are linkinging by pixel, we simply do so
                 if link_state == GeographicLinkState.PIXEL:
                     rv.set_scrollbar_state(sb_state)
@@ -409,6 +418,7 @@ class MainViewWidget(RasterPane):
                     x = center_screen[0]
                     y = center_screen[1]
                     rv.make_point_visible(x, y, margin=0.5, reference_rasterview=rasterview)
+
                 else:
                     raise ValueError(f"Geographic link state is incorrect: {link_state}")
 
@@ -453,28 +463,20 @@ class MainViewWidget(RasterPane):
                     rv.update()
                     continue
 
-                if dataset.determine_link_state(rv_dataset) == GeographicLinkState.NO_LINK:
-                    # The selection's dataset was specified, and the rasterview is
-                    # showing an uncompatible dataset.  Update the rasterview to remove
-                    # any viewport highlight from the zoom pane, and move on.
-                    rv.update()
-                    continue
-
                 if viewport is None:
                     # The case when the zoom pane is not displaying anything. We just want
                     # to update the rasterview and move on
                     rv.update()
                     continue
 
-                # Now we know this rasterview has a compatible dataset behind it
-                # as the one passed into the function from zoom pane and we have
-                # a valid viewport. So we want to make sure the visible region 
-                # can be shown.
-                if not visible.contains(viewport):
-                    center = viewport.center()
-                    rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
+                # We only want to change a rasterview if it has the same underlying dataset
+                if rv_dataset == dataset:
+                    if not visible.contains(viewport):
+                        center = viewport.center()
+                        rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
-                # Repaint raster-view
+                # Repaint raster-view. We always repaint to account
+                # for highlight boxes that may have been switched off
                 rv.update()
 
     def _draw_viewport_highlight(self, rasterview, widget, paint_event):
@@ -486,6 +488,49 @@ class MainViewWidget(RasterPane):
         if self._viewport_highlight is not None:
             assert(len(list(self._viewport_highlight.values())) == 1), "self._viewport_highlight has more than 1 entry"
         super()._draw_viewport_highlight(rasterview, widget, paint_event)
+
+    def _get_compatible_highlights(self, ds_id) -> Optional[List[Union[QRect, QRectF]]]:
+        """
+        Retrieves a list of highlight regions (QRect or QRectF) that are compatible
+        with the given dataset based on its link state with other datasets.
+
+        Args:
+            ds_id (str): The identifier of the target dataset.
+
+        Returns:
+            List[Union[QRect, QRectF]]: A list of compatible highlight regions,
+            transformed if necessary based on the link state.
+
+        Raises:
+            ValueError: If an unexpected GeographicLinkState is encountered.
+        """
+        if self._viewport_highlight is None:
+            return None
+
+        if self._link_view_scrolling:
+            target_ds = self._app_state.get_dataset(ds_id)
+            compatible_highlights = []
+            # Viewports is a list because one dataset can be in multiple rasterviews
+            # and so have multiple viewports
+            for reference_ds_id, viewports in self._viewport_highlight.items():
+                # Use app state to get the datasets for both
+                reference_ds = self._app_state.get_dataset(reference_ds_id)
+                # Check if they are link compatible
+                link_state = target_ds.determine_link_state(reference_ds)
+                for viewport in viewports:
+                    if link_state == GeographicLinkState.NO_LINK:
+                        continue
+                    elif link_state == GeographicLinkState.PIXEL:
+                        compatible_highlights.append(viewport)
+                    elif link_state == GeographicLinkState.SPATIAL:
+                        transformed_viewport = self._transform_viewport(viewport, reference_ds, target_ds)
+                        compatible_highlights.append(transformed_viewport)
+                    else:
+                        raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
+            return compatible_highlights
+        else:
+            viewports = self._viewport_highlight.get(ds_id, None)
+            return viewports
 
     def _draw_pixel_highlight(self, rasterview, widget, paint_event):
         if self._pixel_highlight is None:
