@@ -311,8 +311,8 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
     def test_linked_highlight_box(self):
         '''
-        Ensures that when raster views aren't linked, the highlight box
-        only shows up in the rasterview's with the correct dataset
+        Ensures that when raster views are linked, the highlight box
+        shows up in all the rasterview's with the compatible dataset
         '''
         # Create first array
         rows, cols, channels = 75, 75, 3
