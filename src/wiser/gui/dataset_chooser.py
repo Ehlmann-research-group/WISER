@@ -132,7 +132,6 @@ class DatasetChooser(QToolButton):
         has a check-mark by it; all other datasets will be (or become)
         deselected.
         '''
-        print(f'_on_dataset_changed Selected action:  {act}1111111111111111111')
         for oact in self._dataset_menu.actions():
             # print(f'Action:  {oact}\t\tChecked?  {oact == act}')
             oact.setChecked(oact == act)
