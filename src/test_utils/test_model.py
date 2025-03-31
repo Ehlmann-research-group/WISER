@@ -459,6 +459,9 @@ class WiserTestModel:
     def get_context_pane_highlight_regions(self) -> Dict[int, List[Union[QRect, QRectF]]]:
         return self.context_pane._viewport_highlight
     
+    def get_context_pane_compatible_highlights(self, ds_id):
+        return self.context_pane._get_compatible_highlights(ds_id)
+    
     def get_context_pane_screen_size(self) -> QSize:
         return self.context_pane.get_rasterview()._image_widget.size()
 
@@ -657,7 +660,13 @@ class WiserTestModel:
         Clicks on the link view scrolling button. Returns the state of
         link view. (Either true or false)
         '''
-        self.main_view._act_link_view_scroll.trigger()
+        def func():
+            self.main_view._act_link_view_scroll.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
         return self.main_view._link_view_scrolling
     
