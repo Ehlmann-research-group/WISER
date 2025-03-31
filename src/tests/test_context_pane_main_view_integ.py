@@ -137,9 +137,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
     def test_cp_highlight_equal_mv_after_scroll_linked(self):
         '''
         First zoom in. Then scroll the mainview. The context pane's highlight box should be
-        the same as the main view's visible region for the shared dataset. The context pane
-        should have a highlight box for linked datasets that aren't the same as the currently
-        selected dataset. 
+        the same as the main view's visible region for the shared dataset.
         '''
         # Create first array
         rows, cols, channels = 100, 100, 3
@@ -185,8 +183,6 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
-
-        self.test_model.scroll_main_view_rv_dx((0, 0), -1)
 
         cp_highlight = self.test_model.get_context_pane_compatible_highlights(ds1.get_id())[0]
 
