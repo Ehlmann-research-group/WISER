@@ -363,6 +363,8 @@ class MainViewWidget(RasterPane):
             self._sync_scroll_state(self.get_rasterview())
         else:
             self._app_state.show_status_text(self.tr('Linked view scrolling is OFF'), 5)
+            # We want this to updatethe main view raster view's highlight box, so the linked
+            # highlight boxes go away when we stop linking
             for rv in self._rasterviews.values():
                 rv.update()
 
@@ -473,7 +475,8 @@ class MainViewWidget(RasterPane):
                         center = viewport.center()
                         rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
-                # Repaint raster-view
+                # Repaint raster-view. We always repaint to account
+                # for highlight boxes that may have been switched off
                 rv.update()
 
     def _draw_viewport_highlight(self, rasterview, widget, paint_event):
