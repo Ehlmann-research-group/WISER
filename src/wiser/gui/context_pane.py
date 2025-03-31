@@ -53,7 +53,7 @@ class ContextPaneDatasetChooser(DatasetChooser):
             act.setData(act_data)
             if act_data == current_data:
                 act.setChecked(True)
-                # actDefault.setChecked(False)
+                actDefault.setChecked(False)
 
             menu.addAction(act)
 

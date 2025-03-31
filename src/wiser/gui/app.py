@@ -931,7 +931,8 @@ class DataVisualizerApp(QMainWindow):
             return
 
         # In the context pane we just want to show the currently selected dataset.
-        # The function _get_compatible_dataset is used to filter out for this dataset.
+        # The function _get_compatible_dataset is used to filter any view that
+        # doesn't belong to the context pane's dataset.
         visible_region = self._main_view.get_all_regions()
         rasterview = self._main_view.get_all_rasterviews()
 
