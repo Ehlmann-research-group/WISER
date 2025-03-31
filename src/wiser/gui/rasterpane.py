@@ -1799,21 +1799,55 @@ class RasterPane(QWidget):
             color = self._app_state.get_config('raster.viewport_highlight_color')
             painter.setPen(QPen(color))
 
-            for box in compatible_highlights:
-                scale = self.get_scale()
+            self.draw_highlights(compatible_highlights, painter, widget)
+    
+    def draw_highlights(self, highlights: List[Union[QRect, QRectF, QPolygon]], painter: QPainter, widget: QWidget):
+        """
+        Draws every highlight in the provided list onto the widget using the painter.
+        
+        Each highlight can be a QRect, QRectF, or QPolygon. For rectangle types,
+        the coordinates are scaled using self.get_scale() and clamped to the widget size.
+        For polygons, every point is scaled accordingly.
+        """
+        # Get the highlight color from application configuration.
+        color = self._app_state.get_config('raster.viewport_highlight_color')
+        painter.setPen(QPen(color))
+        
+        # Get the current scale factor.
+        scale = self.get_scale()
+        
+        for highlight in highlights:
+            if isinstance(highlight, (QRect, QRectF)):
+                # Scale the rectangle coordinates and dimensions.
+                scaled_rect = QRect(
+                    int(highlight.x() * scale),
+                    int(highlight.y() * scale),
+                    int(highlight.width() * scale),
+                    int(highlight.height() * scale)
+                )
+                
+                # Clamp the dimensions to be within the widget's bounds.
+                if scaled_rect.width() >= widget.width():
+                    scaled_rect.setWidth(widget.width() - 1)
+                if scaled_rect.height() >= widget.height():
+                    scaled_rect.setHeight(widget.height() - 1)
+                    
+                painter.drawRect(scaled_rect)
+                
+            elif isinstance(highlight, QPolygon):
+                # Scale each point in the polygon.
+                scaled_points = []
+                for i in range(highlight.count()):
+                    pt = highlight.value(i)
+                    scaled_points.append(QPoint(int(pt.x() * scale), int(pt.y() * scale)))
+                scaled_polygon = QPolygon(scaled_points)
+                painter.drawPolygon(scaled_polygon)
+                
+            else:
+                # If the highlight is not one of the expected types, we skip it.
+                continue
 
-                scaled = QRect(box.x() * scale, box.y() * scale,
-                               box.width() * scale, box.height() * scale)
-
-                if scaled.width() >= widget.width():
-                    scaled.setWidth(widget.width() - 1)
-
-                if scaled.height() >= widget.height():
-                    scaled.setHeight(widget.height() - 1)
-
-                painter.drawRect(scaled)
-
-    def _get_compatible_highlights(self, ds_id: int) -> Optional[List[Union[QRect, QRectF]]]:
+    def _get_compatible_highlights(self, ds_id: int) -> Optional[List[Union[QRect, QRectF, QPolygon]]]:
         """
         Retrieves a list of highlight regions (QRect or QRectF) that are compatible 
         with the given dataset. Compatibility here is just if the datasets are the
@@ -1865,6 +1899,33 @@ class RasterPane(QWidget):
         transformed_viewport = QRect(QPoint(*top_left_pixel), QPoint(*bottom_right_pixel))
         
         return transformed_viewport
+    
+    def _transform_viewport_to_polygon(self, viewport: QRect, reference_dataset: RasterDataSet,
+                            target_dataset: RasterDataSet) -> QPolygon:
+        """
+        Transforms the viewport's pixel coordinates from the reference_dataset
+        into geographic coordinates, then into target_dataset pixel coordinates,
+        and returns a QPolygon defined by those transformed points.
+        
+        The polygon is constructed using the viewport's top-left, top-right,
+        bottom-right, and bottom-left points.
+
+        Written by an LLM
+        """
+        # Extract the four corners of the viewport.
+        corners = [viewport.topLeft(), viewport.topRight(), 
+                viewport.bottomRight(), viewport.bottomLeft()]
+
+        transformed_points = []
+        for pt in corners:
+            # Convert viewport pixel coordinates to geographic coordinates.
+            geo_coords = reference_dataset.to_geographic_coords((pt.x(), pt.y()))
+            # Convert geographic coordinates to pixel coordinates in the target dataset.
+            pixel_coords = target_dataset.geo_to_pixel_coords(geo_coords)
+            transformed_points.append(QPoint(*pixel_coords))
+        
+        # Create a QPolygon from the transformed points.
+        return QPolygon(transformed_points)
 
     def _draw_crosshair_at_coord(self, coord, widget):
         with get_painter(widget) as painter:

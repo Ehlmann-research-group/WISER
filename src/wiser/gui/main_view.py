@@ -523,7 +523,7 @@ class MainViewWidget(RasterPane):
                     elif link_state == GeographicLinkState.PIXEL:
                         compatible_highlights.append(viewport)
                     elif link_state == GeographicLinkState.SPATIAL:
-                        transformed_viewport = self._transform_viewport(viewport, reference_ds, target_ds)
+                        transformed_viewport = self._transform_viewport_to_polygon(viewport, reference_ds, target_ds)
                         compatible_highlights.append(transformed_viewport)
                     else:
                         raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
