@@ -141,6 +141,9 @@ class WiserTestModel:
 
         return dataset
 
+    def close_dataset(self, ds_id: int):
+        self.main_window._on_close_dataset(ds_id)
+
     def import_ascii_spectra(self, file_path: str):
         '''
         In the future, we want to implement this function to interact with ImportSpectraTextDialog
@@ -459,8 +462,27 @@ class WiserTestModel:
     def get_context_pane_highlight_regions(self) -> Dict[int, List[Union[QRect, QRectF]]]:
         return self.context_pane._viewport_highlight
     
+    def get_context_pane_compatible_highlights(self, ds_id):
+        return self.context_pane._get_compatible_highlights(ds_id)
+    
     def get_context_pane_screen_size(self) -> QSize:
         return self.context_pane.get_rasterview()._image_widget.size()
+
+    def get_cp_dataset_chooser_checked_id(self) -> Optional[int]:
+        checked_id = None
+        actions = self.context_pane._dataset_chooser._dataset_menu.actions()
+        for act in actions:
+            if act.isSeparator():
+                continue
+            if act.isChecked():
+                if checked_id is not None:
+                    raise ValueError('Multiple checked actions in context pane\'s dataset chooser!')
+                checked_id = act.data()[1]
+
+        if checked_id is None:
+            raise ValueError('No action is checked in context pane\'s dataset chooser!')
+
+        return checked_id
 
 
     # region State setting
@@ -472,7 +494,7 @@ class WiserTestModel:
         if ds_id not in self.app_state._datasets:
             raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
 
-        action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
+        action = next((act for act in dataset_menu.actions() if not act.isSeparator() and act.data()[1] == ds_id), None)
         if action:
             self.context_pane._on_dataset_changed(action)
         else:
@@ -523,6 +545,37 @@ class WiserTestModel:
         raster_point = context_rv.image_coord_to_raster_coord(QPointF(x, y))
 
         return (raster_point.x(), raster_point.y())
+
+    def set_context_pane_dataset_chooser_id(self, ds_id: int = -1):
+        '''
+        Sets the ID of the context pane's dataset chooser
+        '''
+        def func():
+            cp_ds_chooser = self.context_pane._dataset_chooser
+            cp_ds_menu = cp_ds_chooser._dataset_menu
+            action = None
+            for act in cp_ds_menu.actions():
+                if act.isSeparator():
+                    continue
+                data = act.data()
+                act_id = data[1]
+                if ds_id == act_id:
+                    action = act
+            if action is None:
+                raise ValueError("The ds_id given does not correspond to an action!")
+            # We don't need to call action.trigger(), but for the sake of completeness
+            # we will
+            action.trigger()
+            # I could not find a way to trigger context pane's dataset chooser
+            # so istead we must do this.
+            cp_ds_chooser._on_dataset_changed(action)
+            self.context_pane._on_dataset_changed(action)
+        
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
 
 
     #==========================================
@@ -610,7 +663,13 @@ class WiserTestModel:
         Clicks on the link view scrolling button. Returns the state of
         link view. (Either true or false)
         '''
-        self.main_view._act_link_view_scroll.trigger()
+        def func():
+            self.main_view._act_link_view_scroll.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
         return self.main_view._link_view_scrolling
     

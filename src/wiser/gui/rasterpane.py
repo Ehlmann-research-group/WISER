@@ -1072,6 +1072,8 @@ class RasterPane(QWidget):
         """
         This function is used to create the viewport highlight dictionary. It associates viewports
         with the dataset ID's of the rasterviews that the viewport corresponds to.
+
+        self._viewport_highlight values can be a list with Nones in them
         """
         # We make sure both the viewport and rasterviews are lists
         if not isinstance(rasterview, list):
@@ -1829,6 +1831,9 @@ class RasterPane(QWidget):
         """
         if self._viewport_highlight:
             viewports = self._viewport_highlight.get(ds_id, None)
+            if viewports is None:
+                return viewports
+            viewports = [viewport for viewport in viewports if viewport is not None]
             return viewports
         return None
 

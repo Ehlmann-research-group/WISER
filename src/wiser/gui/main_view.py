@@ -518,6 +518,9 @@ class MainViewWidget(RasterPane):
                 # Check if they are link compatible
                 link_state = target_ds.determine_link_state(reference_ds)
                 for viewport in viewports:
+                    # Happens when you close out of zoom pane
+                    if viewport is None:
+                        continue
                     if link_state == GeographicLinkState.NO_LINK:
                         continue
                     elif link_state == GeographicLinkState.PIXEL:
@@ -529,8 +532,7 @@ class MainViewWidget(RasterPane):
                         raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
             return compatible_highlights
         else:
-            viewports = self._viewport_highlight.get(ds_id, None)
-            return viewports
+            return super()._get_compatible_highlights(ds_id)
 
     def _draw_pixel_highlight(self, rasterview, widget, paint_event):
         if self._pixel_highlight is None:
