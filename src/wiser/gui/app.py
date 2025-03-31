@@ -975,6 +975,8 @@ class DataVisualizerApp(QMainWindow):
 
             sel = SinglePixelSelection(ds_point, ds)
 
+            self._context_pane.show_dataset(ds)
+
             self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, are_views_linked=True)
 
             self._zoom_pane.set_pixel_highlight(sel)
