@@ -472,7 +472,7 @@ class WiserTestModel:
         if ds_id not in self.app_state._datasets:
             raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
 
-        action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
+        action = next((act for act in dataset_menu.actions() if not act.isSeparator() and act.data()[1] == ds_id), None)
         if action:
             self.context_pane._on_dataset_changed(action)
         else:

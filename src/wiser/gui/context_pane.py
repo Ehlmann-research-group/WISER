@@ -217,6 +217,8 @@ class ContextPane(RasterPane):
         with the rasterview displayed in the context pane to display.
         '''
         print(f"SETTING VIEWPORT HIGHLIGHT")
+        print(f"context pane viewports: {viewports}")
+        print(f"context pane rasterviews: {rasterviews}")
         self.create_viewport_highlight_dictionary(viewports, rasterviews)
 
         # If the specified viewport highlight region is not entirely within this
@@ -234,6 +236,7 @@ class ContextPane(RasterPane):
         # that have the same dataset id as the rasterview.
 
         for rv in self._rasterviews.values():
+            print(f"maybe changing context pane RV")
             visible = rv.get_visible_region()
             if visible is None or viewports is None or len(viewports) > 1:
                 rv.update()

@@ -434,18 +434,24 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         self.test_model.set_main_view_layout((2, 2))
 
+        # Load in datasets
         ds1 = self.test_model.load_dataset(np_impl)
         ds2 = self.test_model.load_dataset(np_impl2)
         ds3 = self.test_model.load_dataset(np_impl3)
 
+        # Zoom in all datasets
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
 
+        # Make sure context pane shows first dataset
         self.test_model.set_context_pane_dataset(ds1.get_id())
 
+        # Get first dataset's visible region
         visible_region_00 = self.test_model.get_main_view_rv_visible_region((0, 0))
+
+        # Get the context pane's highlight region
         highlight_region = self.test_model.context_pane._get_compatible_highlights(ds1.get_id())[0]
 
         # For an unknown reason, when I run this test inside of pytest and outside,

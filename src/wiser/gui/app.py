@@ -935,12 +935,15 @@ class DataVisualizerApp(QMainWindow):
             visible_region = self._main_view.get_all_regions()
             rasterview = self._main_view.get_all_rasterviews()
         else:
-            rasterview = self._main_view.get_rasterview(rasterview_position)
-            visible_region = rasterview.get_visible_region()
+            # rasterview = self._main_view.get_rasterview(rasterview_position)
+            # visible_region = rasterview.get_visible_region()
 
             # Context pane's set_viewport_highlight takes in lists
-            rasterview = [rasterview]
-            visible_region = [visible_region]
+            # rasterview = [rasterview]
+            # visible_region = [visible_region]
+    
+            visible_region = self._main_view.get_all_regions()
+            rasterview = self._main_view.get_all_rasterviews()
 
         self._context_pane.set_viewport_highlight(visible_region, rasterview)
         return

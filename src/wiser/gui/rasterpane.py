@@ -762,6 +762,7 @@ class RasterPane(QWidget):
         This function is called when the scroll-area moves around.  Fire an
         event that the visible region of the raster-view has changed.
         '''
+        print(f"!!!!!!!!!!!!!!!!!!!!12222222222222222221111111111111111111")
         self._emit_viewport_change()
 
 
@@ -1109,6 +1110,8 @@ class RasterPane(QWidget):
                 self._viewport_highlight[ds_id].append(rv_viewport)
             else:    
                 self._viewport_highlight[ds_id] = [rv_viewport]
+        
+        print(f"self._viewport_highlight: {self._viewport_highlight}")
 
     def set_viewport_highlight(self, viewport: Union[List[QRect], QRect, QRectF], \
                                rasterview: Union[List[RasterView], RasterView]):
