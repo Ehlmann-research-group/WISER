@@ -1870,35 +1870,6 @@ class RasterPane(QWidget):
             viewports = [viewport for viewport in viewports if viewport is not None]
             return viewports
         return None
-
-    def _transform_viewport(self, viewport: QRect, reference_dataset: RasterDataSet, \
-                            target_dataset: RasterDataSet) -> QRect:
-        """
-        Transforms the viewport's pixel coordinates from the reference_dataset
-        into geographic coordinates, then into target_dataset pixel coordinates,
-        and returns a QRect defined by those transformed coordinates.
-
-        Written by LLM.
-        """
-
-        # 1. Extract top-left and bottom-right from the viewport
-        top_left_x = viewport.topLeft().x()
-        top_left_y = viewport.topLeft().y()
-        bottom_right_x = viewport.bottomRight().x()
-        bottom_right_y = viewport.bottomRight().y()
-        
-        # 2. Convert to geographic coordinates using the reference dataset
-        top_left_geo = reference_dataset.to_geographic_coords((top_left_x, top_left_y))
-        bottom_right_geo = reference_dataset.to_geographic_coords((bottom_right_x, bottom_right_y))
-        
-        # 3. Convert those geographic coords to pixel coords in the target dataset
-        top_left_pixel = target_dataset.geo_to_pixel_coords(top_left_geo)      # returns (x, y)
-        bottom_right_pixel = target_dataset.geo_to_pixel_coords(bottom_right_geo)
-        
-        # 4. Construct a new QRect from these transformed pixel coordinates
-        transformed_viewport = QRect(QPoint(*top_left_pixel), QPoint(*bottom_right_pixel))
-        
-        return transformed_viewport
     
     def _transform_viewport_to_polygon(self, viewport: QRect, reference_dataset: RasterDataSet,
                             target_dataset: RasterDataSet) -> QPolygon:
