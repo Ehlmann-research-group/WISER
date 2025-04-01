@@ -708,7 +708,7 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
             try:
                 self._spectrum = self._dataset.get_all_bands_at(x, y)
             except:
-                self._spectrum = np.full((self._dataset.num_bands(),1), np.nan)
+                self._spectrum = np.full((self._dataset.num_bands(),), np.nan)
 
 
         else:
