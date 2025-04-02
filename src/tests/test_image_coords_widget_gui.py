@@ -2,8 +2,8 @@ import os
 
 import unittest
 
-# import tests.context
-import context
+import tests.context
+# import context
 
 import numpy as np
 
