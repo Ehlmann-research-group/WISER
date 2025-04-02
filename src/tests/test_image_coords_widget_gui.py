@@ -2,8 +2,8 @@ import os
 
 import unittest
 
-import tests.context
-# import context
+# import tests.context
+import context
 
 import numpy as np
 
@@ -21,7 +21,7 @@ class TestImageCoordsWidget(unittest.TestCase):
     def tearDown(self):
         self.test_model.close_app()
         del self.test_model
-    
+
     def test_go_to_pixel(self):
         # Get the directory where the current file is located
         current_dir = os.path.dirname(os.path.abspath(__file__))

@@ -65,6 +65,8 @@ class ImageCoordsWidget(QDialog):
 
         self._ui.tbtn_geo_goto.clicked.connect(self._on_geo_dialog)
 
+        self._dialog: Optional[GeoCoordsDialog] = None
+
     def _set_all_visible(self, visible):
         for w in [self._ui.lbl_pixel, self._ui.lbl_pixel_coords,
                   self._ui.lbl_geo, self._ui.lbl_geo_coords]:
@@ -205,20 +207,20 @@ class ImageCoordsWidget(QDialog):
             self.update_coords(default_dataset, None)
 
         config = self._get_config_for_dataset(self._dataset)
-        dialog = GeoCoordsDialog(self._dataset, config, parent=self)
+        self._dialog = GeoCoordsDialog(self._dataset, config, parent=self)
         dataset_has_geo_srs = (self._dataset is not None and
             self._dataset.get_spatial_ref() is not None)
         if not dataset_has_geo_srs:
-            dialog._ui.tabWidget.setTabVisible(0, False)
-            dialog._ui.tabWidget.setTabVisible(1, False)
-        dialog.config_changed.connect(self._on_display_config_changed)
-        dialog.goto_coord.connect(self._on_goto_coordinate)
+            self._dialog._ui.tabWidget.setTabVisible(0, False)
+            self._dialog._ui.tabWidget.setTabVisible(1, False)
+        self._dialog.config_changed.connect(self._on_display_config_changed)
+        self._dialog.goto_coord.connect(self._on_goto_coordinate)
 
         # corner = self.mapToGlobal(QPoint(self.width(), 0.0))
-        # corner = QPoint(corner.x() - dialog.width(), corner.y() - dialog.height())
-        # dialog.move(corner)
+        # corner = QPoint(corner.x() - self._dialog.width(), corner.y() - self._dialog.height())
+        # self._dialog.move(corner)
 
-        dialog.exec()
+        self._dialog.exec()
 
 
     def _on_display_config_changed(self, ds_id, config):
