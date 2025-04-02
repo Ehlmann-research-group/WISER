@@ -71,9 +71,11 @@ if __name__ == '__main__':
 
     test_model.scroll_main_view_rv((0, 0), -100, -100)
 
-    test_model.goto_pixel_using_geo_coords_dialog((100, 100))
+    test_model.open_geo_coords_dialog()
 
-    test_model.cancel_geo_coords_dialog()
+    # test_model.goto_pixel_using_geo_coords_dialog((100, 100))
+
+    # test_model.cancel_geo_coords_dialog()
 
     active_spectrum = test_model.get_active_spectrum()
 
