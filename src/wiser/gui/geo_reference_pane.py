@@ -14,7 +14,7 @@ from .dataset_chooser import DatasetChooser
 from .util import add_toolbar_action
 from .app_state import ApplicationState
 
-class GeoReferencePane(RasterPane):
+class GeoReferencerPane(RasterPane):
     # We don't want a roi chooser
 
     # We don't want a dataset chooser *

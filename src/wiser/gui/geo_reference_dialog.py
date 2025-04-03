@@ -8,7 +8,7 @@ from .generated.geo_referencer_dialog_ui import Ui_GeoReferencerDialog
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import RasterPane
-from wiser.gui.geo_reference_pane import GeoReferencePane
+from wiser.gui.geo_reference_pane import GeoReferencerPane
 
 from wiser.raster.dataset import RasterDataSet
 
@@ -26,8 +26,8 @@ class GeoReferencerDialog(QDialog):
         self._target_cbox = self._ui.cbox_target_dataset_chooser
         self._reference_cbox = self._ui.cbox_reference_dataset_chooser
 
-        self._target_rasterpane = GeoReferencePane(app_state=app_state)
-        self._reference_rasterpane = GeoReferencePane(app_state=app_state)
+        self._target_rasterpane = GeoReferencerPane(app_state=app_state)
+        self._reference_rasterpane = GeoReferencerPane(app_state=app_state)
 
         # Set up dataset choosers 
         self._init_dataset_choosers()
@@ -138,4 +138,7 @@ class GeoReferencerDialog(QDialog):
         ds_id = self._reference_cbox.itemData(index)
         dataset = self._app_state.get_dataset(ds_id)
         self._reference_rasterpane.show_dataset(dataset)
+        return
+
+    def set_message_text(self, text: str):
         return
