@@ -1000,11 +1000,15 @@ class RasterPane(QWidget):
         stretches = None
         if dataset is not None:
             ds_id = dataset.get_id()
+            if ds_id not in self._display_bands:
+                display_bands = find_display_bands(dataset)
+                self._display_bands[ds_id] = display_bands
+
             bands = self._display_bands[ds_id]
             stretches = self._app_state.get_stretches(ds_id, bands)
 
         rasterview.set_raster_data(dataset, bands, stretches)
-        if dataset is not None and self._num_views == (1, 1):
+        if dataset is not None and self._num_views == (1, 1) and self._dataset_chooser is not None:
             self._dataset_chooser.check_dataset(dataset.get_id())
 
         # This is a check to see if this rasterpane is MainView
@@ -1296,7 +1300,8 @@ class RasterPane(QWidget):
         self.show_dataset(dataset, display_pos)
 
         # Always do this when we add a data set
-        self._act_band_chooser.setEnabled(True)
+        if self._act_band_chooser:
+            self._act_band_chooser.setEnabled(True)
         self._update_zoom_widgets()
 
     def _on_dataset_removed(self, ds_id):
@@ -1318,7 +1323,8 @@ class RasterPane(QWidget):
         self._update_rasterview_toolbars()
 
         if self._app_state.num_datasets() == 0:
-            self._act_band_chooser.setEnabled(False)
+            if self._act_band_chooser:
+                self._act_band_chooser.setEnabled(False)
 
 
     def _on_dataset_changed(self, act):
@@ -1579,7 +1585,6 @@ class RasterPane(QWidget):
         '''
 
         # TODO(donnie):  What to do if the task-delegate already exists?!
-
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:

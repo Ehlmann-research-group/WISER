@@ -8,6 +8,7 @@ from .generated.geo_referencer_dialog_ui import Ui_GeoReferencerDialog
 from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import RasterPane
+from wiser.gui.geo_reference_pane import GeoReferencePane
 
 from wiser.raster.dataset import RasterDataSet
 
@@ -25,12 +26,12 @@ class GeoReferencerDialog(QDialog):
         self._target_cbox = self._ui.cbox_target_dataset_chooser
         self._reference_cbox = self._ui.cbox_reference_dataset_chooser
 
-        self._target_rasterview = RasterView(app_state=app_state)
-        self._reference_rasterview = RasterView(app_state=app_state)
+        self._target_rasterpane = GeoReferencePane(app_state=app_state)
+        self._reference_rasterpane = GeoReferencePane(app_state=app_state)
 
         # Set up dataset choosers 
         self._init_dataset_choosers()
-        self._init_rasterviews()
+        self._init_rasterpanes()
     
     def _init_dataset_choosers(self):
         self._target_cbox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
@@ -41,17 +42,18 @@ class GeoReferencerDialog(QDialog):
         self._reference_cbox.activated.connect(self._on_switch_reference_dataset)
         self._update_reference_dataset_chooser()
 
-    def _init_rasterviews(self):
+    def _init_rasterpanes(self):
         target_layout = QVBoxLayout(self._ui.widget_target_image)
         self._ui.widget_target_image.setLayout(target_layout)
 
-        target_layout.addWidget(self._target_rasterview)
+        target_layout.addWidget(self._target_rasterpane)
 
         reference_layout = QVBoxLayout(self._ui.widget_ref_image)
         self._ui.widget_ref_image.setLayout(reference_layout)
 
-        reference_layout.addWidget(self._reference_rasterview)
+        reference_layout.addWidget(self._reference_rasterpane)
 
+    # Handles populating and updating the dataset choosers
 
     def _update_target_dataset_chooser(self):
         self._update_dataset_chooser(self._target_cbox)
@@ -109,31 +111,31 @@ class GeoReferencerDialog(QDialog):
 
         dataset_chooser.setCurrentIndex(new_index)
 
-    def _show_dataset(self, dataset: RasterDataSet, rasterview: RasterView):
-        '''
-        Sets the dataset being displayed in the specified rasterview 
-        '''
-        # If the rasterview is already showing the specified dataset, skip!
-        if rasterview.get_raster_data() is dataset:
-            return
+    # def _show_dataset(self, dataset: RasterDataSet, rasterview: RasterView):
+    #     '''
+    #     Sets the dataset being displayed in the specified rasterview 
+    #     '''
+    #     # If the rasterview is already showing the specified dataset, skip!
+    #     if rasterview.get_raster_data() is dataset:
+    #         return
 
-        bands = None
-        stretches = None
-        if dataset is not None:
-            ds_id = dataset.get_id()
-            bands = self._main_view.get_display_bands()[ds_id]
-            stretches = self._app_state.get_stretches(ds_id, bands)
+    #     bands = None
+    #     stretches = None
+    #     if dataset is not None:
+    #         ds_id = dataset.get_id()
+    #         bands = self._main_view.get_display_bands()[ds_id]
+    #         stretches = self._app_state.get_stretches(ds_id, bands)
 
-        rasterview.set_raster_data(dataset, bands, stretches)
+    #     rasterview.set_raster_data(dataset, bands, stretches)
 
     def _on_switch_target_dataset(self, index: int):
         ds_id = self._target_cbox.itemData(index)
         dataset = self._app_state.get_dataset(ds_id)
-        self._show_dataset(dataset, self._target_rasterview)
+        self._target_rasterpane.show_dataset(dataset)
         return
 
     def _on_switch_reference_dataset(self, index: int):
         ds_id = self._reference_cbox.itemData(index)
         dataset = self._app_state.get_dataset(ds_id)
-        self._show_dataset(dataset, self._reference_rasterview)
+        self._reference_rasterpane.show_dataset(dataset)
         return
