@@ -3,12 +3,15 @@ from typing import Optional, TYPE_CHECKING, List, Tuple
 from .rasterview import RasterView
 from wiser.raster.dataset import RasterDataSet
 from wiser.gui.geo_reference_dialog import GeoReferencerDialog
-
+from wiser.gui.task_delegate import TaskDelegate
+from wiser.gui.util import scale_qpoint_by_float
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from enum import Enum
+
+PIXEL_OFFSET = 1
 
 # This class is mainly for the developer
 # to keep track of the states in this delegate
@@ -23,11 +26,19 @@ if TYPE_CHECKING:
     from .rasterpane import RasterPane
 
 class GroundControlPoint:
-    def __init__(self, point: List[int, int], dataset: RasterDataSet):
+    def __init__(self, point: List[int, int], dataset: RasterDataSet, rasterpane: RasterPane):
         self._point = point
         self._dataset = dataset
+        self._rasterpane = rasterpane
+    
+    def get_scaled_point(self) -> List[int, int]:
+        scale = self._rasterpane.get_scale()
+        return [self._point[0]*scale, self._point[1]*scale]
 
-class GeoReferencerTaskDelegate:
+    def get_rasterpane(self) -> RasterPane:
+        return self._rasterpane
+
+class GeoReferencerTaskDelegate(TaskDelegate):
     # Take in clickable_object_1 and clickable_object_2
 
     # When clickable object 1 receives a click, it should send it to task delegate.
@@ -89,15 +100,67 @@ class GeoReferencerTaskDelegate:
         self._last_selected_pane: Optional[RasterPane] = None
         self._current_selected_pane: Optional[RasterPane] = None
         self._current_point: Optional[GroundControlPoint] = None
-        self._current_point_pair = Optional[List[GroundControlPoint, GroundControlPoint]] = None
+        self._current_point_pair: Optional[List[GroundControlPoint, GroundControlPoint]] = None
         self._point_list: List[List[GroundControlPoint, GroundControlPoint]] = []
-    
+
+    def draw_state(self, painter: QPainter, rasterpane: RasterPane):
+        if len(self._point_list) == 0 and self._current_point_pair is None:
+            return
+        
+        color = self._app_state.get_config('raster.selection.edit_outline')
+        painter.setPen(QPen(color))
+
+        points_scaled = []
+
+        scale = rasterpane.get_scale()
+
+        for point_pair in self._point_list:
+            gcp_0 = point_pair[0]
+            gcp_1 = point_pair[1]
+            if gcp_0.get_rasterpane() == rasterpane:
+                points_scaled.append(gcp_0.get_scaled_point())
+            elif gcp_1.get_rasterpane() == rasterpane:
+                points_scaled.append(gcp_1.get_scaled_point())
+
+        for p in points_scaled:
+            if scale >= 6:
+                painter.drawRect(p[0] + PIXEL_OFFSET,
+                                 p[1] + PIXEL_OFFSET,
+                                 scale - 2 * PIXEL_OFFSET,
+                                 scale - 2 * PIXEL_OFFSET)
+            else:
+                painter.drawRect(p[0], p[1], scale, scale)
+
+        gcp_0 = self._current_point_pair[0]
+        gcp_1 = self._current_point_pair[1]
+
+        current_point_scaled = None
+        if gcp_0 is not None:
+            if gcp_0.get_rasterpane() == rasterpane:
+                current_point_scaled = gcp_0.get_scaled_point()
+        if gcp_1 is not None and current_point_scaled is None:
+            if gcp_1.get_rasterpane() == rasterpane:
+                current_point_scaled = gcp_1.get_scaled_point()
+        
+        if current_point_scaled is not None:
+            painter.setPen(QPen(Qt.red))
+            if scale >= 6:
+                painter.drawRect(current_point_scaled[0] + PIXEL_OFFSET,
+                                 current_point_scaled[1] + PIXEL_OFFSET,
+                                 scale - 2 * PIXEL_OFFSET,
+                                 scale - 2 * PIXEL_OFFSET)
+            else:
+                painter.drawRect(current_point_scaled[0], current_point_scaled[1], scale, scale)
+        
+
     def on_mouse_release(self, point: List[int, int], rasterpane: RasterPane):
         # We want the user to be able to press escape and clear the currently selected raster pane 
         if self._state == GeoReferencerState.NOTHING_SELECTED:
             self.check_state()
             self._current_selected_pane = rasterpane
-            self._current_point = GroundControlPoint(point, rasterpane.get_rasterview().get_raster_data())
+            self._current_point = GroundControlPoint(point,
+                                                     rasterpane.get_rasterview().get_raster_data(),
+                                                     rasterpane)
             self._current_point_pair = [self._current_point,\
                                         None]
             self._state = GeoReferencerState.FIRST_POINT_SELECTED
@@ -109,11 +172,15 @@ class GeoReferencerTaskDelegate:
                 # self._geo_ref_dialog.set_message_text('Please press ENTER before clicking'
                 # 'on the next raster pane.')
                 self._current_selected_pane = rasterpane
-                self._current_point = GroundControlPoint(point, rasterpane.get_rasterview().get_raster_data())
+                self._current_point = GroundControlPoint(point,
+                                                         rasterpane.get_rasterview().get_raster_data(),
+                                                         rasterpane)
                 self._current_point_pair = [self._current_point,\
                                             None]
             else:
-                self._current_point = GroundControlPoint(point, rasterpane.get_rasterview().get_raster_data())
+                self._current_point = GroundControlPoint(point,
+                                                         rasterpane.get_rasterview().get_raster_data(),
+                                                         rasterpane)
                 self._current_point_pair = [self._current_point,\
                                             None]
             self.check_state()
@@ -127,7 +194,9 @@ class GeoReferencerTaskDelegate:
             else:
                 # If the pane's are not equal, we want to transition to second point selected state
                 self._current_selected_pane = rasterpane
-                self._current_point = GroundControlPoint(point, rasterpane.get_rasterview().get_raster_data())
+                self._current_point = GroundControlPoint(point,
+                                                         rasterpane.get_rasterview().get_raster_data,
+                                                         rasterpane)
                 self._current_point_pair[1] = self._current_point
                 self._state = GeoReferencerState.SECOND_POINT_SELECTED
             self.check_state()
@@ -139,23 +208,35 @@ class GeoReferencerTaskDelegate:
                 'on the next raster pane.')
             else:
                 # If the pane's are not equal, we want to transition to second point selected state
-                self._current_point = GroundControlPoint(point, rasterpane.get_rasterview().get_raster_data())
+                self._current_point = GroundControlPoint(point,
+                                                         rasterpane.get_rasterview().get_raster_data(),
+                                                         rasterpane)
                 self._current_point_pair[1] = self._current_point
             self.check_state()
         else:
             # We should never reach this point because the state SECOND_POINT_ENTERED should
             # immediately go back to the NOTHING_SELECTED state
             raise ValueError(f"The state {self._state} was arrived at in on_mouse_release")
+        return False
 
 
     
-    def on_key_release(self, key_event):
+    def on_key_release(self, key_event) -> bool:
+        '''
+        We want all of our functions to return false because this task delegate
+        is permanent for the GeoReferencer Panes it operates on
+        '''
         if key_event == Qt.Key_Enter:
             self.handle_enter_key_release()
         elif key_event == Qt.Key_Escape:
             self.handle_escape_key_release()
+        return False
 
-    def handle_escape_key_release(self):
+    def handle_escape_key_release(self) -> bool:
+        '''
+        Controls the task delegate state when the ESC key is released
+
+        '''
         if self._state == GeoReferencerState.NOTHING_SELECTED:
             self._geo_ref_dialog.set_message_text('Must select' \
             'a point before pressing ESC again')
