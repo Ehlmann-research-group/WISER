@@ -1554,6 +1554,8 @@ class RasterPane(QWidget):
 
         return roi
 
+    def get_display_bands(self):
+        return self._display_bands
 
     def _on_edit_roi_info(self, roi):
         '''

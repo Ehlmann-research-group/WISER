@@ -25,7 +25,7 @@
    <property name="title">
     <string>Georeferencer</string>
    </property>
-   <widget class="QLabel" name="label_6">
+   <widget class="QLabel" name="lbl_target_image">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -38,7 +38,7 @@
      <string>Target Image</string>
     </property>
    </widget>
-   <widget class="QWidget" name="widget" native="true">
+   <widget class="QWidget" name="widget_target_image" native="true">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -61,7 +61,7 @@
      <enum>Qt::Vertical</enum>
     </property>
    </widget>
-   <widget class="QLabel" name="label_7">
+   <widget class="QLabel" name="lbl_ref_image">
     <property name="geometry">
      <rect>
       <x>380</x>
@@ -74,7 +74,7 @@
      <string>Reference Image</string>
     </property>
    </widget>
-   <widget class="QWidget" name="widget_2" native="true">
+   <widget class="QWidget" name="widget_ref_image" native="true">
     <property name="geometry">
      <rect>
       <x>380</x>
@@ -84,7 +84,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QLabel" name="label_5">
+   <widget class="QLabel" name="lbl_gcps">
     <property name="geometry">
      <rect>
       <x>740</x>
@@ -113,7 +113,7 @@
      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
     </property>
    </widget>
-   <widget class="QLabel" name="srs_label">
+   <widget class="QLabel" name="lbl_srs">
     <property name="geometry">
      <rect>
       <x>740</x>
@@ -126,7 +126,7 @@
      <string>Spatial Reference System</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_3">
+   <widget class="QLabel" name="lbl_poly_order">
     <property name="geometry">
      <rect>
       <x>740</x>
@@ -139,7 +139,7 @@
      <string>Polynomial Order</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="btn_filename">
+   <widget class="QPushButton" name="btn_save_path">
     <property name="enabled">
      <bool>true</bool>
     </property>
@@ -155,7 +155,7 @@
      <string>...</string>
     </property>
    </widget>
-   <widget class="QLabel" name="label_4">
+   <widget class="QLabel" name="lbl_save_path">
     <property name="enabled">
      <bool>true</bool>
     </property>
@@ -171,7 +171,7 @@
      <string>File Save Path</string>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBox_2">
+   <widget class="QComboBox" name="cbox_interpolation">
     <property name="geometry">
      <rect>
       <x>740</x>
@@ -191,7 +191,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBox">
+   <widget class="QComboBox" name="cbox_reference_dataset_chooser">
     <property name="geometry">
      <rect>
       <x>380</x>
@@ -201,7 +201,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QLabel" name="label_2">
+   <widget class="QLabel" name="lbl_interpolation">
     <property name="geometry">
      <rect>
       <x>740</x>
@@ -214,7 +214,7 @@
      <string>Interpolation Type</string>
     </property>
    </widget>
-   <widget class="QLineEdit" name="lineEdit">
+   <widget class="QLineEdit" name="ledit_save_path">
     <property name="enabled">
      <bool>true</bool>
     </property>
@@ -227,7 +227,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBox_3">
+   <widget class="QComboBox" name="cbox_poly_order">
     <property name="geometry">
      <rect>
       <x>740</x>
@@ -237,7 +237,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBox_4">
+   <widget class="QComboBox" name="cbox_target_dataset_chooser">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -247,7 +247,7 @@
      </rect>
     </property>
    </widget>
-   <widget class="QComboBox" name="srs_cbox">
+   <widget class="QComboBox" name="cbox_srs">
     <property name="geometry">
      <rect>
       <x>740</x>
