@@ -2,7 +2,6 @@ from typing import Optional, TYPE_CHECKING, List, Tuple
 
 from .rasterview import RasterView
 from wiser.raster.dataset import RasterDataSet
-from wiser.gui.geo_reference_dialog import GeoReferencerDialog
 from wiser.gui.task_delegate import TaskDelegate
 from wiser.gui.util import scale_qpoint_by_float
 from PySide2.QtCore import *
@@ -26,16 +25,16 @@ if TYPE_CHECKING:
     from .rasterpane import RasterPane
 
 class GroundControlPoint:
-    def __init__(self, point: List[int, int], dataset: RasterDataSet, rasterpane: RasterPane):
+    def __init__(self, point: Tuple[int, int], dataset: RasterDataSet, rasterpane: 'RasterPane'):
         self._point = point
         self._dataset = dataset
         self._rasterpane = rasterpane
     
-    def get_scaled_point(self) -> List[int, int]:
+    def get_scaled_point(self) -> Tuple[int, int]:
         scale = self._rasterpane.get_scale()
         return [self._point[0]*scale, self._point[1]*scale]
 
-    def get_rasterpane(self) -> RasterPane:
+    def get_rasterpane(self) -> 'RasterPane':
         return self._rasterpane
 
 class GeoReferencerTaskDelegate(TaskDelegate):
@@ -49,9 +48,10 @@ class GeoReferencerTaskDelegate(TaskDelegate):
 
     # It populates the GCP list with that list. If user's edit the GCP list, it updates
     # the list here
-    def __init__(self, rasterpane_1: RasterPane, \
-                 rasterpane_2: RasterPane, \
-                 geo_reference_dialog: GeoReferencerDialog):
+    def __init__(self, rasterpane_1: 'RasterPane', \
+                 rasterpane_2: 'RasterPane', \
+                 geo_reference_dialog: 'GeoReferencerDialog',
+                 app_state: 'ApplicationState'):
         '''
         Technically, rasterpane_1 and rasterpane_2 can be any objects that
         can receive mouse events and when they do receive mouse events,
@@ -96,14 +96,16 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         self._rasterpane_1 = rasterpane_1
         self._rasterpane_2 = rasterpane_2
         self._geo_ref_dialog = geo_reference_dialog
-        self._state: GeoReferencerState = GeoReferencerState.NOTHING_SELECTED
-        self._last_selected_pane: Optional[RasterPane] = None
-        self._current_selected_pane: Optional[RasterPane] = None
-        self._current_point: Optional[GroundControlPoint] = None
-        self._current_point_pair: Optional[List[GroundControlPoint, GroundControlPoint]] = None
-        self._point_list: List[List[GroundControlPoint, GroundControlPoint]] = []
+        self._app_state = app_state
 
-    def draw_state(self, painter: QPainter, rasterpane: RasterPane):
+        self._state: GeoReferencerState = GeoReferencerState.NOTHING_SELECTED
+        self._last_selected_pane: Optional['RasterPane'] = None
+        self._current_selected_pane: Optional['RasterPane'] = None
+        self._current_point: Optional[GroundControlPoint] = None
+        self._current_point_pair: Optional[Tuple[GroundControlPoint, GroundControlPoint]] = None
+        self._point_list: List[Tuple[GroundControlPoint, GroundControlPoint]] = []
+
+    def draw_state(self, painter: QPainter, rasterpane: 'RasterPane'):
         if len(self._point_list) == 0 and self._current_point_pair is None:
             return
         
@@ -153,7 +155,19 @@ class GeoReferencerTaskDelegate(TaskDelegate):
                 painter.drawRect(current_point_scaled[0], current_point_scaled[1], scale, scale)
         
 
-    def on_mouse_release(self, point: List[int, int], rasterpane: RasterPane):
+    def on_mouse_release(self, mouse_event: QMouseEvent, rasterpane: 'RasterPane'):
+        '''
+        When the mouse releases we want to click
+        Args:
+        - point is the point is raster coordinates
+        - rasterpane is the raster pane that was clicked in
+        '''
+
+        if mouse_event.button() == Qt.LeftButton:
+            point: QPointF = rasterpane.get_rasterview().image_coord_to_raster_coord(mouse_event.localPos())
+            point = [point.x(), point.y()]
+        else:
+            return False
         # We want the user to be able to press escape and clear the currently selected raster pane 
         if self._state == GeoReferencerState.NOTHING_SELECTED:
             self.check_state()

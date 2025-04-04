@@ -30,7 +30,9 @@ class GeoReferencerPane(RasterPane):
         '''
         We complete redo how the task delegate variables works here
         '''
-        self._task_delegate
+    
+    def set_task_delegate(self, task_delegate: 'GeoReferencerTaskDelegate'):
+        self._task_delegate = task_delegate
     
     def _init_dataset_tools(self):
         self._dataset_chooser = None
@@ -62,7 +64,7 @@ class GeoReferencerPane(RasterPane):
 
         # print(f'MouseEvent at pos={mouse_event.pos()}, localPos={mouse_event.localPos()}')
 
-        self._task_delegate.on_mouse_release(mouse_event)
+        self._task_delegate.on_mouse_release(mouse_event, self)
 
     def _afterRasterPaint(self, rasterview, widget, paint_event):
         # Draw the pixel highlight, if there is one

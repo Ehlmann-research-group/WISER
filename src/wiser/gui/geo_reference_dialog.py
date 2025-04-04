@@ -9,6 +9,7 @@ from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import RasterPane
 from wiser.gui.geo_reference_pane import GeoReferencerPane
+from wiser.gui.georeference_task_delegate import GeoReferencerTaskDelegate
 
 from wiser.raster.dataset import RasterDataSet
 
@@ -28,6 +29,12 @@ class GeoReferencerDialog(QDialog):
 
         self._target_rasterpane = GeoReferencerPane(app_state=app_state)
         self._reference_rasterpane = GeoReferencerPane(app_state=app_state)
+        self._georeferencer_task_delegate = GeoReferencerTaskDelegate(self._target_rasterpane,
+                                                                      self._reference_rasterpane,
+                                                                      self,
+                                                                      app_state)
+        self._target_rasterpane.set_task_delegate(self._georeferencer_task_delegate)
+        self._reference_rasterpane.set_task_delegate(self._georeferencer_task_delegate)
 
         # Set up dataset choosers 
         self._init_dataset_choosers()
