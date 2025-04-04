@@ -13,7 +13,16 @@ from wiser.gui.georeference_task_delegate import GeoReferencerTaskDelegate
 
 from wiser.raster.dataset import RasterDataSet
 
+ENABLED_COL = 0
+ID_COL = 1
+TARGET_X_COL = 2
+TARGET_Y_COL = 3
+REF_X_COL = 4
+REF_Y_COL = 5
+
 class GeoReferencerDialog(QDialog):
+
+    gcp_pair_added = Signal()
 
     def __init__(self, app_state: ApplicationState, main_view: RasterPane, parent=None):
         super().__init__(parent=parent)
@@ -36,10 +45,17 @@ class GeoReferencerDialog(QDialog):
         self._target_rasterpane.set_task_delegate(self._georeferencer_task_delegate)
         self._reference_rasterpane.set_task_delegate(self._georeferencer_task_delegate)
 
+        self.gcp_pair_added.connect(self._on_gcp_pair_added)
+
         # Set up dataset choosers 
         self._init_dataset_choosers()
         self._init_rasterpanes()
+        self._init_gcp_table()
     
+    def _init_gcp_table(self):
+        headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y"]
+        self._ui.table_gcps.setHorizontalHeaderLabels(headers)
+
     def _init_dataset_choosers(self):
         self._target_cbox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self._target_cbox.activated.connect(self._on_switch_target_dataset)
@@ -59,6 +75,27 @@ class GeoReferencerDialog(QDialog):
         self._ui.widget_ref_image.setLayout(reference_layout)
 
         reference_layout.addWidget(self._reference_rasterpane)
+
+    def _on_gcp_pair_added(self):
+        print(f"GCP POINT ADDED")
+        table_widget = self._ui.table_gcps
+        last_added_gcp_pair = self._georeferencer_task_delegate.get_point_list()[-1]
+        next_row = table_widget.rowCount()
+        table_widget.insertRow(next_row)
+        id = next_row
+        target_x = last_added_gcp_pair.get_target_gcp().get_point()[0]
+        target_y = last_added_gcp_pair.get_target_gcp().get_point()[1]
+        ref_x = last_added_gcp_pair.get_reference_gcp().get_point()[0]
+        ref_y = last_added_gcp_pair.get_reference_gcp().get_point()[1]
+        checkbox = QCheckBox()
+        table_widget.setCellWidget(next_row, ENABLED_COL, checkbox)
+        table_widget.setItem(next_row, ID_COL, QTableWidgetItem(str(id)))
+        table_widget.setItem(next_row, TARGET_X_COL, QTableWidgetItem(str(target_x)))
+        table_widget.setItem(next_row, TARGET_Y_COL, QTableWidgetItem(str(target_y)))
+        table_widget.setItem(next_row, REF_X_COL, QTableWidgetItem(str(ref_x)))
+        table_widget.setItem(next_row, REF_Y_COL, QTableWidgetItem(str(ref_y)))
+
+        return
 
     # Handles populating and updating the dataset choosers
 
