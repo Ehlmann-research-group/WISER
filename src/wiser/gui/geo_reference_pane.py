@@ -49,9 +49,11 @@ class GeoReferencerPane(RasterPane):
     
     def _onRasterMousePress(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_press(mouse_event)
+        self.update_all_rasterviews()
 
     def _onRasterMouseMove(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_move(mouse_event)
+        self.update_all_rasterviews()
 
     def _onRasterMouseRelease(self, rasterview, mouse_event):
         '''
@@ -65,6 +67,7 @@ class GeoReferencerPane(RasterPane):
         # print(f'MouseEvent at pos={mouse_event.pos()}, localPos={mouse_event.localPos()}')
 
         self._task_delegate.on_mouse_release(mouse_event, self)
+        self.update_all_rasterviews()
 
     def _afterRasterPaint(self, rasterview, widget, paint_event):
         # Draw the pixel highlight, if there is one
@@ -73,26 +76,16 @@ class GeoReferencerPane(RasterPane):
         # Let the task-delegate draw any state it needs to draw.
         with get_painter(widget) as painter:
             self._task_delegate.draw_state(painter, self)
-
-    def _has_delegate_for_rasterview(self, rasterview, user_input = True) -> bool:
-        # If we don't even have a task delegate, return False.
-        if self._task_delegate is None:
-            return False
-
-        # Retrieve the delegate's raster-view.  If the delegate's raster-view is
-        # not set, and this call was made because of user input, set the
-        # delegate's raster-view to the passed-in raster-view.
-        td_rasterview_1, td_rasterview_2 = self._task_delegate.get_rasterview()
-
-        # If the task-delegate is taking input from a different raster-view
-        # then don't forward this event.
-        return (td_rasterview_1 is rasterview)
+            self.update_all_rasterviews()
 
     def _onRasterKeyPress(self, rasterview, key_event):
         self._task_delegate.on_key_press(key_event)
+        self.update_all_rasterviews()
 
     def _onRasterKeyRelease(self, rasterview, key_event):
+        print(f"RASTER KEY RELEASE, GeoRefPane, {self.get_rasterview().get_raster_data().get_id()}")
         self._task_delegate.on_key_release(key_event)
+        self.update_all_rasterviews()
 
     def _has_delegate_for_rasterview(self, rasterview: RasterView,
                                      user_input: bool = True) -> bool:

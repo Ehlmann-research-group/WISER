@@ -133,6 +133,8 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             else:
                 painter.drawRect(p[0], p[1], scale, scale)
 
+        if self._current_point_pair is None:
+            return
         gcp_0 = self._current_point_pair[0]
         gcp_1 = self._current_point_pair[1]
 
@@ -240,9 +242,14 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         We want all of our functions to return false because this task delegate
         is permanent for the GeoReferencer Panes it operates on
         '''
-        if key_event == Qt.Key_Enter:
+        print(f"In GeoRefTaskDelegate, key_event: {key_event.key()}")
+        print(f"Qt.Key_Enter: {int(Qt.Key_Enter)}")
+        print(f"Qt.Key_Escape: {int(Qt.Key_Escape)}")
+        if key_event.key() == Qt.Key_Enter or key_event.key() == Qt.Key_Return:
+            print(f"handling ENTER key")
             self.handle_enter_key_release()
-        elif key_event == Qt.Key_Escape:
+        elif key_event.key() == Qt.Key_Escape:
+            print(f"handling ESC key")
             self.handle_escape_key_release()
         return False
 
@@ -252,16 +259,20 @@ class GeoReferencerTaskDelegate(TaskDelegate):
 
         '''
         if self._state == GeoReferencerState.NOTHING_SELECTED:
+            print(f"ESC, NOTHING_SELECTED")
             self._geo_ref_dialog.set_message_text('Must select' \
             'a point before pressing ESC again')
         elif self._state == GeoReferencerState.FIRST_POINT_SELECTED:
+            print(f"ESC, FIRST_POINT_SELECTED")
             # Pressing escape here should bring us back to NOTHING_SELECTED
             # state
             self.check_state()
             self._reset_changeable_state()
             self._state = GeoReferencerState.NOTHING_SELECTED
+            print(f"self._current_point_pair: {self._current_point_pair}")
             self.check_state()
         elif self._state == GeoReferencerState.FIRST_POINT_ENTERED:
+            print(f"ESC, FIRST_POINT_ENTERED")
             self.check_state()
             self._current_selected_pane = self._last_selected_pane
             self._last_selected_pane = None
@@ -269,6 +280,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             self._state = self._state == GeoReferencerState.FIRST_POINT_SELECTED
             self.check_state()
         elif self._state == GeoReferencerState.SECOND_POINT_SELECTED:
+            print(f"ESC, SECOND_POINT_SELECTED")
             self.check_state()
             self._current_selected_pane = None
             self._current_point = None
@@ -286,9 +298,11 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         #   1. We have yet to select a raster pane. This does nothing
         #   2. We have selected a point. In this case 
         if self._state == GeoReferencerState.NOTHING_SELECTED:
+            print(f"ENTER, NOTHING_SELECTED")
             self._geo_ref_dialog.set_message_text('Must select' \
             'a point before pressing ENTER again')
         elif self._state == GeoReferencerState.FIRST_POINT_SELECTED:
+            print(f"ENTER, FIRST_POINT_SELECTED")
             # We want to make sure the state is correct before we continue
             self.check_state()
             self._last_selected_pane = self._current_selected_pane
@@ -296,11 +310,13 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             self._current_point = None
             self._state = GeoReferencerState.FIRST_POINT_ENTERED
         elif self._state == GeoReferencerState.FIRST_POINT_ENTERED:
+            print(f"ENTER, FIRST_POINT_ENTERED")
             self._geo_ref_dialog.set_message_text('Must select' \
             'a second point before pressing ENTER again')
         elif self._state == GeoReferencerState.SECOND_POINT_SELECTED:
+            print(f"ENTER, SECOND_POINT_SELECTED")
             self.check_state()
-            self._point_list.append(self._current_selected_pair)
+            self._point_list.append(self._current_point_pair)
             # Reset all the values
             self._reset_changeable_state()
             # This line is here just for the developers clarity
@@ -316,7 +332,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         self._last_selected_pane = None
         self._current_selected_pane = None
         self._current_point = None
-        self._current_selected_pair = None
+        self._current_point_pair = None
 
     
     def check_state(self):
