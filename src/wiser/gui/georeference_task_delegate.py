@@ -171,13 +171,9 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         self._current_selected_pane: Optional['RasterPane'] = None
         self._current_point: Optional[GroundControlPoint] = None
         self._current_point_pair: Optional[GroundControlPointPair] = None
-        self._point_list: List[GroundControlPointPair] = []
-
-    def get_point_list(self):
-        return self._point_list
 
     def draw_state(self, painter: QPainter, rasterpane: 'RasterPane'):
-        if len(self._point_list) == 0 and self._current_point_pair is None:
+        if self._geo_ref_dialog.get_gcp_table_size() == 0 and self._current_point_pair is None:
             return
         
         color = self._app_state.get_config('raster.selection.edit_outline')
@@ -187,7 +183,9 @@ class GeoReferencerTaskDelegate(TaskDelegate):
 
         scale = rasterpane.get_scale()
 
-        for point_pair in self._point_list:
+        point_pairs: List[GroundControlPointPair] = [entry.get_gcp_pair() for entry in self._geo_ref_dialog.get_table_entries()]
+
+        for point_pair in point_pairs:
             gcp_0 = point_pair.get_target_gcp()
             gcp_1 = point_pair.get_reference_gcp()
             if gcp_0.get_rasterpane() == rasterpane:
@@ -275,7 +273,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             # If they click on the pane that the just clicked on, we tell them
             # to press enter to revert their choice
             if self._last_selected_pane == rasterpane:
-                self._geo_ref_dialog.set_message_text('You already pressed enter.'
+                self._geo_ref_dialog.set_message_text('You already pressed enter. '
                 'Please press ESC to remove previous choice')
             else:
                 # If the pane's are not equal, we want to transition to second point selected state
@@ -290,7 +288,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             self.check_state()
             # If we just clickd on the other raster view, we have to tell the user to press enter first
             if self._current_selected_pane != rasterpane:
-                self._geo_ref_dialog.set_message_text('Please press ENTER before clicking'
+                self._geo_ref_dialog.set_message_text('Please press ENTER before clicking '
                 'on the next raster pane.')
             else:
                 # If the pane's are not equal, we want to transition to second point selected state
@@ -317,10 +315,8 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         print(f"Qt.Key_Enter: {int(Qt.Key_Enter)}")
         print(f"Qt.Key_Escape: {int(Qt.Key_Escape)}")
         if key_event.key() == Qt.Key_Enter or key_event.key() == Qt.Key_Return:
-            print(f"handling ENTER key")
             self.handle_enter_key_release()
         elif key_event.key() == Qt.Key_Escape:
-            print(f"handling ESC key")
             self.handle_escape_key_release()
         return False
 
@@ -331,7 +327,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         '''
         if self._state == GeoReferencerState.NOTHING_SELECTED:
             print(f"ESC, NOTHING_SELECTED")
-            self._geo_ref_dialog.set_message_text('Must select' \
+            self._geo_ref_dialog.set_message_text('Must select ' \
             'a point before pressing ESC again')
         elif self._state == GeoReferencerState.FIRST_POINT_SELECTED:
             print(f"ESC, FIRST_POINT_SELECTED")
@@ -369,11 +365,9 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         #   1. We have yet to select a raster pane. This does nothing
         #   2. We have selected a point. In this case 
         if self._state == GeoReferencerState.NOTHING_SELECTED:
-            print(f"ENTER, NOTHING_SELECTED")
-            self._geo_ref_dialog.set_message_text('Must select' \
+            self._geo_ref_dialog.set_message_text('Must select ' \
             'a point before pressing ENTER again')
         elif self._state == GeoReferencerState.FIRST_POINT_SELECTED:
-            print(f"ENTER, FIRST_POINT_SELECTED")
             # We want to make sure the state is correct before we continue
             self.check_state()
             self._last_selected_pane = self._current_selected_pane
@@ -381,14 +375,11 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             self._current_point = None
             self._state = GeoReferencerState.FIRST_POINT_ENTERED
         elif self._state == GeoReferencerState.FIRST_POINT_ENTERED:
-            print(f"ENTER, FIRST_POINT_ENTERED")
-            self._geo_ref_dialog.set_message_text('Must select' \
+            self._geo_ref_dialog.set_message_text('Must select ' \
             'a second point before pressing ENTER again')
         elif self._state == GeoReferencerState.SECOND_POINT_SELECTED:
-            print(f"ENTER, SECOND_POINT_SELECTED")
             self.check_state()
-            self._point_list.append(self._current_point_pair)
-            self._geo_ref_dialog.gcp_pair_added.emit()
+            self._geo_ref_dialog.gcp_pair_added.emit(self._current_point_pair)
             # Reset all the values
             self._reset_changeable_state()
             # This line is here just for the developers clarity

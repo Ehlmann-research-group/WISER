@@ -53,7 +53,7 @@ class GeoReferencerPane(RasterPane):
 
     def _onRasterMouseMove(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_move(mouse_event)
-        self.update_all_rasterviews()
+        # self.update_all_rasterviews()
 
     def _onRasterMouseRelease(self, rasterview, mouse_event):
         '''
@@ -76,7 +76,6 @@ class GeoReferencerPane(RasterPane):
         # Let the task-delegate draw any state it needs to draw.
         with get_painter(widget) as painter:
             self._task_delegate.draw_state(painter, self)
-            self.update_all_rasterviews()
 
     def _onRasterKeyPress(self, rasterview, key_event):
         self._task_delegate.on_key_press(key_event)
