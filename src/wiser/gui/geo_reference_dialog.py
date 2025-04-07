@@ -12,6 +12,7 @@ from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import RasterPane
 from wiser.gui.geo_reference_pane import GeoReferencerPane
 from wiser.gui.georeference_task_delegate import GeoReferencerTaskDelegate, GroundControlPointPair, GroundControlPoint
+from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 
@@ -24,16 +25,18 @@ class COLUMN_ID(IntEnum):
     TARGET_Y_COL = 3
     REF_X_COL = 4
     REF_Y_COL = 5
-    REMOVAL_COL = 6
+    COLOR_COL = 6
+    REMOVAL_COL = 7
 
 ID_PROPERTY = "ENTRY_ID"
 
 class GeoRefTableEntry:
-    def __init__(self, gcp_pair: GroundControlPointPair, enabled: bool, id: int, residuals: float):
+    def __init__(self, gcp_pair: GroundControlPointPair, enabled: bool, id: int, residuals: float, color: str):
         self._gcp_pair = gcp_pair
         self._enabled = enabled
         self._id = id
         self._residuals = residuals
+        self._color = color  # Hex code for color
 
     # Getter and Setter for gcp_pair
     def get_gcp_pair(self) -> GroundControlPointPair:
@@ -62,6 +65,29 @@ class GeoRefTableEntry:
 
     def set_residuals(self, residuals: float):
         self._residuals = residuals
+
+    # Getter and Setter for residuals
+    def get_color(self) -> str:
+        return self._color
+
+    def set_color(self, color: str):
+        self._color = color
+
+    def replace_entry(self, newEntry: 'GeoRefTableEntry'):
+        self.set_gcp_pair(newEntry.get_gcp_pair())
+        self.set_enabled(newEntry.is_enabled())
+        self.set_id(newEntry.get_id())
+        self.set_residuals(newEntry.get_residuals())
+
+    def __str__(self):
+        return (
+        "=======================\n"
+        f"gcp_pair: {self._gcp_pair}\n"
+        f"id: {self._id}\n"
+        f"enabled: {self._enabled}\n"
+        f"residuals: {self._residuals}\n"
+        "======================="
+    )
 
 class GeoReferencerDialog(QDialog):
 
@@ -96,11 +122,13 @@ class GeoReferencerDialog(QDialog):
         self._init_dataset_choosers()
         self._init_rasterpanes()
         self._init_gcp_table()
-    
+
+    # region Initialization
+
     def _init_gcp_table(self):
         table_widget = self._ui.table_gcps
         table_widget.setColumnCount(len(COLUMN_ID))
-        headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y", "Remove"]
+        headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y", "Color", "Remove"]
         self._ui.table_gcps.setHorizontalHeaderLabels(headers)
 
     def _init_dataset_choosers(self):
@@ -123,6 +151,28 @@ class GeoReferencerDialog(QDialog):
 
         reference_layout.addWidget(self._reference_rasterpane)
 
+    # region Slots
+
+    def _on_choose_color(self, table_entry: GeoRefTableEntry):
+        row = table_entry.get_id()
+        initial_color = QColor(self._table_entry_list[row].get_color())
+        color = QColorDialog.getColor(parent=self, initial=initial_color)
+        if color.isValid():
+            color_str = color.name()
+            self._table_entry_list[row].set_color(color_str)
+            self._set_color_icon(row, color_str)
+            # TODO (Joshua G-K): Change the color icon
+            self._target_rasterpane.update_all_rasterviews()
+            self._reference_rasterpane.update_all_rasterviews()
+
+
+    def _on_enabled_clicked(self, table_entry: GeoRefTableEntry, checked: bool):
+        # Since the table_entry's ID can change, don't just pass in the row_to_add
+        row_to_add = table_entry.get_id()
+        self._set_row_enabled_state(row_to_add, checked)
+        self._target_rasterpane.update_all_rasterviews()
+        self._reference_rasterpane.update_all_rasterviews()
+
     def _on_gcp_pair_added(self, gcp_pair: GroundControlPointPair):
         # Create new table entry
         table_widget = self._ui.table_gcps
@@ -130,14 +180,72 @@ class GeoReferencerDialog(QDialog):
         enabled = True
         id = next_row
         residuals = 0
-        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, residuals)
+        color = get_random_matplotlib_color()
+        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, residuals, color)
         # The row that a GCP is placed on should be the same as its position in the
         # geo referencer task delegate point list
 
-        self._add_table_entry(table_entry)
+        self._add_entry_to_table(table_entry)
         return
 
-    def _add_table_entry(self, table_entry: GeoRefTableEntry):
+    def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
+        self._remove_table_entry(table_entry)
+
+    def _on_switch_target_dataset(self, index: int):
+        ds_id = self._target_cbox.itemData(index)
+        dataset = None
+        try:
+            dataset = self._app_state.get_dataset(ds_id)
+        except:
+            pass
+        self._target_rasterpane.show_dataset(dataset)
+
+    def _on_switch_reference_dataset(self, index: int):
+        ds_id = self._reference_cbox.itemData(index)
+        dataset = None
+        try:
+            dataset = self._app_state.get_dataset(ds_id)
+        except:
+            pass
+        self._reference_rasterpane.show_dataset(dataset)
+
+    # region Table Entry Helpers
+
+    def _set_color_icon(self, row: int, color: str):
+        color_icon = get_color_icon(color)
+        table_widget = self._ui.table_gcps
+        table_item: QPushButton = table_widget.cellWidget(row, COLUMN_ID.COLOR_COL)
+        table_item.setIcon(color_icon)
+
+
+    def _set_row_enabled_state(self, row: int, row_enabled_state: bool, \
+                                exempt_columns: List[COLUMN_ID] = [COLUMN_ID.REMOVAL_COL, COLUMN_ID.ENABLED_COL]):
+        '''
+        Disable all cells in a given row except for the one columns in the exempt_columns list."
+        '''
+        table_widget = self._ui.table_gcps
+        total_columns = table_widget.columnCount()
+        for col in range(total_columns):
+            if col in exempt_columns:
+                continue  # Skip the removal column
+            
+            # Disable QTableWidgetItem if it exists
+            item = table_widget.item(row, col)
+            if item:
+                if row_enabled_state:
+                    item.setFlags(item.flags() | Qt.ItemIsEnabled)
+                else:
+                    # Remove the enabled flag from the item's flags
+                    item.setFlags(item.flags() & ~Qt.ItemIsEnabled)
+            
+            # Also disable any cell widget if one is set (e.g., a QPushButton)
+            widget = table_widget.cellWidget(row, col)
+            if widget:
+                widget.setEnabled(row_enabled_state)
+        self._table_entry_list[row].set_enabled(row_enabled_state)
+
+
+    def _add_entry_to_table(self, table_entry: GeoRefTableEntry):
         '''
         Adds table_entry to the table widget at the row specified by
         table_entry.get_id()
@@ -156,6 +264,7 @@ class GeoReferencerDialog(QDialog):
 
         checkbox = QCheckBox()
         checkbox.setChecked(table_entry.is_enabled())
+        checkbox.clicked.connect(lambda checked : self._on_enabled_clicked(table_entry, checked))
 
         table_widget.setCellWidget(row_to_add, COLUMN_ID.ENABLED_COL, checkbox)
         table_widget.setItem(row_to_add, COLUMN_ID.ID_COL, QTableWidgetItem(str(table_entry.get_id())))
@@ -164,15 +273,19 @@ class GeoReferencerDialog(QDialog):
         table_widget.setItem(row_to_add, COLUMN_ID.REF_X_COL, QTableWidgetItem(str(ref_x)))
         table_widget.setItem(row_to_add, COLUMN_ID.REF_Y_COL, QTableWidgetItem(str(ref_y)))
 
+        color_button = QPushButton()
+        color_button.clicked.connect(lambda checked : self._on_choose_color(table_entry))
+        initial_color = table_entry.get_color()
+        color_icon = get_color_icon(initial_color)
+        color_button.setIcon(color_icon)
+        table_widget.setCellWidget(row_to_add, COLUMN_ID.COLOR_COL, color_button)
+
         pushButton = QPushButton("Remove GCP")
         pushButton.clicked.connect(lambda checked : self._on_removal_button_clicked(table_entry))
         table_widget.setCellWidget(row_to_add, COLUMN_ID.REMOVAL_COL, pushButton)
 
         self._target_rasterpane.update_all_rasterviews()
         self._reference_rasterpane.update_all_rasterviews()
-    
-    def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
-        self._remove_table_entry(table_entry)
 
     def _remove_table_entry(self, table_entry: GeoRefTableEntry) -> Optional[int]:
         '''
@@ -191,8 +304,8 @@ class GeoReferencerDialog(QDialog):
             if table_entry_in_list == table_entry:
                 index_removed = i
                 self._table_entry_list.pop(i)
-                print(f"index removed: ", index_removed)
-                print(f"table_entry.get_id(): ", table_entry.get_id())
+                # print(f"index removed: ", index_removed)
+                # print(f"table_entry.get_id(): ", table_entry.get_id())
                 assert index_removed == table_entry.get_id(), \
                         "The index that table entry was removed does not match its ID"
                 break
@@ -205,6 +318,16 @@ class GeoReferencerDialog(QDialog):
         self._target_rasterpane.update_all_rasterviews()
         self._reference_rasterpane.update_all_rasterviews()
 
+    def _sync_entry_list_index_with_ui_row(self, row: int):
+        '''
+        DEPRECATED: We are suppose to update the list and ui at the
+        same time so this should never be needed.
+        '''
+        entryInTable = self.extract_entry_from_row(row)
+        print(f"entryInTable ID: {entryInTable.get_id()}")
+        print(f"entry in row ID: {self._table_entry_list[row].get_id()}")
+        self._table_entry_list[row].replace_entry(entryInTable)
+
     def _update_entry_ids(self):
         table_widget = self._ui.table_gcps
         for i in range(len(self._table_entry_list)):
@@ -212,21 +335,8 @@ class GeoReferencerDialog(QDialog):
             table_entry.set_id(i)
             # i also functions as the row in the table widget where
             # this entry is currently
-            print(f"updating i: {i}, for column: {COLUMN_ID.ID_COL}")
+            # print(f"updating i: {i}, for column: {COLUMN_ID.ID_COL}")
             table_widget.setItem(i, COLUMN_ID.ID_COL, QTableWidgetItem(str(i)))
-    
-
-    def get_table_entries(self) -> List[GeoRefTableEntry]:
-        # Go through the table and extract the geo referencer dialog for each entry 
-        return self._table_entry_list
-
-    def get_gcp_table_size(self) -> int:
-        print(f"get_gcp_table_size")
-        print(f"len(self._table_entry_list): {len(self._table_entry_list)}")
-        print(f"self._ui.table_gcps.rowCount(): {self._ui.table_gcps.rowCount()}")
-        assert len(self._table_entry_list) == self._ui.table_gcps.rowCount(), \
-                f"Entry number mismatch. Table entry list {len(self._table_entry_list)} and QTableWidget has {self._ui.table_gcps.rowCount()} entries"
-        return len(self._table_entry_list)
 
     def extract_entry_from_row(self, row) -> GeoRefTableEntry:
         '''
@@ -237,27 +347,44 @@ class GeoReferencerDialog(QDialog):
         '''
         table_widget = self._ui.table_gcps
         gcp_pair = GroundControlPointPair(self._target_rasterpane, self._reference_rasterpane)
-        enabled = table_widget.item(row, COLUMN_ID.ENABLED_COL)
-        id = table_widget.item(row, COLUMN_ID.ID_COL)
-        target_x = table_widget.item(row, COLUMN_ID.TARGET_X_COL)
-        target_y = table_widget.item(row, COLUMN_ID.TARGET_Y_COL)
+        enabled = table_widget.cellWidget(row, COLUMN_ID.ENABLED_COL).isChecked()
+        id = int(table_widget.item(row, COLUMN_ID.ID_COL).text())
+        target_x = float(table_widget.item(row, COLUMN_ID.TARGET_X_COL).text())
+        target_y = float(table_widget.item(row, COLUMN_ID.TARGET_Y_COL).text())
         target_gcp = GroundControlPoint((target_x, target_y), \
                                          self._target_rasterpane.get_rasterview().get_raster_data(), \
                                          self._target_rasterpane)
 
-        ref_x = table_widget.item(row, COLUMN_ID.REF_X_COL)
-        ref_y = table_widget.item(row, COLUMN_ID.REF_Y_COL)
+        ref_x = float(table_widget.item(row, COLUMN_ID.REF_X_COL).text())
+        ref_y = float(table_widget.item(row, COLUMN_ID.REF_Y_COL).text())
         ref_gcp = GroundControlPoint((ref_x, ref_y), \
                                      self._reference_rasterpane.get_rasterview().get_raster_data(), \
                                      self._reference_rasterpane)
         gcp_pair.add_gcp(target_gcp)
         gcp_pair.add_gcp(ref_gcp)
 
-        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, residuals=0)
+        color_str = self._table_entry_list[row].get_color()
+
+        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, residuals=0, color=color_str)
         return table_entry
+    
+
+    # region Getters
 
 
-    # Handles populating and updating the dataset choosers
+    def get_table_entries(self) -> List[GeoRefTableEntry]:
+        # Go through the table and extract the geo referencer dialog for each entry 
+        return self._table_entry_list
+
+    def get_gcp_table_size(self) -> int:
+        # print(f"get_gcp_table_size")
+        # print(f"len(self._table_entry_list): {len(self._table_entry_list)}")
+        # print(f"self._ui.table_gcps.rowCount(): {self._ui.table_gcps.rowCount()}")
+        assert len(self._table_entry_list) == self._ui.table_gcps.rowCount(), \
+                f"Entry number mismatch. Table entry list {len(self._table_entry_list)} and QTableWidget has {self._ui.table_gcps.rowCount()} entries"
+        return len(self._table_entry_list)
+
+    # region Dataset Choosers
 
     def _update_target_dataset_chooser(self):
         self._update_dataset_chooser(self._target_cbox)
@@ -331,16 +458,6 @@ class GeoReferencerDialog(QDialog):
     #         stretches = self._app_state.get_stretches(ds_id, bands)
 
     #     rasterview.set_raster_data(dataset, bands, stretches)
-
-    def _on_switch_target_dataset(self, index: int):
-        ds_id = self._target_cbox.itemData(index)
-        dataset = self._app_state.get_dataset(ds_id)
-        self._target_rasterpane.show_dataset(dataset)
-
-    def _on_switch_reference_dataset(self, index: int):
-        ds_id = self._reference_cbox.itemData(index)
-        dataset = self._app_state.get_dataset(ds_id)
-        self._reference_rasterpane.show_dataset(dataset)
 
     def set_message_text(self, text: str):
         self._ui.lbl_message.setText(text)

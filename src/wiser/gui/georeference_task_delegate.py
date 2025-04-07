@@ -37,6 +37,8 @@ class GroundControlPoint:
 
     def get_scaled_point(self) -> Tuple[int, int]:
         scale = self._rasterpane.get_scale()
+        print(f"get_scaled_point, type(self._point[0]): {type(self._point[0])}")
+        print(f"get_scaled_point, scale: {scale}")
         return [self._point[0]*scale, self._point[1]*scale]
 
     def get_rasterpane(self) -> 'RasterPane':
@@ -183,25 +185,36 @@ class GeoReferencerTaskDelegate(TaskDelegate):
 
         scale = rasterpane.get_scale()
 
-        point_pairs: List[GroundControlPointPair] = [entry.get_gcp_pair() for entry in self._geo_ref_dialog.get_table_entries()]
+        point_pairs: List[GroundControlPointPair] = \
+            [entry.get_gcp_pair() for entry in self._geo_ref_dialog.get_table_entries() if entry.is_enabled()]
 
-        for point_pair in point_pairs:
+        table_entries = self._geo_ref_dialog.get_table_entries()
+
+        for entry in table_entries:
+            point_pair: GroundControlPointPair = entry.get_gcp_pair()
+            color = QColor(entry.get_color())
+            enabled = entry.is_enabled()
+            if not enabled:
+                continue
+            painter.setPen(QPen(color))
             gcp_0 = point_pair.get_target_gcp()
             gcp_1 = point_pair.get_reference_gcp()
+            gcp_scaled = None
             if gcp_0.get_rasterpane() == rasterpane:
-                points_scaled.append(gcp_0.get_scaled_point())
+                gcp_scaled = gcp_0.get_scaled_point()
             elif gcp_1.get_rasterpane() == rasterpane:
-                points_scaled.append(gcp_1.get_scaled_point())
-
-        for p in points_scaled:
+                gcp_scaled = gcp_1.get_scaled_point()
+        
+            assert gcp_scaled is not None, "Got a GCP scaled point as None!"
+    
             if scale >= 6:
-                painter.drawRect(p[0] + PIXEL_OFFSET,
-                                 p[1] + PIXEL_OFFSET,
+                painter.drawRect(gcp_scaled[0] + PIXEL_OFFSET,
+                                 gcp_scaled[1] + PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET)
             else:
                 draw_size = scale if scale >= 1 else 1
-                painter.drawRect(p[0], p[1], draw_size, draw_size)
+                painter.drawRect(gcp_scaled[0], gcp_scaled[1], draw_size, draw_size)
 
         if self._current_point_pair is None:
             return
