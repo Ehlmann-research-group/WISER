@@ -129,7 +129,9 @@ class GeoReferencerDialog(QDialog):
         table_widget = self._ui.table_gcps
         table_widget.setColumnCount(len(COLUMN_ID))
         headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y", "Color", "Remove"]
-        self._ui.table_gcps.setHorizontalHeaderLabels(headers)
+        table_widget.setHorizontalHeaderLabels(headers)
+
+        table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
     def _init_dataset_choosers(self):
         self._target_cbox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
@@ -195,6 +197,12 @@ class GeoReferencerDialog(QDialog):
         ds_id = self._target_cbox.itemData(index)
         dataset = None
         try:
+            if len(self._table_entry_list) > 0:
+                confirm = QMessageBox.question(self, self.tr("Change reference dataset?"),
+                                     self.tr("Are you sure you want to change the reference dataset?") +
+                                     "\n\nThis will discard all selected GCPs")
+                if confirm == QMessageBox.Yes:
+                    self._reset_gcps()
             dataset = self._app_state.get_dataset(ds_id)
         except:
             pass
@@ -204,12 +212,32 @@ class GeoReferencerDialog(QDialog):
         ds_id = self._reference_cbox.itemData(index)
         dataset = None
         try:
+            if len(self._table_entry_list) > 0:
+                confirm = QMessageBox.question(self, self.tr("Change reference dataset?"),
+                                     self.tr("Are you sure you want to change the reference dataset?") +
+                                     "\n\nThis will discard all selected GCPs")
+                if confirm == QMessageBox.Yes:
+                    self._reset_gcps()
+                else:
+                    return
             dataset = self._app_state.get_dataset(ds_id)
+            if not dataset.has_geographic_info():
+                QMessageBox.warning(self, self.tr("Unreferenced Dataset"), \
+                                    self.tr("You must choose a dataset with a spatial reference system"))
+                return
         except:
             pass
         self._reference_rasterpane.show_dataset(dataset)
 
     # region Table Entry Helpers
+
+    def _reset_gcps(self):
+        '''
+        Clears all of the entries in the table widget and in the list of entries
+        '''
+        self._table_entry_list = []
+        self._ui.table_gcps.clearContents()
+        self._ui.table_gcps.setRowCount(0)
 
     def _set_color_icon(self, row: int, color: str):
         color_icon = get_color_icon(color)

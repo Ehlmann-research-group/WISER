@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Georeferencer Dialog</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
@@ -274,7 +274,7 @@
           <item>
            <widget class="QLabel" name="lbl_srs">
             <property name="text">
-             <string>Spatial Reference System</string>
+             <string>Target SRS</string>
             </property>
            </widget>
           </item>
@@ -388,7 +388,7 @@
 }</string>
         </property>
         <property name="columnCount">
-         <number>7</number>
+         <number>1</number>
         </property>
         <attribute name="horizontalHeaderCascadingSectionResizes">
          <bool>false</bool>
@@ -405,12 +405,6 @@
         <attribute name="verticalHeaderVisible">
          <bool>false</bool>
         </attribute>
-        <column/>
-        <column/>
-        <column/>
-        <column/>
-        <column/>
-        <column/>
         <column/>
        </widget>
       </item>

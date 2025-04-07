@@ -37,8 +37,6 @@ class GroundControlPoint:
 
     def get_scaled_point(self) -> Tuple[int, int]:
         scale = self._rasterpane.get_scale()
-        print(f"get_scaled_point, type(self._point[0]): {type(self._point[0])}")
-        print(f"get_scaled_point, scale: {scale}")
         return [self._point[0]*scale, self._point[1]*scale]
 
     def get_rasterpane(self) -> 'RasterPane':
