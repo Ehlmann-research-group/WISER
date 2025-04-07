@@ -444,10 +444,11 @@ class ImageScrollArea(QScrollArea):
     this logic.
     '''
 
-    def __init__(self, rasterview, forward, parent=None):
+    def __init__(self, rasterview, forward, rasterpane, parent=None):
         super().__init__(parent)
-        self._rasterview = rasterview
+        self._rasterview: 'RasterView' = rasterview
         self._forward = forward
+        self._rasterpane = rasterpane
         self.propagate_scroll = True  # External objects control whether signals should be propagated or not
 
     def ensureVisible(self, x: int, y: int, xmargin: int, ymargin: int):
@@ -470,6 +471,19 @@ class ImageScrollArea(QScrollArea):
         scrollbar.setValue(value)
         self.propagate_scroll = True
 
+    def wheelEvent(self, event: QWheelEvent):
+        # If Ctrl is pressed, intercept the wheel event to perform zooming
+        if event.modifiers() & Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self._rasterpane._on_zoom_in(None)
+            else:
+                self._rasterpane._on_zoom_out(None)
+
+        else:
+            # No Ctrl pressed: execute default scrolling behavior.
+            super().wheelEvent(event)
+
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
 
@@ -483,7 +497,10 @@ class RasterView(QWidget):
     regions of interest, etc.
     '''
 
-    def __init__(self, parent=None, forward=None, app_state: ApplicationState = None):
+    def __init__(self, parent=None, forward=None, app_state: ApplicationState = None, rasterpane = None):
+        '''
+        Parent is assumed to be the raster pane
+        '''
         super().__init__(parent=parent)
 
         if forward == None:
@@ -503,7 +520,7 @@ class RasterView(QWidget):
 
         # The scroll area used to handle images larger than the widget size
 
-        self._scroll_area = ImageScrollArea(self, forward)
+        self._scroll_area = ImageScrollArea(self, forward, rasterpane=rasterpane)
         self._scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._scroll_area.setBackgroundRole(QPalette.Dark)
         self._scroll_area.setWidget(self._image_widget)

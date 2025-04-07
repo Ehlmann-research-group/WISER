@@ -62,7 +62,7 @@ class TiledRasterView(RasterView):
     '''
 
     def __init__(self, rasterpane, position, app_state: ApplicationState, parent=None, forward=None):
-        super().__init__(parent=parent, forward=forward, app_state=app_state)
+        super().__init__(parent=parent, forward=forward, app_state=app_state, rasterpane=rasterpane)
 
         self._rasterpane = rasterpane
         self._position = position
