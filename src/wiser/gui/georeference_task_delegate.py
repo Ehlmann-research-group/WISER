@@ -42,6 +42,9 @@ class GroundControlPoint:
     def get_rasterpane(self) -> 'RasterPane':
         return self._rasterpane
 
+    def get_spatial_point(self):
+        return self._dataset.to_geographic_coords(self._point)
+
 class GroundControlPointPair:
     '''
     Handles the logic of separating out the target gcp and reference gcp since the user
@@ -102,6 +105,7 @@ class GroundControlPointPair:
         return self._target_gcp
     
     def get_reference_gcp(self):
+        print(f"getting reference gcp: {self._ref_gcp}")
         return self._ref_gcp
 
 
@@ -290,7 +294,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
                 # If the pane's are not equal, we want to transition to second point selected state
                 self._current_selected_pane = rasterpane
                 self._current_point = GroundControlPoint(point,
-                                                         rasterpane.get_rasterview().get_raster_data,
+                                                         rasterpane.get_rasterview().get_raster_data(),
                                                          rasterpane)
                 self._current_point_pair.add_gcp(self._current_point)
                 self._state = GeoReferencerState.SECOND_POINT_SELECTED

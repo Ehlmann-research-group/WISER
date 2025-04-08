@@ -18,7 +18,7 @@ from wiser.raster.dataset import RasterDataSet
 
 from enum import IntEnum, Enum
 
-from osgeo import gdal
+from osgeo import gdal, osr
 
 class COLUMN_ID(IntEnum):
     ENABLED_COL = 0
@@ -51,9 +51,9 @@ class TRANSFORM_TYPES(Enum):
     TPS = "Thin Plate Spline (TPS)"
 
 COMMON_SRS = {
-    "WGS84 EPSG:4326": "EPSG:4326",
-    "Web Mercator EPSG:3857": "EPSG:3857",
-    "NAD83 / UTM zone 15N EPSG:26915": "EPSG:26915",
+    "WGS84 EPSG:4326": 4326,
+    "Web Mercator EPSG:3857": 3857,
+    "NAD83 / UTM zone 15N EPSG:26915": 26915,
     # Add more as required by your application.
 }
 
@@ -300,6 +300,8 @@ class GeoReferencerDialog(QDialog):
 
         self._add_entry_to_table(table_entry)
 
+        self._georeference()
+
     def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
         self._remove_table_entry(table_entry)
 
@@ -343,8 +345,10 @@ class GeoReferencerDialog(QDialog):
 
     def _get_save_file_path(self) -> str:
         path = self._ui.ledit_save_path.text()
-        abs_path = os.path.abspath(path)
-        return abs_path
+        if len(path) > 0:
+            abs_path = os.path.abspath(path)
+            return abs_path
+        return None
 
 
     def _reset_gcps(self):
@@ -605,3 +609,107 @@ class GeoReferencerDialog(QDialog):
 
     def set_message_text(self, text: str):
         self._ui.lbl_message.setText(text)
+
+    # Math
+
+    def _georeference(self):
+        save_path = self._get_save_file_path()
+        print(f"geo_referencing!!!")
+        print(f"save path: {save_path}")
+        if save_path is None:
+            return
+
+        gdal.UseExceptions()
+
+        dataset = self._target_rasterpane.get_rasterview().get_raster_data()
+        height = dataset.get_height()  # number of lines (rows)
+        width = dataset.get_width()    # number of samples (columns)
+        # Get the appropriate driver, for example, GeoTIFF:
+        driver = gdal.GetDriverByName('GTiff')
+
+        # dst_ds = driver.CreateCopy(save_path, gdal_dataset, 0)
+        temp_ds = driver.Create(save_path, width, height, 1, gdal.GDT_Float32)
+
+        gcps = []
+        for table_entry in self._table_entry_list:
+            spatial_coord = table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
+            print(f"spatial_coord: {spatial_coord}")
+            assert spatial_coord is not None, f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
+            target_pixel_coord = table_entry.get_gcp_pair().get_target_gcp().get_point()
+            gcps.append(gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1]))
+        
+        ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
+        ref_srs = ref_dataset.get_spatial_ref()
+        ref_projection = ref_dataset.get_wkt_spatial_reference()
+        assert ref_projection is not None and ref_srs is not None, \
+                f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
+
+        temp_ds.SetGCPs(gcps, ref_projection)
+
+        dst_srs = osr.SpatialReference()
+        dst_srs.ImportFromEPSG(self._current_srs)
+        dst_projection = dst_srs.ExportToWkt()
+
+        warp_kwargs = {
+            "resampleAlg": self._current_resample_alg,
+            "dstSRS": dst_projection
+        }
+
+        if self._current_transform_type == TRANSFORM_TYPES.TPS:
+            warp_kwargs["tps"] = True
+        elif self._current_transform_type == TRANSFORM_TYPES.POLY_1:
+            warp_kwargs["polynomialOrder"] = 1
+        elif self._current_transform_type == TRANSFORM_TYPES.POLY_2:
+            warp_kwargs["polynomialOrder"] = 2
+        elif self._current_transform_type == TRANSFORM_TYPES.POLY_3:
+            warp_kwargs["polynomialOrder"] = 3
+        else:
+            raise RuntimeError(f"Unknown self._current_transform_type: {self._current_transform_type}")
+
+        warp_options = gdal.WarpOptions(**warp_kwargs)
+
+        base, ext = os.path.splitext(save_path)
+
+        transformed_ds = gdal.Warp(f"{base}_temp.{ext}", temp_ds, options=warp_options)
+        if transformed_ds is None:
+            raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
+    
+        gt = transformed_ds.GetGeoTransform()
+        if gt is None:
+            raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
+    
+
+        transformation = osr.CoordinateTransformation(ref_srs, dst_srs)
+        residuals = []
+        for gcp in gcps:
+            print(f"================================")
+            # Apply the affine transformation of the new dataset to the GCP's pixel coordinates.
+            computed_map_x_target_srs = gt[0] + gt[1]*gcp.GCPPixel + gt[2]*gcp.GCPLine
+            computed_map_y_target_srs = gt[3] + gt[4]*gcp.GCPPixel + gt[5]*gcp.GCPLine
+            print(f"computed_map_x_target_srs: {computed_map_x_target_srs}")
+            print(f"computed_map_y_target_srs: {computed_map_y_target_srs}")
+
+            transformed_coord = transformation.TransformPoint(computed_map_x_target_srs, computed_map_y_target_srs, 0)
+
+            computed_map_x_dst_srs = transformed_coord[0]
+            computed_map_y_dst_srs = transformed_coord[1]
+            print(f"computed_map_x_dst_srs: {computed_map_x_dst_srs}")
+            print(f"computed_map_y_dst_srs: {computed_map_y_dst_srs}")
+
+            print(f"gcp.GCPX: {gcp.GCPX}")
+            print(f"gcp.GCPY: {gcp.GCPY}")
+
+            # Compute errors in map coordinates.
+            error_x_map = gcp.GCPX - computed_map_x_dst_srs
+            error_y_map = gcp.GCPY - computed_map_y_dst_srs
+
+            pixel_width = abs(gt[1])
+            pixel_height = abs(gt[5])
+
+            error_x_pixels = error_x_map / pixel_width if pixel_width else 0
+            error_y_pixels = error_y_map / pixel_height if pixel_height else 0
+            
+            residuals.append((error_x_pixels, error_y_pixels))
+            print(f"GCP at pixel ({gcp.GCPPixel}, {gcp.GCPLine}): Residual error: X: {error_x_pixels:.2f} px, Y: {error_y_pixels:.2f} px")
+
+        
