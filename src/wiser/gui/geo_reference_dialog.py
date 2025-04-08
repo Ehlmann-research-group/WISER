@@ -1,4 +1,4 @@
-
+import os
 from typing import List, Optional
 
 from PySide2.QtCore import *
@@ -156,8 +156,12 @@ class GeoReferencerDialog(QDialog):
         self._init_srs_cbox()
         self._init_interpolation_type_cbox()
         self._init_poly_order_cbox()
+        self._init_file_saver()
 
     # region Initialization
+
+    def _init_file_saver(self):
+        self._ui.btn_save_path.clicked.connect(self._on_choose_save_filename)
 
     def _init_srs_cbox(self):
         """Initialize the spatial reference combo box."""
@@ -223,6 +227,33 @@ class GeoReferencerDialog(QDialog):
     #========================
     # region Slots
     #========================
+
+    def _on_choose_save_filename(self, checked=False):
+        '''
+        A handler for when the file-chooser for the "save-filename" is shown.
+        '''
+
+        file_dialog = QFileDialog(parent=self,
+            caption=self.tr('Save raster dataset'))
+
+        # Restrict selection to only .tif files.
+        file_dialog.setNameFilter("TIFF files (*.tif)")
+        # Optionally, set a default suffix to ensure the saved file gets a .tif extension.
+        file_dialog.setDefaultSuffix("tif")
+        file_dialog.setAcceptMode(QFileDialog.AcceptSave)
+
+        # If there is already an initial filename, select it in the dialog.
+        initial_filename = self._ui.ledit_save_path.text().strip()
+        if len(initial_filename) > 0:
+            base, ext = os.path.splitext(initial_filename)
+            if ext.lower() != ".tif":
+                initial_filename = f"{base}.tif"
+            file_dialog.selectFile(initial_filename)
+
+        result = file_dialog.exec()
+        if result == QDialog.Accepted:
+            filename = file_dialog.selectedFiles()[0]
+            self._ui.ledit_save_path.setText(filename)
 
     def _on_switch_srs(self, index: int):
         srs = self._ui.cbox_srs.itemData(index)
@@ -309,6 +340,12 @@ class GeoReferencerDialog(QDialog):
         self._reference_rasterpane.show_dataset(dataset)
 
     # region Table Entry Helpers
+
+    def _get_save_file_path(self) -> str:
+        path = self._ui.ledit_save_path.text()
+        abs_path = os.path.abspath(path)
+        return abs_path
+
 
     def _reset_gcps(self):
         '''
