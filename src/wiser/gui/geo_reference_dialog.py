@@ -16,7 +16,9 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 
-from enum import IntEnum
+from enum import IntEnum, Enum
+
+from osgeo import gdal
 
 class COLUMN_ID(IntEnum):
     ENABLED_COL = 0
@@ -29,6 +31,31 @@ class COLUMN_ID(IntEnum):
     REMOVAL_COL = 7
 
 ID_PROPERTY = "ENTRY_ID"
+
+# RESAMPLE_ALGORITHMS = {
+#     "Nearest Neighbour": gdal.GRA_NearestNeighbour,
+#     "Bilinear": gdal.GRA_Bilinear,
+#     "Cubic": gdal.GRA_Cubic,
+#     "Cubic Spline": gdal.GRA_CubicSpline,
+#     "Lanczos": gdal.GRA_Lanczos,
+#     "Average": gdal.GRA_Average,
+#     "Mode": gdal.GRA_Mode
+# }
+
+RESAMPLE_ALGORITHMS = {name: getattr(gdal, name) for name in dir(gdal) if name.startswith("GRA_")}
+
+class TRANSFORM_TYPES(Enum):
+    POLY_1 = "Affine (Polynomial 1)"
+    POLY_2 = "Polynomial 2"
+    POLY_3 = "Polynomial 3"
+    TPS = "Thin Plate Spline (TPS)"
+
+COMMON_SRS = {
+    "WGS84 EPSG:4326": "EPSG:4326",
+    "Web Mercator EPSG:3857": "EPSG:3857",
+    "NAD83 / UTM zone 15N EPSG:26915": "EPSG:26915",
+    # Add more as required by your application.
+}
 
 class GeoRefTableEntry:
     def __init__(self, gcp_pair: GroundControlPointPair, enabled: bool, id: int, residuals: float, color: str):
@@ -118,12 +145,52 @@ class GeoReferencerDialog(QDialog):
 
         self._table_entry_list: List[GeoRefTableEntry] = []
 
+        self._current_srs: str = None
+        self._current_resample_alg = None
+        self._current_transform_type: TRANSFORM_TYPES = None
+
         # Set up dataset choosers 
         self._init_dataset_choosers()
         self._init_rasterpanes()
         self._init_gcp_table()
+        self._init_srs_cbox()
+        self._init_interpolation_type_cbox()
+        self._init_poly_order_cbox()
 
     # region Initialization
+
+    def _init_srs_cbox(self):
+        """Initialize the spatial reference combo box."""
+        srs_cbox = self._ui.cbox_srs
+        srs_cbox.activated.connect(self._on_switch_srs)
+        srs_cbox.clear()
+        # Use the friendly key (e.g., "WGS84") as the display text,
+        # and store the corresponding SRS string (e.g., "EPSG:4326") as userData.
+        for name, srs in COMMON_SRS.items():
+            srs_cbox.addItem(name, srs)
+        self._on_switch_srs(0)
+
+    def _init_interpolation_type_cbox(self):
+        """Initialize the interpolation type combo box using the GDAL resample constants."""
+        interp_type_cbox = self._ui.cbox_interpolation
+        interp_type_cbox.activated.connect(self._on_switch_resample_alg)
+        interp_type_cbox.clear()
+        # Sorting the keys gives a consistent order.
+        for name in sorted(RESAMPLE_ALGORITHMS.keys()):
+            # The display text is the name, and the actual GDAL constant is stored as userData.
+            interp_type_cbox.addItem(name, RESAMPLE_ALGORITHMS[name])
+        self._on_switch_resample_alg(0)  # Initializes the data to be the first displayed item
+
+    def _init_poly_order_cbox(self):
+        """Initialize the transformation type (polynomial order) combo box from the enum."""
+        poly_order_cbox = self._ui.cbox_poly_order
+        poly_order_cbox.activated.connect(self._on_switch_transform_type)
+        poly_order_cbox.clear()
+        # Iterate through each transformation type in the TRANSFORM_TYPES enum.
+        for transform in TRANSFORM_TYPES:
+            # Display the string (e.g., "Affine (Polynomial 1)") and store the enum member as userData.
+            poly_order_cbox.addItem(transform.value, transform)
+        self._on_switch_transform_type(0)
 
     def _init_gcp_table(self):
         table_widget = self._ui.table_gcps
@@ -153,7 +220,21 @@ class GeoReferencerDialog(QDialog):
 
         reference_layout.addWidget(self._reference_rasterpane)
 
+    #========================
     # region Slots
+    #========================
+
+    def _on_switch_srs(self, index: int):
+        srs = self._ui.cbox_srs.itemData(index)
+        self._current_srs = srs
+
+    def _on_switch_resample_alg(self, index: int):
+        resample_alg = self._ui.cbox_interpolation.itemData(index)
+        self._current_resample_alg = resample_alg
+
+    def _on_switch_transform_type(self, index: int):
+        transform_type = self._ui.cbox_poly_order.itemData(index)
+        self._current_transform_type = transform_type
 
     def _on_choose_color(self, table_entry: GeoRefTableEntry):
         row = table_entry.get_id()
@@ -166,7 +247,6 @@ class GeoReferencerDialog(QDialog):
             # TODO (Joshua G-K): Change the color icon
             self._target_rasterpane.update_all_rasterviews()
             self._reference_rasterpane.update_all_rasterviews()
-
 
     def _on_enabled_clicked(self, table_entry: GeoRefTableEntry, checked: bool):
         # Since the table_entry's ID can change, don't just pass in the row_to_add
@@ -188,7 +268,6 @@ class GeoReferencerDialog(QDialog):
         # geo referencer task delegate point list
 
         self._add_entry_to_table(table_entry)
-        return
 
     def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
         self._remove_table_entry(table_entry)

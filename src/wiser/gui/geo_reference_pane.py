@@ -46,7 +46,6 @@ class GeoReferencerPane(RasterPane):
         '''
         return
 
-    
     def _onRasterMousePress(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_press(mouse_event)
         self.update_all_rasterviews()
