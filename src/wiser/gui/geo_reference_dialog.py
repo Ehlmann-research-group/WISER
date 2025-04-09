@@ -145,7 +145,7 @@ class GeoReferencerDialog(QDialog):
 
         self._table_entry_list: List[GeoRefTableEntry] = []
 
-        self._current_srs: str = None
+        self._curr_target_srs: str = None
         self._current_resample_alg = None
         self._current_transform_type: TRANSFORM_TYPES = None
 
@@ -257,7 +257,7 @@ class GeoReferencerDialog(QDialog):
 
     def _on_switch_srs(self, index: int):
         srs = self._ui.cbox_srs.itemData(index)
-        self._current_srs = srs
+        self._curr_target_srs = srs
 
     def _on_switch_resample_alg(self, index: int):
         resample_alg = self._ui.cbox_interpolation.itemData(index)
@@ -499,13 +499,14 @@ class GeoReferencerDialog(QDialog):
         id = int(table_widget.item(row, COLUMN_ID.ID_COL).text())
         target_x = float(table_widget.item(row, COLUMN_ID.TARGET_X_COL).text())
         target_y = float(table_widget.item(row, COLUMN_ID.TARGET_Y_COL).text())
-        target_gcp = GroundControlPoint((target_x, target_y), \
+        # We add 0.5 so its in the center of the pixel
+        target_gcp = GroundControlPoint((target_x+0.5, target_y+0.5), \
                                          self._target_rasterpane.get_rasterview().get_raster_data(), \
                                          self._target_rasterpane)
 
         ref_x = float(table_widget.item(row, COLUMN_ID.REF_X_COL).text())
         ref_y = float(table_widget.item(row, COLUMN_ID.REF_Y_COL).text())
-        ref_gcp = GroundControlPoint((ref_x, ref_y), \
+        ref_gcp = GroundControlPoint((ref_x+0.5, ref_y+0.5), \
                                      self._reference_rasterpane.get_rasterview().get_raster_data(), \
                                      self._reference_rasterpane)
         gcp_pair.add_gcp(target_gcp)
@@ -640,19 +641,20 @@ class GeoReferencerDialog(QDialog):
         
         ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
         ref_srs = ref_dataset.get_spatial_ref()
+        ref_gt = ref_dataset.get_geo_transform()
         ref_projection = ref_dataset.get_wkt_spatial_reference()
-        assert ref_projection is not None and ref_srs is not None, \
+        assert ref_projection is not None and ref_srs is not None and ref_gt is not None, \
                 f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
 
         temp_ds.SetGCPs(gcps, ref_projection)
 
-        dst_srs = osr.SpatialReference()
-        dst_srs.ImportFromEPSG(self._current_srs)
-        dst_projection = dst_srs.ExportToWkt()
+        target_srs = osr.SpatialReference()
+        target_srs.ImportFromEPSG(self._curr_target_srs)
+        target_projection = target_srs.ExportToWkt()
 
         warp_kwargs = {
             "resampleAlg": self._current_resample_alg,
-            "dstSRS": dst_projection
+            "dstSRS": target_projection
         }
 
         if self._current_transform_type == TRANSFORM_TYPES.TPS:
@@ -679,32 +681,46 @@ class GeoReferencerDialog(QDialog):
             raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
     
 
-        transformation = osr.CoordinateTransformation(ref_srs, dst_srs)
+        transformation = osr.CoordinateTransformation(target_srs, ref_srs)
+        # print(f"pixel width: {abs(gt[1])}")
+        # print(f"pixel height: {abs(gt[5])}")
         residuals = []
         for gcp in gcps:
+            # For each gcp we transform it to the target_srs and get the error code
+
+            # Then we use the GCP's to get a geo transform. 
+
+            # Then we use the GCP's pixel info and the geo transform to project it into spatial coordinate space. 
+
             print(f"================================")
             # Apply the affine transformation of the new dataset to the GCP's pixel coordinates.
-            computed_map_x_target_srs = gt[0] + gt[1]*gcp.GCPPixel + gt[2]*gcp.GCPLine
-            computed_map_y_target_srs = gt[3] + gt[4]*gcp.GCPPixel + gt[5]*gcp.GCPLine
-            print(f"computed_map_x_target_srs: {computed_map_x_target_srs}")
-            print(f"computed_map_y_target_srs: {computed_map_y_target_srs}")
+            computed_map_we_target_srs = gt[0] + gt[1]*gcp.GCPPixel + gt[2]*gcp.GCPLine
+            computed_map_ns_target_srs = gt[3] + gt[4]*gcp.GCPPixel + gt[5]*gcp.GCPLine
+            print(f"computed_map_we_target_srs: {computed_map_we_target_srs}")
+            print(f"computed_map_ns_target_srs: {computed_map_ns_target_srs}")
+            print(f"gdal.ApplyGeoTransform target: {gdal.ApplyGeoTransform(gt, gcp.GCPPixel, gcp.GCPLine)}")
+            print(f"gdal.ApplyGeoTransform ref: {gdal.ApplyGeoTransform(ref_gt, gcp.GCPPixel, gcp.GCPLine)}")
 
-            transformed_coord = transformation.TransformPoint(computed_map_x_target_srs, computed_map_y_target_srs, 0)
+            transformed_coord = transformation.TransformPoint(computed_map_ns_target_srs, computed_map_we_target_srs, 0)
 
-            computed_map_x_dst_srs = transformed_coord[0]
-            computed_map_y_dst_srs = transformed_coord[1]
-            print(f"computed_map_x_dst_srs: {computed_map_x_dst_srs}")
-            print(f"computed_map_y_dst_srs: {computed_map_y_dst_srs}")
+            computed_map_x_ref_srs = transformed_coord[0]
+            computed_map_y_ref_srs = transformed_coord[1]
+            print(f"computed_map_x_ref_srs: {computed_map_x_ref_srs}")
+            print(f"computed_map_y_ref_srs: {computed_map_y_ref_srs}")
 
             print(f"gcp.GCPX: {gcp.GCPX}")
             print(f"gcp.GCPY: {gcp.GCPY}")
 
             # Compute errors in map coordinates.
-            error_x_map = gcp.GCPX - computed_map_x_dst_srs
-            error_y_map = gcp.GCPY - computed_map_y_dst_srs
+            error_x_map = gcp.GCPX - computed_map_x_ref_srs
+            error_y_map = gcp.GCPY - computed_map_y_ref_srs
+            print(f"error_x_map: {error_x_map}")
+            print(f"error_y_map: {error_y_map}")
 
-            pixel_width = abs(gt[1])
-            pixel_height = abs(gt[5])
+            pixel_width = abs(ref_gt[1])
+            pixel_height = abs(ref_gt[5])
+            print(f"pixel_width: {pixel_width}")
+            print(f"pixel_height: {pixel_height}")
 
             error_x_pixels = error_x_map / pixel_width if pixel_width else 0
             error_y_pixels = error_y_map / pixel_height if pixel_height else 0
