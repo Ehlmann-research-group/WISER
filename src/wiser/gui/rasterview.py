@@ -350,16 +350,17 @@ class ImageWidget(QWidget):
         self._forward: Dict = forward
 
         self._scaled_size: Optional[QSize] = None
+        # self._center_point = None
 
         self.setMouseTracking(True)
 
-    def set_dataset_info(self, dataset, scale):
+    def set_dataset_info(self, dataset, scale): # , center_point: Tuple[int, int] = None):
         # TODO(donnie):  Do something
         if dataset is not None:
             width = dataset.get_width()
             height = dataset.get_height()
             self._scaled_size = QSize(int(width * scale), int(height * scale))
-
+            # self._center_point = center_point
         else:
             self._scaled_size = None
 
@@ -421,6 +422,8 @@ class ImageWidget(QWidget):
                 painter.drawPixmap(0, 0,
                     self._scaled_size.width(), self._scaled_size.height(), pixmap,
                     0, 0, 0, 0)
+                # print(f"self._scaled_size.width(): {self._scaled_size.width()}")
+                # print(f"self._scaled_size.height(): {self._scaled_size.height()}")
 
                 if 'paintEvent' in self._forward:
                     self._forward['paintEvent'](self._rasterview, self, paint_event)
@@ -461,6 +464,74 @@ class ImageScrollArea(QScrollArea):
         # usually we will want to set propagate scroll back to true after doing an operation
         # that we don't want to propagate
         self.propagate_scroll = True
+    
+    def make_point_center(self, point: Tuple[int, int]):
+        '''
+        Makes 'point' the center of the viewport by changing the scroll area.
+        If the point cannot be made exactly center because it is by the edge, the 
+        scroll area gets as close as possible.
+
+        Parameters:
+            point (Tuple[int, int]): A tuple representing the (x, y) coordinates 
+                                     within the widget (image) that should be centered.
+        '''
+        pos = QPointF(point[0], point[1]) 
+        # Get the current viewport size
+        viewport = self.viewport()
+        viewport_width = viewport.width()
+        viewport_height = viewport.height()
+
+        raster_width = self._rasterview.get_raster_data().get_width()
+        raster_height = self._rasterview.get_raster_data().get_height()
+
+        # Retrieve the scroll bars
+        h_scrollbar = self.horizontalScrollBar()
+        v_scrollbar = self.verticalScrollBar()
+
+        widget = self.widget()
+
+        old_scale = self._rasterpane.get_scale()
+        scrollBarPos: QPointF = QPointF(self.horizontalScrollBar().value(), \
+                                        self.verticalScrollBar().value())
+        deltaToPos = pos / old_scale - widget.pos() / old_scale
+        print(f"widgetPos: {widget.pos()}")
+        print(f"deltaToPos: {deltaToPos}")
+
+        h_scroll_range = h_scrollbar.maximum() - h_scrollbar.minimum()
+        v_scroll_range = v_scrollbar.maximum() - v_scrollbar.minimum()
+        # ratio = deltaToPos / QPointF(h_scroll_range, v_scroll_range)
+        ratio = QPointF(deltaToPos.x() / viewport_width, deltaToPos.y() / viewport_height)
+        raster_coord = self._rasterview.image_coord_to_raster_coord(pos - widget.pos())
+        ratio_img = QPointF(raster_coord.x() / raster_width, raster_coord.y() / raster_height)
+        print(f"ratio: {ratio}")
+        print(f"raster_coord: {raster_coord}")
+        print(f"width: {raster_width}, height: {raster_height}")
+        print(f"ratio_img: {ratio_img}")
+
+
+        # Calculate desired scrollbar /nt[1], viewport_width // 2, viewport_height // 2)
+        desired_h_value = ratio_img.x() * h_scroll_range
+        desired_v_value = ratio_img.y() * v_scroll_range
+        # print(f"point: {point[0]}")
+        # print(f"point: {point[1]}")
+        # print(f"desired_h_value: {desired_h_value}")
+        # print(f"desired_v_value: {desired_v_value}")
+        # print(f"viewport_width: {viewport_width}")
+        # print(f"viewport_height: {viewport_height}")
+
+        # print(f"h_scrollbar.minimum(): {h_scrollbar.minimum()}")
+        # print(f"h_scrollbar.maximum(): {h_scrollbar.maximum()}")
+
+        # print(f"v_scrollbar.minimum(): {v_scrollbar.minimum()}")
+        # print(f"v_scrollbar.maximum(): {v_scrollbar.maximum()}")
+
+        # Clamp the scrollbar values to their allowed ranges.
+        new_h_value = max(h_scrollbar.minimum(), min(desired_h_value, h_scrollbar.maximum()))
+        new_v_value = max(v_scrollbar.minimum(), min(desired_v_value, v_scrollbar.maximum()))
+
+        # # Update the scroll bars without propagating the scroll event.
+        self._update_scrollbar_no_propagation(h_scrollbar, desired_h_value)
+        self._update_scrollbar_no_propagation(v_scrollbar, desired_v_value)
 
     def _update_scrollbar_no_propagation(self, scrollbar, value):
         '''
@@ -472,11 +543,17 @@ class ImageScrollArea(QScrollArea):
         self.propagate_scroll = True
 
     def wheelEvent(self, event: QWheelEvent):
+        # Get the mouse position in widget coordinates
+        mouse_pos = event.pos()
+        image_point = self._rasterview.image_coord_to_raster_coord(mouse_pos)
         # If Ctrl is pressed, intercept the wheel event to perform zooming
         if event.modifiers() & Qt.ControlModifier:
             delta = event.angleDelta().y()
             if delta > 0:
+                # self.make_point_center((mouse_pos.x(), mouse_pos.y()))
+                # self.make_point_center((image_point.x(), image_point.y()))
                 self._rasterpane._on_zoom_in(None)
+                self._rasterpane._on_zoom_in_around_point((mouse_pos.x(), mouse_pos.y()))
             else:
                 self._rasterpane._on_zoom_out(None)
 
@@ -486,6 +563,15 @@ class ImageScrollArea(QScrollArea):
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
+
+        # print(f"=================================")
+        # print(f"horizontalScrollBarValue: {self.horizontalScrollBar().value()}")
+        # print(f"horizontalScrollBar min: {self.horizontalScrollBar().minimum()}")
+        # print(f"horizontalScrollBar max: {self.horizontalScrollBar().maximum()}")
+        # print(f"verticalScrollBarValue: {self.verticalScrollBar().value()}")
+        # print(f"verticalScrollBar min: {self.verticalScrollBar().minimum()}")
+        # print(f"verticalScrollBar max: {self.verticalScrollBar().maximum()}")
+        # print(f"=================================")
 
         if 'scrollContentsBy' in self._forward:
             self._forward['scrollContentsBy'](self._rasterview, dx, dy, self.propagate_scroll)
@@ -823,6 +909,31 @@ class RasterView(QWidget):
 
             self._update_scrollbar(self._scroll_area.verticalScrollBar(),
                 self._scroll_area.viewport().height(), scale_change, propagate_scroll)
+            
+    def _update_scaled_image_around_point(self, point: Tuple[int, int], old_scale_factor=None, propagate_scroll=False):
+        self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
+        # self._scroll_area.setVisible(True)
+
+        # Need to process queued events now, since the image-widget has changed
+        # size, and it needs to report a resize-event before the scrollbars will
+        # update to the new size.
+        # QCoreApplication.processEvents()
+
+        if old_scale_factor is not None and old_scale_factor != self._scale_factor:
+            # The scale is changing, so update the scrollbars to ensure that the
+            # image stays centered in the viewport area.
+
+            scale_change = self._scale_factor / old_scale_factor
+
+            print(f"Width!!!!")
+            self._update_scrollbar_around_point(self._scroll_area.horizontalScrollBar(),
+                self._scroll_area.viewport().width(), scale_change, \
+                    point[0], propagate_scroll=propagate_scroll)
+
+            print(f"Height!!!!")
+            self._update_scrollbar_around_point(self._scroll_area.verticalScrollBar(),
+                self._scroll_area.viewport().height(), scale_change, \
+                    point[1], propagate_scroll=propagate_scroll)
 
     def _update_scrollbar(self, scrollbar, view_size, scale_change, propagate_scroll=False):
         # The scrollbar's value will be scaled by the scale_change value.  For
@@ -834,6 +945,28 @@ class RasterView(QWidget):
         view_diff = view_size * (scale_change - 1)
         scrollbar_value = scrollbar.value() * scale_change + view_diff / 2
         self._scroll_area.propagate_scroll = propagate_scroll
+        self._scroll_area._update_scrollbar_no_propagation(scrollbar, scrollbar_value)
+
+    def _update_scrollbar_around_point(self, scrollbar, view_size, scale_change, position, propagate_scroll=False):
+        # The scrollbar's value will be scaled by the scale_change value.  For
+        # example, if the original scale was 100% and the new scale is 200%,
+        # the scale_change value will be 200%/100%, or 2.  To keep the same area
+        # within the scroll-area's viewport, the scrollbar's value needs to be
+        # multiplied by the scale_change.
+
+        print(f"!!!!!!!!!!!!!!!!!!!!!!")
+        view_diff = view_size * (scale_change - 1)
+        print(f"view_size value: {view_size}")
+        point_diff = ((position - view_size / 2) * scale_change) 
+        print(f"position value: {position}")
+        print(f"position * scale_change value: {position * scale_change}")
+        print(f"point_diff value: {point_diff}")
+        scrollbar_value = scrollbar.value() * scale_change + view_diff / 2
+        print(f"Old scroll_bar value: {scrollbar_value}")
+        scrollbar_value = scrollbar.value() * scale_change + view_diff / 2 + point_diff
+        print(f"New scroll_bar value: {scrollbar_value}")
+        self._scroll_area.propagate_scroll = propagate_scroll
+        print(f"!!!!!!!!!!!!!!!!!!!!!!")
         self._scroll_area._update_scrollbar_no_propagation(scrollbar, scrollbar_value)
 
 
@@ -860,6 +993,32 @@ class RasterView(QWidget):
             old_factor = self._scale_factor
             self._scale_factor = factor
             self._update_scaled_image(old_scale_factor=old_factor, propagate_scroll=propagate_scale)
+
+    def scale_image_around_point(self, factor: float, point: Tuple[int, int], propagate_scale=False):
+        '''
+        Scales the raster image by the specified factor.  Note that this is an
+        absolute operation, not an incremental operation; repeatedly calling
+        this function with a factor of 0.5 will not halve the size of the image
+        each call.  Rather, the image will simply be set to 0.5 of its original
+        size.
+
+        If there is no image data, this is a no-op.
+
+        Point should be in local viewport coordinates
+        '''
+
+        if self._raster_data is None:
+            return
+
+        # Only scale the image if the scale-factor is changing.
+        if factor != self._scale_factor:
+            old_factor = self._scale_factor
+            self._scale_factor = factor
+            self._update_scaled_image_around_point(
+                point=point, \
+                old_scale_factor=old_factor, \
+                propagate_scroll=propagate_scale
+            )
 
     def scale_image_to_fit(self, mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS):
         '''

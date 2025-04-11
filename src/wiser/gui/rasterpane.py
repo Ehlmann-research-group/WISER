@@ -685,6 +685,15 @@ class RasterPane(QWidget):
         for rv in self._rasterviews.values():
             rv.scale_image(scale)
 
+    def set_scale_around_point(self, scale: float, point: Tuple[int, int]):
+        '''
+        Sets the zoom scale of this raster pane.  When a pane contains multiple
+        raster views, the scale is set on all of the views.
+
+        As one would expect, this will generate a viewport-changed event.
+        '''
+        for rv in self._rasterviews.values():
+            rv.scale_image_around_point(scale, point)
 
     def resizeEvent(self, event):
         '''
@@ -1393,6 +1402,20 @@ class RasterPane(QWidget):
 
         if self._max_zoom_scale is None or new_scale <= self._max_zoom_scale:
             self.set_scale(new_scale)
+
+        self._update_zoom_widgets()
+
+    def _on_zoom_in_around_point(self, point: Tuple[int, int]):
+        '''
+        Zoom in the zoom-view by one level. 
+        
+        The variable point should be in local viewport coordinates.
+        '''
+        scale = self.get_scale()
+        new_scale = self._zoom_in_scale(scale)
+
+        if self._max_zoom_scale is None or new_scale <= self._max_zoom_scale:
+            self.set_scale_around_point(new_scale, point)
 
         self._update_zoom_widgets()
 
