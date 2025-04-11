@@ -552,7 +552,7 @@ class ImageScrollArea(QScrollArea):
             if delta > 0:
                 # self.make_point_center((mouse_pos.x(), mouse_pos.y()))
                 # self.make_point_center((image_point.x(), image_point.y()))
-                self._rasterpane._on_zoom_in(None)
+                # self._rasterpane._on_zoom_in(None)
                 self._rasterpane._on_zoom_in_around_point((mouse_pos.x(), mouse_pos.y()))
             else:
                 self._rasterpane._on_zoom_out(None)

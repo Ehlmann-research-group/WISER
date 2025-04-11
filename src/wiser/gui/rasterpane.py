@@ -736,6 +736,7 @@ class RasterPane(QWidget):
             # Only handle left mouse buttons; right mouse clicks will result in
             # a context menu being generated.
             if mouse_event.button() == Qt.LeftButton:
+                print(f"mouse_event.localPos(): {mouse_event.localPos()}")
                 # Map the coordinate of the mouse-event to the actual raster-image
                 # pixel that was clicked, then emit a signal.
                 r_coord = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
