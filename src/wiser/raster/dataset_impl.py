@@ -19,6 +19,8 @@ from osgeo import gdal, gdalconst, gdal_array, osr
 
 from astropy.io import fits
 
+from PIL import Image, ImageFile
+
 logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
@@ -580,6 +582,204 @@ class PDRRasterDataImpl(RasterDataImpl):
 
     def __del__(self):
         pass
+
+
+class PILRasterDataImpl(RasterDataImpl):
+
+    def __init__(self, pil_image: Image, gdal_dataset: gdal.Dataset):
+        '''
+        Save the pil image as a class variable.
+        Save the number of dimensions 
+        '''
+        self.pil_image = pil_image
+        self.gdal_dataset = gdal_dataset
+        self.elem_type = None
+        self.number_bands = None
+        self.width = None
+        self.height = None
+        self.ndims = None
+        self.initialize_constants()
+        pass
+
+    def initialize_constants(self):
+        '''
+        Initializes the variables:
+            
+            self.elem_type = None
+            self.number_bands = None
+            self.width = None
+            self.height = None
+            self.ndims = None
+        
+        Using the helper functions that you will make.
+        The width should be the pil image's first dimension , it should make sure this matches the gdal dataset's RasterXSizse
+        The height shuld be the pil image's second dimension, it should make sure this matches the gdal dataset's RasterYSize
+        THe num bands should be the PIL images 1st dimension (if num dims is 2, num bands is 1), it should make sure this matches the number of bands in the gdal dataset
+        The eleme type should be whatever the lement type of the array is 
+        '''
+        # This line should be before the others since the other functions use self.ndims
+        self.set_num_dims()
+        self.set_width()
+        self.set_height()
+        self.set_num_bands()
+        self.set_elem_type()
+
+    def set_num_dims(self):
+        """
+        Determines the number of dimensions from the PIL image.
+        For example, a grayscale image (mode "L") will yield a 2D array,
+        whereas an RGB image (mode "RGB") will yield a 3D array.
+        """
+        self.ndims = len(self.pil_image.size)
+
+    def set_width(self):
+        """
+        Sets the width based on the PIL image size.
+        Validates that the width matches the GDAL dataset's RasterXSize.
+        """
+        self.width = self.pil_image.size[0]
+        if self.width != self.gdal_dataset.RasterXSize:
+            raise ValueError("Width mismatch between PIL image and GDAL dataset.")
+
+    def set_height(self):
+        """
+        Sets the height based on the PIL image size.
+        Validates that the height matches the GDAL dataset's RasterYSize.
+        """
+        self.height = self.pil_image.size[1]
+        if self.height != self.gdal_dataset.RasterYSize:
+            raise ValueError("Height mismatch between PIL image and GDAL dataset.")
+
+    def set_num_bands(self):
+        """
+        Determines the number of bands using the NumPy array derived from the PIL image.
+        - For 2D arrays, the image is considered to have 1 band.
+        - For 3D arrays, the number of bands is the size of the last dimension.
+        Verifies that this number matches the GDAL dataset's RasterCount.
+        """
+        ndim = len(self.pil_image.size)
+        if ndim == 2:
+            self.number_bands = 1
+        elif ndim == 3:
+            self.number_bands = self.pil_image.size[2]
+        else:
+            raise ValueError(f"Unsupported image dimensions: {ndim}")
+        
+        if self.number_bands != self.gdal_dataset.RasterCount:
+            raise ValueError("Number of bands mismatch between PIL image and GDAL dataset.")
+
+    def set_elem_type(self):
+        """
+        Sets the element type based on the dtype of the NumPy array derived from the PIL image.
+        """
+        arr = np.array(self.pil_image)
+        self.elem_type = arr.dtype
+
+    def get_image_data(self):
+        """
+        Returns the full image data as a NumPy array.
+        """
+        return np.array(self.pil_image)
+
+    def get_band_data(self, band_index: int, filter_data_ignore_value=True):
+        """
+        Retrieves the data for the specified band index.
+        For an image with two dimensions (grayscale), just returns the full image data.
+        For images with three dimensions (e.g., RGB), returns only the data corresponding to the specified channel.
+        
+        The optional parameter filter_data_ignore_value can be extended to filter out specific values if needed.
+        """
+        arr = self.get_image_data()
+        if arr.ndim == 2:
+            return arr
+        elif arr.ndim == 3:
+            if band_index < 0 or band_index >= arr.shape[2]:
+                raise IndexError("Band index out of range.")
+            band_data = arr[..., band_index]
+            # Optionally add filtering logic here if filter_data_ignore_value is True.
+            return band_data
+
+    def get_all_bands_at(self, x: int, y: int):
+        """
+        Retrieves all band values at the specified (x, y) coordinate.
+        Returns a single value for a 2D (grayscale) image or an array of values for each band in a multi-band image.
+        """
+        arr = self.get_image_data()
+        if arr.ndim == 2:
+            return arr[y, x]
+        elif arr.ndim == 3:
+            return arr[y, x, :]
+
+    def get_multiple_band_data(self, band_list_orig: List[int]):
+        """
+        Retrieves the data for multiple bands specified in band_list_orig.
+        For a 2D (grayscale) image, validates that the request only asks for the single band (index 0).
+        For a multi-channel image, extracts each requested band and stacks them along the last axis.
+        """
+        arr = self.get_image_data()
+        if arr.ndim == 2:
+            if len(band_list_orig) != 1 or band_list_orig[0] != 0:
+                raise ValueError("A grayscale image only has one band with index 0.")
+            return arr
+        elif arr.ndim == 3:
+            bands = []
+            for b in band_list_orig:
+                if b < 0 or b >= arr.shape[2]:
+                    raise IndexError(f"Band index {b} out of range.")
+                bands.append(arr[..., b])
+            return np.stack(bands, axis=-1)
+
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
+        """
+        Retrieves the image data within the specified rectangle starting at (x, y)
+        with width dx and height dy.
+        Works for both grayscale and multi-channel images.
+        """
+        arr = self.get_image_data()
+        if arr.ndim == 2:
+            return arr[y:y+dy, x:x+dx]
+        elif arr.ndim == 3:
+            return arr[y:y+dy, x:x+dx, :]
+
+    def read_geo_transform(self) -> Tuple:
+        """
+        Uses GDAL to retrieve the geo-transform of the image.
+        The returned tuple provides information about pixel size and rotation.
+        """
+        geo_transform = self.gdal_dataset.GetGeoTransform()
+        return geo_transform
+
+    def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        """
+        Uses GDAL to retrieve the spatial reference (projection) of the image.
+        Returns an osr.SpatialReference object if available; otherwise, returns None.
+        """
+        wkt = self.gdal_dataset.GetProjection()
+        if wkt:
+            spatial_ref = osr.SpatialReference()
+            spatial_ref.ImportFromWkt(wkt)
+            return spatial_ref
+        return None
+
+
+
+class JP2_PILRasterDataImpl(PILRasterDataImpl):
+    def get_format(self):
+        return DataFormatNames.JP2
+
+    @classmethod
+    def try_load_file(cls, path: str) -> ['JP2_PDRRasterDataImpl']:
+        
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
+        Image.MAX_IMAGE_PIXELS = None 
+        if not path.endswith('.JP2'):
+            raise Exception(f"Can't load file {path} as JP2")
+
+        PIL_Image = Image.open(path)
+        return [cls(PIL_Image)]
+    
+    def __init__(self, PIL_Image):
+        super().__init__(PIL_Image)
 
 
 class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
