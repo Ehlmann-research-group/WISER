@@ -27,8 +27,10 @@ class COLUMN_ID(IntEnum):
     TARGET_Y_COL = 3
     REF_X_COL = 4
     REF_Y_COL = 5
-    COLOR_COL = 6
-    REMOVAL_COL = 7
+    RESIDUAL_X_COL = 6
+    RESIDUAL_Y_COL = 7
+    COLOR_COL = 8
+    REMOVAL_COL = 9
 
 ID_PROPERTY = "ENTRY_ID"
 
@@ -58,11 +60,12 @@ COMMON_SRS = {
 }
 
 class GeoRefTableEntry:
-    def __init__(self, gcp_pair: GroundControlPointPair, enabled: bool, id: int, residuals: float, color: str):
+    def __init__(self, gcp_pair: GroundControlPointPair, enabled: bool, id: int, residual_x: float, residual_y: float, color: str):
         self._gcp_pair = gcp_pair
         self._enabled = enabled
         self._id = id
-        self._residuals = residuals
+        self._residual_x = residual_x
+        self._residual_y = residual_y
         self._color = color  # Hex code for color
 
     # Getter and Setter for gcp_pair
@@ -87,11 +90,18 @@ class GeoRefTableEntry:
         self._id = id
 
     # Getter and Setter for residuals
-    def get_residuals(self) -> float:
-        return self._residuals
+    def get_residual_x(self) -> float:
+        return self._residual_x
 
-    def set_residuals(self, residuals: float):
-        self._residuals = residuals
+    def set_residual_x(self, residual_x: float):
+        self._residual_x = residual_x
+
+    # Getter and Setter for residuals
+    def get_residual_y(self) -> float:
+        return self._residual_y
+
+    def set_residual_y(self, residual_y: float):
+        self._residual_y = residual_y
 
     # Getter and Setter for residuals
     def get_color(self) -> str:
@@ -199,7 +209,7 @@ class GeoReferencerDialog(QDialog):
     def _init_gcp_table(self):
         table_widget = self._ui.table_gcps
         table_widget.setColumnCount(len(COLUMN_ID))
-        headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y", "Color", "Remove"]
+        headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y", "Res. X", "Res. Y", "Color", "Remove"]
         table_widget.setHorizontalHeaderLabels(headers)
 
         table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -294,7 +304,7 @@ class GeoReferencerDialog(QDialog):
         id = next_row
         residuals = 0
         color = get_random_matplotlib_color()
-        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, residuals, color)
+        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, None, None, color)
         # The row that a GCP is placed on should be the same as its position in the
         # geo referencer task delegate point list
 
@@ -410,6 +420,9 @@ class GeoReferencerDialog(QDialog):
         ref_x = gcp_pair.get_reference_gcp().get_point()[0]
         ref_y = gcp_pair.get_reference_gcp().get_point()[1]
 
+        residual_x = table_entry.get_residual_x()
+        residual_y = table_entry.get_residual_y()
+
         checkbox = QCheckBox()
         checkbox.setChecked(table_entry.is_enabled())
         checkbox.clicked.connect(lambda checked : self._on_enabled_clicked(table_entry, checked))
@@ -420,6 +433,17 @@ class GeoReferencerDialog(QDialog):
         table_widget.setItem(row_to_add, COLUMN_ID.TARGET_Y_COL, QTableWidgetItem(str(target_y)))
         table_widget.setItem(row_to_add, COLUMN_ID.REF_X_COL, QTableWidgetItem(str(ref_x)))
         table_widget.setItem(row_to_add, COLUMN_ID.REF_Y_COL, QTableWidgetItem(str(ref_y)))
+
+        res_x_str = "N/A"
+        if residual_x is not None:
+            res_x_str = str(residual_x)
+
+        res_y_str = "N/A"
+        if residual_y is not None:
+            res_y_str = str(residual_y)
+
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_X_COL, QTableWidgetItem(res_x_str))
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, QTableWidgetItem(res_y_str))
 
         color_button = QPushButton()
         color_button.clicked.connect(lambda checked : self._on_choose_color(table_entry))
@@ -465,6 +489,36 @@ class GeoReferencerDialog(QDialog):
 
         self._target_rasterpane.update_all_rasterviews()
         self._reference_rasterpane.update_all_rasterviews()
+
+    def _sync_gcp_table_row_with_table_entry(self, table_entry: GeoRefTableEntry):
+        table_widget = self._ui.table_gcps
+        row_to_add = table_entry.get_id()
+        assert row_to_add < table_widget.rowCount()
+        gcp_pair = table_entry.get_gcp_pair()
+
+        target_x = gcp_pair.get_target_gcp().get_point()[0]
+        target_y = gcp_pair.get_target_gcp().get_point()[1]
+        ref_x = gcp_pair.get_reference_gcp().get_point()[0]
+        ref_y = gcp_pair.get_reference_gcp().get_point()[1]
+
+        residual_x = table_entry.get_residual_x()
+        residual_y = table_entry.get_residual_y()
+        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_X_COL, QTableWidgetItem(str(target_x)))
+        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_Y_COL, QTableWidgetItem(str(target_y)))
+        table_widget.setItem(row_to_add, COLUMN_ID.REF_X_COL, QTableWidgetItem(str(ref_x)))
+        table_widget.setItem(row_to_add, COLUMN_ID.REF_Y_COL, QTableWidgetItem(str(ref_y)))
+
+        res_x_str = "N/A"
+        if residual_x is not None:
+            res_x_str = str(residual_x)
+
+        res_y_str = "N/A"
+        if residual_y is not None:
+            res_y_str = str(residual_y)
+
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_X_COL, QTableWidgetItem(res_x_str))
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, QTableWidgetItem(res_y_str))
+
 
     def _sync_entry_list_index_with_ui_row(self, row: int):
         '''
@@ -514,7 +568,7 @@ class GeoReferencerDialog(QDialog):
 
         color_str = self._table_entry_list[row].get_color()
 
-        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, residuals=0, color=color_str)
+        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, None, None, color=color_str)
         return table_entry
     
 
@@ -637,16 +691,17 @@ class GeoReferencerDialog(QDialog):
             print(f"spatial_coord: {spatial_coord}")
             assert spatial_coord is not None, f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
             target_pixel_coord = table_entry.get_gcp_pair().get_target_gcp().get_point()
-            gcps.append(gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1]))
+            gcps.append((table_entry, gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1])))
         
         ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
+        ref_gdal_dataset = ref_dataset._impl.gdal_dataset
         ref_srs = ref_dataset.get_spatial_ref()
         ref_gt = ref_dataset.get_geo_transform()
         ref_projection = ref_dataset.get_wkt_spatial_reference()
         assert ref_projection is not None and ref_srs is not None and ref_gt is not None, \
                 f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
 
-        temp_ds.SetGCPs(gcps, ref_projection)
+        temp_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
 
         target_srs = osr.SpatialReference()
         target_srs.ImportFromEPSG(self._curr_target_srs)
@@ -680,12 +735,26 @@ class GeoReferencerDialog(QDialog):
         if gt is None:
             raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
     
+        transform_options = ['METHOD=GCP_POLYNOMIAL']
+        print(f"Type(ref_dataset): {type(ref_dataset)}")
+        print(f"Type(ref_gdal_dataset): {type(ref_gdal_dataset)}")
+        print(f"Type(transformed_ds): {type(transformed_ds)}")
+        print(f"Type(transform_options): {type(transform_options)}")
+        print(f"temp_ds gcp count: {temp_ds.GetGCPCount()}")
+        print(f"transformer gcp count: {transformed_ds.GetGCPCount()}")
+        transformer = gdal.Transformer(transformed_ds, ref_gdal_dataset, [])
 
         transformation = osr.CoordinateTransformation(target_srs, ref_srs)
         # print(f"pixel width: {abs(gt[1])}")
         # print(f"pixel height: {abs(gt[5])}")
         residuals = []
-        for gcp in gcps:
+        print(f"gt[0]: {gt[0]}")
+        print(f"gt[1]: {gt[1]}")
+        print(f"gt[2]: {gt[2]}")
+        print(f"gt[3]: {gt[3]}")
+        print(f"gt[4]: {gt[4]}")
+        print(f"gt[4]: {gt[4]}")
+        for entry, gcp in gcps:
             # For each gcp we transform it to the target_srs and get the error code
 
             # Then we use the GCP's to get a geo transform. 
@@ -694,13 +763,19 @@ class GeoReferencerDialog(QDialog):
 
             print(f"================================")
             # Apply the affine transformation of the new dataset to the GCP's pixel coordinates.
+            # Put the target dataset pixel's into the output srs
             computed_map_we_target_srs = gt[0] + gt[1]*gcp.GCPPixel + gt[2]*gcp.GCPLine
             computed_map_ns_target_srs = gt[3] + gt[4]*gcp.GCPPixel + gt[5]*gcp.GCPLine
             print(f"computed_map_we_target_srs: {computed_map_we_target_srs}")
             print(f"computed_map_ns_target_srs: {computed_map_ns_target_srs}")
             print(f"gdal.ApplyGeoTransform target: {gdal.ApplyGeoTransform(gt, gcp.GCPPixel, gcp.GCPLine)}")
-            print(f"gdal.ApplyGeoTransform ref: {gdal.ApplyGeoTransform(ref_gt, gcp.GCPPixel, gcp.GCPLine)}")
+            print(f"gdal.ApplyGeoTransform ref: {gdal.ApplyGeoTransform(ref_gt, gcp.GCPPixel, gcp.GCPLine)}")  
+            success, (x_spatial, y_spatial, z) = transformer.TransformPoint(False, gcp.GCPPixel, gcp.GCPLine)
+            print(f"transformer, x coord: {x_spatial}")
+            print(f"transformer, y coord: {y_spatial}")
+            print(f"success: {success}")
 
+            # Now transform the output srs coordinates into the reference srs spatial coordinates
             transformed_coord = transformation.TransformPoint(computed_map_ns_target_srs, computed_map_we_target_srs, 0)
 
             computed_map_x_ref_srs = transformed_coord[0]
@@ -711,7 +786,7 @@ class GeoReferencerDialog(QDialog):
             print(f"gcp.GCPX: {gcp.GCPX}")
             print(f"gcp.GCPY: {gcp.GCPY}")
 
-            # Compute errors in map coordinates.
+            # Compute errors in map coordinates in the reference coordinate system
             error_x_map = gcp.GCPX - computed_map_x_ref_srs
             error_y_map = gcp.GCPY - computed_map_y_ref_srs
             print(f"error_x_map: {error_x_map}")
@@ -724,8 +799,15 @@ class GeoReferencerDialog(QDialog):
 
             error_x_pixels = error_x_map / pixel_width if pixel_width else 0
             error_y_pixels = error_y_map / pixel_height if pixel_height else 0
-            
+
+            entry.set_residual_x(error_x_pixels)
+            entry.set_residual_y(error_y_pixels)
+
+
+            self._sync_gcp_table_row_with_table_entry(entry)
+        
             residuals.append((error_x_pixels, error_y_pixels))
             print(f"GCP at pixel ({gcp.GCPPixel}, {gcp.GCPLine}): Residual error: X: {error_x_pixels:.2f} px, Y: {error_y_pixels:.2f} px")
+
 
         

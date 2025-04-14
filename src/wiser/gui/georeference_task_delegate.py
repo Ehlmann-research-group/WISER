@@ -210,8 +210,8 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             assert gcp_scaled is not None, "Got a GCP scaled point as None!"
     
             if scale >= 6:
-                painter.drawRect(gcp_scaled[0] + PIXEL_OFFSET,
-                                 gcp_scaled[1] + PIXEL_OFFSET,
+                painter.drawRect(gcp_scaled[0] - 0.5 + PIXEL_OFFSET,
+                                 gcp_scaled[1] - 0.5 + PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET)
             else:
@@ -234,8 +234,8 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         if current_point_scaled is not None:
             painter.setPen(QPen(Qt.red))
             if scale >= 6:
-                painter.drawRect(current_point_scaled[0] + PIXEL_OFFSET,
-                                 current_point_scaled[1] + PIXEL_OFFSET,
+                painter.drawRect(current_point_scaled[0] - 0.5 + PIXEL_OFFSET,
+                                 current_point_scaled[1] - 0.5 + PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET)
             else:
@@ -253,7 +253,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
 
         if mouse_event.button() == Qt.LeftButton:
             point: QPointF = rasterpane.get_rasterview().image_coord_to_raster_coord(mouse_event.localPos())
-            point = [point.x(), point.y()]
+            point = [point.x()+0.5, point.y()+0.5]
         else:
             return False
         # We want the user to be able to press escape and clear the currently selected raster pane 
