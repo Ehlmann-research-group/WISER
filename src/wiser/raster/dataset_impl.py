@@ -598,8 +598,8 @@ class PILRasterDataImpl(RasterDataImpl):
         self.width = None
         self.height = None
         self.ndims = None
+        self._save_state = SaveState.UNKNOWN
         self.initialize_constants()
-        pass
 
     def initialize_constants(self):
         '''
@@ -619,10 +619,15 @@ class PILRasterDataImpl(RasterDataImpl):
         '''
         # This line should be before the others since the other functions use self.ndims
         self.set_num_dims()
+        print(f"set_num_dims")
         self.set_width()
+        print(f"set_width")
         self.set_height()
+        print(f"set_height")
         self.set_num_bands()
+        print(f"set_num_bands")
         self.set_elem_type()
+        print(f"set_elem_type")
 
     def set_num_dims(self):
         """
@@ -663,9 +668,16 @@ class PILRasterDataImpl(RasterDataImpl):
         elif ndim == 3:
             self.number_bands = self.pil_image.size[2]
         else:
+            print(f"Unsupported image dimensions: {ndim}")
             raise ValueError(f"Unsupported image dimensions: {ndim}")
         
         if self.number_bands != self.gdal_dataset.RasterCount:
+            # rgb = self.pil_image.convert("RGB")
+            print(f"self.number_bands: {self.number_bands}")
+            print(f"self.pil_image.size: {self.pil_image.size}")
+            print(f"self.pil_image.mode: {self.pil_image.mode}")
+            print(f"rgb.size: {rgb.size}")
+            print(f"self.gdal_dataset.RasterCount: {self.gdal_dataset.RasterCount}")
             raise ValueError("Number of bands mismatch between PIL image and GDAL dataset.")
 
     def set_elem_type(self):
@@ -674,6 +686,27 @@ class PILRasterDataImpl(RasterDataImpl):
         """
         arr = np.array(self.pil_image)
         self.elem_type = arr.dtype
+    
+    def get_format(self) -> str:
+        return self.gdal_dataset.GetDriver().ShortName
+
+    def get_filepaths(self):
+        paths = self.gdal_dataset.GetFileList()
+        if paths is None:
+            paths = []
+
+        return paths
+
+    def get_width(self) -> int:
+        ''' Returns the number of pixels per row in the raster data. '''
+        return self.width
+
+    def get_height(self) -> int:
+        ''' Returns the number of rows of data in the raster data. '''
+        return self.height
+
+    def num_bands(self) -> int:
+        return self.number_bands
 
     def get_image_data(self):
         """
@@ -741,6 +774,35 @@ class PILRasterDataImpl(RasterDataImpl):
         elif arr.ndim == 3:
             return arr[y:y+dy, x:x+dx, :]
 
+
+    def read_description(self) -> Optional[str]:
+        return None
+
+    def read_band_unit(self) -> Optional[u.Unit]:
+        return None
+
+    def read_band_info(self) -> List[Dict[str, Any]]:
+        band_info = []
+
+        # Note:  GDAL indexes bands from 1, not 0.
+        for band_index in range(self.num_bands()):
+            info = {
+                'index' : band_index,
+                'description' : f'Band {band_index}'
+            }
+            band_info.append(info)
+
+        return band_info
+
+    def read_default_display_bands(self) -> Optional[Union[Tuple[int], Tuple[int, int, int]]]:
+        return None
+
+    def read_data_ignore_value(self) -> Optional[Number]:
+        return None
+
+    def read_bad_bands(self) -> List[int]:
+        return [1] * self.num_bands()
+
     def read_geo_transform(self) -> Tuple:
         """
         Uses GDAL to retrieve the geo-transform of the image.
@@ -748,6 +810,9 @@ class PILRasterDataImpl(RasterDataImpl):
         """
         geo_transform = self.gdal_dataset.GetGeoTransform()
         return geo_transform
+    
+    def get_wkt_spatial_reference(self):
+        return self.gdal_dataset.GetProjection()
 
     def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
         """
@@ -761,6 +826,32 @@ class PILRasterDataImpl(RasterDataImpl):
             return spatial_ref
         return None
 
+    def get_save_state(self) -> SaveState:
+        return SaveState.UNKNOWN
+
+    def set_save_state(self, save_state: SaveState):
+        self._save_state = save_state
+
+    def delete_dataset(self) -> None:
+        '''
+        We should only be deleting a dataset if it is on disk but the user hasn't explicitly saved it.
+        '''
+        if self._save_state == SaveState.IN_DISK_NOT_SAVED:
+            try:
+                if self.gdal_dataset is not None:
+                    filepath = self.get_filepaths()[0]
+                    driver = self.gdal_dataset.GetDriver()
+                    self.gdal_dataset.FlushCache()
+                    self.gdal_dataset = None
+                    driver.Delete(filepath)
+                else:
+                    print(f"Dataset variable is None. Either the dataset " +
+                          "file was deleted or just the variable was deleted.")
+            except Exception as e:
+                print(f"Couldn't delete dataset. Error: \n {e}")
+
+    def __del__(self):
+        self.delete_dataset()
 
 
 class JP2_PILRasterDataImpl(PILRasterDataImpl):
@@ -775,11 +866,26 @@ class JP2_PILRasterDataImpl(PILRasterDataImpl):
         if not path.endswith('.JP2'):
             raise Exception(f"Can't load file {path} as JP2")
 
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+
+        gdal_dataset = gdal.OpenEx(
+            path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['JP2OpenJPEG']
+        )
+        print(f"Opened JP2 gdal dataset")
+
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open JP2 file: {path}")
+
+
         PIL_Image = Image.open(path)
-        return [cls(PIL_Image)]
+        print(f"Opened PIL dataset")
+        return [cls(PIL_Image, gdal_dataset)]
     
-    def __init__(self, PIL_Image):
-        super().__init__(PIL_Image)
+    def __init__(self, PIL_Image, gdal_dataset):
+        super().__init__(PIL_Image, gdal_dataset)
 
 
 class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
