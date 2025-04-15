@@ -10,7 +10,7 @@ from osgeo import gdal
 from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
     GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl,
-    JP2_PILRasterDataImpl)
+    JP2_GlymurRasterDataImpl)
 
 from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
 
@@ -31,7 +31,7 @@ class RasterDataLoader:
             'ENVI': ENVI_GDALRasterDataImpl,
             'GTiff': GTiff_GDALRasterDataImpl,
             'NetCDF': NetCDF_GDALRasterDataImpl,
-            'JP2': JP2_PILRasterDataImpl,
+            'JP2': JP2_GlymurRasterDataImpl,
 
         }
     
@@ -40,7 +40,7 @@ class RasterDataLoader:
             ENVI_GDALRasterDataImpl: self.load_normal_dataset, 
             GTiff_GDALRasterDataImpl: self.load_normal_dataset, 
             NetCDF_GDALRasterDataImpl: self.load_normal_dataset,
-            JP2_PILRasterDataImpl: self.load_normal_dataset,
+            JP2_GlymurRasterDataImpl: self.load_normal_dataset,
         }
 
         # This is a counter so we can generate names for unnamed datasets.

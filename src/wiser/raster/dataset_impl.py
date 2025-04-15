@@ -21,6 +21,8 @@ from astropy.io import fits
 
 from PIL import Image, ImageFile
 
+import glymur
+
 logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
@@ -672,11 +674,9 @@ class PILRasterDataImpl(RasterDataImpl):
             raise ValueError(f"Unsupported image dimensions: {ndim}")
         
         if self.number_bands != self.gdal_dataset.RasterCount:
-            # rgb = self.pil_image.convert("RGB")
             print(f"self.number_bands: {self.number_bands}")
             print(f"self.pil_image.size: {self.pil_image.size}")
             print(f"self.pil_image.mode: {self.pil_image.mode}")
-            print(f"rgb.size: {rgb.size}")
             print(f"self.gdal_dataset.RasterCount: {self.gdal_dataset.RasterCount}")
             raise ValueError("Number of bands mismatch between PIL image and GDAL dataset.")
 
@@ -854,12 +854,329 @@ class PILRasterDataImpl(RasterDataImpl):
         self.delete_dataset()
 
 
+class GlymurRasterDataImpl(RasterDataImpl):
+
+    def __init__(self, glymur_image: glymur.Jp2k, gdal_dataset: gdal.Dataset):
+        '''
+        Save the pil image as a class variable.
+        Save the number of dimensions 
+        '''
+        self.jp2_img = glymur_image
+        print(f"type jp2: {type(self.jp2_img)}")
+        self.gdal_dataset = gdal_dataset
+        self.elem_type = None
+        self.number_bands = None
+        self.width = None
+        self.height = None
+        self.ndims = None
+        self._save_state = SaveState.UNKNOWN
+        self.initialize_constants()
+
+    def initialize_constants(self):
+        '''
+        Initializes the variables:
+            
+            self.elem_type = None
+            self.number_bands = None
+            self.width = None
+            self.height = None
+            self.ndims = None
+        
+        Using the helper functions that you will make.
+        The width should be the pil image's first dimension , it should make sure this matches the gdal dataset's RasterXSizse
+        The height shuld be the pil image's second dimension, it should make sure this matches the gdal dataset's RasterYSize
+        THe num bands should be the PIL images 1st dimension (if num dims is 2, num bands is 1), it should make sure this matches the number of bands in the gdal dataset
+        The eleme type should be whatever the lement type of the array is 
+        '''
+        # This line should be before the others since the other functions use self.ndims
+        self.set_num_dims()
+        print(f"set_num_dims")
+        self.set_width()
+        print(f"set_width")
+        self.set_height()
+        print(f"set_height")
+        self.set_num_bands()
+        print(f"set_num_bands")
+        self.set_elem_type()
+        print(f"set_elem_type")
+
+    def set_num_dims(self):
+        """
+        Determines the number of dimensions from the PIL image.
+        For example, a grayscale image (mode "L") will yield a 2D array,
+        whereas an RGB image (mode "RGB") will yield a 3D array.
+        """
+        self.ndims = len(self.jp2_img.shape)
+
+    def set_width(self):
+        """
+        Sets the width based on the PIL image size.
+        Validates that the width matches the GDAL dataset's RasterXSize.
+        """
+        self.width = self.jp2_img.shape[1]
+        print(f"self.jp2_img.shape: {self.jp2_img.shape}")
+        if self.width != self.gdal_dataset.RasterXSize:
+            print(f"self.jp2_img.shape: {self.jp2_img.shape}")
+            print(f"self.width: {self.width}")
+            print(f"self.gdal_dataset.RasterXSize: {self.gdal_dataset.RasterXSize}")
+            raise ValueError("Width mismatch between PIL image and GDAL dataset.")
+
+    def set_height(self):
+        """
+        Sets the height based on the PIL image size.
+        Validates that the height matches the GDAL dataset's RasterYSize.
+        """
+        self.height = self.jp2_img.shape[0]
+        if self.height != self.gdal_dataset.RasterYSize:
+            raise ValueError("Height mismatch between PIL image and GDAL dataset.")
+
+    def set_num_bands(self):
+        """
+        Determines the number of bands using the NumPy array derived from the PIL image.
+        - For 2D arrays, the image is considered to have 1 band.
+        - For 3D arrays, the number of bands is the size of the last dimension.
+        Verifies that this number matches the GDAL dataset's RasterCount.
+        """
+        ndim = len(self.jp2_img.shape)
+        if ndim == 2:
+            self.number_bands = 1
+        elif ndim == 3:
+            self.number_bands = self.jp2_img.shape[2]
+        else:
+            print(f"Unsupported image dimensions: {ndim}")
+            raise ValueError(f"Unsupported image dimensions: {ndim}")
+        
+        if self.number_bands != self.gdal_dataset.RasterCount:
+            print(f"self.number_bands: {self.number_bands}")
+            print(f"self.jp2_img.shape: {self.jp2_img.shape}")
+            print(f"self.jp2_img.mode: {self.jp2_img.mode}")
+            print(f"self.gdal_dataset.RasterCount: {self.gdal_dataset.RasterCount}")
+            raise ValueError("Number of bands mismatch between PIL image and GDAL dataset.")
+
+    def set_elem_type(self):
+        """
+        Sets the element type based on the dtype of the NumPy array derived from the PIL image.
+        """
+        print(f"set elem type")
+        # max_reduce = self.jp2_img.codestream.num_decomposition_levels
+        # print(f"max_reduce: {max_reduce}")
+        # smallest_res = self.jp2_img.read(reduce=max_reduce)
+        # print(f"type(smallest_res): {type(smallest_res)}")
+        # arr = smallest_res[:]
+        if self.number_bands == 1:
+            print(f"getting 1 band")
+            arr = self.jp2_img[::-1,::-1]
+        elif self.number_bands == 3:
+            print(f"Getting 3 band")
+            arr = self.jp2_img[::-1,::-1, 0]
+        print(f"tyype(arr): {type(arr)}")
+        print(f"tyype(arr.dtype): {type(arr.dtype)}")
+        self.elem_type = arr.dtype
+    
+    def get_format(self) -> str:
+        return self.gdal_dataset.GetDriver().ShortName
+
+    def get_filepaths(self):
+        paths = self.gdal_dataset.GetFileList()
+        if paths is None:
+            paths = []
+
+        return paths
+
+    def get_width(self) -> int:
+        ''' Returns the number of pixels per row in the raster data. '''
+        return self.width
+
+    def get_height(self) -> int:
+        ''' Returns the number of rows of data in the raster data. '''
+        return self.height
+
+    def num_bands(self) -> int:
+        return self.number_bands
+
+    def get_image_data(self):
+        """
+        Returns the full image data as a NumPy array.
+        """
+        return self.jp2_img[:]
+
+    def get_band_data(self, band_index: int, filter_data_ignore_value=True):
+        """
+        Retrieves the data for the specified band index.
+        For an image with two dimensions (grayscale), just returns the full image data.
+        For images with three dimensions (e.g., RGB), returns only the data corresponding to the specified channel.
+        
+        The optional parameter filter_data_ignore_value can be extended to filter out specific values if needed.
+        """
+        arr = self.get_image_data()
+        if arr.ndim == 2:
+            return arr
+        elif arr.ndim == 3:
+            if band_index < 0 or band_index >= arr.shape[2]:
+                raise IndexError("Band index out of range.")
+            band_data = arr[..., band_index]
+            # Optionally add filtering logic here if filter_data_ignore_value is True.
+            return band_data
+
+    def get_all_bands_at(self, x: int, y: int):
+        """
+        Retrieves all band values at the specified (x, y) coordinate.
+        Returns a single value for a 2D (grayscale) image or an array of values for each band in a multi-band image.
+        """
+        arr = self.get_image_data()
+        if arr.ndim == 2:
+            return arr[y, x]
+        elif arr.ndim == 3:
+            return arr[y, x, :]
+
+    def get_multiple_band_data(self, band_list_orig: List[int]):
+        """
+        Retrieves the data for multiple bands specified in band_list_orig.
+        For a 2D (grayscale) image, validates that the request only asks for the single band (index 0).
+        For a multi-channel image, extracts each requested band and stacks them along the last axis.
+        """
+        arr = self.get_image_data()
+        if arr.ndim == 2:
+            if len(band_list_orig) != 1 or band_list_orig[0] != 0:
+                raise ValueError("A grayscale image only has one band with index 0.")
+            return arr
+        elif arr.ndim == 3:
+            bands = []
+            for b in band_list_orig:
+                if b < 0 or b >= arr.shape[2]:
+                    raise IndexError(f"Band index {b} out of range.")
+                bands.append(arr[..., b])
+            return np.stack(bands, axis=-1)
+
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
+        """
+        Retrieves the image data within the specified rectangle starting at (x, y)
+        with width dx and height dy.
+        Works for both grayscale and multi-channel images.
+        """
+        arr = self.get_image_data()
+        if arr.ndim == 2:
+            return arr[y:y+dy, x:x+dx]
+        elif arr.ndim == 3:
+            return arr[y:y+dy, x:x+dx, :]
+
+
+    def read_description(self) -> Optional[str]:
+        return None
+
+    def read_band_unit(self) -> Optional[u.Unit]:
+        return None
+
+    def read_band_info(self) -> List[Dict[str, Any]]:
+        band_info = []
+
+        # Note:  GDAL indexes bands from 1, not 0.
+        for band_index in range(self.num_bands()):
+            info = {
+                'index' : band_index,
+                'description' : f'Band {band_index}'
+            }
+            band_info.append(info)
+
+        return band_info
+
+    def read_default_display_bands(self) -> Optional[Union[Tuple[int], Tuple[int, int, int]]]:
+        return None
+
+    def read_data_ignore_value(self) -> Optional[Number]:
+        return None
+
+    def read_bad_bands(self) -> List[int]:
+        return [1] * self.num_bands()
+
+    def read_geo_transform(self) -> Tuple:
+        """
+        Uses GDAL to retrieve the geo-transform of the image.
+        The returned tuple provides information about pixel size and rotation.
+        """
+        geo_transform = self.gdal_dataset.GetGeoTransform()
+        return geo_transform
+    
+    def get_wkt_spatial_reference(self):
+        return self.gdal_dataset.GetProjection()
+
+    def read_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        """
+        Uses GDAL to retrieve the spatial reference (projection) of the image.
+        Returns an osr.SpatialReference object if available; otherwise, returns None.
+        """
+        wkt = self.gdal_dataset.GetProjection()
+        if wkt:
+            spatial_ref = osr.SpatialReference()
+            spatial_ref.ImportFromWkt(wkt)
+            return spatial_ref
+        return None
+
+    def get_save_state(self) -> SaveState:
+        return SaveState.UNKNOWN
+
+    def set_save_state(self, save_state: SaveState):
+        self._save_state = save_state
+
+    def delete_dataset(self) -> None:
+        '''
+        We should only be deleting a dataset if it is on disk but the user hasn't explicitly saved it.
+        '''
+        if self._save_state == SaveState.IN_DISK_NOT_SAVED:
+            try:
+                if self.gdal_dataset is not None:
+                    filepath = self.get_filepaths()[0]
+                    driver = self.gdal_dataset.GetDriver()
+                    self.gdal_dataset.FlushCache()
+                    self.gdal_dataset = None
+                    driver.Delete(filepath)
+                else:
+                    print(f"Dataset variable is None. Either the dataset " +
+                          "file was deleted or just the variable was deleted.")
+            except Exception as e:
+                print(f"Couldn't delete dataset. Error: \n {e}")
+
+    def __del__(self):
+        self.delete_dataset()
+
+
+class JP2_GlymurRasterDataImpl(GlymurRasterDataImpl):
+    def get_format(self):
+        return DataFormatNames.JP2
+
+    @classmethod
+    def try_load_file(cls, path: str) -> ['JP2_GlymurRasterDataImpl']:
+        if not path.endswith('.JP2'):
+            raise Exception(f"Can't load file {path} as JP2")
+
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+
+        print(f"READING GLYMUR")
+        gdal_dataset = gdal.OpenEx(
+            path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['JP2OpenJPEG']
+        )
+        print(f"Opened JP2 gdal dataset")
+
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open JP2 file: {path}")
+
+
+        glymur_img = glymur.Jp2k(path)
+        print(f"Opened PIL dataset")
+        return [cls(glymur_img, gdal_dataset)]
+    
+    def __init__(self, glymur_img, gdal_dataset):
+        super().__init__(glymur_img, gdal_dataset)
+
 class JP2_PILRasterDataImpl(PILRasterDataImpl):
     def get_format(self):
         return DataFormatNames.JP2
 
     @classmethod
-    def try_load_file(cls, path: str) -> ['JP2_PDRRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['JP2_PILRasterDataImpl']:
         
         ImageFile.LOAD_TRUNCATED_IMAGES = True
         Image.MAX_IMAGE_PIXELS = None 
