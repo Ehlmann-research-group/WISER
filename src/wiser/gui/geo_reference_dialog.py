@@ -163,7 +163,7 @@ class GeoReferencerDialog(QDialog):
         self._init_dataset_choosers()
         self._init_rasterpanes()
         self._init_gcp_table()
-        self._init_srs_cbox()
+        self._init_output_srs_cbox()
         self._init_interpolation_type_cbox()
         self._init_poly_order_cbox()
         self._init_file_saver()
@@ -173,16 +173,23 @@ class GeoReferencerDialog(QDialog):
     def _init_file_saver(self):
         self._ui.btn_save_path.clicked.connect(self._on_choose_save_filename)
 
-    def _init_srs_cbox(self):
+    def _init_output_srs_cbox(self):
         """Initialize the spatial reference combo box."""
         srs_cbox = self._ui.cbox_srs
-        srs_cbox.activated.connect(self._on_switch_srs)
+        srs_cbox.activated.connect(self._on_switch_output_srs)
         srs_cbox.clear()
         # Use the friendly key (e.g., "WGS84") as the display text,
         # and store the corresponding SRS string (e.g., "EPSG:4326") as userData.
+        if self._reference_rasterpane is not None and self._reference_rasterpane.get_rasterview().get_raster_data() is not None:
+            ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
+            reference_srs_name = "Default: " + ref_ds.get_spatial_ref().GetName()
+            reference_srs_code = ref_ds.get_spatial_ref().GetAuthorityCode(None)
+            srs_cbox.addItem(reference_srs_name, reference_srs_code)
+
         for name, srs in COMMON_SRS.items():
             srs_cbox.addItem(name, srs)
-        self._on_switch_srs(0)
+
+        self._on_switch_output_srs(srs_cbox.currentIndex())
 
     def _init_interpolation_type_cbox(self):
         """Initialize the interpolation type combo box using the GDAL resample constants."""
@@ -265,7 +272,7 @@ class GeoReferencerDialog(QDialog):
             filename = file_dialog.selectedFiles()[0]
             self._ui.ledit_save_path.setText(filename)
 
-    def _on_switch_srs(self, index: int):
+    def _on_switch_output_srs(self, index: int):
         srs = self._ui.cbox_srs.itemData(index)
         self._curr_target_srs = srs
 
@@ -350,6 +357,7 @@ class GeoReferencerDialog(QDialog):
         except:
             pass
         self._reference_rasterpane.show_dataset(dataset)
+        self._init_output_srs_cbox()
 
     # region Table Entry Helpers
 

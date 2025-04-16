@@ -274,7 +274,7 @@
           <item>
            <widget class="QLabel" name="lbl_srs">
             <property name="text">
-             <string>Target SRS</string>
+             <string>Output Spatial Reference</string>
             </property>
            </widget>
           </item>
