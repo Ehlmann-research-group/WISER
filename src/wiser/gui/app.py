@@ -52,6 +52,7 @@ from .bandmath_dialog import BandMathDialog
 from .fits_loading_dialog import FitsSpectraLoadingDialog
 from .registration_dialog import RegistrationDialog
 from .geo_reference_dialog import GeoReferencerDialog
+from .reference_creator_dialog import ReferenceCreatorDialog
 from wiser import bandmath
 
 from wiser.raster.selection import SinglePixelSelection
@@ -282,9 +283,11 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr('Co-Registration'))
         act.triggered.connect(self.show_registration_dialog)
 
-        
         act = self._tools_menu.addAction(self.tr('Geo Reference'))
         act.triggered.connect(self.show_geo_reference_dialog)
+
+        act = self._tools_menu.addAction(self.tr('Reference System Creator'))
+        act.triggered.connect(self.show_reference_creator_dialog)
 
         # Help menu
 
@@ -866,6 +869,11 @@ class DataVisualizerApp(QMainWindow):
         dialog = GeoReferencerDialog(self._app_state, self._main_view)
         if dialog.exec() == QDialog.Accepted:
             print(f"Geo Ref press accepted!")
+    
+    def show_reference_creator_dialog(self):
+        dialog = ReferenceCreatorDialog(self._app_state)
+        if dialog.exec() == QDialog.Accepted:
+            print(f"Reference creator accepted!")
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         '''
