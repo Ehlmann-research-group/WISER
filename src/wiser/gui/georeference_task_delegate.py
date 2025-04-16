@@ -36,8 +36,12 @@ class GroundControlPoint:
         return self._point
 
     def get_scaled_point(self) -> Tuple[int, int]:
+        '''
+        Since this function is used to get a point to display a drawn point, 
+        we remove 0.5 here to recenter the rectangle. 
+        '''
         scale = self._rasterpane.get_scale()
-        return [self._point[0]*scale, self._point[1]*scale]
+        return [(self._point[0] - 0.5)*scale, (self._point[1]-0.5)*scale]
 
     def get_rasterpane(self) -> 'RasterPane':
         return self._rasterpane
@@ -210,8 +214,8 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             assert gcp_scaled is not None, "Got a GCP scaled point as None!"
     
             if scale >= 6:
-                painter.drawRect(gcp_scaled[0] - 0.5 + PIXEL_OFFSET,
-                                 gcp_scaled[1] - 0.5 + PIXEL_OFFSET,
+                painter.drawRect(gcp_scaled[0] + PIXEL_OFFSET,
+                                 gcp_scaled[1] + PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET)
             else:
@@ -234,8 +238,8 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         if current_point_scaled is not None:
             painter.setPen(QPen(Qt.red))
             if scale >= 6:
-                painter.drawRect(current_point_scaled[0] - 0.5 + PIXEL_OFFSET,
-                                 current_point_scaled[1] - 0.5 + PIXEL_OFFSET,
+                painter.drawRect(current_point_scaled[0] + PIXEL_OFFSET,
+                                 current_point_scaled[1] + PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET,
                                  scale - 2 * PIXEL_OFFSET)
             else:
