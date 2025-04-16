@@ -249,10 +249,14 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         new_dataset = self.reopen_dataset()
         try:
+            print(f"Getting vmemory")
             np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+            print(f"finished getting v memory")
         except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+            print(f"Reading as array")
             np_array = new_dataset.ReadAsArray()
+            print(f"finished reading as array")
         return np_array
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
@@ -268,13 +272,20 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        import time
         # Note that GDAL indexes bands from 1, not 0.
         new_dataset = self.reopen_dataset()
         band = new_dataset.GetRasterBand(band_index + 1)
         try:
+            print(f"Getting band vmem")
             np_array = band.GetVirtualMemAutoArray()
+            print(f"Finished getting band vmem")
         except (RuntimeError, TypeError):
+            print(f"Reading band as array")
+            start = time.perf_counter()
             np_array = band.ReadAsArray()
+            end = time.perf_counter()
+            print(f"Finished reading band as array: {end-start:0.02f}")
 
         return np_array
     
@@ -684,7 +695,11 @@ class PILRasterDataImpl(RasterDataImpl):
         """
         Sets the element type based on the dtype of the NumPy array derived from the PIL image.
         """
+        import time
+        start = time.perf_counter()
         arr = np.array(self.pil_image)
+        end = time.perf_counter()
+        print(f"set element elapsed time: {end-start:0.02f}")
         self.elem_type = arr.dtype
     
     def get_format(self) -> str:
@@ -722,13 +737,20 @@ class PILRasterDataImpl(RasterDataImpl):
         
         The optional parameter filter_data_ignore_value can be extended to filter out specific values if needed.
         """
+        import time
+        start = time.perf_counter()
         arr = self.get_image_data()
+        end = time.perf_counter()
+        print(f"elapsed time pil band: {end-start:0.02f}")
         if arr.ndim == 2:
             return arr
         elif arr.ndim == 3:
             if band_index < 0 or band_index >= arr.shape[2]:
                 raise IndexError("Band index out of range.")
+            start = time.perf_counter()
             band_data = arr[..., band_index]
+            end = time.perf_counter()
+            print(f"elapsed time band indexing: {end-start:0.02f}")
             # Optionally add filtering logic here if filter_data_ignore_value is True.
             return band_data
 
@@ -1008,13 +1030,22 @@ class GlymurRasterDataImpl(RasterDataImpl):
         
         The optional parameter filter_data_ignore_value can be extended to filter out specific values if needed.
         """
-        arr = self.get_image_data()
-        if arr.ndim == 2:
+        import time
+        if self.number_bands == 1:
+            start = time.perf_counter()
+            arr = self.jp2_img[:]
+            print(f"type of arr: {type(arr)}")
+            end = time.perf_counter()
+            print(f"elapsed time 1 band: {end-start:0.02f}")
             return arr
-        elif arr.ndim == 3:
-            if band_index < 0 or band_index >= arr.shape[2]:
+        else:
+            if band_index < 0 or band_index >= self.jp2_img.shape[2]:
                 raise IndexError("Band index out of range.")
-            band_data = arr[..., band_index]
+            start = time.perf_counter()
+            band_data = self.jp2_img[..., band_index]
+            print(f"type of band_data: {type(band_data)}")
+            end = time.perf_counter()
+            print(f"elapsed time: {end-start:0.02f}")
             # Optionally add filtering logic here if filter_data_ignore_value is True.
             return band_data
 
@@ -1204,7 +1235,6 @@ class JP2_PILRasterDataImpl(PILRasterDataImpl):
     def __init__(self, PIL_Image, gdal_dataset):
         super().__init__(PIL_Image, gdal_dataset)
 
-
 class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     def get_format(self):
         return DataFormatNames.JP2
@@ -1220,6 +1250,55 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     
     def __init__(self, pdr_dataset):
         super().__init__(pdr_dataset)
+
+class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
+    @classmethod
+    def get_jpeg2000_drivers(cls):
+        driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
+        jpeg2000_drivers = []
+        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not. I don't want
+        # to have to build from source but i  mightl
+        for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
+            if drv in driver_names:
+                jpeg2000_drivers.append(drv)
+        print(f'Found these jpeg2000 drivers: {jpeg2000_drivers}')
+        return jpeg2000_drivers
+
+    @classmethod
+    def get_load_filename(cls, path: str) -> str:
+        # For JP2 files, there's no need to adjust the path
+        return path
+
+    @classmethod
+    def try_load_file(cls, path: str) -> ['JP2_GDALRasterDataImpl']:
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        load_path = cls.get_load_filename(path)
+        allowed_drivers = cls.get_jpeg2000_drivers()
+        if not allowed_drivers:
+            raise ValueError("No JPEG2000 drivers are available in GDAL.")
+
+        for driver in allowed_drivers:
+            try:
+                print(f"Trying to open jp2 gdal!")
+                gdal_dataset = gdal.OpenEx(
+                    load_path,
+                    nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+                    allowed_drivers=[driver]
+                )
+                print(f"Opened JP2 gdal!")
+                if gdal_dataset is not None:
+                    logger.debug(f"Opened {load_path} with driver {driver}")
+                    print("Successfully opened jpeg200 file!")
+                    return [cls(gdal_dataset)]
+            except RuntimeError as e:
+                logger.warning(f"Failed to open {load_path} with driver {driver}: {e}")
+                continue
+
+        raise ValueError(f"Unable to open {load_path} as a JPEG2000 file using drivers {allowed_drivers}")
+
+    def __init__(self, gdal_dataset):
+        super().__init__(gdal_dataset)
 
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
@@ -1457,54 +1536,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
             np_array = new_dataset.ReadAsArray()
         return np_array
-
-    def __init__(self, gdal_dataset):
-        super().__init__(gdal_dataset)
-
-
-class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
-    @classmethod
-    def get_jpeg2000_drivers(cls):
-        driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
-        jpeg2000_drivers = []
-        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not. I don't want
-        # to have to build from source but i  mightl
-        for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
-            if drv in driver_names:
-                jpeg2000_drivers.append(drv)
-        print(f'Found these jpeg2000 drivers: {jpeg2000_drivers}')
-        return jpeg2000_drivers
-
-    @classmethod
-    def get_load_filename(cls, path: str) -> str:
-        # For JP2 files, there's no need to adjust the path
-        return path
-
-    @classmethod
-    def try_load_file(cls, path: str) -> ['JP2_GDALRasterDataImpl']:
-        # Turn on exceptions when calling into GDAL
-        gdal.UseExceptions()
-        load_path = cls.get_load_filename(path)
-        allowed_drivers = cls.get_jpeg2000_drivers()
-        if not allowed_drivers:
-            raise ValueError("No JPEG2000 drivers are available in GDAL.")
-
-        for driver in allowed_drivers:
-            try:
-                gdal_dataset = gdal.OpenEx(
-                    load_path,
-                    nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
-                    allowed_drivers=[driver]
-                )
-                if gdal_dataset is not None:
-                    logger.debug(f"Opened {load_path} with driver {driver}")
-                    print("Successfully opened jpeg200 file!")
-                    return [cls(gdal_dataset)]
-            except RuntimeError as e:
-                logger.warning(f"Failed to open {load_path} with driver {driver}: {e}")
-                continue
-
-        raise ValueError(f"Unable to open {load_path} as a JPEG2000 file using drivers {allowed_drivers}")
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)

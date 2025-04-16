@@ -16,6 +16,11 @@ if getattr(sys, 'frozen', False):
     plugin_path = os.path.join(sys._MEIPASS, "gdalplugins")
     os.environ["GDAL_DRIVER_PATH"] = plugin_path
 
+os.environ['GDAL_DEBUG'] = 'ON'
+os.environ['GDAL_NUM_THREADS'] = 'ALL_CPUS'
+os.environ['GDAL_DISABLE_READDIR_ON_OPEN'] = 'YES'
+os.environ['OPJ_NUM_THREADS'] = 'ALL_CPUS'
+
 #============================================================================
 # ESSENTIAL DEBUG CONFIGURATION
 #
