@@ -114,7 +114,8 @@ class GeoRefTableEntry:
         self.set_gcp_pair(newEntry.get_gcp_pair())
         self.set_enabled(newEntry.is_enabled())
         self.set_id(newEntry.get_id())
-        self.set_residuals(newEntry.get_residuals())
+        self.set_residual_x(newEntry.get_residual_x())
+        self.set_residual_y(newEntry.get_residual_y())
 
     def __str__(self):
         return (
@@ -122,7 +123,8 @@ class GeoRefTableEntry:
         f"gcp_pair: {self._gcp_pair}\n"
         f"id: {self._id}\n"
         f"enabled: {self._enabled}\n"
-        f"residuals: {self._residuals}\n"
+        f"residual-x: {self._residual_x}\n"
+        f"residual-y: {self._residual_y}\n"
         "======================="
     )
 
@@ -180,6 +182,27 @@ class GeoReferencerDialog(QDialog):
         self._warp_kwargs = None
 
     # region Initialization
+
+    def _setup_ledits(self):
+        target_ds = self._get_target_dataset()
+        ref_ds = self._get_ref_dataset()
+        if target_ds is None or ref_ds is None:
+            return
+        target_x_pixel_ledit = self._ui.ledit_target_x_coord
+        target_y_pixel_ledit = self._ui.ledit_target_y_coord
+
+        target_x_pixel_validator = QDoubleValidator(0.0, target_ds.get_width(), 10, target_x_pixel_ledit)
+        target_y_pixel_validator = QDoubleValidator(0.0, target_ds.get_height(), 10, target_y_pixel_ledit)
+
+
+        target_x_pixel_ledit.setValidator(target_x_pixel_validator)
+        target_x_pixel_ledit.editingFinished.connect(self._on_current_target_x_pixel_ledit_changed)
+
+        target_y_pixel_ledit.setValidator(target_y_pixel_validator)
+        target_y_pixel_ledit.editingFinished.connect(self._on_current_target_y_pixel_ledit_changed)
+
+        ref_x_pixel_ledit = self._ui.ledit_ref_x_coord
+        ref_y_pixel_ledit = self._ui.ledit_ref_y_coord
 
     def _init_file_saver(self):
         self._ui.btn_save_path.clicked.connect(self._on_choose_save_filename)
@@ -265,6 +288,24 @@ class GeoReferencerDialog(QDialog):
     # region Slots
     #========================
 
+    def _on_current_target_x_pixel_ledit_changed(self):
+        new_value = self._ui.ledit_target_x_coord.text()
+        new_x_value = float(new_value)
+        current_gcp_pair = self._georeferencer_task_delegate.get_current_point_pair()
+        if current_gcp_pair is not None:
+            target_gcp = current_gcp_pair.get_target_gcp()
+            target_gcp.set_point((new_x_value, target_gcp.get_point()[1]))
+            self._update_panes()
+
+    def _on_current_target_y_pixel_ledit_changed(self):
+        new_value = self._ui.ledit_target_y_coord.text()
+        new_y_value = float(new_value)
+        current_gcp_pair = self._georeferencer_task_delegate.get_current_point_pair()
+        if current_gcp_pair is not None:
+            target_gcp = current_gcp_pair.get_target_gcp()
+            target_gcp.set_point((target_gcp.get_point()[0], new_y_value))
+            self._update_panes()
+
     def _on_cell_changed(self, row: int, col: int):
         table_widget = self._ui.table_gcps
         if col == COLUMN_ID.TARGET_X_COL:
@@ -285,8 +326,7 @@ class GeoReferencerDialog(QDialog):
             target_gcp.set_point([curr_point[0], new_target_y])
         else:
             return
-        self._target_rasterpane.update_all_rasterviews()
-        self._reference_rasterpane.update_all_rasterviews()
+        self._update_panes()
 
     def _on_choose_save_filename(self, checked=False):
         '''
@@ -335,16 +375,13 @@ class GeoReferencerDialog(QDialog):
             color_str = color.name()
             self._table_entry_list[row].set_color(color_str)
             self._set_color_icon(row, color_str)
-            # TODO (Joshua G-K): Change the color icon
-            self._target_rasterpane.update_all_rasterviews()
-            self._reference_rasterpane.update_all_rasterviews()
+            self._update_panes()
 
     def _on_enabled_clicked(self, table_entry: GeoRefTableEntry, checked: bool):
         # Since the table_entry's ID can change, don't just pass in the row_to_add
         row_to_add = table_entry.get_id()
         self._set_row_enabled_state(row_to_add, checked)
-        self._target_rasterpane.update_all_rasterviews()
-        self._reference_rasterpane.update_all_rasterviews()
+        self._update_panes()
 
     def _on_gcp_pair_added(self, gcp_pair: GroundControlPointPair):
         # Create new table entry
@@ -379,6 +416,7 @@ class GeoReferencerDialog(QDialog):
         except:
             pass
         self._target_rasterpane.show_dataset(dataset)
+        self._setup_ledits()
 
     def _on_switch_reference_dataset(self, index: int):
         ds_id = self._reference_cbox.itemData(index)
@@ -400,6 +438,7 @@ class GeoReferencerDialog(QDialog):
         except:
             pass
         self._reference_rasterpane.show_dataset(dataset)
+        self._setup_ledits()
         self._init_output_srs_cbox()
 
     # region Table Entry Helpers
@@ -524,8 +563,7 @@ class GeoReferencerDialog(QDialog):
         pushButton.clicked.connect(lambda checked : self._on_removal_button_clicked(table_entry))
         table_widget.setCellWidget(row_to_add, COLUMN_ID.REMOVAL_COL, pushButton)
 
-        self._target_rasterpane.update_all_rasterviews()
-        self._reference_rasterpane.update_all_rasterviews()
+        self._update_panes()
 
     def _remove_table_entry(self, table_entry: GeoRefTableEntry) -> Optional[int]:
         '''
@@ -555,8 +593,7 @@ class GeoReferencerDialog(QDialog):
         # the table entry's are in their correct rows
         self._update_entry_ids()
 
-        self._target_rasterpane.update_all_rasterviews()
-        self._reference_rasterpane.update_all_rasterviews()
+        self._update_panes()
 
     def _sync_gcp_table_row_with_table_entry(self, table_entry: GeoRefTableEntry):
         table_widget = self._ui.table_gcps
@@ -655,6 +692,12 @@ class GeoReferencerDialog(QDialog):
                 f"Entry number mismatch. Table entry list {len(self._table_entry_list)} and QTableWidget has {self._ui.table_gcps.rowCount()} entries"
         return len(self._table_entry_list)
 
+    def _get_target_dataset(self):
+        return self._target_rasterpane.get_rasterview().get_raster_data()
+    
+    def _get_ref_dataset(self):
+        return self._reference_rasterpane.get_rasterview().get_raster_data()
+
     # region Dataset Choosers
 
     def _update_target_dataset_chooser(self):
@@ -730,10 +773,16 @@ class GeoReferencerDialog(QDialog):
 
     #     rasterview.set_raster_data(dataset, bands, stretches)
 
+    # region Misc
+
+    def _update_panes(self):
+        self._target_rasterpane.update_all_rasterviews()
+        self._reference_rasterpane.update_all_rasterviews()
+
     def set_message_text(self, text: str):
         self._ui.lbl_message.setText(text)
 
-    # Math
+    # region Geo referencing
 
     def _georeference(self):
         save_path = self._get_save_file_path()

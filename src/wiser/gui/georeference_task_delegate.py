@@ -284,7 +284,13 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             point = [point.x(), point.y()]
         else:
             return False
-        # We want the user to be able to press escape and clear the currently selected raster pane 
+
+        self.handle_point_click_logic(point, rasterpane)
+
+        return False
+
+    def handle_point_click_logic(self, point: Tuple[int, int], rasterpane: 'RasterPane'):
+                # We want the user to be able to press escape and clear the currently selected raster pane 
         if self._state == GeoReferencerState.NOTHING_SELECTED:
             self.check_state()
             self._current_selected_pane = rasterpane
@@ -344,7 +350,6 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             # We should never reach this point because the state SECOND_POINT_ENTERED should
             # immediately go back to the NOTHING_SELECTED state
             raise ValueError(f"The state {self._state} was arrived at in on_mouse_release")
-        return False
 
     def create_gcp_pair(self, gcp_0 = None, gcp_1 = None) -> GroundControlPointPair:
         return GroundControlPointPair(self._target_rasterpane, self._ref_rasterpane, gcp_0=gcp_0, gcp_1=gcp_1)
@@ -402,6 +407,9 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             # immediately go back to the NOTHING_SELECTED state
             raise ValueError(f"The state {self._state} was arrived at in on_key_release" + 
                                 f"for the escape key")
+
+    def get_current_point_pair(self):
+        return self._current_point_pair
 
     def handle_enter_key_release(self):
         # We have three options here:

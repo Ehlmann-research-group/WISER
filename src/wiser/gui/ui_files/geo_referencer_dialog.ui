@@ -97,7 +97,7 @@
                </sizepolicy>
               </property>
               <property name="text">
-               <string>X:</string>
+               <string>Pixel X:</string>
               </property>
              </widget>
             </item>
@@ -132,7 +132,7 @@
                </sizepolicy>
               </property>
               <property name="text">
-               <string>Y:</string>
+               <string>Pixel Y:</string>
               </property>
              </widget>
             </item>
@@ -195,7 +195,7 @@
             <item>
              <widget class="QLabel" name="lbl_ref_x_coord">
               <property name="text">
-               <string>X:</string>
+               <string>Spatial X:</string>
               </property>
              </widget>
             </item>
@@ -224,7 +224,7 @@
             <item>
              <widget class="QLabel" name="lbl_ref_y_coord">
               <property name="text">
-               <string>Y:</string>
+               <string>Spatial Y:</string>
               </property>
              </widget>
             </item>
