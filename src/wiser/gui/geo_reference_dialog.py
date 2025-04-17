@@ -168,6 +168,8 @@ class GeoReferencerDialog(QDialog):
         self._init_poly_order_cbox()
         self._init_file_saver()
 
+        self._warp_kwargs = None
+
     # region Initialization
 
     def _init_file_saver(self):
@@ -695,7 +697,6 @@ class GeoReferencerDialog(QDialog):
         driver = gdal.GetDriverByName('GTiff')
 
         # dst_ds = driver.CreateCopy(save_path, gdal_dataset, 0)
-        temp_ds = driver.Create(save_path, width, height, 1, gdal.GDT_Float32)
 
         gcps: List[GeoRefTableEntry, gdal.GCP] = []
         
@@ -710,22 +711,24 @@ class GeoReferencerDialog(QDialog):
         ref_srs = ref_dataset.get_spatial_ref()
         ref_gt = ref_dataset.get_geo_transform()
         ref_projection = ref_dataset.get_wkt_spatial_reference()
+
         assert ref_projection is not None and ref_srs is not None and ref_gt is not None, \
                 f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
 
-        ref_to_output_transform = osr.CoordinateTransformation(ref_srs, output_srs)
-
         for table_entry in self._table_entry_list:
             spatial_coord = table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
-            print(f"spatial_coord: {spatial_coord}")
             assert spatial_coord is not None, f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
             target_pixel_coord = table_entry.get_gcp_pair().get_target_gcp().get_point()
-            # output_spatial_coord = ref_to_output_transform.TransformPoint(spatial_coord[0], spatial_coord[1], 0)
             gcps.append((table_entry, gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1])))
 
-        temp_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-
-        warp_kwargs = {
+        temp_vrt = '/vsimem/ref.vrt'
+        vrt_ds = gdal.Translate(temp_vrt, ref_gdal_dataset, format='VRT')
+        vrt_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+    
+        # try:
+        # ref_gdal_dataset.SetGCPs([pair[1] for pair in gcps], ref_projection)
+        self._warp_kwargs = {
+            "copyMetadata": True,
             "resampleAlg": self._current_resample_alg,
             "dstSRS": output_projection
         }
@@ -733,53 +736,37 @@ class GeoReferencerDialog(QDialog):
         transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}']
 
         if self._current_transform_type == TRANSFORM_TYPES.TPS:
-            warp_kwargs["tps"] = True
+            self._warp_kwargs["tps"] = True
             transformer_options += ['METHOD=GCP_TPS', 'MAX_GCP_ORDER=-1']
         elif self._current_transform_type == TRANSFORM_TYPES.POLY_1:
-            warp_kwargs["polynomialOrder"] = 1
+            self._warp_kwargs["polynomialOrder"] = 1
             transformer_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=1']
         elif self._current_transform_type == TRANSFORM_TYPES.POLY_2:
-            warp_kwargs["polynomialOrder"] = 2
+            self._warp_kwargs["polynomialOrder"] = 2
             transformer_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=2']
         elif self._current_transform_type == TRANSFORM_TYPES.POLY_3:
-            warp_kwargs["polynomialOrder"] = 3
+            self._warp_kwargs["polynomialOrder"] = 3
             transformer_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=3']
         else:
             raise RuntimeError(f"Unknown self._current_transform_type: {self._current_transform_type}")
 
-        warp_options = gdal.WarpOptions(**warp_kwargs)
+        warp_options = gdal.WarpOptions(**self._warp_kwargs)
 
-        base, ext = os.path.splitext(save_path)
+        # transformed_ds = gdal.Warp(save_path, vrt_ds, options=warp_options)
 
-        transformed_ds = gdal.Warp(f"{base}_temp.{ext}", temp_ds, options=warp_options)
-        if transformed_ds is None:
-            raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
+        # if transformed_ds is None:
+        #     raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
+        # gt = transformed_ds.GetGeoTransform()
+        # if gt is None:
+        #     raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
+
+        tr_pixel_to_output_srs = gdal.Transformer(vrt_ds, None, transformer_options)
+        # finally:
+        #     ref_gdal_dataset.SetGCPs(gcp_placeholder, gcp_proj_placeholder)
     
-        gt = transformed_ds.GetGeoTransform()
-        if gt is None:
-            raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
-    
-        # transform_options = ['METHOD=GCP_POLYNOMIAL']
-        print(f"Type(ref_dataset): {type(ref_dataset)}")
-        print(f"Type(ref_gdal_dataset): {type(ref_gdal_dataset)}")
-        print(f"Type(transformed_ds): {type(transformed_ds)}")
-        print(f"Type(transform_options): {type(transformer_options)}")
-        print(f"temp_ds gcp count: {temp_ds.GetGCPCount()}")
-        print(f"transformer gcp count: {transformed_ds.GetGCPCount()}")
-        print(f"transformer_options: {transformer_options}")
-        tr_pixel_to_output_srs = gdal.Transformer(temp_ds, None, transformer_options)
         tr_output_srs_to_ref_srs = osr.CoordinateTransformation(output_srs, ref_srs)
 
-        # transformation = osr.CoordinateTransformation(output_srs, ref_srs)
-        # print(f"pixel width: {abs(gt[1])}")
-        # print(f"pixel height: {abs(gt[5])}")
         residuals = []
-        print(f"gt[0]: {gt[0]}")
-        print(f"gt[1]: {gt[1]}")
-        print(f"gt[2]: {gt[2]}")
-        print(f"gt[3]: {gt[3]}")
-        print(f"gt[4]: {gt[4]}")
-        print(f"gt[5]: {gt[5]}")
         for entry, gcp in gcps:
             # For each gcp we transform it to the output_srs and get the error code
 
@@ -797,7 +784,6 @@ class GeoReferencerDialog(QDialog):
     
             ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_y, output_spatial_x, 0)
 
-
             ref_spatial_x, ref_spatial_y = ref_spatial_coord[0], ref_spatial_coord[1]
 
             print(f"reference_spatial_x: {ref_spatial_x}")
@@ -812,46 +798,6 @@ class GeoReferencerDialog(QDialog):
             error_raster_x = error_spatial_x / abs(ref_gt[1])
             error_raster_y = error_spatial_y / abs(ref_gt[5])
 
-            # # Apply the affine transformation of the new dataset to the GCP's pixel coordinates.
-            # # Put the target dataset pixel's into the output srs
-            # computed_map_ns_output_srs = gt[0] + gt[1]*gcp.GCPPixel + gt[2]*gcp.GCPLine
-            # computed_map_we_output_srs = gt[3] + gt[4]*gcp.GCPPixel + gt[5]*gcp.GCPLine
-            # print(f"gcp.GCPPixel: {gcp.GCPPixel}")
-            # print(f"gcp.GCPLine: {gcp.GCPLine}")
-            # print(f"computed_map_we_output_srs: {computed_map_we_output_srs}")
-            # print(f"computed_map_ns_output_srs: {computed_map_ns_output_srs}")
-            # print(f"gdal.ApplyGeoTransform target: {gdal.ApplyGeoTransform(gt, gcp.GCPPixel, gcp.GCPLine)}")
-            # print(f"gdal.ApplyGeoTransform ref: {gdal.ApplyGeoTransform(ref_gt, gcp.GCPPixel, gcp.GCPLine)}")  
-            # # success, (x_spatial, y_spatial, z) = transformer.TransformPoint(False, gcp.GCPLine, gcp.GCPPixel)
-            # # print(f"transformer, x coord: {x_spatial}")
-            # # print(f"transformer, y coord: {y_spatial}")
-            # # print(f"success: {success}")
-
-            # # Now transform the output srs coordinates into the reference srs spatial coordinates
-            # transformed_coord = tr_output_srs_to_ref_srs.TransformPoint(computed_map_ns_output_srs, computed_map_we_output_srs, 0)
-
-            # computed_map_x_ref_srs = transformed_coord[0]
-            # computed_map_y_ref_srs = transformed_coord[1]
-            # print(f"computed_map_x_ref_srs: {computed_map_x_ref_srs}")
-            # print(f"computed_map_y_ref_srs: {computed_map_y_ref_srs}")
-
-            # print(f"gcp.GCPX: {gcp.GCPX}")
-            # print(f"gcp.GCPY: {gcp.GCPY}")
-
-            # # Compute errors in map coordinates in the reference coordinate system
-            # error_x_map = gcp.GCPX - computed_map_x_ref_srs
-            # error_y_map = gcp.GCPY - computed_map_y_ref_srs
-            # print(f"error_x_map: {error_x_map}")
-            # print(f"error_y_map: {error_y_map}")
-
-            # pixel_width = abs(ref_gt[1])
-            # pixel_height = abs(ref_gt[5])
-            # print(f"pixel_width: {pixel_width}")
-            # print(f"pixel_height: {pixel_height}")
-
-            # error_x_pixels = error_x_map / pixel_width if pixel_width else 0
-            # error_y_pixels = error_y_map / pixel_height if pixel_height else 0
-
             entry.set_residual_x(round(error_raster_x, 6))
             entry.set_residual_y(round(error_raster_y, 6))
 
@@ -860,6 +806,41 @@ class GeoReferencerDialog(QDialog):
         
             residuals.append((error_raster_x, error_raster_y))
             print(f"GCP at pixel ({gcp.GCPPixel}, {gcp.GCPLine}): Residual error: X: {error_raster_x:.2f} px, Y: {error_raster_y:.2f} px")
+        
+        tr_pixel_to_output_srs = None
+        tr_output_srs_to_ref_srs = None
+        gdal.Unlink(temp_vrt)
 
+    def accept(self):
+        save_path = self._get_save_file_path()
+        if save_path is None:
+            return
 
+        ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
+        ref_gdal_dataset = ref_dataset._impl.gdal_dataset
+        ref_projection = ref_dataset.get_wkt_spatial_reference()
+
+        gcps: List[GeoRefTableEntry, gdal.GCP] = []
+
+        for table_entry in self._table_entry_list:
+            spatial_coord = table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
+            assert spatial_coord is not None, f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
+            target_pixel_coord = table_entry.get_gcp_pair().get_target_gcp().get_point()
+            gcps.append((table_entry, gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1])))
+    
+        temp_vrt = '/vsimem/ref.vrt'
+        vrt_ds = gdal.Translate(temp_vrt, ref_gdal_dataset, format='VRT')
+        vrt_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+
+        warp_options = gdal.WarpOptions(**self._warp_kwargs)
+
+        transformed_ds = gdal.Warp(save_path, vrt_ds, options=warp_options)
+
+        if transformed_ds is None:
+            raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
+        gt = transformed_ds.GetGeoTransform()
+        if gt is None:
+            raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
+
+        super().accept()
         
