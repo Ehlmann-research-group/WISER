@@ -1305,6 +1305,23 @@ class RasterView(QWidget):
             # Convert to an integer coordinate.  Can't use QPointF.toPoint() because
             # it rounds to the nearest point, and we just want truncation/floor.
             return QPoint(int(scaled.x()), int(scaled.y()))
+        
+    def image_coord_to_raster_coord_precise(self, position: Union[QPoint, QPointF]) -> QPointF:
+        '''
+        Takes a position in screen space as a QPointF object, and translates it
+        into a 2-tuple containing the (X, Y) coordinates of the position within
+        the raster data set.
+        '''
+        if isinstance(position, QPoint):
+            position = QPointF(position)
+        elif not isinstance(position, QPointF):
+            raise TypeError('This function requires a QPoint or QPointF ' +
+                            f'argument; got {type(position)}')
+
+        # Scale the screen position into the dataset's coordinate system.
+        scaled = position / self._scale_factor
+
+        return QPointF(scaled.x(), scaled.y())
     
     def raster_coord_to_image_coord(self, raster_coord: Union[QPoint, QPointF], round_nearest=False) -> QPointF:
         '''

@@ -41,7 +41,7 @@ class GroundControlPoint:
         we remove 0.5 here to recenter the rectangle. 
         '''
         scale = self._rasterpane.get_scale()
-        return [(self._point[0] - 0.5)*scale, (self._point[1]-0.5)*scale]
+        return [(self._point[0])*scale, (self._point[1])*scale]
 
     def get_rasterpane(self) -> 'RasterPane':
         return self._rasterpane
@@ -196,9 +196,11 @@ class GeoReferencerTaskDelegate(TaskDelegate):
 
         table_entries = self._geo_ref_dialog.get_table_entries()
 
+    
         for entry in table_entries:
             point_pair: GroundControlPointPair = entry.get_gcp_pair()
             color = QColor(entry.get_color())
+            painter.setBrush(color)
             enabled = entry.is_enabled()
             if not enabled:
                 continue
@@ -214,13 +216,17 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             assert gcp_scaled is not None, "Got a GCP scaled point as None!"
     
             if scale >= 6:
-                painter.drawRect(gcp_scaled[0] + PIXEL_OFFSET,
-                                 gcp_scaled[1] + PIXEL_OFFSET,
-                                 scale - 2 * PIXEL_OFFSET,
-                                 scale - 2 * PIXEL_OFFSET)
+                # painter.drawRect(gcp_scaled[0] + PIXEL_OFFSET,
+                #                  gcp_scaled[1] + PIXEL_OFFSET,
+                #                  scale - 2 * PIXEL_OFFSET,
+                #                  scale - 2 * PIXEL_OFFSET)
+                painter.drawEllipse(gcp_scaled[0],
+                                 gcp_scaled[1], 6.0, 6.0)
             else:
                 draw_size = scale if scale >= 1 else 1
-                painter.drawRect(gcp_scaled[0], gcp_scaled[1], draw_size, draw_size)
+                # painter.drawRect(gcp_scaled[0], gcp_scaled[1], draw_size, draw_size)
+                painter.drawEllipse(gcp_scaled[0],
+                                 gcp_scaled[1], 3.0, 3.0)
 
         if self._current_point_pair is None:
             return
@@ -237,14 +243,21 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         
         if current_point_scaled is not None:
             painter.setPen(QPen(Qt.red))
+            painter.setBrush(Qt.red)
             if scale >= 6:
-                painter.drawRect(current_point_scaled[0] + PIXEL_OFFSET,
-                                 current_point_scaled[1] + PIXEL_OFFSET,
-                                 scale - 2 * PIXEL_OFFSET,
-                                 scale - 2 * PIXEL_OFFSET)
+                # painter.drawRect(current_point_scaled[0] + PIXEL_OFFSET,
+                #                  current_point_scaled[1] + PIXEL_OFFSET,
+                #                  scale - 2 * PIXEL_OFFSET,
+                #                  scale - 2 * PIXEL_OFFSET)
+                painter.drawEllipse(current_point_scaled[0],
+                                 current_point_scaled[1], 6.0, 6.0)
             else:
                 draw_size = scale if scale >= 1 else 1
-                painter.drawRect(current_point_scaled[0], current_point_scaled[1], draw_size, draw_size)
+                # painter.drawRect(current_point_scaled[0], current_point_scaled[1], draw_size, draw_size)
+                painter.drawEllipse(current_point_scaled[0],
+                                 current_point_scaled[1], 3.0, 3.0)
+            print(f"current_point_scaled[0]: {current_point_scaled[0]}")
+            print(f"current_point_scaled[1]: {current_point_scaled[1]}")
         
 
     def on_mouse_release(self, mouse_event: QMouseEvent, rasterpane: 'RasterPane'):
@@ -256,8 +269,8 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         '''
 
         if mouse_event.button() == Qt.LeftButton:
-            point: QPointF = rasterpane.get_rasterview().image_coord_to_raster_coord(mouse_event.localPos())
-            point = [point.x()+0.5, point.y()+0.5]
+            point: QPointF = rasterpane.get_rasterview().image_coord_to_raster_coord_precise(mouse_event.localPos())
+            point = [point.x(), point.y()]
         else:
             return False
         # We want the user to be able to press escape and clear the currently selected raster pane 
