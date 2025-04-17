@@ -46,14 +46,14 @@
      <item row="5" column="0">
       <widget class="QLabel" name="lbl_lon_meridian">
        <property name="text">
-        <string>Other Meridian</string>
+        <string>Lat Origin</string>
        </property>
       </widget>
      </item>
      <item row="3" column="0">
       <widget class="QLabel" name="lbl_lat_meridian">
        <property name="text">
-        <string>Central Meridian</string>
+        <string>Lon Origin</string>
        </property>
       </widget>
      </item>

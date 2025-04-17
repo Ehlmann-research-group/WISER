@@ -237,7 +237,7 @@ class GeoReferencerDialog(QDialog):
     def _init_gcp_table(self):
         table_widget = self._ui.table_gcps
         table_widget.setColumnCount(len(COLUMN_ID))
-        headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y", "Res. X", "Res. Y", "Color", "Remove"]
+        headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y", "dX (Pix)", "dY (Pix)", "Color", "Remove"]
         table_widget.setHorizontalHeaderLabels(headers)
 
         table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
