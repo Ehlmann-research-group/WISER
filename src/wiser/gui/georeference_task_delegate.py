@@ -14,6 +14,9 @@ from .ui_selection import CONTROL_POINT_SIZE
 
 PIXEL_OFFSET = 1
 
+ZOOMED_IN_RADIUS = 6.0
+ZOOMED_OUT_RADIUS = 3.0
+
 # This class is mainly for the developer
 # to keep track of the states in this delegate
 class GeoReferencerState(Enum):
@@ -249,13 +252,13 @@ class GeoReferencerTaskDelegate(TaskDelegate):
                 #                  current_point_scaled[1] + PIXEL_OFFSET,
                 #                  scale - 2 * PIXEL_OFFSET,
                 #                  scale - 2 * PIXEL_OFFSET)
-                painter.drawEllipse(current_point_scaled[0],
-                                 current_point_scaled[1], 6.0, 6.0)
+                painter.drawEllipse(current_point_scaled[0] - ZOOMED_IN_RADIUS / 2,
+                                 current_point_scaled[1] - ZOOMED_IN_RADIUS / 2, ZOOMED_IN_RADIUS, ZOOMED_IN_RADIUS)
             else:
                 draw_size = scale if scale >= 1 else 1
                 # painter.drawRect(current_point_scaled[0], current_point_scaled[1], draw_size, draw_size)
-                painter.drawEllipse(current_point_scaled[0],
-                                 current_point_scaled[1], 3.0, 3.0)
+                painter.drawEllipse(current_point_scaled[0] - ZOOMED_OUT_RADIUS / 2,
+                                 current_point_scaled[1] - ZOOMED_OUT_RADIUS / 2, ZOOMED_OUT_RADIUS, ZOOMED_OUT_RADIUS)
             print(f"current_point_scaled[0]: {current_point_scaled[0]}")
             print(f"current_point_scaled[1]: {current_point_scaled[1]}")
         
