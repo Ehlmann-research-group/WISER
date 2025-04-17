@@ -35,6 +35,9 @@ class GroundControlPoint:
         self._dataset = dataset
         self._rasterpane = rasterpane
 
+    def set_point(self, point: Tuple[int, int]):
+        self._point = point
+
     def get_point(self):
         return self._point
 
@@ -112,8 +115,13 @@ class GroundControlPointPair:
         return self._target_gcp
     
     def get_reference_gcp(self):
-        print(f"getting reference gcp: {self._ref_gcp}")
         return self._ref_gcp
+
+    def get_reference_gcp_spatial_coord(self):
+        ref_point = self._ref_gcp.get_point()
+        ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
+        ref_spatial_point = ref_ds.to_geographic_coords(ref_point)
+        return ref_spatial_point
 
 
 class GeoReferencerTaskDelegate(TaskDelegate):
@@ -223,13 +231,13 @@ class GeoReferencerTaskDelegate(TaskDelegate):
                 #                  gcp_scaled[1] + PIXEL_OFFSET,
                 #                  scale - 2 * PIXEL_OFFSET,
                 #                  scale - 2 * PIXEL_OFFSET)
-                painter.drawEllipse(gcp_scaled[0],
-                                 gcp_scaled[1], 6.0, 6.0)
+                painter.drawEllipse(gcp_scaled[0] - ZOOMED_IN_RADIUS / 2,
+                                 gcp_scaled[1] - ZOOMED_IN_RADIUS / 2, ZOOMED_IN_RADIUS, ZOOMED_IN_RADIUS)
             else:
                 draw_size = scale if scale >= 1 else 1
                 # painter.drawRect(gcp_scaled[0], gcp_scaled[1], draw_size, draw_size)
-                painter.drawEllipse(gcp_scaled[0],
-                                 gcp_scaled[1], 3.0, 3.0)
+                painter.drawEllipse(gcp_scaled[0] - ZOOMED_OUT_RADIUS / 2,
+                                 gcp_scaled[1] - ZOOMED_OUT_RADIUS / 2, ZOOMED_OUT_RADIUS, ZOOMED_OUT_RADIUS)
 
         if self._current_point_pair is None:
             return

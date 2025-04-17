@@ -126,6 +126,15 @@ class GeoRefTableEntry:
         "======================="
     )
 
+class NumericDelegate(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        editor = QLineEdit(parent)
+        # allow e.g. floats ≥0 with up to 10 decimals
+        validator = QDoubleValidator(0.0, 1e6, 10, editor)
+        validator.setNotation(QDoubleValidator.StandardNotation)
+        editor.setValidator(validator)
+        return editor
+
 class GeoReferencerDialog(QDialog):
 
     gcp_pair_added = Signal(GroundControlPointPair)
@@ -226,6 +235,11 @@ class GeoReferencerDialog(QDialog):
         table_widget.setHorizontalHeaderLabels(headers)
 
         table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self._target_x_col_delegate = NumericDelegate()
+        self._target_y_col_delegate = NumericDelegate()
+        table_widget.setItemDelegateForColumn(COLUMN_ID.TARGET_X_COL, self._target_x_col_delegate)
+        table_widget.setItemDelegateForColumn(COLUMN_ID.TARGET_Y_COL, self._target_y_col_delegate)
+        table_widget.cellChanged.connect(self._on_cell_changed)
 
     def _init_dataset_choosers(self):
         self._target_cbox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
@@ -250,6 +264,29 @@ class GeoReferencerDialog(QDialog):
     #========================
     # region Slots
     #========================
+
+    def _on_cell_changed(self, row: int, col: int):
+        table_widget = self._ui.table_gcps
+        if col == COLUMN_ID.TARGET_X_COL:
+            item = table_widget.item(row, col)
+            new_val = item.text()
+            new_target_x = float(new_val)
+            list_entry = self._table_entry_list[row]
+            target_gcp = list_entry.get_gcp_pair().get_target_gcp()
+            curr_point = target_gcp.get_point()
+            target_gcp.set_point([new_target_x, curr_point[1]])
+        elif col == COLUMN_ID.TARGET_Y_COL:
+            item = table_widget.item(row, col)
+            new_val = item.text()
+            new_target_y = float(new_val)
+            list_entry = self._table_entry_list[row]
+            target_gcp = list_entry.get_gcp_pair().get_target_gcp()
+            curr_point = target_gcp.get_point()
+            target_gcp.set_point([curr_point[0], new_target_y])
+        else:
+            return
+        self._target_rasterpane.update_all_rasterviews()
+        self._reference_rasterpane.update_all_rasterviews()
 
     def _on_choose_save_filename(self, checked=False):
         '''
@@ -431,8 +468,9 @@ class GeoReferencerDialog(QDialog):
 
         target_x = gcp_pair.get_target_gcp().get_point()[0]
         target_y = gcp_pair.get_target_gcp().get_point()[1]
-        ref_x = gcp_pair.get_reference_gcp().get_point()[0]
-        ref_y = gcp_pair.get_reference_gcp().get_point()[1]
+        # ref_x = gcp_pair.get_reference_gcp().get_point()[0]
+        # ref_y = gcp_pair.get_reference_gcp().get_point()[1]
+        ref_x, ref_y = gcp_pair.get_reference_gcp_spatial_coord()
 
         residual_x = table_entry.get_residual_x()
         residual_y = table_entry.get_residual_y()
@@ -442,11 +480,23 @@ class GeoReferencerDialog(QDialog):
         checkbox.clicked.connect(lambda checked : self._on_enabled_clicked(table_entry, checked))
 
         table_widget.setCellWidget(row_to_add, COLUMN_ID.ENABLED_COL, checkbox)
-        table_widget.setItem(row_to_add, COLUMN_ID.ID_COL, QTableWidgetItem(str(table_entry.get_id())))
-        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_X_COL, QTableWidgetItem(str(target_x)))
-        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_Y_COL, QTableWidgetItem(str(target_y)))
-        table_widget.setItem(row_to_add, COLUMN_ID.REF_X_COL, QTableWidgetItem(str(ref_x)))
-        table_widget.setItem(row_to_add, COLUMN_ID.REF_Y_COL, QTableWidgetItem(str(ref_y)))
+
+        id_table_item = QTableWidgetItem(str(table_entry.get_id()))
+        id_table_item.setFlags(id_table_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.ID_COL, id_table_item)
+
+        target_x_table_item = QTableWidgetItem(str(target_x))
+        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_X_COL, target_x_table_item)
+        target_y_table_item = QTableWidgetItem(str(target_y))
+        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_Y_COL, target_y_table_item)
+
+        ref_x_table_item = QTableWidgetItem(str(ref_x))
+        ref_x_table_item.setFlags(ref_x_table_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.REF_X_COL, ref_x_table_item)
+    
+        ref_y_table_item = QTableWidgetItem(str(ref_y))
+        ref_y_table_item.setFlags(ref_y_table_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.REF_Y_COL, ref_y_table_item)
 
         res_x_str = "N/A"
         if residual_x is not None:
@@ -456,8 +506,12 @@ class GeoReferencerDialog(QDialog):
         if residual_y is not None:
             res_y_str = str(residual_y)
 
-        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_X_COL, QTableWidgetItem(res_x_str))
-        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, QTableWidgetItem(res_y_str))
+        res_x_item = QTableWidgetItem(res_x_str)
+        res_x_item.setFlags(res_x_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_X_COL, res_x_item)
+        res_y_item = QTableWidgetItem(res_y_str)
+        res_y_item.setFlags(res_y_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, res_y_item)
 
         color_button = QPushButton()
         color_button.clicked.connect(lambda checked : self._on_choose_color(table_entry))
@@ -683,8 +737,6 @@ class GeoReferencerDialog(QDialog):
 
     def _georeference(self):
         save_path = self._get_save_file_path()
-        print(f"geo_referencing!!!")
-        print(f"save path: {save_path}")
         if save_path is None:
             return
 
@@ -814,6 +866,7 @@ class GeoReferencerDialog(QDialog):
     def accept(self):
         save_path = self._get_save_file_path()
         if save_path is None:
+            super().reject()
             return
 
         ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
