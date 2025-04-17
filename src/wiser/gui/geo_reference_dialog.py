@@ -129,10 +129,14 @@ class GeoRefTableEntry:
     )
 
 class NumericDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None, minimum=0.0):
+        super().__init__(parent)
+        self._minimum = minimum
+
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
         # allow e.g. floats ≥0 with up to 10 decimals
-        validator = QDoubleValidator(0.0, 1e6, 10, editor)
+        validator = QDoubleValidator(self._minimum, 1e10, 10, editor)
         validator.setNotation(QDoubleValidator.StandardNotation)
         editor.setValidator(validator)
         return editor
@@ -182,27 +186,6 @@ class GeoReferencerDialog(QDialog):
         self._warp_kwargs = None
 
     # region Initialization
-
-    def _setup_ledits(self):
-        target_ds = self._get_target_dataset()
-        ref_ds = self._get_ref_dataset()
-        if target_ds is None or ref_ds is None:
-            return
-        target_x_pixel_ledit = self._ui.ledit_target_x_coord
-        target_y_pixel_ledit = self._ui.ledit_target_y_coord
-
-        target_x_pixel_validator = QDoubleValidator(0.0, target_ds.get_width(), 10, target_x_pixel_ledit)
-        target_y_pixel_validator = QDoubleValidator(0.0, target_ds.get_height(), 10, target_y_pixel_ledit)
-
-
-        target_x_pixel_ledit.setValidator(target_x_pixel_validator)
-        target_x_pixel_ledit.editingFinished.connect(self._on_current_target_x_pixel_ledit_changed)
-
-        target_y_pixel_ledit.setValidator(target_y_pixel_validator)
-        target_y_pixel_ledit.editingFinished.connect(self._on_current_target_y_pixel_ledit_changed)
-
-        ref_x_pixel_ledit = self._ui.ledit_ref_x_coord
-        ref_y_pixel_ledit = self._ui.ledit_ref_y_coord
 
     def _init_file_saver(self):
         self._ui.btn_save_path.clicked.connect(self._on_choose_save_filename)
@@ -262,6 +245,12 @@ class GeoReferencerDialog(QDialog):
         self._target_y_col_delegate = NumericDelegate()
         table_widget.setItemDelegateForColumn(COLUMN_ID.TARGET_X_COL, self._target_x_col_delegate)
         table_widget.setItemDelegateForColumn(COLUMN_ID.TARGET_Y_COL, self._target_y_col_delegate)
+
+        self._ref_x_col_delegate = NumericDelegate(minimum=-1e10)
+        self._ref_y_col_delegate = NumericDelegate(minimum=-1e10)
+        table_widget.setItemDelegateForColumn(COLUMN_ID.REF_X_COL, self._ref_x_col_delegate)
+        table_widget.setItemDelegateForColumn(COLUMN_ID.REF_Y_COL, self._ref_y_col_delegate)
+
         table_widget.cellChanged.connect(self._on_cell_changed)
 
     def _init_dataset_choosers(self):
@@ -288,24 +277,6 @@ class GeoReferencerDialog(QDialog):
     # region Slots
     #========================
 
-    def _on_current_target_x_pixel_ledit_changed(self):
-        new_value = self._ui.ledit_target_x_coord.text()
-        new_x_value = float(new_value)
-        current_gcp_pair = self._georeferencer_task_delegate.get_current_point_pair()
-        if current_gcp_pair is not None:
-            target_gcp = current_gcp_pair.get_target_gcp()
-            target_gcp.set_point((new_x_value, target_gcp.get_point()[1]))
-            self._update_panes()
-
-    def _on_current_target_y_pixel_ledit_changed(self):
-        new_value = self._ui.ledit_target_y_coord.text()
-        new_y_value = float(new_value)
-        current_gcp_pair = self._georeferencer_task_delegate.get_current_point_pair()
-        if current_gcp_pair is not None:
-            target_gcp = current_gcp_pair.get_target_gcp()
-            target_gcp.set_point((target_gcp.get_point()[0], new_y_value))
-            self._update_panes()
-
     def _on_cell_changed(self, row: int, col: int):
         table_widget = self._ui.table_gcps
         if col == COLUMN_ID.TARGET_X_COL:
@@ -324,6 +295,22 @@ class GeoReferencerDialog(QDialog):
             target_gcp = list_entry.get_gcp_pair().get_target_gcp()
             curr_point = target_gcp.get_point()
             target_gcp.set_point([curr_point[0], new_target_y])
+        elif col == COLUMN_ID.REF_X_COL:
+            item = table_widget.item(row, col)
+            new_val = item.text()
+            new_ref_spatial_x = float(new_val)
+            list_entry = self._table_entry_list[row]
+            gcp_pair = list_entry.get_gcp_pair()
+            gcp_pair.set_reference_gcp_spatially((new_ref_spatial_x, \
+                                                  gcp_pair.get_reference_gcp_spatial_coord()[1]))
+        elif col == COLUMN_ID.REF_Y_COL:
+            item = table_widget.item(row, col)
+            new_val = item.text()
+            new_ref_spatial_y = float(new_val)
+            list_entry = self._table_entry_list[row]
+            gcp_pair = list_entry.get_gcp_pair()
+            gcp_pair.set_reference_gcp_spatially((gcp_pair.get_reference_gcp_spatial_coord()[0], \
+                                                  new_ref_spatial_y))
         else:
             return
         self._update_panes()
@@ -416,7 +403,6 @@ class GeoReferencerDialog(QDialog):
         except:
             pass
         self._target_rasterpane.show_dataset(dataset)
-        self._setup_ledits()
 
     def _on_switch_reference_dataset(self, index: int):
         ds_id = self._reference_cbox.itemData(index)
@@ -438,7 +424,6 @@ class GeoReferencerDialog(QDialog):
         except:
             pass
         self._reference_rasterpane.show_dataset(dataset)
-        self._setup_ledits()
         self._init_output_srs_cbox()
 
     # region Table Entry Helpers
@@ -530,11 +515,11 @@ class GeoReferencerDialog(QDialog):
         table_widget.setItem(row_to_add, COLUMN_ID.TARGET_Y_COL, target_y_table_item)
 
         ref_x_table_item = QTableWidgetItem(str(ref_x))
-        ref_x_table_item.setFlags(ref_x_table_item.flags() & ~Qt.ItemIsEditable)
+        # ref_x_table_item.setFlags(ref_x_table_item.flags() & ~Qt.ItemIsEditable)
         table_widget.setItem(row_to_add, COLUMN_ID.REF_X_COL, ref_x_table_item)
     
         ref_y_table_item = QTableWidgetItem(str(ref_y))
-        ref_y_table_item.setFlags(ref_y_table_item.flags() & ~Qt.ItemIsEditable)
+        # ref_y_table_item.setFlags(ref_y_table_item.flags() & ~Qt.ItemIsEditable)
         table_widget.setItem(row_to_add, COLUMN_ID.REF_Y_COL, ref_y_table_item)
 
         res_x_str = "N/A"

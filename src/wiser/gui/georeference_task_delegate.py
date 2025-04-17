@@ -123,7 +123,13 @@ class GroundControlPointPair:
         ref_spatial_point = ref_ds.to_geographic_coords(ref_point)
         return ref_spatial_point
 
-
+    def set_reference_gcp_spatially(self, spatial_coord: Tuple[int, int]):
+        ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
+        raster_coord = ref_ds.geo_to_pixel_coords(spatial_coord)
+        if raster_coord is None:
+            return
+        self._ref_gcp.set_point(raster_coord)
+        
 class GeoReferencerTaskDelegate(TaskDelegate):
     # Take in clickable_object_1 and clickable_object_2
 
