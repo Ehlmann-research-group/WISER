@@ -1283,6 +1283,10 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
                 print(f"Trying to open jp2 gdal!")
                 gdal_dataset = gdal.OpenEx(
                     load_path,
+                    open_options=[
+                        "USE_TILE_AS_BLOCK=YES",   # decode tile only once
+                        "STRICT=NO"                # if the file is slightly broken
+                    ],
                     nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
                     allowed_drivers=[driver]
                 )

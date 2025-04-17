@@ -32,8 +32,8 @@ class RasterDataLoader:
             'GTiff': GTiff_GDALRasterDataImpl,
             'NetCDF': NetCDF_GDALRasterDataImpl,
             # 'JP2': JP2_GlymurRasterDataImpl,
-            # 'JP2': JP2_GDALRasterDataImpl,
-            'JP2': JP2_PILRasterDataImpl,
+            'JP2': JP2_GDALRasterDataImpl,
+            # 'JP2': JP2_PILRasterDataImpl,
         }
     
         # What to do when loading in each file format
@@ -42,8 +42,8 @@ class RasterDataLoader:
             GTiff_GDALRasterDataImpl: self.load_normal_dataset, 
             NetCDF_GDALRasterDataImpl: self.load_normal_dataset,
             # JP2_GlymurRasterDataImpl: self.load_normal_dataset,
-            # JP2_GDALRasterDataImpl: self.load_normal_dataset,
-            JP2_PILRasterDataImpl: self.load_normal_dataset,
+            JP2_GDALRasterDataImpl: self.load_normal_dataset,
+            # JP2_PILRasterDataImpl: self.load_normal_dataset,
         }
 
         # This is a counter so we can generate names for unnamed datasets.
