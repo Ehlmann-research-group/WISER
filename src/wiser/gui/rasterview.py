@@ -550,10 +550,22 @@ class ImageScrollArea(QScrollArea):
         if event.modifiers() & Qt.ControlModifier:
             delta = event.angleDelta().y()
             if delta > 0:
-                # self.make_point_center((mouse_pos.x(), mouse_pos.y()))
-                # self.make_point_center((image_point.x(), image_point.y()))
-                # self._rasterpane._on_zoom_in(None)
-                self._rasterpane._on_zoom_in_around_point((mouse_pos.x(), mouse_pos.y()))
+                viewport_pos = event.pos()           # pos() is in viewport coords
+                widget_pos   = self.widget().mapFrom(self.viewport(), viewport_pos)
+                # Position as a ratio of the full image ­– stays constant after resize
+                rx = widget_pos.x() / max(1, self.widget().width())
+                ry = widget_pos.y() / max(1, self.widget().height())
+        
+                self._rasterpane._on_zoom_in(None)
+                    
+                hbar = self.horizontalScrollBar()
+                vbar = self.verticalScrollBar()
+
+                new_h_value = int(rx * self.widget().width()  - viewport_pos.x())
+                new_v_value = int(ry * self.widget().height() - viewport_pos.y())
+        
+                self._update_scrollbar_no_propagation(hbar, new_h_value)
+                self._update_scrollbar_no_propagation(vbar, new_v_value)
             else:
                 self._rasterpane._on_zoom_out(None)
 
