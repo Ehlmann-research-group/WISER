@@ -238,7 +238,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             elif gcp_1.get_rasterpane() == rasterpane:
                 gcp_scaled = gcp_1.get_scaled_point()
                 gcp_point = gcp_1.get_point()
-            print(f"gcp_scale: {gcp_scaled}")
+            # print(f"gcp_scale: {gcp_scaled}")
 
             assert gcp_scaled is not None, "Got a GCP scaled point as None!"
     
@@ -286,10 +286,10 @@ class GeoReferencerTaskDelegate(TaskDelegate):
                 # painter.drawRect(current_point_scaled[0], current_point_scaled[1], draw_size, draw_size)
                 painter.drawEllipse(current_point_scaled[0] - ZOOMED_OUT_RADIUS / 2,
                                  current_point_scaled[1] - ZOOMED_OUT_RADIUS / 2, ZOOMED_OUT_RADIUS, ZOOMED_OUT_RADIUS)
-            print(f"current_point_scaled[0]: {current_point_scaled[0]}")
-            print(f"current_point_scaled[1]: {current_point_scaled[1]}")
-            print(f"curr_point[0]: {curr_point[0]}")
-            print(f"curr_point[1]: {curr_point[1]}")
+            # print(f"current_point_scaled[0]: {current_point_scaled[0]}")
+            # print(f"current_point_scaled[1]: {current_point_scaled[1]}")
+            # print(f"curr_point[0]: {curr_point[0]}")
+            # print(f"curr_point[1]: {curr_point[1]}")
         
 
     def on_mouse_release(self, mouse_event: QMouseEvent, rasterpane: 'RasterPane'):

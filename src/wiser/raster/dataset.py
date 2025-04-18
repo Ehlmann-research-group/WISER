@@ -146,6 +146,9 @@ class RasterDataSet:
         # dataset is geographic.
         self._spatial_ref: Optional[osr.SpatialReference] = impl.read_spatial_ref()
 
+        # The wkt spatial reference for this dataset
+        self._wkt_spatial_reference: Optional[str] = impl.get_wkt_spatial_reference()
+
         # True if the dataset has wavelengths (or units that can be converted to
         # wavelengths) for ALL bands.
         self._has_wavelengths: bool = self._compute_has_wavelengths()
@@ -660,7 +663,7 @@ class RasterDataSet:
 
 
     def get_wkt_spatial_reference(self) -> Optional[str]:
-        return self._impl.get_wkt_spatial_reference()
+        return self._wkt_spatial_reference
 
 
     def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
@@ -843,6 +846,12 @@ class RasterDataSet:
         else:
             self._spatial_ref = None
 
+        if source._wkt_spatial_reference is not None:
+            print(f"SETTING WKT S")
+            self._wkt_spatial_reference = source._wkt_spatial_reference
+        else:
+            self._wkt_spatial_reference = None
+
         self.set_dirty()
 
 
@@ -887,7 +896,6 @@ class RasterDataSet:
 
     def get_impl(self):
         return self._impl
-
 
     def get_subdataset_name(self) -> str:
         if hasattr(self._impl, 'subdataset_name'):
