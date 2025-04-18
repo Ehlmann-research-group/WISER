@@ -296,6 +296,7 @@ class GeoReferencerDialog(QDialog):
             curr_point = target_gcp.get_point()
             target_gcp.set_point([curr_point[0], new_target_y])
         elif col == COLUMN_ID.REF_X_COL:
+            print(f"COLUMN_ID.REF_X_COL cell changed!")
             item = table_widget.item(row, col)
             new_val = item.text()
             new_ref_spatial_x = float(new_val)
@@ -304,6 +305,7 @@ class GeoReferencerDialog(QDialog):
             gcp_pair.set_reference_gcp_spatially((new_ref_spatial_x, \
                                                   gcp_pair.get_reference_gcp_spatial_coord()[1]))
         elif col == COLUMN_ID.REF_Y_COL:
+            print(f"COLUMN_ID.REF_Y_COL cell changed!")
             item = table_widget.item(row, col)
             new_val = item.text()
             new_ref_spatial_y = float(new_val)
@@ -588,8 +590,8 @@ class GeoReferencerDialog(QDialog):
 
         target_x = gcp_pair.get_target_gcp().get_point()[0]
         target_y = gcp_pair.get_target_gcp().get_point()[1]
-        ref_x = gcp_pair.get_reference_gcp().get_point()[0]
-        ref_y = gcp_pair.get_reference_gcp().get_point()[1]
+        ref_x = gcp_pair.get_reference_gcp_spatial_coord()[0]
+        ref_y = gcp_pair.get_reference_gcp_spatial_coord()[1]
 
         residual_x = table_entry.get_residual_x()
         residual_y = table_entry.get_residual_y()
@@ -606,8 +608,12 @@ class GeoReferencerDialog(QDialog):
         if residual_y is not None:
             res_y_str = str(residual_y)
 
-        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_X_COL, QTableWidgetItem(res_x_str))
-        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, QTableWidgetItem(res_y_str))
+        res_x_item = QTableWidgetItem(res_x_str)
+        res_x_item.setFlags(res_x_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_X_COL, res_x_item)
+        res_y_item = QTableWidgetItem(res_y_str)
+        res_y_item.setFlags(res_y_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, res_y_item)
 
 
     def _sync_entry_list_index_with_ui_row(self, row: int):

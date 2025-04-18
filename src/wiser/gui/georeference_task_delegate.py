@@ -198,7 +198,13 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         self._current_point_pair: Optional[GroundControlPointPair] = None
 
     def draw_state(self, painter: QPainter, rasterpane: 'RasterPane'):
+        print(f"=================")
+        if rasterpane == self._target_rasterpane:
+            print("drawing in target")
+        elif rasterpane == self._ref_rasterpane:
+            print("drawing in reference")
         if self._geo_ref_dialog.get_gcp_table_size() == 0 and self._current_point_pair is None:
+            print("returning!!")
             return
         
         color = self._app_state.get_config('raster.selection.edit_outline')
@@ -225,11 +231,15 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             gcp_0 = point_pair.get_target_gcp()
             gcp_1 = point_pair.get_reference_gcp()
             gcp_scaled = None
+            gcp_point = None
             if gcp_0.get_rasterpane() == rasterpane:
                 gcp_scaled = gcp_0.get_scaled_point()
+                gcp_point = gcp_0.get_point()
             elif gcp_1.get_rasterpane() == rasterpane:
                 gcp_scaled = gcp_1.get_scaled_point()
-        
+                gcp_point = gcp_1.get_point()
+            print(f"gcp_scale: {gcp_scaled}")
+
             assert gcp_scaled is not None, "Got a GCP scaled point as None!"
     
             if scale >= 6:
@@ -251,12 +261,15 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         gcp_1 = self._current_point_pair.get_reference_gcp()
 
         current_point_scaled = None
+        curr_point = None
         if gcp_0 is not None:
             if gcp_0.get_rasterpane() == rasterpane:
                 current_point_scaled = gcp_0.get_scaled_point()
+                curr_point = gcp_0.get_point()
         if gcp_1 is not None and current_point_scaled is None:
             if gcp_1.get_rasterpane() == rasterpane:
                 current_point_scaled = gcp_1.get_scaled_point()
+                curr_point = gcp_1.get_point()
         
         if current_point_scaled is not None:
             painter.setPen(QPen(Qt.red))
@@ -275,6 +288,8 @@ class GeoReferencerTaskDelegate(TaskDelegate):
                                  current_point_scaled[1] - ZOOMED_OUT_RADIUS / 2, ZOOMED_OUT_RADIUS, ZOOMED_OUT_RADIUS)
             print(f"current_point_scaled[0]: {current_point_scaled[0]}")
             print(f"current_point_scaled[1]: {current_point_scaled[1]}")
+            print(f"curr_point[0]: {curr_point[0]}")
+            print(f"curr_point[1]: {curr_point[1]}")
         
 
     def on_mouse_release(self, mouse_event: QMouseEvent, rasterpane: 'RasterPane'):
