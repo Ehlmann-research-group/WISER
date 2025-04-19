@@ -331,7 +331,7 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'R
     wls = band_info[0].get("wavelength")  # list of astropy.Quantity
     print(f"wavelength: {wls}")
     print(f"type(wls): {type(wls)}")
-    if wls:
+    if wls is not None:
         for i, q in enumerate(band_info):
             wls = band_info[i].get("wavelength")
             gdal_dataset.GetRasterBand(i+1).SetMetadataItem(

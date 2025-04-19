@@ -18,11 +18,15 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import RasterDataImpl, GDALRasterDataImpl
 from wiser.raster.utils import copy_metadata_to_gdal_dataset
 
+from wiser.bandmath.utils import write_raster_to_dataset
+
 from enum import IntEnum, Enum
 
 from osgeo import gdal, osr, gdal_array
 
 import numpy as np
+
+from wiser.bandmath.builtins.constants import MAX_RAM_BYTES
 
 class COLUMN_ID(IntEnum):
     ENABLED_COL = 0
@@ -954,42 +958,74 @@ class GeoReferencerDialog(QDialog):
             driver: gdal.Driver = gdal.GetDriverByName("GTiff")
             gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(ref_dataset.get_elem_type())
             print(f"self._warp_kwargs: {self._warp_kwargs}")
-            for band in range(ref_dataset.num_bands()):
+
+            # Get the output size
+            warp_options = gdal.WarpOptions(**self._warp_kwargs)
+            warp_save_path = f'/vsimem/temp_band_{0}'
+            band_arr = ref_dataset.get_band_data(0)
+            temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
+            temp_gdal_ds.SetSpatialRef(ref_srs)
+            temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+            transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
+
+            width = transformed_ds.RasterXSize
+            height = transformed_ds.RasterYSize
+            output_size = (width, height)
+            output_bytes = width * height * ref_dataset.num_bands() * ref_dataset.get_elem_type().itemsize
+
+
+            ratio = MAX_RAM_BYTES / output_bytes
+            if ratio > 1.0:
+                print(f"SAVING WHOLE DATASET")
                 warp_options = gdal.WarpOptions(**self._warp_kwargs)
-                warp_save_path = f'/vsimem/temp_band_{band}'
-        
-                band_arr = ref_dataset.get_band_data(band)
+                band_arr = ref_dataset.get_image_data()
                 temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
                 temp_gdal_ds.SetSpatialRef(ref_srs)
                 temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-                transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
-                
-                width = transformed_ds.RasterXSize
-                height = transformed_ds.RasterYSize
-
-                if output_size is None:
-                    output_size = (width, height)
-
-                assert width == output_size[0] and height == output_size[1], \
-                        "Width and/or height of warped band does not equal a previous warped band"
-
-                if output_dataset is None:
-                    output_dataset = driver.Create(save_path, width, height, ref_dataset.num_bands(), gdal_dtype)
-                
-                current_band: gdal.Band = output_dataset.GetRasterBand(band+1)
-                array_to_write = transformed_ds.GetRasterBand(1).ReadAsArray()
-                current_band.WriteArray(array_to_write)
+                output_dataset: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
                 output_dataset.FlushCache()
 
+            else:
+                print(f"SAVING IN CHUNKS")
+                num_bands_per = int(ratio * ref_dataset.num_bands())
+                for band_index in range(0, ref_dataset.num_bands(), num_bands_per):
+                    band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < ref_dataset.num_bands()]
+                    warp_options = gdal.WarpOptions(**self._warp_kwargs)
+                    warp_save_path = f'/vsimem/temp_band_{min(band_list_index)}_to_{max(band_list_index)}'
+                    print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
+            
+                    band_arr = ref_dataset.get_multiple_band_data(band_list_index)
+                    temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
+                    temp_gdal_ds.SetSpatialRef(ref_srs)
+                    temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+                    transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
 
-                print(f"Warping band: {band} / {ref_dataset.num_bands()-1}")
+                    width = transformed_ds.RasterXSize
+                    height = transformed_ds.RasterYSize
+                    assert width == output_size[0] and height == output_size[1], \
+                            "Width and/or height of warped band does not equal a previous warped band"
 
-                # self._warp_kwargs['srcBands'] = [band+1]
-                # self._warp_kwargs['dstBands'] = [band + 1 for band in range(ref_dataset.num_bands())]
-                # del self._warp_kwargs['srcBands']
-                # del self._warp_kwargs['dstBands']
-                gdal.Unlink(warp_save_path)
-                transformed_ds = None
+                    if output_dataset is None:
+                        output_dataset = driver.Create(save_path, width, height, ref_dataset.num_bands(), gdal_dtype)
+                    
+                    write_raster_to_dataset(output_dataset, band_list_index, transformed_ds.ReadAsArray(), gdal_dtype)
+                    # current_band: gdal.Band = output_dataset.GetRasterBand(band+1)
+                    # array_to_write = transformed_ds.GetRasterBand(1).ReadAsArray()
+                    # current_band.WriteArray(array_to_write)
+                    # output_dataset.FlushCache()
+
+
+                    # print(f"Warping band: {band} / {ref_dataset.num_bands()-1}")
+                    print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {ref_dataset.num_bands()}")
+
+                    # self._warp_kwargs['srcBands'] = [band+1]
+                    # self._warp_kwargs['dstBands'] = [band + 1 for band in range(ref_dataset.num_bands())]
+                    # del self._warp_kwargs['srcBands']
+                    # del self._warp_kwargs['dstBands']
+                    gdal.Unlink(warp_save_path)
+                    transformed_ds = None
+
+
 
         try:
             gdal.Unlink(temp_gdal_ds)
