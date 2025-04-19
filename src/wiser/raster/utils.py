@@ -285,3 +285,60 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
         norm_data = norm_data.astype(np.float32)
 
     return norm_data
+
+def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
+    # Assume these are already defined:
+    #   gdal_dataset – an open GDAL Dataset opened for update (GA_Update)
+    #   source_dataset    – your custom dataset object
+
+    # 1. Propagate wavelength names (band descriptions)
+    band_info = source_dataset.band_list()  # returns dict of lists keyed by metadata names
+    wle_names = band_info[0].get("wavelength_name")
+    print(f"wle_names: {wle_names}")
+    print(f"type(wle_names): {type(wle_names)}")
+    if wle_names:
+        for i, band_info in enumerate(band_info):
+            wle_name = band_info.get("wavelength_name")
+            b = gdal_dataset.GetRasterBand(i+1)
+            b.SetDescription(wle_name)
+
+    # 2. Propagate data‑ignore (NoData) value
+    nodata = source_dataset.get_data_ignore_value()
+    if nodata is not None:
+        # set the same nodata on every band
+        for i in range(1, gdal_dataset.RasterCount + 1):
+            gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
+
+    # 3. Propagate default bands (for display)
+    #    e.g. (1,) or (3, 2, 1)
+    defaults = source_dataset.default_display_bands()
+    if defaults:
+        # store as comma‑separated string in metadata
+        gdal_dataset.SetMetadataItem(
+            "DEFAULT_BANDS",
+            ",".join(str(b) for b in defaults)
+        )
+
+    # 4. Propagate bad bands
+    bad = source_dataset.get_bad_bands()  # list of ints
+    if bad:
+        gdal_dataset.SetMetadataItem(
+            "BAD_BANDS",
+            ",".join(str(b) for b in bad)
+        )
+
+    # (Optional) If you also want to store wavelength units:
+    wls = band_info[0].get("wavelength")  # list of astropy.Quantity
+    print(f"wavelength: {wls}")
+    print(f"type(wls): {type(wls)}")
+    if wls:
+        for i, q in enumerate(band_info):
+            wls = band_info[i].get("wavelength")
+            gdal_dataset.GetRasterBand(i+1).SetMetadataItem(
+                "wavelength",
+                str(q)
+            )
+
+    # Don't forget to flush/close when done:
+    gdal_dataset.FlushCache()
+    gdal_dataset = None

@@ -16,6 +16,7 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import RasterDataImpl, GDALRasterDataImpl
+from wiser.raster.utils import copy_metadata_to_gdal_dataset
 
 from enum import IntEnum, Enum
 
@@ -1000,6 +1001,7 @@ class GeoReferencerDialog(QDialog):
         gt = output_dataset.GetGeoTransform()
         if gt is None:
             raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
+        copy_metadata_to_gdal_dataset(output_dataset, ref_dataset)
         output_dataset.FlushCache()
         output_dataset = None
 
