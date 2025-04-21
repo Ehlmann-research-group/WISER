@@ -16,7 +16,7 @@ from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import RasterDataImpl, GDALRasterDataImpl
-from wiser.raster.utils import copy_metadata_to_gdal_dataset
+from wiser.raster.utils import copy_metadata_to_gdal_dataset, set_data_ignore_of_gdal_dataset
 
 from wiser.bandmath.utils import write_raster_to_dataset
 
@@ -947,6 +947,7 @@ class GeoReferencerDialog(QDialog):
             temp_vrt_path = '/vsimem/ref.vrt'
             temp_gdal_ds = gdal.Translate(temp_vrt_path, ref_gdal_dataset, format='VRT')
             temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+            set_data_ignore_of_gdal_dataset(temp_gdal_ds, ref_dataset)
             warp_options = gdal.WarpOptions(**self._warp_kwargs)
             output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
         else:
@@ -982,7 +983,8 @@ class GeoReferencerDialog(QDialog):
                 temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
                 temp_gdal_ds.SetSpatialRef(ref_srs)
                 temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-                output_dataset: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
+                set_data_ignore_of_gdal_dataset(temp_gdal_ds, ref_dataset)
+                output_dataset: gdal.Dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
                 output_dataset.FlushCache()
 
             else:
@@ -998,6 +1000,7 @@ class GeoReferencerDialog(QDialog):
                     temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
                     temp_gdal_ds.SetSpatialRef(ref_srs)
                     temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+                    set_data_ignore_of_gdal_dataset(temp_gdal_ds, ref_dataset)
                     transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
 
                     width = transformed_ds.RasterXSize

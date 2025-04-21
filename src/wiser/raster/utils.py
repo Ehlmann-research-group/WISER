@@ -286,6 +286,14 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
 
     return norm_data
 
+def set_data_ignore_of_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
+    nodata = source_dataset.get_data_ignore_value()
+    if nodata is not None:
+        print(f"SETTING DATA IGNORE!!!!!!!@@@@@@@@@@@@@@@@@@@@@")
+        # set the same nodata on every band
+        for i in range(1, gdal_dataset.RasterCount + 1):
+            gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
+
 def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
     # Assume these are already defined:
     #   gdal_dataset – an open GDAL Dataset opened for update (GA_Update)
