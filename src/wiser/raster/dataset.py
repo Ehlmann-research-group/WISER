@@ -716,6 +716,20 @@ class RasterDataSet:
         px = origin_px + gx * width + gy * x_rotation
         py = origin_py + gx * y_rotation + gy * height
         return (int(px+0.5), int(py+0.5))  # +0.5 for rounding
+    
+    def geo_to_pixel_coords_exact(self, geo_coords: Tuple[float, float]) -> Optional[Tuple[int, int]]:
+        if self._geo_transform is None:
+            return None
+        
+        inv_geo_transform = gdal.InvGeoTransform(self._geo_transform)
+        if inv_geo_transform is None:
+            raise ValueError("Geo transform of dataset is not invertible!")
+
+        origin_px, width, x_rotation, origin_py, y_rotation, height = inv_geo_transform
+        gx, gy = geo_coords
+        px = origin_px + gx * width + gy * x_rotation
+        py = origin_py + gx * y_rotation + gy * height
+        return (px, py)  # +0.5 for rounding
 
     def is_pixel_in_image_bounds(self, pixel: Tuple[int, int]) -> bool:
         """

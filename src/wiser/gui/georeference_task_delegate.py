@@ -125,7 +125,7 @@ class GroundControlPointPair:
 
     def set_reference_gcp_spatially(self, spatial_coord: Tuple[int, int]):
         ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
-        raster_coord = ref_ds.geo_to_pixel_coords(spatial_coord)
+        raster_coord = ref_ds.geo_to_pixel_coords_exact(spatial_coord)
         if raster_coord is None:
             return
         self._ref_gcp.set_point(raster_coord)

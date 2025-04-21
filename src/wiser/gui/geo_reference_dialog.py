@@ -288,6 +288,7 @@ class GeoReferencerDialog(QDialog):
     def _on_cell_changed(self, row: int, col: int):
         table_widget = self._ui.table_gcps
         if col == COLUMN_ID.TARGET_X_COL:
+            print(f"COLUMN_ID.TARGET_X_COL cell changed!")
             item = table_widget.item(row, col)
             new_val = item.text()
             new_target_x = float(new_val)
@@ -297,6 +298,7 @@ class GeoReferencerDialog(QDialog):
             target_gcp.set_point([new_target_x, curr_point[1]])
             self._georeference()
         elif col == COLUMN_ID.TARGET_Y_COL:
+            print(f"COLUMN_ID.TARGET_Y_COL cell changed!")
             item = table_widget.item(row, col)
             new_val = item.text()
             new_target_y = float(new_val)
@@ -310,6 +312,7 @@ class GeoReferencerDialog(QDialog):
             item = table_widget.item(row, col)
             new_val = item.text()
             new_ref_spatial_x = float(new_val)
+            print(f"new_ref_spatial_x: {new_ref_spatial_x}")
             list_entry = self._table_entry_list[row]
             gcp_pair = list_entry.get_gcp_pair()
             gcp_pair.set_reference_gcp_spatially((new_ref_spatial_x, \
