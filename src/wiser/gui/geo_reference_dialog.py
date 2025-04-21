@@ -144,7 +144,7 @@ class NumericDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
         # allow e.g. floats ≥0 with up to 10 decimals
-        validator = QDoubleValidator(self._minimum, 1e10, 10, editor)
+        validator = QDoubleValidator(self._minimum, 1e10, 15, editor)
         validator.setNotation(QDoubleValidator.StandardNotation)
         editor.setValidator(validator)
         return editor
@@ -295,6 +295,7 @@ class GeoReferencerDialog(QDialog):
             target_gcp = list_entry.get_gcp_pair().get_target_gcp()
             curr_point = target_gcp.get_point()
             target_gcp.set_point([new_target_x, curr_point[1]])
+            self._georeference()
         elif col == COLUMN_ID.TARGET_Y_COL:
             item = table_widget.item(row, col)
             new_val = item.text()
@@ -303,6 +304,7 @@ class GeoReferencerDialog(QDialog):
             target_gcp = list_entry.get_gcp_pair().get_target_gcp()
             curr_point = target_gcp.get_point()
             target_gcp.set_point([curr_point[0], new_target_y])
+            self._georeference()
         elif col == COLUMN_ID.REF_X_COL:
             print(f"COLUMN_ID.REF_X_COL cell changed!")
             item = table_widget.item(row, col)
@@ -312,6 +314,7 @@ class GeoReferencerDialog(QDialog):
             gcp_pair = list_entry.get_gcp_pair()
             gcp_pair.set_reference_gcp_spatially((new_ref_spatial_x, \
                                                   gcp_pair.get_reference_gcp_spatial_coord()[1]))
+            self._georeference()
         elif col == COLUMN_ID.REF_Y_COL:
             print(f"COLUMN_ID.REF_Y_COL cell changed!")
             item = table_widget.item(row, col)
@@ -321,6 +324,7 @@ class GeoReferencerDialog(QDialog):
             gcp_pair = list_entry.get_gcp_pair()
             gcp_pair.set_reference_gcp_spatially((gcp_pair.get_reference_gcp_spatial_coord()[0], \
                                                   new_ref_spatial_y))
+            self._georeference()
         else:
             return
         self._update_panes()
@@ -355,6 +359,7 @@ class GeoReferencerDialog(QDialog):
     def _on_switch_output_srs(self, index: int):
         srs = self._ui.cbox_srs.itemData(index)
         self._curr_output_srs = srs
+        self._georeference()
 
     def _on_switch_resample_alg(self, index: int):
         resample_alg = self._ui.cbox_interpolation.itemData(index)
@@ -363,6 +368,7 @@ class GeoReferencerDialog(QDialog):
     def _on_switch_transform_type(self, index: int):
         transform_type = self._ui.cbox_poly_order.itemData(index)
         self._current_transform_type = transform_type
+        self._georeference()
 
     def _on_choose_color(self, table_entry: GeoRefTableEntry):
         row = table_entry.get_id()
@@ -398,6 +404,7 @@ class GeoReferencerDialog(QDialog):
 
     def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
         self._remove_table_entry(table_entry)
+        self._georeference()
 
     def _on_switch_target_dataset(self, index: int):
         ds_id = self._target_cbox.itemData(index)
@@ -589,6 +596,28 @@ class GeoReferencerDialog(QDialog):
         self._update_entry_ids()
 
         self._update_panes()
+
+    def _update_residuals(self, table_entry: GeoRefTableEntry):
+        table_widget = self._ui.table_gcps
+        row_to_add = table_entry.get_id()
+        assert row_to_add < table_widget.rowCount()
+
+        residual_x = table_entry.get_residual_x()
+        residual_y = table_entry.get_residual_y()
+        res_x_str = "N/A"
+        if residual_x is not None:
+            res_x_str = str(residual_x)
+
+        res_y_str = "N/A"
+        if residual_y is not None:
+            res_y_str = str(residual_y)
+
+        res_x_item = QTableWidgetItem(res_x_str)
+        res_x_item.setFlags(res_x_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_X_COL, res_x_item)
+        res_y_item = QTableWidgetItem(res_y_str)
+        res_y_item.setFlags(res_y_item.flags() & ~Qt.ItemIsEditable)
+        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, res_y_item)
 
     def _sync_gcp_table_row_with_table_entry(self, table_entry: GeoRefTableEntry):
         table_widget = self._ui.table_gcps
@@ -822,17 +851,18 @@ class GeoReferencerDialog(QDialog):
         ref_dataset_impl: RasterDataImpl = ref_dataset.get_impl()
         ref_gdal_dataset = None
         temp_gdal_ds = None
-        if isinstance(ref_dataset_impl, GDALRasterDataImpl):
-            ref_gdal_dataset = ref_dataset_impl.gdal_dataset
-            temp_vrt_path = '/vsimem/ref.vrt'
-            temp_gdal_ds = gdal.Translate(temp_vrt_path, ref_gdal_dataset, format='VRT')
-            temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-        else:
-            print(f"NOT A GDAL ARRAY")
-            place_holder_arr = np.zeros((1, 1), np.uint8)
-            temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
-            temp_gdal_ds.SetSpatialRef(ref_srs)
-            temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+        # if isinstance(ref_dataset_impl, GDALRasterDataImpl):
+        #     ref_gdal_dataset = ref_dataset_impl.gdal_dataset
+        #     temp_vrt_path = '/vsimem/ref.vrt'
+        #     temp_gdal_ds = gdal.Translate(temp_vrt_path, ref_gdal_dataset, format='VRT')
+        #     temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+        # else:
+        #     print(f"NOT A GDAL ARRAY")
+        target_dataset = self._target_rasterpane.get_rasterview().get_raster_data()
+        place_holder_arr = np.zeros((target_dataset.get_width(), target_dataset.get_height()), np.uint8)
+        temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
+        temp_gdal_ds.SetSpatialRef(ref_srs)
+        temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
     
         self._warp_kwargs = {
             "copyMetadata": True,
@@ -899,17 +929,21 @@ class GeoReferencerDialog(QDialog):
             print(f"gcp.GCPX: {gcp.GCPX}")
             print(f"gcp.GCPY: {gcp.GCPY}")
 
+            target_pixel_coord = ref_dataset.to_geographic_coords((gcp.GCPPixel, gcp.GCPLine))
+            print(f"original x: {target_pixel_coord[0]}")
+            print(f"original y: {target_pixel_coord[1]}")
+
             error_spatial_x = gcp.GCPX - ref_spatial_x
             error_spatial_y = gcp.GCPY - ref_spatial_y
 
-            error_raster_x = error_spatial_x / abs(ref_gt[1])
-            error_raster_y = error_spatial_y / abs(ref_gt[5])
+            error_raster_x = error_spatial_x / ref_gt[1]
+            error_raster_y = error_spatial_y / ref_gt[5]
 
             entry.set_residual_x(round(error_raster_x, 6))
             entry.set_residual_y(round(error_raster_y, 6))
 
 
-            self._sync_gcp_table_row_with_table_entry(entry)
+            self._update_residuals(entry)
         
             residuals.append((error_raster_x, error_raster_y))
             print(f"GCP at pixel ({gcp.GCPPixel}, {gcp.GCPLine}): Residual error: X: {error_raster_x:.2f} px, Y: {error_raster_y:.2f} px")
