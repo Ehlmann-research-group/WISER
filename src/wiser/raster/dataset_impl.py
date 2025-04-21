@@ -86,6 +86,9 @@ class RasterDataImpl(abc.ABC):
     def get_band_data(self, band_index) -> np.ndarray:
         pass
 
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        pass
+
     def sample_band_data(self, band_index, sample_factor: int):
         pass
 
@@ -1410,7 +1413,9 @@ class NumPyRasterDataImpl(RasterDataImpl):
     def get_band_data(self, band_index) -> np.ndarray:
         return self._arr[band_index]
 
-    
+    def get_multiple_band_data(self, band_list_orig):
+        return self._arr[band_list_orig,:,:]
+
     def sample_band_data(self, band_index, sample_factor: int):
         return self._arr[band_index,::sample_factor,::sample_factor]
 

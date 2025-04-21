@@ -347,6 +347,14 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'R
                 str(q)
             )
 
+    if source_dataset.has_geographic_info():
+        print(f"Has geographic info!")
+        gt = source_dataset.get_geo_transform()
+        gdal_dataset.SetGeoTransform(gt)
+
+        srs = source_dataset.get_spatial_ref()
+        gdal_dataset.SetSpatialRef(srs)
+
     # Don't forget to flush/close when done:
     gdal_dataset.FlushCache()
     gdal_dataset = None
