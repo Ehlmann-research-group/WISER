@@ -208,6 +208,7 @@ class GeoReferencerDialog(QDialog):
         if self._reference_rasterpane is not None and self._reference_rasterpane.get_rasterview().get_raster_data() is not None:
             ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
             reference_srs_name = "Default: " + ref_ds.get_spatial_ref().GetName()
+            print(f"reference_srs_name: {reference_srs_name}")
             reference_srs_code = ref_ds.get_spatial_ref().GetAuthorityCode(None)
             if reference_srs_code is None:
                 self.set_message_text("Could not get an authority code for default dataset")
@@ -388,6 +389,7 @@ class GeoReferencerDialog(QDialog):
         row_to_add = table_entry.get_id()
         self._set_row_enabled_state(row_to_add, checked)
         self._update_panes()
+        self._georeference()
 
     def _on_gcp_pair_added(self, gcp_pair: GroundControlPointPair):
         # Create new table entry
@@ -484,6 +486,8 @@ class GeoReferencerDialog(QDialog):
             
             # Disable QTableWidgetItem if it exists
             item = table_widget.item(row, col)
+            if (col == COLUMN_ID.RESIDUAL_X_COL or col == COLUMN_ID.RESIDUAL_Y_COL) and not row_enabled_state:
+                item.setText("N/A")
             if item:
                 if row_enabled_state:
                     item.setFlags(item.flags() | Qt.ItemIsEnabled)
@@ -833,6 +837,8 @@ class GeoReferencerDialog(QDialog):
         gcps: List[GeoRefTableEntry, gdal.GCP] = []
         
         for table_entry in self._table_entry_list:
+            if not table_entry.is_enabled():
+                continue
             spatial_coord = table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
             assert spatial_coord is not None, f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
             target_pixel_coord = table_entry.get_gcp_pair().get_target_gcp().get_point()
