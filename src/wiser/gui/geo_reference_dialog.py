@@ -288,6 +288,7 @@ class GeoReferencerDialog(QDialog):
 
     def _on_cell_changed(self, row: int, col: int):
         table_widget = self._ui.table_gcps
+        print(f"in on cell changed")
         if col == COLUMN_ID.TARGET_X_COL:
             print(f"COLUMN_ID.TARGET_X_COL cell changed!")
             item = table_widget.item(row, col)
@@ -605,6 +606,7 @@ class GeoReferencerDialog(QDialog):
         self._update_panes()
 
     def _update_residuals(self, table_entry: GeoRefTableEntry):
+        print(f"in updating residuals")
         table_widget = self._ui.table_gcps
         row_to_add = table_entry.get_id()
         assert row_to_add < table_widget.rowCount()
@@ -820,6 +822,7 @@ class GeoReferencerDialog(QDialog):
     # region Geo referencing
 
     def _georeference(self):
+        # print(f"in georeference")
         save_path = self._get_save_file_path()
         if save_path is None:
             return
@@ -845,8 +848,6 @@ class GeoReferencerDialog(QDialog):
             gcps.append((table_entry, gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1])))
 
         output_srs = osr.SpatialReference()
-        print(f"type(self._curr_output_srs): {type(self._curr_output_srs)}")
-        print(f"self._curr_output_srs: {self._curr_output_srs}")
         output_srs.ImportFromEPSG(int(self._curr_output_srs))
         output_projection: str = output_srs.ExportToWkt()
 
@@ -870,7 +871,7 @@ class GeoReferencerDialog(QDialog):
         # else:
         #     print(f"NOT A GDAL ARRAY")
         target_dataset = self._target_rasterpane.get_rasterview().get_raster_data()
-        place_holder_arr = np.zeros((target_dataset.get_width(), target_dataset.get_height()), np.uint8)
+        place_holder_arr = np.zeros((1, 1), np.uint8)
         temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
         temp_gdal_ds.SetSpatialRef(ref_srs)
         temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
@@ -878,10 +879,14 @@ class GeoReferencerDialog(QDialog):
         self._warp_kwargs = {
             "copyMetadata": True,
             "resampleAlg": self._current_resample_alg,
-            "dstSRS": output_projection
+            "dstSRS": output_srs
         }
 
-        transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}']
+        proj4 = output_srs.ExportToProj4() + " +nadgrids=@null +no_defs"
+        transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}',
+                                "SKIP_DATUM_SHIFT=YES"]
+        # transformer_options = [f'DST_SRS={proj4}']
+        # transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}']
 
         if self._current_transform_type == TRANSFORM_TYPES.TPS:
             self._warp_kwargs["tps"] = True
@@ -922,9 +927,9 @@ class GeoReferencerDialog(QDialog):
 
             # Then we use the GCP's pixel info and the geo transform to project it into spatial coordinate space. 
 
-            print(f"================================")
-            print(f"gcp.GCPPixel: {gcp.GCPPixel}")
-            print(f"gcp.GCPLine: {gcp.GCPLine}")
+            # print(f"================================")
+            # print(f"gcp.GCPPixel: {gcp.GCPPixel}")
+            # print(f"gcp.GCPLine: {gcp.GCPLine}")
 
             # These coordinates could get back to us in either lat/lon, lon/lat, or north/easting, easting/north
             ok, (output_spatial_x, output_spatial_y, z) = tr_pixel_to_output_srs.TransformPoint(False, gcp.GCPPixel, gcp.GCPLine)
@@ -955,31 +960,29 @@ class GeoReferencerDialog(QDialog):
             else:
                 ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_y, output_spatial_x, 0)
 
-
-            print(f"output_spatial_x: {output_spatial_x}")
-            print(f"output_spatial_y: {output_spatial_y}")
-    
+            # print(f"output_spatial_x: {output_spatial_x}")
+            # print(f"output_spatial_y: {output_spatial_y}")
 
             ref_spatial_x, ref_spatial_y = ref_spatial_coord[0], ref_spatial_coord[1]
 
-            print(f"reference_spatial_x: {ref_spatial_x}")
-            print(f"reference_spatial_y: {ref_spatial_y}")
+            # print(f"reference_spatial_x: {ref_spatial_x}")
+            # print(f"reference_spatial_y: {ref_spatial_y}")
 
-            print(f"gcp.GCPX: {gcp.GCPX}")
-            print(f"gcp.GCPY: {gcp.GCPY}")
+            # print(f"gcp.GCPX: {gcp.GCPX}")
+            # print(f"gcp.GCPY: {gcp.GCPY}")
 
             target_pixel_coord = ref_dataset.to_geographic_coords((gcp.GCPPixel, gcp.GCPLine))
-            print(f"original x: {target_pixel_coord[0]}")
-            print(f"original y: {target_pixel_coord[1]}")
+            # print(f"original x: {target_pixel_coord[0]}")
+            # print(f"original y: {target_pixel_coord[1]}")
 
             error_spatial_x = gcp.GCPX - ref_spatial_x
             error_spatial_y = gcp.GCPY - ref_spatial_y
 
-            print(f"error_spatial_x: {error_spatial_x}")
-            print(f"error_spatial_y: {error_spatial_y}")
+            # print(f"error_spatial_x: {error_spatial_x}")
+            # print(f"error_spatial_y: {error_spatial_y}")
 
-            print(f"ref_gt[1]: {ref_gt[1]}")
-            print(f"ref_gt[5]: {ref_gt[5]}")
+            # print(f"ref_gt[1]: {ref_gt[1]}")
+            # print(f"ref_gt[5]: {ref_gt[5]}")
 
             error_raster_x = error_spatial_x / ref_gt[1]
             error_raster_y = error_spatial_y / ref_gt[5]
@@ -987,18 +990,23 @@ class GeoReferencerDialog(QDialog):
             entry.set_residual_x(round(error_raster_x, 6))
             entry.set_residual_y(round(error_raster_y, 6))
 
-
+            # print(f"updating residuals")
             self._update_residuals(entry)
+            # print(f"finished residuals")
         
             residuals.append((error_raster_x, error_raster_y))
-            print(f"GCP at pixel ({gcp.GCPPixel}, {gcp.GCPLine}): Residual error: X: {error_raster_x:.2f} px, Y: {error_raster_y:.2f} px")
+            # print(f"GCP at pixel ({gcp.GCPPixel}, {gcp.GCPLine}): Residual error: X: {error_raster_x:.2f} px, Y: {error_raster_y:.2f} px")
         
         tr_pixel_to_output_srs = None
         tr_output_srs_to_ref_srs = None
-        try:
-            gdal.Unlink(temp_gdal_ds)
-        except:
-            pass
+        # try:
+        #     print(f"Starting to unlink")
+        #     gdal.Unlink(temp_gdal_ds)
+        #     print(f"finished unlink")
+        # except:
+        #     pass
+        temp_gdal_ds = None
+        print(f"DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
     # region Accepting
 
