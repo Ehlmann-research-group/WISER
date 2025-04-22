@@ -597,6 +597,7 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
             raise Exception(f"Can't load file {path} as JP2")
 
         pdr_dataset = pdr.read(path)
+
         return [cls(pdr_dataset)]
     
     def __init__(self, pdr_dataset):
@@ -825,21 +826,24 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             for subdataset_name, description in subdatasets:
                 # Extract the actual subdataset name from the path (e.g., "reflectance", "Calcite", etc.)
                 subdataset_key = subdataset_name.split(':')[-1]
-                
                 # Check if the subdataset name is in the emit_data_names set
-                if subdataset_key in emit_data_names:
-                    # Open the subdataset
-                    gdal_subdataset = gdal.Open(subdataset_name)
-                    if gdal_subdataset is None:
-                        raise ValueError(f"Unable to open subdataset: {subdataset_name}")
-                    
-                    # Create an instance of the class for each matching subdataset
-                    instance = cls(gdal_subdataset)
-                    instance.subdataset_name = subdataset_name
-                    instance.subdataset_key = subdataset_key
-                    # Add the instance to the list
-                    instances_list.append(instance)
+                # if subdataset_key in emit_data_names:
+                # Open the subdataset
+                gdal_subdataset = gdal.Open(subdataset_name)
+                if gdal_subdataset is None:
+                    raise ValueError(f"Unable to open subdataset: {subdataset_name}")
 
+                # Create an instance of the class for each matching subdataset
+                instance = cls(gdal_subdataset)
+                instance.subdataset_name = subdataset_name
+                instance.subdataset_key = subdataset_key
+                # Add the instance to the list
+                instances_list.append(instance)
+        else:
+            return [cls(gdal_dataset)]
+
+        if instances_list is []:
+            raise ValueError(f"Could not open {path} as netCDF")
         return instances_list
 
     
