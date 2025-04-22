@@ -60,6 +60,13 @@ class TRANSFORM_TYPES(Enum):
     POLY_3 = "Polynomial 3"
     TPS = "Thin Plate Spline (TPS)"
 
+min_points_per_transform = {
+    TRANSFORM_TYPES.POLY_1: 3,
+    TRANSFORM_TYPES.POLY_2: 6,
+    TRANSFORM_TYPES.POLY_3: 10,
+    TRANSFORM_TYPES.TPS: 10,
+}
+
 COMMON_SRS = {
     "WGS84 EPSG:4326": 4326,
     "Web Mercator EPSG:3857": 3857,
@@ -533,7 +540,14 @@ class GeoReferencerDialog(QDialog):
             if widget:
                 widget.setEnabled(row_enabled_state)
         self._table_entry_list[row].set_enabled(row_enabled_state)
-
+    
+    def _set_all_residuals_NA(self):
+        table_widget = self._ui.table_gcps
+        for row in range(table_widget.rowCount()):
+            item = table_widget.item(row, COLUMN_ID.RESIDUAL_X_COL)
+            item.setText("N/A")
+            item = table_widget.item(row, COLUMN_ID.RESIDUAL_Y_COL)
+            item.setText("N/A")
 
     def _add_entry_to_table(self, table_entry: GeoRefTableEntry):
         '''
@@ -767,6 +781,13 @@ class GeoReferencerDialog(QDialog):
     def _get_ref_dataset(self):
         return self._reference_rasterpane.get_rasterview().get_raster_data()
 
+    def _get_num_active_points(self):
+        count = 0
+        for entry in self._table_entry_list:
+            if entry.is_enabled():
+                count += 1
+        return count
+
     # region Dataset Choosers
 
     def _update_target_dataset_chooser(self):
@@ -853,10 +874,19 @@ class GeoReferencerDialog(QDialog):
 
     # region Geo referencing
 
+    def _enough_points_for_transform(self):
+        return False if self._get_num_active_points() < min_points_per_transform[self._current_transform_type] else True
+
     def _georeference(self):
         # print(f"in georeference")
         save_path = self._get_save_file_path()
         if save_path is None:
+            return
+
+        if not self._enough_points_for_transform():
+            print(f"self._get_num_active_points(): {self._get_num_active_points()}")
+            print(f"min_points_per_transform[self._current_transform_type]: {min_points_per_transform[self._current_transform_type]}")
+            self._set_all_residuals_NA()
             return
 
         gdal.UseExceptions()
