@@ -182,6 +182,8 @@ class GeoReferencerDialog(QDialog):
         self._current_resample_alg = None
         self._current_transform_type: TRANSFORM_TYPES = None
 
+        self._default_color_button: QPushButton = None
+
         # Set up dataset choosers 
         self._init_dataset_choosers()
         self._init_rasterpanes()
@@ -190,10 +192,20 @@ class GeoReferencerDialog(QDialog):
         self._init_interpolation_type_cbox()
         self._init_poly_order_cbox()
         self._init_file_saver()
+        self._init_default_color_chooser()
 
         self._warp_kwargs: Dict = None
 
     # region Initialization
+
+    def _init_default_color_chooser(self):
+        horizontal_layout = self._ui.hlayout_color_change
+        self._default_color_button = QPushButton()
+        self._default_color_button.clicked.connect(lambda checked: self._on_choose_default_color())
+        self._initial_default_color = QColor("orange").name()
+        color_icon = get_color_icon(self._initial_default_color)
+        self._default_color_button.setIcon(color_icon)
+        horizontal_layout.addWidget(self._default_color_button)
 
     def _init_file_saver(self):
         self._ui.btn_save_path.clicked.connect(self._on_choose_save_filename)
@@ -375,6 +387,20 @@ class GeoReferencerDialog(QDialog):
         self._current_transform_type = transform_type
         self._georeference()
 
+    def _on_choose_default_color(self):
+        color = QColorDialog.getColor(parent=self, initial=self._initial_default_color)
+        if color.isValid():
+            print(f"default color valid")
+            color_str = color.name()
+            for row in range(len(self._table_entry_list)):
+                # We only want to change the colors of the points that weren't explicitly
+                # changed
+                if self._table_entry_list[row].get_color() == self._initial_default_color:
+                    self._table_entry_list[row].set_color(color_str)
+                    self._set_color_icon(row, color_str)
+            self._set_default_color_icon(color_str)
+            self._update_panes()
+
     def _on_choose_color(self, table_entry: GeoRefTableEntry):
         row = table_entry.get_id()
         initial_color = QColor(self._table_entry_list[row].get_color())
@@ -400,6 +426,7 @@ class GeoReferencerDialog(QDialog):
         id = next_row
         residuals = 0
         color = get_random_matplotlib_color()
+        color = self._initial_default_color
         table_entry = GeoRefTableEntry(gcp_pair, enabled, id, None, None, color)
         # The row that a GCP is placed on should be the same as its position in the
         # geo referencer task delegate point list
@@ -466,6 +493,11 @@ class GeoReferencerDialog(QDialog):
         self._table_entry_list = []
         self._ui.table_gcps.clearContents()
         self._ui.table_gcps.setRowCount(0)
+
+    def _set_default_color_icon(self, color: str):
+        self._initial_default_color = color
+        color_icon = get_color_icon(color)
+        self._default_color_button.setIcon(color_icon)
 
     def _set_color_icon(self, row: int, color: str):
         color_icon = get_color_icon(color)

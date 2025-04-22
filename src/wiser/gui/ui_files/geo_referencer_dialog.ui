@@ -119,7 +119,7 @@
          </layout>
         </item>
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,0,0,0,0,0,0,0,0">
+         <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,0,0,0,0,0,0,0,0,0">
           <property name="sizeConstraint">
            <enum>QLayout::SetMaximumSize</enum>
           </property>
@@ -209,6 +209,17 @@
               </property>
               <property name="text">
                <string>...</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="hlayout_color_change">
+            <item>
+             <widget class="QLabel" name="lbl_default_color">
+              <property name="text">
+               <string>Default Color</string>
               </property>
              </widget>
             </item>
