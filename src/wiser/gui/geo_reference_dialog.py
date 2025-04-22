@@ -379,6 +379,7 @@ class GeoReferencerDialog(QDialog):
         if result == QDialog.Accepted:
             filename = file_dialog.selectedFiles()[0]
             self._ui.ledit_save_path.setText(filename)
+            self._georeference()
 
     def _on_switch_output_srs(self, index: int):
         srs = self._ui.cbox_srs.itemData(index)
@@ -545,6 +546,9 @@ class GeoReferencerDialog(QDialog):
         table_widget = self._ui.table_gcps
         for row in range(table_widget.rowCount()):
             item = table_widget.item(row, COLUMN_ID.RESIDUAL_X_COL)
+            # A row can still be in the table but be None, so we want to skip these rows
+            if item is None:
+                continue
             item.setText("N/A")
             item = table_widget.item(row, COLUMN_ID.RESIDUAL_Y_COL)
             item.setText("N/A")
@@ -880,7 +884,9 @@ class GeoReferencerDialog(QDialog):
     def _georeference(self):
         # print(f"in georeference")
         save_path = self._get_save_file_path()
-        if save_path is None:
+        if save_path is None or \
+            self._target_rasterpane.get_rasterview().get_raster_data() is None or \
+            self._reference_rasterpane.get_rasterview().get_raster_data() is None:
             return
 
         if not self._enough_points_for_transform():
@@ -1074,7 +1080,9 @@ class GeoReferencerDialog(QDialog):
 
     def accept(self):
         save_path = self._get_save_file_path()
-        if save_path is None:
+        if save_path is None or \
+            self._target_rasterpane.get_rasterview().get_raster_data() is None or \
+            self._reference_rasterpane.get_rasterview().get_raster_data() is None:
             super().accept()
             return
 
