@@ -845,7 +845,9 @@ class GeoReferencerDialog(QDialog):
             gcps.append((table_entry, gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1])))
 
         output_srs = osr.SpatialReference()
-        output_srs.ImportFromEPSG(self._curr_output_srs)
+        print(f"type(self._curr_output_srs): {type(self._curr_output_srs)}")
+        print(f"self._curr_output_srs: {self._curr_output_srs}")
+        output_srs.ImportFromEPSG(int(self._curr_output_srs))
         output_projection: str = output_srs.ExportToWkt()
 
         ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
@@ -906,7 +908,7 @@ class GeoReferencerDialog(QDialog):
         # if gt is None:
         #     raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
 
-        tr_pixel_to_output_srs = gdal.Transformer(temp_gdal_ds, None, transformer_options)
+        tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, transformer_options)
         # finally:
         #     ref_gdal_dataset.SetGCPs(gcp_placeholder, gcp_proj_placeholder)
     
@@ -923,12 +925,40 @@ class GeoReferencerDialog(QDialog):
             print(f"================================")
             print(f"gcp.GCPPixel: {gcp.GCPPixel}")
             print(f"gcp.GCPLine: {gcp.GCPLine}")
+
+            # These coordinates could get back to us in either lat/lon, lon/lat, or north/easting, easting/north
             ok, (output_spatial_x, output_spatial_y, z) = tr_pixel_to_output_srs.TransformPoint(False, gcp.GCPPixel, gcp.GCPLine)
+
+            # This variable is true of the output srs is order in lat, lon or in northing,easting
+            lat_lon_like_ordering_output: bool = False
+            # Get the output spatial reference system is geographic or projected
+            if output_srs.IsGeographic():
+                lat_lon_like_ordering_output = bool(output_srs.EPSGTreatsAsLatLong())
+                # Figure out the orientatino of the axis
+            else:
+                lat_lon_like_ordering_output = bool(output_srs.EPSGTreatsAsNorthingEasting())
+
+            # Get whether the input spatial reference system is geograhpic or projected
+                # Figure out the oritentatin of the axis 
+            lat_lon_like_ordering_input: bool = False
+            # Get the output spatial reference system is geographic or projected
+            if ref_srs.IsGeographic():
+                lat_lon_like_ordering_input = bool(ref_srs.EPSGTreatsAsLatLong())
+                # Figure out the orientatino of the axis
+            else:
+                lat_lon_like_ordering_input = bool(ref_srs.EPSGTreatsAsNorthingEasting())
+            
+            # Decide whether we need to swap them
+            ref_spatial_coord = None
+            if lat_lon_like_ordering_output == lat_lon_like_ordering_input:
+                ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_x, output_spatial_y, 0)
+            else:
+                ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_y, output_spatial_x, 0)
+
 
             print(f"output_spatial_x: {output_spatial_x}")
             print(f"output_spatial_y: {output_spatial_y}")
     
-            ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_y, output_spatial_x, 0)
 
             ref_spatial_x, ref_spatial_y = ref_spatial_coord[0], ref_spatial_coord[1]
 
@@ -944,6 +974,12 @@ class GeoReferencerDialog(QDialog):
 
             error_spatial_x = gcp.GCPX - ref_spatial_x
             error_spatial_y = gcp.GCPY - ref_spatial_y
+
+            print(f"error_spatial_x: {error_spatial_x}")
+            print(f"error_spatial_y: {error_spatial_y}")
+
+            print(f"ref_gt[1]: {ref_gt[1]}")
+            print(f"ref_gt[5]: {ref_gt[5]}")
 
             error_raster_x = error_spatial_x / ref_gt[1]
             error_raster_y = error_spatial_y / ref_gt[5]
