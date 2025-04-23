@@ -81,7 +81,6 @@ class GeoReferencerPane(RasterPane):
         self.update_all_rasterviews()
 
     def _onRasterKeyRelease(self, rasterview, key_event):
-        print(f"RASTER KEY RELEASE, GeoRefPane, {self.get_rasterview().get_raster_data().get_id()}")
         self._task_delegate.on_key_release(key_event)
         self.update_all_rasterviews()
 

@@ -227,12 +227,10 @@ class GeoReferencerDialog(QDialog):
         if self._reference_rasterpane is not None and self._reference_rasterpane.get_rasterview().get_raster_data() is not None:
             ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
             reference_srs_name = "Default: " + ref_ds.get_spatial_ref().GetName()
-            print(f"reference_srs_name: {reference_srs_name}")
             reference_srs_code = ref_ds.get_spatial_ref().GetAuthorityCode(None)
             if reference_srs_code is None:
                 self.set_message_text("Could not get an authority code for default dataset")
             else:
-                print(f"reference_srs_code: {reference_srs_code}")
                 srs_cbox.addItem(reference_srs_name, reference_srs_code)
 
         for name, srs in COMMON_SRS.items():
@@ -307,9 +305,7 @@ class GeoReferencerDialog(QDialog):
 
     def _on_cell_changed(self, row: int, col: int):
         table_widget = self._ui.table_gcps
-        print(f"in on cell changed")
         if col == COLUMN_ID.TARGET_X_COL:
-            print(f"COLUMN_ID.TARGET_X_COL cell changed!")
             item = table_widget.item(row, col)
             new_val = item.text()
             new_target_x = float(new_val)
@@ -319,7 +315,6 @@ class GeoReferencerDialog(QDialog):
             target_gcp.set_point([new_target_x, curr_point[1]])
             self._georeference()
         elif col == COLUMN_ID.TARGET_Y_COL:
-            print(f"COLUMN_ID.TARGET_Y_COL cell changed!")
             item = table_widget.item(row, col)
             new_val = item.text()
             new_target_y = float(new_val)
@@ -329,18 +324,15 @@ class GeoReferencerDialog(QDialog):
             target_gcp.set_point([curr_point[0], new_target_y])
             self._georeference()
         elif col == COLUMN_ID.REF_X_COL:
-            print(f"COLUMN_ID.REF_X_COL cell changed!")
             item = table_widget.item(row, col)
             new_val = item.text()
             new_ref_spatial_x = float(new_val)
-            print(f"new_ref_spatial_x: {new_ref_spatial_x}")
             list_entry = self._table_entry_list[row]
             gcp_pair = list_entry.get_gcp_pair()
             gcp_pair.set_reference_gcp_spatially((new_ref_spatial_x, \
                                                   gcp_pair.get_reference_gcp_spatial_coord()[1]))
             self._georeference()
         elif col == COLUMN_ID.REF_Y_COL:
-            print(f"COLUMN_ID.REF_Y_COL cell changed!")
             item = table_widget.item(row, col)
             new_val = item.text()
             new_ref_spatial_y = float(new_val)
@@ -656,7 +648,6 @@ class GeoReferencerDialog(QDialog):
         self._update_panes()
 
     def _update_residuals(self, table_entry: GeoRefTableEntry):
-        print(f"in updating residuals")
         table_widget = self._ui.table_gcps
         row_to_add = table_entry.get_id()
         assert row_to_add < table_widget.rowCount()
@@ -882,7 +873,6 @@ class GeoReferencerDialog(QDialog):
         return False if self._get_num_active_points() < min_points_per_transform[self._current_transform_type] else True
 
     def _georeference(self):
-        # print(f"in georeference")
         save_path = self._get_save_file_path()
         if save_path is None or \
             self._target_rasterpane.get_rasterview().get_raster_data() is None or \
@@ -890,20 +880,10 @@ class GeoReferencerDialog(QDialog):
             return
 
         if not self._enough_points_for_transform():
-            print(f"self._get_num_active_points(): {self._get_num_active_points()}")
-            print(f"min_points_per_transform[self._current_transform_type]: {min_points_per_transform[self._current_transform_type]}")
             self._set_all_residuals_NA()
             return
 
         gdal.UseExceptions()
-
-        dataset = self._target_rasterpane.get_rasterview().get_raster_data()
-        height = dataset.get_height()  # number of lines (rows)
-        width = dataset.get_width()    # number of samples (columns)
-        # Get the appropriate driver, for example, GeoTIFF:
-        driver = gdal.GetDriverByName('GTiff')
-
-        # dst_ds = driver.CreateCopy(save_path, gdal_dataset, 0)
 
         gcps: List[GeoRefTableEntry, gdal.GCP] = []
         
@@ -917,7 +897,6 @@ class GeoReferencerDialog(QDialog):
 
         output_srs = osr.SpatialReference()
         output_srs.ImportFromEPSG(int(self._curr_output_srs))
-        output_projection: str = output_srs.ExportToWkt()
 
         ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
 
@@ -928,17 +907,7 @@ class GeoReferencerDialog(QDialog):
         assert ref_projection is not None and ref_srs is not None and ref_gt is not None, \
                 f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
 
-        ref_dataset_impl: RasterDataImpl = ref_dataset.get_impl()
-        ref_gdal_dataset = None
         temp_gdal_ds = None
-        # if isinstance(ref_dataset_impl, GDALRasterDataImpl):
-        #     ref_gdal_dataset = ref_dataset_impl.gdal_dataset
-        #     temp_vrt_path = '/vsimem/ref.vrt'
-        #     temp_gdal_ds = gdal.Translate(temp_vrt_path, ref_gdal_dataset, format='VRT')
-        #     temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-        # else:
-        #     print(f"NOT A GDAL ARRAY")
-        target_dataset = self._target_rasterpane.get_rasterview().get_raster_data()
         place_holder_arr = np.zeros((1, 1), np.uint8)
         temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
         temp_gdal_ds.SetSpatialRef(ref_srs)
@@ -950,11 +919,9 @@ class GeoReferencerDialog(QDialog):
             "dstSRS": output_srs
         }
 
-        proj4 = output_srs.ExportToProj4() + " +nadgrids=@null +no_defs"
+        proj4 = output_srs.ExportToProj4() + " +nadgrids=@null +no_defs"  # Possible fix to lagging problem on UTM 10 Zone
         transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}',
                                 "SKIP_DATUM_SHIFT=YES"]
-        # transformer_options = [f'DST_SRS={proj4}']
-        # transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}']
 
         if self._current_transform_type == TRANSFORM_TYPES.TPS:
             self._warp_kwargs["tps"] = True
@@ -971,34 +938,13 @@ class GeoReferencerDialog(QDialog):
         else:
             raise RuntimeError(f"Unknown self._current_transform_type: {self._current_transform_type}")
 
-        # warp_options = gdal.WarpOptions(**self._warp_kwargs)
-
-        # transformed_ds = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
-
-        # if transformed_ds is None:
-        #     raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
-        # gt = transformed_ds.GetGeoTransform()
-        # if gt is None:
-        #     raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
-
         tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, transformer_options)
-        # finally:
-        #     ref_gdal_dataset.SetGCPs(gcp_placeholder, gcp_proj_placeholder)
+
     
         tr_output_srs_to_ref_srs = osr.CoordinateTransformation(output_srs, ref_srs)
 
         residuals = []
         for entry, gcp in gcps:
-            # For each gcp we transform it to the output_srs and get the error code
-
-            # Then we use the GCP's to get a geo transform. 
-
-            # Then we use the GCP's pixel info and the geo transform to project it into spatial coordinate space. 
-
-            # print(f"================================")
-            # print(f"gcp.GCPPixel: {gcp.GCPPixel}")
-            # print(f"gcp.GCPLine: {gcp.GCPLine}")
-
             # These coordinates could get back to us in either lat/lon, lon/lat, or north/easting, easting/north
             ok, (output_spatial_x, output_spatial_y, z) = tr_pixel_to_output_srs.TransformPoint(False, gcp.GCPPixel, gcp.GCPLine)
 
@@ -1058,23 +1004,13 @@ class GeoReferencerDialog(QDialog):
             entry.set_residual_x(round(error_raster_x, 6))
             entry.set_residual_y(round(error_raster_y, 6))
 
-            # print(f"updating residuals")
             self._update_residuals(entry)
-            # print(f"finished residuals")
         
             residuals.append((error_raster_x, error_raster_y))
-            # print(f"GCP at pixel ({gcp.GCPPixel}, {gcp.GCPLine}): Residual error: X: {error_raster_x:.2f} px, Y: {error_raster_y:.2f} px")
         
         tr_pixel_to_output_srs = None
         tr_output_srs_to_ref_srs = None
-        # try:
-        #     print(f"Starting to unlink")
-        #     gdal.Unlink(temp_gdal_ds)
-        #     print(f"finished unlink")
-        # except:
-        #     pass
         temp_gdal_ds = None
-        print(f"DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
     # region Accepting
 
@@ -1098,10 +1034,8 @@ class GeoReferencerDialog(QDialog):
         target_dataset_impl = target_dataset.get_impl()
 
         ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
-        ref_dataset_impl = ref_dataset.get_impl()
         ref_projection = ref_dataset.get_wkt_spatial_reference()
         ref_srs = ref_dataset.get_spatial_ref()
-        ref_gdal_dataset = None
         temp_gdal_ds = None
         output_dataset = None
         if isinstance(target_dataset_impl, GDALRasterDataImpl):
@@ -1117,21 +1051,20 @@ class GeoReferencerDialog(QDialog):
                 translate_opts = gdal.TranslateOptions(
                     format='VRT',
                 )
-            print(f"Translating vrt")
             temp_gdal_ds = gdal.Translate(temp_vrt_path, target_gdal_dataset, options=translate_opts)
             temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
             warp_options = gdal.WarpOptions(**self._warp_kwargs)
-            print(f"Warping")
             output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
         else:
-            # I warp one band of the input dataset to a virtual memory file
-            # Then I create the output dataset with width and height equal to the warp, but correct number of bands
+            # I warp one band of the input dataset to a virtual memory file, 
+            # so I can create the correct output data size.
+            # Then I create the output dataset with width and height equal to the warp,
+            # but correct number of bands
             # Then I override each band in the created array and flush cache
             output_size: Tuple[int, int] = None
             output_dataset: gdal.Dataset = None
             driver: gdal.Driver = gdal.GetDriverByName("GTiff")
             gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(target_dataset.get_elem_type())
-            print(f"self._warp_kwargs: {self._warp_kwargs}")
 
             # Get the output size
             warp_options = gdal.WarpOptions(**self._warp_kwargs)
@@ -1147,10 +1080,10 @@ class GeoReferencerDialog(QDialog):
             output_size = (width, height)
             output_bytes = width * height * target_dataset.num_bands() * target_dataset.get_elem_type().itemsize
 
+            gdal.Unlink(warp_save_path)
 
             ratio = MAX_RAM_BYTES / output_bytes
             if ratio > 1.0:
-                print(f"SAVING WHOLE DATASET")
                 warp_options = gdal.WarpOptions(**self._warp_kwargs)
                 band_arr = target_dataset.get_image_data()
                 temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
@@ -1161,13 +1094,12 @@ class GeoReferencerDialog(QDialog):
                 output_dataset.FlushCache()
 
             else:
-                print(f"SAVING IN CHUNKS")
                 num_bands_per = int(ratio * target_dataset.num_bands())
                 for band_index in range(0, target_dataset.num_bands(), num_bands_per):
                     band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < target_dataset.num_bands()]
                     warp_options = gdal.WarpOptions(**self._warp_kwargs)
                     warp_save_path = f'/vsimem/temp_band_{min(band_list_index)}_to_{max(band_list_index)}'
-                    print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
+                    # print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
             
                     band_arr = target_dataset.get_multiple_band_data(band_list_index)
                     temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
@@ -1185,36 +1117,18 @@ class GeoReferencerDialog(QDialog):
                         output_dataset = driver.Create(save_path, width, height, target_dataset.num_bands(), gdal_dtype)
                     
                     write_raster_to_dataset(output_dataset, band_list_index, transformed_ds.ReadAsArray(), gdal_dtype)
-                    # current_band: gdal.Band = output_dataset.GetRasterBand(band+1)
-                    # array_to_write = transformed_ds.GetRasterBand(1).ReadAsArray()
-                    # current_band.WriteArray(array_to_write)
-                    # output_dataset.FlushCache()
-
-
-                    # print(f"Warping band: {band} / {ref_dataset.num_bands()-1}")
-                    print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {ref_dataset.num_bands()}")
-
-                    # self._warp_kwargs['srcBands'] = [band+1]
-                    # self._warp_kwargs['dstBands'] = [band + 1 for band in range(ref_dataset.num_bands())]
-                    # del self._warp_kwargs['srcBands']
-                    # del self._warp_kwargs['dstBands']
+                    # print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {ref_dataset.num_bands()}")
                     gdal.Unlink(warp_save_path)
                     transformed_ds = None
 
-
-
-        try:
-            gdal.Unlink(temp_gdal_ds)
-        except:
-            pass
-
         if output_dataset is None:
             raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
+
         copy_metadata_to_gdal_dataset(output_dataset, target_dataset)
         gt = output_dataset.GetGeoTransform()
-        print(f"gt: {gt}")
         if gt is None:
             raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
+
         output_dataset.FlushCache()
         output_dataset = None
 

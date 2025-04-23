@@ -131,61 +131,10 @@ class GroundControlPointPair:
         self._ref_gcp.set_point(raster_coord)
         
 class GeoReferencerTaskDelegate(TaskDelegate):
-    # Take in clickable_object_1 and clickable_object_2
-
-    # When clickable object 1 receives a click, it should send it to task delegate.
-    # the next click task delegate does should be in clickable object 2.
-
-    # When 2 things are clicked and the user presses enter, it adds them to a list 
-    # and emits a signal that the GeoReferenceDialog conects to to get that list 
-
-    # It populates the GCP list with that list. If user's edit the GCP list, it updates
-    # the list here
     def __init__(self, target_rasterpane: 'RasterPane', \
                  ref_rasterpane: 'RasterPane', \
                  geo_reference_dialog: 'GeoReferencerDialog',
                  app_state: 'ApplicationState'):
-        '''
-        Technically, target_rasterpane and ref_rasterpane can be any objects that
-        can receive mouse events and when they do receive mouse events,
-        will send it here.
-        '''
-        # So we have the last selected pane and the current selected pane. 
-        # The last selected pane will remain none until the user presses enter.
-        # Then the last selected raster pane updates to the currently selected raster pane
-        # (the currently selected raster is always the one passed in and is filtered) by ensuring
-        # its not equal to the last selected raster pane. If the user presses enter the second time and the
-        # current point pair is two, we add it to point list. 
-
-        '''
-        Three states:
-        1. State one. The user has yet to select anything. 
-            self._last_selected_pane = None
-            self._current_selected_pane = None
-            self._current_point = None
-            self._current_point_pair = None
-        2. State two. The user has selected a pixel in a raster pane
-            self._last_selected_pane = None
-            self._current_selected_pane = selected_pane_1
-            self._current_point = selected_point_1
-            self._current_point_pair = [GCP, None]
-        3. State three. The user has pressed enter
-            self._last_selected_pane = selected_pane_1
-            self._current_selected_pane = None
-            self._current_point = None
-            self._current_point_pair = [GCP, None]
-        4. State four. The user has selected a pixel in other raster pane
-            self._last_selected_pane = selected_pane_1
-            self._current_selected_pane = pane_2
-            self._current_point = selected_point_2
-            self._current_point_pair = [GCP, GCP]
-        5. State five. The user has pressed enter
-            self._last_selected_pane = None
-            self._current_selected_pane = None
-            self._current_point = None
-            self._current_point_pair = None
-
-        '''
         self._target_rasterpane = target_rasterpane
         self._ref_rasterpane = ref_rasterpane
         self._geo_ref_dialog = geo_reference_dialog
@@ -198,28 +147,16 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         self._current_point_pair: Optional[GroundControlPointPair] = None
 
     def draw_state(self, painter: QPainter, rasterpane: 'RasterPane'):
-        print(f"=================")
-        if rasterpane == self._target_rasterpane:
-            print("drawing in target")
-        elif rasterpane == self._ref_rasterpane:
-            print("drawing in reference")
         if self._geo_ref_dialog.get_gcp_table_size() == 0 and self._current_point_pair is None:
-            print("returning!!")
             return
         
         color = self._app_state.get_config('raster.selection.edit_outline')
         painter.setPen(QPen(color))
 
-        points_scaled = []
-
         scale = rasterpane.get_scale()
-
-        point_pairs: List[GroundControlPointPair] = \
-            [entry.get_gcp_pair() for entry in self._geo_ref_dialog.get_table_entries() if entry.is_enabled()]
 
         table_entries = self._geo_ref_dialog.get_table_entries()
 
-    
         for entry in table_entries:
             point_pair: GroundControlPointPair = entry.get_gcp_pair()
             color = QColor(entry.get_color())
@@ -231,27 +168,17 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             gcp_0 = point_pair.get_target_gcp()
             gcp_1 = point_pair.get_reference_gcp()
             gcp_scaled = None
-            gcp_point = None
             if gcp_0.get_rasterpane() == rasterpane:
                 gcp_scaled = gcp_0.get_scaled_point()
-                gcp_point = gcp_0.get_point()
             elif gcp_1.get_rasterpane() == rasterpane:
                 gcp_scaled = gcp_1.get_scaled_point()
-                gcp_point = gcp_1.get_point()
-            # print(f"gcp_scale: {gcp_scaled}")
 
             assert gcp_scaled is not None, "Got a GCP scaled point as None!"
     
             if scale >= 6:
-                # painter.drawRect(gcp_scaled[0] + PIXEL_OFFSET,
-                #                  gcp_scaled[1] + PIXEL_OFFSET,
-                #                  scale - 2 * PIXEL_OFFSET,
-                #                  scale - 2 * PIXEL_OFFSET)
                 painter.drawEllipse(gcp_scaled[0] - ZOOMED_IN_RADIUS / 2,
                                  gcp_scaled[1] - ZOOMED_IN_RADIUS / 2, ZOOMED_IN_RADIUS, ZOOMED_IN_RADIUS)
             else:
-                draw_size = scale if scale >= 1 else 1
-                # painter.drawRect(gcp_scaled[0], gcp_scaled[1], draw_size, draw_size)
                 painter.drawEllipse(gcp_scaled[0] - ZOOMED_OUT_RADIUS / 2,
                                  gcp_scaled[1] - ZOOMED_OUT_RADIUS / 2, ZOOMED_OUT_RADIUS, ZOOMED_OUT_RADIUS)
 
@@ -261,35 +188,22 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         gcp_1 = self._current_point_pair.get_reference_gcp()
 
         current_point_scaled = None
-        curr_point = None
         if gcp_0 is not None:
             if gcp_0.get_rasterpane() == rasterpane:
                 current_point_scaled = gcp_0.get_scaled_point()
-                curr_point = gcp_0.get_point()
         if gcp_1 is not None and current_point_scaled is None:
             if gcp_1.get_rasterpane() == rasterpane:
                 current_point_scaled = gcp_1.get_scaled_point()
-                curr_point = gcp_1.get_point()
         
         if current_point_scaled is not None:
             painter.setPen(QPen(Qt.red))
             painter.setBrush(Qt.red)
             if scale >= 6:
-                # painter.drawRect(current_point_scaled[0] + PIXEL_OFFSET,
-                #                  current_point_scaled[1] + PIXEL_OFFSET,
-                #                  scale - 2 * PIXEL_OFFSET,
-                #                  scale - 2 * PIXEL_OFFSET)
                 painter.drawEllipse(current_point_scaled[0] - ZOOMED_IN_RADIUS / 2,
                                  current_point_scaled[1] - ZOOMED_IN_RADIUS / 2, ZOOMED_IN_RADIUS, ZOOMED_IN_RADIUS)
             else:
-                draw_size = scale if scale >= 1 else 1
-                # painter.drawRect(current_point_scaled[0], current_point_scaled[1], draw_size, draw_size)
                 painter.drawEllipse(current_point_scaled[0] - ZOOMED_OUT_RADIUS / 2,
                                  current_point_scaled[1] - ZOOMED_OUT_RADIUS / 2, ZOOMED_OUT_RADIUS, ZOOMED_OUT_RADIUS)
-            # print(f"current_point_scaled[0]: {current_point_scaled[0]}")
-            # print(f"current_point_scaled[1]: {current_point_scaled[1]}")
-            # print(f"curr_point[0]: {curr_point[0]}")
-            # print(f"curr_point[1]: {curr_point[1]}")
         
 
     def on_mouse_release(self, mouse_event: QMouseEvent, rasterpane: 'RasterPane'):
@@ -380,9 +294,6 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         We want all of our functions to return false because this task delegate
         is permanent for the GeoReferencer Panes it operates on
         '''
-        print(f"In GeoRefTaskDelegate, key_event: {key_event.key()}")
-        print(f"Qt.Key_Enter: {int(Qt.Key_Enter)}")
-        print(f"Qt.Key_Escape: {int(Qt.Key_Escape)}")
         if key_event.key() == Qt.Key_Enter or key_event.key() == Qt.Key_Return:
             self.handle_enter_key_release()
         elif key_event.key() == Qt.Key_Escape:
@@ -395,20 +306,16 @@ class GeoReferencerTaskDelegate(TaskDelegate):
 
         '''
         if self._state == GeoReferencerState.NOTHING_SELECTED:
-            print(f"ESC, NOTHING_SELECTED")
             self._geo_ref_dialog.set_message_text('Must select ' \
             'a point before pressing ESC again')
         elif self._state == GeoReferencerState.FIRST_POINT_SELECTED:
-            print(f"ESC, FIRST_POINT_SELECTED")
             # Pressing escape here should bring us back to NOTHING_SELECTED
             # state
             self.check_state()
             self._reset_changeable_state()
             self._state = GeoReferencerState.NOTHING_SELECTED
-            print(f"self._current_point_pair: {self._current_point_pair}")
             self.check_state()
         elif self._state == GeoReferencerState.FIRST_POINT_ENTERED:
-            print(f"ESC, FIRST_POINT_ENTERED")
             self.check_state()
             self._current_selected_pane = self._last_selected_pane
             self._last_selected_pane = None
@@ -416,7 +323,6 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             self._state = GeoReferencerState.FIRST_POINT_SELECTED
             self.check_state()
         elif self._state == GeoReferencerState.SECOND_POINT_SELECTED:
-            print(f"ESC, SECOND_POINT_SELECTED")
             self.check_state()
             self._current_point_pair.remove_gcp(self._current_selected_pane)
             self._current_selected_pane = None
@@ -523,4 +429,3 @@ class GeoReferencerTaskDelegate(TaskDelegate):
                     f"self._current_selected_pane is not None when Geo Reference is in state {self._state}"
             assert self._last_selected_pane is None, \
                     f"self._last_selected_pane is not None when Geo Reference is in state {self._state}"
-
