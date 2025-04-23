@@ -1133,4 +1133,12 @@ class GeoReferencerDialog(QDialog):
         output_dataset = None
 
         super().accept()
+
+    # region Event overrides
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Escape):
+            event.accept()  # Do nothing on Enter or Escape
+        else:
+            super().keyPressEvent(event)
         
