@@ -539,6 +539,7 @@ class RasterPane(QWidget):
         self._num_views = num_views
         self.views_changed.emit(self._num_views)
 
+    # region Getters
 
     def _get_rasterview_position(self, rasterview) -> Optional[Tuple[int, int]]:
         '''
@@ -705,6 +706,8 @@ class RasterPane(QWidget):
 
     # def _onRasterResize(self, rasterview, resize_event):
     #     self._emit_viewport_change()
+
+    # region _onRaster
 
 
     def _onRasterMousePress(self, rasterview, mouse_event):
@@ -1000,6 +1003,11 @@ class RasterPane(QWidget):
         Sets the dataset being displayed in the specified view of the raster
         pane.
         '''
+        if dataset is not None:
+            self._act_band_chooser.setEnabled(True)
+        else:
+            self._act_band_chooser.setEnabled(False)
+
         rasterview = self.get_rasterview(rasterview_pos)
 
         # If the rasterview is already showing the specified dataset, skip!

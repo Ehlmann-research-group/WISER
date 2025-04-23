@@ -26,7 +26,7 @@ class BandChooserDialog(QDialog):
 
     def __init__(self, app_state: ApplicationState, dataset: RasterDataSet,
                  display_bands: List[int], colormap: Optional[str] = None,
-                 parent=None):
+                 can_apply_global: bool = True, parent=None):
         super().__init__(parent=parent)
 
         if len(display_bands) not in [1, 3]:
@@ -76,7 +76,10 @@ class BandChooserDialog(QDialog):
         self._on_grayscale_use_colormap(colormap is not None)
         self._on_grayscale_choose_colormap(-1) # The argument here is ignored
 
-        self._ui.chk_apply_globally.setChecked(True)
+        if can_apply_global:
+            self._ui.chk_apply_globally.setChecked(True)
+        else:
+            self._ui.chk_apply_globally.setEnabled(False)
 
         # Hook up event handlers
 

@@ -8,10 +8,11 @@ import wiser.gui.generated.resources
 
 from wiser.raster.dataset import RasterDataSet
 
+from .band_chooser import BandChooserDialog
 from .rasterview import ScaleToFitMode, RasterView
 from .rasterpane import RasterPane
 from .dataset_chooser import DatasetChooser
-from .util import get_painter
+from .util import get_painter, add_toolbar_action
 from .app_state import ApplicationState
 
 class GeoReferencerPane(RasterPane):
@@ -37,14 +38,38 @@ class GeoReferencerPane(RasterPane):
     def _init_dataset_tools(self):
         self._dataset_chooser = None
 
-        self._act_band_chooser = None
-    
+        self._act_band_chooser = add_toolbar_action(self._toolbar,
+            ':/icons/choose-bands.svg', self.tr('Band chooser'), self)
+        self._act_band_chooser.triggered.connect(self._on_band_chooser)
+        print(f"init dataset tools set to false here")
+
+        self._act_band_chooser.setEnabled(False)
+
     def _init_select_tools(self):
         '''
         We don't want this to initialize any of the select tools.
         The select tools currently are just the ROI tools
         '''
         return
+
+    def _on_band_chooser(self, checked=False, rasterview_pos=(0,0)):
+        # print(f'on_band_chooser invoked for position {rasterview_pos}')
+
+        rasterview = self.get_rasterview(rasterview_pos)
+        dataset = rasterview.get_raster_data()
+        display_bands = rasterview.get_display_bands()
+        colormap = rasterview.get_colormap()
+
+        dialog = BandChooserDialog(self._app_state, dataset, display_bands,
+            colormap=colormap, can_apply_global=False, parent=self)
+        dialog.setModal(True)
+
+        if dialog.exec_() == QDialog.Accepted:
+            bands = dialog.get_display_bands()
+            colormap = dialog.get_colormap_name()
+
+            # For the geo referencer, the change shouldn't be global
+            self.set_display_bands(dataset.get_id(), bands, colormap=colormap)
 
     def _onRasterMousePress(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_press(mouse_event)
