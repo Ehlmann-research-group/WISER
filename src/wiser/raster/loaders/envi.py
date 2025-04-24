@@ -217,10 +217,10 @@ def load_envi_header(filename: str) -> Dict[str, Any]:
     # Next, some metdata values are specific types (e.g. float/int), so we go
     # through and convert those entries' values to the expected type.
 
-    # These attributes are integers
+    # These attributes are integers, but might be written as a float.
     for k in ['samples', 'lines', 'bands', 'header offset', 'data type', 'byte order', 'y start']:
         if k in metadata:
-            metadata[k] = int(metadata[k])
+            metadata[k] = int(float(metadata[k]))
 
     # These attributes are floats
     for k in ['data ignore value']:
