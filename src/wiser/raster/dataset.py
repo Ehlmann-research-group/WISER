@@ -1029,7 +1029,6 @@ def find_truecolor_bands(dataset: RasterDataSet,
     red_band   = find_band_near_wavelength(bands, red)
     green_band = find_band_near_wavelength(bands, green)
     blue_band  = find_band_near_wavelength(bands, blue)
-
     # If that didn't work, report None
     if red_band is None or green_band is None or blue_band is None:
         return None

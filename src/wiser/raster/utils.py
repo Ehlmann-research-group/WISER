@@ -302,8 +302,6 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'R
     # 1. Propagate wavelength names (band descriptions)
     band_info = source_dataset.band_list()  # returns dict of lists keyed by metadata names
     wle_names = band_info[0].get("wavelength_name")
-    print(f"wle_names: {wle_names}")
-    print(f"type(wle_names): {type(wle_names)}")
     if wle_names:
         for i, band_info in enumerate(band_info):
             wle_name = band_info.get("wavelength_name")
@@ -336,19 +334,26 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'R
         )
 
     # (Optional) If you also want to store wavelength units:
-    wls = band_info[0].get("wavelength")  # list of astropy.Quantity
-    print(f"wavelength: {wls}")
-    print(f"type(wls): {type(wls)}")
-    if wls is not None:
+    wl_str = band_info[0].get("wavelength_str")  # list of astropy.Quantity
+    if wl_str is not None:
         for i, q in enumerate(band_info):
-            wls = band_info[i].get("wavelength")
+            wl_str = band_info[i].get("wavelength_str")
             gdal_dataset.GetRasterBand(i+1).SetMetadataItem(
                 "wavelength",
-                str(q)
+                wl_str
             )
 
+    wl_units = band_info[0].get("wavelength_units")  # Should be an astropy.Unit
+    if wl_units is not None:
+        for i, q in enumerate(band_info):
+            wl_units = band_info[i].get("wavelength_units")
+            gdal_dataset.GetRasterBand(i+1).SetMetadataItem(
+                "wavelength_units",
+                str(wl_units)
+            )
+
+
     if source_dataset.has_geographic_info():
-        print(f"Has geographic info!")
         gt = source_dataset.get_geo_transform()
         gdal_dataset.SetGeoTransform(gt)
 

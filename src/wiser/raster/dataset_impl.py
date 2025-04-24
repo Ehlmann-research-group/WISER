@@ -375,10 +375,49 @@ class GDALRasterDataImpl(RasterDataImpl):
         reading the driver-specific metadata for the format.
         '''
         band_info = []
+
+        md = self.gdal_dataset.GetMetadata()
+        has_band_names = ('band names' in md)
+
+        # Note:  GDAL indexes bands from 1, not 0.
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
             band = self.gdal_dataset.GetRasterBand(band_index)
+
             info = {'index':band_index - 1, 'description':band.GetDescription()}
+
+            gdal_metadata = band.GetMetadata()
+            if 'wavelength' in gdal_metadata and 'wavelength_units' in gdal_metadata:
+                wl_str = gdal_metadata['wavelength']
+                wl_units = gdal_metadata['wavelength_units']
+
+                info['wavelength_str'] = wl_str
+                info['wavelength_units'] = wl_units
+                # This could fail if the wavelength isn't a float, or if the
+                # units aren't recognized
+                try:
+                    wl_value = float(wl_str)
+                    wavelength = make_spectral_value(wl_value, wl_units)
+                    # TODO(donnie):  Why is everything converted to nanometers?
+                    # wavelength = convert_spectral(wavelength, u.nm)
+                    info['wavelength'] = wavelength
+                except:
+                    # Log this error in case anyone needs to debug it.
+                    logger.warn('Couldn\'t parse wavelength info for GDAL ' +
+                        f'dataset band {band_index - 1}:  ' +
+                        f'value "{wl_str}", units "{wl_units}"')
+
+                # If the raw metadata doesn't actually have band names, generate
+                # a band name/description from the wavelength information, since
+                # the GDAL info is a bit ridiculously formatted.
+                if not has_band_names:
+                    if 'wavelength' in info:
+                        info['description'] = '{0:0.02f}'.format(info['wavelength'])
+                    else:
+                        # NOTE:  Using 0-based index, not 1-based index!
+                        info['description'] = f'Band {band_index - 1}'
+
             band_info.append(info)
+
         return band_info
 
     def read_data_ignore_value(self) -> Optional[Number]:
@@ -1304,7 +1343,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
                 except:
                     # Log this error in case anyone needs to debug it.
                     logger.warn('Couldn\'t parse wavelength info for GDAL ' +
-                        f'dataset {self.get_name()} band {band_index - 1}:  ' +
+                        f'dataset band {band_index - 1}:  ' +
                         f'value "{wl_str}", units "{wl_units}"')
 
                 # If the raw metadata doesn't actually have band names, generate
