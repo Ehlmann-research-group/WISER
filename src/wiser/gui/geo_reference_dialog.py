@@ -202,6 +202,7 @@ class GeoReferencerDialog(QDialog):
         self._init_default_color_chooser()
 
         self._warp_kwargs: Dict = None
+        self._suppress_cell_changed: bool = False
 
     # region Initialization
 
@@ -266,7 +267,8 @@ class GeoReferencerDialog(QDialog):
         headers = ["Enabled", "ID", "Target X", "Target Y", "Ref X", "Ref Y", "dX (Pix)", "dY (Pix)", "Color", "Remove"]
         table_widget.setHorizontalHeaderLabels(headers)
 
-        table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Do not use QHeaderView.Stretch here!!! It will cause a very hard to track down bug.
+        table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self._target_x_col_delegate = NumericDelegate()
         self._target_y_col_delegate = NumericDelegate()
         table_widget.setItemDelegateForColumn(COLUMN_ID.TARGET_X_COL, self._target_x_col_delegate)
@@ -305,6 +307,8 @@ class GeoReferencerDialog(QDialog):
 
     def _on_cell_changed(self, row: int, col: int):
         table_widget = self._ui.table_gcps
+        if self._suppress_cell_changed:
+            return
         if col == COLUMN_ID.TARGET_X_COL:
             item = table_widget.item(row, col)
             new_val = item.text()
@@ -390,7 +394,6 @@ class GeoReferencerDialog(QDialog):
     def _on_choose_default_color(self):
         color = QColorDialog.getColor(parent=self, initial=self._initial_default_color)
         if color.isValid():
-            print(f"default color valid")
             color_str = color.name()
             for row in range(len(self._table_entry_list)):
                 # We only want to change the colors of the points that weren't explicitly
@@ -432,7 +435,6 @@ class GeoReferencerDialog(QDialog):
         # geo referencer task delegate point list
 
         self._add_entry_to_table(table_entry)
-
         self._georeference()
 
     def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
@@ -566,6 +568,7 @@ class GeoReferencerDialog(QDialog):
         residual_x = table_entry.get_residual_x()
         residual_y = table_entry.get_residual_y()
 
+        self._suppress_cell_changed = True
         checkbox = QCheckBox()
         checkbox.setChecked(table_entry.is_enabled())
         checkbox.clicked.connect(lambda checked : self._on_enabled_clicked(table_entry, checked))
@@ -615,6 +618,7 @@ class GeoReferencerDialog(QDialog):
         pushButton.clicked.connect(lambda checked : self._on_removal_button_clicked(table_entry))
         table_widget.setCellWidget(row_to_add, COLUMN_ID.REMOVAL_COL, pushButton)
 
+        self._suppress_cell_changed = False
         self._update_panes()
 
     def _remove_table_entry(self, table_entry: GeoRefTableEntry) -> Optional[int]:
@@ -886,7 +890,7 @@ class GeoReferencerDialog(QDialog):
         gdal.UseExceptions()
 
         gcps: List[GeoRefTableEntry, gdal.GCP] = []
-        
+
         for table_entry in self._table_entry_list:
             if not table_entry.is_enabled():
                 continue
@@ -919,9 +923,7 @@ class GeoReferencerDialog(QDialog):
             "dstSRS": output_srs
         }
 
-        proj4 = output_srs.ExportToProj4() + " +nadgrids=@null +no_defs"  # Possible fix to lagging problem on UTM 10 Zone
-        transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}',
-                                "SKIP_DATUM_SHIFT=YES"]
+        transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}']
 
         if self._current_transform_type == TRANSFORM_TYPES.TPS:
             self._warp_kwargs["tps"] = True
@@ -1012,7 +1014,9 @@ class GeoReferencerDialog(QDialog):
         tr_output_srs_to_ref_srs = None
         temp_gdal_ds = None
 
+
     # region Accepting
+
 
     def accept(self):
         save_path = self._get_save_file_path()

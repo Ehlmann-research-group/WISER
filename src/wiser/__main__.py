@@ -5,7 +5,6 @@ import logging
 import logging.config
 import os
 import sys
-os.environ["PROJ_NETWORK"] = "OFF"
 
 #============================================================================
 # Load gdal plugins into path 

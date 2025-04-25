@@ -16,7 +16,6 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from osgeo import gdal, osr
-osr.SetPROJEnableNetwork(False)
 
 from .app_config import PixelReticleType
 

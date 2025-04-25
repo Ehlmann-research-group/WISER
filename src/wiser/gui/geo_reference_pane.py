@@ -41,7 +41,6 @@ class GeoReferencerPane(RasterPane):
         self._act_band_chooser = add_toolbar_action(self._toolbar,
             ':/icons/choose-bands.svg', self.tr('Band chooser'), self)
         self._act_band_chooser.triggered.connect(self._on_band_chooser)
-        print(f"init dataset tools set to false here")
 
         self._act_band_chooser.setEnabled(False)
 
