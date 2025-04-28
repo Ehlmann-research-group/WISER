@@ -11,6 +11,24 @@ from PySide2.QtWidgets import *
 import matplotlib
 import numpy as np
 
+def clear_widget(w: QWidget):
+    # remove and delete any existing layout
+    old_layout = w.layout()
+    if old_layout is not None:
+        while old_layout.count():
+            item = old_layout.takeAt(0)
+            # if it’s a widget, delete it
+            if item.widget():
+                item.widget().deleteLater()
+            # if it’s a sub-layout, clear that too
+            elif item.layout():
+                clear_widget(item.layout().parentWidget())
+        old_layout.deleteLater()
+
+    # also remove any stray child widgets (Designer placeholder, etc)
+    for child in w.findChildren(QWidget):
+        child.setParent(None)
+
 def get_plugin_fns(app_state):
     # Collect functions from all plugins.
     functions = {}

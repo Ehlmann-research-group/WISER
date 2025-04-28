@@ -11,8 +11,8 @@ from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import RasterPane
 from wiser.gui.geo_reference_pane import GeoReferencerPane
-from wiser.gui.georeference_task_delegate import GeoReferencerTaskDelegate, GroundControlPointPair, GroundControlPoint
-from wiser.gui.util import get_random_matplotlib_color, get_color_icon
+from wiser.gui.geo_reference_task_delegate import GeoReferencerTaskDelegate, GroundControlPointPair, GroundControlPoint
+from wiser.gui.util import get_random_matplotlib_color, get_color_icon, clear_widget
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import RasterDataImpl, GDALRasterDataImpl
@@ -25,6 +25,8 @@ from enum import IntEnum, Enum
 from osgeo import gdal, osr, gdal_array
 
 import numpy as np
+
+from pyproj import CRS
 
 from wiser.bandmath.builtins.constants import MAX_RAM_BYTES
 
@@ -206,6 +208,50 @@ class GeoReferencerDialog(QDialog):
 
     # region Initialization
 
+    def _init_ref_coord_ledit(self):
+        # Get self._ui.widget_ref_image
+
+        # Add a vertical layout
+            # On top add and center the text:
+            # Manually enter spatial coords or choose dataset above
+
+            # Under, add a horizontal layout with the first item saying Spatial X,
+            # the next is a QLineEdit which we save as an instance variable (self._spatial_x_ledit) then
+
+            # Under this horizontal layout we add another horizontal layout. The first item
+            # will be a QLabel saying Spatial Y. The next is a QLineEdit which we save as a an
+            # instance variavble (self._spatial_y_ledit)
+        print(f"ref coord ledit")
+        # parent widget
+        parent = self._ui.widget_ref_image
+        clear_widget(parent)
+        parent.setLayout(None)
+
+        # create & set vertical layout
+        vlay = QVBoxLayout(parent)
+        parent.setLayout(vlay)
+
+        # title label (centered)
+        title = QLabel("Manually enter spatial coords or choose dataset above")
+        title.setAlignment(Qt.AlignCenter)
+        vlay.addWidget(title)
+
+        # --- Spatial X row ---
+        x_row = QHBoxLayout()
+        lbl_x = QLabel("Spatial X")
+        self._spatial_x_ledit = QLineEdit()
+        x_row.addWidget(lbl_x)
+        x_row.addWidget(self._spatial_x_ledit)
+        vlay.addLayout(x_row)
+
+        # --- Spatial Y row ---
+        y_row = QHBoxLayout()
+        lbl_y = QLabel("Spatial Y")
+        self._spatial_y_ledit = QLineEdit()
+        y_row.addWidget(lbl_y)
+        y_row.addWidget(self._spatial_y_ledit)
+        vlay.addLayout(y_row)
+
     def _init_default_color_chooser(self):
         horizontal_layout = self._ui.hlayout_color_change
         self._default_color_button = QPushButton()
@@ -227,10 +273,19 @@ class GeoReferencerDialog(QDialog):
         # and store the corresponding SRS string (e.g., "EPSG:4326") as userData.
         if self._reference_rasterpane is not None and self._reference_rasterpane.get_rasterview().get_raster_data() is not None:
             ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
-            reference_srs_name = "Default: " + ref_ds.get_spatial_ref().GetName()
+            reference_srs_name = "Ref CRS: " + ref_ds.get_spatial_ref().GetName()
             reference_srs_code = ref_ds.get_spatial_ref().GetAuthorityCode(None)
+            print(f"reference srs code: {reference_srs_code}")
+            print(f"reference_srs_name: {reference_srs_name}")
+            print(f"ref_ds.get_spatial_ref().GetAuthorityCode('PROJCS'): {ref_ds.get_spatial_ref().GetAuthorityCode('PROJCS')}")
+            print(f"ref_ds.get_spatial_ref().GetAuthorityCode('GEOGCS'): {ref_ds.get_spatial_ref().GetAuthorityCode('GEOGCS')}")
             if reference_srs_code is None:
                 self.set_message_text("Could not get an authority code for default dataset")
+                ref_srs = ref_ds.get_spatial_ref()
+                crs = CRS.from_wkt(ref_srs.ExportToWkt())
+                if crs is not None:
+                    srs_cbox.addItem(reference_srs_name, crs.to_epsg())
+                print(f"crs.to_epsg(): {crs.to_epsg()}")
             else:
                 srs_cbox.addItem(reference_srs_name, reference_srs_code)
 
@@ -475,6 +530,9 @@ class GeoReferencerDialog(QDialog):
                 return
         except:
             pass
+
+        else:
+            print(f"dataset is not none: {dataset}")
         self._reference_rasterpane.show_dataset(dataset)
         self._init_output_srs_cbox()
 
@@ -901,6 +959,7 @@ class GeoReferencerDialog(QDialog):
 
         output_srs = osr.SpatialReference()
         output_srs.ImportFromEPSG(int(self._curr_output_srs))
+        print(f"output_srs: {output_srs.GetName()}")
 
         ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
 
@@ -1042,7 +1101,9 @@ class GeoReferencerDialog(QDialog):
         ref_srs = ref_dataset.get_spatial_ref()
         temp_gdal_ds = None
         output_dataset = None
+        print(f"self._warp_kwargs: {self._warp_kwargs}")
         if isinstance(target_dataset_impl, GDALRasterDataImpl):
+            print(f"gdasl raster impl is being saved")
             target_gdal_dataset = target_dataset_impl.gdal_dataset
             temp_vrt_path = '/vsimem/ref.vrt'
             translate_opts = None
@@ -1088,6 +1149,7 @@ class GeoReferencerDialog(QDialog):
 
             ratio = MAX_RAM_BYTES / output_bytes
             if ratio > 1.0:
+                print(f"numpy array saved all at once")
                 warp_options = gdal.WarpOptions(**self._warp_kwargs)
                 band_arr = target_dataset.get_image_data()
                 temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
@@ -1098,6 +1160,7 @@ class GeoReferencerDialog(QDialog):
                 output_dataset.FlushCache()
 
             else:
+                print(f"numpy array saved in chunks")
                 num_bands_per = int(ratio * target_dataset.num_bands())
                 for band_index in range(0, target_dataset.num_bands(), num_bands_per):
                     band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < target_dataset.num_bands()]
