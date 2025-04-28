@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>738</width>
-    <height>471</height>
+    <height>508</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,7 +21,7 @@
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="3" column="0">
-       <layout class="QHBoxLayout" name="horizontalLayout_5">
+       <layout class="QHBoxLayout" name="hlayout_btns">
         <item>
          <widget class="QLabel" name="lbl_message">
           <property name="text">
@@ -54,12 +54,12 @@
        </layout>
       </item>
       <item row="0" column="0">
-       <layout class="QHBoxLayout" name="horizontalLayout" stretch="2,2,0">
+       <layout class="QHBoxLayout" name="hlayout_gcp_chooser" stretch="2,2,0">
         <property name="sizeConstraint">
          <enum>QLayout::SetDefaultConstraint</enum>
         </property>
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout">
+         <layout class="QVBoxLayout" name="vlayout_target">
           <item>
            <widget class="QLabel" name="lbl_target_image">
             <property name="text">
@@ -89,7 +89,7 @@
          </layout>
         </item>
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout_2">
+         <layout class="QVBoxLayout" name="vlayout_reference">
           <item>
            <widget class="QLabel" name="lbl_ref_image">
             <property name="text">
@@ -116,10 +116,51 @@
             </property>
            </widget>
           </item>
+          <item>
+           <widget class="QWidget" name="widget_manual_entry" native="true">
+            <layout class="QVBoxLayout" name="vlayout_manual_entry">
+             <item>
+              <widget class="QLabel" name="lblm_manual_enter">
+               <property name="text">
+                <string>No data selected, enter manually:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="hlayout_lat_north">
+               <item>
+                <widget class="QLabel" name="lbl_lat_north">
+                 <property name="text">
+                  <string>Lat/North</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="ledit_lat_north"/>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_2">
+               <item>
+                <widget class="QLabel" name="lbl_lon_east">
+                 <property name="text">
+                  <string>Lon/East </string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="ledit_lon_east"/>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </widget>
+          </item>
          </layout>
         </item>
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,0,0,0,0,0,0,0,0,0">
+         <layout class="QVBoxLayout" name="vlayout_gcp_options" stretch="0,0,0,0,0,0,0,0,0,0">
           <property name="sizeConstraint">
            <enum>QLayout::SetMaximumSize</enum>
           </property>
@@ -176,7 +217,7 @@
            </widget>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <layout class="QHBoxLayout" name="hlayout_file_saving">
             <item>
              <widget class="QLineEdit" name="ledit_save_path">
               <property name="enabled">

@@ -208,49 +208,16 @@ class GeoReferencerDialog(QDialog):
 
     # region Initialization
 
-    def _init_ref_coord_ledit(self):
-        # Get self._ui.widget_ref_image
-
-        # Add a vertical layout
-            # On top add and center the text:
-            # Manually enter spatial coords or choose dataset above
-
-            # Under, add a horizontal layout with the first item saying Spatial X,
-            # the next is a QLineEdit which we save as an instance variable (self._spatial_x_ledit) then
-
-            # Under this horizontal layout we add another horizontal layout. The first item
-            # will be a QLabel saying Spatial Y. The next is a QLineEdit which we save as a an
-            # instance variavble (self._spatial_y_ledit)
-        print(f"ref coord ledit")
-        # parent widget
-        parent = self._ui.widget_ref_image
-        clear_widget(parent)
-        parent.setLayout(None)
-
-        # create & set vertical layout
-        vlay = QVBoxLayout(parent)
-        parent.setLayout(vlay)
-
-        # title label (centered)
-        title = QLabel("Manually enter spatial coords or choose dataset above")
-        title.setAlignment(Qt.AlignCenter)
-        vlay.addWidget(title)
-
-        # --- Spatial X row ---
-        x_row = QHBoxLayout()
-        lbl_x = QLabel("Spatial X")
-        self._spatial_x_ledit = QLineEdit()
-        x_row.addWidget(lbl_x)
-        x_row.addWidget(self._spatial_x_ledit)
-        vlay.addLayout(x_row)
-
-        # --- Spatial Y row ---
-        y_row = QHBoxLayout()
-        lbl_y = QLabel("Spatial Y")
-        self._spatial_y_ledit = QLineEdit()
-        y_row.addWidget(lbl_y)
-        y_row.addWidget(self._spatial_y_ledit)
-        vlay.addLayout(y_row)
+    def _update_manual_ref_coord_chooser(self, dataset: Optional[RasterDataSet]):
+        """
+        We want to enable this when no data is selected and disable this when data is selected
+        """
+        if dataset is None:
+            # We want to make sure the manual chooser is being shown
+            self._ui.widget_manual_entry.show()
+        else:
+            # We want to make sure it is not being shown 
+            self._ui.widget_manual_entry.hide()
 
     def _init_default_color_chooser(self):
         horizontal_layout = self._ui.hlayout_color_change
@@ -535,6 +502,7 @@ class GeoReferencerDialog(QDialog):
             print(f"dataset is not none: {dataset}")
         self._reference_rasterpane.show_dataset(dataset)
         self._init_output_srs_cbox()
+        self._update_manual_ref_coord_chooser(dataset)
 
     # region Table Entry Helpers
 
@@ -934,6 +902,19 @@ class GeoReferencerDialog(QDialog):
     def _enough_points_for_transform(self):
         return False if self._get_num_active_points() < min_points_per_transform[self._current_transform_type] else True
 
+    def _get_entry_gcp_list(self) -> List[Tuple[GeoRefTableEntry, gdal.GCP]]:
+        gcps: List[Tuple[GeoRefTableEntry, gdal.GCP]] = []
+
+        for table_entry in self._table_entry_list:
+            if not table_entry.is_enabled():
+                continue
+            spatial_coord = table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
+            assert spatial_coord is not None, f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
+            target_pixel_coord = table_entry.get_gcp_pair().get_target_gcp().get_point()
+            gcps.append((table_entry, gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1])))
+
+        return gcps
+
     def _georeference(self):
         save_path = self._get_save_file_path()
         if save_path is None or \
@@ -947,23 +928,17 @@ class GeoReferencerDialog(QDialog):
 
         gdal.UseExceptions()
 
-        gcps: List[GeoRefTableEntry, gdal.GCP] = []
-
-        for table_entry in self._table_entry_list:
-            if not table_entry.is_enabled():
-                continue
-            spatial_coord = table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
-            assert spatial_coord is not None, f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
-            target_pixel_coord = table_entry.get_gcp_pair().get_target_gcp().get_point()
-            gcps.append((table_entry, gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1])))
+        gcps: List[GeoRefTableEntry, gdal.GCP] = self._get_entry_gcp_list()
 
         output_srs = osr.SpatialReference()
         output_srs.ImportFromEPSG(int(self._curr_output_srs))
+        output_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         print(f"output_srs: {output_srs.GetName()}")
 
         ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
 
         ref_srs = ref_dataset.get_spatial_ref()
+        ref_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         ref_gt = ref_dataset.get_geo_transform()
         ref_projection = ref_dataset.get_wkt_spatial_reference()
         # If it doesn't have a gdal dataset, instead we create one from a smaller array just to do geo referencing
@@ -1017,6 +992,7 @@ class GeoReferencerDialog(QDialog):
                 # Figure out the orientatino of the axis
             else:
                 lat_lon_like_ordering_output = bool(output_srs.EPSGTreatsAsNorthingEasting())
+            print(f"output_srs, lat_lon_like_ordering: {lat_lon_like_ordering_output}")
 
             # Get whether the input spatial reference system is geograhpic or projected
                 # Figure out the oritentatin of the axis 
@@ -1027,13 +1003,15 @@ class GeoReferencerDialog(QDialog):
                 # Figure out the orientatino of the axis
             else:
                 lat_lon_like_ordering_input = bool(ref_srs.EPSGTreatsAsNorthingEasting())
+            print(f"ref_srs, lat_lon_like_ordering: {lat_lon_like_ordering_input}")
             
-            # Decide whether we need to swap them
-            ref_spatial_coord = None
-            if lat_lon_like_ordering_output == lat_lon_like_ordering_input:
-                ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_x, output_spatial_y, 0)
-            else:
-                ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_y, output_spatial_x, 0)
+            # # Decide whether we need to swap them
+            # ref_spatial_coord = None
+            # if lat_lon_like_ordering_output == lat_lon_like_ordering_input:
+            #     ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_x, output_spatial_y, 0)
+            # else:
+            #     ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_y, output_spatial_x, 0)
+            ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_x, output_spatial_y, 0)
 
             # print(f"output_spatial_x: {output_spatial_x}")
             # print(f"output_spatial_y: {output_spatial_y}")
