@@ -4,9 +4,12 @@ from .rasterview import RasterView
 from wiser.raster.dataset import RasterDataSet
 from wiser.gui.task_delegate import TaskDelegate
 from wiser.gui.util import scale_qpoint_by_float
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+
+from osgeo import osr
 
 from enum import Enum
 
@@ -30,8 +33,14 @@ if TYPE_CHECKING:
     from .rasterpane import RasterPane
 
 class GroundControlPoint:
+    def get_spatial_reference_system(self) -> Optional[osr.SpatialReference]:
+        raise NotImplementedError("get_spatial_reference_system is not implemented!")
+    def get_spatial_point(self) -> Tuple[int, int]:
+        raise NotImplementedError("get_spatial_point is not implemented!")
+
+class GroundControlPointDataset(GroundControlPoint):
     def __init__(self, point: Tuple[int, int], dataset: RasterDataSet, rasterpane: 'RasterPane'):
-        self._point = point
+        self._point = point  # The raster coordiante that was clicked
         self._dataset = dataset
         self._rasterpane = rasterpane
 
@@ -52,8 +61,28 @@ class GroundControlPoint:
     def get_rasterpane(self) -> 'RasterPane':
         return self._rasterpane
 
+    def get_spatial_reference_system(self):
+        return self._dataset.get_spatial_ref()
+
     def get_spatial_point(self):
         return self._dataset.to_geographic_coords(self._point)
+
+class GroundControlPointCoordinate(GroundControlPoint):
+    def __init__(self, spatial_coordinate: Tuple[int, int], srs: osr.SpatialReference):
+        self._spatial_coord = spatial_coordinate
+        self._srs = srs
+
+    def set_spatial_ref(self, new_srs: osr.SpatialReference):
+        self._srs = new_srs
+
+    def set_spatial_coord(self, new_spatial_coord: Tuple[int, int]):
+        self._spatial_coord = new_spatial_coord
+
+    def get_spatial_reference_system(self):
+        return self._srs
+    
+    def get_spatial_point(self):
+        return self._spatial_coord
 
 class GroundControlPointPair:
     '''
