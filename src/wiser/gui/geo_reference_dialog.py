@@ -571,6 +571,7 @@ class GeoReferencerDialog(QDialog):
         # geo referencer task delegate point list
 
         self._add_entry_to_table(table_entry)
+        self._clear_manual_ref_ledits()
         self._georeference()
 
     def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
@@ -857,6 +858,11 @@ class GeoReferencerDialog(QDialog):
             # print(f"updating i: {i}, for column: {COLUMN_ID.ID_COL}")
             table_widget.setItem(i, COLUMN_ID.ID_COL, QTableWidgetItem(str(i)))
 
+    def _clear_manual_ref_ledits(self):
+        self._ui.ledit_lat_north.clear()
+        self._ui.ledit_lon_east.clear()
+
+
     # region Getters
 
 
@@ -1029,7 +1035,7 @@ class GeoReferencerDialog(QDialog):
 
         return gcps
 
-    def _import_current_srs(self) -> osr.SpatialReference:
+    def _import_current_output_srs(self) -> osr.SpatialReference:
         # self._curr_output_srs is a 2-Tuple with the first string being an authority name.
         # The authority name is one you get back from get_authorities (from pyproj.database import get_authorities)
         # so its any of these ['EPSG', 'ESRI', 'IAU_2015', 'IGNF', 'NKG', 'NRCAN', 'OGC', 'PROJ']
@@ -1052,14 +1058,28 @@ class GeoReferencerDialog(QDialog):
 
         return srs
 
+    def _get_reference_srs(self):
+        # Either the reference raster pane has data selected or the manual reference
+        # srs chooser has data in it
+        ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
+        if ref_ds is not None:
+            return ref_ds.get_spatial_ref()
+        elif self._ui.widget_manual_entry.isVisible():
+            return self._get_manual_ref_chosen_crs()
+        else:
+            raise RuntimeError("Both the dataset shown is none and the " \
+                               "manual entry widget is None")
+
     def _georeference(self):
         save_path = self._get_save_file_path()
         if save_path is None or \
-            self._target_rasterpane.get_rasterview().get_raster_data() is None or \
-            self._reference_rasterpane.get_rasterview().get_raster_data() is None:
+            self._target_rasterpane.get_rasterview().get_raster_data() is None:
+            print(f"save path: {save_path}")
+            print(f"target dataset: {self._target_rasterpane.get_rasterview().get_raster_data()}")
             return
 
         if not self._enough_points_for_transform():
+            print(f"not enough residuals: {self._get_num_active_points()}")
             self._set_all_residuals_NA()
             return
 
@@ -1068,18 +1088,15 @@ class GeoReferencerDialog(QDialog):
         gcps: List[GeoRefTableEntry, gdal.GCP] = self._get_entry_gcp_list()
 
         output_srs = osr.SpatialReference()
-        output_srs = self._import_current_srs()
+        output_srs = self._import_current_output_srs()
         output_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         print(f"output_srs: {output_srs.GetName()}")
 
-        ref_dataset = self._reference_rasterpane.get_rasterview().get_raster_data()
-
-        ref_srs = ref_dataset.get_spatial_ref()
+        ref_srs = self._get_reference_srs()
         ref_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-        ref_gt = ref_dataset.get_geo_transform()
-        ref_projection = ref_dataset.get_wkt_spatial_reference()
+        ref_projection = ref_srs.ExportToWkt()
         # If it doesn't have a gdal dataset, instead we create one from a smaller array just to do geo referencing
-        assert ref_projection is not None and ref_srs is not None and ref_gt is not None, \
+        assert ref_projection is not None and ref_srs is not None, \
                 f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
 
         temp_gdal_ds = None
@@ -1113,7 +1130,15 @@ class GeoReferencerDialog(QDialog):
 
         tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, transformer_options)
 
-    
+        warp_options = gdal.WarpOptions(**self._warp_kwargs)
+        warp_save_path = f'/vsimem/temp_band_{0}'
+        place_holder_arr = np.zeros((1, 1), np.uint8)
+        temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
+        temp_gdal_ds.SetSpatialRef(ref_srs)
+        temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+        transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
+        transformed_gt = transformed_ds.GetGeoTransform()
+
         tr_output_srs_to_ref_srs = osr.CoordinateTransformation(output_srs, ref_srs)
 
         residuals = []
@@ -1161,7 +1186,7 @@ class GeoReferencerDialog(QDialog):
             # print(f"gcp.GCPX: {gcp.GCPX}")
             # print(f"gcp.GCPY: {gcp.GCPY}")
 
-            target_pixel_coord = ref_dataset.to_geographic_coords((gcp.GCPPixel, gcp.GCPLine))
+            # target_pixel_coord = ref_dataset.to_geographic_coords((gcp.GCPPixel, gcp.GCPLine))
             # print(f"original x: {target_pixel_coord[0]}")
             # print(f"original y: {target_pixel_coord[1]}")
 
@@ -1171,11 +1196,11 @@ class GeoReferencerDialog(QDialog):
             # print(f"error_spatial_x: {error_spatial_x}")
             # print(f"error_spatial_y: {error_spatial_y}")
 
-            # print(f"ref_gt[1]: {ref_gt[1]}")
-            # print(f"ref_gt[5]: {ref_gt[5]}")
+            print(f"transformed_gt[1]: {transformed_gt[1]}")
+            print(f"transformed_gt[5]: {transformed_gt[5]}")
 
-            error_raster_x = error_spatial_x / ref_gt[1]
-            error_raster_y = error_spatial_y / ref_gt[5]
+            error_raster_x = error_spatial_x / transformed_gt[1]
+            error_raster_y = error_spatial_y / transformed_gt[5]
 
             entry.set_residual_x(round(error_raster_x, 6))
             entry.set_residual_y(round(error_raster_y, 6))

@@ -120,7 +120,7 @@
            <widget class="QWidget" name="widget_manual_entry" native="true">
             <property name="maximumSize">
              <size>
-              <width>275</width>
+              <width>325</width>
               <height>16777215</height>
              </size>
             </property>

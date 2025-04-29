@@ -54,7 +54,7 @@ class GroundControlPoint:
     def get_spatial_point(self) -> Tuple[int, int]:
         raise NotImplementedError("get_spatial_point is not implemented!")
 
-    def set_spatial_point(self) -> Tuple[int, int]:
+    def set_spatial_point(self, point: Tuple[int, int]) -> Tuple[int, int]:
         raise NotImplementedError("get_spatial_point is not implemented!")
     
     @abstractmethod
@@ -93,6 +93,12 @@ class GroundControlPointRasterPane(GroundControlPoint):
 
     def get_spatial_point(self):
         return self._dataset.to_geographic_coords(self._point)
+
+    def set_spatial_point(self, spatial_point: Tuple[int, int]):
+        raster_coord = self._dataset.geo_to_pixel_coords_exact(spatial_point)
+        if raster_coord is None:
+            return
+        self._point = raster_coord
     
     def get_selector(self):
         return self._rasterpane
@@ -110,7 +116,7 @@ class GroundControlPointCoordinate(GroundControlPoint):
     def set_spatial_ref(self, new_srs: osr.SpatialReference):
         self._srs = new_srs
 
-    def set_spatial_coord(self, new_spatial_coord: Tuple[int, int]):
+    def set_spatial_point(self, new_spatial_coord: Tuple[int, int]):
         self._spatial_coord = new_spatial_coord
 
     def get_spatial_reference_system(self):
@@ -267,7 +273,76 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         print(f"self._current_selector_type: {self._current_selector_type}")
         print(f"self._current_point: {self._current_point}")
         print(f"self._current_point_pair: {self._current_point_pair}")
+        # We have three options here:
+        #   1. We have yet to select a raster pane. This does nothing
+        #   2. We have selected a point. In this case 
+        print(f"Enter key released!!!")
+        if self._state == GeoReferencerState.NOTHING_SELECTED or \
+            self._state == GeoReferencerState.FIRST_POINT_SELECTED:
+            # We want to make sure the state is correct before we continue
+            self.check_state()
+            self._last_selector_type = gcp.get_selector_type()
+            self._current_point = gcp
+            self._current_point_pair = self.create_gcp_pair(gcp)
+            self._current_selector_type = None
+            self._current_point = None
+            self._state = GeoReferencerState.FIRST_POINT_ENTERED
+        elif self._state == GeoReferencerState.FIRST_POINT_ENTERED or \
+            self._state == GeoReferencerState.SECOND_POINT_SELECTED:
+            self.check_state()
+            self._current_point = gcp
+            self._current_point_pair.add_gcp(gcp)
+            self._geo_ref_dialog.gcp_pair_added.emit(self._current_point_pair)
+            # Reset all the values
+            self._reset_changeable_state()
+            # This line is here just for the developers clarity
+            self._state = GeoReferencerState.SECOND_POINT_ENTERED
+            self._state = GeoReferencerState.NOTHING_SELECTED
+        else:
+            # We should never reach this point because the state SECOND_POINT_ENTERED should
+            # immediately go back to the NOTHING_SELECTED state
+            raise ValueError(f"The state {self._state} was arrived at in on_key_release" + 
+                                f"for the enter key")
+
+        
+        print(f"self._state after: {self._state}")
+        print(f"self._current_selector_type after: {self._current_selector_type}")
+        print(f"self._current_point after: {self._current_point}")
+        print(f"self._current_point_pair after: {self._current_point_pair}")
+
+    def point_submit(self, point: Tuple[int, int], selector_type: PointSelectorType, srs: osr.SpatialReference = None):
+        gcp = GroundControlPointCoordinate(point, selector_type, srs)
+        self._on_gcp_add_attempt(gcp)
+
+    def on_mouse_release(self, mouse_event: QMouseEvent, rasterpane: 'GeoReferencerPane'):
+        '''
+        When the mouse releases we want to click
+        Args:
+        - point is the point is raster coordinates
+        - rasterpane is the raster pane that was clicked in
+        '''
+        if mouse_event.button() == Qt.LeftButton:
+            point: QPointF = rasterpane.get_rasterview().image_coord_to_raster_coord_precise(mouse_event.localPos())
+            point = [point.x(), point.y()]
+        else:
+            return False
+        
+        # gcp = GroundControlPointRasterPane(point, rasterpane)
+        # self._on_gcp_add_attempt(gcp)
+        # # Create the gcp, then add it to the list of things. 
+        self.handle_point_click_logic(point, rasterpane)
+
+        return False
+
+    def handle_point_click_logic(self, point: Tuple[int, int], rasterpane: 'GeoReferencerPane'):
+        gcp = GroundControlPointRasterPane(point, rasterpane)
         if self._state == GeoReferencerState.NOTHING_SELECTED:
+            '''
+            So we can have the mouse have the same logic as this, we just 
+            have a separate function called _on_gcp_add_attempt that will 
+            go from NOTHING_SELECTED or FIRST_POINT_SELECTED to FIRST POINT ENTERED
+            or from FIRST POINT ENTERED or SECOND POINT SELECTED to SECOND POINT ENTERED
+            '''
             self.check_state()
             self._current_selector_type = gcp.get_selector_type()
             self._current_point = gcp
@@ -289,7 +364,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             self.check_state()
         elif self._state == GeoReferencerState.FIRST_POINT_ENTERED:
             self.check_state()
-            # If they click on the pane that the just clicked on, we tell them
+            # If they click on the pane that they just clicked on, we tell them
             # to press enter to revert their choice
             if self._last_selector_type == gcp.get_selector_type():
                 self._geo_ref_dialog.set_message_text('You already pressed enter. '
@@ -316,98 +391,6 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             # We should never reach this point because the state SECOND_POINT_ENTERED should
             # immediately go back to the NOTHING_SELECTED state
             raise ValueError(f"The state {self._state} was arrived at in on_mouse_release")
-
-        
-        print(f"self._state after: {self._state}")
-        print(f"self._current_selector_type after: {self._current_selector_type}")
-        print(f"self._current_point after: {self._current_point}")
-        print(f"self._current_point_pair after: {self._current_point_pair}")
-
-    def point_submit(self, point: Tuple[int, int], selector_type: PointSelectorType, srs: osr.SpatialReference = None):
-        gcp = GroundControlPointCoordinate(point, selector_type, srs)
-        self._on_gcp_add_attempt(gcp)
-
-    def on_mouse_release(self, mouse_event: QMouseEvent, rasterpane: 'GeoReferencerPane'):
-        '''
-        When the mouse releases we want to click
-        Args:
-        - point is the point is raster coordinates
-        - rasterpane is the raster pane that was clicked in
-        '''
-        if mouse_event.button() == Qt.LeftButton:
-            point: QPointF = rasterpane.get_rasterview().image_coord_to_raster_coord_precise(mouse_event.localPos())
-            point = [point.x(), point.y()]
-        else:
-            return False
-        
-        gcp = GroundControlPointRasterPane(point, rasterpane)
-        self._on_gcp_add_attempt(gcp)
-        # # Create the gcp, then add it to the list of things. 
-        # self.handle_point_click_logic(point, rasterpane)
-
-        return False
-
-    # def handle_point_click_logic(self, point: Tuple[int, int], rasterpane: 'GeoReferencerPane'):
-    #     # We want the user to be able to press escape and clear the currently selected raster pane 
-    #     if self._state == GeoReferencerState.NOTHING_SELECTED:
-    #         self.check_state()
-    #         self._current_selected_pane = rasterpane
-    #         self._current_point = GroundControlPointRasterPane(point,
-    #                                                  rasterpane.get_rasterview().get_raster_data(),
-    #                                                  rasterpane)
-    #         self._current_point_pair = self.create_gcp_pair(self._current_point)
-    #         self._state = GeoReferencerState.FIRST_POINT_SELECTED
-    #         self.check_state()
-    #     elif self._state == GeoReferencerState.FIRST_POINT_SELECTED:
-    #         self.check_state()
-    #         # If we just clickd on the other raster view, we have to tell the user to press enter first
-    #         if self._current_selected_pane != rasterpane:
-    #             # self._geo_ref_dialog.set_message_text('Please press ENTER before clicking'
-    #             # 'on the next raster pane.')
-    #             self._current_selected_pane = rasterpane
-    #             self._current_point = GroundControlPoint(point,
-    #                                                      rasterpane.get_rasterview().get_raster_data(),
-    #                                                      rasterpane)
-    #             self._current_point_pair = self.create_gcp_pair(self._current_point)
-    #         else:
-    #             self._current_point = GroundControlPoint(point,
-    #                                                      rasterpane.get_rasterview().get_raster_data(),
-    #                                                      rasterpane)
-    #             self._current_point_pair = self.create_gcp_pair(self._current_point)
-    #         self.check_state()
-    #     elif self._state == GeoReferencerState.FIRST_POINT_ENTERED:
-    #         self.check_state()
-    #         # If they click on the pane that the just clicked on, we tell them
-    #         # to press enter to revert their choice
-    #         if self._last_selected_pane == rasterpane:
-    #             self._geo_ref_dialog.set_message_text('You already pressed enter. '
-    #             'Please press ESC to remove previous choice')
-    #         else:
-    #             # If the pane's are not equal, we want to transition to second point selected state
-    #             self._current_selected_pane = rasterpane
-    #             self._current_point = GroundControlPoint(point,
-    #                                                      rasterpane.get_rasterview().get_raster_data(),
-    #                                                      rasterpane)
-    #             self._current_point_pair.add_gcp(self._current_point)
-    #             self._state = GeoReferencerState.SECOND_POINT_SELECTED
-    #         self.check_state()
-    #     elif self._state == GeoReferencerState.SECOND_POINT_SELECTED:
-    #         self.check_state()
-    #         # If we just clickd on the other raster view, we have to tell the user to press enter first
-    #         if self._current_selected_pane != rasterpane:
-    #             self._geo_ref_dialog.set_message_text('Please press ENTER before clicking '
-    #             'on the next raster pane.')
-    #         else:
-    #             # If the pane's are not equal, we want to transition to second point selected state
-    #             self._current_point = GroundControlPoint(point,
-    #                                                      rasterpane.get_rasterview().get_raster_data(),
-    #                                                      rasterpane)
-    #             self._current_point_pair.add_gcp(self._current_point)
-    #         self.check_state()
-    #     else:
-    #         # We should never reach this point because the state SECOND_POINT_ENTERED should
-    #         # immediately go back to the NOTHING_SELECTED state
-    #         raise ValueError(f"The state {self._state} was arrived at in on_mouse_release")
 
     def create_gcp_pair(self, gcp_0 = None, gcp_1 = None) -> GroundControlPointPair:
         return GroundControlPointPair(gcp_0=gcp_0, gcp_1=gcp_1)
@@ -460,9 +443,6 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             raise ValueError(f"The state {self._state} was arrived at in on_key_release" + 
                                 f"for the escape key")
 
-    def get_current_point_pair(self):
-        return self._current_point_pair
-
     def handle_enter_key_release(self):
         # We have three options here:
         #   1. We have yet to select a raster pane. This does nothing
@@ -494,6 +474,9 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             # immediately go back to the NOTHING_SELECTED state
             raise ValueError(f"The state {self._state} was arrived at in on_key_release" + 
                                 f"for the enter key")
+
+    def get_current_point_pair(self):
+        return self._current_point_pair
 
     def _reset_changeable_state(self):
         self._last_selector_type = None
