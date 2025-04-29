@@ -269,10 +269,11 @@ class GeoReferencerDialog(QDialog):
         if self._manual_entry_spacer is None:
             self._manual_entry_spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
         if dataset is None:
+            # if not self._ui.widget_ref_image.isVisible():
+            self._ui.vlayout_reference.addItem(self._manual_entry_spacer)
             # We want to make sure the manual chooser is being shown
             self._ui.widget_manual_entry.show()
             self._ui.widget_ref_image.hide()
-            self._ui.vlayout_reference.addItem(self._manual_entry_spacer)
         else:
             # We want to make sure it is not being shown 
             self._ui.widget_manual_entry.hide()
@@ -396,6 +397,7 @@ class GeoReferencerDialog(QDialog):
             self.set_message_text("Ensure both Lat/North and Lon/East have valid values")
             return
 
+        print(f"About to emit gcp add event")
         lat_north_value = float(lat_north_str)
         lon_east_value = float(lon_east_str)
 
@@ -1127,8 +1129,11 @@ class GeoReferencerDialog(QDialog):
             transformer_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=3']
         else:
             raise RuntimeError(f"Unknown self._current_transform_type: {self._current_transform_type}")
-
-        tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, transformer_options)
+        try:
+            tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, transformer_options)
+        except BaseException as e:
+            self.set_message_text(f"Error: {e}")
+            return
 
         warp_options = gdal.WarpOptions(**self._warp_kwargs)
         warp_save_path = f'/vsimem/temp_band_{0}'

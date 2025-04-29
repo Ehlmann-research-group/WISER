@@ -391,16 +391,25 @@ class ApplicationState(QObject):
         if same_size:
             return same_size, GeographicLinkState.PIXEL
 
-        ds0_srs = displayed_datasets[0].get_spatial_ref()
+        ds0_srs: osr.SpatialReference = displayed_datasets[0].get_spatial_ref()
         if ds0_srs == None:
             return False, GeographicLinkState.NO_LINK
         
+        print(f"ds0_srs: {ds0_srs.GetName()}")
         for ds in displayed_datasets[1:]:
             ds_srs = ds.get_spatial_ref()
-            if ds_srs == None or not ds0_srs.IsSame(ds_srs):
+            print(f"ds_srs: {ds_srs.GetName()}")
+            if ds_srs == None or not self._can_transform_between_srs(ds0_srs, ds_srs):
                 return False, GeographicLinkState.NO_LINK
 
         return True, GeographicLinkState.SPATIAL
+
+    def _can_transform_between_srs(self, srs1: osr.SpatialReference, srs2: osr.SpatialReference):
+        try:
+            ct = osr.CoordinateTransformation(srs1, srs2)
+            return True
+        except BaseException as e:
+            return False
 
     def multiple_displayed_datasets_same_size(self):
         '''

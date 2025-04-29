@@ -290,14 +290,19 @@ class GeoReferencerTaskDelegate(TaskDelegate):
         elif self._state == GeoReferencerState.FIRST_POINT_ENTERED or \
             self._state == GeoReferencerState.SECOND_POINT_SELECTED:
             self.check_state()
-            self._current_point = gcp
-            self._current_point_pair.add_gcp(gcp)
-            self._geo_ref_dialog.gcp_pair_added.emit(self._current_point_pair)
-            # Reset all the values
-            self._reset_changeable_state()
-            # This line is here just for the developers clarity
-            self._state = GeoReferencerState.SECOND_POINT_ENTERED
-            self._state = GeoReferencerState.NOTHING_SELECTED
+            if gcp.get_selector_type() != self._last_selector_type:
+                self._current_point = gcp
+                self._current_point_pair.add_gcp(gcp)
+                self._geo_ref_dialog.gcp_pair_added.emit(self._current_point_pair)
+                # Reset all the values
+                self._reset_changeable_state()
+                # This line is here just for the developers clarity
+                self._state = GeoReferencerState.SECOND_POINT_ENTERED
+                self._state = GeoReferencerState.NOTHING_SELECTED
+            else:
+                self._geo_ref_dialog.set_message_text('You already pressed enter. '
+                'Please select a point in the other area. ')
+
         else:
             # We should never reach this point because the state SECOND_POINT_ENTERED should
             # immediately go back to the NOTHING_SELECTED state
@@ -453,22 +458,26 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             'a point before pressing ENTER again')
         elif self._state == GeoReferencerState.FIRST_POINT_SELECTED:
             # We want to make sure the state is correct before we continue
+            print(f"before self._state == GeoReferencerState.FIRST_POINT_SELECTED")
             self.check_state()
             self._last_selector_type = self._current_selector_type
             self._current_selector_type = None
             self._current_point = None
             self._state = GeoReferencerState.FIRST_POINT_ENTERED
+            print(f"after self._state == GeoReferencerState.FIRST_POINT_ENTERED")
         elif self._state == GeoReferencerState.FIRST_POINT_ENTERED:
             self._geo_ref_dialog.set_message_text('Must select ' \
             'a second point before pressing ENTER again')
         elif self._state == GeoReferencerState.SECOND_POINT_SELECTED:
             self.check_state()
+            print(f"before self._state == GeoReferencerState.SECOND_POINT_SELECTED")
             self._geo_ref_dialog.gcp_pair_added.emit(self._current_point_pair)
             # Reset all the values
             self._reset_changeable_state()
             # This line is here just for the developers clarity
             self._state = GeoReferencerState.SECOND_POINT_ENTERED
             self._state = GeoReferencerState.NOTHING_SELECTED
+            print(f"before self._state == GeoReferencerState.NOTHING_SELECTED")
         else:
             # We should never reach this point because the state SECOND_POINT_ENTERED should
             # immediately go back to the NOTHING_SELECTED state
