@@ -11,8 +11,10 @@ from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import RasterPane
 from wiser.gui.geo_reference_pane import GeoReferencerPane
-from wiser.gui.geo_reference_task_delegate import GeoReferencerTaskDelegate, GroundControlPointPair, GroundControlPoint
-from wiser.gui.util import get_random_matplotlib_color, get_color_icon, clear_widget
+from wiser.gui.geo_reference_task_delegate import \
+    (GeoReferencerTaskDelegate, GroundControlPointPair, GroundControlPoint, \
+     GroundControlPointCoordinate, PointSelectorType, PointSelector)
+from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import RasterDataImpl, GDALRasterDataImpl
@@ -32,6 +34,7 @@ from pyproj.database import get_authorities
 AVAILABLE_AUTHORITIES = get_authorities()
 
 from wiser.bandmath.builtins.constants import MAX_RAM_BYTES
+
 
 class COLUMN_ID(IntEnum):
     ENABLED_COL = 0
@@ -161,9 +164,14 @@ class NumericDelegate(QStyledItemDelegate):
         editor.setValidator(validator)
         return editor
 
+
 class GeoReferencerDialog(QDialog):
 
     gcp_pair_added = Signal(GroundControlPointPair)
+
+    gcp_add_attempt = Signal(GroundControlPoint)
+
+    key_press_event = Signal(QKeyEvent, PointSelector)
 
     def __init__(self, app_state: ApplicationState, main_view: RasterPane, parent=None):
         super().__init__(parent=parent)
@@ -177,8 +185,8 @@ class GeoReferencerDialog(QDialog):
         self._target_cbox = self._ui.cbox_target_dataset_chooser
         self._reference_cbox = self._ui.cbox_reference_dataset_chooser
 
-        self._target_rasterpane = GeoReferencerPane(app_state=app_state)
-        self._reference_rasterpane = GeoReferencerPane(app_state=app_state)
+        self._target_rasterpane = GeoReferencerPane(app_state=app_state, pane_type = PointSelectorType.TARGET_POINT_SELECTOR)
+        self._reference_rasterpane = GeoReferencerPane(app_state=app_state, pane_type = PointSelectorType.REFERENCE_POINT_SELECTOR)
         self._georeferencer_task_delegate = GeoReferencerTaskDelegate(self._target_rasterpane,
                                                                       self._reference_rasterpane,
                                                                       self,
@@ -196,6 +204,8 @@ class GeoReferencerDialog(QDialog):
 
         self._default_color_button: QPushButton = None
 
+        self._manual_entry_spacer = None
+
         # Set up dataset choosers 
         self._init_dataset_choosers()
         self._init_rasterpanes()
@@ -206,12 +216,29 @@ class GeoReferencerDialog(QDialog):
         self._init_file_saver()
         self._init_default_color_chooser()
         self._init_manual_ref_system_finder()
+        self._init_manual_ref_point_enter()
         self._update_manual_ref_coord_chooser(None)
 
         self._warp_kwargs: Dict = None
         self._suppress_cell_changed: bool = False
 
     # region Initialization
+
+    def _init_manual_ref_point_enter(self):
+        lat_north_ledit = self._ui.ledit_lat_north
+        lon_east_ledit  = self._ui.ledit_lon_east
+
+        # Validator that only allows floating-point numbers (no strict range)
+        float_validator = QDoubleValidator(self)
+        float_validator.setNotation(QDoubleValidator.StandardNotation)
+        # Optionally set a very wide range if you want to enforce some bounds:
+        # float_validator.setRange(-1e12, 1e12, 8)
+
+        lat_north_ledit.setValidator(float_validator)
+        lon_east_ledit.setValidator(float_validator)
+
+        lat_north_ledit.returnPressed.connect(self._on_ref_manual_ledit_enter)
+        lon_east_ledit.returnPressed.connect(self._on_ref_manual_ledit_enter)
 
     def _init_manual_ref_system_finder(self):
         authority_cbox = self._ui.cbox_authority
@@ -239,14 +266,18 @@ class GeoReferencerDialog(QDialog):
         """
         We want to enable this when no data is selected and disable this when data is selected
         """
+        if self._manual_entry_spacer is None:
+            self._manual_entry_spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
         if dataset is None:
             # We want to make sure the manual chooser is being shown
             self._ui.widget_manual_entry.show()
             self._ui.widget_ref_image.hide()
+            self._ui.vlayout_reference.addItem(self._manual_entry_spacer)
         else:
             # We want to make sure it is not being shown 
             self._ui.widget_manual_entry.hide()
             self._ui.widget_ref_image.show()
+            self._ui.vlayout_reference.removeItem(self._manual_entry_spacer)
 
     def _init_default_color_chooser(self):
         horizontal_layout = self._ui.hlayout_color_change
@@ -280,7 +311,8 @@ class GeoReferencerDialog(QDialog):
                 ref_srs = ref_ds.get_spatial_ref()
                 crs = CRS.from_wkt(ref_srs.ExportToWkt())
                 if crs is not None:
-                    srs_cbox.addItem(reference_srs_name, crs.to_epsg())
+                    auth_name, auth_code = crs.to_authority()
+                    srs_cbox.addItem(reference_srs_name, (auth_name, int(auth_code)))
                 print(f"crs.to_epsg(): {crs.to_epsg()}")
             else:
                 srs_cbox.addItem(reference_srs_name, reference_srs_code)
@@ -356,6 +388,26 @@ class GeoReferencerDialog(QDialog):
     # region Slots
     #========================
 
+    def _on_ref_manual_ledit_enter(self):
+        lat_north_str = self._ui.ledit_lat_north.text()
+        lon_east_str = self._ui.ledit_lon_east.text()
+
+        if lat_north_str == "" or lon_east_str == "":
+            self.set_message_text("Ensure both Lat/North and Lon/East have valid values")
+            return
+
+        lat_north_value = float(lat_north_str)
+        lon_east_value = float(lon_east_str)
+
+        chosen_srs = self._get_manual_ref_chosen_crs()
+
+        # Since we set SRS's to OAMS_TRADITIONAL_GIS_ORDER, we create gcp
+        # in long/lat order 
+        gcp = GroundControlPointCoordinate((lon_east_value, lat_north_value), \
+                                           PointSelectorType.REFERENCE_POINT_SELECTOR, \
+                                            srs=chosen_srs)
+        self.gcp_add_attempt.emit(gcp)
+
     def _on_find_crs(self):
         authority_str = self._ui.cbox_authority.currentText()
         authority_code = self._ui.ledit_srs_code.text()
@@ -415,7 +467,8 @@ class GeoReferencerDialog(QDialog):
             new_ref_spatial_x = float(new_val)
             list_entry = self._table_entry_list[row]
             gcp_pair = list_entry.get_gcp_pair()
-            gcp_pair.set_reference_gcp_spatially((new_ref_spatial_x, \
+            ref_gcp = gcp_pair.get_reference_gcp()
+            ref_gcp.set_spatial_point((new_ref_spatial_x, \
                                                   gcp_pair.get_reference_gcp_spatial_coord()[1]))
             self._georeference()
         elif col == COLUMN_ID.REF_Y_COL:
@@ -424,7 +477,8 @@ class GeoReferencerDialog(QDialog):
             new_ref_spatial_y = float(new_val)
             list_entry = self._table_entry_list[row]
             gcp_pair = list_entry.get_gcp_pair()
-            gcp_pair.set_reference_gcp_spatially((gcp_pair.get_reference_gcp_spatial_coord()[0], \
+            ref_gcp = gcp_pair.get_reference_gcp()
+            ref_gcp.set_spatial_point((gcp_pair.get_reference_gcp_spatial_coord()[0], \
                                                   new_ref_spatial_y))
             self._georeference()
         else:
@@ -793,16 +847,6 @@ class GeoReferencerDialog(QDialog):
         table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, res_y_item)
 
 
-    def _sync_entry_list_index_with_ui_row(self, row: int):
-        '''
-        DEPRECATED: We are suppose to update the list and ui at the
-        same time so this should never be needed.
-        '''
-        entryInTable = self.extract_entry_from_row(row)
-        print(f"entryInTable ID: {entryInTable.get_id()}")
-        print(f"entry in row ID: {self._table_entry_list[row].get_id()}")
-        self._table_entry_list[row].replace_entry(entryInTable)
-
     def _update_entry_ids(self):
         table_widget = self._ui.table_gcps
         for i in range(len(self._table_entry_list)):
@@ -812,38 +856,6 @@ class GeoReferencerDialog(QDialog):
             # this entry is currently
             # print(f"updating i: {i}, for column: {COLUMN_ID.ID_COL}")
             table_widget.setItem(i, COLUMN_ID.ID_COL, QTableWidgetItem(str(i)))
-
-    def extract_entry_from_row(self, row) -> GeoRefTableEntry:
-        '''
-        Turns an entry from a row in the QTableWidget into a GeoRefTableEntry
-
-        DEPRECATED: We keep a list of the entries in the table so we don't
-        have to do this
-        '''
-        table_widget = self._ui.table_gcps
-        gcp_pair = GroundControlPointPair(self._target_rasterpane, self._reference_rasterpane)
-        enabled = table_widget.cellWidget(row, COLUMN_ID.ENABLED_COL).isChecked()
-        id = int(table_widget.item(row, COLUMN_ID.ID_COL).text())
-        target_x = float(table_widget.item(row, COLUMN_ID.TARGET_X_COL).text())
-        target_y = float(table_widget.item(row, COLUMN_ID.TARGET_Y_COL).text())
-        # We add 0.5 so its in the center of the pixel
-        target_gcp = GroundControlPoint((target_x+0.5, target_y+0.5), \
-                                         self._target_rasterpane.get_rasterview().get_raster_data(), \
-                                         self._target_rasterpane)
-
-        ref_x = float(table_widget.item(row, COLUMN_ID.REF_X_COL).text())
-        ref_y = float(table_widget.item(row, COLUMN_ID.REF_Y_COL).text())
-        ref_gcp = GroundControlPoint((ref_x+0.5, ref_y+0.5), \
-                                     self._reference_rasterpane.get_rasterview().get_raster_data(), \
-                                     self._reference_rasterpane)
-        gcp_pair.add_gcp(target_gcp)
-        gcp_pair.add_gcp(ref_gcp)
-
-        color_str = self._table_entry_list[row].get_color()
-
-        table_entry = GeoRefTableEntry(gcp_pair, enabled, id, None, None, color=color_str)
-        return table_entry
-    
 
     # region Getters
 
@@ -984,6 +996,20 @@ class GeoReferencerDialog(QDialog):
         # If not found, add as new entry
         crs_choose_cbox.addItem(srs_name, (authority_name, authority_code))
         crs_choose_cbox.setCurrentIndex(crs_choose_cbox.count()-1)
+
+    def _get_manual_ref_chosen_crs(self) -> osr.SpatialReference:
+        auth_name, auth_code = self._ui.cbox_choose_crs.currentData()
+
+        # Build the AUTH:CODE string
+        auth_code_str = f"{auth_name}:{auth_code}"
+
+        # Create and populate the SpatialReference
+        srs = osr.SpatialReference()
+        err = srs.SetFromUserInput(auth_code_str)
+        if err != 0:
+            raise RuntimeError(f"Failed to import CRS '{auth_code_str}' (GDAL error {err})")
+
+        return srs
 
     # region Geo referencing
 

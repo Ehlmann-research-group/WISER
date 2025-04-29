@@ -14,8 +14,9 @@ from .rasterpane import RasterPane
 from .dataset_chooser import DatasetChooser
 from .util import get_painter, add_toolbar_action
 from .app_state import ApplicationState
+from .geo_reference_task_delegate import PointSelectorType, PointSelector
 
-class GeoReferencerPane(RasterPane):
+class GeoReferencerPane(RasterPane, PointSelector):
     # We don't want a roi chooser
 
     # We don't want a dataset chooser *
@@ -24,14 +25,18 @@ class GeoReferencerPane(RasterPane):
 
     # We want the band chooser *
 
-    def __init__(self, app_state, parent=None):
+    def __init__(self, app_state, pane_type: PointSelectorType, parent=None):
         super().__init__(app_state=app_state, parent=parent,
             max_zoom_scale=16, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
             initial_zoom=1)
         '''
-        We complete redo how the task delegate variables works here
+        We completey redo how the task delegate variables works here
         '''
+        self._pane_type = pane_type
     
+    def get_point_selector_type(self):
+        return self._pane_type
+
     def set_task_delegate(self, task_delegate: 'GeoReferencerTaskDelegate'):
         self._task_delegate = task_delegate
     
@@ -77,6 +82,7 @@ class GeoReferencerPane(RasterPane):
     def _onRasterMouseMove(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_move(mouse_event)
         # self.update_all_rasterviews()
+        pass
 
     def _onRasterMouseRelease(self, rasterview, mouse_event):
         '''
@@ -90,6 +96,10 @@ class GeoReferencerPane(RasterPane):
         # print(f'MouseEvent at pos={mouse_event.pos()}, localPos={mouse_event.localPos()}')
 
         self._task_delegate.on_mouse_release(mouse_event, self)
+        if mouse_event.button == Qt.LeftButton:
+            # self._geo_ref_dialog.gcp_add_attempt.emit((mouse_event.localPos(), self))
+            pass
+
         self.update_all_rasterviews()
 
     def _afterRasterPaint(self, rasterview, widget, paint_event):
@@ -102,6 +112,7 @@ class GeoReferencerPane(RasterPane):
 
     def _onRasterKeyPress(self, rasterview, key_event):
         self._task_delegate.on_key_press(key_event)
+        # self._geo_ref_dialog.key_press_event.emit((key_event, self))
         self.update_all_rasterviews()
 
     def _onRasterKeyRelease(self, rasterview, key_event):
