@@ -50,7 +50,6 @@ from wiser import plugins
 
 from .bandmath_dialog import BandMathDialog
 from .fits_loading_dialog import FitsSpectraLoadingDialog
-from .registration_dialog import RegistrationDialog
 from .geo_reference_dialog import GeoReferencerDialog
 from .reference_creator_dialog import ReferenceCreatorDialog
 from wiser import bandmath
@@ -279,9 +278,6 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
-
-        act = self._tools_menu.addAction(self.tr('Co-Registration'))
-        act.triggered.connect(self.show_registration_dialog)
 
         act = self._tools_menu.addAction(self.tr('Geo Reference'))
         act.triggered.connect(self.show_geo_reference_dialog)
@@ -857,13 +853,6 @@ class DataVisualizerApp(QMainWindow):
                     self.tr('Couldn\'t evaluate band-math expression') +
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
-
-
-    def show_registration_dialog(self):
-        dialog = RegistrationDialog(self._app_state)
-        if dialog.exec() == QDialog.Accepted:
-            # TODO (Joshua G-K): Implement co-registration
-            print("Pressed accept!")
 
     def show_geo_reference_dialog(self):
         dialog = GeoReferencerDialog(self._app_state, self._main_view)
