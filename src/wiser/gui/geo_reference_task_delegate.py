@@ -14,7 +14,13 @@ from osgeo import osr
 
 from enum import Enum
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+
+if TYPE_CHECKING:
+    from .rasterpane import RasterPane
+    from .geo_reference_pane import GeoReferencerPane
+    from .geo_coords_dialog import GeoReferencerDialog
+    from .app_state import ApplicationState
 
 PIXEL_OFFSET = 1
 
@@ -42,10 +48,6 @@ class PointSelector:
         target or reference
         """
         raise NotImplementedError("get_point_selector_type is not implemented!")
-
-if TYPE_CHECKING:
-    from .rasterpane import RasterPane
-    from .geo_reference_pane import GeoReferencerPane
 
 class GroundControlPoint:
     def get_spatial_reference_system(self) -> Optional[osr.SpatialReference]:
@@ -195,6 +197,7 @@ class GroundControlPointPair:
         return self._ref_gcp.get_spatial_point()
         
 class GeoReferencerTaskDelegate(TaskDelegate):
+
     def __init__(self, target_rasterpane: 'GeoReferencerPane', \
                  ref_rasterpane: 'GeoReferencerPane', \
                  geo_reference_dialog: 'GeoReferencerDialog',

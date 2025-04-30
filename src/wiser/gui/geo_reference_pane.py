@@ -1,37 +1,24 @@
-from typing import List, Union, Dict
+from typing import TYPE_CHECKING
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import wiser.gui.generated.resources
-
-from wiser.raster.dataset import RasterDataSet
-
 from .band_chooser import BandChooserDialog
-from .rasterview import ScaleToFitMode, RasterView
+from .rasterview import RasterView
 from .rasterpane import RasterPane
-from .dataset_chooser import DatasetChooser
 from .util import get_painter, add_toolbar_action
-from .app_state import ApplicationState
 from .geo_reference_task_delegate import PointSelectorType, PointSelector
 
+if TYPE_CHECKING:
+    from .geo_reference_task_delegate import GeoReferencerTaskDelegate
+
 class GeoReferencerPane(RasterPane, PointSelector):
-    # We don't want a roi chooser
-
-    # We don't want a dataset chooser *
-
-    # We do want zoom options *
-
-    # We want the band chooser *
 
     def __init__(self, app_state, pane_type: PointSelectorType, parent=None):
         super().__init__(app_state=app_state, parent=parent,
             max_zoom_scale=16, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
             initial_zoom=1)
-        '''
-        We completey redo how the task delegate variables works here
-        '''
         self._pane_type = pane_type
     
     def get_point_selector_type(self):
@@ -57,8 +44,6 @@ class GeoReferencerPane(RasterPane, PointSelector):
         return
 
     def _on_band_chooser(self, checked=False, rasterview_pos=(0,0)):
-        # print(f'on_band_chooser invoked for position {rasterview_pos}')
-
         rasterview = self.get_rasterview(rasterview_pos)
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
@@ -81,8 +66,6 @@ class GeoReferencerPane(RasterPane, PointSelector):
 
     def _onRasterMouseMove(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_move(mouse_event)
-        # self.update_all_rasterviews()
-        pass
 
     def _onRasterMouseRelease(self, rasterview, mouse_event):
         '''
@@ -96,9 +79,6 @@ class GeoReferencerPane(RasterPane, PointSelector):
         # print(f'MouseEvent at pos={mouse_event.pos()}, localPos={mouse_event.localPos()}')
 
         self._task_delegate.on_mouse_release(mouse_event, self)
-        if mouse_event.button == Qt.LeftButton:
-            # self._geo_ref_dialog.gcp_add_attempt.emit((mouse_event.localPos(), self))
-            pass
 
         self.update_all_rasterviews()
 
@@ -112,7 +92,6 @@ class GeoReferencerPane(RasterPane, PointSelector):
 
     def _onRasterKeyPress(self, rasterview, key_event):
         self._task_delegate.on_key_press(key_event)
-        # self._geo_ref_dialog.key_press_event.emit((key_event, self))
         self.update_all_rasterviews()
 
     def _onRasterKeyRelease(self, rasterview, key_event):
@@ -122,12 +101,12 @@ class GeoReferencerPane(RasterPane, PointSelector):
     def _has_delegate_for_rasterview(self, rasterview: RasterView,
                                      user_input: bool = True) -> bool:
         '''
-        This is to show that this class guts everything that used to call this function
+        We do not want to call this function in the parent class
         '''
         return
 
     def _update_delegate(self, done: bool) -> None:
         '''
-        This is to show that this class guts everything that used to call this function
+        We do not want to call this function in the parent class
         '''
         return

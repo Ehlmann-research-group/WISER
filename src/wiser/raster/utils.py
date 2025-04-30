@@ -289,7 +289,6 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
 def set_data_ignore_of_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
     nodata = source_dataset.get_data_ignore_value()
     if nodata is not None:
-        print(f"SETTING DATA IGNORE!!!!!!!@@@@@@@@@@@@@@@@@@@@@")
         # set the same nodata on every band
         for i in range(1, gdal_dataset.RasterCount + 1):
             gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
@@ -351,14 +350,6 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'R
                 "wavelength_units",
                 str(wl_units)
             )
-
-
-    if source_dataset.has_geographic_info():
-        gt = source_dataset.get_geo_transform()
-        gdal_dataset.SetGeoTransform(gt)
-
-        srs = source_dataset.get_spatial_ref()
-        gdal_dataset.SetSpatialRef(srs)
 
     # Don't forget to flush/close when done:
     gdal_dataset.FlushCache()

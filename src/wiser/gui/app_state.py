@@ -398,7 +398,6 @@ class ApplicationState(QObject):
         print(f"ds0_srs: {ds0_srs.GetName()}")
         for ds in displayed_datasets[1:]:
             ds_srs = ds.get_spatial_ref()
-            print(f"ds_srs: {ds_srs.GetName()}")
             if ds_srs == None or not self._can_transform_between_srs(ds0_srs, ds_srs):
                 return False, GeographicLinkState.NO_LINK
 
