@@ -1179,8 +1179,17 @@ class GeoReferencerDialog(QDialog):
 
     def accept(self):
         save_path = self._get_save_file_path()
-        if save_path is None or \
-            self._target_rasterpane.get_rasterview().get_raster_data() is None:
+        if save_path is None:
+            confirm = QMessageBox.question(self, self.tr("No Save Path Selected"), 
+                                           self.tr("In order to georeference, a save path " \
+                                                    "must be selected. There is no save path " \
+                                                    "selected, so georeferencing will not occur.\n\n" \
+                                                    "Do you still want to continue closing the georeferencer?"))
+            if confirm == QMessageBox.Yes:
+                super().accept()
+            return
+
+        if self._target_rasterpane.get_rasterview().get_raster_data() is None:
             super().accept()
             return
 
