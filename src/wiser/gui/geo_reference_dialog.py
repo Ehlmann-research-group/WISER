@@ -208,6 +208,8 @@ class GeoReferencerDialog(QDialog):
         self._suppress_cell_changed: bool = False
 
         self._prev_chosen_ref_crs_index: int = 0
+        self._prev_ref_dataset_index: int = 0
+        self._prev_target_dataset_index: int = 0
 
     # region Initialization
 
@@ -381,9 +383,11 @@ class GeoReferencerDialog(QDialog):
 
         reference_layout.addWidget(self._reference_rasterpane)
 
+
     #========================
     # region Slots
     #========================
+
 
     def _on_ref_manual_ledit_enter(self):
         lat_north_str = self._ui.ledit_lat_north.text()
@@ -511,7 +515,9 @@ class GeoReferencerDialog(QDialog):
                                         "\n\nDo you want to discard all selected GCPs?")
                 if confirm == QMessageBox.Yes:
                     self._reset_gcps()
-        self._prev_chosen_ref_crs_index = index
+                else:
+                    self._ui.cbox_choose_crs.setCurrentIndex(self._prev_chosen_ref_crs_index)
+        self._prev_chosen_ref_crs_index = self._ui.cbox_choose_crs.currentIndex()
 
     def _on_switch_resample_alg(self, index: int):
         resample_alg = self._ui.cbox_interpolation.itemData(index)
@@ -575,39 +581,46 @@ class GeoReferencerDialog(QDialog):
         ds_id = self._target_cbox.itemData(index)
         dataset = None
         try:
-            if len(self._table_entry_list) > 0:
-                confirm = QMessageBox.question(self, self.tr("Change reference dataset?"),
-                                     self.tr("Are you sure you want to change the reference dataset?") +
-                                     "\n\nThis will discard all selected GCPs")
-                if confirm == QMessageBox.Yes:
-                    self._reset_gcps()
-            dataset = self._app_state.get_dataset(ds_id)
-        except:
-            pass
-        self._target_rasterpane.show_dataset(dataset)
-
-    def _on_switch_reference_dataset(self, index: int):
-        ds_id = self._reference_cbox.itemData(index)
-        dataset = None
-        try:
-            if len(self._table_entry_list) > 0:
+            if len(self._table_entry_list) > 0 and self._prev_target_dataset_index != index:
                 confirm = QMessageBox.question(self, self.tr("Change reference dataset?"),
                                      self.tr("Are you sure you want to change the reference dataset?") +
                                      "\n\nThis will discard all selected GCPs")
                 if confirm == QMessageBox.Yes:
                     self._reset_gcps()
                 else:
+                    self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
+                    return
+            dataset = self._app_state.get_dataset(ds_id)
+        except:
+            pass
+        self._target_rasterpane.show_dataset(dataset)
+        self._prev_target_dataset_index = self._target_cbox.currentIndex()
+
+    def _on_switch_reference_dataset(self, index: int):
+        ds_id = self._reference_cbox.itemData(index)
+        dataset = None
+        try:
+            if len(self._table_entry_list) > 0 and self._prev_ref_dataset_index != index:
+                confirm = QMessageBox.question(self, self.tr("Change reference dataset?"),
+                                     self.tr("Are you sure you want to change the reference dataset?") +
+                                     "\n\nThis will discard all selected GCPs")
+                if confirm == QMessageBox.Yes:
+                    self._reset_gcps()
+                else:
+                    self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
                     return
             dataset = self._app_state.get_dataset(ds_id)
             if not dataset.has_geographic_info():
                 QMessageBox.warning(self, self.tr("Unreferenced Dataset"), \
                                     self.tr("You must choose a dataset with a spatial reference system"))
+                self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
                 return
         except:
             pass
         self._reference_rasterpane.show_dataset(dataset)
         self._init_output_srs_cbox()
         self._update_manual_ref_chooser_display(dataset)
+        self._prev_ref_dataset_index = self._reference_cbox.currentIndex()
 
     # region Table Entry Helpers
 
