@@ -354,3 +354,51 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'R
     # Don't forget to flush/close when done:
     gdal_dataset.FlushCache()
     gdal_dataset = None
+
+from osgeo import osr
+
+def get_bbox(gt, width, height):
+    """Compute (minX, minY, maxX, maxY) of a raster given its GeoTransform."""
+    xs, ys = [], []
+    for px, py in ((0, 0), (width, 0), (0, height), (width, height)):
+        x = gt[0] + px*gt[1] + py*gt[2]
+        y = gt[3] + px*gt[4] + py*gt[5]
+        xs.append(x); ys.append(y)
+    return min(xs), min(ys), max(xs), max(ys)
+
+def reproject_bbox(bbox, src_srs, dst_srs):
+    """Reproject the 4 corners of bbox into dst_srs."""
+    ct = osr.CoordinateTransformation(src_srs, dst_srs)
+    corners = [(bbox[0], bbox[1]),
+               (bbox[0], bbox[3]),
+               (bbox[2], bbox[1]),
+               (bbox[2], bbox[3])]
+    pts = [ct.TransformPoint(x, y)[:2] for x, y in corners]
+    xs, ys = zip(*pts)
+    return min(xs), min(ys), max(xs), max(ys)
+
+def bboxes_intersect(b1, b2):
+    """Return True if b1 and b2 (minX,minY,maxX,maxY) overlap."""
+    return not (
+        b1[2] < b2[0] or  # b1.maxX < b2.minX
+        b1[0] > b2[2] or  # b1.minX > b2.maxX
+        b1[3] < b2[1] or  # b1.maxY < b2.minY
+        b1[1] > b2[3]     # b1.minY > b2.maxY
+    )
+
+def have_spatial_overlap(srs1, gt1, w1, h1,
+                         srs2, gt2, w2, h2):
+    """
+    Return True if two rasters (given by their OSR SpatialReference,
+    GeoTransform, width & height) overlap in space.
+    """
+    # 1) compute each envelope
+    bbox1 = get_bbox(gt1, w1, h1)
+    bbox2 = get_bbox(gt2, w2, h2)
+
+    # 2) reproject bbox2 into srs1 (if needed)
+    if not srs1.IsSame(srs2):
+        bbox2 = reproject_bbox(bbox2, srs2, srs1)
+
+    # 3) test intersection
+    return bboxes_intersect(bbox1, bbox2)

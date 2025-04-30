@@ -202,6 +202,7 @@ class GeoReferencerDialog(QDialog):
         self._init_default_color_chooser()
         self._init_manual_ref_crs_finder()
         self._init_manual_ref_point_enter()
+        self._init_warp_button()
         self._update_manual_ref_chooser_display(None)
 
         self._warp_kwargs: Dict = None
@@ -212,6 +213,10 @@ class GeoReferencerDialog(QDialog):
         self._prev_target_dataset_index: int = 0
 
     # region Initialization
+
+    def _init_warp_button(self):
+        warp_btn = self._ui.btn_run_warp
+        warp_btn.clicked.connect(self._on_warp_button_clicked)
 
     def _init_manual_ref_point_enter(self):
         lat_north_ledit = self._ui.ledit_lat_north
@@ -388,6 +393,9 @@ class GeoReferencerDialog(QDialog):
     # region Slots
     #========================
 
+
+    def _on_warp_button_clicked(self, checked: bool):
+        self._create_warped_output()
 
     def _on_ref_manual_ledit_enter(self):
         lat_north_str = self._ui.ledit_lat_north.text()
@@ -1176,8 +1184,11 @@ class GeoReferencerDialog(QDialog):
     # region Accepting
     #========================
 
-
-    def accept(self):
+    def _create_warped_output(self) -> bool:
+        '''
+        Returns a bool on whether the function that called this one should continue 
+        running code after this function
+        '''
         save_path = self._get_save_file_path()
         if save_path is None:
             confirm = QMessageBox.question(self, self.tr("No Save Path Selected"), 
@@ -1186,12 +1197,15 @@ class GeoReferencerDialog(QDialog):
                                                     "selected, so georeferencing will not occur.\n\n" \
                                                     "Do you still want to continue closing the georeferencer?"))
             if confirm == QMessageBox.Yes:
-                super().accept()
-            return
+                return True
+            else:
+                return False
+        
+        if not self._enough_points_for_transform() or self._warp_kwargs is None:
+            return True
 
         if self._target_rasterpane.get_rasterview().get_raster_data() is None:
-            super().accept()
-            return
+            return True
 
         gcps: List[GeoRefTableEntry, gdal.GCP] = []
 
@@ -1313,8 +1327,13 @@ class GeoReferencerDialog(QDialog):
 
         output_dataset.FlushCache()
         output_dataset = None
+        return True
 
-        super().accept()
+    def accept(self):
+        should_continue = self._create_warped_output()
+
+        if should_continue:
+            super().accept()
 
     # region Event overrides
 
