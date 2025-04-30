@@ -17,6 +17,7 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import SpectralLibrary
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.loaders.envi import EnviFileFormatError
+from wiser.raster.utils import have_spatial_overlap
 
 from wiser.raster.stretch import StretchBase
 
@@ -392,13 +393,18 @@ class ApplicationState(QObject):
             return same_size, GeographicLinkState.PIXEL
 
         ds0_srs: osr.SpatialReference = displayed_datasets[0].get_spatial_ref()
+        ds0 = displayed_datasets[0]
         if ds0_srs == None:
             return False, GeographicLinkState.NO_LINK
         
         print(f"ds0_srs: {ds0_srs.GetName()}")
         for ds in displayed_datasets[1:]:
             ds_srs = ds.get_spatial_ref()
-            if ds_srs == None or not self._can_transform_between_srs(ds0_srs, ds_srs):
+            can_transform = self._can_transform_between_srs(ds0_srs, ds_srs)
+            have_overlap = have_spatial_overlap(ds0_srs, ds0.get_geo_transform(), ds0.get_width(), \
+                                            ds0.get_height(), ds_srs, ds.get_geo_transform(), \
+                                            ds.get_width(), ds.get_height())
+            if ds_srs == None or not can_transform or not have_overlap:
                 return False, GeographicLinkState.NO_LINK
 
         return True, GeographicLinkState.SPATIAL

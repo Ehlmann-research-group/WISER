@@ -348,7 +348,9 @@ class MainViewWidget(RasterPane):
             #     we tell the user why it isn't possible.
             QMessageBox.information(self, self.tr('Cannot Link Views'),
                 self.tr('Cannot link views unless multiple datasets\n' +
-                        'are loaded, and are all the same dimensions.'))
+                        'are loaded, and either are all the same\n' +
+                        'dimensions or have overlapping coordinate\n' +
+                        'spatial reference systems.'))
 
             self._act_link_view_scroll.setChecked(False)
             return

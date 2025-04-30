@@ -386,8 +386,10 @@ def bboxes_intersect(b1, b2):
         b1[1] > b2[3]     # b1.minY > b2.maxY
     )
 
-def have_spatial_overlap(srs1, gt1, w1, h1,
-                         srs2, gt2, w2, h2):
+def have_spatial_overlap(srs1: osr.SpatialReference, gt1: List[float],
+                         w1: int, h1: int,
+                         srs2: osr.SpatialReference, gt2:List[float],
+                         w2: int, h2: int):
     """
     Return True if two rasters (given by their OSR SpatialReference,
     GeoTransform, width & height) overlap in space.
