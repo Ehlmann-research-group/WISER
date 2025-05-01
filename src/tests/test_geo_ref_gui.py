@@ -1,7 +1,7 @@
 import unittest
 
-# import tests.context
-import context
+import tests.context
+# import context
 
 from tests.utils import are_pixels_close, are_qrects_close
 from test_utils.test_model import WiserTestModel

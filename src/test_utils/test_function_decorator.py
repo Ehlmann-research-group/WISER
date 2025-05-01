@@ -6,17 +6,15 @@ from.test_event_loop_functions import FunctionEvent
 if TYPE_CHECKING:
     from .test_model import WiserTestModel
 
-def run_in_wiser_decorator():
-    def func_wrapper(func):
-        @functools.wraps(func)
-        def arg_wrapper(self: 'WiserTestModel', *args, **kwargs):
-            def func_event():
-                result = func(self, *args, **kwargs)
+def run_in_wiser_decorator(func):
+    @functools.wraps(func)
+    def arg_wrapper(self: 'WiserTestModel', *args, **kwargs):
+        def func_event():
+            result = func(self, *args, **kwargs)
 
-                return result
+            return result
 
-            function_event = FunctionEvent(func_event)
-            self.app.postEvent(self.testing_widget, function_event)
-            self.run()
-        return arg_wrapper
-    return func_wrapper
+        function_event = FunctionEvent(func_event)
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+    return arg_wrapper

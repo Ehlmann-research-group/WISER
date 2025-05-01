@@ -315,7 +315,9 @@ class GeoReferencerDialog(QDialog):
                     auth_name, auth_code = crs.to_authority()
                     srs_cbox.addItem(reference_srs_name, (auth_name, int(auth_code)))
             else:
-                srs_cbox.addItem(reference_srs_name, reference_srs_code)
+                print(f"ref_ds.get_spatial_ref().GetName(): {ref_ds.get_spatial_ref().GetAuthorityName(None)}")
+                srs_cbox.addItem(reference_srs_name, (ref_ds.get_spatial_ref().GetAuthorityName(None), \
+                                                      reference_srs_code))
 
         for name, srs in COMMON_SRS.items():
             srs_cbox.addItem(name, srs)

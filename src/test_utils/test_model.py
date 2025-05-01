@@ -1048,7 +1048,7 @@ class WiserTestModel:
     # Region State Getting
     #==========================================
     
-    @run_in_wiser_decorator()
+    @run_in_wiser_decorator
     def open_geo_referencer(self):
         self.main_window.show_geo_reference_dialog(in_test_mode=True)
 
