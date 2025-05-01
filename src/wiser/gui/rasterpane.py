@@ -210,11 +210,13 @@ class TiledRasterView(RasterView):
 
         if raster_data is None:
             index = self._cbox_dataset_chooser.findData(-1)
+            print(f"raster_data is none index: {index}")
             assert index != -1, f'Missing the (no data) option!'
 
         else:
             ds_id = raster_data.get_id()
             index = self._cbox_dataset_chooser.findData(ds_id)
+            print(f" raster data is not none index: {index}")
             assert index != -1, f'Tried to display an unrecognized dataset:  {ds_id}'
 
         self._cbox_dataset_chooser.setCurrentIndex(index)

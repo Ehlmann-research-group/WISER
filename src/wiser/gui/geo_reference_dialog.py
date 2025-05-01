@@ -328,7 +328,6 @@ class GeoReferencerDialog(QDialog):
                     auth_name, auth_code = crs.to_authority()
                     srs_cbox.addItem(reference_srs_name, (auth_name, int(auth_code)))
             else:
-                print(f"ref_ds.get_spatial_ref().GetName(): {ref_ds.get_spatial_ref().GetAuthorityName(None)}")
                 srs_cbox.addItem(reference_srs_name, (ref_ds.get_spatial_ref().GetAuthorityName(None), \
                                                       reference_srs_code))
 
@@ -521,7 +520,17 @@ class GeoReferencerDialog(QDialog):
 
         result = file_dialog.exec()
         if result == QDialog.Accepted:
+            target_ds = self._get_target_dataset()
+            target_ds_filepaths = target_ds.get_filepaths()
+            ref_ds = self._get_ref_dataset()
+            ref_ds_filepaths = ref_ds.get_filepaths()
             filename = file_dialog.selectedFiles()[0]
+            if filename in target_ds_filepaths or filename in ref_ds_filepaths:
+                QMessageBox.information(self, self.tr("Wrong Save Path"), \
+                                        self.tr("The save path you chose matches either the target\n" + 
+                                                "or reference dataset's save path. Please change.\n\n"
+                                                f"Chosen save path:\n{filename}"))
+                return
             self._ui.ledit_save_path.setText(filename)
             self._georeference()
 
@@ -1342,6 +1351,8 @@ class GeoReferencerDialog(QDialog):
 
         output_dataset.FlushCache()
         output_dataset = None
+
+        self.set_message_text("Done warping!")
         return True
 
     def accept(self):
