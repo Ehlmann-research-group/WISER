@@ -196,6 +196,7 @@ class DataVisualizerApp(QMainWindow):
         # TESTING ITEMS
 
         self._invisible_testing_widget = TestingWidget()
+        self._geo_ref_dialog = None
 
     def _init_menus(self):
 
@@ -854,11 +855,15 @@ class DataVisualizerApp(QMainWindow):
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
 
-    def show_geo_reference_dialog(self):
-        dialog = GeoReferencerDialog(self._app_state, self._main_view)
-        if dialog.exec() == QDialog.Accepted:
-            print(f"Geo Ref press accepted!")
-    
+    def show_geo_reference_dialog(self, in_test_mode = False):
+        self._geo_ref_dialog = GeoReferencerDialog(self._app_state, self._main_view, parent=self)
+        # Note the best solution to the inability to properly close QDialogs
+        # in our tests, but for now it gets the job done
+        if not in_test_mode:
+            self._geo_ref_dialog.exec_()
+        else:
+            self._geo_ref_dialog.show()
+
     def show_reference_creator_dialog(self):
         dialog = ReferenceCreatorDialog(self._app_state)
         if dialog.exec() == QDialog.Accepted:
