@@ -191,7 +191,26 @@ class GeoReferencerDialog(QDialog):
 
         self._manual_entry_spacer = None
 
-        # Set up dataset choosers 
+        self._first_init()
+
+        self._warp_kwargs: Dict = None
+        self._suppress_cell_changed: bool = False
+
+        self._prev_chosen_ref_crs_index: int = 0
+        self._prev_ref_dataset_index: int = 0
+        self._prev_target_dataset_index: int = 0
+
+    def exec_(self):
+        self._refresh_init()
+        super().exec_()
+    
+    def show(self):
+        self._refresh_init()
+        super().show()
+
+    # region Initialization
+
+    def _first_init(self):
         self._init_dataset_choosers()
         self._init_rasterpanes()
         self._init_gcp_table()
@@ -205,14 +224,8 @@ class GeoReferencerDialog(QDialog):
         self._init_warp_button()
         self._update_manual_ref_chooser_display(None)
 
-        self._warp_kwargs: Dict = None
-        self._suppress_cell_changed: bool = False
-
-        self._prev_chosen_ref_crs_index: int = 0
-        self._prev_ref_dataset_index: int = 0
-        self._prev_target_dataset_index: int = 0
-
-    # region Initialization
+    def _refresh_init(self):
+        self._init_dataset_choosers()
 
     def _init_warp_button(self):
         warp_btn = self._ui.btn_run_warp

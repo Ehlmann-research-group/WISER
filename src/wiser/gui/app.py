@@ -856,7 +856,8 @@ class DataVisualizerApp(QMainWindow):
                 return
 
     def show_geo_reference_dialog(self, in_test_mode = False):
-        self._geo_ref_dialog = GeoReferencerDialog(self._app_state, self._main_view, parent=self)
+        if self._geo_ref_dialog is None:
+            self._geo_ref_dialog = GeoReferencerDialog(self._app_state, self._main_view, parent=self)
         # Note the best solution to the inability to properly close QDialogs
         # in our tests, but for now it gets the job done
         if not in_test_mode:
