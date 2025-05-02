@@ -194,6 +194,7 @@ class GeoReferencerDialog(QDialog):
         self._first_init()
 
         self._warp_kwargs: Dict = None
+        self._transform_options: List[str] = None
         self._suppress_cell_changed: bool = False
 
         self._prev_chosen_ref_crs_index: int = 0
@@ -1117,30 +1118,33 @@ class GeoReferencerDialog(QDialog):
         temp_gdal_ds.SetSpatialRef(ref_srs)
         temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
     
+        self._transform_options = [f'DST_SRS={output_srs.ExportToWkt()}']
         self._warp_kwargs = {
             "copyMetadata": True,
             "resampleAlg": self._curr_resample_alg,
             "dstSRS": output_srs
         }
 
-        transformer_options = [f'DST_SRS={output_srs.ExportToWkt()}']
+        self._transform_options = [f'DST_SRS={output_srs.ExportToWkt()}']
 
         if self._curr_transform_type == TRANSFORM_TYPES.TPS:
             self._warp_kwargs["tps"] = True
-            transformer_options += ['METHOD=GCP_TPS', 'MAX_GCP_ORDER=-1']
+            self._transform_options += ['METHOD=GCP_TPS', 'MAX_GCP_ORDER=-1']
         elif self._curr_transform_type == TRANSFORM_TYPES.POLY_1:
             self._warp_kwargs["polynomialOrder"] = 1
-            transformer_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=1']
+            self._transform_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=1']
         elif self._curr_transform_type == TRANSFORM_TYPES.POLY_2:
             self._warp_kwargs["polynomialOrder"] = 2
-            transformer_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=2']
+            self._transform_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=2']
         elif self._curr_transform_type == TRANSFORM_TYPES.POLY_3:
             self._warp_kwargs["polynomialOrder"] = 3
-            transformer_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=3']
+            self._transform_options += ['METHOD=GCP_POLYNOMIAL', 'MAX_GCP_ORDER=3']
         else:
             raise RuntimeError(f"Unknown self._curr_transform_type: {self._curr_transform_type}")
+        self._warp_kwargs['transformerOptions'] = self._transform_options
+
         try:
-            tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, transformer_options)
+            tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, self._transform_options)
         except BaseException as e:
             self.set_message_text(f"Error: {e}")
             return
@@ -1247,6 +1251,7 @@ class GeoReferencerDialog(QDialog):
         temp_gdal_ds = None
         output_dataset = None
 
+        self.set_message_text(self.tr("Starting warp..."))
         if isinstance(target_dataset_impl, GDALRasterDataImpl):
             target_gdal_dataset = target_dataset_impl.gdal_dataset
             temp_vrt_path = '/vsimem/ref.vrt'
@@ -1262,8 +1267,6 @@ class GeoReferencerDialog(QDialog):
                 )
             temp_gdal_ds = gdal.Translate(temp_vrt_path, target_gdal_dataset, options=translate_opts)
             # Make sure dataset has no spatial information that could mess with warping
-            temp_gdal_ds.SetGeoTransform([0, 1, 0, 0, 0, 1])
-            temp_gdal_ds.SetProjection("")  
             temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
             warp_options = gdal.WarpOptions(**self._warp_kwargs)
             output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
@@ -1284,8 +1287,6 @@ class GeoReferencerDialog(QDialog):
             band_arr = target_dataset.get_band_data(0)
             temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
             # Make sure dataset has no spatial information that could mess with warping
-            temp_gdal_ds.SetGeoTransform([0, 1, 0, 0, 0, 1])
-            temp_gdal_ds.SetProjection("")
             temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
             transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
 
@@ -1302,8 +1303,6 @@ class GeoReferencerDialog(QDialog):
                 band_arr = target_dataset.get_image_data()
                 temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
                 # Make sure dataset has no spatial information that could mess with warping
-                temp_gdal_ds.SetGeoTransform([0, 1, 0, 0, 0, 1])
-                temp_gdal_ds.SetProjection("") 
                 temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
                 set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
                 output_dataset: gdal.Dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
@@ -1320,8 +1319,6 @@ class GeoReferencerDialog(QDialog):
                     band_arr = target_dataset.get_multiple_band_data(band_list_index)
                     temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
                     # Make sure dataset has no spatial information that could mess with warping
-                    temp_gdal_ds.SetGeoTransform([0, 1, 0, 0, 0, 1])
-                    temp_gdal_ds.SetProjection("")
                     temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
                     set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
                     transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
@@ -1352,7 +1349,7 @@ class GeoReferencerDialog(QDialog):
         output_dataset.FlushCache()
         output_dataset = None
 
-        self.set_message_text("Done warping!")
+        self.set_message_text(self.tr("Done warping!"))
         return True
 
     def accept(self):
