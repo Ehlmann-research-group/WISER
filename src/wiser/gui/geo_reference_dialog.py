@@ -1044,7 +1044,6 @@ class GeoReferencerDialog(QDialog):
 
     def _get_entry_gcp_list(self) -> List[Tuple[GeoRefTableEntry, gdal.GCP]]:
         gcps: List[Tuple[GeoRefTableEntry, gdal.GCP]] = []
-
         for table_entry in self._table_entry_list:
             if not table_entry.is_enabled():
                 continue
@@ -1118,7 +1117,6 @@ class GeoReferencerDialog(QDialog):
         temp_gdal_ds.SetSpatialRef(ref_srs)
         temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
     
-        self._transform_options = [f'DST_SRS={output_srs.ExportToWkt()}']
         self._warp_kwargs = {
             "copyMetadata": True,
             "resampleAlg": self._curr_resample_alg,
@@ -1154,7 +1152,6 @@ class GeoReferencerDialog(QDialog):
         warp_save_path = f'/vsimem/temp_band_{0}'
         place_holder_arr = np.zeros((1, 1), np.uint8)
         temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
-        temp_gdal_ds.SetSpatialRef(ref_srs)
         temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
         transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
         transformed_gt = transformed_ds.GetGeoTransform()
@@ -1235,13 +1232,7 @@ class GeoReferencerDialog(QDialog):
         if self._target_rasterpane.get_rasterview().get_raster_data() is None:
             return True
 
-        gcps: List[GeoRefTableEntry, gdal.GCP] = []
-
-        for table_entry in self._table_entry_list:
-            spatial_coord = table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
-            assert spatial_coord is not None, f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
-            target_pixel_coord = table_entry.get_gcp_pair().get_target_gcp().get_point()
-            gcps.append((table_entry, gdal.GCP(spatial_coord[0], spatial_coord[1], 0, target_pixel_coord[0], target_pixel_coord[1])))
+        gcps: List[GeoRefTableEntry, gdal.GCP] = self._get_entry_gcp_list()
 
         target_dataset = self._target_rasterpane.get_rasterview().get_raster_data()
         target_dataset_impl = target_dataset.get_impl()
