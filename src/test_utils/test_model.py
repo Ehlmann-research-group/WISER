@@ -1246,31 +1246,40 @@ class WiserTestModel:
         QTest.mouseClick(btn, Qt.LeftButton)
 
     @run_in_wiser_decorator
-    def choose_manual_crs(self, authority: str, code: int) -> bool:
+    def choose_manual_crs_geo_ref(self, authority: str, code: int) -> bool:
         cbox = self.main_window._geo_ref_dialog._ui.cbox_choose_crs
         wanted = (authority, code)
         for i in range(cbox.count()):
             if cbox.itemData(i) == wanted:
                 cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
                 return True
         return False
 
     # ---------- manual reference point ----------
 
     @run_in_wiser_decorator
-    def enter_lat_north(self, value: float) -> None:
-        self.main_window._geo_ref_dialog._ui.ledit_lat_north.setText(str(value))
+    def enter_lat_north_geo_ref(self, value: float) -> None:
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_lat_north
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        # 3. “Type” the new value, one keystroke at a time
+        QTest.keyClicks(ledit, str(value))
 
     @run_in_wiser_decorator
-    def press_enter_lat_north(self) -> None:
+    def press_enter_lat_north_geo_ref(self) -> None:
         QTest.keyClick(self.main_window._geo_ref_dialog._ui.ledit_lat_north, Qt.Key_Return)
 
     @run_in_wiser_decorator
-    def enter_lon_east(self, value: float) -> None:
-        self.main_window._geo_ref_dialog._ui.ledit_lon_east.setText(str(value))
+    def enter_lon_east_geo_ref(self, value: float) -> None:
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_lon_east
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        # 3. “Type” the new value, one keystroke at a time
+        QTest.keyClicks(ledit, str(value))
 
     @run_in_wiser_decorator
-    def press_enter_lon_east(self) -> None:
+    def press_enter_lon_east_geo_ref(self) -> None:
         QTest.keyClick(self.main_window._geo_ref_dialog._ui.ledit_lon_east, Qt.Key_Return)
 
     # ---------- table-editing utilities ----------

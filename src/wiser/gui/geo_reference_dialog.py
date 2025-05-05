@@ -198,8 +198,12 @@ class GeoReferencerDialog(QDialog):
         self._suppress_cell_changed: bool = False
 
         self._prev_chosen_ref_crs_index: int = 0
-        self._prev_ref_dataset_index: int = 0
-        self._prev_target_dataset_index: int = 0
+
+        # These are actually always the current index, we call them previous
+        # because when the current index is change on click, we need access
+        # to the index before the click occured
+        self._prev_ref_dataset_index: int = None
+        self._prev_target_dataset_index: int = None
 
     def exec_(self):
         self._refresh_init()
@@ -213,6 +217,7 @@ class GeoReferencerDialog(QDialog):
 
     def _first_init(self):
         self._init_dataset_choosers()
+        self._update_dataset_choosers()
         self._init_rasterpanes()
         self._init_gcp_table()
         self._init_output_srs_cbox()
@@ -226,7 +231,7 @@ class GeoReferencerDialog(QDialog):
         self._update_manual_ref_chooser_display(None)
 
     def _refresh_init(self):
-        self._init_dataset_choosers()
+        self._update_dataset_choosers()
 
     def _init_warp_button(self):
         warp_btn = self._ui.btn_run_warp
@@ -384,13 +389,24 @@ class GeoReferencerDialog(QDialog):
         table_widget.cellChanged.connect(self._on_cell_changed)
 
     def _init_dataset_choosers(self):
+        '''
+        Performs actions that should only be done once with dataset chooser.
+        '''
         self._target_cbox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self._target_cbox.activated.connect(self._on_switch_target_dataset)
-        self._update_target_dataset_chooser()
 
         self._reference_cbox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self._reference_cbox.activated.connect(self._on_switch_reference_dataset)
+
+    def _update_dataset_choosers(self):
+        '''
+        Performs actions that should be done everytime geo ref dialog is reshown
+        '''
+        self._update_target_dataset_chooser()
+        self._prev_target_dataset_index = self._target_cbox.currentIndex()
+
         self._update_reference_dataset_chooser()
+        self._prev_ref_dataset_index = self._reference_cbox.currentIndex()
 
     def _init_rasterpanes(self):
         target_layout = QVBoxLayout(self._ui.widget_target_image)
@@ -449,7 +465,7 @@ class GeoReferencerDialog(QDialog):
         # Get the human-readable name of the SRS
         srs_name = srs.GetName()
 
-        self._add_srs_to_choose_cbox(srs_name, authority_str, authority_code)
+        self._add_srs_to_choose_cbox(srs_name, authority_str, float(authority_code))
 
 
     def _on_cell_changed(self, row: int, col: int):
