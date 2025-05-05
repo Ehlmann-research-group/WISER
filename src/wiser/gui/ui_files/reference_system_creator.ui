@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>289</width>
-    <height>259</height>
+    <width>319</width>
+    <height>320</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,20 +16,10 @@
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="0" column="0">
     <layout class="QGridLayout" name="gridLayout">
-     <item row="2" column="1">
-      <widget class="QComboBox" name="cbox_shape"/>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="lbl_shape">
+     <item row="7" column="0">
+      <widget class="QLabel" name="lbl_lon_meridian">
        <property name="text">
-        <string>Shape</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="lbl_dataset">
-       <property name="text">
-        <string>Dataset</string>
+        <string>Lat Origin</string>
        </property>
       </widget>
      </item>
@@ -40,31 +30,106 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="1">
-      <widget class="QLineEdit" name="ledit_lat_meridian"/>
+     <item row="1" column="1">
+      <widget class="QComboBox" name="cbox_proj_type"/>
      </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="lbl_lon_meridian">
+     <item row="0" column="0">
+      <widget class="QLabel" name="lbl_dataset">
        <property name="text">
-        <string>Lat Origin</string>
+        <string>Dataset</string>
        </property>
       </widget>
      </item>
-     <item row="3" column="0">
+     <item row="3" column="1">
+      <layout class="QGridLayout" name="grid_axis_choosing">
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="ledit_semi_major"/>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="lbl_semi_major">
+         <property name="text">
+          <string>Semi-Major Axis</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QComboBox" name="cbox_flat_minor"/>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="ledit_flat_minor"/>
+       </item>
+      </layout>
+     </item>
+     <item row="2" column="1">
+      <widget class="QComboBox" name="cbox_shape"/>
+     </item>
+     <item row="5" column="0">
       <widget class="QLabel" name="lbl_lat_meridian">
        <property name="text">
         <string>Lon Origin</string>
        </property>
       </widget>
      </item>
-     <item row="5" column="1">
-      <widget class="QLineEdit" name="ledit_lon_meridian"/>
+     <item row="4" column="0">
+      <widget class="QLabel" name="lbl_cbox">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>20</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Units</string>
+       </property>
+      </widget>
      </item>
-     <item row="1" column="1">
-      <widget class="QComboBox" name="cbox_proj_type"/>
+     <item row="2" column="0">
+      <widget class="QLabel" name="lbl_shape">
+       <property name="text">
+        <string>Shape</string>
+       </property>
+      </widget>
      </item>
      <item row="0" column="1">
       <widget class="QComboBox" name="cbox_dataset"/>
+     </item>
+     <item row="4" column="1">
+      <widget class="QComboBox" name="cbox_units"/>
+     </item>
+     <item row="5" column="1">
+      <widget class="QLineEdit" name="ledit_lat_equator"/>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="lbl_params">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>20</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>Parameters</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <widget class="QLineEdit" name="ledit_lon_meridian"/>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="lbl_crs_name">
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>20</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>CRS Name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="1">
+      <widget class="QLineEdit" name="ledit_crs_name"/>
      </item>
     </layout>
    </item>
