@@ -31,8 +31,6 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
 
-from test_utils.utils import click_combo_index
-
 class LoggingApplication(QApplication):
     def notify(self, receiver, event):
         # print(f"Processing event {event} (type: {event.type()}) on {receiver}")
@@ -1142,8 +1140,10 @@ class WiserTestModel:
 
     @run_in_wiser_decorator
     def set_file_save_path(self, path: str) -> None:
-        le = self.main_window._geo_ref_dialog._ui.ledit_save_path
-        le.setText(path)
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_save_path
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        QTest.keyClicks(ledit, path)
         self.main_window._geo_ref_dialog._georeference()
 
     @run_in_wiser_decorator
@@ -1163,11 +1163,11 @@ class WiserTestModel:
         screen_coord = view.raster_coord_to_image_coord_precise(raster_xy_point)
         viewport = view._image_widget
         mouse_event = QMouseEvent(
-            QEvent.MouseButtonRelease,            # event type
-            screen_coord,           # local (widget) position
-            Qt.LeftButton,                       # which button changed state
-            Qt.MouseButtons(Qt.LeftButton),      # state of all mouse buttons
-            Qt.NoModifier                         # keyboard modifiers (e.g. Ctrl, Shift)
+            QEvent.MouseButtonRelease,
+            screen_coord,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
         )
         viewport = view._image_widget
         QApplication.postEvent(viewport, mouse_event)
@@ -1186,11 +1186,11 @@ class WiserTestModel:
         if view.get_raster_data() is None:
             return
         mouse_event = QMouseEvent(
-            QEvent.MouseButtonRelease,            # event type
-            screen_coord,           # local (widget) position
-            Qt.LeftButton,                       # which button changed state
-            Qt.MouseButtons(Qt.LeftButton),      # state of all mouse buttons
-            Qt.NoModifier                         # keyboard modifiers (e.g. Ctrl, Shift)
+            QEvent.MouseButtonRelease,
+            screen_coord,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
         )
         viewport = view._image_widget
         QApplication.postEvent(viewport, mouse_event)
@@ -1206,11 +1206,11 @@ class WiserTestModel:
             return
         pos = QPointF(screen_coord.x(), screen_coord.y())
         mouse_event = QMouseEvent(
-            QEvent.MouseButtonRelease,            # event type
-            pos,           # local (widget) position
-            Qt.LeftButton,                       # which button changed state
-            Qt.MouseButtons(Qt.LeftButton),      # state of all mouse buttons
-            Qt.NoModifier                         # keyboard modifiers (e.g. Ctrl, Shift)
+            QEvent.MouseButtonRelease,
+            pos,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
         )
         viewport = view._image_widget
         # We post an event here so we can use a QPointF to get the 
@@ -1263,7 +1263,6 @@ class WiserTestModel:
         ledit = self.main_window._geo_ref_dialog._ui.ledit_lat_north
         QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
         QTest.keyClick(ledit, Qt.Key_Delete)
-        # 3. “Type” the new value, one keystroke at a time
         QTest.keyClicks(ledit, str(value))
 
     @run_in_wiser_decorator
@@ -1275,7 +1274,6 @@ class WiserTestModel:
         ledit = self.main_window._geo_ref_dialog._ui.ledit_lon_east
         QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
         QTest.keyClick(ledit, Qt.Key_Delete)
-        # 3. “Type” the new value, one keystroke at a time
         QTest.keyClicks(ledit, str(value))
 
     @run_in_wiser_decorator
@@ -1305,7 +1303,6 @@ class WiserTestModel:
             chk
         )
 
-        # click at the center of that little square
         click_point = indicator_rect.center()
         QTest.mouseClick(chk, Qt.LeftButton, Qt.NoModifier, click_point)
 
