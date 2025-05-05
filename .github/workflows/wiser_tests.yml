@@ -16,15 +16,6 @@ jobs:
             - name: Check github workspace
               run: echo ${{ github.workspace }}
 
-            - name: List github workspace src
-              run: ls ${{ github.workspace }}/src
-
-            - name: List github workspace src/test_utils
-              run: ls ${{ github.workspace }}/src/test_utils
-
-            - name: List github workspace src/test_utils/test_datasets
-              run: ls ${{ github.workspace }}/src/test_utils/test_datasets
-
             - name: Pull docker image
               run: docker pull jgarciak/wiser-env:0.1.15
 
