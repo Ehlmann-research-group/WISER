@@ -28,7 +28,7 @@ jobs:
             - name: Pull docker image
               run: docker pull jgarciak/wiser-env:0.1.14
 
-            - name: Run tests in container
+            - name: Run tests in the container
               run: |
                 docker run --rm \
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
