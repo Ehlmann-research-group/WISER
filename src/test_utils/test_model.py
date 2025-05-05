@@ -21,6 +21,7 @@ from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import TiledRasterView
 from wiser.gui.spectrum_plot import SpectrumPointDisplayInfo
 from wiser.gui.stretch_builder import ChannelStretchWidget
+from wiser.gui.geo_reference_dialog import GeoReferencerDialog, COLUMN_ID, TRANSFORM_TYPES
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
@@ -28,6 +29,7 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import ListSpectralLibrary
 
 from .test_event_loop_functions import FunctionEvent
+from .test_function_decorator import run_in_wiser_decorator
 
 class LoggingApplication(QApplication):
     def notify(self, receiver, event):
@@ -162,7 +164,8 @@ class WiserTestModel:
         '''
         library = ListSpectralLibrary(spectra, path=path)
         self.app_state.add_spectral_library(library)
-    
+
+
     #==========================================
     # region Spectrum Plot
     #==========================================
@@ -830,11 +833,15 @@ class WiserTestModel:
 
 
     #==========================================
-    # region Stretch Builder state retrieval and setting
+    # region Stretch Builder
     #==========================================
 
 
+    #==========================================
     # region State retrieval
+    #==========================================
+
+
     def get_stretch_builder(self, rv_pos: Tuple[int, int] = (0,0)):
         '''
         Returns the stretch builder for main view. Even when the main view is in grid view,
@@ -1030,10 +1037,285 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
+    
+    #==========================================
+    # region Geo-Referencer 
+    #==========================================
+
+
+    #==========================================
+    # Region State Getting
+    #==========================================
+    
+    @run_in_wiser_decorator
+    def open_geo_referencer(self):
+        self.main_window.show_geo_reference_dialog(in_test_mode=True)
+
+    def close_geo_referencer(self):
+        def func():
+            self.main_window._geo_ref_dialog.close()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+
+    # region State Setting
+
+
+    @run_in_wiser_decorator
+    def set_geo_ref_target_dataset(self, dataset_id: Optional[int]) -> None:
+        """
+        Set the target dataset by its ID. If `dataset_id` is None, select “(no data)”.
+        """
+        cbox = self.main_window._geo_ref_dialog._target_cbox
+        # find matching ID or fallback to -1
+        idx = next((i for i in range(cbox.count()) if cbox.itemData(i) == dataset_id), None)
+        if idx is None:
+            idx = next(i for i in range(cbox.count()) if cbox.itemData(i) == -1)
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    @run_in_wiser_decorator
+    def set_geo_ref_reference_dataset(self, dataset_id: Optional[int]) -> None:
+        """
+        Set the reference dataset by its ID. If `dataset_id` is None, select “(no data)”.
+        """
+        cbox = self.main_window._geo_ref_dialog._reference_cbox
+        if dataset_id is None:
+            idx = next(i for i in range(cbox.count()) if cbox.itemData(i) == -1)
+        else:
+            idx = next((i for i in range(cbox.count()) if cbox.itemData(i) == dataset_id), None)
+            if idx is None:
+                raise ValueError(f"No reference dataset with ID {dataset_id}")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    # ---------- processing parameters ---------
+
+    @run_in_wiser_decorator
+    def set_interpolation_type(self, gdal_alg_name: str) -> None:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_interpolation
+        for i in range(cbox.count()):
+            if cbox.itemText(i) == gdal_alg_name:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                break
+
+    @run_in_wiser_decorator
+    def set_output_crs(self, authority: str, code: int) -> None:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_srs
+        wanted_data = (authority, code)
+        for i in range(cbox.count()):
+            if cbox.itemData(i) == wanted_data:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                break
+
+    @run_in_wiser_decorator
+    def set_polynomial_order(self, order: str) -> None:
+        """
+        Accepts "1", "2", "3", or "TPS" and sets the matching transform:
+          "1"   → Affine (Polynomial 1)
+          "2"   → Polynomial 2
+          "3"   → Polynomial 3
+          "TPS" → Thin Plate Spline (TPS)
+        """
+        mapping = {
+            "1":   TRANSFORM_TYPES.POLY_1.value,
+            "2":   TRANSFORM_TYPES.POLY_2.value,
+            "3":   TRANSFORM_TYPES.POLY_3.value,
+            "TPS": TRANSFORM_TYPES.TPS.value,
+        }
+        label = mapping.get(order)
+        if label is None:
+            raise ValueError(f"Invalid transform order '{order}'")
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_poly_order
+        idx = cbox.findText(label)
+        if idx < 0:
+            raise RuntimeError(f"Transform combo missing '{label}'")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    @run_in_wiser_decorator
+    def set_file_save_path(self, path: str) -> None:
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_save_path
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        QTest.keyClicks(ledit, path)
+        self.main_window._geo_ref_dialog._georeference()
+
+    @run_in_wiser_decorator
+    def click_run_warp(self) -> None:
+        btn = self.main_window._geo_ref_dialog._ui.btn_run_warp
+        QTest.mouseClick(btn, Qt.LeftButton)
+
+    # ---------- GCP creation helpers ----------
+
+    def get_geo_ref_delegate(self):
+        return self.main_window._geo_ref_dialog._georeferencer_task_delegate
+
+    @run_in_wiser_decorator
+    def click_target_image(self, raster_xy: tuple[int, int]) -> None:
+        view = self.main_window._geo_ref_dialog._target_rasterpane.get_rasterview()
+        raster_xy_point = QPointF(raster_xy[0], raster_xy[1])
+        screen_coord = view.raster_coord_to_image_coord_precise(raster_xy_point)
+        viewport = view._image_widget
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,
+            screen_coord,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
+        )
+        viewport = view._image_widget
+        QApplication.postEvent(viewport, mouse_event)
+
+    @run_in_wiser_decorator
+    def press_enter_target_image(self) -> None:
+        view = self.main_window._geo_ref_dialog._target_rasterpane.get_rasterview()
+        viewport = view._image_widget
+        QTest.keyClick(viewport, Qt.Key_Return)
+
+    @run_in_wiser_decorator
+    def click_reference_image(self, raster_xy: tuple[int, int]) -> None:
+        view = self.main_window._geo_ref_dialog._reference_rasterpane.get_rasterview()
+        raster_xy_point = QPointF(raster_xy[0], raster_xy[1])
+        screen_coord = view.raster_coord_to_image_coord_precise(raster_xy_point)
+        if view.get_raster_data() is None:
+            return
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,
+            screen_coord,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
+        )
+        viewport = view._image_widget
+        QApplication.postEvent(viewport, mouse_event)
+
+    @run_in_wiser_decorator
+    def click_reference_image_spatially(self, spatial_xy: tuple[int, int]) -> None:
+        view = self.main_window._geo_ref_dialog._reference_rasterpane.get_rasterview()
+        ds = view.get_raster_data()
+        raster_xy = ds.geo_to_pixel_coords_exact(spatial_xy)
+        raster_xy_point = QPointF(raster_xy[0], raster_xy[1])
+        screen_coord = view.raster_coord_to_image_coord_precise(raster_xy_point)
+        if view.get_raster_data() is None:
+            return
+        pos = QPointF(screen_coord.x(), screen_coord.y())
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,
+            pos,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
+        )
+        viewport = view._image_widget
+        # We post an event here so we can use a QPointF to get the 
+        # exact place we want to click on the screen
+        QApplication.postEvent(viewport, mouse_event)
+
+    @run_in_wiser_decorator
+    def press_enter_reference_image(self) -> None:
+        """
+        Simulate pressing Enter while the reference pane has focus.
+        """
+        view = self.main_window._geo_ref_dialog._reference_rasterpane.get_rasterview()
+        viewport = view._image_widget
+        QTest.keyClick(viewport, Qt.Key_Return)
+
+    # ---------- manual-entry reference CRS ----------
+
+    @run_in_wiser_decorator
+    def select_manual_authority(self, authority_name: str) -> None:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_authority
+        idx = cbox.findText(authority_name)
+        if idx >= 0:
+            cbox.setCurrentIndex(idx)
+
+    @run_in_wiser_decorator
+    def enter_manual_authority_code(self, code: int) -> None:
+        le = self.main_window._geo_ref_dialog._ui.ledit_srs_code
+        le.setText(str(code))
+
+    @run_in_wiser_decorator
+    def click_find_crs(self) -> None:
+        btn = self.main_window._geo_ref_dialog._ui.btn_find_crs
+        QTest.mouseClick(btn, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def choose_manual_crs_geo_ref(self, authority: str, code: int) -> bool:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_choose_crs
+        wanted = (authority, code)
+        for i in range(cbox.count()):
+            if cbox.itemData(i) == wanted:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                return True
+        return False
+
+    # ---------- manual reference point ----------
+
+    @run_in_wiser_decorator
+    def enter_lat_north_geo_ref(self, value: float) -> None:
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_lat_north
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        QTest.keyClicks(ledit, str(value))
+
+    @run_in_wiser_decorator
+    def press_enter_lat_north_geo_ref(self) -> None:
+        QTest.keyClick(self.main_window._geo_ref_dialog._ui.ledit_lat_north, Qt.Key_Return)
+
+    @run_in_wiser_decorator
+    def enter_lon_east_geo_ref(self, value: float) -> None:
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_lon_east
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        QTest.keyClicks(ledit, str(value))
+
+    @run_in_wiser_decorator
+    def press_enter_lon_east_geo_ref(self) -> None:
+        QTest.keyClick(self.main_window._geo_ref_dialog._ui.ledit_lon_east, Qt.Key_Return)
+
+    # ---------- table-editing utilities ----------
+
+    @run_in_wiser_decorator
+    def get_geo_ref_table_item(self, row: int, col: int):
+        return self.main_window._geo_ref_dialog._ui.table_gcps.item(row, col)
+    @run_in_wiser_decorator
+    def change_geo_red_table_value(self, row: int, new_val: float, col_id: COLUMN_ID) -> None:
+        self.get_geo_ref_table_item(row, col_id).setText(str(new_val))
+
+    @run_in_wiser_decorator
+    def click_gcp_enable_btn_geo_ref(self, row: int) -> None:
+        chk: QCheckBox = self.main_window._geo_ref_dialog._ui.table_gcps.cellWidget(
+            row, COLUMN_ID.ENABLED_COL)
+        
+        # use QStyle to get the rectangle of the actual indicator sub-control
+        opt = QStyleOptionButton()
+        opt.initFrom(chk)
+        indicator_rect = chk.style().subElementRect(
+            QStyle.SE_CheckBoxIndicator,
+            opt,
+            chk
+        )
+
+        click_point = indicator_rect.center()
+        QTest.mouseClick(chk, Qt.LeftButton, Qt.NoModifier, click_point)
+
+    @run_in_wiser_decorator
+    def remove_gcp_geo_ref(self, row: int) -> None:
+        btn: QPushButton = self.main_window._geo_ref_dialog._ui.table_gcps.cellWidget(
+            row, COLUMN_ID.REMOVAL_COL)
+        QTest.mouseClick(btn, Qt.LeftButton)
+
     #==========================================
     # region Bandmath 
     #==========================================
-    
+
     # TODO (Joshua G-K): Write the way to interface with bandmath
 
     #==========================================

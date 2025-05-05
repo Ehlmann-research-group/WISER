@@ -720,7 +720,7 @@ class RasterPane(QWidget):
             done = self._task_delegate.on_mouse_move(mouse_event)
             self._update_delegate(done)
 
-    def _onRasterMouseRelease(self, rasterview, mouse_event):
+    def _onRasterMouseRelease(self, rasterview: 'RasterView', mouse_event):
         '''
         When the display image is clicked on, this method gets invoked, and it
         translates the click event's coordinates into the location on the
@@ -1328,7 +1328,8 @@ class RasterPane(QWidget):
         dataset.  Also, if any rasterviews are showing the dataset, the function
         switches them to a different dataset (if more than one is loaded).
         '''
-        del self._display_bands[ds_id]
+        if ds_id in self._display_bands:
+            del self._display_bands[ds_id]
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 

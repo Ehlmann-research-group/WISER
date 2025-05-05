@@ -60,6 +60,12 @@ class GeoReferencerPane(RasterPane, PointSelector):
             # For the geo referencer, the change shouldn't be global
             self.set_display_bands(dataset.get_id(), bands, colormap=colormap)
 
+    def _on_dataset_added(self, ds_id):
+        '''
+        We don't want to do anything here
+        '''
+        return
+
     def _onRasterMousePress(self, rasterview, mouse_event):
         self._task_delegate.on_mouse_press(mouse_event)
         self.update_all_rasterviews()

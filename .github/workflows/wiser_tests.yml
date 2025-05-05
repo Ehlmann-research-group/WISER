@@ -25,17 +25,11 @@ jobs:
             - name: List github workspace src/test_utils/test_datasets
               run: ls ${{ github.workspace }}/src/test_utils/test_datasets
 
-            - name: List readability
-              run: |
-                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/envi.hdr
-                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/gtiff.tiff
-                ls -l ${{ github.workspace }}/src/test_utils/test_datasets/netcdf.nc
-
             - name: Pull docker image
-              run: docker pull jgarciak/wiser-env:0.1.13
+              run: docker pull jgarciak/wiser-env:0.1.15
 
-            - name: Run tests in container
+            - name: Run tests in the container
               run: |
                 docker run --rm \
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
-                jgarciak/wiser-env:0.1.13
+                jgarciak/wiser-env:0.1.15

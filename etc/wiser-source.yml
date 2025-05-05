@@ -25,4 +25,5 @@ dependencies:
   - cfitsio
   - zlib
   - pyside2
+  - pyproj
 prefix: C:\Users\jgarc\anaconda3\envs\wiser-source
