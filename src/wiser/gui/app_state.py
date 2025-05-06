@@ -4,6 +4,7 @@ import warnings
 from typing import Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
+from PySide2.QtWidgets import QMessageBox
 
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color
@@ -138,6 +139,10 @@ class ApplicationState(QObject):
             config = ApplicationConfig()
 
         self._config: ApplicationConfig = config
+
+        # A dictionary holding the CRSs that the user has created.
+        # The key is the CRS name.
+        self._user_created_crs: Dict[str, osr.SpatialReference] = {}
 
 
     def _take_next_id(self) -> int:
@@ -720,3 +725,21 @@ class ApplicationState(QObject):
 
         self._collected_spectra.clear()
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)
+
+    def get_user_created_crs(self):
+        return self._user_created_crs
+    
+    def add_user_created_crs(self, name: str, crs: osr.SpatialReference):
+        if name in self._user_created_crs:
+            # Ask the user whether to overwrite the existing CRS
+            reply = QMessageBox.question(
+                self,
+                "CRS Already Exists",
+                f"A CRS named “{name}” already exists. Overwrite it?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                self._user_created_crs[name] = crs
+        else:
+            self._user_created_crs[name] = crs
