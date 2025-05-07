@@ -255,7 +255,7 @@ class GeoReferencerDialog(QDialog):
         self._update_dataset_choosers()
         self._init_rasterpanes()
         self._init_gcp_table()
-        self._init_output_srs_cbox()
+        self._init_output_crs_finder()
         self._init_interpolation_type_cbox()
         self._init_poly_order_cbox()
         self._init_file_saver()
@@ -368,11 +368,50 @@ class GeoReferencerDialog(QDialog):
     def _init_file_saver(self):
         self._ui.btn_save_path.clicked.connect(self._on_choose_save_filename)
 
-    def _init_output_srs_cbox(self):
-        """Initialize the spatial reference combo box for the output crs"""
+    def _init_output_crs_finder(self):
+        """
+        Initialize the spatial reference combo box for the output crs
+        """
+        # Initialize the authority chooser
+        authority_cbox = self._ui.cbox_output_authority
+        authority_cbox.clear()
+        for auth in AVAILABLE_AUTHORITIES:
+            authority_cbox.addItem(auth, auth)
+
         srs_cbox = self._ui.cbox_srs
         srs_cbox.activated.connect(self._on_switch_output_srs)
         self._update_output_srs_cbox_items()
+
+        # Initialize the code enter QLineEdit
+        srs_code_ledit = self._ui.ledit_output_code
+
+        int_validator = QIntValidator(1, 2147483647, self)
+
+        srs_code_ledit.setValidator(int_validator)
+
+        # initialize the find button
+        find_crs_btn = self._ui.btn_find_output_crs
+        find_crs_btn.clicked.connect(self._on_find_output_crs)
+
+    def _on_find_output_crs(self):
+        authority_str = self._ui.cbox_output_authority.currentText()
+        authority_code = self._ui.ledit_output_code.text()
+        # Build the SRS from "AUTHORITY:CODE"
+        srs = osr.SpatialReference()
+        err = srs.SetFromUserInput(f"{authority_str}:{authority_code}")
+        if err != 0:
+            QMessageBox.warning(
+                self,
+                "CRS Lookup Failed",
+                f"Could not find spatial reference for {authority_str}:{authority_code}"
+            )
+            return
+
+        # Get the human-readable name of the SRS
+        srs_name = srs.GetName()
+
+        self._add_srs_to_output_cbox(srs_name, authority_str, float(authority_code))
+
 
     def _update_output_srs_cbox_items(self):
         srs_cbox = self._ui.cbox_srs
@@ -727,7 +766,7 @@ class GeoReferencerDialog(QDialog):
         except:
             pass
         self._reference_rasterpane.show_dataset(dataset)
-        self._init_output_srs_cbox()
+        self._update_output_srs_cbox_items()
         self._update_manual_ref_chooser_display(dataset)
         self._prev_ref_dataset_index = self._reference_cbox.currentIndex()
 
@@ -1066,6 +1105,29 @@ class GeoReferencerDialog(QDialog):
     def set_message_text(self, text: str):
         self._ui.lbl_message.setText(text)
 
+    
+    def _add_srs_to_output_cbox(self, srs_name: str, authority_name: str, authority_code: int):
+        '''
+        Adds the coordinate reference system that the user found to the choose combo box
+        '''
+        crs_choose_cbox = self._ui.cbox_srs
+        authority_crs = AuthorityCodeCRS(authority_name, authority_code)
+        osr_crs = authority_crs.get_osr_crs()
+        # Check for existing entry
+        for idx in range(crs_choose_cbox.count()):
+            data: GeneralCRS = crs_choose_cbox.itemData(idx)
+            if data.get_osr_crs().IsSame(osr_crs):
+                QMessageBox.information(
+                    self,
+                    "CRS Already Added",
+                    f"The CRS {authority_name}:{authority_code} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
+                )
+                return
+
+        # If not found, add as new entry
+        crs_choose_cbox.addItem(srs_name, AuthorityCodeCRS(authority_name, authority_code))
+        crs_choose_cbox.setCurrentIndex(crs_choose_cbox.count()-1)
+
     def _add_srs_to_ref_choose_cbox(self, srs_name: str, authority_name: str, authority_code: int):
         '''
         Adds the coordinate reference system that the user found to the choose combo box
@@ -1076,18 +1138,6 @@ class GeoReferencerDialog(QDialog):
         # Check for existing entry
         for idx in range(crs_choose_cbox.count()):
             data: GeneralCRS = crs_choose_cbox.itemData(idx)
-            # data is expected to be a (authority_name, authority_code) tuple
-            # if isinstance(data, tuple) and len(data) == 2:
-            #     existing_auth, existing_code = data
-            #     if existing_auth == authority_name and existing_code == authority_code:
-            #         QMessageBox.information(
-            #             self,
-            #             "CRS Already Added",
-            #             f"The CRS {authority_name}:{authority_code} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
-            #         )
-            #         return
-            # else:
-            #     raise ValueError("CRS data is not a 2-Tuple in Choose CRS ComboBox!")
             if data.get_osr_crs().IsSame(osr_crs):
                 QMessageBox.information(
                     self,
