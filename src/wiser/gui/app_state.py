@@ -733,11 +733,9 @@ class ApplicationState(QObject):
         if name in self._user_created_crs:
             # Ask the user whether to overwrite the existing CRS
             reply = QMessageBox.question(
-                self,
-                "CRS Already Exists",
-                f"A CRS named “{name}” already exists. Overwrite it?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                None,
+                self.tr("CRS Already Exists"),
+                self.tr(f"A CRS named “{name}” already exists. Overwrite it?")
             )
             if reply == QMessageBox.Yes:
                 self._user_created_crs[name] = crs

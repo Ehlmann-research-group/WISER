@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>323</width>
+    <width>308</width>
     <height>366</height>
    </rect>
   </property>
@@ -26,7 +26,24 @@
    </item>
    <item row="0" column="0">
     <layout class="QGridLayout" name="gridLayout">
-     <item row="12" column="0">
+     <item row="9" column="1">
+      <widget class="QLineEdit" name="ledit_lat_value"/>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="lbl_prime_meridian">
+       <property name="text">
+        <string>Prime Meridian</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="lbl_user_crs">
+       <property name="text">
+        <string>Starting CRS</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0">
       <widget class="QLabel" name="lbl_crs_name">
        <property name="maximumSize">
         <size>
@@ -52,8 +69,11 @@
        </property>
       </widget>
      </item>
-     <item row="10" column="0">
-      <widget class="QLabel" name="lbl_center_lat">
+     <item row="9" column="0">
+      <widget class="QComboBox" name="cbox_lat_chooser"/>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="lbl_params">
        <property name="maximumSize">
         <size>
          <width>16777215</width>
@@ -61,9 +81,22 @@
         </size>
        </property>
        <property name="text">
-        <string>Center Latitude</string>
+        <string>Parameters</string>
        </property>
       </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="lbl_center_lon">
+       <property name="text">
+        <string>Center Longitude</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="1">
+      <widget class="QLineEdit" name="ledit_prime_meridian"/>
+     </item>
+     <item row="10" column="1">
+      <widget class="QLineEdit" name="ledit_crs_name"/>
      </item>
      <item row="1" column="1">
       <layout class="QVBoxLayout" name="vlayout_proj_type">
@@ -99,20 +132,6 @@
        </item>
       </layout>
      </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="lbl_center_lon">
-       <property name="text">
-        <string>Center Longitude</string>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="0">
-      <widget class="QLabel" name="lbl_true_scale_lat">
-       <property name="text">
-        <string>True Scale Lat</string>
-       </property>
-      </widget>
-     </item>
      <item row="1" column="0">
       <widget class="QLabel" name="lbl_proj_type">
        <property name="maximumSize">
@@ -125,6 +144,19 @@
         <string>Projection Type</string>
        </property>
       </widget>
+     </item>
+     <item row="2" column="1">
+      <layout class="QVBoxLayout" name="vlayout_shape">
+       <item>
+        <widget class="QComboBox" name="cbox_shape"/>
+       </item>
+      </layout>
+     </item>
+     <item row="0" column="1">
+      <widget class="QComboBox" name="cbox_user_crs"/>
+     </item>
+     <item row="8" column="1">
+      <widget class="QLineEdit" name="ledit_center_long"/>
      </item>
      <item row="4" column="1">
       <layout class="QGridLayout" name="grid_axis_choosing">
@@ -145,74 +177,6 @@
         <widget class="QLineEdit" name="ledit_flat_minor"/>
        </item>
       </layout>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="lbl_user_crs">
-       <property name="text">
-        <string>Starting CRS</string>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="1">
-      <widget class="QLineEdit" name="ledit_true_scale_lat"/>
-     </item>
-     <item row="2" column="1">
-      <layout class="QVBoxLayout" name="vlayout_shape">
-       <item>
-        <widget class="QComboBox" name="cbox_shape"/>
-       </item>
-      </layout>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="lbl_prime_meridian">
-       <property name="text">
-        <string>Prime Meridian</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="lbl_params">
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>20</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Parameters</string>
-       </property>
-      </widget>
-     </item>
-     <item row="10" column="1">
-      <widget class="QLineEdit" name="ledit_center_lat"/>
-     </item>
-     <item row="6" column="1">
-      <widget class="QLineEdit" name="ledit_prime_meridian"/>
-     </item>
-     <item row="12" column="1">
-      <widget class="QLineEdit" name="ledit_crs_name"/>
-     </item>
-     <item row="0" column="1">
-      <widget class="QComboBox" name="cbox_user_crs"/>
-     </item>
-     <item row="9" column="1">
-      <widget class="QLineEdit" name="ledit_center_long"/>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="lbl_equator">
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>20</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Equator</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="1">
-      <widget class="QLineEdit" name="ledit_equator"/>
      </item>
     </layout>
    </item>

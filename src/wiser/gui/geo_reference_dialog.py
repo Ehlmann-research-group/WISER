@@ -27,6 +27,8 @@ from osgeo import gdal, osr, gdal_array
 
 import numpy as np
 
+from abc import ABC
+
 from pyproj import CRS
 from pyproj.database import get_authorities
 
@@ -63,10 +65,43 @@ min_points_per_transform = {
     TRANSFORM_TYPES.TPS: 10,
 }
 
+class GeneralCRS(ABC):
+    def get_osr_crs(self) -> Optional[osr.SpatialReference]:
+        '''
+        Gets a osr.SpatialReference object for this class
+        '''
+        pass
+class AuthorityCodeCRS(GeneralCRS):
+
+    def __init__(self, authority_name: str, authority_code: int):
+        self.authority_name = authority_name
+        self.authority_code = authority_code
+    
+    def get_osr_crs(self) -> Optional[osr.SpatialReference]:
+        # Build the AUTH:CODE string
+        auth_code_str = f"{self.authority_name}:{self.authority_code}"
+
+        # Create and populate the SpatialReference
+        srs = osr.SpatialReference()
+        err = srs.SetFromUserInput(auth_code_str)
+        if err != 0:
+            raise RuntimeError(f"Failed to import CRS '{auth_code_str}' (GDAL error {err})")
+
+        return srs
+
+class UserGeneratedCRS(GeneralCRS):
+    def __init__(self, name: str, crs: osr.SpatialReference):
+        self._name = name
+        self._crs = crs
+
+    def get_osr_crs(self) -> Optional[osr.SpatialReference]:
+        return self._crs
+
+
 COMMON_SRS = {
-    "WGS84 EPSG:4326": ('EPSG', 4326),
-    "Web Mercator EPSG:3857": ('EPSG', 3857),
-    "NAD83 / UTM zone 15N EPSG:26915": ('EPSG', 26915)
+    "WGS84 EPSG:4326": AuthorityCodeCRS('EPSG', 4326),
+    "Web Mercator EPSG:3857": AuthorityCodeCRS('EPSG', 3857),
+    "NAD83 / UTM zone 15N EPSG:26915": AuthorityCodeCRS('EPSG', 26915)
 }
 
 class GeoRefTableEntry:
@@ -183,7 +218,7 @@ class GeoReferencerDialog(QDialog):
 
         self._table_entry_list: List[GeoRefTableEntry] = []
 
-        self._curr_output_srs: str = None
+        self._curr_output_srs: GeneralCRS = None
         self._curr_resample_alg = None
         self._curr_transform_type: TRANSFORM_TYPES = None
 
@@ -232,6 +267,8 @@ class GeoReferencerDialog(QDialog):
 
     def _refresh_init(self):
         self._update_dataset_choosers()
+        self._update_ref_crs_cbox_items()
+        self._update_output_srs_cbox_items()
 
     def _init_warp_button(self):
         warp_btn = self._ui.btn_run_warp
@@ -252,25 +289,41 @@ class GeoReferencerDialog(QDialog):
         lon_east_ledit.returnPressed.connect(self._on_ref_manual_ledit_enter)
 
     def _init_manual_ref_crs_finder(self):
+        # Initialize the authority chooser
         authority_cbox = self._ui.cbox_authority
         authority_cbox.clear()
         for auth in AVAILABLE_AUTHORITIES:
             authority_cbox.addItem(auth, auth)
 
+        # Initialize the code enter QLineEdit
         srs_code_ledit = self._ui.ledit_srs_code
 
         int_validator = QIntValidator(1, 2147483647, self)
 
         srs_code_ledit.setValidator(int_validator)
 
+        # Initialize the choosable CRSs
         srs_to_choose_cbox = self._ui.cbox_choose_crs
         for name, srs in COMMON_SRS.items():
             srs_to_choose_cbox.addItem(name, srs)
-        
+
+        for name, srs in self._app_state.get_user_created_crs().items():
+            srs_to_choose_cbox.addItem(name, UserGeneratedCRS(name, srs))
+
         srs_to_choose_cbox.activated.connect(self._on_switch_chosen_ref_srs)
 
+        # initialize the find button
         find_crs_btn = self._ui.btn_find_crs
         find_crs_btn.clicked.connect(self._on_find_crs)
+
+    def _update_ref_crs_cbox_items(self):
+        srs_to_choose_cbox = self._ui.cbox_choose_crs
+        srs_to_choose_cbox.clear()
+        for name, srs in COMMON_SRS.items():
+            srs_to_choose_cbox.addItem(name, srs)
+
+        for name, srs in self._app_state.get_user_created_crs().items():
+            srs_to_choose_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
     def _add_manual_spacer_once(self):
         layout = self._ui.vlayout_reference
@@ -316,9 +369,13 @@ class GeoReferencerDialog(QDialog):
         self._ui.btn_save_path.clicked.connect(self._on_choose_save_filename)
 
     def _init_output_srs_cbox(self):
-        """Initialize the spatial reference combo box."""
+        """Initialize the spatial reference combo box for the output crs"""
         srs_cbox = self._ui.cbox_srs
         srs_cbox.activated.connect(self._on_switch_output_srs)
+        self._update_output_srs_cbox_items()
+
+    def _update_output_srs_cbox_items(self):
+        srs_cbox = self._ui.cbox_srs
         srs_cbox.clear()
         # Use the friendly key (e.g., "WGS84") as the display text,
         # and store the corresponding SRS string (e.g., "EPSG:4326") as userData.
@@ -332,13 +389,16 @@ class GeoReferencerDialog(QDialog):
                 crs = CRS.from_wkt(ref_srs.ExportToWkt())
                 if crs is not None:
                     auth_name, auth_code = crs.to_authority()
-                    srs_cbox.addItem(reference_srs_name, (auth_name, int(auth_code)))
+                    srs_cbox.addItem(reference_srs_name, AuthorityCodeCRS(auth_name, int(auth_code)))
             else:
-                srs_cbox.addItem(reference_srs_name, (ref_ds.get_spatial_ref().GetAuthorityName(None), \
-                                                      reference_srs_code))
+                srs_cbox.addItem(reference_srs_name, AuthorityCodeCRS(ref_ds.get_spatial_ref().GetAuthorityName(None), \
+                                                      int(reference_srs_code)))
 
         for name, srs in COMMON_SRS.items():
             srs_cbox.addItem(name, srs)
+        
+        for name, srs in self._app_state.get_user_created_crs().items():
+            srs_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
         self._on_switch_output_srs(srs_cbox.currentIndex())
 
@@ -465,7 +525,7 @@ class GeoReferencerDialog(QDialog):
         # Get the human-readable name of the SRS
         srs_name = srs.GetName()
 
-        self._add_srs_to_choose_cbox(srs_name, authority_str, float(authority_code))
+        self._add_srs_to_ref_choose_cbox(srs_name, authority_str, float(authority_code))
 
 
     def _on_cell_changed(self, row: int, col: int):
@@ -1006,29 +1066,38 @@ class GeoReferencerDialog(QDialog):
     def set_message_text(self, text: str):
         self._ui.lbl_message.setText(text)
 
-    def _add_srs_to_choose_cbox(self, srs_name: str, authority_name: str, authority_code: int):
+    def _add_srs_to_ref_choose_cbox(self, srs_name: str, authority_name: str, authority_code: int):
         '''
         Adds the coordinate reference system that the user found to the choose combo box
         '''
         crs_choose_cbox = self._ui.cbox_choose_crs
-
+        authority_crs = AuthorityCodeCRS(authority_name, authority_code)
+        osr_crs = authority_crs.get_osr_crs()
         # Check for existing entry
         for idx in range(crs_choose_cbox.count()):
-            data = crs_choose_cbox.itemData(idx)
+            data: GeneralCRS = crs_choose_cbox.itemData(idx)
             # data is expected to be a (authority_name, authority_code) tuple
-            if isinstance(data, tuple) and len(data) == 2:
-                existing_auth, existing_code = data
-                if existing_auth == authority_name and existing_code == authority_code:
-                    QMessageBox.information(
-                        self,
-                        "CRS Already Added",
-                        f"The CRS {authority_name}:{authority_code} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
-                    )
-                    return
-            else:
-                raise ValueError("CRS data is not a 2-Tuple in Choose CRS ComboBox!")
+            # if isinstance(data, tuple) and len(data) == 2:
+            #     existing_auth, existing_code = data
+            #     if existing_auth == authority_name and existing_code == authority_code:
+            #         QMessageBox.information(
+            #             self,
+            #             "CRS Already Added",
+            #             f"The CRS {authority_name}:{authority_code} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
+            #         )
+            #         return
+            # else:
+            #     raise ValueError("CRS data is not a 2-Tuple in Choose CRS ComboBox!")
+            if data.get_osr_crs().IsSame(osr_crs):
+                QMessageBox.information(
+                    self,
+                    "CRS Already Added",
+                    f"The CRS {authority_name}:{authority_code} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
+                )
+                return
+
         # If not found, add as new entry
-        crs_choose_cbox.addItem(srs_name, (authority_name, authority_code))
+        crs_choose_cbox.addItem(srs_name, AuthorityCodeCRS(authority_name, authority_code))
         crs_choose_cbox.setCurrentIndex(crs_choose_cbox.count()-1)
 
     def _get_manual_ref_chosen_crs(self) -> osr.SpatialReference:
@@ -1036,18 +1105,19 @@ class GeoReferencerDialog(QDialog):
         From the information in the manual reference combo box, create an osr.SpatialReference
         object.
         '''
-        auth_name, auth_code = self._ui.cbox_choose_crs.currentData()
+        return self._ui.cbox_choose_crs.currentData().get_osr_crs()
+        # auth_name, auth_code = self._ui.cbox_choose_crs.currentData()
 
-        # Build the AUTH:CODE string
-        auth_code_str = f"{auth_name}:{auth_code}"
+        # # Build the AUTH:CODE string
+        # auth_code_str = f"{auth_name}:{auth_code}"
 
-        # Create and populate the SpatialReference
-        srs = osr.SpatialReference()
-        err = srs.SetFromUserInput(auth_code_str)
-        if err != 0:
-            raise RuntimeError(f"Failed to import CRS '{auth_code_str}' (GDAL error {err})")
+        # # Create and populate the SpatialReference
+        # srs = osr.SpatialReference()
+        # err = srs.SetFromUserInput(auth_code_str)
+        # if err != 0:
+        #     raise RuntimeError(f"Failed to import CRS '{auth_code_str}' (GDAL error {err})")
 
-        return srs
+        # return srs
 
 
     #========================
@@ -1075,18 +1145,19 @@ class GeoReferencerDialog(QDialog):
         Read self._curr_output_srs (authority_name, authority_code) and
         return a corresponding OSR SpatialReference object.
         """
-        authority_name, authority_code = self._curr_output_srs
+        self._curr_output_srs.get_osr_crs()
+        # authority_name, authority_code = self._curr_output_srs
 
-        # Build the PROJ auth:code string (e.g. "EPSG:4326", "ESRI:102100")
-        auth_code = f"{authority_name}:{authority_code}"
+        # # Build the PROJ auth:code string (e.g. "EPSG:4326", "ESRI:102100")
+        # auth_code = f"{authority_name}:{authority_code}"
 
-        # Create and populate the SpatialReference
-        srs = osr.SpatialReference()
-        err = srs.SetFromUserInput(auth_code)
-        if err != 0:
-            raise RuntimeError(f"Could not import CRS from '{auth_code}' (GDAL error code {err})")
+        # # Create and populate the SpatialReference
+        # srs = osr.SpatialReference()
+        # err = srs.SetFromUserInput(auth_code)
+        # if err != 0:
+        #     raise RuntimeError(f"Could not import CRS from '{auth_code}' (GDAL error code {err})")
 
-        return srs
+        # return srs
 
     def _get_reference_srs(self):
         '''
