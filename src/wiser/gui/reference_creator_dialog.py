@@ -640,57 +640,22 @@ class ReferenceCreatorDialog(QDialog):
 
         lon_0 = self._lon_meridian if self._lon_meridian is not None else 0.0
 
-        a = self._semi_major_value                                           # semi-major
+        a = self._semi_major_value
         if self._shape_type == ShapeTypes.SPHEROID:
-            inv_f = 0.0                                                      # sphere
-            print(f"its a spheroid!!")
+            inv_f = 0.0  # sphere
         else:
             if self._axis_ingest_type == Ellipsoid_Axis_Type.SEMI_MINOR:
-                b = self._axis_ingestion_value                               # semi‑minor
+                b = self._axis_ingestion_value
                 inv_f = a / (a - b) if a != b else 0.0
-                print(f"in else if inv: {inv_f}")
             else:  # inverse flattening entered directly
                 inv_f = self._axis_ingestion_value
-                print(f"in else if inv: {inv_f}")
-
-        gcs = osr.SpatialReference()
-        gcs.SetGeogCS(self._crs_name or "USER_GCS",
-                      "USER_DATUM",
-                      "USER_ELLIPSOID",
-                      a, inv_f,
-                      "Prime_Meridian", lon_0,
-                      "degree", 0.0174532925199433)  
-
-        # Axis order: lon/lat as in “traditional GIS” gives us consistent
-        # lon/lat ordering
-        gcs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-
-        # if self._proj_type == ProjectionTypes.NO_PROJECTION:
-        #     srs = gcs      # geographic only
-        # else:
-        #     srs = gcs.Clone()
-        #     srs.SetProjCS(self._crs_name or "USER_PCS")
-
-        #     if self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
-        #         # SetEquirectangular2​(double clat, double clong, double pseudostdparallellat, double fe, double fn)
-        #         srs.SetEquirectangular2(center_lat, center_lon, true_scale_lat, 0, 0)
-        #     elif self._proj_type == ProjectionTypes.POLAR_STEREO:
-        #         # lat_ts: true‑scale latitude (use pole if user left blank)
-        #         # lat_ts = 90.0 if lat_0 >= 0 else -90.0
-        #         # SetPS​(double clat, double clong, double scale, double fe, double fn)
-        #         srs.SetPS(center_lat, center_lat, true_scale_lat, 0, 0)
-        #     else:
-        #         raise RuntimeError("Unsupported projection choice")
 
         # Ellipsoid description for proj
-        print(f"inv_f: {inv_f}")
 
         if inv_f == 0.0:
-            print(f"Making a circle!")
             ellps_part = f"+R={a}"
         else:
             ellps_part = f"+a={a} +rf={inv_f}"
-            print(f"ellipse made: {ellps_part}")
 
         base = f"{ellps_part} +pm={self._lon_meridian} +no_defs"
 
@@ -716,19 +681,12 @@ class ReferenceCreatorDialog(QDialog):
             QMessageBox.critical(self, "Error",
                                  f"Unknown projection type: {self._proj_type}")
             return
-        print(f"proj_str: {proj_str}")
+
         pyproj_crs = pyproj.CRS.from_proj4(proj_str)
         self._new_crs = osr.SpatialReference()
         wkt = pyproj_crs.to_wkt()
-        print(f"wkt: {wkt}")
-        print(f"type: {type(wkt)}")
         self._new_crs.ImportFromWkt(pyproj_crs.to_wkt())
-
-        # If everything worked we keep the OSR object
-        # self._new_crs = srs
-        print(f"self._new_crs wkt: {self._new_crs.ExportToWkt()}")
-        print(f"self._new_crs: {self._new_crs}")
-        print(f"type self._new_crs: {type(self._new_crs)}")
+        self._new_crs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
         self._app_state.add_user_created_crs(self._crs_name, self._new_crs)
 

@@ -11,7 +11,7 @@ from osgeo import osr, gdal
 
 from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from .utils import find_band_near_wavelength, normalize_ndarray
+from .utils import find_band_near_wavelength, normalize_ndarray, can_transform_between_srs, have_spatial_overlap
 from .data_cache import DataCache
 
 from time import perf_counter
@@ -55,16 +55,21 @@ def geo_coord_to_angular_coord(geo_coord: Tuple[Number, Number], spatial_ref) ->
     return coord_xform.TransformPoint(geo_x, geo_y)
     
 def reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset: "RasterDataSet", \
-                                    target_dataset: "RasterDataSet") -> Optional[Tuple[int, int]]:
+                                    target_dataset: "RasterDataSet", link_state: GeographicLinkState = None) -> Optional[Tuple[int, int]]:
     x, y = reference_pixel
     if reference_dataset is None:
+        print(f"returning none, refer dataset is NOne")
         return 
 
     if target_dataset is None:
+        print(f"returning none, target dataset is NOne")
         return
     
-    link_state = target_dataset.determine_link_state(reference_dataset)
+    if link_state is None:
+        link_state = target_dataset.determine_link_state(reference_dataset)
+
     if link_state == GeographicLinkState.NO_LINK:
+        print(f"link state is somehow no link: {link_state}")
         return
     elif link_state == GeographicLinkState.PIXEL:
         # Pixel links mean the datasets have the same width and height
@@ -811,7 +816,11 @@ class RasterDataSet:
         ds0_srs = self.get_spatial_ref()
         
         ds_srs = dataset.get_spatial_ref()
-        if ds0_srs == None or ds_srs == None or not ds0_srs.IsSame(ds_srs):
+        can_transform = can_transform_between_srs(ds0_srs, ds_srs)
+        have_overlap = have_spatial_overlap(ds0_srs, self.get_geo_transform(), self.get_width(), \
+                                        self.get_height(), ds_srs, dataset.get_geo_transform(), \
+                                        dataset.get_width(), dataset.get_height())
+        if ds0_srs == None or ds_srs == None or not can_transform or not have_overlap:
             return GeographicLinkState.NO_LINK
         
         return GeographicLinkState.SPATIAL

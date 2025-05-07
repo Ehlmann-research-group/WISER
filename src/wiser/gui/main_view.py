@@ -551,7 +551,8 @@ class MainViewWidget(RasterPane):
             reference_pixel = (reference_point.x(), reference_point.y())
             target_pixel = reference_pixel_to_target_pixel_ds(reference_pixel, 
                                                               dataset,
-                                                              rv_dataset)
+                                                              rv_dataset,
+                                                              link_state=self._link_view_state)
             if target_pixel is None:
                 raise ValueError(f"Target pixel is none even though main view scrolling is linked!")
             target_point = QPoint(*target_pixel)

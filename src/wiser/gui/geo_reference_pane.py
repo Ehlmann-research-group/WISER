@@ -17,7 +17,7 @@ class GeoReferencerPane(RasterPane, PointSelector):
 
     def __init__(self, app_state, pane_type: PointSelectorType, parent=None):
         super().__init__(app_state=app_state, parent=parent,
-            max_zoom_scale=16, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
+            max_zoom_scale=64, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16, 24, 32],
             initial_zoom=1)
         self._pane_type = pane_type
     

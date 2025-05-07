@@ -637,9 +637,13 @@ class GeoReferencerDialog(QDialog):
         result = file_dialog.exec()
         if result == QDialog.Accepted:
             target_ds = self._get_target_dataset()
-            target_ds_filepaths = target_ds.get_filepaths()
+            target_ds_filepaths = []
+            if target_ds is not None:
+                target_ds_filepaths = target_ds.get_filepaths()
             ref_ds = self._get_ref_dataset()
-            ref_ds_filepaths = ref_ds.get_filepaths()
+            ref_ds_filepaths = []
+            if ref_ds is not None:
+                ref_ds_filepaths = ref_ds.get_filepaths()
             filename = file_dialog.selectedFiles()[0]
             if filename in target_ds_filepaths or filename in ref_ds_filepaths:
                 QMessageBox.information(self, self.tr("Wrong Save Path"), \
@@ -651,8 +655,8 @@ class GeoReferencerDialog(QDialog):
             self._georeference()
 
     def _on_switch_output_srs(self, index: int):
-        srs = self._ui.cbox_srs.itemData(index)
-        self._curr_output_srs = srs
+        # We don't record the output srs because we get this
+        # directly from the combo box.
         self._georeference()
 
     def _on_switch_chosen_ref_srs(self, index: int):
@@ -663,8 +667,6 @@ class GeoReferencerDialog(QDialog):
                                         "\n\nDo you want to discard all selected GCPs?")
                 if confirm == QMessageBox.Yes:
                     self._reset_gcps()
-                else:
-                    self._ui.cbox_choose_crs.setCurrentIndex(self._prev_chosen_ref_crs_index)
         self._prev_chosen_ref_crs_index = self._ui.cbox_choose_crs.currentIndex()
 
     def _on_switch_resample_alg(self, index: int):
@@ -730,9 +732,10 @@ class GeoReferencerDialog(QDialog):
         dataset = None
         try:
             if len(self._table_entry_list) > 0 and self._prev_target_dataset_index != index:
-                confirm = QMessageBox.question(self, self.tr("Change reference dataset?"),
-                                     self.tr("Are you sure you want to change the reference dataset?") +
-                                     "\n\nThis will discard all selected GCPs")
+                confirm = QMessageBox.question(self, self.tr("Change target dataset?"),
+                                     self.tr("Are you sure you want to change the target dataset?") +
+                                     "\n\nThis will discard all selected GCPs. Do you want\n"
+                                     "to continue?")
                 if confirm == QMessageBox.Yes:
                     self._reset_gcps()
                 else:
@@ -751,7 +754,8 @@ class GeoReferencerDialog(QDialog):
             if len(self._table_entry_list) > 0 and self._prev_ref_dataset_index != index:
                 confirm = QMessageBox.question(self, self.tr("Change reference dataset?"),
                                      self.tr("Are you sure you want to change the reference dataset?") +
-                                     "\n\nThis will discard all selected GCPs")
+                                     "\n\nThis will discard all selected GCPs. Do you want\n"
+                                     "to continue?")
                 if confirm == QMessageBox.Yes:
                     self._reset_gcps()
                 else:
@@ -1103,6 +1107,8 @@ class GeoReferencerDialog(QDialog):
         self._reference_rasterpane.update_all_rasterviews()
 
     def set_message_text(self, text: str):
+        if len(text) > 100:
+            text = text[:100] + "…"
         self._ui.lbl_message.setText(text)
 
     
@@ -1127,6 +1133,7 @@ class GeoReferencerDialog(QDialog):
         # If not found, add as new entry
         crs_choose_cbox.addItem(srs_name, AuthorityCodeCRS(authority_name, authority_code))
         crs_choose_cbox.setCurrentIndex(crs_choose_cbox.count()-1)
+        self._on_switch_output_srs(crs_choose_cbox.count()-1)
 
     def _add_srs_to_ref_choose_cbox(self, srs_name: str, authority_name: str, authority_code: int):
         '''
@@ -1195,7 +1202,8 @@ class GeoReferencerDialog(QDialog):
         Read self._curr_output_srs (authority_name, authority_code) and
         return a corresponding OSR SpatialReference object.
         """
-        self._curr_output_srs.get_osr_crs()
+        crs: GeneralCRS = self._ui.cbox_srs.currentData()
+        return crs.get_osr_crs()
         # authority_name, authority_code = self._curr_output_srs
 
         # # Build the PROJ auth:code string (e.g. "EPSG:4326", "ESRI:102100")
@@ -1281,65 +1289,84 @@ class GeoReferencerDialog(QDialog):
         try:
             tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, self._transform_options)
         except BaseException as e:
-            self.set_message_text(f"Error: {e}")
+            QMessageBox.critical(
+                self,
+                self.tr("Error!"),
+                self.tr(f"Error:\n{e}"),
+                QMessageBox.Ok
+            )
+            print(f"Error:\n{e}")
             return
 
-        # Sneak peek into the transformed dataset's geo transform so we can use them later
-        warp_options = gdal.WarpOptions(**self._warp_kwargs)
-        warp_save_path = f'/vsimem/temp_band_{0}'
-        place_holder_arr = np.zeros((1, 1), np.uint8)
-        temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
-        temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-        transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
-        transformed_gt = transformed_ds.GetGeoTransform()
+        try:
+            # Sneak peek into the transformed dataset's geo transform so we can use them later
+            warp_options = gdal.WarpOptions(**self._warp_kwargs)
+            warp_save_path = f'/vsimem/temp_band_{0}'
+            place_holder_arr = np.zeros((1, 1), np.uint8)
+            temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
+            temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+            transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
+            transformed_gt = transformed_ds.GetGeoTransform()
 
-        tr_output_srs_to_ref_srs = osr.CoordinateTransformation(output_srs, ref_srs)
+            tr_output_srs_to_ref_srs = osr.CoordinateTransformation(output_srs, ref_srs)
 
-        residuals = []
-        for entry, gcp in gcps:
-            # These coordinates could get back to us in either lat/lon, lon/lat, or north/easting, easting/north
-            ok, (output_spatial_x, output_spatial_y, z) = tr_pixel_to_output_srs.TransformPoint(False, gcp.GCPPixel, gcp.GCPLine)
+            residuals = []
+            for entry, gcp in gcps:
+                # These coordinates could get back to us in either lat/lon, lon/lat, or north/easting, easting/north
+                ok, (output_spatial_x, output_spatial_y, z) = tr_pixel_to_output_srs.TransformPoint(False, gcp.GCPPixel, gcp.GCPLine)
 
-            # Since we use OAMS_TRADITIONAL_GIS_ORDER on both reference and output CRS, we don't need
-            # to swap the spatial coordinates
-            ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_x, output_spatial_y, 0)
+                # Since we use OAMS_TRADITIONAL_GIS_ORDER on both reference and output CRS, we don't need
+                # to swap the spatial coordinates
+                ref_spatial_coord = tr_output_srs_to_ref_srs.TransformPoint(output_spatial_x, output_spatial_y, 0)
 
-            # print(f"output_spatial_x: {output_spatial_x}")
-            # print(f"output_spatial_y: {output_spatial_y}")
+                # print(f"output_spatial_x: {output_spatial_x}")
+                # print(f"output_spatial_y: {output_spatial_y}")
 
-            ref_spatial_x, ref_spatial_y = ref_spatial_coord[0], ref_spatial_coord[1]
+                ref_spatial_x, ref_spatial_y = ref_spatial_coord[0], ref_spatial_coord[1]
 
-            # print(f"reference_spatial_x: {ref_spatial_x}")
-            # print(f"reference_spatial_y: {ref_spatial_y}")
+                # print(f"reference_spatial_x: {ref_spatial_x}")
+                # print(f"reference_spatial_y: {ref_spatial_y}")
 
-            # print(f"gcp.GCPX: {gcp.GCPX}")
-            # print(f"gcp.GCPY: {gcp.GCPY}")
+                # print(f"gcp.GCPX: {gcp.GCPX}")
+                # print(f"gcp.GCPY: {gcp.GCPY}")
 
-            error_spatial_x = gcp.GCPX - ref_spatial_x
-            error_spatial_y = gcp.GCPY - ref_spatial_y
+                error_spatial_x = gcp.GCPX - ref_spatial_x
+                error_spatial_y = gcp.GCPY - ref_spatial_y
 
-            # print(f"error_spatial_x: {error_spatial_x}")
-            # print(f"error_spatial_y: {error_spatial_y}")
+                # print(f"error_spatial_x: {error_spatial_x}")
+                # print(f"error_spatial_y: {error_spatial_y}")
 
-            # print(f"transformed_gt[1]: {transformed_gt[1]}")
-            # print(f"transformed_gt[5]: {transformed_gt[5]}")
+                # print(f"transformed_gt[1]: {transformed_gt[1]}")
+                # print(f"transformed_gt[5]: {transformed_gt[5]}")
 
-            error_raster_x = error_spatial_x / transformed_gt[1]
-            error_raster_y = error_spatial_y / transformed_gt[5]
+                error_raster_x = error_spatial_x / transformed_gt[1]
+                error_raster_y = error_spatial_y / transformed_gt[5]
 
-            # print(f"error_raster_x: {error_raster_x}")
-            # print(f"error_raster_y: {error_raster_y}")
+                # print(f"error_raster_x: {error_raster_x}")
+                # print(f"error_raster_y: {error_raster_y}")
 
-            entry.set_residual_x(round(error_raster_x, 6))
-            entry.set_residual_y(round(error_raster_y, 6))
+                entry.set_residual_x(round(error_raster_x, 6))
+                entry.set_residual_y(round(error_raster_y, 6))
 
-            self._update_residuals(entry)
-        
-            residuals.append((error_raster_x, error_raster_y))
-        
-        tr_pixel_to_output_srs = None
-        tr_output_srs_to_ref_srs = None
-        temp_gdal_ds = None
+                self._update_residuals(entry)
+            
+                residuals.append((error_raster_x, error_raster_y))
+            
+            tr_pixel_to_output_srs = None
+            tr_output_srs_to_ref_srs = None
+            temp_gdal_ds = None
+        except BaseException as e:
+            QMessageBox.warning(
+                self,
+                self.tr("Error"),
+                self.tr(f"Error:\n{e}"),
+                QMessageBox.Ok
+            )
+            print(f"Error:\n{e}")
+        finally:
+            tr_pixel_to_output_srs = None
+            tr_output_srs_to_ref_srs = None
+            temp_gdal_ds = None
 
 
     #========================

@@ -386,6 +386,14 @@ def bboxes_intersect(b1, b2):
         b1[1] > b2[3]     # b1.minY > b2.maxY
     )
 
+
+def can_transform_between_srs(srs1: osr.SpatialReference, srs2: osr.SpatialReference):
+    try:
+        ct = osr.CoordinateTransformation(srs1, srs2)
+        return True
+    except BaseException as e:
+        return False
+
 def have_spatial_overlap(srs1: osr.SpatialReference, gt1: List[float],
                          w1: int, h1: int,
                          srs2: osr.SpatialReference, gt2:List[float],

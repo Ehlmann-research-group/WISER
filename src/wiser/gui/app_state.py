@@ -18,7 +18,7 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import SpectralLibrary
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.loaders.envi import EnviFileFormatError
-from wiser.raster.utils import have_spatial_overlap
+from wiser.raster.utils import have_spatial_overlap, can_transform_between_srs
 
 from wiser.raster.stretch import StretchBase
 
@@ -405,7 +405,7 @@ class ApplicationState(QObject):
         print(f"ds0_srs: {ds0_srs.GetName()}")
         for ds in displayed_datasets[1:]:
             ds_srs = ds.get_spatial_ref()
-            can_transform = self._can_transform_between_srs(ds0_srs, ds_srs)
+            can_transform = can_transform_between_srs(ds0_srs, ds_srs)
             have_overlap = have_spatial_overlap(ds0_srs, ds0.get_geo_transform(), ds0.get_width(), \
                                             ds0.get_height(), ds_srs, ds.get_geo_transform(), \
                                             ds.get_width(), ds.get_height())
@@ -413,13 +413,6 @@ class ApplicationState(QObject):
                 return False, GeographicLinkState.NO_LINK
 
         return True, GeographicLinkState.SPATIAL
-
-    def _can_transform_between_srs(self, srs1: osr.SpatialReference, srs2: osr.SpatialReference):
-        try:
-            ct = osr.CoordinateTransformation(srs1, srs2)
-            return True
-        except BaseException as e:
-            return False
 
     def multiple_displayed_datasets_same_size(self):
         '''
