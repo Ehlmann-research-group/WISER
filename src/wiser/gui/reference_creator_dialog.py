@@ -74,7 +74,6 @@ class ReferenceCreatorDialog(QDialog):
 
     def _init_user_created_crs(self):
         """
-        
         Gets the dictionary Dict[str, osr.SpatialReference] from self._app_state
         by doing self._app_state.get_user_created_crs
 

@@ -197,6 +197,7 @@ class DataVisualizerApp(QMainWindow):
 
         self._invisible_testing_widget = TestingWidget()
         self._geo_ref_dialog = None
+        self._crs_creator_dialog = None
 
     def _init_menus(self):
 
@@ -865,10 +866,15 @@ class DataVisualizerApp(QMainWindow):
         else:
             self._geo_ref_dialog.show()
 
-    def show_reference_creator_dialog(self):
-        dialog = ReferenceCreatorDialog(self._app_state)
-        if dialog.exec() == QDialog.Accepted:
-            print(f"Reference creator accepted!")
+    def show_reference_creator_dialog(self, in_test_mode = False):
+        if self._crs_creator_dialog is None:
+            self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state)
+        if not in_test_mode:
+            if self._crs_creator_dialog.exec_() == QDialog.Accepted:
+                print(f"Reference creator accepted!")
+        else:
+            self._crs_creator_dialog.show()
+
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         '''

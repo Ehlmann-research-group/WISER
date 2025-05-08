@@ -31,6 +31,8 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
 
+from wiser.gui.reference_creator_dialog import Ellipsoid_Axis_Type, Latitude_Types, ProjectionTypes, ShapeTypes
+
 class LoggingApplication(QApplication):
     def notify(self, receiver, event):
         # print(f"Processing event {event} (type: {event.type()}) on {receiver}")
@@ -1311,6 +1313,178 @@ class WiserTestModel:
         btn: QPushButton = self.main_window._geo_ref_dialog._ui.table_gcps.cellWidget(
             row, COLUMN_ID.REMOVAL_COL)
         QTest.mouseClick(btn, Qt.LeftButton)
+
+    
+    #==========================================
+    # region Reference System Creator 
+    #==========================================
+
+
+    def get_user_created_crs(self):
+        return self.main_window._app_state.get_user_created_crs()
+    
+    # All of the below functions need to run in the event loop 
+    # so use the @run_in_wiser_decorator decorator to run them in the event loop.
+    # All of the below functions should try to simulate use interaction as much as possible
+    #  You can access the referenceCreatorDialog instance by doing self.main_window._crs_creator_dialog
+
+    def open_crs_creator(self):
+        self.main_window.show_reference_creator_dialog(in_test_mode=True)
+
+    # Function to set the starting crs combo box. Should be based on the name of the starting crs.
+    # should error if there is no starting crs with that name. The name (None) should be used for the 
+    # default no starting crs option.
+    @run_in_wiser_decorator
+    def crs_creator_set_starting_crs(self, name: Optional[str]) -> None:
+        """
+        Select a “Starting CRS” entry by name (use None for the «(None)» option).
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_user_crs
+        wanted = "(None)" if name in (None, "") else str(name)
+
+        idx = cbox.findText(wanted, Qt.MatchFixedString)
+        if idx == -1:
+            raise ValueError(f"Starting CRS “{wanted}” not found in combo‑box")
+
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)          # mimic user click
+
+    # Function to set the projection type combo box. Should be done by the enumerator ProjectionTypes:
+    # class ProjectionTypes(Enum):
+    # EQUI_CYLINDRICAL = "Equidistance Cylindrical"
+    # POLAR_STEREO = "Polar Stereographic"
+    # NO_PROJECTION = "No Projection"
+    @run_in_wiser_decorator
+    def crs_creator_set_projection_type(self, proj_type: ProjectionTypes) -> None:
+        """
+        proj_type : ProjectionTypes enum
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_proj_type
+        idx = cbox.findData(proj_type)
+        if idx == -1:
+            raise ValueError(f"{proj_type} not in projection combo-box")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    # Function to set the shape of the ellipsoid in the shape combo box. Should be set using
+    # the enumerator ShapeTypes:
+    # class ShapeTypes(Enum):
+    # ELLIPSOID = "Ellipsoid"
+    # SPHEROID = "Spheroid"
+    @run_in_wiser_decorator
+    def crs_creator_set_shape_type(self, shape_type) -> None:
+        """
+        shape_type : ShapeTypes enum
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_shape
+        idx = cbox.findData(shape_type)
+        if idx == -1:
+            raise ValueError(f"{shape_type} not in shape combo-box")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    # Function to set the semi major axis value. WIll take in a float
+    @run_in_wiser_decorator
+    def crs_creator_set_semi_major(self, value: float) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_semi_major
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    # Function to set the axis_ingestion_type combo box (called cbox_flat_minor) and the axis ingestion value
+    # the axis ingestion type should be set with the numeration Ellipsoid_Axis_Type
+    # class Ellipsoid_Axis_Type(Enum):
+    # SEMI_MINOR = "Semi Minor"
+    # INVERSE_FLATTENING = "Inverse Flattening"
+    @run_in_wiser_decorator
+    def crs_creator_set_axis_ingestion(self, axis_type, value: float) -> None:
+        """
+        axis_type : Ellipsoid_Axis_Type enum
+        value     : numeric value to enter
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_flat_minor
+        idx = cbox.findData(axis_type)
+        if idx == -1:
+            raise ValueError(f"{axis_type} not in axis‑type combo‑box")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+        le = dlg._ui.ledit_flat_minor
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    # Function to set the prime meridian QLineEdit
+    @run_in_wiser_decorator
+    def crs_creator_set_prime_meridian(self, value: float) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_prime_meridian
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    # Function to set the center longitude line edit
+    @run_in_wiser_decorator
+    def crs_creator_set_center_longitude(self, value: float) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_center_long
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    # Function to set the latitude chooser (called cbox_lat_chooser) this should set it by the enum
+    # class Latitude_Types(Enum):
+    #     CENTRAL_LATITUDE = "Central Latitude"
+    #     TRUE_SCALE_LATITUDE = "True Scale Lat"
+    @run_in_wiser_decorator
+    def crs_creator_set_latitude_choice(self, lat_type) -> None:
+        """
+        lat_type : Latitude_Types enum
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_lat_chooser
+        idx = cbox.findData(lat_type)
+        if idx == -1:
+            raise ValueError(f"{lat_type} not in latitude‑choice combo‑box")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    # Function to set the center latitude line edit
+    @run_in_wiser_decorator
+    def crs_creator_set_latitude_value(self, value: float) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_lat_value
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    # Function to set the crs name line edit ledit_crs_name
+    @run_in_wiser_decorator
+    def crs_creator_set_crs_name(self, name: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_crs_name
+        le.clear()
+        QTest.keyClicks(le, name)
+        le.editingFinished.emit()
+
+    # Function to press okay or cancel.
+    @run_in_wiser_decorator
+    def crs_creator_press_okay(self, ok: bool = True) -> None:
+        """
+        ok=True  → press the OK/Save button
+        ok=False → press Cancel
+        """
+        dlg = self.main_window._crs_creator_dialog
+        bb  = dlg._ui.buttonBox          # QDialogButtonBox
+        button = bb.button(QDialogButtonBox.Ok if ok else QDialogButtonBox.Cancel)
+        if button is None:
+            raise RuntimeError("OK/Cancel buttons not found in buttonBox")
+        QTest.mouseClick(button, Qt.LeftButton)
 
     #==========================================
     # region Bandmath 
