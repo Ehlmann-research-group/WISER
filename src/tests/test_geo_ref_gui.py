@@ -73,7 +73,6 @@ class TestGeoReferencerGUI(unittest.TestCase):
         # Disables invalid point
         self.test_model.click_gcp_enable_btn_geo_ref(6)
 
-
         # Removes invalid point
         self.test_model.remove_gcp_geo_ref(7)
         
@@ -82,6 +81,8 @@ class TestGeoReferencerGUI(unittest.TestCase):
         ds_warp = self.test_model.load_dataset(rel_path)
 
         warped_transform = ds_warp.get_geo_transform()
+        print(f"warped_transform: {warped_transform}")
+        print(f"ground_truth_geo_transform: {ground_truth_geo_transform}")
         self.assertTrue(np.allclose(warped_transform, ground_truth_geo_transform))
 
     def test_manual_entry_e2e(self):
