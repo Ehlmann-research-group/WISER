@@ -1,4 +1,6 @@
 import os
+import sys
+
 from typing import List, Optional
 
 from PySide2.QtCore import *
@@ -16,16 +18,18 @@ import pyproj
 from enum import Enum
 
 ALLOWED_DECIMALS = 15
+MAX_SCALE_FACTOR = 65535
+NO_CRS_NAME = "(None)"
 
 class Units(Enum):
     METERS = ("Meters", 1)
     DEGREES = ("Degrees", 0.0174532925199433)
 
-class Ellipsoid_Axis_Type(Enum):
+class EllipsoidAxisType(Enum):
     SEMI_MINOR = "Semi Minor"
     INVERSE_FLATTENING = "Inverse Flattening"
 
-class Latitude_Types(Enum):
+class LatitudeTypes(Enum):
     CENTRAL_LATITUDE = "Central Latitude"
     TRUE_SCALE_LATITUDE = "True Scale Lat"
 
@@ -37,6 +41,75 @@ class ProjectionTypes(Enum):
 class ShapeTypes(Enum):
     ELLIPSOID = "Ellipsoid"
     SPHEROID = "Spheroid"
+
+class Sign(Enum):
+    POSITIVE = "+"
+    NEGATIVE = "-"
+
+class CrsCreatorState:
+    def __init__(
+        self,
+        lon_meridian: Optional[float] = None,
+        proj_type: Optional[ProjectionTypes] = None,
+        axis_ingest_type: Optional[EllipsoidAxisType] = EllipsoidAxisType.SEMI_MINOR,
+        axis_ingestion_value: Optional[float] = None,
+        semi_major_value: Optional[float] = None,
+        latitude_choice: Optional[LatitudeTypes] = None,
+        latitude: Optional[float] = None,
+        center_lon: Optional[float] = None,
+        polar_stereo_scale: Optional[float] = None,
+        polar_stereo_latitude_sign: Optional[str] = None,
+    ):
+        self._lon_meridian = lon_meridian
+        self._proj_type = proj_type
+        self._axis_ingest_type = axis_ingest_type
+        self._axis_ingestion_value = axis_ingestion_value
+        self._semi_major_value = semi_major_value
+        self._latitude_choice = latitude_choice
+        self._latitude = latitude
+        self._center_lon = center_lon
+        self._polar_stereo_scale = polar_stereo_scale
+        self._polar_stereo_latitude_sign = polar_stereo_latitude_sign
+
+    @property
+    def lon_meridian(self) -> Optional[float]:
+        return self._lon_meridian
+
+    @property
+    def proj_type(self) -> Optional[ProjectionTypes]:
+        return self._proj_type
+
+    @property
+    def axis_ingest_type(self) -> Optional[EllipsoidAxisType]:
+        return self._axis_ingest_type
+
+    @property
+    def axis_ingestion_value(self) -> Optional[float]:
+        return self._axis_ingestion_value
+
+    @property
+    def semi_major_value(self) -> Optional[float]:
+        return self._semi_major_value
+
+    @property
+    def latitude_choice(self) -> Optional[LatitudeTypes]:
+        return self._latitude_choice
+
+    @property
+    def latitude(self) -> Optional[float]:
+        return self._latitude
+
+    @property
+    def center_lon(self) -> Optional[float]:
+        return self._center_lon
+
+    @property
+    def polar_stereo_scale(self) -> Optional[float]:
+        return self._polar_stereo_scale
+
+    @property
+    def polar_stereo_latitude_sign(self) -> Optional[str]:
+        return self._polar_stereo_latitude_sign
 
 class ReferenceCreatorDialog(QDialog):
 
@@ -51,12 +124,14 @@ class ReferenceCreatorDialog(QDialog):
         # Init variables
         self._lon_meridian: Optional[float] = None
         self._proj_type : Optional[ProjectionTypes]
-        self._axis_ingest_type: Optional[Ellipsoid_Axis_Type] = Ellipsoid_Axis_Type.SEMI_MINOR
+        self._axis_ingest_type: Optional[EllipsoidAxisType] = EllipsoidAxisType.SEMI_MINOR
         self._axis_ingestion_value: Optional[float] = None
         self._semi_major_value: Optional[float] = None
-        self._latitude_choice: Optional[Latitude_Types] = None
+        self._latitude_choice: Optional[LatitudeTypes] = None
         self._latitude: Optional[float] = None
         self._center_lon: Optional[float] = None
+        self._polar_stereo_scale: Optional[float] = None
+        self._polar_stereo_latitude_sign: Optional[str] = None
 
         # save current name so we can tell if the user picks something new later
         self._current_starting_crs_name: Optional[str] = None
@@ -71,6 +146,119 @@ class ReferenceCreatorDialog(QDialog):
         self._init_crs_name()
         self._init_cbox_lat_chooser()
         self._init_ledit_lat_value()
+        self._init_reset_button()
+        self._init_create_crs_button()
+        self._init_extra_polar_stereo_params()
+
+    def _init_extra_polar_stereo_params(self):
+        # Initialize the central lat cbox
+        cbox = self._ui.cbox_pstereo_sign
+        cbox.clear()
+
+        # Add each enum member
+        for sign in Sign:
+            cbox.addItem(sign.value, sign.value)
+
+        # When the user picks a new item, update self._latitude_choice
+        cbox.currentIndexChanged.connect(self._on_stereo_pos_neg_changed)
+        cbox.setCurrentIndex(0)
+        cbox.currentIndexChanged.emit(0)
+        # self._on_stereo_pos_neg_changed(cbox.currentIndex())
+
+        # Initialize the Scale Factor Line Edit 
+        validator = QDoubleValidator(self._ui.ledit_pstereo_scale_factor)
+        validator.setNotation(QDoubleValidator.StandardNotation)
+        validator.setRange(0, MAX_SCALE_FACTOR, ALLOWED_DECIMALS)
+        self._ui.ledit_pstereo_scale_factor.setValidator(validator)
+        self._ui.ledit_pstereo_scale_factor.textChanged.connect(
+            self._on_stereo_scale_factor_changed
+        )
+        self._on_stereo_scale_factor_changed(self._ui.ledit_pstereo_scale_factor.text())
+
+    def _on_stereo_scale_factor_changed(self, text: str):
+        try:
+            self._polar_stereo_scale = float(text)
+            print(f"self._polar: {self._polar_stereo_scale}")
+        except ValueError:
+            self._polar_stereo_scale = None
+
+    def _on_stereo_pos_neg_changed(self, index: int) -> None:
+        self._polar_stereo_latitude_sign = self._ui.cbox_pstereo_sign.itemData(index)
+        print(f"self._polar_stereo_latitude_sign: {self._polar_stereo_latitude_sign};;;;;;;;;;")
+
+    def _update_extra_polar_stereo_params_display(self):
+        if self._proj_type == ProjectionTypes.POLAR_STEREO:
+            if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
+                self._ui.wdgt_ts_central_lat.hide()
+                self._ui.wdgt_scale_factor.show()
+            elif self._latitude_choice == LatitudeTypes.TRUE_SCALE_LATITUDE:
+                self._ui.wdgt_ts_central_lat.show()
+                self._ui.wdgt_scale_factor.hide()
+            else:
+                raise ValueError(f"Latitude choice is incorrect. It is: {self._latitude_choice}")
+        else:
+            self._ui.wdgt_ts_central_lat.hide()
+            self._ui.wdgt_scale_factor.hide()
+            
+
+    def _init_reset_button(self):
+        '''
+        Should reset the fields _axis_ingestion_value, _semi_major_value, _latitude, _center_lon, and _lon_meridian.
+        Shoudl reset their class values and their line edits. 
+        Should reset _current_starting_crs_name
+        Should reset the value of self._ui.cbox_user_crs to be the value of (None)
+        '''
+        # Resolve the reset‑button name used in the .ui file
+        reset_btn = self._ui.btn_reset_fields
+        if reset_btn is None:
+            raise AttributeError("Reset button not found in UI")
+
+        reset_btn.clicked.connect(self._on_reset_clicked)
+
+        # Do one reset immediately so the dialog starts in a clean state
+        self._on_reset_clicked()
+
+    def _on_reset_clicked(self):
+        """Slot that really performs the reset."""
+        # ---- 1.  Clear internal values ---------------------------------
+        self._axis_ingestion_value = None
+        self._semi_major_value     = None
+        self._latitude             = None
+        self._center_lon           = None
+        self._lon_meridian         = None
+        self._current_starting_crs_name = NO_CRS_NAME
+
+        # ---- 2.  Clear the editor widgets ------------------------------
+        for le in (
+            self._ui.ledit_flat_minor,
+            self._ui.ledit_semi_major,
+            self._ui.ledit_lat_value,
+            self._ui.ledit_center_lon,
+            self._ui.ledit_prime_meridian,
+            self._ui.ledit_crs_name
+        ):
+            le.clear()
+
+        # ---- 3.  Put the “Starting CRS” combo back to “(None)” ----------
+        cbox = self._ui.cbox_user_crs
+        none_idx = cbox.findText(self.tr(NO_CRS_NAME))
+        if none_idx == -1:                        # fallback: last entry
+            none_idx = cbox.count() - 1
+        if none_idx >= 0:
+            cbox.blockSignals(True)              # suppress _on_starting_crs_changed
+            cbox.setCurrentIndex(none_idx)
+            cbox.blockSignals(False)
+
+
+    def _init_create_crs_button(self):
+        '''
+        Should just run self._create_crs()
+        '''
+        create_btn = self._ui.btn_create_crs
+        if create_btn is None:
+            raise AttributeError("Create-CRS button not found in UI")
+
+        create_btn.clicked.connect(self._create_crs)
 
     def _init_user_created_crs(self):
         """
@@ -90,7 +278,7 @@ class ReferenceCreatorDialog(QDialog):
         and the *userData* is the osr.SpatialReference itself.
         """
         cbox = self._ui.cbox_user_crs
-        self._update_user_created_crs()
+        self._update_user_created_crs_cbox()
 
         # When the user chooses an entry we call _on_starting_crs_changed and pass
         # the *name* (key) via a small lambda wrapper.
@@ -98,8 +286,16 @@ class ReferenceCreatorDialog(QDialog):
             lambda idx: self._on_starting_crs_changed(cbox.itemText(idx))
         )
 
+    def _switch_user_crs_cbox_selection(self, name: str):
+        cbox = self._ui.cbox_user_crs
+        idx = cbox.findText(name)
+        if idx != -1:
+            cbox.blockSignals(True)
+            cbox.setCurrentIndex(idx)
+            cbox.blockSignals(False)
 
-    def _update_user_created_crs(self):
+
+    def _update_user_created_crs_cbox(self):
         app_state = self._app_state
         cbox = self._ui.cbox_user_crs
 
@@ -121,7 +317,7 @@ class ReferenceCreatorDialog(QDialog):
 
         if num_crs > 0:
             for (index, name) in enumerate(sorted(list(app_state.get_user_created_crs().keys()))):
-                crs = self._app_state.get_user_created_crs()[name]
+                crs = self._app_state.get_user_created_crs()[name][0]
                 cbox.addItem(name, crs)
     
                 if name == current_crs_name:
@@ -171,11 +367,20 @@ class ReferenceCreatorDialog(QDialog):
 
         We replace the old name with the new name
         """
-        if not name                       \
-        or name == self._current_starting_crs_name:
+        print(f"_on_starting_crs_changed CALEDDDDDD!!!!")
+        print(f"self._currentstarting_name: {self._current_starting_crs_name}")
+        if not name \
+           or name == self._current_starting_crs_name:
             return                        # same choice – nothing to do
+    
+        if name == NO_CRS_NAME:
+            self._current_starting_crs_name= NO_CRS_NAME
+            return
 
-        srs: osr.SpatialReference = self._app_state.get_user_created_crs().get(name)
+        print(f"name: {name}")
+        print(f" self._app_state.get_user_created_crs(): { self._app_state.get_user_created_crs()}")
+        srs: osr.SpatialReference = self._app_state.get_user_created_crs().get(name)[0]
+        creator_state: CrsCreatorState = self._app_state.get_user_created_crs().get(name)[1]
         if srs is None:                   # defensive – shouldn’t happen
             return
 
@@ -204,13 +409,16 @@ class ReferenceCreatorDialog(QDialog):
         pycrs = pyproj.CRS.from_wkt(srs.ExportToWkt())
 
         # ---------- Prime meridian & “equator” (lat_0) --------------------
-        pm_lon = pycrs.prime_meridian.longitude or 0.0
+        pm_lon = creator_state.lon_meridian
         self._ui.ledit_prime_meridian.setText(str(pm_lon))
         self._lon_meridian = pm_lon
 
         # ---------- Shape / ellipsoid parameters -------------------------
-        a = pycrs.ellipsoid.semi_major_metre
-        inv_f = pycrs.ellipsoid.inverse_flattening
+        a = creator_state.semi_major_value
+        if creator_state.axis_ingest_type == EllipsoidAxisType.SEMI_MINOR:
+            inv_f = creator_state.semi_major_value / (creator_state.semi_major_value - creator_state.axis_ingestion_value)
+        else:
+            inv_f = creator_state.axis_ingestion_value
         spheroid = (inv_f == 0.0)
 
         # Shape type
@@ -238,25 +446,28 @@ class ReferenceCreatorDialog(QDialog):
         else:
             # Choose to display inverse‑flattening by default
             axis_cbox = self._ui.cbox_flat_minor
-            axis_idx = axis_cbox.findData(Ellipsoid_Axis_Type.INVERSE_FLATTENING)
+            axis_idx = axis_cbox.findData(EllipsoidAxisType.INVERSE_FLATTENING)
             axis_cbox.setCurrentIndex(axis_idx)
-            self._axis_ingest_type = Ellipsoid_Axis_Type.INVERSE_FLATTENING
+            self._axis_ingest_type = EllipsoidAxisType.INVERSE_FLATTENING
             self._axis_ingestion_value = inv_f
             self._ui.ledit_flat_minor.setEnabled(True)
             self._ui.cbox_flat_minor.setEnabled(True)
             self._ui.ledit_flat_minor.setText(f"{inv_f}")
 
         # ---------- Projection (or none) ---------------------------------
-        if pycrs.is_geographic:
-            proj_type = ProjectionTypes.NO_PROJECTION
-        else:
-            m = pycrs.coordinate_operation.method_name.lower()
-            if "equidistant cylindrical" in m or "equirectangular" in m:
-                proj_type = ProjectionTypes.EQUI_CYLINDRICAL
-            elif "polar stereographic" in m or "stereographic" in m:
-                proj_type = ProjectionTypes.POLAR_STEREO
-            else:
-                proj_type = ProjectionTypes.NO_PROJECTION  # fallback
+        # if pycrs.is_geographic:
+        #     proj_type = ProjectionTypes.NO_PROJECTION
+        # else:
+        #     m = pycrs.coordinate_operation.method_name.lower()
+        #     if "equidistant cylindrical" in m or "equirectangular" in m:
+        #         proj_type = ProjectionTypes.EQUI_CYLINDRICAL
+        #     elif "polar stereographic" in m or "stereographic" in m:
+        #         proj_type = ProjectionTypes.POLAR_STEREO
+        #     else:
+        #         proj_type = ProjectionTypes.NO_PROJECTION  # fallback
+        proj_type = creator_state.proj_type
+
+        self._update_extra_polar_stereo_params_display()
 
         proj_cbox = self._ui.cbox_proj_type
         proj_idx = proj_cbox.findData(proj_type)
@@ -269,75 +480,101 @@ class ReferenceCreatorDialog(QDialog):
             op = pycrs.coordinate_operation
             params = op.params
             print(f"op: {params}")
-            self._center_lon = self._find_param(op,
-                                        "Longitude of natural origin",
-                                        "Central meridian",
-                                        "Longitude of projection centre",
-                                        "central_meridian")
-            center_lat = self._find_param(op,
-                                        "Latitude of natural origin",
-                                        "Latitude of projection centre",
-                                        "latitude_of_origin")
-            true_scale_lat = self._find_param(op,
-                                            "Latitude of true scale",
-                                            "Latitude of 1st standard parallel",
-                                            "standard_parallel_1")
-            print(f"center_lat: {center_lat}")
-            print(f"true_scale_lat: {true_scale_lat}")
-            assert not (center_lat == None and true_scale_lat == None), \
-                "Center Latitude and True Scale Latitude should not both be None."
+            # self._center_lon = self._find_param(op,
+            #                             "Longitude of natural origin",
+            #                             "Longitude of origin",
+            #                             "Central meridian",
+            #                             "Longitude of projection centre",
+            #                             "central_meridian")
+            # center_lat = self._find_param(op,
+            #                             "Latitude of natural origin",
+            #                             "Latitude of projection centre",
+            #                             "latitude_of_origin")
+            # true_scale_lat = self._find_param(op,
+            #                                 "Latitude of true scale",
+            #                                 "Latitude of 1st standard parallel",
+            #                                 "Latitude of standard parallel",
+            #                                 "standard_parallel_1")
+            self._center_lon = creator_state.center_lon
+            latitude_value = creator_state.latitude
+            latitude_choice = creator_state.latitude_choice
+            # print(f"center_lat: {center_lat}")
+            # print(f"true_scale_lat: {true_scale_lat}")
+            # assert not (center_lat == None and true_scale_lat == None), \
+            #     "Center Latitude and True Scale Latitude should not both be None."
 
-            if center_lat is None:
-                chosen_enum = Latitude_Types.TRUE_SCALE_LATITUDE
-                chosen_value = true_scale_lat
-            elif true_scale_lat is None or (center_lat == 0.0 and true_scale_lat == 0.0):
-                chosen_enum = Latitude_Types.CENTRAL_LATITUDE
-                chosen_value = center_lat
-            elif center_lat > true_scale_lat:
-                chosen_enum = Latitude_Types.CENTRAL_LATITUDE
-                chosen_value = center_lat
-            else:
-                chosen_enum = Latitude_Types.TRUE_SCALE_LATITUDE
-                chosen_value = true_scale_lat
+            # if center_lat is None:
+            #     chosen_enum = LatitudeTypes.TRUE_SCALE_LATITUDE
+            #     chosen_value = true_scale_lat
+            # elif true_scale_lat is None or (center_lat == 0.0 and true_scale_lat == 0.0):
+            #     print(f"true_scale_lat is None or 0.0: {true_scale_lat}")
+            #     print(f"center_lat is 0.0: {center_lat}")
+            #     chosen_enum = LatitudeTypes.CENTRAL_LATITUDE
+            #     chosen_value = center_lat
+            # elif center_lat > true_scale_lat:
+            #     print(f"center_lat > true_scale_lat: { center_lat } > {true_scale_lat}")
+            #     chosen_enum = LatitudeTypes.CENTRAL_LATITUDE
+            #     chosen_value = center_lat
+            # else:
+            #     chosen_enum = LatitudeTypes.TRUE_SCALE_LATITUDE
+            #     chosen_value = true_scale_lat
 
-            self._ui.ledit_center_long.setText("" if self._center_lon is None
+            self._ui.ledit_center_lon.setText("" if self._center_lon is None
                                             else str(self._center_lon))
             
             # Save the choice
-            self._latitude_choice = chosen_enum
+            self._latitude_choice = latitude_choice
 
             # Update the combo‑box without re‑entering the slot
             cbox = self._ui.cbox_lat_chooser
-            idx  = cbox.findData(chosen_enum)
+            idx  = cbox.findData(latitude_choice)
             if idx != -1:
                 cbox.blockSignals(True)
                 cbox.setCurrentIndex(idx)
                 cbox.blockSignals(False)
 
-            self._ui.ledit_lat_value.setText("" if chosen_value is None
-                                            else str(chosen_value))
+            self._ui.ledit_lat_value.setText("" if latitude_value is None
+                                            else str(latitude_value))
 
             self._ui.lbl_center_lon.setEnabled(True)
-            self._ui.ledit_center_long.setEnabled(True)
+            self._ui.ledit_center_lon.setEnabled(True)
             self._ui.cbox_lat_chooser.setEnabled(True)
             self._ui.ledit_lat_value.setEnabled(True)
         else:
             # Clear projection fields
-            for w in (self._ui.ledit_center_long,
+            for w in (self._ui.ledit_center_lon,
                     self._ui.ledit_lat_value):
                 w.clear()
             self._center_lon = self._latitude = None
             self._ui.lbl_center_lon.setEnabled(False)
-            self._ui.ledit_center_long.setEnabled(False)
+            self._ui.ledit_center_lon.setEnabled(False)
             self._ui.cbox_lat_chooser.setEnabled(False)
             self._ui.ledit_lat_value.setEnabled(False)
 
         # ---------- CRS name ---------------------------------------------
         self._ui.ledit_crs_name.setText(name)
+        self._ui.ledit_crs_name.editingFinished.emit()
         self._crs_name = name
 
         # Remember selection so we can detect future changes
+        print(f"changing starting crs_name to: {name}")
         self._current_starting_crs_name = name
+
+
+        if self._proj_type == ProjectionTypes.POLAR_STEREO:
+            if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
+                assert creator_state.polar_stereo_scale is not None
+                ledit = self._ui.ledit_pstereo_scale_factor
+                ledit.setText(creator_state.polar_stereo_scale)
+                ledit.textChanged.emit(creator_state.polar_stereo_scale)
+            elif self._latitude_choice == LatitudeTypes.TRUE_SCALE_LATITUDE:
+                assert creator_state._polar_stereo_latitude_sign is not None
+                cbox = self._ui.cbox_pstereo_sign
+                idx = cbox.findData(creator_state._polar_stereo_latitude_sign)
+                if idx != -1 :
+                    cbox.setCurrentIndex(idx)
+                    cbox.currentIndexChanged.emit(idx)
+
 
     def _find_param(self, op, *names):
         """
@@ -354,10 +591,10 @@ class ReferenceCreatorDialog(QDialog):
 
     def _init_cbox_lat_chooser(self):
         """
-        Initializes self._ui.cbox_lat_chooser to have all the values in Latitude_Types. The text shown should be
+        Initializes self._ui.cbox_lat_chooser to have all the values in LatitudeTypes. The text shown should be
         the value of the enum and the value of the cbox should be the enum
         
-        class Latitude_Types(Enum):
+        class LatitudeTypes(Enum):
             CENTRAL_LATITUDE = "Central Latitude"
             TRUE_SCALE_LATITUDE = "True Scale Lat"
 
@@ -368,7 +605,7 @@ class ReferenceCreatorDialog(QDialog):
         cbox.clear()
 
         # Add each enum member
-        for lat_type in Latitude_Types:
+        for lat_type in LatitudeTypes:
             cbox.addItem(lat_type.value, lat_type)
 
         # When the user picks a new item, update self._latitude_choice
@@ -429,7 +666,7 @@ class ReferenceCreatorDialog(QDialog):
     def _init_ellipsoid_params(self):
         # Populate the axis type combo box
         self._ui.cbox_flat_minor.clear()
-        for axis_type in Ellipsoid_Axis_Type:
+        for axis_type in EllipsoidAxisType:
             # display text is the enum value, store enum itself as user data
             self._ui.cbox_flat_minor.addItem(axis_type.value, axis_type)
 
@@ -479,11 +716,11 @@ class ReferenceCreatorDialog(QDialog):
     #     )
 
     def _init_center_longitude_ledit(self):
-        validator = QDoubleValidator(self._ui.ledit_center_long)
+        validator = QDoubleValidator(self._ui.ledit_center_lon)
         validator.setNotation(QDoubleValidator.StandardNotation)
         validator.setRange(-180.0, 180.0, ALLOWED_DECIMALS)
-        self._ui.ledit_center_long.setValidator(validator)
-        self._ui.ledit_center_long.textChanged.connect(
+        self._ui.ledit_center_lon.setValidator(validator)
+        self._ui.ledit_center_lon.textChanged.connect(
             self._on_center_lon_changed
         )
 
@@ -520,9 +757,10 @@ class ReferenceCreatorDialog(QDialog):
     def _on_change_lat_choice(self, index: int) -> None:
         """
         Slot called when the latitude-type combo box changes.
-        Stores the chosen Latitude_Types enum in self._latitude_choice.
+        Stores the chosen LatitudeTypes enum in self._latitude_choice.
         """
         self._latitude_choice = self._ui.cbox_lat_chooser.itemData(index)
+        self._update_extra_polar_stereo_params_display()
 
     def _on_true_scale_lat_changed(self, text: str) -> None:
         """Slot for when the true scale latitude QLineEdit text changes."""
@@ -585,12 +823,12 @@ class ReferenceCreatorDialog(QDialog):
         needs_params = (self._proj_type != ProjectionTypes.NO_PROJECTION)
 
         for widget in (
-            self._ui.ledit_center_long,
+            self._ui.ledit_center_lon,
             self._ui.cbox_lat_chooser,
             self._ui.ledit_lat_value,
         ):
             widget.setEnabled(needs_params)
-
+        self._update_extra_polar_stereo_params_display()
 
     def _on_switch_shape_type(self, index: int):
         self._shape_type = self._ui.cbox_shape.itemData(index)
@@ -606,7 +844,7 @@ class ReferenceCreatorDialog(QDialog):
     def _on_crs_name_changed(self):
         self._crs_name = self._ui.ledit_crs_name.text()
 
-    def accept(self):
+    def _create_crs(self):
         # --- 1. Basic validation -------------------------------------------------
         if self._crs_name is None:
             QMessageBox.warning(self, self.tr("Missing value"),
@@ -643,52 +881,125 @@ class ReferenceCreatorDialog(QDialog):
         if self._shape_type == ShapeTypes.SPHEROID:
             inv_f = 0.0  # sphere
         else:
-            if self._axis_ingest_type == Ellipsoid_Axis_Type.SEMI_MINOR:
+            if self._axis_ingest_type == EllipsoidAxisType.SEMI_MINOR:
                 b = self._axis_ingestion_value
                 inv_f = a / (a - b) if a != b else 0.0
             else:  # inverse flattening entered directly
                 inv_f = self._axis_ingestion_value
 
-        # Ellipsoid description for proj
+        _internal_use_proj = True
 
-        if inv_f == 0.0:
-            ellps_part = f"+R={a}"
-        else:
-            ellps_part = f"+a={a} +rf={inv_f}"
+        if _internal_use_proj:
+            # Ellipsoid description for proj
 
-        base = f"{ellps_part} +pm={self._lon_meridian} +no_defs"
-
-        if self._proj_type == ProjectionTypes.NO_PROJECTION:
-            proj_str = f"+proj=longlat {base} +units=deg"
-        elif self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
-            if self._latitude_choice == Latitude_Types.CENTRAL_LATITUDE:
-                proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_0={self._latitude} "
-                            f"{base}")
+            if inv_f == 0.0:
+                ellps_part = f"+R={a}"
             else:
-                proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_ts={self._latitude} "
-                            f"{base}")
-                
-        elif self._proj_type == ProjectionTypes.POLAR_STEREO:
-            if self._latitude_choice == Latitude_Types.CENTRAL_LATITUDE:
-                proj_str = (f"+proj=stere +lat_0={self._latitude} +lon_0={self._center_lon} "
-                            f"+k=1 +x_0=0 +y_0=0 {base}")
-            else:
-                proj_str = (f"+proj=stere +lon_0={self._center_lon} +lat_ts={self._latitude} "
-                            f"+k=1 +x_0=0 +y_0=0 {base}")
-                
-        else:
-            QMessageBox.critical(self, "Error",
-                                 f"Unknown projection type: {self._proj_type}")
-            return
+                ellps_part = f"+a={a} +rf={inv_f}"
 
-        pyproj_crs = pyproj.CRS.from_proj4(proj_str)
-        self._new_crs = osr.SpatialReference()
-        wkt = pyproj_crs.to_wkt()
-        self._new_crs.ImportFromWkt(pyproj_crs.to_wkt())
+            base = f"{ellps_part} +pm={self._lon_meridian} +no_defs"
+
+            if self._proj_type == ProjectionTypes.NO_PROJECTION:
+                proj_str = f"+proj=longlat {base} +units=deg"
+            elif self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
+                if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
+                    proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_0={self._latitude} "
+                                f"{base}")
+                else:
+                    proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_ts={self._latitude} "
+                                f"{base}")
+                    
+            elif self._proj_type == ProjectionTypes.POLAR_STEREO:
+                if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
+                    if self._polar_stereo_scale is None:
+                        QMessageBox.warning(self, self.tr("Missing value"),
+                                            self.tr("The scale factor value is None. Please enter\n"
+                                            "a scale factor value."))
+                        return
+
+                    proj_str = (f"+proj=stere +lat_0={self._latitude} +lon_0={self._center_lon} "
+                                f"+k={self._polar_stereo_scale} +x_0=0 +y_0=0 {base}")
+                else:
+                    if self._polar_stereo_latitude_sign is None:
+                        QMessageBox.warning(self, self.tr("Missing value"),
+                                            self.tr("The central latitude sign is None. Please select\n"
+                                            "a central latitude sign."))
+                        return
+                    proj_str = (f"+proj=stere +lon_0={self._center_lon} +lat_0={self._polar_stereo_latitude_sign}90 "
+                                f"+lat_ts={self._latitude} +x_0=0 +y_0=0 {base}")
+                    print(f"proj str: {proj_str}")
+                    
+            else:
+                QMessageBox.critical(self, "Error",
+                                    f"Unknown projection type: {self._proj_type}")
+                return
+
+            pyproj_crs = pyproj.CRS.from_proj4(proj_str)
+            self._new_crs = osr.SpatialReference()
+            wkt = pyproj_crs.to_wkt()
+            print(f"wkt: {wkt}")
+            self._new_crs.ImportFromWkt(pyproj_crs.to_wkt())
+        # else:
+        #     gcs = osr.SpatialReference()
+        #     gcs.SetGeogCS(self._crs_name or "USER_GCS",
+        #                 "USER_DATUM",
+        #                 "USER_ELLIPSOID",
+        #                 a, inv_f,
+        #                 "Prime_Meridian", lon_0,
+        #                 "degree", 0.0174532925199433)  
+
+        #     # Axis order: lon/lat as in “traditional GIS” gives us consistent
+        #     # lon/lat ordering
+        #     gcs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+        #     if self._proj_type == ProjectionTypes.NO_PROJECTION:
+        #         srs = gcs      # geographic only
+        #     else:
+        #         srs: osr.SpatialReference = gcs.Clone()
+        #         srs.SetProjCS(self._crs_name or "USER_PCS")
+
+        #         if self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
+        #             if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
+        #                 # SetEquirectangular2​(double clat, double clong, double pseudostdparallellat, double fe, double fn)
+        #                 srs.SetEquirectangular2(self._latitude, self._center_lon, 0, 0, 0)
+        #             else:
+        #                 srs.SetEquirectangular2(0.0, self._center_lon, self._latitude, 0, 0)
+        #         elif self._proj_type == ProjectionTypes.POLAR_STEREO:
+        #             # lat_ts: true‑scale latitude (use pole if user left blank)
+        #             # lat_ts = 90.0 if lat_0 >= 0 else -90.0
+        #             # SetPS​(double clat, double clong, double scale, double fe, double fn)
+        #             if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
+        #                 srs.SetPS(self._latitude, self._center_lon, 1.0, 0, 0)
+        #             else:
+        #                 srs.SetPS(self._latitude, self._center_lon, 1.0, 0, 0)
+        #         else:
+        #             raise RuntimeError("Unsupported projection choice")
+        #     self._new_crs = srs
+            
         self._new_crs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
-        self._app_state.add_user_created_crs(self._crs_name, self._new_crs)
+        self._app_state.add_user_created_crs(self._crs_name, self._new_crs, self._export_creator_state())
 
-        self._update_user_created_crs()
+        self._update_user_created_crs_cbox()
+
+        self._switch_user_crs_cbox_selection(self._crs_name)
+
+    def _export_creator_state(self) -> CrsCreatorState:
+        crs_creator_state = CrsCreatorState(
+            lon_meridian=self._lon_meridian,
+            proj_type=self._proj_type,
+            axis_ingest_type=self._axis_ingest_type,
+            axis_ingestion_value=self._axis_ingestion_value,
+            semi_major_value=self._semi_major_value,
+            latitude_choice=self._latitude_choice,
+            latitude=self._latitude,
+            center_lon=self._center_lon,
+            polar_stereo_scale=self._polar_stereo_scale,
+            polar_stereo_latitude_sign=self._polar_stereo_latitude_sign,
+        )
+        return crs_creator_state
+
+    def accept(self):
+        self._create_crs()
 
         super().accept()

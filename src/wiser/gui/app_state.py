@@ -1,7 +1,7 @@
 import enum
 import os
 import warnings
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QMessageBox
@@ -26,7 +26,8 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
 
-
+if TYPE_CHECKING:
+    from wiser.gui.reference_creator_dialog import CrsCreatorState
 class StateChange(enum.Enum):
     ITEM_ADDED = 1
     ITEM_EDITED = 2
@@ -142,7 +143,7 @@ class ApplicationState(QObject):
 
         # A dictionary holding the CRSs that the user has created.
         # The key is the CRS name.
-        self._user_created_crs: Dict[str, osr.SpatialReference] = {}
+        self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
 
     def _take_next_id(self) -> int:
@@ -722,7 +723,7 @@ class ApplicationState(QObject):
     def get_user_created_crs(self):
         return self._user_created_crs
     
-    def add_user_created_crs(self, name: str, crs: osr.SpatialReference):
+    def q(self, name: str, crs: osr.SpatialReference, crs_creator_state: 'CrsCreatorState'):
         if name in self._user_created_crs:
             # Ask the user whether to overwrite the existing CRS
             reply = QMessageBox.question(
@@ -731,6 +732,6 @@ class ApplicationState(QObject):
                 self.tr(f"A CRS named “{name}” already exists. Overwrite it?")
             )
             if reply == QMessageBox.Yes:
-                self._user_created_crs[name] = crs
+                self._user_created_crs[name] = (crs, crs_creator_state)
         else:
-            self._user_created_crs[name] = crs
+            self._user_created_crs[name] = (crs, crs_creator_state)

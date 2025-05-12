@@ -8,6 +8,8 @@ import tests.context
 from tests.utils import are_pixels_close, are_qrects_close
 from test_utils.test_model import WiserTestModel
 
+from wiser.gui.geo_reference_dialog import AuthorityCodeCRS, UserGeneratedCRS, GeneralCRS
+
 import numpy as np
 
 from PySide2.QtTest import QTest
@@ -58,12 +60,12 @@ class TestGeoReferencerGUI(unittest.TestCase):
 
         self.test_model.set_interpolation_type('GRA_Bilinear')
 
-        self.test_model.set_output_crs('EPSG', 4326)
+        self.test_model.set_geo_ref_output_crs(AuthorityCodeCRS('EPSG', 4326))
 
-        self.test_model.set_polynomial_order("2")
+        self.test_model.set_geo_ref_polynomial_order("2")
 
         rel_path = os.path.join("..", "test_utils", "test_datasets", "test_warp_output.tif")
-        self.test_model.set_file_save_path(rel_path)
+        self.test_model.set_geo_ref_file_save_path(rel_path)
 
         ground_truth_geo_transform = (-118.13251959615042, 1.9876715549174167e-05, 0.0, 34.14031070448446, 0.0, -1.9876715549174167e-05)
 
@@ -104,18 +106,18 @@ class TestGeoReferencerGUI(unittest.TestCase):
 
         self.test_model.set_interpolation_type('GRA_Bilinear')
 
-        self.test_model.set_output_crs('EPSG', 4326)
+        self.test_model.set_geo_ref_output_crs(AuthorityCodeCRS('EPSG', 4326))
 
-        self.test_model.set_polynomial_order("2")
+        self.test_model.set_geo_ref_polynomial_order("2")
 
-        self.test_model.select_manual_authority("EPSG")
+        self.test_model.select_manual_authority_ref("EPSG")
 
-        self.test_model.enter_manual_authority_code("32611")
+        self.test_model.enter_manual_authority_code_ref("32611")
 
-        self.test_model.click_find_crs()
+        self.test_model.click_find_crs_ref()
 
-        self.test_model.choose_manual_crs_geo_ref("EPSG", 4326)
-        self.test_model.choose_manual_crs_geo_ref("EPSG", 32611)
+        self.test_model.choose_manual_crs_geo_ref(AuthorityCodeCRS("EPSG", 4326))
+        self.test_model.choose_manual_crs_geo_ref(AuthorityCodeCRS("EPSG", 32611))
 
         for gcp in gcp_list:
             target = gcp[0]
@@ -130,7 +132,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
             self.test_model.press_enter_lon_east_geo_ref()
 
         rel_path = os.path.join("..", "test_utils", "test_datasets", "test_warp_output.tif")
-        self.test_model.set_file_save_path(rel_path)
+        self.test_model.set_geo_ref_file_save_path(rel_path)
 
         ground_truth_geo_transform = (-118.13251959615042, 1.9876715549174167e-05, 0.0, 34.14031070448446, 0.0, -1.9876715549174167e-05)
 
@@ -177,18 +179,18 @@ if __name__ == '__main__':
         
     test_model.set_interpolation_type('GRA_Bilinear')
 
-    test_model.set_output_crs('EPSG', 4326)
+    test_model.set_geo_ref_output_crs(AuthorityCodeCRS('EPSG', 4326))
 
-    test_model.set_polynomial_order("2")
+    test_model.set_geo_ref_polynomial_order("2")
 
-    test_model.select_manual_authority("EPSG")
+    test_model.select_manual_authority_ref("EPSG")
 
-    test_model.enter_manual_authority_code("32611")
+    test_model.enter_manual_authority_code_ref("32611")
 
-    test_model.click_find_crs()
+    test_model.click_find_crs_ref()
 
-    test_model.choose_manual_crs_geo_ref("EPSG", 4326)
-    test_model.choose_manual_crs_geo_ref("EPSG", 32611)
+    test_model.choose_manual_crs_geo_ref(AuthorityCodeCRS("EPSG", 4326))
+    test_model.choose_manual_crs_geo_ref(AuthorityCodeCRS("EPSG", 32611))
 
     for gcp in gcp_list:
         target = gcp[0]
@@ -203,7 +205,7 @@ if __name__ == '__main__':
         test_model.press_enter_lon_east_geo_ref()
 
     rel_path = os.path.join("..", "test_utils", "test_datasets", "test_warp_output.tif")
-    test_model.set_file_save_path(rel_path)
+    test_model.set_geo_ref_file_save_path(rel_path)
 
     # Disables and re-enables
     test_model.click_gcp_enable_btn_geo_ref(0)

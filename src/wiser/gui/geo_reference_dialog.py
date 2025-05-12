@@ -65,12 +65,16 @@ min_points_per_transform = {
     TRANSFORM_TYPES.TPS: 10,
 }
 
-class GeneralCRS(ABC):
+class GeneralCRS():
     def get_osr_crs(self) -> Optional[osr.SpatialReference]:
         '''
         Gets a osr.SpatialReference object for this class
         '''
-        pass
+        raise NotImplementedError("Function has not yet been implemented.")
+
+    def __eq__(self, other: 'GeneralCRS'):
+        return self.get_osr_crs().ExportToWkt() == other.get_osr_crs().ExportToWkt()
+
 class AuthorityCodeCRS(GeneralCRS):
 
     def __init__(self, authority_name: str, authority_code: int):
@@ -307,7 +311,7 @@ class GeoReferencerDialog(QDialog):
         for name, srs in COMMON_SRS.items():
             srs_to_choose_cbox.addItem(name, srs)
 
-        for name, srs in self._app_state.get_user_created_crs().items():
+        for name, (srs, _) in self._app_state.get_user_created_crs().items():
             srs_to_choose_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
         srs_to_choose_cbox.activated.connect(self._on_switch_chosen_ref_srs)
@@ -322,7 +326,7 @@ class GeoReferencerDialog(QDialog):
         for name, srs in COMMON_SRS.items():
             srs_to_choose_cbox.addItem(name, srs)
 
-        for name, srs in self._app_state.get_user_created_crs().items():
+        for name, (srs, _) in self._app_state.get_user_created_crs().items():
             srs_to_choose_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
     def _add_manual_spacer_once(self):
@@ -436,7 +440,7 @@ class GeoReferencerDialog(QDialog):
         for name, srs in COMMON_SRS.items():
             srs_cbox.addItem(name, srs)
         
-        for name, srs in self._app_state.get_user_created_crs().items():
+        for name, (srs, _) in self._app_state.get_user_created_crs().items():
             srs_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
         self._on_switch_output_srs(srs_cbox.currentIndex())
