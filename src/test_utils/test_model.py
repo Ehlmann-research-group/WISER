@@ -21,7 +21,8 @@ from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import TiledRasterView
 from wiser.gui.spectrum_plot import SpectrumPointDisplayInfo
 from wiser.gui.stretch_builder import ChannelStretchWidget
-from wiser.gui.geo_reference_dialog import GeoReferencerDialog, COLUMN_ID, TRANSFORM_TYPES
+from wiser.gui.geo_reference_dialog import GeoReferencerDialog, COLUMN_ID, TRANSFORM_TYPES, GeneralCRS
+from wiser.gui.reference_creator_dialog import EllipsoidAxisType, LatitudeTypes, ProjectionTypes, ShapeTypes
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
@@ -31,7 +32,6 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
 
-from wiser.gui.reference_creator_dialog import Ellipsoid_Axis_Type, Latitude_Types, ProjectionTypes, ShapeTypes
 
 class LoggingApplication(QApplication):
     def notify(self, receiver, event):
@@ -114,6 +114,16 @@ class WiserTestModel:
     #==========================================
     # region App Events
     #==========================================
+
+    def click_message_box_yes_or_no(self, yes: bool):
+        # grab the active modal widget (the QMessageBox)
+        mbox = QApplication.activeModalWidget()
+        assert isinstance(mbox, QMessageBox)
+        if yes:
+            btn = mbox.button(QMessageBox.Yes)
+        else:
+            btn = mbox.button(QMessageBox.No)
+        QTest.mouseClick(btn, Qt.LeftButton)
 
     #==========================================
     # Code for interfacing with the application
@@ -1106,9 +1116,9 @@ class WiserTestModel:
                 break
 
     @run_in_wiser_decorator
-    def set_output_crs(self, authority: str, code: int) -> None:
+    def set_geo_ref_output_crs(self, crs: GeneralCRS) -> None:
         cbox = self.main_window._geo_ref_dialog._ui.cbox_srs
-        wanted_data = (authority, code)
+        wanted_data = crs
         for i in range(cbox.count()):
             if cbox.itemData(i) == wanted_data:
                 cbox.setCurrentIndex(i)
@@ -1116,7 +1126,7 @@ class WiserTestModel:
                 break
 
     @run_in_wiser_decorator
-    def set_polynomial_order(self, order: str) -> None:
+    def set_geo_ref_polynomial_order(self, order: str) -> None:
         """
         Accepts "1", "2", "3", or "TPS" and sets the matching transform:
           "1"   → Affine (Polynomial 1)
@@ -1141,7 +1151,7 @@ class WiserTestModel:
         cbox.activated.emit(idx)
 
     @run_in_wiser_decorator
-    def set_file_save_path(self, path: str) -> None:
+    def set_geo_ref_file_save_path(self, path: str) -> None:
         ledit = self.main_window._geo_ref_dialog._ui.ledit_save_path
         QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
         QTest.keyClick(ledit, Qt.Key_Delete)
@@ -1231,26 +1241,43 @@ class WiserTestModel:
     # ---------- manual-entry reference CRS ----------
 
     @run_in_wiser_decorator
-    def select_manual_authority(self, authority_name: str) -> None:
+    def select_manual_authority_ref(self, authority_name: str) -> None:
         cbox = self.main_window._geo_ref_dialog._ui.cbox_authority
+        idx = cbox.findText(authority_name)
+        if idx >= 0:
+            cbox.setCurrentIndex(idx)
+    
+    @run_in_wiser_decorator
+    def select_manual_authority_target(self, authority_name: str) -> None:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_output_authority
         idx = cbox.findText(authority_name)
         if idx >= 0:
             cbox.setCurrentIndex(idx)
 
     @run_in_wiser_decorator
-    def enter_manual_authority_code(self, code: int) -> None:
+    def enter_manual_authority_code_ref(self, code: int) -> None:
         le = self.main_window._geo_ref_dialog._ui.ledit_srs_code
+        le.setText(str(code))
+    
+    @run_in_wiser_decorator
+    def enter_manual_authority_code_target(self, code: int) -> None:
+        le = self.main_window._geo_ref_dialog._ui.ledit_output_code
         le.setText(str(code))
 
     @run_in_wiser_decorator
-    def click_find_crs(self) -> None:
+    def click_find_crs_ref(self) -> None:
         btn = self.main_window._geo_ref_dialog._ui.btn_find_crs
         QTest.mouseClick(btn, Qt.LeftButton)
 
     @run_in_wiser_decorator
-    def choose_manual_crs_geo_ref(self, authority: str, code: int) -> bool:
+    def click_find_crs_target(self) -> None:
+        btn = self.main_window._geo_ref_dialog._ui.btn_find_output_crs
+        QTest.mouseClick(btn, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def choose_manual_crs_geo_ref(self, crs: GeneralCRS) -> bool:
         cbox = self.main_window._geo_ref_dialog._ui.cbox_choose_crs
-        wanted = (authority, code)
+        wanted = crs
         for i in range(cbox.count()):
             if cbox.itemData(i) == wanted:
                 cbox.setCurrentIndex(i)
@@ -1322,18 +1349,94 @@ class WiserTestModel:
 
     def get_user_created_crs(self):
         return self.main_window._app_state.get_user_created_crs()
-    
-    # All of the below functions need to run in the event loop 
-    # so use the @run_in_wiser_decorator decorator to run them in the event loop.
-    # All of the below functions should try to simulate use interaction as much as possible
-    #  You can access the referenceCreatorDialog instance by doing self.main_window._crs_creator_dialog
 
     def open_crs_creator(self):
         self.main_window.show_reference_creator_dialog(in_test_mode=True)
 
-    # Function to set the starting crs combo box. Should be based on the name of the starting crs.
-    # should error if there is no starting crs with that name. The name (None) should be used for the 
-    # default no starting crs option.
+    @run_in_wiser_decorator
+    def crs_creator_get_starting_crs(self) -> Optional[str]:
+        """Current 'Starting CRS' name (None if «(None)» selected)."""
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_user_crs
+        text = cbox.currentText()
+        return None if text.strip() in ("", "(None)") else text
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_projection_type(self) -> ProjectionTypes:
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_proj_type
+        all_items = [
+            (cbox.itemText(i), cbox.itemData(i))
+            for i in range(cbox.count())
+        ]
+        return cbox.currentData()
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_shape_type(self) -> ShapeTypes:
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_shape
+        return cbox.currentData()
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_semi_major(self) -> Optional[float]:
+        dlg = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_semi_major.text().strip()
+        return float(txt) if txt else None
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_axis_ingestion_type(self) -> EllipsoidAxisType:
+        """
+        Returns (axis_type_enum, value_or_None)
+        """
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_flat_minor
+        axis_type = cbox.currentData()
+        return axis_type
+    
+    def crs_creator_get_axis_value(self) -> Optional[float]:
+        dlg  = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_flat_minor.text().strip()
+        value = float(txt) if txt else None
+        return value
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_prime_meridian(self) -> Optional[float]:
+        dlg = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_prime_meridian.text().strip()
+        return float(txt) if txt else None
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_center_longitude(self) -> Optional[float]:
+        dlg = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_center_lon.text().strip()   # widget is ledit_center_lon
+        return float(txt) if txt else None
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_latitude_choice(self) -> LatitudeTypes:
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_lat_chooser
+        return cbox.currentData()
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_latitude_value(self) -> Optional[float]:
+        dlg = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_lat_value.text().strip()
+        return float(txt) if txt else None
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_crs_name(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.ledit_crs_name.text().strip()
+
     @run_in_wiser_decorator
     def crs_creator_set_starting_crs(self, name: Optional[str]) -> None:
         """
@@ -1348,13 +1451,8 @@ class WiserTestModel:
             raise ValueError(f"Starting CRS “{wanted}” not found in combo‑box")
 
         cbox.setCurrentIndex(idx)
-        cbox.activated.emit(idx)          # mimic user click
+        cbox.activated.emit(idx)
 
-    # Function to set the projection type combo box. Should be done by the enumerator ProjectionTypes:
-    # class ProjectionTypes(Enum):
-    # EQUI_CYLINDRICAL = "Equidistance Cylindrical"
-    # POLAR_STEREO = "Polar Stereographic"
-    # NO_PROJECTION = "No Projection"
     @run_in_wiser_decorator
     def crs_creator_set_projection_type(self, proj_type: ProjectionTypes) -> None:
         """
@@ -1368,16 +1466,8 @@ class WiserTestModel:
         cbox.setCurrentIndex(idx)
         cbox.activated.emit(idx)
 
-    # Function to set the shape of the ellipsoid in the shape combo box. Should be set using
-    # the enumerator ShapeTypes:
-    # class ShapeTypes(Enum):
-    # ELLIPSOID = "Ellipsoid"
-    # SPHEROID = "Spheroid"
     @run_in_wiser_decorator
-    def crs_creator_set_shape_type(self, shape_type) -> None:
-        """
-        shape_type : ShapeTypes enum
-        """
+    def crs_creator_set_shape_type(self, shape_type: ShapeTypes) -> None:
         dlg = self.main_window._crs_creator_dialog
         cbox = dlg._ui.cbox_shape
         idx = cbox.findData(shape_type)
@@ -1386,7 +1476,6 @@ class WiserTestModel:
         cbox.setCurrentIndex(idx)
         cbox.activated.emit(idx)
 
-    # Function to set the semi major axis value. WIll take in a float
     @run_in_wiser_decorator
     def crs_creator_set_semi_major(self, value: float) -> None:
         dlg = self.main_window._crs_creator_dialog
@@ -1395,15 +1484,10 @@ class WiserTestModel:
         QTest.keyClicks(le, str(value))
         le.editingFinished.emit()
 
-    # Function to set the axis_ingestion_type combo box (called cbox_flat_minor) and the axis ingestion value
-    # the axis ingestion type should be set with the numeration Ellipsoid_Axis_Type
-    # class Ellipsoid_Axis_Type(Enum):
-    # SEMI_MINOR = "Semi Minor"
-    # INVERSE_FLATTENING = "Inverse Flattening"
     @run_in_wiser_decorator
     def crs_creator_set_axis_ingestion(self, axis_type, value: float) -> None:
         """
-        axis_type : Ellipsoid_Axis_Type enum
+        axis_type : EllipsoidAxisType enum
         value     : numeric value to enter
         """
         dlg = self.main_window._crs_creator_dialog
@@ -1419,7 +1503,6 @@ class WiserTestModel:
         QTest.keyClicks(le, str(value))
         le.editingFinished.emit()
 
-    # Function to set the prime meridian QLineEdit
     @run_in_wiser_decorator
     def crs_creator_set_prime_meridian(self, value: float) -> None:
         dlg = self.main_window._crs_creator_dialog
@@ -1428,33 +1511,27 @@ class WiserTestModel:
         QTest.keyClicks(le, str(value))
         le.editingFinished.emit()
 
-    # Function to set the center longitude line edit
     @run_in_wiser_decorator
     def crs_creator_set_center_longitude(self, value: float) -> None:
         dlg = self.main_window._crs_creator_dialog
-        le = dlg._ui.ledit_center_long
+        le = dlg._ui.ledit_center_lon
         le.clear()
         QTest.keyClicks(le, str(value))
         le.editingFinished.emit()
 
-    # Function to set the latitude chooser (called cbox_lat_chooser) this should set it by the enum
-    # class Latitude_Types(Enum):
-    #     CENTRAL_LATITUDE = "Central Latitude"
-    #     TRUE_SCALE_LATITUDE = "True Scale Lat"
     @run_in_wiser_decorator
-    def crs_creator_set_latitude_choice(self, lat_type) -> None:
+    def crs_creator_set_latitude_choice(self, lat_type: LatitudeTypes) -> None:
         """
-        lat_type : Latitude_Types enum
+        lat_type : LatitudeTypes enum
         """
         dlg = self.main_window._crs_creator_dialog
         cbox = dlg._ui.cbox_lat_chooser
         idx = cbox.findData(lat_type)
         if idx == -1:
-            raise ValueError(f"{lat_type} not in latitude‑choice combo‑box")
+            raise ValueError(f"{lat_type} not in latitude-choice combo-box")
         cbox.setCurrentIndex(idx)
         cbox.activated.emit(idx)
 
-    # Function to set the center latitude line edit
     @run_in_wiser_decorator
     def crs_creator_set_latitude_value(self, value: float) -> None:
         dlg = self.main_window._crs_creator_dialog
@@ -1463,7 +1540,6 @@ class WiserTestModel:
         QTest.keyClicks(le, str(value))
         le.editingFinished.emit()
 
-    # Function to set the crs name line edit ledit_crs_name
     @run_in_wiser_decorator
     def crs_creator_set_crs_name(self, name: str) -> None:
         dlg = self.main_window._crs_creator_dialog
@@ -1472,7 +1548,26 @@ class WiserTestModel:
         QTest.keyClicks(le, name)
         le.editingFinished.emit()
 
-    # Function to press okay or cancel.
+    @run_in_wiser_decorator
+    def crs_creator_press_field_reset(self) -> None:
+        """
+        ok=True  → press the OK/Save button
+        ok=False → press Cancel
+        """
+        dlg = self.main_window._crs_creator_dialog
+        button = dlg._ui.btn_reset_fields
+        QTest.mouseClick(button, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_press_okay(self) -> None:
+        """
+        ok=True  → press the OK/Save button
+        ok=False → press Cancel
+        """
+        dlg = self.main_window._crs_creator_dialog
+        button = dlg._ui.btn_create_crs
+        QTest.mouseClick(button, Qt.LeftButton)
+
     @run_in_wiser_decorator
     def crs_creator_press_okay(self, ok: bool = True) -> None:
         """
