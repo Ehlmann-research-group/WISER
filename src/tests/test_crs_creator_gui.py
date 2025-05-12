@@ -79,9 +79,6 @@ class TestCRSCreator(unittest.TestCase):
 
         correct_wkt = "".join(correct_wkt.split())
 
-        print(f"user_created_crs_wkt: {user_created_crs_wkt}")
-        print(f"correct_wkt: {correct_wkt}")
-
         self.assertEqual(user_created_crs_wkt, correct_wkt, "Projection strings aren't equal")
 
     def test_saving_crs(self):
@@ -209,10 +206,6 @@ if __name__ == '__main__':
         shape_type_found = test_model.crs_creator_get_shape_type()
         name_found = test_model.crs_creator_get_crs_name()
 
-        print(f"projection_type: {projection_type_found}")
-        print(f"shape_type: {shape_type_found}")
-        print(f"name: {name_found}")
-
         test_model.crs_creator_press_okay()
         gcp_list = [[(5, 2), (395601.1108507479, 3778287.948885676)],
                   [(17, 112), (395617.4473001173, 3778067.1803734107)],
@@ -227,8 +220,6 @@ if __name__ == '__main__':
         test_model.open_geo_referencer()
 
         added_crs = test_model.app_state.get_user_created_crs()[name][0]
-
-        print(f"name: {added_crs}")
 
         test_model.set_geo_ref_target_dataset(ds.get_id())
         test_model.set_geo_ref_reference_dataset(ds.get_id())
@@ -253,12 +244,8 @@ if __name__ == '__main__':
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif")
         ds = test_model.load_dataset(rel_path)
 
-        print(f"geo_transform: {ds.get_geo_transform()}")
-
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_epsg4087.tif")
         ds = test_model.load_dataset(rel_path)
-
-        print(f"geo_transform: {ds.get_geo_transform()}")
 
         test_model.app.exec_()
     

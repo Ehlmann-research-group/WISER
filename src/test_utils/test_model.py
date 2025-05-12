@@ -1370,7 +1370,6 @@ class WiserTestModel:
             (cbox.itemText(i), cbox.itemData(i))
             for i in range(cbox.count())
         ]
-        print(all_items)
         return cbox.currentData()
 
 
