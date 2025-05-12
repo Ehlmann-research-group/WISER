@@ -300,7 +300,7 @@ class ReferenceCreatorDialog(QDialog):
                 chosen_enum = Latitude_Types.TRUE_SCALE_LATITUDE
                 chosen_value = true_scale_lat
 
-            self._ui.ledit_center_long.setText("" if self._center_lon is None
+            self._ui.ledit_center_lon.setText("" if self._center_lon is None
                                             else str(self._center_lon))
             
             # Save the choice
@@ -318,17 +318,17 @@ class ReferenceCreatorDialog(QDialog):
                                             else str(chosen_value))
 
             self._ui.lbl_center_lon.setEnabled(True)
-            self._ui.ledit_center_long.setEnabled(True)
+            self._ui.ledit_center_lon.setEnabled(True)
             self._ui.cbox_lat_chooser.setEnabled(True)
             self._ui.ledit_lat_value.setEnabled(True)
         else:
             # Clear projection fields
-            for w in (self._ui.ledit_center_long,
+            for w in (self._ui.ledit_center_lon,
                     self._ui.ledit_lat_value):
                 w.clear()
             self._center_lon = self._latitude = None
             self._ui.lbl_center_lon.setEnabled(False)
-            self._ui.ledit_center_long.setEnabled(False)
+            self._ui.ledit_center_lon.setEnabled(False)
             self._ui.cbox_lat_chooser.setEnabled(False)
             self._ui.ledit_lat_value.setEnabled(False)
 
@@ -479,11 +479,11 @@ class ReferenceCreatorDialog(QDialog):
     #     )
 
     def _init_center_longitude_ledit(self):
-        validator = QDoubleValidator(self._ui.ledit_center_long)
+        validator = QDoubleValidator(self._ui.ledit_center_lon)
         validator.setNotation(QDoubleValidator.StandardNotation)
         validator.setRange(-180.0, 180.0, ALLOWED_DECIMALS)
-        self._ui.ledit_center_long.setValidator(validator)
-        self._ui.ledit_center_long.textChanged.connect(
+        self._ui.ledit_center_lon.setValidator(validator)
+        self._ui.ledit_center_lon.textChanged.connect(
             self._on_center_lon_changed
         )
 
@@ -585,7 +585,7 @@ class ReferenceCreatorDialog(QDialog):
         needs_params = (self._proj_type != ProjectionTypes.NO_PROJECTION)
 
         for widget in (
-            self._ui.ledit_center_long,
+            self._ui.ledit_center_lon,
             self._ui.cbox_lat_chooser,
             self._ui.ledit_lat_value,
         ):
