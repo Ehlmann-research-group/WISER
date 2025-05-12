@@ -184,7 +184,6 @@ class ReferenceCreatorDialog(QDialog):
 
     def _on_stereo_pos_neg_changed(self, index: int) -> None:
         self._polar_stereo_latitude_sign = self._ui.cbox_pstereo_sign.itemData(index)
-        print(f"self._polar_stereo_latitude_sign: {self._polar_stereo_latitude_sign};;;;;;;;;;")
 
     def _update_extra_polar_stereo_params_display(self):
         if self._proj_type == ProjectionTypes.POLAR_STEREO:
@@ -367,11 +366,9 @@ class ReferenceCreatorDialog(QDialog):
 
         We replace the old name with the new name
         """
-        print(f"_on_starting_crs_changed CALEDDDDDD!!!!")
-        print(f"self._currentstarting_name: {self._current_starting_crs_name}")
         if not name \
            or name == self._current_starting_crs_name:
-            return                        # same choice – nothing to do
+            return
     
         if name == NO_CRS_NAME:
             self._current_starting_crs_name= NO_CRS_NAME
@@ -381,7 +378,7 @@ class ReferenceCreatorDialog(QDialog):
         print(f" self._app_state.get_user_created_crs(): { self._app_state.get_user_created_crs()}")
         srs: osr.SpatialReference = self._app_state.get_user_created_crs().get(name)[0]
         creator_state: CrsCreatorState = self._app_state.get_user_created_crs().get(name)[1]
-        if srs is None:                   # defensive – shouldn’t happen
+        if srs is None:  # shouldn’t happen
             return
 
         # Ask before clobbering whatever the user already entered
@@ -455,16 +452,6 @@ class ReferenceCreatorDialog(QDialog):
             self._ui.ledit_flat_minor.setText(f"{inv_f}")
 
         # ---------- Projection (or none) ---------------------------------
-        # if pycrs.is_geographic:
-        #     proj_type = ProjectionTypes.NO_PROJECTION
-        # else:
-        #     m = pycrs.coordinate_operation.method_name.lower()
-        #     if "equidistant cylindrical" in m or "equirectangular" in m:
-        #         proj_type = ProjectionTypes.EQUI_CYLINDRICAL
-        #     elif "polar stereographic" in m or "stereographic" in m:
-        #         proj_type = ProjectionTypes.POLAR_STEREO
-        #     else:
-        #         proj_type = ProjectionTypes.NO_PROJECTION  # fallback
         proj_type = creator_state.proj_type
 
         self._update_extra_polar_stereo_params_display()
@@ -473,51 +460,14 @@ class ReferenceCreatorDialog(QDialog):
         proj_idx = proj_cbox.findData(proj_type)
         proj_cbox.setCurrentIndex(proj_idx)
         self._proj_type = proj_type
-        self._update_units()                             # refresh “Units” display
+        self._update_units()
 
         # Projection‑specific parameters
         if not pycrs.is_geographic:
-            op = pycrs.coordinate_operation
-            params = op.params
-            print(f"op: {params}")
-            # self._center_lon = self._find_param(op,
-            #                             "Longitude of natural origin",
-            #                             "Longitude of origin",
-            #                             "Central meridian",
-            #                             "Longitude of projection centre",
-            #                             "central_meridian")
-            # center_lat = self._find_param(op,
-            #                             "Latitude of natural origin",
-            #                             "Latitude of projection centre",
-            #                             "latitude_of_origin")
-            # true_scale_lat = self._find_param(op,
-            #                                 "Latitude of true scale",
-            #                                 "Latitude of 1st standard parallel",
-            #                                 "Latitude of standard parallel",
-            #                                 "standard_parallel_1")
+
             self._center_lon = creator_state.center_lon
             latitude_value = creator_state.latitude
             latitude_choice = creator_state.latitude_choice
-            # print(f"center_lat: {center_lat}")
-            # print(f"true_scale_lat: {true_scale_lat}")
-            # assert not (center_lat == None and true_scale_lat == None), \
-            #     "Center Latitude and True Scale Latitude should not both be None."
-
-            # if center_lat is None:
-            #     chosen_enum = LatitudeTypes.TRUE_SCALE_LATITUDE
-            #     chosen_value = true_scale_lat
-            # elif true_scale_lat is None or (center_lat == 0.0 and true_scale_lat == 0.0):
-            #     print(f"true_scale_lat is None or 0.0: {true_scale_lat}")
-            #     print(f"center_lat is 0.0: {center_lat}")
-            #     chosen_enum = LatitudeTypes.CENTRAL_LATITUDE
-            #     chosen_value = center_lat
-            # elif center_lat > true_scale_lat:
-            #     print(f"center_lat > true_scale_lat: { center_lat } > {true_scale_lat}")
-            #     chosen_enum = LatitudeTypes.CENTRAL_LATITUDE
-            #     chosen_value = center_lat
-            # else:
-            #     chosen_enum = LatitudeTypes.TRUE_SCALE_LATITUDE
-            #     chosen_value = true_scale_lat
 
             self._ui.ledit_center_lon.setText("" if self._center_lon is None
                                             else str(self._center_lon))
@@ -557,7 +507,6 @@ class ReferenceCreatorDialog(QDialog):
         self._crs_name = name
 
         # Remember selection so we can detect future changes
-        print(f"changing starting crs_name to: {name}")
         self._current_starting_crs_name = name
 
 
@@ -887,94 +836,53 @@ class ReferenceCreatorDialog(QDialog):
             else:  # inverse flattening entered directly
                 inv_f = self._axis_ingestion_value
 
-        _internal_use_proj = True
+        # Ellipsoid description for proj
 
-        if _internal_use_proj:
-            # Ellipsoid description for proj
+        if inv_f == 0.0:
+            ellps_part = f"+R={a}"
+        else:
+            ellps_part = f"+a={a} +rf={inv_f}"
 
-            if inv_f == 0.0:
-                ellps_part = f"+R={a}"
+        base = f"{ellps_part} +pm={self._lon_meridian} +no_defs"
+
+        if self._proj_type == ProjectionTypes.NO_PROJECTION:
+            proj_str = f"+proj=longlat {base} +units=deg"
+        elif self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
+            if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
+                proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_0={self._latitude} "
+                            f"{base}")
             else:
-                ellps_part = f"+a={a} +rf={inv_f}"
+                proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_ts={self._latitude} "
+                            f"{base}")
+                
+        elif self._proj_type == ProjectionTypes.POLAR_STEREO:
+            if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
+                if self._polar_stereo_scale is None:
+                    QMessageBox.warning(self, self.tr("Missing value"),
+                                        self.tr("The scale factor value is None. Please enter\n"
+                                        "a scale factor value."))
+                    return
 
-            base = f"{ellps_part} +pm={self._lon_meridian} +no_defs"
-
-            if self._proj_type == ProjectionTypes.NO_PROJECTION:
-                proj_str = f"+proj=longlat {base} +units=deg"
-            elif self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
-                if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
-                    proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_0={self._latitude} "
-                                f"{base}")
-                else:
-                    proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_ts={self._latitude} "
-                                f"{base}")
-                    
-            elif self._proj_type == ProjectionTypes.POLAR_STEREO:
-                if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
-                    if self._polar_stereo_scale is None:
-                        QMessageBox.warning(self, self.tr("Missing value"),
-                                            self.tr("The scale factor value is None. Please enter\n"
-                                            "a scale factor value."))
-                        return
-
-                    proj_str = (f"+proj=stere +lat_0={self._latitude} +lon_0={self._center_lon} "
-                                f"+k={self._polar_stereo_scale} +x_0=0 +y_0=0 {base}")
-                else:
-                    if self._polar_stereo_latitude_sign is None:
-                        QMessageBox.warning(self, self.tr("Missing value"),
-                                            self.tr("The central latitude sign is None. Please select\n"
-                                            "a central latitude sign."))
-                        return
-                    proj_str = (f"+proj=stere +lon_0={self._center_lon} +lat_0={self._polar_stereo_latitude_sign}90 "
-                                f"+lat_ts={self._latitude} +x_0=0 +y_0=0 {base}")
-                    print(f"proj str: {proj_str}")
-                    
+                proj_str = (f"+proj=stere +lat_0={self._latitude} +lon_0={self._center_lon} "
+                            f"+k={self._polar_stereo_scale} +x_0=0 +y_0=0 {base}")
             else:
-                QMessageBox.critical(self, "Error",
-                                    f"Unknown projection type: {self._proj_type}")
-                return
+                if self._polar_stereo_latitude_sign is None:
+                    QMessageBox.warning(self, self.tr("Missing value"),
+                                        self.tr("The central latitude sign is None. Please select\n"
+                                        "a central latitude sign."))
+                    return
+                proj_str = (f"+proj=stere +lon_0={self._center_lon} +lat_0={self._polar_stereo_latitude_sign}90 "
+                            f"+lat_ts={self._latitude} +x_0=0 +y_0=0 {base}")
+                print(f"proj str: {proj_str}")
+                
+        else:
+            QMessageBox.critical(self, "Error",
+                                f"Unknown projection type: {self._proj_type}")
+            return
 
-            pyproj_crs = pyproj.CRS.from_proj4(proj_str)
-            self._new_crs = osr.SpatialReference()
-            wkt = pyproj_crs.to_wkt()
-            print(f"wkt: {wkt}")
-            self._new_crs.ImportFromWkt(pyproj_crs.to_wkt())
-        # else:
-        #     gcs = osr.SpatialReference()
-        #     gcs.SetGeogCS(self._crs_name or "USER_GCS",
-        #                 "USER_DATUM",
-        #                 "USER_ELLIPSOID",
-        #                 a, inv_f,
-        #                 "Prime_Meridian", lon_0,
-        #                 "degree", 0.0174532925199433)  
-
-        #     # Axis order: lon/lat as in “traditional GIS” gives us consistent
-        #     # lon/lat ordering
-        #     gcs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-
-        #     if self._proj_type == ProjectionTypes.NO_PROJECTION:
-        #         srs = gcs      # geographic only
-        #     else:
-        #         srs: osr.SpatialReference = gcs.Clone()
-        #         srs.SetProjCS(self._crs_name or "USER_PCS")
-
-        #         if self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
-        #             if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
-        #                 # SetEquirectangular2​(double clat, double clong, double pseudostdparallellat, double fe, double fn)
-        #                 srs.SetEquirectangular2(self._latitude, self._center_lon, 0, 0, 0)
-        #             else:
-        #                 srs.SetEquirectangular2(0.0, self._center_lon, self._latitude, 0, 0)
-        #         elif self._proj_type == ProjectionTypes.POLAR_STEREO:
-        #             # lat_ts: true‑scale latitude (use pole if user left blank)
-        #             # lat_ts = 90.0 if lat_0 >= 0 else -90.0
-        #             # SetPS​(double clat, double clong, double scale, double fe, double fn)
-        #             if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
-        #                 srs.SetPS(self._latitude, self._center_lon, 1.0, 0, 0)
-        #             else:
-        #                 srs.SetPS(self._latitude, self._center_lon, 1.0, 0, 0)
-        #         else:
-        #             raise RuntimeError("Unsupported projection choice")
-        #     self._new_crs = srs
+        pyproj_crs = pyproj.CRS.from_proj4(proj_str)
+        self._new_crs = osr.SpatialReference()
+        self._new_crs.ImportFromWkt(pyproj_crs.to_wkt())
             
         self._new_crs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
