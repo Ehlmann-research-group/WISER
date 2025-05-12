@@ -723,7 +723,7 @@ class ApplicationState(QObject):
     def get_user_created_crs(self):
         return self._user_created_crs
     
-    def q(self, name: str, crs: osr.SpatialReference, crs_creator_state: 'CrsCreatorState'):
+    def add_user_created_crs(self, name: str, crs: osr.SpatialReference, crs_creator_state: 'CrsCreatorState'):
         if name in self._user_created_crs:
             # Ask the user whether to overwrite the existing CRS
             reply = QMessageBox.question(
