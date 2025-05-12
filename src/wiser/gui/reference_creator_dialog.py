@@ -163,7 +163,6 @@ class ReferenceCreatorDialog(QDialog):
         cbox.currentIndexChanged.connect(self._on_stereo_pos_neg_changed)
         cbox.setCurrentIndex(0)
         cbox.currentIndexChanged.emit(0)
-        # self._on_stereo_pos_neg_changed(cbox.currentIndex())
 
         # Initialize the Scale Factor Line Edit 
         validator = QDoubleValidator(self._ui.ledit_pstereo_scale_factor)
@@ -201,12 +200,6 @@ class ReferenceCreatorDialog(QDialog):
             
 
     def _init_reset_button(self):
-        '''
-        Should reset the fields _axis_ingestion_value, _semi_major_value, _latitude, _center_lon, and _lon_meridian.
-        Shoudl reset their class values and their line edits. 
-        Should reset _current_starting_crs_name
-        Should reset the value of self._ui.cbox_user_crs to be the value of (None)
-        '''
         # Resolve the reset‑button name used in the .ui file
         reset_btn = self._ui.btn_reset_fields
         if reset_btn is None:
@@ -241,10 +234,10 @@ class ReferenceCreatorDialog(QDialog):
         # ---- 3.  Put the “Starting CRS” combo back to “(None)” ----------
         cbox = self._ui.cbox_user_crs
         none_idx = cbox.findText(self.tr(NO_CRS_NAME))
-        if none_idx == -1:                        # fallback: last entry
+        if none_idx == -1:  # fallback: last entry
             none_idx = cbox.count() - 1
         if none_idx >= 0:
-            cbox.blockSignals(True)              # suppress _on_starting_crs_changed
+            cbox.blockSignals(True)
             cbox.setCurrentIndex(none_idx)
             cbox.blockSignals(False)
 
@@ -261,26 +254,12 @@ class ReferenceCreatorDialog(QDialog):
 
     def _init_user_created_crs(self):
         """
-        Gets the dictionary Dict[str, osr.SpatialReference] from self._app_state
-        by doing self._app_state.get_user_created_crs
-
-        If the dictionary is empty, we disable self._ui.cbox_user_crs. If the dictionary is not empty, we enable it.
-
-        We populate the cbox with the text as the key (str) in the dictionary and the data as the value (osr.SpatialReference)
-        
-        When the user clicks on a cbox entry, it should call the function _on_starting_crs_changed. It should use a lambda to call this
-        so that we can also pas the key (str) of the dictionary by the name parameter
-        """
-        """
         Populate the “Starting CRS” combo box with user-defined CRS objects that
         were persisted in ApplicationState.  Each entry's *text* is the dict key
         and the *userData* is the osr.SpatialReference itself.
         """
         cbox = self._ui.cbox_user_crs
         self._update_user_created_crs_cbox()
-
-        # When the user chooses an entry we call _on_starting_crs_changed and pass
-        # the *name* (key) via a small lambda wrapper.
         cbox.activated.connect(
             lambda idx: self._on_starting_crs_changed(cbox.itemText(idx))
         )
@@ -339,33 +318,9 @@ class ReferenceCreatorDialog(QDialog):
                 new_index = 0
 
         cbox.setCurrentIndex(new_index)
-        # cbox = self._ui.cbox_user_crs
-        # cbox.clear()
-
-        # self._user_created_crs = self._app_state.get_user_created_crs() or {}
-
-        # if not self._user_created_crs:            # nothing stored yet
-        #     cbox.setEnabled(False)
-        #     return
-
-        # cbox.setEnabled(True)
-        # for name, srs in self._user_created_crs.items():
-        #     cbox.addItem(name, srs)
 
 
     def _on_starting_crs_changed(self, name: str):
-        """
-        Should somehow check to see if a different starting CRS was clicked. If it was then we ask the user i they want 
-        to replace all the fields and warn them that this will overwrite their data. If they do then we bring in the osr.SpatialReference
-        and get its prime meridian value, equator value, projection type (it will either have no projection, be Equirectangular, or be stereo graphic)
-        We figure out if it is an ellipsoid or a spheroid and its semi-major axis value and (if applicable) semi-minoir axis value.
-        We make sure to change the cbox_flat_minor to either be the inverse flattening or the semi-minor depending on what the ellipsoid
-        is represented as. 
-
-        We figure out its center latitude and center longitude and true scale latitude (if it is a projection)
-
-        We replace the old name with the new name
-        """
         if not name \
            or name == self._current_starting_crs_name:
             return
@@ -524,20 +479,6 @@ class ReferenceCreatorDialog(QDialog):
                     cbox.setCurrentIndex(idx)
                     cbox.currentIndexChanged.emit(idx)
 
-
-    def _find_param(self, op, *names):
-        """
-        Return the first matching operation-parameter value (or None) from a
-        pyproj CoordinateOperation.  Usage:
-            lat_0 = _find_param(op, "Latitude of natural origin",
-                                    "Latitude of projection centre")
-        """
-        lname = {n.lower() for n in names}
-        for p in getattr(op, "params", []):
-            if p.name.lower() in lname:
-                return p.value
-        return None
-
     def _init_cbox_lat_chooser(self):
         """
         Initializes self._ui.cbox_lat_chooser to have all the values in LatitudeTypes. The text shown should be
@@ -547,7 +488,7 @@ class ReferenceCreatorDialog(QDialog):
             CENTRAL_LATITUDE = "Central Latitude"
             TRUE_SCALE_LATITUDE = "True Scale Lat"
 
-        WHen a new cbox item is clicked the function _on_change_lat_choice should be called which sets an instance varialbe
+        When a new cbox item is clicked the function _on_change_lat_choice should be called which sets an instance varialbe
         called self._latitude_choice
         """
         cbox = self._ui.cbox_lat_chooser
@@ -646,24 +587,6 @@ class ReferenceCreatorDialog(QDialog):
             self._on_semi_major_changed
         )
 
-    # def _init_true_scale_lat_ledit(self):
-    #     validator = QDoubleValidator(self._ui.ledit_true_scale_lat)
-    #     validator.setNotation(QDoubleValidator.StandardNotation)
-    #     validator.setRange(-90.0, 90.0, ALLOWED_DECIMALS)
-    #     self._ui.ledit_true_scale_lat.setValidator(validator)
-    #     self._ui.ledit_true_scale_lat.textChanged.connect(
-    #         self._on_true_scale_lat_changed
-    #     )
-
-    # def _init_center_latitude_ledit(self):
-    #     validator = QDoubleValidator(self._ui.ledit_center_lat)
-    #     validator.setNotation(QDoubleValidator.StandardNotation)
-    #     validator.setRange(-90.0, 90.0, ALLOWED_DECIMALS)
-    #     self._ui.ledit_center_lat.setValidator(validator)
-    #     self._ui.ledit_center_lat.textChanged.connect(
-    #         self._on_center_lat_changed
-    #     )
-
     def _init_center_longitude_ledit(self):
         validator = QDoubleValidator(self._ui.ledit_center_lon)
         validator.setNotation(QDoubleValidator.StandardNotation)
@@ -681,15 +604,6 @@ class ReferenceCreatorDialog(QDialog):
         self._ui.ledit_prime_meridian.textChanged.connect(
             self._on_lon_meridian_changed
         )
-
-    # def _init_lat_equator_ledit(self):
-    #     validator = QDoubleValidator(self._ui.ledit_equator)
-    #     validator.setNotation(QDoubleValidator.StandardNotation)
-    #     validator.setRange(-90.0, 90.0, ALLOWED_DECIMALS)
-    #     self._ui.ledit_equator.setValidator(validator)
-    #     self._ui.ledit_equator.textChanged.connect(
-    #         self._on_lat_equator_changed
-    #     )
 
     def _init_crs_name(self):
         regex = QRegExp(r"^[A-Za-z0-9_]+$")
@@ -734,11 +648,9 @@ class ReferenceCreatorDialog(QDialog):
             self._center_lon = None
 
     def _on_axis_ingest_type_changed(self, index: int):
-        # retrieve the enum stored as user data
         self._axis_ingest_type = self._ui.cbox_flat_minor.itemData(index)
 
     def _on_axis_ingestion_value_changed(self, text: str):
-        # convert to float if possible
         try:
             self._axis_ingestion_value = float(text)
         except ValueError:
@@ -749,10 +661,6 @@ class ReferenceCreatorDialog(QDialog):
             self._semi_major_value = float(text)
         except ValueError:
             self._semi_major_value = None
-    
-    def _on_switch_dataset(self, index: int):
-        pass
-
 
     def _on_lat_equator_changed(self, text: str):
         try:
@@ -824,8 +732,6 @@ class ReferenceCreatorDialog(QDialog):
                                         "of them is not set."))
             return
 
-        lon_0 = self._lon_meridian if self._lon_meridian is not None else 0.0
-
         a = self._semi_major_value
         if self._shape_type == ShapeTypes.SPHEROID:
             inv_f = 0.0  # sphere
@@ -873,7 +779,6 @@ class ReferenceCreatorDialog(QDialog):
                     return
                 proj_str = (f"+proj=stere +lon_0={self._center_lon} +lat_0={self._polar_stereo_latitude_sign}90 "
                             f"+lat_ts={self._latitude} +x_0=0 +y_0=0 {base}")
-                print(f"proj str: {proj_str}")
                 
         else:
             QMessageBox.critical(self, "Error",
