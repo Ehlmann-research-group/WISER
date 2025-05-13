@@ -464,74 +464,6 @@ class ImageScrollArea(QScrollArea):
         # usually we will want to set propagate scroll back to true after doing an operation
         # that we don't want to propagate
         self.propagate_scroll = True
-    
-    def make_point_center(self, point: Tuple[int, int]):
-        '''
-        Makes 'point' the center of the viewport by changing the scroll area.
-        If the point cannot be made exactly center because it is by the edge, the 
-        scroll area gets as close as possible.
-
-        Parameters:
-            point (Tuple[int, int]): A tuple representing the (x, y) coordinates 
-                                     within the widget (image) that should be centered.
-        '''
-        pos = QPointF(point[0], point[1]) 
-        # Get the current viewport size
-        viewport = self.viewport()
-        viewport_width = viewport.width()
-        viewport_height = viewport.height()
-
-        raster_width = self._rasterview.get_raster_data().get_width()
-        raster_height = self._rasterview.get_raster_data().get_height()
-
-        # Retrieve the scroll bars
-        h_scrollbar = self.horizontalScrollBar()
-        v_scrollbar = self.verticalScrollBar()
-
-        widget = self.widget()
-
-        old_scale = self._rasterpane.get_scale()
-        scrollBarPos: QPointF = QPointF(self.horizontalScrollBar().value(), \
-                                        self.verticalScrollBar().value())
-        deltaToPos = pos / old_scale - widget.pos() / old_scale
-        print(f"widgetPos: {widget.pos()}")
-        print(f"deltaToPos: {deltaToPos}")
-
-        h_scroll_range = h_scrollbar.maximum() - h_scrollbar.minimum()
-        v_scroll_range = v_scrollbar.maximum() - v_scrollbar.minimum()
-        # ratio = deltaToPos / QPointF(h_scroll_range, v_scroll_range)
-        ratio = QPointF(deltaToPos.x() / viewport_width, deltaToPos.y() / viewport_height)
-        raster_coord = self._rasterview.image_coord_to_raster_coord(pos - widget.pos())
-        ratio_img = QPointF(raster_coord.x() / raster_width, raster_coord.y() / raster_height)
-        print(f"ratio: {ratio}")
-        print(f"raster_coord: {raster_coord}")
-        print(f"width: {raster_width}, height: {raster_height}")
-        print(f"ratio_img: {ratio_img}")
-
-
-        # Calculate desired scrollbar /nt[1], viewport_width // 2, viewport_height // 2)
-        desired_h_value = ratio_img.x() * h_scroll_range
-        desired_v_value = ratio_img.y() * v_scroll_range
-        # print(f"point: {point[0]}")
-        # print(f"point: {point[1]}")
-        # print(f"desired_h_value: {desired_h_value}")
-        # print(f"desired_v_value: {desired_v_value}")
-        # print(f"viewport_width: {viewport_width}")
-        # print(f"viewport_height: {viewport_height}")
-
-        # print(f"h_scrollbar.minimum(): {h_scrollbar.minimum()}")
-        # print(f"h_scrollbar.maximum(): {h_scrollbar.maximum()}")
-
-        # print(f"v_scrollbar.minimum(): {v_scrollbar.minimum()}")
-        # print(f"v_scrollbar.maximum(): {v_scrollbar.maximum()}")
-
-        # Clamp the scrollbar values to their allowed ranges.
-        new_h_value = max(h_scrollbar.minimum(), min(desired_h_value, h_scrollbar.maximum()))
-        new_v_value = max(v_scrollbar.minimum(), min(desired_v_value, v_scrollbar.maximum()))
-
-        # # Update the scroll bars without propagating the scroll event.
-        self._update_scrollbar_no_propagation(h_scrollbar, desired_h_value)
-        self._update_scrollbar_no_propagation(v_scrollbar, desired_v_value)
 
     def _update_scrollbar_no_propagation(self, scrollbar, value):
         '''
@@ -545,7 +477,6 @@ class ImageScrollArea(QScrollArea):
     def wheelEvent(self, event: QWheelEvent):
         # Get the mouse position in widget coordinates
         mouse_pos = event.pos()
-        image_point = self._rasterview.image_coord_to_raster_coord(mouse_pos)
         # If Ctrl is pressed, intercept the wheel event to perform zooming
         if event.modifiers() & Qt.ControlModifier:
             delta = event.angleDelta().y()
@@ -575,15 +506,6 @@ class ImageScrollArea(QScrollArea):
 
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
-
-        # print(f"=================================")
-        # print(f"horizontalScrollBarValue: {self.horizontalScrollBar().value()}")
-        # print(f"horizontalScrollBar min: {self.horizontalScrollBar().minimum()}")
-        # print(f"horizontalScrollBar max: {self.horizontalScrollBar().maximum()}")
-        # print(f"verticalScrollBarValue: {self.verticalScrollBar().value()}")
-        # print(f"verticalScrollBar min: {self.verticalScrollBar().minimum()}")
-        # print(f"verticalScrollBar max: {self.verticalScrollBar().maximum()}")
-        # print(f"=================================")
 
         if 'scrollContentsBy' in self._forward:
             self._forward['scrollContentsBy'](self._rasterview, dx, dy, self.propagate_scroll)
@@ -811,9 +733,8 @@ class RasterView(QWidget):
                     img_data = make_rgb_image(self._display_data[0].data, self._display_data[1].data, self._display_data[2].data)
                 
                     if not img_data.flags['C_CONTIGUOUS']:
-                        img_data = np.ascontiguousarray(img_data)
-                    
-                    
+                        img_data = np.ascontiguousarray(img_data)                    
+
                     mask = np.zeros(img_data.shape, dtype=bool)
                     img_data = np.ma.masked_array(img_data, mask)
                 else:

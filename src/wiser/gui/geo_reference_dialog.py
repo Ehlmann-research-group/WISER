@@ -65,12 +65,16 @@ min_points_per_transform = {
     TRANSFORM_TYPES.TPS: 10,
 }
 
-class GeneralCRS(ABC):
+class GeneralCRS():
     def get_osr_crs(self) -> Optional[osr.SpatialReference]:
         '''
         Gets a osr.SpatialReference object for this class
         '''
-        pass
+        raise NotImplementedError("Function has not yet been implemented.")
+
+    def __eq__(self, other: 'GeneralCRS'):
+        return self.get_osr_crs().ExportToWkt() == other.get_osr_crs().ExportToWkt()
+
 class AuthorityCodeCRS(GeneralCRS):
 
     def __init__(self, authority_name: str, authority_code: int):
@@ -248,7 +252,9 @@ class GeoReferencerDialog(QDialog):
         self._refresh_init()
         super().show()
 
+
     # region Initialization
+
 
     def _first_init(self):
         self._init_dataset_choosers()
@@ -307,7 +313,7 @@ class GeoReferencerDialog(QDialog):
         for name, srs in COMMON_SRS.items():
             srs_to_choose_cbox.addItem(name, srs)
 
-        for name, srs in self._app_state.get_user_created_crs().items():
+        for name, (srs, _) in self._app_state.get_user_created_crs().items():
             srs_to_choose_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
         srs_to_choose_cbox.activated.connect(self._on_switch_chosen_ref_srs)
@@ -322,7 +328,7 @@ class GeoReferencerDialog(QDialog):
         for name, srs in COMMON_SRS.items():
             srs_to_choose_cbox.addItem(name, srs)
 
-        for name, srs in self._app_state.get_user_created_crs().items():
+        for name, (srs, _) in self._app_state.get_user_created_crs().items():
             srs_to_choose_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
     def _add_manual_spacer_once(self):
@@ -436,7 +442,7 @@ class GeoReferencerDialog(QDialog):
         for name, srs in COMMON_SRS.items():
             srs_cbox.addItem(name, srs)
         
-        for name, srs in self._app_state.get_user_created_crs().items():
+        for name, (srs, _) in self._app_state.get_user_created_crs().items():
             srs_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
         self._on_switch_output_srs(srs_cbox.currentIndex())
@@ -774,7 +780,9 @@ class GeoReferencerDialog(QDialog):
         self._update_manual_ref_chooser_display(dataset)
         self._prev_ref_dataset_index = self._reference_cbox.currentIndex()
 
+
     # region Table Entry Helpers
+
 
     def _get_save_file_path(self) -> str:
         path = self._ui.ledit_save_path.text()
@@ -1004,7 +1012,6 @@ class GeoReferencerDialog(QDialog):
             table_entry.set_id(i)
             # Index i also functions as the row in the table widget
             # where this entry is currently
-            # print(f"updating i: {i}, for column: {COLUMN_ID.ID_COL}")
             table_widget.setItem(i, COLUMN_ID.ID_COL, QTableWidgetItem(str(i)))
 
     def _clear_manual_ref_ledits(self):
@@ -1163,18 +1170,6 @@ class GeoReferencerDialog(QDialog):
         object.
         '''
         return self._ui.cbox_choose_crs.currentData().get_osr_crs()
-        # auth_name, auth_code = self._ui.cbox_choose_crs.currentData()
-
-        # # Build the AUTH:CODE string
-        # auth_code_str = f"{auth_name}:{auth_code}"
-
-        # # Create and populate the SpatialReference
-        # srs = osr.SpatialReference()
-        # err = srs.SetFromUserInput(auth_code_str)
-        # if err != 0:
-        #     raise RuntimeError(f"Failed to import CRS '{auth_code_str}' (GDAL error {err})")
-
-        # return srs
 
 
     #========================
@@ -1204,18 +1199,6 @@ class GeoReferencerDialog(QDialog):
         """
         crs: GeneralCRS = self._ui.cbox_srs.currentData()
         return crs.get_osr_crs()
-        # authority_name, authority_code = self._curr_output_srs
-
-        # # Build the PROJ auth:code string (e.g. "EPSG:4326", "ESRI:102100")
-        # auth_code = f"{authority_name}:{authority_code}"
-
-        # # Create and populate the SpatialReference
-        # srs = osr.SpatialReference()
-        # err = srs.SetFromUserInput(auth_code)
-        # if err != 0:
-        #     raise RuntimeError(f"Could not import CRS from '{auth_code}' (GDAL error code {err})")
-
-        # return srs
 
     def _get_reference_srs(self):
         '''

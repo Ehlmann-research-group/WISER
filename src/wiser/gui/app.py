@@ -38,6 +38,7 @@ from .image_coords_widget import ImageCoordsWidget
 
 from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
+from .similarity_transform_dialog import SimilarityTransformDialog
 
 from .util import *
 
@@ -196,8 +197,9 @@ class DataVisualizerApp(QMainWindow):
         # TESTING ITEMS
 
         self._invisible_testing_widget = TestingWidget()
-        self._geo_ref_dialog = None
-        self._crs_creator_dialog = None
+        self._geo_ref_dialog: GeoReferencerDialog = None
+        self._crs_creator_dialog: ReferenceCreatorDialog = None
+        self._similarity_transform_dialog: SimilarityTransformDialog = None
 
     def _init_menus(self):
 
@@ -286,6 +288,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr('Reference System Creator'))
         act.triggered.connect(self.show_reference_creator_dialog)
+
+        act = self._tools_menu.addAction(self.tr('Similarity Transform'))
+        act.triggered.connect(self.show_similarity_transform_dialog)
 
         # Help menu
 
@@ -874,6 +879,15 @@ class DataVisualizerApp(QMainWindow):
                 print(f"Reference creator accepted!")
         else:
             self._crs_creator_dialog.show()
+    
+    def show_similarity_transform_dialog(self, in_test_mode = False):
+        if self._similarity_transform_dialog is None:
+            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state)
+        if not in_test_mode:
+            if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
+                print(f"Reference creator accepted!")
+        else:
+            self._similarity_transform_dialog.show()
 
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
