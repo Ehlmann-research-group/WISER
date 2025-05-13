@@ -9,9 +9,9 @@ from PySide2.QtWidgets import *
 from .band_chooser import BandChooserDialog
 from .rasterview import RasterView, ImageWidget, ImageColors, ScaleToFitMode, \
                         make_channel_image, make_rgb_image, make_grayscale_image
-from .rasterpane import RasterPane, TiledRasterView
-from .util import get_painter, add_toolbar_action
-from .geo_reference_task_delegate import PointSelectorType, PointSelector
+from .rasterpane import RasterPane, TiledRasterView, RecenterMode
+from .app_state import ApplicationState
+from wiser.raster.selection import SinglePixelSelection
 
 if TYPE_CHECKING:
     from .geo_reference_task_delegate import GeoReferencerTaskDelegate
@@ -27,7 +27,7 @@ WIDTH_INDEX = 1
 HEIGHT_INDEX = 0
 
 class SimilarityTransformImageWidget(ImageWidget):
-    
+
     def set_dataset_info(self, array, scale):
         # TODO(donnie):  Do something
         if array is not None:
@@ -131,7 +131,7 @@ class SimilarityTransformRasterView(TiledRasterView):
         so nothing gets clipped.
 
         Args:
-        img    : H×W or H×W×C uint8/float32 array.
+        img    : HxW or HxWxC uint8/float32 array.
         angle  : rotation angle in degrees (positive = CCW).
         scale  : isotropic scale factor.
         interp : one of 'nearest','linear','cubic','lanczos'.
@@ -139,7 +139,6 @@ class SimilarityTransformRasterView(TiledRasterView):
         Returns:
         Transformed array with dtype matching input.
         """
-        print(f"type of img: {type(img)}")
         _INTERPOLATIONS = {
             'nearest':  cv2.INTER_NEAREST,
             'linear':   cv2.INTER_LINEAR,
@@ -302,7 +301,6 @@ class SimilarityTransformRasterView(TiledRasterView):
         # self._image = QImage(img_data,
         #     self._raster_data.get_width(), self._raster_data.get_height(),
         #     QImage.Format_RGB32)
-        print(f"img_data shape: {img_data.shape}")
         self._image = QImage(img_data,
            img_data.shape[1], img_data.shape[0],
             QImage.Format_RGB32)
@@ -323,10 +321,17 @@ class SimilarityTransformRasterView(TiledRasterView):
 
 
 class SimilarityTransformPane(RasterPane):
-    def __init__(self, app_state, parent=None):
+
+    # The first parameter is the dataset, the second is the point
+    pixel_selected_for_translation = Signal(object, tuple)
+
+    def __init__(self, app_state, translation=False, parent=None):
         super().__init__(app_state=app_state, parent=parent,
             max_zoom_scale=64, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16, 24, 32],
             initial_zoom=1)
+        
+        self._translation = translation
+        self.click_pixel.connect(self._on_similarity_transform_raster_pixel_select)
 
     def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1), rasterview_class: TiledRasterView = TiledRasterView):
         rasterview_class = SimilarityTransformRasterView
@@ -380,3 +385,17 @@ class SimilarityTransformPane(RasterPane):
             # Just zoom such that one of the dimensions fits.
             self.get_rasterview().scale_image_to_fit(
                 mode=ScaleToFitMode.FIT_ONE_DIMENSION)
+
+    def _on_similarity_transform_raster_pixel_select(self, rasterview_position, ds_point):
+        print(f"_on_similarity_transform_raster_pixel_select called!\n raster pos: {rasterview_position}, ds_point: {ds_point}")
+        # Get the dataset of the main view.  If no dataset is being displayed,
+        # this is a no-op.
+        ds = self.get_current_dataset(rasterview_position)
+        if ds is None:
+            # The clicked-on rasterview has no dataset loaded; ignore.
+            return
+        sel = SinglePixelSelection(ds_point, ds)
+        self.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+
+        if self._translation:
+            self.pixel_selected_for_translation.emit(ds, ds_point)

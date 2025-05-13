@@ -27,7 +27,7 @@
    <item row="0" column="0">
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="tab_rotate_scale">
       <attribute name="title">
@@ -278,14 +278,14 @@
        <item row="1" column="0">
         <layout class="QHBoxLayout" name="hlayout_coords">
          <item>
-          <widget class="QLabel" name="lbl_prev_coord_txt">
+          <widget class="QLabel" name="lbl_orig_coord_txt">
            <property name="text">
             <string>Prev. Spatial Coord:</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="lbl_prev_coord_input">
+          <widget class="QLabel" name="lbl_orig_coord_input">
            <property name="text">
             <string>(replace with prev)</string>
            </property>
@@ -312,7 +312,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="lbl_curr_coord_input">
+          <widget class="QLabel" name="lbl_new_coord_input">
            <property name="text">
             <string>(replace with current)</string>
            </property>

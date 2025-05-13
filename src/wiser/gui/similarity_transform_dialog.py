@@ -9,6 +9,8 @@ from wiser.gui.rasterpane import RasterPane
 from wiser.gui.similarity_transform_pane import SimilarityTransformPane
 from wiser.gui.app_state import ApplicationState
 
+from wiser.raster.dataset import RasterDataSet, pixel_coord_to_geo_coord
+
 from .generated.similarity_transform_dialog_ui import Ui_SimilarityTransform
 
 
@@ -22,7 +24,8 @@ class SimilarityTransformDialog(QDialog):
 
         # --- Image renderings ----------------------------------------------------
         self._rotate_scale_pane = SimilarityTransformPane(app_state)
-        self._translate_pane = SimilarityTransformPane(app_state)
+        self._translate_pane = SimilarityTransformPane(app_state, translation=True)
+        self._translate_pane.pixel_selected_for_translation.connect(self._on_translation_pixel_selected)
         self._init_rasterpanes()
 
         # --- Internal state ----------------------------------------------------
@@ -159,6 +162,34 @@ class SimilarityTransformDialog(QDialog):
             pass
         print(f"self._lon_east_translate: {self._lon_east_translate}")
 
+    def _make_point_to_text(self, point):
+        return f"({point[0]}, {point[1]})"
+
+    @Slot()
+    def _on_translation_pixel_selected(self, dataset: RasterDataSet, point: QPoint) -> None:
+        print(f"_on_translation_pixel_selected")
+        print(f"dataset: {dataset}")
+        print(f"point: {point}")
+        point = (point.x(), point.y())
+        # Get current point's dataset
+        orig_geo_coords = dataset.to_geographic_coords(point)
+        if orig_geo_coords is None:
+            print(f"Dataset has no geo transform!")
+            return
+        origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = dataset.get_geo_transform()
+        new_lon_east = origin_lon_east + self._lon_east_translate
+        new_lat_north = origin_lat_north + self._lat_north_translate
+
+        new_gt = (new_lon_east, pixel_w, rot_x, new_lat_north, rot_y, pixel_h)
+        new_geo_coord = pixel_coord_to_geo_coord(point, new_gt)
+
+        print(f"orig_geo_coords: {orig_geo_coords}")
+        print(f"new_geo_coord: {new_geo_coord}")
+
+        self.set_orig_coord_text(self._make_point_to_text(orig_geo_coords))
+        self.set_new_coord_text(self._make_point_to_text(new_geo_coord))
+
+
     # -------------------------------------------------------------------------
     # Button handlers – currently stubs
     # -------------------------------------------------------------------------
@@ -177,13 +208,13 @@ class SimilarityTransformDialog(QDialog):
     # Public helper methods for external callers
     # -------------------------------------------------------------------------
 
-    def set_prev_coord_text(self, text: str) -> None:
+    def set_orig_coord_text(self, text: str) -> None:
         """Update the previous coordinate label."""
-        self._ui.lbl_prev_coord_input.setText(text)
+        self._ui.lbl_orig_coord_input.setText(text)
 
-    def set_curr_coord_text(self, text: str) -> None:
+    def set_new_coord_text(self, text: str) -> None:
         """Update the current coordinate label."""
-        self._ui.lbl_curr_coord_input.setText(text)
+        self._ui.lbl_new_coord_input.setText(text)
 
     def set_crs_text(self, text: str) -> None:
         """Update (read‑only) CRS line‑edit."""
