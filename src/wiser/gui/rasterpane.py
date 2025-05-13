@@ -472,7 +472,7 @@ class RasterPane(QWidget):
 
 
 
-    def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1)):
+    def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1), rasterview_class: TiledRasterView = TiledRasterView):
         '''
         Initialize the raster-pane to have MxN raster-views displayed in the
         pane.  The default is to have only one raster-view showing in the pane.
@@ -525,7 +525,7 @@ class RasterPane(QWidget):
 
                 rasterview = self._rasterviews.get(position)
                 if rasterview is None:
-                    rasterview = TiledRasterView(self, position, self._app_state, forward=forward)
+                    rasterview = rasterview_class(self, position, self._app_state, forward=forward)
                     rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
 
                     self._rasterviews[position] = rasterview

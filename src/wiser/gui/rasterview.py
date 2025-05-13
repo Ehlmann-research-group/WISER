@@ -332,6 +332,8 @@ class ScaleToFitMode(enum.Enum):
     # Fit both dimensions of the image entirely into the viewing area.
     FIT_BOTH_DIMENSIONS = 4
 
+WIDTH_INDEX = 1
+HEIGHT_INDEX = 0
 
 class ImageWidget(QWidget):
     '''
@@ -354,13 +356,27 @@ class ImageWidget(QWidget):
 
         self.setMouseTracking(True)
 
-    def set_dataset_info(self, dataset, scale): # , center_point: Tuple[int, int] = None):
-        # TODO(donnie):  Do something
+    def set_dataset_info(self, dataset, scale):
         if dataset is not None:
             width = dataset.get_width()
             height = dataset.get_height()
             self._scaled_size = QSize(int(width * scale), int(height * scale))
             # self._center_point = center_point
+        else:
+            self._scaled_size = None
+
+        # Inform the parent widget/layout that the geometry may have changed.
+        self.setFixedSize(self._get_size_of_contents())
+
+        # Request a repaint, since this function is called when any details
+        # about the dataset are modified (including stretch adjustments, etc.)
+        self.update()
+    
+    def set_image_display_info_by_pixmap(self, pixmap: QPixmap, scale: float):
+        if pixmap is not None:
+            width = pixmap.width()
+            height = pixmap.height()
+            self._scaled_size = QSize(int(width * scale), int(height * scale))
         else:
             self._scaled_size = None
 
@@ -422,8 +438,6 @@ class ImageWidget(QWidget):
                 painter.drawPixmap(0, 0,
                     self._scaled_size.width(), self._scaled_size.height(), pixmap,
                     0, 0, 0, 0)
-                # print(f"self._scaled_size.width(): {self._scaled_size.width()}")
-                # print(f"self._scaled_size.height(): {self._scaled_size.height()}")
 
                 if 'paintEvent' in self._forward:
                     self._forward['paintEvent'](self._rasterview, self, paint_event)
@@ -822,8 +836,11 @@ class RasterView(QWidget):
         return self._img_data
 
 
-    def _update_scaled_image(self, old_scale_factor=None, propagate_scroll=False):
-        self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
+    def _update_scaled_image(self, old_scale_factor=None, propagate_scroll=False, update_by_dataset=True):
+        if update_by_dataset:
+            self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
+        else:
+            self._image_widget.set_image_display_info_by_pixmap(self._image_pixmap, self._scale_factor)
         # self._scroll_area.setVisible(True)
 
         # Need to process queued events now, since the image-widget has changed

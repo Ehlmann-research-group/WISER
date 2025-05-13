@@ -102,6 +102,7 @@ class SimilarityTransformDialog(QDialog):
         self._ui.slider_rotation.setValue(int(round(value)))
         self._ui.slider_rotation.blockSignals(False)
         print(f"self._image_rotation: {self._image_rotation}")
+        self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
     @Slot(int)
     def _on_slider_rotation_changed(self, value: int) -> None:
@@ -113,6 +114,8 @@ class SimilarityTransformDialog(QDialog):
 
         self._image_rotation = float(value)
         print(f"self._image_rotation: {self._image_rotation}")
+
+        self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
     # -------------------------------------------------------------------------
     # Scale handlers
@@ -132,6 +135,7 @@ class SimilarityTransformDialog(QDialog):
         value = max(0.0, min(100.0, value))
         self._image_scale = value
         print(f"self._image_scale: {self._image_scale}")
+        self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
     # -------------------------------------------------------------------------
     # Translation handlers

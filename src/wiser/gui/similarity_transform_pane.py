@@ -1,12 +1,15 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
+
+import logging
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from .band_chooser import BandChooserDialog
-from .rasterview import RasterView, ImageColors, make_channel_image, make_rgb_image, make_grayscale_image
-from .rasterpane import RasterPane
+from .rasterview import RasterView, ImageWidget, ImageColors, ScaleToFitMode, \
+                        make_channel_image, make_rgb_image, make_grayscale_image
+from .rasterpane import RasterPane, TiledRasterView
 from .util import get_painter, add_toolbar_action
 from .geo_reference_task_delegate import PointSelectorType, PointSelector
 
@@ -18,8 +21,30 @@ from PIL import Image
 import cv2
 import time
 
-class SimilarityTransformRasterView(RasterView):
+logger = logging.getLogger(__name__)
 
+WIDTH_INDEX = 1
+HEIGHT_INDEX = 0
+
+class SimilarityTransformImageWidget(ImageWidget):
+    
+    def set_dataset_info(self, array, scale):
+        # TODO(donnie):  Do something
+        if array is not None:
+            width = array[WIDTH_INDEX]
+            height = array[HEIGHT_INDEX]
+            self._scaled_size = QSize(int(width * scale), int(height * scale))
+        else:
+            self._scaled_size = None
+
+        # Inform the parent widget/layout that the geometry may have changed.
+        self.setFixedSize(self._get_size_of_contents())
+
+        # Request a repaint, since this function is called when any details
+        # about the dataset are modified (including stretch adjustments, etc.)
+        self.update()
+
+class SimilarityTransformRasterView(TiledRasterView):
 
     def pillow_rotate_scale_expand(
         self,
@@ -168,7 +193,7 @@ class SimilarityTransformRasterView(RasterView):
 
         return out
 
-    def update_display_image(self, rotation: float, scale: float, colors=ImageColors.RGB):
+    def update_display_image(self, rotation: float = 0.0, scale: float = 1.0, colors=ImageColors.RGB):
         '''
         Overrides RasterViews version of this function to allow for rotation (degrees) and scaling.
         '''
@@ -205,15 +230,9 @@ class SimilarityTransformRasterView(RasterView):
 
                     new_arr = new_data
                     if isinstance(arr, np.ma.masked_array):
-                        print(f"new data shape: {new_data.shape}")
-                        print(f"band_mask shape: {band_mask.shape}")
-                        new_data = self.rotate_scale_expand(new_data, rotation)
-                        # new_mask = self.rotate_scale_expand(band_mask, 0)
-                        # print(f"new data shape: {new_data.shape}")
-                        # print(f"new mask shape: {new_mask.shape}")
-                        # new_arr = np.ma.masked_array(new_data, mask=new_mask)
-                        # new_arr.data[new_mask] = 0
-                        new_arr = new_data
+                        new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                        new_arr.data[band_mask] = 0
+                    new_arr = self.rotate_scale_expand(new_arr, angle=rotation, scale=scale, mask_fill_value=0)
 
                     self._display_data[i] = new_arr
 
@@ -300,7 +319,7 @@ class SimilarityTransformRasterView(RasterView):
                      f'image = {time_3 - time_2:0.02f}s ' +
                      f'qt = {time_4 - time_3:0.02f}s')
 
-        self._update_scaled_image()
+        self._update_scaled_image(update_by_dataset=False)
 
 
 class SimilarityTransformPane(RasterPane):
@@ -309,9 +328,55 @@ class SimilarityTransformPane(RasterPane):
             max_zoom_scale=64, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16, 24, 32],
             initial_zoom=1)
 
+    def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1), rasterview_class: TiledRasterView = TiledRasterView):
+        rasterview_class = SimilarityTransformRasterView
+        return super()._init_rasterviews(num_views, rasterview_class)
+
+    def rotate_and_scale_rasterview(self, rotation:float, scale: float):
+        rv: SimilarityTransformRasterView = self.get_rasterview()
+        rv.update_display_image(rotation=rotation, scale=scale)
+
     def _init_select_tools(self):
         '''
         We don't want this to initialize any of the select tools.
         The select tools currently are just the ROI tools
         '''
         return
+
+    def _init_zoom_tools(self):
+        '''
+        Initialize zoom toolbar buttons.  This method replaces the superclass
+        method, since the context pane only needs to show one zoom button.
+        '''
+        super()._init_zoom_tools()
+        self._act_fit_to_window = self._toolbar.addAction(
+            QIcon(':/icons/zoom-to-fit.svg'),
+            self.tr('Fit image to window'))
+        self._act_fit_to_window.setCheckable(True)
+        self._act_fit_to_window.setChecked(False)
+
+        self._act_fit_to_window.triggered.connect(self._on_toggle_fit_to_window)
+
+    
+    def _on_toggle_fit_to_window(self):
+        '''
+        Update the raster-view image when the "fit to window" button is toggled.
+        '''
+        self._update_image_scale()
+
+
+    def _update_image_scale(self):
+        '''
+        Scale the raster-view image based on the image size, and the state of
+        the "fit to window" button.
+        '''
+
+        # Handle window-scaling changes
+        if self._act_fit_to_window.isChecked():
+            # The entire image needs to fit in the summary view.
+            self.get_rasterview().scale_image_to_fit(
+                mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS)
+        else:
+            # Just zoom such that one of the dimensions fits.
+            self.get_rasterview().scale_image_to_fit(
+                mode=ScaleToFitMode.FIT_ONE_DIMENSION)
