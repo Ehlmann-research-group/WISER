@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>665</width>
-    <height>621</height>
+    <width>758</width>
+    <height>649</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Rotate, Scale, Translate</string>
@@ -38,7 +44,7 @@
         <widget class="QWidget" name="widget_rotate_scale" native="true">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-           <horstretch>0</horstretch>
+           <horstretch>1</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
@@ -56,7 +62,7 @@
           <widget class="QLabel" name="lbl_rotation">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-             <horstretch>0</horstretch>
+             <horstretch>2</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
@@ -124,6 +130,61 @@
           </widget>
          </item>
          <item>
+          <widget class="QLabel" name="lbl_save_path_ts">
+           <property name="enabled">
+            <bool>true</bool>
+           </property>
+           <property name="text">
+            <string>File Save Path</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="hlayout_file_saving_rs">
+           <item>
+            <widget class="QLineEdit" name="ledit_save_path_rs">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>150</width>
+               <height>0</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_save_path_rs">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>50</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
           <spacer name="verticalSpacer">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -138,6 +199,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="btn_rotate_scale">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
            <property name="text">
             <string>Rotate and Scale</string>
            </property>
@@ -158,6 +225,13 @@
        <string>Translate</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_3">
+       <item row="1" column="1">
+        <widget class="QPushButton" name="btn_create_translation">
+         <property name="text">
+          <string>Create Translation</string>
+         </property>
+        </widget>
+       </item>
        <item row="0" column="1">
         <layout class="QVBoxLayout" name="vlayout_input_2">
          <item>
@@ -170,7 +244,7 @@
            </property>
            <property name="minimumSize">
             <size>
-             <width>100</width>
+             <width>150</width>
              <height>0</height>
             </size>
            </property>
@@ -245,6 +319,89 @@
           </widget>
          </item>
          <item>
+          <widget class="QLabel" name="lbl_lat_north_ul_txt">
+           <property name="text">
+            <string>New Upper Left Pixel Lat/North</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="ledit_lat_north_ul">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_lon_east_ul_txt">
+           <property name="text">
+            <string>New Upper Left Pixel Lon/East:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="ledit_lon_east_ul">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_save_path_translate">
+           <property name="enabled">
+            <bool>true</bool>
+           </property>
+           <property name="text">
+            <string>File Save Path</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="hlayout_file_saving_translate">
+           <item>
+            <widget class="QLineEdit" name="ledit_save_path_translate">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>150</width>
+               <height>0</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_save_path_translate">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>50</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
           <spacer name="verticalSpacer_2">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -259,35 +416,43 @@
          </item>
         </layout>
        </item>
-       <item row="0" column="0">
-        <widget class="QWidget" name="widget_translate" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>500</width>
-           <height>500</height>
-          </size>
-         </property>
-        </widget>
+       <item row="2" column="0">
+        <layout class="QHBoxLayout" name="hlayout_spatial_text">
+         <item>
+          <widget class="QLabel" name="lbl_orig_coord_input">
+           <property name="text">
+            <string>(placeholder)</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_new_coord_input">
+           <property name="text">
+            <string>(placeholder)</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item row="1" column="0">
         <layout class="QHBoxLayout" name="hlayout_coords">
          <item>
           <widget class="QLabel" name="lbl_orig_coord_txt">
            <property name="text">
-            <string>Prev. Spatial Coord:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="lbl_orig_coord_input">
-           <property name="text">
-            <string>(replace with prev)</string>
+            <string>Original Spatial Coord:</string>
            </property>
           </widget>
          </item>
@@ -311,19 +476,21 @@
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QLabel" name="lbl_new_coord_input">
-           <property name="text">
-            <string>(replace with current)</string>
-           </property>
-          </widget>
-         </item>
         </layout>
        </item>
-       <item row="1" column="1">
-        <widget class="QPushButton" name="btn_create_translation">
-         <property name="text">
-          <string>Create Translation</string>
+       <item row="0" column="0">
+        <widget class="QWidget" name="widget_translate" native="true">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+           <horstretch>1</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>500</width>
+           <height>500</height>
+          </size>
          </property>
         </widget>
        </item>

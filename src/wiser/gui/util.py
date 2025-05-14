@@ -10,6 +10,8 @@ from PySide2.QtWidgets import *
 
 import matplotlib
 import numpy as np
+from PIL import Image
+import cv2
 
 def clear_widget(w: QWidget):
     # remove and delete any existing layout
@@ -289,3 +291,133 @@ def generate_unused_filename(basename: str, extension: str) -> str:
             i += 1
 
     return filename
+
+def cv2_rotate_scale_expand(img: np.ndarray,
+                        angle: float,
+                        scale: float = 1.0,
+                        interp: str = 'linear',
+                        mask_fill_value: float = 0
+                        ) -> np.ndarray:
+    """
+    Rotate and scale an image array, expanding the output array
+    so nothing gets clipped.
+
+    Args:
+    img    : HxW or HxWxC uint8/float32 array.
+    angle  : rotation angle in degrees (positive = CCW).
+    scale  : isotropic scale factor.
+    interp : one of 'nearest','linear','cubic','lanczos'.
+
+    Returns:
+    Transformed array with dtype matching input.
+    """
+    _INTERPOLATIONS = {
+        'nearest':  cv2.INTER_NEAREST,
+        'linear':   cv2.INTER_LINEAR,
+        'cubic':    cv2.INTER_CUBIC,
+        'lanczos':  cv2.INTER_LANCZOS4,
+    }
+    # choose interpolation flag
+    flag = _INTERPOLATIONS.get(interp, cv2.INTER_LINEAR)
+    orig_mask = None
+    if isinstance(img, np.ma.MaskedArray):
+        orig_mask = img.mask
+        img = img.filled(mask_fill_value)
+
+    # 3. Build the rotation+scale matrix
+    h, w = img.shape[:2]
+    cx, cy = w/2, h/2
+    M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
+
+    # 4. Compute new canvas size so nothing is clipped
+    abs_cos = abs(M[0,0]); abs_sin = abs(M[0,1])
+    new_w = int(h * abs_sin + w * abs_cos)
+    new_h = int(h * abs_cos + w * abs_sin)
+    # shift origin to centre result
+    M[0,2] += (new_w/2 - cx)
+    M[1,2] += (new_h/2 - cy)
+
+    # 5. Warp the image
+    out = cv2.warpAffine(
+        img,
+        M,
+        (new_w, new_h),
+        flags=_INTERPOLATIONS.get(interp, cv2.INTER_LINEAR),
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=mask_fill_value
+    )
+
+    # 6. If there was a mask, warp it too and reapply
+    if orig_mask is not None:
+        # invert mask (True=masked) → valid=1, invalid=0
+        valid = (~orig_mask).astype(np.uint8) * 255
+        warped_valid = cv2.warpAffine(
+            valid,
+            M,
+            (new_w, new_h),
+            flags=cv2.INTER_NEAREST,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0
+        )
+        warped_mask = ~(warped_valid.astype(bool))
+        return np.ma.MaskedArray(out, mask=warped_mask)
+
+    return out
+
+def pillow_rotate_scale_expand(
+    arr: np.ndarray,
+    angle: float,
+    scale: float = 1.0,
+    resample: str = 'bilinear',
+) -> np.ndarray:
+    """
+    Rotate & scale an HxW or HxWxC array, expanding the output so nothing is clipped.
+
+    Args:
+    arr     : input array (uint8 or float) of shape (H,W) or (H,W,3/4).
+    angle   : CCW rotation in degrees.
+    scale   : uniform scale factor (1.0 = no change).
+    resample: one of 'nearest','bilinear','bicubic','lanczos'.
+
+    Returns:
+    Transformed array, same dtype as input (floats are re-normalized).
+    """
+    # map human-readable names to Pillow resampling filters
+    _RESAMPLE_MODES = {
+        'nearest': Image.NEAREST,
+        'bilinear': Image.BILINEAR,
+        'bicubic': Image.BICUBIC,
+        'lanczos': Image.LANCZOS,
+    }
+    # pick filter
+    mode = _RESAMPLE_MODES.get(resample, Image.BILINEAR)
+
+    # if float, normalize to [0,255] and cast
+    is_float = np.issubdtype(arr.dtype, np.floating)
+    if is_float:
+        lo, hi = arr.min(), arr.max()
+        arr_uint8 = ((arr - lo) / (hi - lo or 1) * 255).astype(np.uint8)
+    else:
+        arr_uint8 = arr
+    print(f"arr_uint8.shape: {arr_uint8.shape}")
+    print(f"arr.shape: {arr.shape}")
+    # build PIL image
+    img = Image.fromarray(arr_uint8.T)
+    print(f"img.size: {img.size}")
+    # 1) scale
+    if scale != 1.0:
+        w, h = img.size
+        img = img.resize((int(w * scale), int(h * scale)), resample=mode)
+
+    # 2) rotate + expand
+    img = img.rotate(angle, resample=mode, expand=True)
+
+    out = np.array(img)
+    print(f"out.shape: {out.shape}")
+    # if original was float, map back to original range
+    if is_float:
+        print(f"IS FLOAT")
+        lo, hi = arr.min(), arr.max()
+        out = out.astype(np.float32) / 255 * (hi - lo or 1) + lo
+
+    return out

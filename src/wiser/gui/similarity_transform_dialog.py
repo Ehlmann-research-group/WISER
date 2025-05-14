@@ -19,6 +19,8 @@ class SimilarityTransformDialog(QDialog):
     def __init__(self, app_state: ApplicationState, parent=None):
         super().__init__(parent=parent)
 
+        self._app_state = app_state
+
         self._ui = Ui_SimilarityTransform()
         self._ui.setupUi(self)
 
@@ -26,6 +28,8 @@ class SimilarityTransformDialog(QDialog):
         self._rotate_scale_pane = SimilarityTransformPane(app_state)
         self._translate_pane = SimilarityTransformPane(app_state, translation=True)
         self._translate_pane.pixel_selected_for_translation.connect(self._on_translation_pixel_selected)
+        self._translate_pane.dataset_changed.connect(self._on_translation_dataset_changed)
+        self._rotate_scale_pane.dataset_changed.connect(self._on_rotate_scale_dataset_changed)
         self._init_rasterpanes()
 
         # --- Internal state ----------------------------------------------------
@@ -64,13 +68,26 @@ class SimilarityTransformDialog(QDialog):
         self._ui.btn_create_translation.clicked.connect(self._on_create_translation)
 
         # 4. Translation edits.
-        self._ui.ledit_lat_north.editingFinished.connect(self._on_lat_north_changed)
-        self._ui.ledit_lon_east.editingFinished.connect(self._on_lon_east_changed)
+        self._ui.ledit_lat_north.textChanged.connect(self._on_lat_north_changed)
+        self._ui.ledit_lon_east.textChanged.connect(self._on_lon_east_changed)
+
+        self._translation_dataset: Optional[RasterDataSet] = None
+        self._rotate_scale_dataset: Optional[RasterDataSet] = None
+        self._selected_point: Optional[Tuple[int, int]] = None
+
+        self._init_file_saver_rotate_scale()
+        self._init_file_saver_translate()
 
 
     # -------------------------------------------------------------------------
     # Initializers
     # -------------------------------------------------------------------------
+
+    def _init_rotate_scale_button(self):
+        self._ui.btn_rotate_scale.clicked.connect(self._on_create_rotated_scaled_dataset)
+
+    def _init_translation_button(self):
+        self._ui.btn_create_translation.clicked.connect(self._on_create_translated_dataset)
 
     def _init_rasterpanes(self):
         rotate_scale_layout = QVBoxLayout(self._ui.widget_rotate_scale)
@@ -81,6 +98,25 @@ class SimilarityTransformDialog(QDialog):
         self._ui.widget_translate.setLayout(translate_layout)
         translate_layout.addWidget(self._translate_pane)
 
+    def _init_file_saver_rotate_scale(self):
+        self._ui.btn_save_path_rs.clicked.connect(self._on_choose_save_filename_rs)
+
+    def _init_file_saver_translate(self):
+        self._ui.btn_save_path_translate.clicked.connect(self._on_choose_save_filename_translate)
+
+    def _get_save_file_path_rs(self) -> str:
+        path = self._ui.ledit_save_path_rs.text()
+        if len(path) > 0:
+            abs_path = os.path.abspath(path)
+            return abs_path
+        return None
+
+    def _get_save_file_path_translate(self) -> str:
+        path = self._ui.ledit_save_path_translate.text()
+        if len(path) > 0:
+            abs_path = os.path.abspath(path)
+            return abs_path
+        return None
 
     # -------------------------------------------------------------------------
     # Rotation handlers
@@ -147,41 +183,97 @@ class SimilarityTransformDialog(QDialog):
     @Slot()
     def _on_lat_north_changed(self) -> None:
         text = self._ui.ledit_lat_north.text()
+        print(f"_on_lat_north_changed")
         try:
             self._lat_north_translate = float(text)
+            self._update_upper_left_coord_labels()
         except ValueError:
             pass
         print(f"self._lat_north_translate: {self._lat_north_translate}")
+        self._update_prev_and_new_coords()
+
 
     @Slot()
     def _on_lon_east_changed(self) -> None:
         text = self._ui.ledit_lon_east.text()
+        print(f"_on_lon_east_changed")
         try:
             self._lon_east_translate = float(text)
+            self._update_upper_left_coord_labels()
         except ValueError:
             pass
         print(f"self._lon_east_translate: {self._lon_east_translate}")
+        self._update_prev_and_new_coords()
+        
 
     def _make_point_to_text(self, point):
         return f"({point[0]}, {point[1]})"
+
+    @Slot()
+    def _on_rotate_scale_dataset_changed(self, ds_id):
+        # We want to do many things here. But for now we just set the CRS
+        self._rotate_scale_dataset = self._app_state.get_dataset(ds_id)
+        print(f"rotation dataset changed to: {self._rotate_scale_dataset.get_name()}")
+        self._check_rotate_scale_save_path()
+    
+    def _check_rotate_scale_save_path(self):
+        if self._rotate_scale_dataset is None:
+            return
+        rotate_scale_ds_paths = self._rotate_scale_dataset.get_filepaths()
+        rotate_scale_save_filepath = self._ui.ledit_save_path_rs.text()
+        if rotate_scale_save_filepath in rotate_scale_ds_paths:
+            self._ui.ledit_save_path_rs.clear()
+
+    def _check_translation_save_path(self):
+        if self._translation_dataset is None:
+            return
+        translation_ds_paths = self._translation_dataset.get_filepaths()
+        translation_save_filepath = self._ui.ledit_save_path_translate.text()
+        if translation_save_filepath in translation_ds_paths:
+            self._ui.ledit_save_path_translate.clear()
+
+    @Slot()
+    def _on_translation_dataset_changed(self, ds_id):
+        # We want to do many things here. But for now we just set the CRS
+        self._translation_dataset = self._app_state.get_dataset(ds_id)
+        print(f"translation dataset changed to: {self._translation_dataset.get_name()}")
+        srs = self._translation_dataset.get_spatial_ref()
+        if srs is None:
+            return
+        name = srs.GetName()
+        self.set_crs_text(name)
+        self._update_upper_left_coord_labels()
+        self._check_translation_save_path()
+    
+    def _update_upper_left_coord_labels(self):
+        origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = self._translation_dataset.get_geo_transform()
+        self.set_lon_east_ul_text(str(origin_lon_east + self._lon_east_translate))
+        self.set_lat_north_ul_text(str(origin_lat_north + self._lat_north_translate))
 
     @Slot()
     def _on_translation_pixel_selected(self, dataset: RasterDataSet, point: QPoint) -> None:
         print(f"_on_translation_pixel_selected")
         print(f"dataset: {dataset}")
         print(f"point: {point}")
-        point = (point.x(), point.y())
+        assert dataset == self._translation_dataset, ("Dataset clicked is not equal to Translation dataset."
+                                                    f"Clicked: {dataset.get_name()} | Translation Dataset: {self._translation_dataset.get_name()} ")
+        self._selected_point = (point.x(), point.y())
+        self._update_prev_and_new_coords()
+    
+    def _update_prev_and_new_coords(self):
+        if self._selected_point is None:
+            return
         # Get current point's dataset
-        orig_geo_coords = dataset.to_geographic_coords(point)
+        orig_geo_coords = self._translation_dataset.to_geographic_coords(self._selected_point)
         if orig_geo_coords is None:
             print(f"Dataset has no geo transform!")
             return
-        origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = dataset.get_geo_transform()
+        origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = self._translation_dataset.get_geo_transform()
         new_lon_east = origin_lon_east + self._lon_east_translate
         new_lat_north = origin_lat_north + self._lat_north_translate
 
         new_gt = (new_lon_east, pixel_w, rot_x, new_lat_north, rot_y, pixel_h)
-        new_geo_coord = pixel_coord_to_geo_coord(point, new_gt)
+        new_geo_coord = pixel_coord_to_geo_coord(self._selected_point, new_gt)
 
         print(f"orig_geo_coords: {orig_geo_coords}")
         print(f"new_geo_coord: {new_geo_coord}")
@@ -204,6 +296,76 @@ class SimilarityTransformDialog(QDialog):
         print("Creating translation")
         # Placeholder – real implementation will apply translation.
 
+    def _on_choose_save_filename_rs(self, checked=False):
+        # TODO (Joshua G-K): Allow this to also save as an .hdr
+        file_dialog = QFileDialog(parent=self,
+            caption=self.tr('Save raster dataset'))
+
+        # Restrict selection to only .tif files.
+        file_dialog.setNameFilter("TIFF files (*.tif)")
+        # Optionally, set a default suffix to ensure the saved file gets a .tif extension.
+        file_dialog.setDefaultSuffix("tif")
+        file_dialog.setAcceptMode(QFileDialog.AcceptSave)
+
+        # If there is already an initial filename, select it in the dialog.
+        initial_filename = self._ui.ledit_save_path_rs.text().strip()
+        if len(initial_filename) > 0:
+            base, ext = os.path.splitext(initial_filename)
+            if ext.lower() != ".tif":
+                initial_filename = f"{base}.tif"
+            file_dialog.selectFile(initial_filename)
+
+        result = file_dialog.exec()
+        if result == QDialog.Accepted:
+            filename = file_dialog.selectedFiles()[0]
+            selected_ds = self._rotate_scale_dataset
+            if selected_ds is not None:
+                selected_ds_filepaths = selected_ds.get_filepaths()
+                if filename in selected_ds_filepaths:
+                    QMessageBox.information(self, self.tr("Wrong Save Path"), \
+                                            self.tr("The save path you chose matches either the target\n" + 
+                                                    "or reference dataset's save path. Please change.\n\n"
+                                                    f"Chosen save path:\n{filename}"))
+                    return
+            self._ui.ledit_save_path_rs.setText(filename)
+    
+    
+    def _on_choose_save_filename_translate(self, checked=False):
+        # TODO (Joshua G-K): Allow this to also save as an .hdr
+        file_dialog = QFileDialog(parent=self,
+            caption=self.tr('Save raster dataset'))
+
+        # Restrict selection to only .tif files.
+        file_dialog.setNameFilter("TIFF files (*.tif)")
+        # Optionally, set a default suffix to ensure the saved file gets a .tif extension.
+        file_dialog.setDefaultSuffix("tif")
+        file_dialog.setAcceptMode(QFileDialog.AcceptSave)
+
+        # If there is already an initial filename, select it in the dialog.
+        initial_filename = self._ui.ledit_save_path_translate.text().strip()
+        if len(initial_filename) > 0:
+            base, ext = os.path.splitext(initial_filename)
+            if ext.lower() != ".tif":
+                initial_filename = f"{base}.tif"
+            file_dialog.selectFile(initial_filename)
+
+        result = file_dialog.exec()
+        if result == QDialog.Accepted:
+            filename = file_dialog.selectedFiles()[0]
+            selected_ds = self._translation_dataset
+            if selected_ds is not None:
+                selected_ds_filepaths = selected_ds.get_filepaths()
+                print(f"selected_ds_filepaths: {selected_ds_filepaths}")
+                print(f"filename: {filename}")
+                if filename in selected_ds_filepaths:
+                    QMessageBox.information(self, self.tr("Wrong Save Path"), \
+                                            self.tr("The save path you chose matches either the target\n" + 
+                                                    "or reference dataset's save path. Please change.\n\n"
+                                                    f"Chosen save path:\n{filename}"))
+                    return
+            self._ui.ledit_save_path_translate.setText(filename)
+
+
     # -------------------------------------------------------------------------
     # Public helper methods for external callers
     # -------------------------------------------------------------------------
@@ -216,8 +378,16 @@ class SimilarityTransformDialog(QDialog):
         """Update the current coordinate label."""
         self._ui.lbl_new_coord_input.setText(text)
 
+    def set_lat_north_ul_text(self, text: str) -> None:
+        """Update the current coordinate label."""
+        self._ui.ledit_lat_north_ul.setText(text)
+
+    def set_lon_east_ul_text(self, text: str) -> None:
+        """Update the previous coordinate label."""
+        self._ui.ledit_lon_east_ul.setText(text)
+
     def set_crs_text(self, text: str) -> None:
-        """Update (read‑only) CRS line‑edit."""
+        """Update (read-only) CRS line-edit."""
         self._ui.ledit_crs.setText(text)
 
     # -------------------------------------------------------------------------
@@ -232,3 +402,9 @@ class SimilarityTransformDialog(QDialog):
 
     def translation(self) -> tuple[float, float]:
         return self._lat_north_translate, self._lon_east_translate
+    
+    def _on_create_rotated_scaled_dataset(self):
+        pass
+
+    def _on_create_translated_dataset(self):
+        pass
