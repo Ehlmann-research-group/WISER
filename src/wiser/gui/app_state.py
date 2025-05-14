@@ -273,6 +273,7 @@ class ApplicationState(QObject):
         raster_data_list = self._raster_data_loader.load_from_file(file_path, self._cache)
         
         for raster_data in raster_data_list:
+            print(f"raster_data data ignore: {raster_data.get_data_ignore_value()}")
             self.add_dataset(raster_data)
 
 
@@ -288,6 +289,8 @@ class ApplicationState(QObject):
 
         ds_id = self._take_next_id()
         dataset.set_id(ds_id)
+        # print(f"raster data min: {np.min(dataset.get_image_data())}")
+        print(f"is masked: {type(dataset.get_image_data())}")
         self._datasets[ds_id] = dataset
 
         self.dataset_added.emit(ds_id)

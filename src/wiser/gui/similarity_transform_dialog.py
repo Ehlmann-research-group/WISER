@@ -23,6 +23,8 @@ from wiser.bandmath.utils import write_raster_to_dataset
 
 from wiser.raster.utils import copy_metadata_to_gdal_dataset
 
+import numpy as np
+
 class SimilarityTransformDialog(QDialog):
 
     def __init__(self, app_state: ApplicationState, parent=None):
@@ -298,6 +300,7 @@ class SimilarityTransformDialog(QDialog):
     @Slot()
     def _on_run_rotate_scale(self) -> None:
         print("Running rotate and scale")
+        self._on_create_rotated_scaled_dataset()
         # Placeholder – real implementation will apply transform.
 
     @Slot()
@@ -420,7 +423,60 @@ class SimilarityTransformDialog(QDialog):
         return (new_lon_east, pixel_w, rot_x, new_lat_north, rot_y, pixel_h)
     
     def _on_create_rotated_scaled_dataset(self):
-        pass
+        print(f"in non gdal part!")
+        driver: gdal.Driver = gdal.GetDriverByName('GTiff')
+        save_path = self._get_save_file_path_rs()
+        print(f"Save_path: {save_path}")
+
+        pixmap = self._rotate_scale_pane.get_rasterview().get_unscaled_pixmap()
+        pixmap_height = pixmap.height()
+        pixmap_width = pixmap.width()
+        orig_height = self._rotate_scale_dataset.get_height()
+        orig_width = self._rotate_scale_dataset.get_width()
+        num_bands = self._rotate_scale_dataset.num_bands()
+        np_dtype = self._rotate_scale_dataset.get_elem_type()  # Returns a numpy dtype
+        gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype)  # Convert numpy dtype to GDAL type
+
+        output_bytes = pixmap_width * pixmap_height * num_bands * np_dtype.itemsize
+        
+        ratio = MAX_RAM_BYTES / output_bytes
+        print(f"about to enter if statements")
+        new_dataset = driver.Create(save_path, pixmap_width, pixmap_height, num_bands, gdal_data_type)
+        print(f"just created new dataset")
+        if new_dataset is None:
+            raise RuntimeError("Failed to create the output dataset")
+        num_bands_per = int(ratio * num_bands)
+        ds_data_ignore = self._rotate_scale_dataset.get_data_ignore_value()
+        data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
+        for band_index in range(0, num_bands, num_bands_per):
+            band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < num_bands]
+            band_arr = self._rotate_scale_dataset.get_multiple_band_data(band_list_index)
+            print(f"about to write {band_list_index} to raster")
+            print(f"shape of band_arr: {band_arr.shape}")
+            # np_corrected_band_arr = band_arr.reshape(orig_height, orig_width, len(band_list_index))
+            print(f"before np_corrected_band_arr before: {band_arr.shape}")
+            np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0))
+            print(f"before np_corrected_band_arr after: {np_corrected_band_arr.shape}")
+            rotated_scaled_band_arr = cv2_rotate_scale_expand(np_corrected_band_arr, self._image_rotation, self._image_scale, 
+                                                              mask_fill_value=0)
+            print(f"type of rotated_scaled_band_arr before transpose: {type(rotated_scaled_band_arr)}")
+            # rotated_scaled_band_arr = rotated_scaled_band_arr.reshape(len(band_list_index), pixmap_height, pixmap_width)
+            print(f"after rotated_scaled_band_arr before: {rotated_scaled_band_arr.shape}")
+            rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
+            print(f"type of rotated_scaled_band_arr after transpose: {type(rotated_scaled_band_arr)}")
+            print(f"after rotated_scaled_band_arr after: {rotated_scaled_band_arr.shape}")
+            print(f"shape of rotated_scaled: {rotated_scaled_band_arr.shape}")
+            if isinstance(rotated_scaled_band_arr, np.ma.masked_array):
+                print(f"WE ARE A MASKED ARRAY!!!")
+                rotated_scaled_band_arr = rotated_scaled_band_arr.filled(data_ignore)
+            write_raster_to_dataset(new_dataset, band_list_index, rotated_scaled_band_arr, gdal_data_type)
+            print(f"finished writing {band_list_index} to raster")
+        copy_metadata_to_gdal_dataset(new_dataset, self._rotate_scale_dataset)
+        new_dataset.FlushCache()
+        new_dataset.SetSpatialRef(self._rotate_scale_dataset.get_spatial_ref())
+        new_dataset.SetGeoTransform(self._rotate_scale_dataset.get_geo_transform())
+        new_dataset = None
+        print(f"Done rotating and scaling!!!")
 
     def _on_create_translated_dataset(self):
         print(f"in _on_create_translated_dataset")
@@ -457,8 +513,6 @@ class SimilarityTransformDialog(QDialog):
             gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype)  # Convert numpy dtype to GDAL type
 
             output_bytes = width * height * num_bands * np_dtype.itemsize
-
-            
             
             ratio = MAX_RAM_BYTES / output_bytes
             print(f"about to enter if statements")

@@ -487,6 +487,8 @@ class RasterDataSet:
             if band_index in self._cached_band_stats:
                 band_min = self._cached_band_stats[band_index].get_min()
                 band_max = self._cached_band_stats[band_index].get_max()
+                print(f"min: {band_min}")
+                print(f"max: {band_max}")
             else:
                 has_inf = np.isinf(arr).any()
 
@@ -498,6 +500,8 @@ class RasterDataSet:
                     band_min = np.nanmin(filtered_arr)
                 if band_max is None:
                     band_max = np.nanmax(filtered_arr)
+                print(f"min: {band_min}")
+                print(f"max: {band_max}")
             stats = BandStats(band_index, band_min, band_max)
             if isinstance(arr, np.ma.masked_array):
                 mask = arr.mask
