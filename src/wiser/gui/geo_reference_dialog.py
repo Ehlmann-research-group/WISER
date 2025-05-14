@@ -1438,8 +1438,8 @@ class GeoReferencerDialog(QDialog):
             ratio = MAX_RAM_BYTES / output_bytes
             if ratio > 1.0:
                 warp_options = gdal.WarpOptions(**self._warp_kwargs)
-                band_arr = target_dataset.get_image_data()
-                temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
+                dataset_arr = target_dataset.get_image_data()
+                temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(dataset_arr, True)
                 # Make sure dataset has no spatial information that could mess with warping
                 temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
                 set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
