@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>278</width>
+    <width>324</width>
     <height>334</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>CRS Creator</string>
+   <string>Reference System Creator</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="3" column="0">
@@ -128,7 +128,7 @@
         </widget>
        </item>
        <item row="8" column="1">
-        <widget class="QLineEdit" name="ledit_center_long"/>
+        <widget class="QLineEdit" name="ledit_center_lon"/>
        </item>
        <item row="10" column="0">
         <widget class="QLabel" name="lbl_crs_name">
@@ -139,14 +139,14 @@
           </size>
          </property>
          <property name="text">
-          <string>CRS Name</string>
+          <string>Ref System Name</string>
          </property>
         </widget>
        </item>
        <item row="0" column="0">
         <widget class="QLabel" name="lbl_user_crs">
          <property name="text">
-          <string>Starting CRS</string>
+          <string>Starting Ref System</string>
          </property>
         </widget>
        </item>
@@ -202,7 +202,7 @@
           </size>
          </property>
          <property name="text">
-          <string>Create CRS</string>
+          <string>Create Reference Systen</string>
          </property>
         </widget>
        </item>
