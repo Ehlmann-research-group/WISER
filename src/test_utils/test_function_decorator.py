@@ -9,12 +9,12 @@ if TYPE_CHECKING:
 def run_in_wiser_decorator(func):
     @functools.wraps(func)
     def arg_wrapper(self: 'WiserTestModel', *args, **kwargs):
+        result_container: dict = {}
         def func_event():
-            result = func(self, *args, **kwargs)
-
-            return result
+            result_container['value'] = func(self, *args, **kwargs)
 
         function_event = FunctionEvent(func_event)
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
+        return result_container.get('value')
     return arg_wrapper
