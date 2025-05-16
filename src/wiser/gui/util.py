@@ -13,6 +13,8 @@ import numpy as np
 from PIL import Image
 import cv2
 
+import math
+
 def clear_widget(w: QWidget):
     # remove and delete any existing layout
     old_layout = w.layout()
@@ -500,3 +502,74 @@ def pillow_rotate_scale_expand(
         out = out.astype(np.float32) / 255 * (hi - lo or 1) + lo
 
     return out
+
+def rotate_scale_geotransform(gt, theta, scale, width, height, pivot):
+    '''
+    First we rotate the geo transform's res and rot like this:
+    new_xres = xres_cos - xrot_sin
+    new_xrot = xrot_cos + xres_sin
+
+    new_yres = yres_cos - yrot_sin
+    new_yrot = yrot_cos + yres_sin
+
+    Then to get the new UL point by rotating all of the edge points by a pivot point. Finding the new minx and max x then rotate back
+    '''
+    ulx, xres, xrot, uly, yrot, yres = gt
+    px, py = pivot
+    rad = math.radians(theta)
+    cos_t, sin_t = math.cos(rad), math.sin(rad)
+    new_xres = xres * cos_t - xrot * sin_t
+    new_xrot = xrot * cos_t + xres * sin_t
+
+    new_yres = yres * cos_t - yrot * sin_t
+    new_yrot = yrot * cos_t + yres * sin_t
+
+    # If the scale is >1 (like 2) then we have more pixels so the resolution would be half as much
+    # If the scale is <1 then we are downsampling so the resolution would be more per pixel (less pixels)
+    new_xres_scaled = new_xres / scale
+    new_xrot_scaled = new_xrot / scale
+
+    new_yres_scaled = new_yres / scale
+    new_yrot_scaled = new_yrot / scale
+
+
+        
+    def rot(v):
+        x, y = v
+        # shift so pivot is at (0,0)
+        dx, dy = x - px, y - py
+        # rotate about origin
+        rx = dx * cos_t - dy * sin_t
+        ry = dx * sin_t + dy * cos_t
+        # shift back
+        return (rx + px, ry + py)
+
+    def rot_inverse(v):
+        x, y = v
+        dx, dy = x - px, y - py
+        # inverse rotation = rotate by –θ (or use transpose)
+        ix = dx * cos_t + dy * sin_t
+        iy = -dx * sin_t + dy * cos_t
+        return (ix + px, iy + py)
+
+    def pixel_to_spatial(pixel_x, pixel_y):
+        spatial_x = ulx + xres * pixel_x + xrot * pixel_y
+        spatial_y = uly + yres * pixel_y + yrot * pixel_x
+        return (spatial_x, spatial_y)
+    
+    upper_left = pixel_to_spatial(0, 0)
+    upper_right = pixel_to_spatial(width, 0)
+    bottom_left = pixel_to_spatial(0, height)
+    bottom_right = pixel_to_spatial(width, height)
+
+    rotated_ul = rot(upper_left)
+    rotated_ur = rot(upper_right)
+    rotated_bl = rot(bottom_left)
+    rotated_br = rot(bottom_right)
+
+    rotated_min_x = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    rotated_min_y = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_spatial_ul = rot_inverse((rotated_min_x, rotated_min_y))
+
+    return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot, new_yrot_scaled)

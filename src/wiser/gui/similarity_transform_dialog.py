@@ -14,7 +14,7 @@ from wiser.raster.dataset_impl import GDALRasterDataImpl
 
 from .generated.similarity_transform_dialog_ui import Ui_SimilarityTransform
 
-from .util import pillow_rotate_scale_expand, cv2_rotate_scale_expand
+from .util import pillow_rotate_scale_expand, cv2_rotate_scale_expand, rotate_scale_geotransform
 
 from osgeo import gdal, gdal_array
 
@@ -422,6 +422,18 @@ class SimilarityTransformDialog(QDialog):
         assert new_lat_north == float(self._ui.ledit_lat_north_ul.text())
         return (new_lon_east, pixel_w, rot_x, new_lat_north, rot_y, pixel_h)
     
+    def _get_rotated_scaled_dataset_spatial_center(self) -> Tuple[int, int]:
+        gt = self._rotate_scale_dataset.get_geo_transform()
+        half_width = self._rotate_scale_dataset.get_width() / 2
+        half_height = self._rotate_scale_dataset.get_height() / 2
+
+        spatial_center_x = gt[0] + gt[1] * half_width + gt[2] * half_height
+        spatial_center_y = gt[3] + gt[4] * half_width + gt[5] * half_height
+
+        return (spatial_center_x, spatial_center_y)
+        
+
+
     def _on_create_rotated_scaled_dataset(self):
         print(f"in non gdal part!")
         driver: gdal.Driver = gdal.GetDriverByName('GTiff')
@@ -474,7 +486,14 @@ class SimilarityTransformDialog(QDialog):
         copy_metadata_to_gdal_dataset(new_dataset, self._rotate_scale_dataset)
         new_dataset.FlushCache()
         new_dataset.SetSpatialRef(self._rotate_scale_dataset.get_spatial_ref())
-        new_dataset.SetGeoTransform(self._rotate_scale_dataset.get_geo_transform())
+        gt = self._rotate_scale_dataset.get_geo_transform()
+        rotation = self._image_rotation
+        scale = self._image_scale
+        pivot = self._get_rotated_scaled_dataset_spatial_center()
+        width = self._rotate_scale_dataset.get_width()
+        height = self._rotate_scale_dataset.get_height()
+        rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation, scale, width, height, pivot)
+        new_dataset.SetGeoTransform(rotated_scaled_gt)
         new_dataset = None
         print(f"Done rotating and scaling!!!")
 

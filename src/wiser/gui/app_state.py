@@ -289,8 +289,6 @@ class ApplicationState(QObject):
 
         ds_id = self._take_next_id()
         dataset.set_id(ds_id)
-        # print(f"raster data min: {np.min(dataset.get_image_data())}")
-        print(f"is masked: {type(dataset.get_image_data())}")
         self._datasets[ds_id] = dataset
 
         self.dataset_added.emit(ds_id)
@@ -389,7 +387,7 @@ class ApplicationState(QObject):
 
         same_size = True
         if len(displayed_datasets) < 2:
-            return False
+            return False, GeographicLinkState.NO_LINK
 
         # Else, make sure they're all the same size 
         ds0_dim = (displayed_datasets[0].get_width(), displayed_datasets[0].get_height())
