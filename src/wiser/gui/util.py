@@ -297,7 +297,7 @@ def generate_unused_filename(basename: str, extension: str) -> str:
 def cv2_rotate_scale_expand(img: np.ndarray,
                         angle: float,
                         scale: float = 1.0,
-                        interp: str = 'linear',
+                        interp: int = 1,
                         mask_fill_value: float = 0
                         ) -> np.ndarray:
     """
@@ -308,7 +308,7 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     img    : HxW or HxWxC uint8/float32 array.
     angle  : rotation angle in degrees (positive = CCW).
     scale  : isotropic scale factor.
-    interp : one of 'nearest','linear','cubic','lanczos'.
+    interp : one of 'nearest','linear','cubic','lanczos'. Defaults to linear (1)
 
     Returns:
     Transformed array with dtype matching input.
@@ -322,7 +322,7 @@ def cv2_rotate_scale_expand(img: np.ndarray,
         'lanczos':  cv2.INTER_LANCZOS4,
     }
     # choose interpolation flag
-    flag = _INTERPOLATIONS.get(interp, cv2.INTER_LINEAR)
+    interp_flag = interp
     orig_mask = None
     if isinstance(img, np.ma.MaskedArray):
         orig_mask = img.mask
@@ -344,13 +344,13 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     M[1,2] += (new_h/2 - cy)
     print(f"new_w: {new_w}")
     print(f"new_h: {new_h}")
-
+    print(f"interp: {interp}")
     # 5. Warp the image
     out = cv2.warpAffine(
         img,
         M,
         (new_w, new_h),
-        flags=_INTERPOLATIONS.get(interp, cv2.INTER_LINEAR),
+        flags=interp,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=mask_fill_value
     )

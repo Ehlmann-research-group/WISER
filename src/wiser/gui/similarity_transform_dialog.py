@@ -25,6 +25,22 @@ from wiser.raster.utils import copy_metadata_to_gdal_dataset
 
 import numpy as np
 
+import cv2
+
+# from enum import Enum
+
+# class InterpolationOptions(Enum):
+
+INTERPOLATION_TYPES = {
+    "Nearest":           cv2.INTER_NEAREST,
+    "Nearest Exact":     cv2.INTER_NEAREST_EXACT,
+    "Linear":            cv2.INTER_LINEAR,
+    "Linear Exact":      cv2.INTER_LINEAR_EXACT,
+    "Cubic":             cv2.INTER_CUBIC,
+    "Area":              cv2.INTER_AREA,
+    "Lanczos4":          cv2.INTER_LANCZOS4,
+}
+
 class SimilarityTransformDialog(QDialog):
 
     def __init__(self, app_state: ApplicationState, parent=None):
@@ -89,10 +105,24 @@ class SimilarityTransformDialog(QDialog):
         self._init_file_saver_rotate_scale()
         self._init_file_saver_translate()
 
+        self._init_interpolation_cbox()
+
 
     # -------------------------------------------------------------------------
     # Initializers
     # -------------------------------------------------------------------------
+
+    def _init_interpolation_cbox(self):
+        cbox = self._ui.cbox_interpolation
+        cbox.clear()
+        # populate combo with user‐friendly labels
+        for label, interp_type in INTERPOLATION_TYPES.items():
+            cbox.addItem(label, interp_type)
+        # optionally set a default, e.g. “Linear”
+        default = "Linear"
+        idx = cbox.findText(default)
+        if idx != -1:
+            cbox.setCurrentIndex(idx)
 
     def _init_rotate_scale_button(self):
         self._ui.btn_rotate_scale.clicked.connect(self._on_create_rotated_scaled_dataset)
@@ -128,6 +158,9 @@ class SimilarityTransformDialog(QDialog):
             abs_path = os.path.abspath(path)
             return abs_path
         return None
+    
+    def _get_interpolation_type(self) -> int:
+        return self._ui.cbox_interpolation.currentData()
 
     # -------------------------------------------------------------------------
     # Rotation handlers
@@ -436,6 +469,8 @@ class SimilarityTransformDialog(QDialog):
 
     def _on_create_rotated_scaled_dataset(self):
         print(f"in non gdal part!")
+        print(f"interp type: {self._get_interpolation_type()}")
+        print(f"interp name: {self._ui.cbox_interpolation.currentText()}")
         driver: gdal.Driver = gdal.GetDriverByName('GTiff')
         save_path = self._get_save_file_path_rs()
         print(f"Save_path: {save_path}")
@@ -469,7 +504,8 @@ class SimilarityTransformDialog(QDialog):
             print(f"before np_corrected_band_arr before: {band_arr.shape}")
             np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0))
             print(f"before np_corrected_band_arr after: {np_corrected_band_arr.shape}")
-            rotated_scaled_band_arr = cv2_rotate_scale_expand(np_corrected_band_arr, self._image_rotation, self._image_scale, 
+            rotated_scaled_band_arr = cv2_rotate_scale_expand(np_corrected_band_arr, self._image_rotation, self._image_scale,
+                                                              interp=self._get_interpolation_type(),
                                                               mask_fill_value=0)
             print(f"type of rotated_scaled_band_arr before transpose: {type(rotated_scaled_band_arr)}")
             # rotated_scaled_band_arr = rotated_scaled_band_arr.reshape(len(band_list_index), pixmap_height, pixmap_width)

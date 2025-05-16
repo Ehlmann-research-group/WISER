@@ -33,7 +33,7 @@
    <item row="0" column="0">
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="tab_rotate_scale">
       <attribute name="title">
@@ -128,6 +128,16 @@
             </sizepolicy>
            </property>
           </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_interpolation">
+           <property name="text">
+            <string>Interpolation Type</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="cbox_interpolation"/>
          </item>
          <item>
           <widget class="QLabel" name="lbl_save_path_ts">
