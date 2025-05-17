@@ -59,6 +59,7 @@ class CrsCreatorState:
         center_lon: Optional[float] = None,
         polar_stereo_scale: Optional[float] = None,
         polar_stereo_latitude_sign: Optional[str] = None,
+        shape_type: Optional[ShapeTypes] = None,
     ):
         self._lon_meridian = lon_meridian
         self._proj_type = proj_type
@@ -70,6 +71,7 @@ class CrsCreatorState:
         self._center_lon = center_lon
         self._polar_stereo_scale = polar_stereo_scale
         self._polar_stereo_latitude_sign = polar_stereo_latitude_sign
+        self._shape_type = shape_type
 
     @property
     def lon_meridian(self) -> Optional[float]:
@@ -110,6 +112,11 @@ class CrsCreatorState:
     @property
     def polar_stereo_latitude_sign(self) -> Optional[str]:
         return self._polar_stereo_latitude_sign
+    
+    
+    @property
+    def shape_type(self) -> Optional[str]:
+        return self._shape_type
 
 class ReferenceCreatorDialog(QDialog):
 
@@ -367,11 +374,7 @@ class ReferenceCreatorDialog(QDialog):
 
         # ---------- Shape / ellipsoid parameters -------------------------
         a = creator_state.semi_major_value
-        if creator_state.axis_ingest_type == EllipsoidAxisType.SEMI_MINOR:
-            inv_f = creator_state.semi_major_value / (creator_state.semi_major_value - creator_state.axis_ingestion_value)
-        else:
-            inv_f = creator_state.axis_ingestion_value
-        spheroid = (inv_f == 0.0)
+        spheroid = (creator_state.shape_type == ShapeTypes.SPHEROID)
 
         # Shape type
         shape_cbox = self._ui.cbox_shape
@@ -396,15 +399,30 @@ class ReferenceCreatorDialog(QDialog):
             self._axis_ingest_type = None
             self._axis_ingestion_value = None
         else:
-            # Choose to display inverse‑flattening by default
-            axis_cbox = self._ui.cbox_flat_minor
-            axis_idx = axis_cbox.findData(EllipsoidAxisType.INVERSE_FLATTENING)
-            axis_cbox.setCurrentIndex(axis_idx)
-            self._axis_ingest_type = EllipsoidAxisType.INVERSE_FLATTENING
-            self._axis_ingestion_value = inv_f
-            self._ui.ledit_flat_minor.setEnabled(True)
-            self._ui.cbox_flat_minor.setEnabled(True)
-            self._ui.ledit_flat_minor.setText(f"{inv_f}")
+            if creator_state.axis_ingest_type == EllipsoidAxisType.SEMI_MINOR:
+                semi_minor = creator_state.axis_ingestion_value
+                # Choose to display inverse‑flattening by default
+                axis_cbox = self._ui.cbox_flat_minor
+                axis_idx = axis_cbox.findData(EllipsoidAxisType.SEMI_MINOR)
+                axis_cbox.setCurrentIndex(axis_idx)
+                self._axis_ingest_type = EllipsoidAxisType.SEMI_MINOR
+                self._ui.lbl_flat_minor_units.setText("Meters")
+                self._axis_ingestion_value = semi_minor
+                self._ui.ledit_flat_minor.setEnabled(True)
+                self._ui.cbox_flat_minor.setEnabled(True)
+                self._ui.ledit_flat_minor.setText(f"{semi_minor}")
+            else:
+                inv_f = creator_state.axis_ingestion_value
+                # Choose to display inverse‑flattening by default
+                axis_cbox = self._ui.cbox_flat_minor
+                axis_idx = axis_cbox.findData(EllipsoidAxisType.INVERSE_FLATTENING)
+                axis_cbox.setCurrentIndex(axis_idx)
+                self._axis_ingest_type = EllipsoidAxisType.INVERSE_FLATTENING
+                self._ui.lbl_flat_minor_units.setText("No Units")
+                self._axis_ingestion_value = inv_f
+                self._ui.ledit_flat_minor.setEnabled(True)
+                self._ui.cbox_flat_minor.setEnabled(True)
+                self._ui.ledit_flat_minor.setText(f"{inv_f}")
 
         # ---------- Projection (or none) ---------------------------------
         proj_type = creator_state.proj_type
@@ -649,6 +667,12 @@ class ReferenceCreatorDialog(QDialog):
 
     def _on_axis_ingest_type_changed(self, index: int):
         self._axis_ingest_type = self._ui.cbox_flat_minor.itemData(index)
+        if self._axis_ingest_type == EllipsoidAxisType.INVERSE_FLATTENING:
+            self._ui.lbl_flat_minor_units.setText("No Units")
+        elif self._axis_ingest_type == EllipsoidAxisType.SEMI_MINOR:
+            self._ui.lbl_flat_minor_units.setText("Meters")
+        else:
+            raise TypeError(f"Axis ingestion type is neither inverse flatting or semi minor. Instead its {self._axis_ingest_type}")
 
     def _on_axis_ingestion_value_changed(self, text: str):
         try:
@@ -809,6 +833,7 @@ class ReferenceCreatorDialog(QDialog):
             center_lon=self._center_lon,
             polar_stereo_scale=self._polar_stereo_scale,
             polar_stereo_latitude_sign=self._polar_stereo_latitude_sign,
+            shape_type=self._shape_type,
         )
         return crs_creator_state
 
