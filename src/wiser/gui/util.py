@@ -289,3 +289,21 @@ def generate_unused_filename(basename: str, extension: str) -> str:
             i += 1
 
     return filename
+
+def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str = None):
+    app = QApplication.instance()
+    if app is None:
+        raise RuntimeError("App instance is not running!")
+    help_icon = app.style().standardIcon(QStyle.SP_MessageBoxQuestion)
+    help_btn.setIcon(help_icon)
+    if tooltip_message is None:
+        help_btn.setToolTip("Click for help")
+    else:
+        help_btn.setToolTip(tooltip_message)
+
+
+    help_btn.clicked.connect(
+        lambda: QDesktopServices.openUrl(
+            QUrl(f"{link}")
+        )
+    )

@@ -13,7 +13,7 @@ from wiser.gui.geo_reference_pane import GeoReferencerPane
 from wiser.gui.geo_reference_task_delegate import \
     (GeoReferencerTaskDelegate, GroundControlPointPair, GroundControlPoint, \
      GroundControlPointCoordinate, PointSelectorType, PointSelector)
-from wiser.gui.util import get_random_matplotlib_color, get_color_icon
+from wiser.gui.util import get_random_matplotlib_color, get_color_icon, make_into_help_button
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import GDALRasterDataImpl
@@ -321,6 +321,11 @@ class GeoReferencerDialog(QDialog):
         # initialize the find button
         find_crs_btn = self._ui.btn_find_crs
         find_crs_btn.clicked.connect(self._on_find_crs)
+
+        # Initialize the help button
+        make_into_help_button(self._ui.tbtn_help,
+                              'https://ehlmann-research-group.github.io/WISER-UserManual/Georeferencer/#reference-system-information',
+                              "Get help on reference systems")
 
     def _update_ref_crs_cbox_items(self):
         srs_to_choose_cbox = self._ui.cbox_choose_crs
