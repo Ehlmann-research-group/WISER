@@ -264,6 +264,13 @@
                  </item>
                 </layout>
                </item>
+               <item>
+                <widget class="QLabel" name="lbl_defined_units">
+                 <property name="text">
+                  <string>Units defined by reference system</string>
+                 </property>
+                </widget>
+               </item>
               </layout>
              </item>
             </layout>
