@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>738</width>
-    <height>508</height>
+    <height>521</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -120,7 +120,7 @@
            <widget class="QWidget" name="widget_manual_entry" native="true">
             <property name="maximumSize">
              <size>
-              <width>325</width>
+              <width>16777215</width>
               <height>16777215</height>
              </size>
             </property>
@@ -137,7 +137,7 @@
                <item>
                 <widget class="QLabel" name="lbl_manual_ref_crs">
                  <property name="text">
-                  <string>Reference CRS:</string>
+                  <string>Reference System:</string>
                  </property>
                 </widget>
                </item>
@@ -152,7 +152,7 @@
                     </sizepolicy>
                    </property>
                    <property name="text">
-                    <string>Choose CRS</string>
+                    <string>Choose Ref Sys</string>
                    </property>
                   </widget>
                  </item>
@@ -166,7 +166,7 @@
                    </property>
                    <property name="maximumSize">
                     <size>
-                     <width>250</width>
+                     <width>10000000</width>
                      <height>20</height>
                     </size>
                    </property>
@@ -186,7 +186,7 @@
                  <item>
                   <widget class="QComboBox" name="cbox_authority">
                    <property name="sizePolicy">
-                    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
@@ -218,12 +218,12 @@
                   <widget class="QPushButton" name="btn_find_crs">
                    <property name="maximumSize">
                     <size>
-                     <width>60</width>
+                     <width>70</width>
                      <height>16777215</height>
                     </size>
                    </property>
                    <property name="text">
-                    <string>Find CRS</string>
+                    <string>Find Ref Sys</string>
                    </property>
                   </widget>
                  </item>
@@ -298,24 +298,20 @@
           <item>
            <layout class="QVBoxLayout" name="verticalLayout">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
-              <item>
-               <widget class="QLabel" name="lbl_srs">
-                <property name="maximumSize">
-                 <size>
-                  <width>65</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Output CRS</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QComboBox" name="cbox_srs"/>
-              </item>
-             </layout>
+             <widget class="QLabel" name="lbl_srs">
+              <property name="maximumSize">
+               <size>
+                <width>75</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Output Ref Sys</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="cbox_srs"/>
             </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_3">
