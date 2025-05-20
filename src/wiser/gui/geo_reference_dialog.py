@@ -1622,133 +1622,141 @@ class GeoReferencerDialog(QDialog):
         Returns a bool on whether the function that called this one should continue 
         running code after this function
         '''
-        save_path = self._get_save_file_path()
-        if save_path is None:
-            confirm = QMessageBox.question(self, self.tr("No Save Path Selected"), 
-                                           self.tr("In order to georeference, a save path " \
-                                                    "must be selected. There is no save path " \
-                                                    "selected, so georeferencing will not occur.\n\n" \
-                                                    "Do you still want to continue closing the georeferencer?"))
-            if confirm == QMessageBox.Yes:
+        try:
+            save_path = self._get_save_file_path()
+            if save_path is None:
+                confirm = QMessageBox.question(self, self.tr("No Save Path Selected"), 
+                                            self.tr("In order to georeference, a save path " \
+                                                        "must be selected. There is no save path " \
+                                                        "selected, so georeferencing will not occur.\n\n" \
+                                                        "Do you still want to continue closing the georeferencer?"))
+                if confirm == QMessageBox.Yes:
+                    return True
+                else:
+                    return False
+            
+            if not self._enough_points_for_transform() or self._warp_kwargs is None:
                 return True
-            else:
-                return False
-        
-        if not self._enough_points_for_transform() or self._warp_kwargs is None:
-            return True
 
-        if self._target_rasterpane.get_rasterview().get_raster_data() is None:
-            return True
+            if self._target_rasterpane.get_rasterview().get_raster_data() is None:
+                return True
 
-        gcps: List[GeoRefTableEntry, gdal.GCP] = self._get_entry_gcp_list()
+            gcps: List[GeoRefTableEntry, gdal.GCP] = self._get_entry_gcp_list()
 
-        target_dataset = self._target_rasterpane.get_rasterview().get_raster_data()
-        target_dataset_impl = target_dataset.get_impl()
+            target_dataset = self._target_rasterpane.get_rasterview().get_raster_data()
+            target_dataset_impl = target_dataset.get_impl()
 
-        ref_srs = self._get_reference_srs()
-        ref_projection = ref_srs.ExportToWkt()
-        temp_gdal_ds = None
-        output_dataset = None
+            ref_srs = self._get_reference_srs()
+            ref_projection = ref_srs.ExportToWkt()
+            temp_gdal_ds = None
+            output_dataset = None
 
-        self.set_message_text(self.tr("Starting warp..."))
-        if isinstance(target_dataset_impl, GDALRasterDataImpl):
-            target_gdal_dataset = target_dataset_impl.gdal_dataset
-            temp_vrt_path = '/vsimem/ref.vrt'
-            translate_opts = None
-            if target_dataset.get_data_ignore_value() is not None:
-                translate_opts = gdal.TranslateOptions(
-                    format='VRT',
-                    noData=target_dataset.get_data_ignore_value(),
-                )
-            else:
-                translate_opts = gdal.TranslateOptions(
-                    format='VRT',
-                )
-            temp_gdal_ds = gdal.Translate(temp_vrt_path, target_gdal_dataset, options=translate_opts)
-            # Make sure dataset has no spatial information that could mess with warping
-            temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-            warp_options = gdal.WarpOptions(**self._warp_kwargs)
-            output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
-        else:
-            # I warp one band of the input dataset to a virtual memory file, 
-            # so I can create the correct output data size.
-            # Then I create the output dataset with width and height equal to the warp,
-            # but correct number of bands
-            # Then I override each band in the created array and flush cache
-            output_size: Tuple[int, int] = None
-            output_dataset: gdal.Dataset = None
-            driver: gdal.Driver = gdal.GetDriverByName("GTiff")
-            gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(target_dataset.get_elem_type())
+            self.set_message_text(self.tr("Starting warp..."))
 
-            # Get the output size
-            warp_options = gdal.WarpOptions(**self._warp_kwargs)
-            warp_save_path = f'/vsimem/temp_band_{0}'
-            band_arr = target_dataset.get_band_data(0)
-            temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
-            # Make sure dataset has no spatial information that could mess with warping
-            temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-            transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
-
-            width = transformed_ds.RasterXSize
-            height = transformed_ds.RasterYSize
-            output_size = (width, height)
-            output_bytes = width * height * target_dataset.num_bands() * target_dataset.get_elem_type().itemsize
-
-            gdal.Unlink(warp_save_path)
-
-            ratio = MAX_RAM_BYTES / output_bytes
-            if ratio > 1.0:
+            if isinstance(target_dataset_impl, GDALRasterDataImpl):
+                target_gdal_dataset = target_dataset_impl.gdal_dataset
+                temp_vrt_path = '/vsimem/ref.vrt'
+                translate_opts = None
+                if target_dataset.get_data_ignore_value() is not None:
+                    translate_opts = gdal.TranslateOptions(
+                        format='VRT',
+                        noData=target_dataset.get_data_ignore_value(),
+                    )
+                else:
+                    translate_opts = gdal.TranslateOptions(
+                        format='VRT',
+                    )
+                temp_gdal_ds = gdal.Translate(temp_vrt_path, target_gdal_dataset, options=translate_opts)
+                # Make sure dataset has no spatial information that could mess with warping
+                temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
                 warp_options = gdal.WarpOptions(**self._warp_kwargs)
-                band_arr = target_dataset.get_image_data()
+                output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
+            else:
+                # I warp one band of the input dataset to a virtual memory file, 
+                # so I can create the correct output data size.
+                # Then I create the output dataset with width and height equal to the warp,
+                # but correct number of bands
+                # Then I override each band in the created array and flush cache
+                output_size: Tuple[int, int] = None
+                output_dataset: gdal.Dataset = None
+                driver: gdal.Driver = gdal.GetDriverByName("GTiff")
+                gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(target_dataset.get_elem_type())
+
+                # Get the output size
+                warp_options = gdal.WarpOptions(**self._warp_kwargs)
+                warp_save_path = f'/vsimem/temp_band_{0}'
+                band_arr = target_dataset.get_band_data(0)
                 temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
                 # Make sure dataset has no spatial information that could mess with warping
                 temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-                set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
-                output_dataset: gdal.Dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
-                output_dataset.FlushCache()
+                transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
 
-            else:
-                num_bands_per = int(ratio * target_dataset.num_bands())
-                for band_index in range(0, target_dataset.num_bands(), num_bands_per):
-                    band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < target_dataset.num_bands()]
+                width = transformed_ds.RasterXSize
+                height = transformed_ds.RasterYSize
+                output_size = (width, height)
+                output_bytes = width * height * target_dataset.num_bands() * target_dataset.get_elem_type().itemsize
+
+                gdal.Unlink(warp_save_path)
+                ratio = MAX_RAM_BYTES / output_bytes
+                if ratio > 1.0:
                     warp_options = gdal.WarpOptions(**self._warp_kwargs)
-                    warp_save_path = f'/vsimem/temp_band_{min(band_list_index)}_to_{max(band_list_index)}'
-                    # print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
-            
-                    band_arr = target_dataset.get_multiple_band_data(band_list_index)
+                    band_arr = target_dataset.get_image_data()
                     temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
                     # Make sure dataset has no spatial information that could mess with warping
                     temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
                     set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
-                    transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
+                    output_dataset: gdal.Dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
+                    output_dataset.FlushCache()
 
-                    width = transformed_ds.RasterXSize
-                    height = transformed_ds.RasterYSize
-                    assert width == output_size[0] and height == output_size[1], \
-                            "Width and/or height of warped band does not equal a previous warped band"
+                else:
+                    num_bands_per = int(ratio * target_dataset.num_bands())
+                    for band_index in range(0, target_dataset.num_bands(), num_bands_per):
+                        band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < target_dataset.num_bands()]
+                        warp_options = gdal.WarpOptions(**self._warp_kwargs)
+                        warp_save_path = f'/vsimem/temp_band_{min(band_list_index)}_to_{max(band_list_index)}'
+                        # print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
+                
+                        band_arr = target_dataset.get_multiple_band_data(band_list_index)
+                        temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
+                        # Make sure dataset has no spatial information that could mess with warping
+                        temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
+                        set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
+                        transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
 
-                    if output_dataset is None:
-                        output_dataset = driver.Create(save_path, width, height, target_dataset.num_bands(), gdal_dtype)
-                    
-                    write_raster_to_dataset(output_dataset, band_list_index, transformed_ds.ReadAsArray(), gdal_dtype)
+                        width = transformed_ds.RasterXSize
+                        height = transformed_ds.RasterYSize
+                        assert width == output_size[0] and height == output_size[1], \
+                                "Width and/or height of warped band does not equal a previous warped band"
 
-                    # print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {ref_dataset.num_bands()}")
+                        if output_dataset is None:
+                            output_dataset = driver.Create(save_path, width, height, target_dataset.num_bands(), gdal_dtype)
+                        
+                        write_raster_to_dataset(output_dataset, band_list_index, transformed_ds.ReadAsArray(), gdal_dtype)
 
-                    gdal.Unlink(warp_save_path)
-                    transformed_ds = None
+                        # print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {ref_dataset.num_bands()}")
 
-        if output_dataset is None:
-            raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
+                        gdal.Unlink(warp_save_path)
+                        transformed_ds = None
 
-        copy_metadata_to_gdal_dataset(output_dataset, target_dataset)
-        gt = output_dataset.GetGeoTransform()
-        if gt is None:
-            raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
+            if output_dataset is None:
+                raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
 
-        output_dataset.FlushCache()
-        output_dataset = None
+            copy_metadata_to_gdal_dataset(output_dataset, target_dataset)
+            gt = output_dataset.GetGeoTransform()
+            if gt is None:
+                raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
 
-        self.set_message_text(self.tr("Done warping!"))
+            output_dataset.FlushCache()
+            output_dataset = None
+
+            self.set_message_text(self.tr("Done warping!"))
+        except BaseException as e:
+            QMessageBox.critical(
+                self,
+                self.tr("Error While Creating Output"),
+                self.tr(f"Error:\n{e}")
+            )
+            return False
         return True
 
     def accept(self):
