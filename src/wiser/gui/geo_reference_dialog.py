@@ -589,10 +589,6 @@ class GeoReferencerDialog(QDialog):
         if auth_name is None or auth_code is None:
             auth_name = "USER"
             auth_code = "0"
-        print(f"srs.GetAuthorityName(None): {srs.GetAuthorityName(None)}")
-        print(f"srs.GetAuthorityCode(None): {srs.GetAuthorityCode(None)}")
-        print(f"auth_name: {auth_name}")
-        print(f"auth_code: {auth_code}")
 
         ext = Path(filename).suffix.lower()
         try:
@@ -629,36 +625,11 @@ class GeoReferencerDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Load failed", str(e))
             return
-        print(f"auth_name: {auth_name}")
-        print(f"auth_code: {auth_code}")
         self.load_gcps_and_srs(gcp_points=points, gcp_srs=AuthorityCodeCRS(auth_name, auth_code))
-
-        # ref_ds = self._get_ref_dataset()
-        # if ref_ds is not None and gcp_srs.IsSame(ref_ds.get_spatial_ref()):
-        #     # spatial ref matches – we can add pairs immediately
-        #     self._load_points_with_matching_ref(points, ref_ds, gcp_srs)
-        # else:
-        #     # mismatch – fall back to manual entry mode
-        #     self._reference_cbox.setCurrentIndex(self._reference_cbox.findData(-1))
-        #     self._update_manual_ref_chooser_display(None)
-        #     self._ui.cbox_authority.setCurrentText(gcp_srs.GetAuthorityName(None) or "")
-        #     self._ui.ledit_srs_code.setText(gcp_srs.GetAuthorityCode(None) or "")
-        #     self.set_message_text("Reference CRS changed to match GCP file; select each "
-        #                           "target point then press Enter to pair it.")
-        #     # Pre-fill the first coordinate so the user sees something
-        #     if points:
-        #         self._ui.ledit_lat_north.setText(str(points[0][1]))   # mapY
-        #         self._ui.ledit_lon_east.setText(str(points[0][0]))    # mapX
 
     def load_gcps_and_srs(self, gcp_points: List[Tuple[float, float, float, float]], gcp_srs: AuthorityCodeCRS):
         '''
-        Clear out the current GCP's unless they match
-
-        If target pane is none we return
-
-        If the reference raster dataset matches our srs, then we starting adding points
-
-        For each point, we check to see if 
+        Loads the gcps in with the specified srs
         '''
         target_ds = self._get_target_dataset()
         if target_ds is None:
@@ -678,7 +649,6 @@ class GeoReferencerDialog(QDialog):
                 if ref_px is None or not (0 <= ref_px[0] < ref_ds.get_width() and
                                         0 <= ref_px[1] < ref_ds.get_height()):
                     skipped_gcps.append(((map_x, map_y, pix_x, pix_y), "Reference GCP coordinate is outside of reference dataset's raster bounds."))
-                    self.set_message_text("Skipped one GCP: reference coord outside image.")
                     continue
 
                 tgt_gcp = GroundControlPointRasterPane((pix_x, pix_y), self._target_rasterpane)
@@ -691,15 +661,12 @@ class GeoReferencerDialog(QDialog):
             self._update_manual_ref_chooser_display(None)
             # Populate the srs in the cbox_choose_crs
             self._add_srs_to_ref_choose_cbox(gcp_srs.get_osr_crs().GetName(), gcp_srs.authority_name, gcp_srs.authority_code)
-            # self._ui.cbox_authority.setCurrentText(gcp_srs.GetAuthorityName(None) or "")
-            # self._ui.ledit_srs_code.setText(gcp_srs.GetAuthorityCode(None) or "")
             self.set_message_text("Reference CRS changed to match GCP file; select each "
                                   "target point then press Enter to pair it.")
             for map_x, map_y, pix_x, pix_y in gcp_points:
                 # Verify pixel-within-images
                 if not (0 <= pix_x < target_ds.get_width() and 0 <= pix_y < target_ds.get_height()):
                     skipped_gcps.append(((map_x, map_y, pix_x, pix_y), "Target GCP Pixel is outside of raster bounds."))
-                    # self.set_message_text("Skipped one GCP: target pixel outside image bounds.")
                     continue
                 tgt_gcp = GroundControlPointRasterPane((pix_x, pix_y), self._target_rasterpane)
                 ref_gcp = GroundControlPointCoordinate((map_x, map_y),
