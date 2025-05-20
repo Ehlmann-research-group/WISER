@@ -350,9 +350,15 @@ class ImageWidget(QWidget):
         self._forward: Dict = forward
 
         self._scaled_size: Optional[QSize] = None
-        # self._center_point = None
+
+        # for panning
+        self._panning = False
+        self._pan_start_global = QPoint()
+        self._hbar_start = 0
+        self._vbar_start = 0
 
         self.setMouseTracking(True)
+        self.setCursor(Qt.ArrowCursor)
 
     def set_dataset_info(self, dataset, scale): # , center_point: Tuple[int, int] = None):
         # TODO(donnie):  Do something
@@ -385,16 +391,31 @@ class ImageWidget(QWidget):
             return QSize(100, 100)
 
 
-    def mousePressEvent(self, mouse_event):
-        if 'mousePressEvent' in self._forward:
+    def mousePressEvent(self, mouse_event: QMouseEvent):
+        if mouse_event.button() == Qt.MiddleButton:
+            sa = self._rasterview._scroll_area
+            self._panning = True
+            self._pan_start_global = mouse_event.globalPos()
+            self._hbar_start = sa.horizontalScrollBar().value()
+            self._vbar_start = sa.verticalScrollBar().value()
+            self.setCursor(Qt.ClosedHandCursor)
+        elif 'mousePressEvent' in self._forward:
             self._forward['mousePressEvent'](self._rasterview, mouse_event)
 
-    def mouseReleaseEvent(self, mouse_event):
-        if 'mouseReleaseEvent' in self._forward:
+    def mouseReleaseEvent(self, mouse_event: QMouseEvent):
+        if mouse_event.button() == Qt.MiddleButton and self._panning:
+            self._panning = False
+            self.setCursor(Qt.ArrowCursor)
+        elif 'mouseReleaseEvent' in self._forward:
             self._forward['mouseReleaseEvent'](self._rasterview, mouse_event)
 
-    def mouseMoveEvent(self, mouse_event):
-        if 'mouseMoveEvent' in self._forward:
+    def mouseMoveEvent(self, mouse_event: QMouseEvent):
+        if self._panning:
+            sa = self._rasterview._scroll_area
+            delta = mouse_event.globalPos() - self._pan_start_global
+            sa.horizontalScrollBar().setValue(self._hbar_start - delta.x())
+            sa.verticalScrollBar().setValue(self._vbar_start - delta.y())
+        elif 'mouseMoveEvent' in self._forward:
             self._forward['mouseMoveEvent'](self._rasterview, mouse_event)
 
     def keyPressEvent(self, key_event):
@@ -422,8 +443,6 @@ class ImageWidget(QWidget):
                 painter.drawPixmap(0, 0,
                     self._scaled_size.width(), self._scaled_size.height(), pixmap,
                     0, 0, 0, 0)
-                # print(f"self._scaled_size.width(): {self._scaled_size.width()}")
-                # print(f"self._scaled_size.height(): {self._scaled_size.height()}")
 
                 if 'paintEvent' in self._forward:
                     self._forward['paintEvent'](self._rasterview, self, paint_event)
