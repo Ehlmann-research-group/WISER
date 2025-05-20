@@ -177,7 +177,6 @@ class ReferenceCreatorDialog(QDialog):
     def _on_stereo_scale_factor_changed(self, text: str):
         try:
             self._polar_stereo_scale = float(text)
-            print(f"self._polar: {self._polar_stereo_scale}")
         except ValueError:
             self._polar_stereo_scale = None
 

@@ -50,8 +50,8 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>500</width>
-           <height>500</height>
+           <width>250</width>
+           <height>250</height>
           </size>
          </property>
         </widget>
@@ -505,8 +505,8 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>500</width>
-           <height>500</height>
+           <width>250</width>
+           <height>250</height>
           </size>
          </property>
         </widget>
