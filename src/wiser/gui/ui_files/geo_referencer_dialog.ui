@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>738</width>
-    <height>521</height>
+    <height>551</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -32,7 +32,7 @@
         <item>
          <widget class="QDialogButtonBox" name="buttonBox">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -47,7 +47,7 @@
            <enum>Qt::Horizontal</enum>
           </property>
           <property name="standardButtons">
-           <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+           <set>QDialogButtonBox::Cancel|QDialogButtonBox::Help|QDialogButtonBox::Ok</set>
           </property>
          </widget>
         </item>
@@ -290,7 +290,7 @@
          </layout>
         </item>
         <item>
-         <layout class="QVBoxLayout" name="vlayout_gcp_options" stretch="0,0,0,0,0,0,0,0,0,0">
+         <layout class="QVBoxLayout" name="vlayout_gcp_options" stretch="0,0,0,0,0,0,0,0,0,0,0,0">
           <property name="sizeConstraint">
            <enum>QLayout::SetMaximumSize</enum>
           </property>
@@ -461,6 +461,41 @@
              <widget class="QLabel" name="lbl_default_color">
               <property name="text">
                <string>Default Color</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <item>
+             <widget class="QPushButton" name="btn_load_gcps">
+              <property name="text">
+               <string>Load GCPs</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_save_gcps">
+              <property name="text">
+               <string>Save GCPs</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_6">
+            <item>
+             <widget class="QPushButton" name="btn_clear_gcps">
+              <property name="maximumSize">
+               <size>
+                <width>80</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Clear GCPs</string>
               </property>
              </widget>
             </item>

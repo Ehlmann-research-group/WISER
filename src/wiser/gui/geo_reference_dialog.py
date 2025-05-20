@@ -11,8 +11,9 @@ from wiser.gui.app_state import ApplicationState
 from wiser.gui.rasterpane import RasterPane
 from wiser.gui.geo_reference_pane import GeoReferencerPane
 from wiser.gui.geo_reference_task_delegate import \
-    (GeoReferencerTaskDelegate, GroundControlPointPair, GroundControlPoint, \
-     GroundControlPointCoordinate, PointSelectorType, PointSelector)
+    (GeoReferencerTaskDelegate, GroundControlPointPair, GroundControlPoint,
+     GroundControlPointCoordinate, PointSelectorType, PointSelector,
+     GroundControlPointRasterPane)
 from wiser.gui.util import get_random_matplotlib_color, get_color_icon, make_into_help_button
 
 from wiser.raster.dataset import RasterDataSet
@@ -28,6 +29,9 @@ from osgeo import gdal, osr, gdal_array
 import numpy as np
 
 from abc import ABC
+
+import csv
+from pathlib import Path
 
 from pyproj import CRS
 from pyproj.database import get_authorities
@@ -270,11 +274,22 @@ class GeoReferencerDialog(QDialog):
         self._init_manual_ref_point_enter()
         self._init_warp_button()
         self._update_manual_ref_chooser_display(None)
+        self._init_help_button()
+        self._init_gcp_io_buttons()
 
     def _refresh_init(self):
         self._update_dataset_choosers()
         self._update_ref_crs_cbox_items()
         self._update_output_srs_cbox_items()
+
+    def _init_gcp_io_buttons(self):
+        self._ui.btn_save_gcps.clicked.connect(self._on_save_gcps_clicked)
+        self._ui.btn_load_gcps.clicked.connect(self._on_load_gcps_clicked)
+        self._ui.btn_clear_gcps.clicked.connect(self._on_clear_gcps_clicked)
+    
+    def _init_help_button(self):
+        btn_box = self._ui.buttonBox
+        btn_box.helpRequested.connect(self._on_show_help)
 
     def _init_warp_button(self):
         warp_btn = self._ui.btn_run_warp
@@ -533,6 +548,280 @@ class GeoReferencerDialog(QDialog):
     #========================
     # region Slots
     #========================
+
+    def _on_clear_gcps_clicked(self, checked: bool):
+        """
+        Asks the user for confirmation if they want to clear all the gcps.
+        Clears all the gcps by removing all the rows in self._ui.table_gcps
+        and then calls self._update_panes.
+        """
+        reply = QMessageBox.question(
+            self,
+            "Clear All GCPs?",
+            "Are you sure you want to remove all ground control points?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            # wipe out both the internal list and the table widget
+            self._reset_gcps()
+            # refresh the display panes
+            self._update_panes()
+
+    def _on_save_gcps_clicked(self, checked: bool):
+        if not self._table_entry_list:
+            QMessageBox.information(self, "No GCPs", "There are no ground-control points to save.")
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Save ground-control points"),
+            filter=self.tr("QGIS points (*.points);;ENVI ASCII (*.pts)")
+        )
+        if not filename:
+            return
+
+        srs = self._get_reference_srs()
+        auth_name = srs.GetAuthorityName(None)
+        auth_code = srs.GetAuthorityCode(None)
+        if auth_name is None or auth_code is None:
+            crs = CRS.from_wkt(srs.ExportToWkt())
+            auth_name, auth_code = crs.to_authority()
+        if auth_name is None or auth_code is None:
+            auth_name = "USER"
+            auth_code = "0"
+        print(f"srs.GetAuthorityName(None): {srs.GetAuthorityName(None)}")
+        print(f"srs.GetAuthorityCode(None): {srs.GetAuthorityCode(None)}")
+        print(f"auth_name: {auth_name}")
+        print(f"auth_code: {auth_code}")
+
+        ext = Path(filename).suffix.lower()
+        try:
+            if ext == ".points":
+                self._write_qgis_points_file(filename, auth_name, auth_code)
+            elif ext == ".pts":
+                self._write_envi_pts_file(filename, auth_name, auth_code)
+            else:
+                QMessageBox.warning(self, "Extension error",
+                                    "Please use either *.points or *.pts")
+                return
+            self.set_message_text(f"GCPs saved to {filename}")
+        except Exception as e:
+            QMessageBox.critical(self, "Save failed", str(e))
+
+    def _on_load_gcps_clicked(self, checked: bool):
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Load ground-control points"),
+            filter=self.tr("GCP files (*.points *.pts)")
+        )
+        if not filename:
+            return
+
+        try:
+            points, gcp_srs = self._read_gcp_file(filename)
+            auth_name = gcp_srs.GetAuthorityName(None)
+            auth_code = gcp_srs.GetAuthorityCode(None)
+            if auth_name is None or auth_code is None:
+                crs = CRS.from_wkt(gcp_srs.ExportToWkt())
+                auth_name, auth_code = crs.to_authority()
+            if auth_name is None or auth_code is None:
+                raise RuntimeError(f"Passed in reference system can't be parsed. Reference system wkt:\n {gcp_srs.ExportToPrettyWkt()}")
+        except Exception as e:
+            QMessageBox.critical(self, "Load failed", str(e))
+            return
+        print(f"auth_name: {auth_name}")
+        print(f"auth_code: {auth_code}")
+        self.load_gcps_and_srs(gcp_points=points, gcp_srs=AuthorityCodeCRS(auth_name, auth_code))
+
+        # ref_ds = self._get_ref_dataset()
+        # if ref_ds is not None and gcp_srs.IsSame(ref_ds.get_spatial_ref()):
+        #     # spatial ref matches – we can add pairs immediately
+        #     self._load_points_with_matching_ref(points, ref_ds, gcp_srs)
+        # else:
+        #     # mismatch – fall back to manual entry mode
+        #     self._reference_cbox.setCurrentIndex(self._reference_cbox.findData(-1))
+        #     self._update_manual_ref_chooser_display(None)
+        #     self._ui.cbox_authority.setCurrentText(gcp_srs.GetAuthorityName(None) or "")
+        #     self._ui.ledit_srs_code.setText(gcp_srs.GetAuthorityCode(None) or "")
+        #     self.set_message_text("Reference CRS changed to match GCP file; select each "
+        #                           "target point then press Enter to pair it.")
+        #     # Pre-fill the first coordinate so the user sees something
+        #     if points:
+        #         self._ui.ledit_lat_north.setText(str(points[0][1]))   # mapY
+        #         self._ui.ledit_lon_east.setText(str(points[0][0]))    # mapX
+
+    def load_gcps_and_srs(self, gcp_points: List[Tuple[float, float, float, float]], gcp_srs: AuthorityCodeCRS):
+        '''
+        Clear out the current GCP's unless they match
+
+        If target pane is none we return
+
+        If the reference raster dataset matches our srs, then we starting adding points
+
+        For each point, we check to see if 
+        '''
+        target_ds = self._get_target_dataset()
+        if target_ds is None:
+            return
+
+        ref_ds = self._get_ref_dataset()
+
+        skipped_gcps = []
+        if ref_ds is not None and gcp_srs.get_osr_crs().IsSame(ref_ds.get_spatial_ref()):
+            for map_x, map_y, pix_x, pix_y in gcp_points:
+                # Verify pixel-within-images
+                if not (0 <= pix_x < target_ds.get_width() and 0 <= pix_y < target_ds.get_height()):
+                    skipped_gcps.append(((map_x, map_y, pix_x, pix_y), "Target GCP Pixel is outside of target dataset's raster bounds."))
+                    # self.set_message_text("Skipped one GCP: target pixel outside image bounds.")
+                    continue
+                ref_px = ref_ds.geo_to_pixel_coords_exact((map_x, map_y))
+                if ref_px is None or not (0 <= ref_px[0] < ref_ds.get_width() and
+                                        0 <= ref_px[1] < ref_ds.get_height()):
+                    skipped_gcps.append(((map_x, map_y, pix_x, pix_y), "Reference GCP coordinate is outside of reference dataset's raster bounds."))
+                    self.set_message_text("Skipped one GCP: reference coord outside image.")
+                    continue
+
+                tgt_gcp = GroundControlPointRasterPane((pix_x, pix_y), self._target_rasterpane)
+                ref_gcp = GroundControlPointRasterPane((ref_px[0], ref_px[1]), self._reference_rasterpane)
+                pair = GroundControlPointPair(tgt_gcp, ref_gcp)
+                self.gcp_pair_added.emit(pair)
+        else:
+            # mismatch – fall back to manual entry mode
+            self._reference_cbox.setCurrentIndex(self._reference_cbox.findData(-1))
+            self._update_manual_ref_chooser_display(None)
+            # Populate the srs in the cbox_choose_crs
+            self._add_srs_to_ref_choose_cbox(gcp_srs.get_osr_crs().GetName(), gcp_srs.authority_name, gcp_srs.authority_code)
+            # self._ui.cbox_authority.setCurrentText(gcp_srs.GetAuthorityName(None) or "")
+            # self._ui.ledit_srs_code.setText(gcp_srs.GetAuthorityCode(None) or "")
+            self.set_message_text("Reference CRS changed to match GCP file; select each "
+                                  "target point then press Enter to pair it.")
+            for map_x, map_y, pix_x, pix_y in gcp_points:
+                # Verify pixel-within-images
+                if not (0 <= pix_x < target_ds.get_width() and 0 <= pix_y < target_ds.get_height()):
+                    skipped_gcps.append(((map_x, map_y, pix_x, pix_y), "Target GCP Pixel is outside of raster bounds."))
+                    # self.set_message_text("Skipped one GCP: target pixel outside image bounds.")
+                    continue
+                tgt_gcp = GroundControlPointRasterPane((pix_x, pix_y), self._target_rasterpane)
+                ref_gcp = GroundControlPointCoordinate((map_x, map_y),
+                                                    PointSelectorType.REFERENCE_POINT_SELECTOR,
+                                                    gcp_srs.get_osr_crs())
+                pair = GroundControlPointPair(tgt_gcp, ref_gcp)
+                self.gcp_pair_added.emit(pair)
+
+        # ────────────────────────────────────────────────────────────────
+        #  Show skipped‐GCPs if any
+        # ────────────────────────────────────────────────────────────────
+        if skipped_gcps:
+            info_lines = []
+            info_lines.append(f"Skipped GCPs")
+            info_lines.append("")
+            for tpl, reason in skipped_gcps:
+                info_lines.append(f"GCP: {tpl}")
+                info_lines.append(f"Reason: {reason}")
+                info_lines.append("")  # blank line between entries
+
+            QMessageBox.information(
+                self,
+                "Skipped GCPs",
+                "\n".join(info_lines).rstrip()
+            )
+
+
+    # -------- helpers -------------------------------------------------
+    def _read_gcp_file(self, path: str):
+        ext = Path(path).suffix.lower()
+        if ext == ".points":
+            return self._read_qgis_points_file(path)
+        elif ext == ".pts":
+            return self._read_envi_pts_file(path)
+        raise RuntimeError("Unsupported GCP file extension")
+
+    def _read_qgis_points_file(self, path: str):
+        points = []
+        gcp_srs = None
+        with open(path, newline="") as f:
+            rdr = csv.reader(f)
+            for row in rdr:
+                if not row:
+                    continue
+                if row[0].startswith("# CRS"):
+                    _, authcode = row
+                    auth, code = authcode.split(":")
+                    gcp_srs = AuthorityCodeCRS(auth, int(code)).get_osr_crs()
+                    continue
+                if row[0].startswith("mapX"):
+                    continue
+                map_x, map_y, pix_x, pix_y, *_ = map(float, row[:5])
+                points.append((map_x, map_y, pix_x, pix_y))
+        if gcp_srs is None:
+            raise RuntimeError("No CRS line found in .points file")
+        return points, gcp_srs
+
+    def _read_envi_pts_file(self, path: str):
+        points = []
+        gcp_srs = None
+        with open(path) as f:
+            for ln in f:
+                ln = ln.strip()
+                if ln.startswith("; projection info"):
+                    # very tolerant parse
+                    inside = ln.split("{", 1)[-1].split("}", 1)[0]
+                    auth, code, *_ = [x.strip().split(",")[0] for x in inside.split()]
+                    gcp_srs = AuthorityCodeCRS(auth, int(code)).get_osr_crs()
+                elif ln.startswith(";") or not ln:
+                    continue
+                else:
+                    parts = list(map(float, ln.split()))
+                    if len(parts) >= 5:
+                        map_x, map_y, _elev, pix_x, pix_y = parts[:5]
+                        points.append((map_x, map_y, pix_x, pix_y))
+        if gcp_srs is None:
+            raise RuntimeError("No projection info found in .pts file")
+        return points, gcp_srs
+
+    def _write_qgis_points_file(self, path: str, auth: str, code: str):
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["# CRS", f"{auth}:{code}"])
+            writer.writerow(["mapX", "mapY", "pixelX", "pixelY", "enable"])
+            for entry in self._table_entry_list:
+                pair = entry.get_gcp_pair()
+                map_x, map_y = pair.get_reference_gcp_spatial_coord()
+                pix_x, pix_y = pair.get_target_gcp().get_point()
+                writer.writerow([map_x, map_y, pix_x, pix_y,
+                                 1 if entry.is_enabled() else 0])
+    
+    def _write_envi_pts_file(self, path: str, auth: str, code: str):
+        with open(path, "w") as f:
+            f.write(f"; ENVI Ground Control Points File\n")
+            f.write(f"; projection info = {{{auth}, {code}, units=Degrees}}\n")
+            f.write(f"; Map (x,y,elev), Image (x,y)\n;\n")
+            for entry in self._table_entry_list:
+                pair = entry.get_gcp_pair()
+                map_x, map_y = pair.get_reference_gcp_spatial_coord()
+                pix_x, pix_y = pair.get_target_gcp().get_point()
+                f.write(f"{map_x:.10f} {map_y:.10f} 0.0 {pix_x:.3f} {pix_y:.3f}\n")
+
+    def _on_show_help(self):
+        QMessageBox.information(
+            self,
+            self.tr("How to use the Georeferencer"),
+            self.tr("""
+            <h3>Quick Start</h3>
+            <ol>
+              <li>Pick your Target and Reference images.</li>
+              <li>Select or lookup the output CRS (Authority + Code)<br>
+                  if you do not have a reference image.</li>
+              <li>Click in the image to add ground control points.<br>
+                  Enter lat/lon if adding manually. <br>
+                  Hit enter after each point.</li>
+              <li>Hit escape to undo your enter press. </li>
+              <li>Choose your interpolation & polynomial order.</li>
+              <li>Set an output path and click <b>Run Warp</b>.</li>
+            </ol>
+            """),
+            QMessageBox.Ok
+        )
 
 
     def _on_warp_button_clicked(self, checked: bool):
