@@ -508,15 +508,6 @@ class ImageScrollArea(QScrollArea):
     def scrollContentsBy(self, dx, dy):
         super().scrollContentsBy(dx, dy)
 
-        # print(f"=================================")
-        # print(f"horizontalScrollBarValue: {self.horizontalScrollBar().value()}")
-        # print(f"horizontalScrollBar min: {self.horizontalScrollBar().minimum()}")
-        # print(f"horizontalScrollBar max: {self.horizontalScrollBar().maximum()}")
-        # print(f"verticalScrollBarValue: {self.verticalScrollBar().value()}")
-        # print(f"verticalScrollBar min: {self.verticalScrollBar().minimum()}")
-        # print(f"verticalScrollBar max: {self.verticalScrollBar().maximum()}")
-        # print(f"=================================")
-
         if 'scrollContentsBy' in self._forward:
             self._forward['scrollContentsBy'](self._rasterview, dx, dy, self.propagate_scroll)
 
