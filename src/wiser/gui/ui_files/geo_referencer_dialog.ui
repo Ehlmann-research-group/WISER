@@ -63,7 +63,7 @@
           <item>
            <widget class="QLabel" name="lbl_target_image">
             <property name="text">
-             <string>Target Image</string>
+             <string>Target Dataset</string>
             </property>
            </widget>
           </item>
@@ -93,7 +93,7 @@
           <item>
            <widget class="QLabel" name="lbl_ref_image">
             <property name="text">
-             <string>Reference Image</string>
+             <string>Reference Dataset</string>
             </property>
            </widget>
           </item>

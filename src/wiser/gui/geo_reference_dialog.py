@@ -994,12 +994,26 @@ class GeoReferencerDialog(QDialog):
         self._remove_table_entry(table_entry)
         self._georeference()
 
+    def _get_current_save_path(self):
+        return self._ui.ledit_save_path.text()
+
     def _on_switch_target_dataset(self, index: int):
         ds_id = self._target_cbox.itemData(index)
         dataset = None
         try:
+            # Check if the file save path already there matches this
+            current_save_path = self._get_current_save_path()
+            dataset = self._app_state.get_dataset(ds_id)
+            if dataset is not None:
+                if current_save_path in dataset.get_filepaths():
+                    QMessageBox.information(self, self.tr("Target Dataset Path Equals Save Path"),
+                                            self.tr("The target dataset path equals the save path.\n"
+                                            "Change the save path before selecting this target dataset."))
+                    self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
+                    return
+            # Check if there are already GCPs
             if len(self._table_entry_list) > 0 and self._prev_target_dataset_index != index:
-                confirm = QMessageBox.question(self, self.tr("Change target dataset?"),
+                confirm = QMessageBox.question(self, self.tr("Change Target Dataset?"),
                                      self.tr("Are you sure you want to change the target dataset?") +
                                      "\n\nThis will discard all selected GCPs. Do you want\n"
                                      "to continue?")
@@ -1008,7 +1022,6 @@ class GeoReferencerDialog(QDialog):
                 else:
                     self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
                     return
-            dataset = self._app_state.get_dataset(ds_id)
         except:
             pass
         self._target_rasterpane.show_dataset(dataset)
@@ -1018,8 +1031,18 @@ class GeoReferencerDialog(QDialog):
         ds_id = self._reference_cbox.itemData(index)
         dataset = None
         try:
+            # Check if the file save path already there matches this
+            current_save_path = self._get_current_save_path()
+            dataset = self._app_state.get_dataset(ds_id)
+            if dataset is not None:
+                if current_save_path in dataset.get_filepaths():
+                    QMessageBox.information(self, self.tr("Reference Dataset Path Equals Save Path"),
+                                            self.tr("The reference dataset path equals the save path.\n"
+                                            "Change the save path before selecting this reference dataset."))
+                    self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
+                    return
             if len(self._table_entry_list) > 0 and self._prev_ref_dataset_index != index:
-                confirm = QMessageBox.question(self, self.tr("Change reference dataset?"),
+                confirm = QMessageBox.question(self, self.tr("Change Reference Dataset?"),
                                      self.tr("Are you sure you want to change the reference dataset?") +
                                      "\n\nThis will discard all selected GCPs. Do you want\n"
                                      "to continue?")
@@ -1028,7 +1051,6 @@ class GeoReferencerDialog(QDialog):
                 else:
                     self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
                     return
-            dataset = self._app_state.get_dataset(ds_id)
             if not dataset.has_geographic_info():
                 QMessageBox.warning(self, self.tr("Unreferenced Dataset"), \
                                     self.tr("You must choose a dataset with a spatial reference system"))
