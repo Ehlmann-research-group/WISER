@@ -1700,10 +1700,12 @@ class GeoReferencerDialog(QDialog):
             output_bytes = width * height * target_dataset.num_bands() * target_dataset.get_elem_type().itemsize
 
             gdal.Unlink(warp_save_path)
-            ratio = MAX_RAM_BYTES / output_bytes
+            output_gt = None
 
+            ratio = MAX_RAM_BYTES / output_bytes
             if isinstance(target_dataset_impl, GDALRasterDataImpl):
-                if ratio > 1.0:
+                if ratio >= 1.0:
+                    print("Gdal dataset full save!")
                     target_gdal_dataset = target_dataset_impl.gdal_dataset
                     temp_vrt_path = '/vsimem/ref.vrt'
                     translate_opts = None
@@ -1722,12 +1724,13 @@ class GeoReferencerDialog(QDialog):
                     warp_options = gdal.WarpOptions(**self._warp_kwargs)
                     output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
                 else:
+                    print(f"GDAL dataset partial save!!!")
                     num_bands_per = int(ratio * target_dataset.num_bands())
                     for band_index in range(0, target_dataset.num_bands(), num_bands_per):
                         band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < target_dataset.num_bands()]
                         warp_options = gdal.WarpOptions(**self._warp_kwargs)
                         warp_save_path = f'/vsimem/temp_band_{min(band_list_index)}_to_{max(band_list_index)}'
-                        # print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
+                        print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
                 
                         band_arr = target_dataset.get_multiple_band_data(band_list_index)
                         temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
@@ -1743,13 +1746,17 @@ class GeoReferencerDialog(QDialog):
 
                         if output_dataset is None:
                             output_dataset = driver.Create(save_path, width, height, target_dataset.num_bands(), gdal_dtype)
+                            output_gt = transformed_ds.GetGeoTransform()
                         
                         write_raster_to_dataset(output_dataset, band_list_index, transformed_ds.ReadAsArray(), gdal_dtype)
 
-                        # print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {ref_dataset.num_bands()}")
+                        print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {target_dataset.num_bands()}")
 
                         gdal.Unlink(warp_save_path)
                         transformed_ds = None
+                    output_dataset.SetGeoTransform(output_gt)
+                    output_dataset.SetSpatialRef(ref_srs)
+                    
             else:
                 # # I warp one band of the input dataset to a virtual memory file, 
                 # # so I can create the correct output data size.
@@ -1775,9 +1782,12 @@ class GeoReferencerDialog(QDialog):
                 # output_size = (width, height)
                 # output_bytes = width * height * target_dataset.num_bands() * target_dataset.get_elem_type().itemsize
 
-                gdal.Unlink(warp_save_path)
+                # gdal.Unlink(warp_save_path)
+                print(f"In numpy warp output")
                 ratio = MAX_RAM_BYTES / output_bytes
+                ratio = 0.2
                 if ratio > 1.0:
+                    print(f"in ratio > 1.0")
                     warp_options = gdal.WarpOptions(**self._warp_kwargs)
                     band_arr = target_dataset.get_image_data()
                     temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
@@ -1788,12 +1798,13 @@ class GeoReferencerDialog(QDialog):
                     output_dataset.FlushCache()
 
                 else:
+                    print(f"in ration < 1.0, saving incrementally")
                     num_bands_per = int(ratio * target_dataset.num_bands())
                     for band_index in range(0, target_dataset.num_bands(), num_bands_per):
                         band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < target_dataset.num_bands()]
                         warp_options = gdal.WarpOptions(**self._warp_kwargs)
                         warp_save_path = f'/vsimem/temp_band_{min(band_list_index)}_to_{max(band_list_index)}'
-                        # print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
+                        print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
                 
                         band_arr = target_dataset.get_multiple_band_data(band_list_index)
                         temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
@@ -1809,19 +1820,24 @@ class GeoReferencerDialog(QDialog):
 
                         if output_dataset is None:
                             output_dataset = driver.Create(save_path, width, height, target_dataset.num_bands(), gdal_dtype)
+                            output_gt = transformed_ds.GetGeoTransform()
                         
                         write_raster_to_dataset(output_dataset, band_list_index, transformed_ds.ReadAsArray(), gdal_dtype)
 
-                        # print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {ref_dataset.num_bands()}")
+                        print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {target_dataset.num_bands()}")
 
                         gdal.Unlink(warp_save_path)
                         transformed_ds = None
+                    output_dataset.SetGeoTransform(output_gt)
+                    output_dataset.SetSpatialRef(ref_srs)
 
             if output_dataset is None:
                 raise RuntimeError("gdal.Warp failed to produce a transformed dataset.")
 
             copy_metadata_to_gdal_dataset(output_dataset, target_dataset)
             gt = output_dataset.GetGeoTransform()
+            print(f"output gt: {gt}\n")
+            print(f"output spatial reference: {output_dataset.GetSpatialRef()}\n")
             if gt is None:
                 raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
 

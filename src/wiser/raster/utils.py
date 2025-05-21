@@ -1,11 +1,14 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, TYPE_CHECKING
 
-from osgeo import gdal
+from osgeo import gdal, osr
 
 import numpy as np
 from astropy import units as u
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
+
+if TYPE_CHECKING:
+    from wiser.raster.dataset import RasterDataSet
 
 ARRAY_NUMBA_THRESHOLD = 150000000 # 150 MB
 
@@ -294,10 +297,6 @@ def set_data_ignore_of_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 
             gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
 
 def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
-    # Assume these are already defined:
-    #   gdal_dataset – an open GDAL Dataset opened for update (GA_Update)
-    #   source_dataset    – your custom dataset object
-
     # 1. Propagate wavelength names (band descriptions)
     band_info = source_dataset.band_list()  # returns dict of lists keyed by metadata names
     wle_names = band_info[0].get("wavelength_name")
@@ -354,8 +353,6 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'R
     # Don't forget to flush/close when done:
     gdal_dataset.FlushCache()
     gdal_dataset = None
-
-from osgeo import osr
 
 def get_bbox(gt, width, height):
     """Compute (minX, minY, maxX, maxY) of a raster given its GeoTransform."""
