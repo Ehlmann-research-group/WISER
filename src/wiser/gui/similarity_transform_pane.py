@@ -300,14 +300,14 @@ class SimilarityTransformPane(RasterPane):
 
     def _on_similarity_transform_raster_pixel_select(self, rasterview_position, ds_point):
         print(f"_on_similarity_transform_raster_pixel_select called!\n raster pos: {rasterview_position}, ds_point: {ds_point}")
-        # Get the dataset of the main view.  If no dataset is being displayed,
-        # this is a no-op.
-        ds = self.get_current_dataset(rasterview_position)
-        if ds is None:
-            # The clicked-on rasterview has no dataset loaded; ignore.
-            return
-        sel = SinglePixelSelection(ds_point, ds)
-        self.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
-
+        # Get the dataset of the main view.  If no dataset is being displayed or
+        # this is not the translation pane, then this is a no-op
         if self._translation:
+            ds = self.get_current_dataset(rasterview_position)
+            if ds is None:
+                # The clicked-on rasterview has no dataset loaded; ignore.
+                return
+            sel = SinglePixelSelection(ds_point, ds)
+            self.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+
             self.pixel_selected_for_translation.emit(ds, ds_point)
