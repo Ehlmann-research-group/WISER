@@ -14,7 +14,7 @@ from wiser.raster.dataset_impl import GDALRasterDataImpl
 
 from .generated.similarity_transform_dialog_ui import Ui_SimilarityTransform
 
-from .util import pillow_rotate_scale_expand, cv2_rotate_scale_expand, rotate_scale_geotransform
+from .util import pillow_rotate_scale_expand, cv2_rotate_scale_expand, rotate_scale_geotransform, make_into_help_button
 
 from osgeo import gdal, gdal_array
 
@@ -106,6 +106,10 @@ class SimilarityTransformDialog(QDialog):
         self._init_file_saver_translate()
 
         self._init_interpolation_cbox()
+
+        make_into_help_button(self._ui.tbtn_help,
+                              'https://ehlmann-research-group.github.io/WISER-UserManual/Similarity_Transform/#translating-coordinate-system',
+                              'Get help on translating coordinate systems')
 
 
     # -------------------------------------------------------------------------

@@ -573,6 +573,7 @@ def rotate_scale_geotransform(gt, theta, scale, width, height, pivot):
     new_spatial_ul = rot_inverse((rotated_min_x, rotated_min_y))
 
     return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot, new_yrot_scaled)
+
 def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str = None):
     app = QApplication.instance()
     if app is None:

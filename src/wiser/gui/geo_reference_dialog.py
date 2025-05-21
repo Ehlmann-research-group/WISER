@@ -340,7 +340,7 @@ class GeoReferencerDialog(QDialog):
         # Initialize the help button
         make_into_help_button(self._ui.tbtn_help,
                               'https://ehlmann-research-group.github.io/WISER-UserManual/Georeferencer/#reference-system-information',
-                              "Get help on reference systems")
+                              'Get help on reference systems')
 
     def _update_ref_crs_cbox_items(self):
         srs_to_choose_cbox = self._ui.cbox_choose_crs
