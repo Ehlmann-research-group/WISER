@@ -573,3 +573,20 @@ def rotate_scale_geotransform(gt, theta, scale, width, height, pivot):
     new_spatial_ul = rot_inverse((rotated_min_x, rotated_min_y))
 
     return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot, new_yrot_scaled)
+def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str = None):
+    app = QApplication.instance()
+    if app is None:
+        raise RuntimeError("App instance is not running!")
+    help_icon = app.style().standardIcon(QStyle.SP_MessageBoxQuestion)
+    help_btn.setIcon(help_icon)
+    if tooltip_message is None:
+        help_btn.setToolTip("Click for help")
+    else:
+        help_btn.setToolTip(tooltip_message)
+
+
+    help_btn.clicked.connect(
+        lambda: QDesktopServices.openUrl(
+            QUrl(f"{link}")
+        )
+    )

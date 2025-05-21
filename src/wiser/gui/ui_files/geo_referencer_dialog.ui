@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>738</width>
-    <height>508</height>
+    <height>551</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -32,7 +32,7 @@
         <item>
          <widget class="QDialogButtonBox" name="buttonBox">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -47,7 +47,7 @@
            <enum>Qt::Horizontal</enum>
           </property>
           <property name="standardButtons">
-           <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+           <set>QDialogButtonBox::Cancel|QDialogButtonBox::Help|QDialogButtonBox::Ok</set>
           </property>
          </widget>
         </item>
@@ -63,7 +63,7 @@
           <item>
            <widget class="QLabel" name="lbl_target_image">
             <property name="text">
-             <string>Target Image</string>
+             <string>Target Dataset</string>
             </property>
            </widget>
           </item>
@@ -93,7 +93,7 @@
           <item>
            <widget class="QLabel" name="lbl_ref_image">
             <property name="text">
-             <string>Reference Image</string>
+             <string>Reference Dataset</string>
             </property>
            </widget>
           </item>
@@ -120,7 +120,7 @@
            <widget class="QWidget" name="widget_manual_entry" native="true">
             <property name="maximumSize">
              <size>
-              <width>325</width>
+              <width>16777215</width>
               <height>16777215</height>
              </size>
             </property>
@@ -135,11 +135,55 @@
              <item>
               <layout class="QVBoxLayout" name="vlayout_manual_crs_entry">
                <item>
-                <widget class="QLabel" name="lbl_manual_ref_crs">
-                 <property name="text">
-                  <string>Reference CRS:</string>
-                 </property>
-                </widget>
+                <layout class="QHBoxLayout" name="horizontalLayout">
+                 <item>
+                  <widget class="QLabel" name="lbl_manual_ref_crs">
+                   <property name="text">
+                    <string>Reference System</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="tbtn_help">
+                   <property name="text">
+                    <string>...</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_4">
+                 <item>
+                  <widget class="QLabel" name="lbl_choose_crs">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>Choose Ref Sys</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="cbox_choose_crs">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>10000000</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
                <item>
                 <layout class="QHBoxLayout" name="hlayout_authority">
@@ -153,7 +197,7 @@
                  <item>
                   <widget class="QComboBox" name="cbox_authority">
                    <property name="sizePolicy">
-                    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
@@ -181,49 +225,16 @@
                    </property>
                   </widget>
                  </item>
-                </layout>
-               </item>
-               <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_4">
-                 <item>
-                  <widget class="QLabel" name="lbl_choose_crs">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="text">
-                    <string>Choose CRS</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QComboBox" name="cbox_choose_crs">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="maximumSize">
-                    <size>
-                     <width>120</width>
-                     <height>20</height>
-                    </size>
-                   </property>
-                  </widget>
-                 </item>
                  <item>
                   <widget class="QPushButton" name="btn_find_crs">
                    <property name="maximumSize">
                     <size>
-                     <width>60</width>
+                     <width>70</width>
                      <height>16777215</height>
                     </size>
                    </property>
                    <property name="text">
-                    <string>Find CRS</string>
+                    <string>Find Ref Sys</string>
                    </property>
                   </widget>
                  </item>
@@ -264,6 +275,13 @@
                  </item>
                 </layout>
                </item>
+               <item>
+                <widget class="QLabel" name="lbl_defined_units">
+                 <property name="text">
+                  <string>Units defined by reference system</string>
+                 </property>
+                </widget>
+               </item>
               </layout>
              </item>
             </layout>
@@ -272,7 +290,7 @@
          </layout>
         </item>
         <item>
-         <layout class="QVBoxLayout" name="vlayout_gcp_options" stretch="0,0,0,0,0,0,0,0,0,0">
+         <layout class="QVBoxLayout" name="vlayout_gcp_options" stretch="0,0,0,0,0,0,0,0,0,0,0,0">
           <property name="sizeConstraint">
            <enum>QLayout::SetMaximumSize</enum>
           </property>
@@ -291,24 +309,20 @@
           <item>
            <layout class="QVBoxLayout" name="verticalLayout">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
-              <item>
-               <widget class="QLabel" name="lbl_srs">
-                <property name="maximumSize">
-                 <size>
-                  <width>65</width>
-                  <height>16777215</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string>Output CRS</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QComboBox" name="cbox_srs"/>
-              </item>
-             </layout>
+             <widget class="QLabel" name="lbl_srs">
+              <property name="maximumSize">
+               <size>
+                <width>75</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Output Ref Sys</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="cbox_srs"/>
             </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -447,6 +461,41 @@
              <widget class="QLabel" name="lbl_default_color">
               <property name="text">
                <string>Default Color</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <item>
+             <widget class="QPushButton" name="btn_load_gcps">
+              <property name="text">
+               <string>Load GCPs</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_save_gcps">
+              <property name="text">
+               <string>Save GCPs</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_6">
+            <item>
+             <widget class="QPushButton" name="btn_clear_gcps">
+              <property name="maximumSize">
+               <size>
+                <width>80</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Clear GCPs</string>
               </property>
              </widget>
             </item>
