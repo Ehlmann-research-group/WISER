@@ -142,6 +142,7 @@ class ReferenceCreatorDialog(QDialog):
 
         # save current name so we can tell if the user picks something new later
         self._current_starting_crs_name: Optional[str] = None
+        self._crs_name: Optional[str] = None
 
         # Initialize UI
         self._init_user_created_crs()
@@ -748,11 +749,16 @@ class ReferenceCreatorDialog(QDialog):
         # Safe defaults if the user left them blank
         if self._proj_type != ProjectionTypes.NO_PROJECTION and \
             (self._lon_meridian is None or self._latitude is None or \
-            self._center_lon) is None:
+            self._center_lon is None):
             QMessageBox.warning(self, self.tr("Missing value"),
                                 self.tr("When doing a projection, the prime meridian, center latitude,\n"
                                         "center longitude, and latitude of true scale must be set. One\n"
                                         "of them is not set."))
+            return
+        elif self._proj_type == ProjectionTypes.NO_PROJECTION and \
+                self._lon_meridian is None:
+            QMessageBox.warning(self, self.tr("Missing value"),
+                                self.tr("When doing 'No Projection', the Prime Meridian field must be set."))
             return
 
         a = self._semi_major_value
@@ -775,7 +781,7 @@ class ReferenceCreatorDialog(QDialog):
         base = f"{ellps_part} +pm={self._lon_meridian} +no_defs"
 
         if self._proj_type == ProjectionTypes.NO_PROJECTION:
-            proj_str = f"+proj=longlat {base} +units=deg"
+            proj_str = f"+proj=longlat {base}"
         elif self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
             if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
                 proj_str = (f"+proj=eqc +lon_0={self._center_lon} +lat_0={self._latitude} "
@@ -808,6 +814,7 @@ class ReferenceCreatorDialog(QDialog):
                                 f"Unknown projection type: {self._proj_type}")
             return
 
+        print(f"proj_str: {proj_str}")
         pyproj_crs = pyproj.CRS.from_proj4(proj_str)
         self._new_crs = osr.SpatialReference()
         self._new_crs.ImportFromWkt(pyproj_crs.to_wkt())
