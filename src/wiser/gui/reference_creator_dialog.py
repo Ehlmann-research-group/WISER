@@ -336,8 +336,6 @@ class ReferenceCreatorDialog(QDialog):
             self._current_starting_crs_name= NO_CRS_NAME
             return
 
-        print(f"name: {name}")
-        print(f" self._app_state.get_user_created_crs(): { self._app_state.get_user_created_crs()}")
         srs: osr.SpatialReference = self._app_state.get_user_created_crs().get(name)[0]
         creator_state: CrsCreatorState = self._app_state.get_user_created_crs().get(name)[1]
         if srs is None:  # shouldn’t happen
@@ -487,7 +485,7 @@ class ReferenceCreatorDialog(QDialog):
             if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
                 assert creator_state.polar_stereo_scale is not None
                 ledit = self._ui.ledit_pstereo_scale_factor
-                ledit.setText(creator_state.polar_stereo_scale)
+                ledit.setText(str(creator_state.polar_stereo_scale))
                 ledit.textChanged.emit(creator_state.polar_stereo_scale)
             elif self._latitude_choice == LatitudeTypes.TRUE_SCALE_LATITUDE:
                 assert creator_state._polar_stereo_latitude_sign is not None
@@ -732,14 +730,15 @@ class ReferenceCreatorDialog(QDialog):
                                 self.tr("Please supply a name for the CRS."))
             return
 
-        if self._semi_major_value is None or self._axis_ingestion_value is None:
+        if (self._shape_type == ShapeTypes.SPHEROID and
+            self._semi_major_value is None):
             QMessageBox.warning(self, self.tr("Missing value"),
-                                self.tr("Please supply the semi-major axis or the "
-                                        "semi-minor axis / inverse flattening."))
+                                self.tr("Please supply the radius value."))
             return
     
         if (self._shape_type == ShapeTypes.ELLIPSOID and
-                (self._axis_ingestion_value is None or self._axis_ingest_type is None)):
+                (self._axis_ingestion_value is None or self._axis_ingest_type is None
+                 or self._semi_major_value is None)):
             QMessageBox.warning(self, self.tr("Missing value"),
                                 self.tr("For an ellipsoid you must fill the second axis\n"
                                 "value and choose whether it is the semi-minor axis\n"
@@ -814,7 +813,6 @@ class ReferenceCreatorDialog(QDialog):
                                 f"Unknown projection type: {self._proj_type}")
             return
 
-        print(f"proj_str: {proj_str}")
         pyproj_crs = pyproj.CRS.from_proj4(proj_str)
         self._new_crs = osr.SpatialReference()
         self._new_crs.ImportFromWkt(pyproj_crs.to_wkt())
