@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>758</width>
-    <height>649</height>
+    <width>508</width>
+    <height>444</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -50,8 +50,8 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>250</width>
-           <height>250</height>
+           <width>0</width>
+           <height>0</height>
           </size>
          </property>
         </widget>
@@ -232,7 +232,7 @@
        </sizepolicy>
       </property>
       <attribute name="title">
-       <string>Translate</string>
+       <string>Translate Coordinate Sys</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_3">
        <item row="1" column="1">
@@ -505,8 +505,8 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>250</width>
-           <height>250</height>
+           <width>0</width>
+           <height>0</height>
           </size>
          </property>
         </widget>
