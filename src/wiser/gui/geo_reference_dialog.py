@@ -1641,27 +1641,30 @@ class GeoReferencerDialog(QDialog):
 
     def _create_warped_output(self) -> bool:
         '''
-        Returns a bool on whether the function that called this one should continue 
-        running code after this function
+        Returns a bool on whether this function created the warped dataset
         '''
+        
         try:
             save_path = self._get_save_file_path()
             if save_path is None:
-                confirm = QMessageBox.question(self, self.tr("No Save Path Selected"), 
-                                            self.tr("In order to georeference, a save path " \
-                                                        "must be selected. There is no save path " \
-                                                        "selected, so georeferencing will not occur.\n\n" \
-                                                        "Do you still want to continue closing the georeferencer?"))
-                if confirm == QMessageBox.Yes:
-                    return True
-                else:
-                    return False
+                QMessageBox.information(self, self.tr("No Save Path Selected"), 
+                                        self.tr("In order to georeference, a save path " \
+                                                "must be selected. There is no save path " \
+                                                "selected, so georeferencing will not occur.\n\n" \
+                                                "Please select a save path."))
+                return False
             
             if not self._enough_points_for_transform() or self._warp_kwargs is None:
-                return True
+                QMessageBox.information(self,
+                                        self.tr("Can't Run Georeferencer"),
+                                        self.tr("Not enough points to run georeferencer"))
+                return False
 
             if self._target_rasterpane.get_rasterview().get_raster_data() is None:
-                return True
+                QMessageBox.information(self,
+                                        self.tr("No Target Dataset Selected"),
+                                        self.tr("A target dataset is not selected. Please select a target dataset."))
+                return False
 
             gcps: List[GeoRefTableEntry, gdal.GCP] = self._get_entry_gcp_list()
 
@@ -1761,7 +1764,7 @@ class GeoReferencerDialog(QDialog):
                     write_raster_to_dataset(output_dataset, band_list_index, transformed_ds.ReadAsArray(), gdal_dtype)
 
                     # print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {target_dataset.num_bands()}")
-# 
+
                     gdal.Unlink(warp_save_path)
                     transformed_ds = None
                 output_dataset.SetGeoTransform(output_gt)
