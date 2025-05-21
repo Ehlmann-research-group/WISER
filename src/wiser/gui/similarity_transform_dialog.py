@@ -539,87 +539,112 @@ class SimilarityTransformDialog(QDialog):
 
     def _on_create_translated_dataset(self):
         print(f"in _on_create_translated_dataset")
+        if self._translation_dataset is None:
+            QMessageBox.warning(self,
+                                self.tr("Translation Dataset Not Selected"),
+                                self.tr("You have no translation dataset selected.\n" \
+                                        "Please select a translation dataset."))
+            return
         driver: gdal.Driver = gdal.GetDriverByName('GTiff')
         new_geo_transform = self._get_translated_geotransform()
         save_path = self._get_save_file_path_translate()
+        if save_path is None:
+            QMessageBox.warning(self,
+                                self.tr("Save Path Is Empty"),
+                                self.tr("The save path is empty. Please enter a save path.")
+                                )
+            return
+        if save_path in self._translation_dataset.get_filepaths():
+            QMessageBox.warning(self,
+                                self.tr("Save Path Equals Dataset Path"),
+                                self.tr("The save path and the dataset path are the same, so\n" \
+                                        "translating can not occur. Please fix this and try again."))
+            return
         print(f"save_path: \n{save_path}")
-        if isinstance(self._translation_dataset.get_impl(), GDALRasterDataImpl):
-        # if isinstance(self._translation_dataset, GDALRasterDataImpl):
-            impl = self._translation_dataset.get_impl()
-            translation_gdal_dataset = impl.gdal_dataset
-            if driver is None:
-                raise RuntimeError("GDAL driver not available")
-            print(f"saving at save_path: {save_path}")
-            new_dataset: gdal.Dataset = driver.CreateCopy(save_path, translation_gdal_dataset, 0)
-            print("finished creating copy!")
-            new_dataset.SetGeoTransform(new_geo_transform)
-            new_dataset.FlushCache()
-            print(f"finished flushing cache")
+        try:
+            if isinstance(self._translation_dataset.get_impl(), GDALRasterDataImpl):
+            # if isinstance(self._translation_dataset, GDALRasterDataImpl):
+                impl = self._translation_dataset.get_impl()
+                translation_gdal_dataset = impl.gdal_dataset
+                if driver is None:
+                    raise RuntimeError("GDAL driver not available")
+                print(f"saving at save_path: {save_path}")
+                new_dataset: gdal.Dataset = driver.CreateCopy(save_path, translation_gdal_dataset, 0)
+                print("finished creating copy!")
+                new_dataset.SetGeoTransform(new_geo_transform)
+                new_dataset.FlushCache()
+                print(f"finished flushing cache")
+                new_dataset = None
+                print(f"finished setting none!")
+            else:
+                print(f"in non gdal part!")
+                # Create a gdal dataset with height as self._translation_dataset.get_height(), width as 
+                # .get_width(), and number of bands as self._translation_dataset.num_bands(). 
+                # The datatype should be self._translation_dataset.get_elem_type (which returns a np.dtype)
+                # that may need to be changed into a gdal type. The save path will be obtained from
+                # self._get_save_file_path_translate()
+                # Example usage based on your description
+                height = self._translation_dataset.get_height()
+                width = self._translation_dataset.get_width()
+                num_bands = self._translation_dataset.num_bands()
+                np_dtype = self._translation_dataset.get_elem_type()  # Returns a numpy dtype
+                gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype)  # Convert numpy dtype to GDAL type
+
+                output_bytes = width * height * num_bands * np_dtype.itemsize
+                
+                ratio = MAX_RAM_BYTES / output_bytes
+                print(f"about to enter if statements")
+                # if ratio > 1.0:
+                #     print(f" in ratio > 1.0")
+                #     dataset_arr = self._translation_dataset.get_image_data() 
+                #     print(f"about to make new dataset, got dataset_arr!")
+                #     new_dataset: gdal.Dataset = gdal_array.OpenNumPyArray(dataset_arr, True, ['GTiff:' + save_path])
+                #     new_dataset.SetGeoTransform(new_geo_transform)
+                #     print(f"made new_dataset successfully!")
+                # else:
+                #     print(f"chunking!")
+
+                # Create the GDAL dataset
+                new_dataset = driver.Create(save_path, width, height, num_bands, gdal_data_type)
+                print(f"just created new dataset")
+                if new_dataset is None:
+                    raise RuntimeError("Failed to create the output dataset")
+                num_bands_per = int(ratio * num_bands)
+                for band_index in range(0, num_bands, num_bands_per):
+                    band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < num_bands]
+                    band_arr = self._translation_dataset.get_multiple_band_data(band_list_index)
+                    print(f"about to write {band_list_index} to raster")
+                    write_raster_to_dataset(new_dataset, band_list_index, band_arr, gdal_data_type)
+                    print(f"finished writing {band_list_index} to raster")
+                copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
+                new_dataset.FlushCache()
+                new_dataset.SetSpatialRef(self._translation_dataset.get_spatial_ref())
+                new_dataset.SetGeoTransform(new_geo_transform)
+                new_dataset = None
+                print(f"Done translating!!!")
+
+
+                #  We will then use self._translation_dataset.get_image_data()
+                # (which returns the full numpy array). Here is the doc string for it 
+                '''
+                Returns a numpy 3D array of the entire image cube.
+
+                The numpy array is configured such that the pixel (x, y) values of band
+                b are at element array[b][y][x].
+
+                If the data-set has a "data ignore value" and filter_data_ignore_value
+                is also set to True, the array will be filtered such that any element
+                with the "data ignore value" will be filtered to NaN.  Note that this
+                filtering will impact performance.
+                '''
+                '''
+                We will use get_image
+                '''
+        except BaseException as e:
+            QMessageBox.critical(self,
+                                 self.tr("Error While Translating Dataset"),
+                                 self.tr(f"Error:\n\n{e}"))
+            return
+        finally:
             new_dataset = None
-            print(f"finished setting none!")
-        else:
-            print(f"in non gdal part!")
-            # Create a gdal dataset with height as self._translation_dataset.get_height(), width as 
-            # .get_width(), and number of bands as self._translation_dataset.num_bands(). 
-            # The datatype should be self._translation_dataset.get_elem_type (which returns a np.dtype)
-            # that may need to be changed into a gdal type. The save path will be obtained from
-            # self._get_save_file_path_translate()
-            # Example usage based on your description
-            height = self._translation_dataset.get_height()
-            width = self._translation_dataset.get_width()
-            num_bands = self._translation_dataset.num_bands()
-            np_dtype = self._translation_dataset.get_elem_type()  # Returns a numpy dtype
-            gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype)  # Convert numpy dtype to GDAL type
-
-            output_bytes = width * height * num_bands * np_dtype.itemsize
-            
-            ratio = MAX_RAM_BYTES / output_bytes
-            print(f"about to enter if statements")
-            # if ratio > 1.0:
-            #     print(f" in ratio > 1.0")
-            #     dataset_arr = self._translation_dataset.get_image_data() 
-            #     print(f"about to make new dataset, got dataset_arr!")
-            #     new_dataset: gdal.Dataset = gdal_array.OpenNumPyArray(dataset_arr, True, ['GTiff:' + save_path])
-            #     new_dataset.SetGeoTransform(new_geo_transform)
-            #     print(f"made new_dataset successfully!")
-            # else:
-            #     print(f"chunking!")
-
-            # Create the GDAL dataset
-            new_dataset = driver.Create(save_path, width, height, num_bands, gdal_data_type)
-            print(f"just created new dataset")
-            if new_dataset is None:
-                raise RuntimeError("Failed to create the output dataset")
-            num_bands_per = int(ratio * num_bands)
-            for band_index in range(0, num_bands, num_bands_per):
-                band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < num_bands]
-                band_arr = self._translation_dataset.get_multiple_band_data(band_list_index)
-                print(f"about to write {band_list_index} to raster")
-                write_raster_to_dataset(new_dataset, band_list_index, band_arr, gdal_data_type)
-                print(f"finished writing {band_list_index} to raster")
-            copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
-            new_dataset.FlushCache()
-            new_dataset.SetSpatialRef(self._translation_dataset.get_spatial_ref())
-            new_dataset.SetGeoTransform(new_geo_transform)
-            new_dataset = None
-            print(f"Done translating!!!")
-
-
-            #  We will then use self._translation_dataset.get_image_data()
-            # (which returns the full numpy array). Here is the doc string for it 
-            '''
-            Returns a numpy 3D array of the entire image cube.
-
-            The numpy array is configured such that the pixel (x, y) values of band
-            b are at element array[b][y][x].
-
-            If the data-set has a "data ignore value" and filter_data_ignore_value
-            is also set to True, the array will be filtered such that any element
-            with the "data ignore value" will be filtered to NaN.  Note that this
-            filtering will impact performance.
-            '''
-            '''
-            We will use get_image
-            '''
-
 
