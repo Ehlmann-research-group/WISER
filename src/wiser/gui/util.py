@@ -313,8 +313,8 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     Returns:
     Transformed array with dtype matching input.
     """
-    print(f"img array shape: {img.shape}")
-    print(f"img array type: {img.dtype}")
+    # print(f"img array shape: {img.shape}")
+    # print(f"img array type: {img.dtype}")
     _INTERPOLATIONS = {
         'nearest':  cv2.INTER_NEAREST,
         'linear':   cv2.INTER_LINEAR,
@@ -330,8 +330,8 @@ def cv2_rotate_scale_expand(img: np.ndarray,
 
     # 3. Build the rotation+scale matrix
     h, w = img.shape[:2]
-    print(f"h: {h}")
-    print(f"w: {w}")
+    # print(f"h: {h}")
+    # print(f"w: {w}")
     cx, cy = w/2, h/2
     M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
 
@@ -342,9 +342,9 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     # shift origin to centre result
     M[0,2] += (new_w/2 - cx)
     M[1,2] += (new_h/2 - cy)
-    print(f"new_w: {new_w}")
-    print(f"new_h: {new_h}")
-    print(f"interp: {interp}")
+    # print(f"new_w: {new_w}")
+    # print(f"new_h: {new_h}")
+    # print(f"interp: {interp}")
     # 5. Warp the image
     out = cv2.warpAffine(
         img,

@@ -1362,7 +1362,6 @@ class RasterPane(QWidget):
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
         colormap = rasterview.get_colormap()
-
         dialog = BandChooserDialog(self._app_state, dataset, display_bands,
             colormap=colormap, parent=self)
         dialog.setModal(True)
@@ -1371,7 +1370,6 @@ class RasterPane(QWidget):
             bands = dialog.get_display_bands()
             is_global = dialog.apply_globally()
             colormap = dialog.get_colormap_name()
-
             self.display_bands_change.emit(dataset.get_id(), bands, colormap, is_global)
 
             # Only update our display bands if the change was not global, since

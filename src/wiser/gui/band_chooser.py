@@ -28,7 +28,6 @@ class BandChooserDialog(QDialog):
                  display_bands: List[int], colormap: Optional[str] = None,
                  can_apply_global: bool = True, parent=None):
         super().__init__(parent=parent)
-
         if len(display_bands) not in [1, 3]:
             raise ValueError('display_bands must be either 1 element or 3 elements')
 

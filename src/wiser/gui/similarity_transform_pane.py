@@ -265,6 +265,24 @@ class SimilarityTransformPane(RasterPane):
             self.get_rasterview().scale_image_to_fit(
                 mode=ScaleToFitMode.FIT_ONE_DIMENSION)
 
+
+    def _on_band_chooser(self, checked=False, rasterview_pos=(0,0)):
+        rasterview = self.get_rasterview(rasterview_pos)
+        dataset = rasterview.get_raster_data()
+        display_bands = rasterview.get_display_bands()
+        colormap = rasterview.get_colormap()
+
+        dialog = BandChooserDialog(self._app_state, dataset, display_bands,
+            colormap=colormap, can_apply_global=False, parent=self)
+        dialog.setModal(True)
+
+        if dialog.exec_() == QDialog.Accepted:
+            bands = dialog.get_display_bands()
+            colormap = dialog.get_colormap_name()
+
+            # For the geo referencer, the change shouldn't be global
+            self.set_display_bands(dataset.get_id(), bands, colormap=colormap)
+
     def _on_similarity_transform_raster_pixel_select(self, rasterview_position, ds_point):
         print(f"_on_similarity_transform_raster_pixel_select called!\n raster pos: {rasterview_position}, ds_point: {ds_point}")
         # Get the dataset of the main view.  If no dataset is being displayed,
