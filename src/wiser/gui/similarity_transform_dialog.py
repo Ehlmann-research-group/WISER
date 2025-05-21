@@ -188,7 +188,6 @@ class SimilarityTransformDialog(QDialog):
         self._ui.slider_rotation.blockSignals(True)
         self._ui.slider_rotation.setValue(int(round(value)))
         self._ui.slider_rotation.blockSignals(False)
-        print(f"self._image_rotation: {self._image_rotation}")
         self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
     @Slot(int)
@@ -200,7 +199,6 @@ class SimilarityTransformDialog(QDialog):
         self._ui.ledit_rotation.blockSignals(False)
 
         self._image_rotation = float(value)
-        print(f"self._image_rotation: {self._image_rotation}")
 
         self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
@@ -221,7 +219,6 @@ class SimilarityTransformDialog(QDialog):
         # Clamp to [0, 100]
         value = max(0.0, min(100.0, value))
         self._image_scale = value
-        print(f"self._image_scale: {self._image_scale}")
         self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
     # -------------------------------------------------------------------------
@@ -231,26 +228,22 @@ class SimilarityTransformDialog(QDialog):
     @Slot()
     def _on_lat_north_changed(self) -> None:
         text = self._ui.ledit_lat_north.text()
-        print(f"_on_lat_north_changed")
         try:
             self._lat_north_translate = float(text)
             self._update_upper_left_coord_labels()
         except ValueError:
             pass
-        print(f"self._lat_north_translate: {self._lat_north_translate}")
         self._update_prev_and_new_coords()
 
 
     @Slot()
     def _on_lon_east_changed(self) -> None:
         text = self._ui.ledit_lon_east.text()
-        print(f"_on_lon_east_changed")
         try:
             self._lon_east_translate = float(text)
             self._update_upper_left_coord_labels()
         except ValueError:
             pass
-        print(f"self._lon_east_translate: {self._lon_east_translate}")
         self._update_prev_and_new_coords()
         
 
@@ -261,7 +254,6 @@ class SimilarityTransformDialog(QDialog):
     def _on_rotate_scale_dataset_changed(self, ds_id):
         # We want to do many things here. But for now we just set the CRS
         self._rotate_scale_dataset = self._app_state.get_dataset(ds_id)
-        print(f"rotation dataset changed to: {self._rotate_scale_dataset.get_name()}")
         self._check_rotate_scale_save_path()
     
     def _check_rotate_scale_save_path(self):
@@ -284,7 +276,6 @@ class SimilarityTransformDialog(QDialog):
     def _on_translation_dataset_changed(self, ds_id):
         # We want to do many things here. But for now we just set the CRS
         self._translation_dataset = self._app_state.get_dataset(ds_id)
-        print(f"translation dataset changed to: {self._translation_dataset.get_name()}")
         srs = self._translation_dataset.get_spatial_ref()
         if srs is None:
             return
@@ -331,7 +322,7 @@ class SimilarityTransformDialog(QDialog):
 
 
     # -------------------------------------------------------------------------
-    # Button handlers – currently stubs
+    # Button handlers
     # -------------------------------------------------------------------------
 
     @Slot()
@@ -440,9 +431,8 @@ class SimilarityTransformDialog(QDialog):
         """Update (read-only) CRS line-edit."""
         self._ui.ledit_crs.setText(text)
 
-    # -------------------------------------------------------------------------
-    # Convenience getters – optional but handy
-    # -------------------------------------------------------------------------
+    # region Convenience getters
+
 
     def image_rotation(self) -> float:
         return self._image_rotation
@@ -468,8 +458,12 @@ class SimilarityTransformDialog(QDialog):
         spatial_center_y = gt[3] + gt[4] * half_width + gt[5] * half_height
 
         return (spatial_center_x, spatial_center_y)
-        
 
+    def set_translate_message_text(self, text: str):
+        self._ui.lbl_translate_message.setText(text)
+
+    def set_rotate_scale_message_text(self, text: str):
+        self._ui.lbl_rotate_scale_message.setText(text)
 
     def _on_create_rotated_scaled_dataset(self):
         print(f"in non gdal part!")
@@ -499,6 +493,7 @@ class SimilarityTransformDialog(QDialog):
         print(f"Save_path: {save_path}")
 
         try:
+            self.set_rotate_scale_message_text("Starting Rotate and Scale.")
             pixmap = self._rotate_scale_pane.get_rasterview().get_unscaled_pixmap()
             pixmap_height = pixmap.height()
             pixmap_width = pixmap.width()
@@ -556,6 +551,7 @@ class SimilarityTransformDialog(QDialog):
             new_dataset.SetGeoTransform(rotated_scaled_gt)
             new_dataset = None
             print(f"Done rotating and scaling!!!")
+            self.set_rotate_scale_message_text("Finished Rotate and Scale.")
         except BaseException as e:
             QMessageBox.critical(self,
                                  self.tr("Error While Translating Dataset"),
@@ -588,6 +584,7 @@ class SimilarityTransformDialog(QDialog):
             return
 
         try:
+            self.set_translate_message_text("Starting Translation.")
             if isinstance(self._translation_dataset.get_impl(), GDALRasterDataImpl):
                 impl = self._translation_dataset.get_impl()
                 translation_gdal_dataset = impl.gdal_dataset
@@ -621,6 +618,7 @@ class SimilarityTransformDialog(QDialog):
                 new_dataset.SetSpatialRef(self._translation_dataset.get_spatial_ref())
                 new_dataset.SetGeoTransform(new_geo_transform)
                 new_dataset = None
+            self.set_translate_message_text("Finished Translation.")
         except BaseException as e:
             QMessageBox.critical(self,
                                  self.tr("Error While Translating Dataset"),
