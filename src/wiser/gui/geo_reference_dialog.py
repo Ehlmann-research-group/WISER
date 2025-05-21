@@ -1703,8 +1703,7 @@ class GeoReferencerDialog(QDialog):
             output_gt = None
 
             ratio = MAX_RAM_BYTES / output_bytes
-            ratio = 0.1
-            if isinstance(target_dataset_impl, GDALRasterDataImpl) and ratio > 1.0:
+            if isinstance(target_dataset_impl, GDALRasterDataImpl):
                 # Saving the full gdal dataste
                 target_gdal_dataset = target_dataset_impl.gdal_dataset
                 temp_vrt_path = '/vsimem/ref.vrt'

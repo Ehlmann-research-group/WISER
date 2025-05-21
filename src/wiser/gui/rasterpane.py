@@ -1243,8 +1243,6 @@ class RasterPane(QWidget):
                                                              target_dataset=rv_dataset)
             if target_pixel is None:
                 raise ValueError("Could not project pixel selections between coordinates!")
-            print(f"coord: {coord}")
-            print(f"target_pixel: {target_pixel}")
             target_coord = QPoint(*target_pixel)
             do_recenter = False
             if recenter == RecenterMode.ALWAYS:
