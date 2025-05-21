@@ -837,11 +837,7 @@ class RasterView(QWidget):
 
 
     def _update_scaled_image(self, old_scale_factor=None, propagate_scroll=False, update_by_dataset=True):
-        if update_by_dataset:
-            self._image_widget.set_dataset_info(self._raster_data, self._scale_factor)
-        else:
-            self._image_widget.set_image_display_info_by_pixmap(self._image_pixmap, self._scale_factor)
-        # self._scroll_area.setVisible(True)
+        self._image_widget.set_image_display_info_by_pixmap(self._image_pixmap, self._scale_factor)
 
         # Need to process queued events now, since the image-widget has changed
         # size, and it needs to report a resize-event before the scrollbars will
@@ -1009,50 +1005,53 @@ class RasterView(QWidget):
         #     We may want to have another "max_size=True" kind of keyword arg
         #     for this function.
 
+        raster_width = self._image_pixmap.width()
+        raster_height = self._image_pixmap.height()
+
         if mode == ScaleToFitMode.FIT_HORIZONTAL:
             # Calculate new scale factor for fitting the image horizontally,
             # based on the maximum viewport size.
-            new_factor = area_size.width() / self._raster_data.get_width()
+            new_factor = area_size.width() / raster_width
 
-            if self._raster_data.get_height() * new_factor > area_size.height():
+            if raster_height * new_factor > area_size.height():
                 # At the proposed scale, the data won't fit vertically, so we
                 # need to recalculate the scale factor to account for the
                 # vertical scrollbar that will show up.
-                new_factor = (area_size.width() - sb_width) / self._raster_data.get_width()
+                new_factor = (area_size.width() - sb_width) / raster_width
 
         elif mode == ScaleToFitMode.FIT_VERTICAL:
             # Calculate new scale factor for fitting the image vertically,
             # based on the maximum viewport size.
-            new_factor = area_size.height() / self._raster_data.get_height()
+            new_factor = area_size.height() / raster_height
 
-            if self._raster_data.get_width() * new_factor > area_size.width():
+            if raster_width * new_factor > area_size.width():
                 # At the proposed scale, the data won't fit horizontally, so we
                 # need to recalculate the scale factor to account for the
                 # horizontal scrollbar that will show up.
-                new_factor = (area_size.height() - sb_height) / self._raster_data.get_height()
+                new_factor = (area_size.height() - sb_height) / raster_height
 
         elif mode == ScaleToFitMode.FIT_ONE_DIMENSION:
             # Unless the image is the exact same aspect ratio as the viewing
             # area, one scrollbar will be visible.
-            r_aspectratio = self._raster_data.get_width() / self._raster_data.get_height()
+            r_aspectratio = raster_width / raster_height
             a_aspectratio = area_size.width() / area_size.height()
 
             if r_aspectratio == a_aspectratio:
                 # Can use either width or height to do the calculation.
-                new_factor = area_size.width() / self._raster_data.get_width()
+                new_factor = area_size.width() / raster_width
 
             else:
                 new_factor = max(
-                    (area_size.width() - sb_width) / self._raster_data.get_width(),
-                    (area_size.height() - sb_height) / self._raster_data.get_height()
+                    (area_size.width() - sb_width) / raster_width,
+                    (area_size.height() - sb_height) / raster_height
                 )
 
         elif mode == ScaleToFitMode.FIT_BOTH_DIMENSIONS:
             # The image will fit in both dimensions, so both scrollbars will be
             # hidden after scaling.
             new_factor = min(
-                area_size.width() / self._raster_data.get_width(),
-                area_size.height() / self._raster_data.get_height()
+                area_size.width() / raster_width,
+                area_size.height() / raster_height
             )
 
         else:
