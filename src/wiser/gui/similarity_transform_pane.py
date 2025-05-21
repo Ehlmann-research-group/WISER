@@ -145,6 +145,7 @@ class SimilarityTransformRasterView(TiledRasterView):
                 if isinstance(arr, np.ma.masked_array):
                     new_arr = np.ma.masked_array(new_data, mask=band_mask)
                     new_arr.data[band_mask] = 0
+                new_arr = cv2_rotate_scale_expand(new_arr, angle=rotation, scale=scale, mask_fill_value=0)
                 
                 self._display_data[0] = new_arr
                 self._display_data[1] = self._display_data[0]
