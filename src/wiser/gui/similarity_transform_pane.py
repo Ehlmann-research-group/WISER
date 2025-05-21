@@ -244,10 +244,25 @@ class SimilarityTransformPane(RasterPane):
     def _on_dataset_added(self, ds_id):
         pass
 
+    # def _on_dataset_changed(self, act):
+    #     super()._on_dataset_changed(act)
+    #     (rasterview_pos, ds_id) = act.data()
+    #     self.dataset_changed.emit(ds_id)
+
     def _on_dataset_changed(self, act):
-        super()._on_dataset_changed(act)
         (rasterview_pos, ds_id) = act.data()
-        self.dataset_changed.emit(ds_id)
+        dataset = self._app_state.get_dataset(ds_id)
+        if dataset.has_geographic_info() or not self._translation:
+            self.show_dataset(dataset, rasterview_pos)
+            self.dataset_changed.emit(ds_id)
+        else:
+            # Only show this if we do not have geographic information and we are
+            # the translation pane
+            QMessageBox.information(self,
+                                    self.tr("No Geographic Information"),
+                                    self.tr("Selected dataset must have geographic information\n" \
+                                    "to use this feature."))
+
 
     def _update_image_scale(self):
         '''
