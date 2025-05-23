@@ -2,7 +2,7 @@ import os
 import random
 import string
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -503,7 +503,7 @@ def pillow_rotate_scale_expand(
 
     return out
 
-def rotate_scale_geotransform(gt, theta, scale, width, height, pivot):
+def rotate_scale_geotransform_v1(gt, theta, scale, width, height, pivot):
     '''
     First we rotate the geo transform's res and rot like this:
     new_xres = xres_cos - xrot_sin
@@ -571,8 +571,162 @@ def rotate_scale_geotransform(gt, theta, scale, width, height, pivot):
     rotated_min_y = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
 
     new_spatial_ul = rot_inverse((rotated_min_x, rotated_min_y))
+    print(f"new_spatial_ul: {new_spatial_ul}")
+    return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot_scaled, new_yres_scaled)
 
-    return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot, new_yrot_scaled)
+def rotate_scale_geotransform_v2(gt, theta, scale, width, height, pivot):
+    '''
+    First we rotate the geo transform's res and rot like this:
+    new_xres = xres_cos - xrot_sin
+    new_xrot = xrot_cos + xres_sin
+
+    new_yres = yres_cos - yrot_sin
+    new_yrot = yrot_cos + yres_sin
+
+    Then to get the new UL point by rotating all of the edge points by a pivot point. Finding the new minx and max x then rotate back
+    '''
+    ulx, xres, xrot, uly, yrot, yres = gt
+    pix_px, pix_py = width/2, height/2
+    rad = math.radians(theta)
+    cos_t, sin_t = math.cos(rad), math.sin(rad)
+    new_xres = xres * cos_t - xrot * sin_t
+    new_xrot = xrot * cos_t + xres * sin_t
+
+    new_yres = yres * cos_t - yrot * sin_t
+    new_yrot = yrot * cos_t + yres * sin_t
+
+    # If the scale is >1 (like 2) then we have more pixels so the resolution would be half as much
+    # If the scale is <1 then we are downsampling so the resolution would be more per pixel (less pixels)
+    new_xres_scaled = new_xres / scale
+    new_xrot_scaled = new_xrot / scale
+
+    new_yres_scaled = new_yres / scale
+    new_yrot_scaled = new_yrot / scale
+
+    def rot_pix(v):
+        x, y = v
+        # shift so pivot is at (0,0)
+        dx, dy = x - pix_px, y - pix_py
+        # rotate about origin
+        rx = dx * cos_t - dy * sin_t
+        ry = dx * sin_t + dy * cos_t
+        # shift back
+        return (rx + pix_px, ry + pix_py)
+
+    def rot_inverse_pix(v):
+        x, y = v
+        dx, dy = x - pix_px, y - pix_py
+        # inverse rotation = rotate by –θ (or use transpose)
+        ix = dx * cos_t + dy * sin_t
+        iy = -dx * sin_t + dy * cos_t
+        return (ix + pix_px, iy + pix_py)
+    
+    upper_left = (0, 0)
+    upper_right = (width, 0)
+    bottom_left = (0, height)
+    bottom_right = (width, height)
+
+    rotated_ul = rot_pix(upper_left)
+    rotated_ur = rot_pix(upper_right)
+    rotated_bl = rot_pix(bottom_left)
+    rotated_br = rot_pix(bottom_right)
+
+    rotated_min_x = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    rotated_min_y = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_ul_orig_coord = rot_inverse_pix((rotated_min_x, rotated_min_y))
+    
+    geo_x = gt[0] + new_ul_orig_coord[0] * gt[1] + new_ul_orig_coord[1] * gt[2]
+    geo_y = gt[3] + new_ul_orig_coord[0] * gt[4] + new_ul_orig_coord[1] * gt[5]
+    new_spatial_ul = (geo_x, geo_y)
+    print(f"new_spatial_ul: {new_spatial_ul}")
+    return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot_scaled, new_yres_scaled)
+
+def pixel_coord_to_geo_coord(pixel_coord: Tuple[float, float],
+        geo_transform: Tuple[float, float, float, float, float, float]) -> Tuple[float, float]:
+    '''
+    A helper function to translate a pixel-coordinate into a linear geographic
+    coordinate using the geographic transform from GDAL.
+
+    The geo_transform argument is a 6-tuple that specifies a 2D affine
+    transformation, using the method exposed by GDAL.  See this URL for more
+    details:  https://gdal.org/tutorials/geotransforms_tut.html
+    '''
+    (pixel_x, pixel_y) = pixel_coord
+    geo_x = geo_transform[0] + pixel_x * geo_transform[1] + pixel_y * geo_transform[2]
+    geo_y = geo_transform[3] + pixel_x * geo_transform[4] + pixel_y * geo_transform[5]
+    return (geo_x, geo_y)
+
+def ulurll_to_gt(ul: Tuple[int, int], ur: Tuple[int, int], ll: Tuple[int, int], width: int, height: int, scale):
+    ulx, uly = ul[0], ul[1]
+    urx, ury = ur[0], ur[1]
+    llx, lly = ll[0], ll[1]
+    gt = [
+        ulx,
+        (urx - ulx) / (width*scale),
+        (llx - ulx) / (height*scale),
+        uly,
+        (ury - uly) / (width*scale),
+        (lly - uly) / (height*scale),
+    ]
+    return gt
+
+def rotate_scale_geotransform(gt, theta, scale, width, height):
+    '''
+    Rotates and scales the geo transform. Does so by using three corner points.
+    '''
+    pix_px, pix_py = width/2, height/2
+    rad = math.radians(theta)
+    cos_t, sin_t = math.cos(rad), math.sin(rad)
+
+    def rot_pix(v):
+        x, y = v
+        # shift so pivot is at (0,0)
+        dx, dy = x - pix_px, y - pix_py
+        # rotate about origin
+        rx = dx * cos_t - dy * sin_t
+        ry = dx * sin_t + dy * cos_t
+        # shift back
+        return (rx + pix_px, ry + pix_py)
+
+    def rot_inverse_pix(v):
+        x, y = v
+        dx, dy = x - pix_px, y - pix_py
+        # inverse rotation = rotate by –θ (or use transpose)
+        ix = dx * cos_t + dy * sin_t
+        iy = -dx * sin_t + dy * cos_t
+        return (ix + pix_px, iy + pix_py)
+
+    upper_left = (0, 0)
+    upper_right = (width, 0)
+    bottom_left = (0, height)
+    bottom_right = (width, height)
+
+    rotated_ul = rot_pix(upper_left)
+    rotated_ur = rot_pix(upper_right)
+    rotated_bl = rot_pix(bottom_left)
+    rotated_br = rot_pix(bottom_right)
+
+    new_ul_x_rot = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    new_ul_y_rot = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_ur_x_rot = max(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    new_ur_y_rot = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_bl_x_rot = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    new_bl_y_rot = max(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_ul_pix = rot_inverse_pix((new_ul_x_rot, new_ul_y_rot))
+    new_ur_pix = rot_inverse_pix((new_ur_x_rot, new_ur_y_rot))
+    new_bl_pix = rot_inverse_pix((new_bl_x_rot, new_bl_y_rot))
+
+    new_ul_spatial = pixel_coord_to_geo_coord(new_ul_pix, gt)
+    new_ur_spatial = pixel_coord_to_geo_coord(new_ur_pix, gt)
+    new_bl_spatial = pixel_coord_to_geo_coord(new_bl_pix, gt)
+
+    new_gt = ulurll_to_gt(new_ul_spatial, new_ur_spatial, new_bl_spatial, width, height, scale)
+
+    return new_gt
 
 def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str = None):
     app = QApplication.instance()

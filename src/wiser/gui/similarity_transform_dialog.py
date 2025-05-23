@@ -14,7 +14,8 @@ from wiser.raster.dataset_impl import GDALRasterDataImpl
 
 from .generated.similarity_transform_dialog_ui import Ui_SimilarityTransform
 
-from .util import pillow_rotate_scale_expand, cv2_rotate_scale_expand, rotate_scale_geotransform, make_into_help_button
+from .util import (pillow_rotate_scale_expand, cv2_rotate_scale_expand, rotate_scale_geotransform, 
+        make_into_help_button, rotate_scale_geotransform_v2)
 
 from osgeo import gdal, gdal_array
 
@@ -547,7 +548,13 @@ class SimilarityTransformDialog(QDialog):
             pivot = self._get_rotated_scaled_dataset_spatial_center()
             width = self._rotate_scale_dataset.get_width()
             height = self._rotate_scale_dataset.get_height()
-            rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation, scale, width, height, pivot)
+            print(f"gt: {gt}")
+            print(f"rotation: {rotation}")
+            print(f"scale: {scale}")
+            print(f"pivot: {pivot}")
+            print(f"width: {width}")
+            print(f"height: {height}")
+            rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation, scale, width, height)
             new_dataset.SetGeoTransform(rotated_scaled_gt)
             new_dataset = None
             print(f"Done rotating and scaling!!!")
