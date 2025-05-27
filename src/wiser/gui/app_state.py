@@ -291,39 +291,6 @@ class ApplicationState(QObject):
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
-        gt = dataset.get_geo_transform()   # (originX, pixelWidth, rotX, originY, rotY, pixelHeight)
-        width = dataset.get_width()
-        height = dataset.get_height()
-
-        def pixel_to_geo(x_pix, y_pix, gt):
-            """
-            Convert pixel coordinates to geo coordinates using a 6-element geoTransform.
-            """
-            origin_x, px_w, rot_x, origin_y, rot_y, px_h = gt
-            x_geo = origin_x + x_pix * px_w + y_pix * rot_x
-            y_geo = origin_y + x_pix * rot_y + y_pix * px_h
-            return (x_geo, y_geo)
-
-        # compute the four corners
-        ul = pixel_to_geo(0,      0,      gt)  # upper-left
-        ur = pixel_to_geo(width,  0,      gt)  # upper-right
-        bl = pixel_to_geo(0,      height, gt)  # bottom-left
-        br = pixel_to_geo(width,  height, gt)  # bottom-right
-
-        print(f"dataset: {dataset.get_geo_transform()}")
-        print(f"  width: {width}")
-        print(f"  height: {height}")
-        print(f"dataset, geo transform four corners:")
-        print(f"  ul: {ul}")
-        print(f"  ur: {ur}")
-        print(f"  bl: {bl}")
-        print(f"  br: {br}")
-        l1 = np.linalg.norm((np.array(ul) - np.array(ur)))
-        print(f"l1 = {l1}")
-        l2 = np.linalg.norm((np.array(ul) - np.array(bl)))
-        print(f"l2 = {l2}")
-        
-
         self.dataset_added.emit(ds_id)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 

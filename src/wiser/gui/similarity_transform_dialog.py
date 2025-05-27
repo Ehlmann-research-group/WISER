@@ -292,9 +292,6 @@ class SimilarityTransformDialog(QDialog):
 
     @Slot()
     def _on_translation_pixel_selected(self, dataset: RasterDataSet, point: QPoint) -> None:
-        print(f"_on_translation_pixel_selected")
-        print(f"dataset: {dataset}")
-        print(f"point: {point}")
         assert dataset == self._translation_dataset, ("Dataset clicked is not equal to Translation dataset."
                                                     f"Clicked: {dataset.get_name()} | Translation Dataset: {self._translation_dataset.get_name()} ")
         self._selected_point = (point.x(), point.y())
@@ -303,20 +300,17 @@ class SimilarityTransformDialog(QDialog):
     def _update_prev_and_new_coords(self):
         if self._selected_point is None:
             return
+
         # Get current point's dataset
         orig_geo_coords = self._translation_dataset.to_geographic_coords(self._selected_point)
         if orig_geo_coords is None:
-            print(f"Dataset has no geo transform!")
-            return
+            raise RuntimeError(f"Translation dataset has no geo transform!")
         origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = self._translation_dataset.get_geo_transform()
         new_lon_east = origin_lon_east + self._lon_east_translate
         new_lat_north = origin_lat_north + self._lat_north_translate
 
         new_gt = (new_lon_east, pixel_w, rot_x, new_lat_north, rot_y, pixel_h)
         new_geo_coord = pixel_coord_to_geo_coord(self._selected_point, new_gt)
-
-        print(f"orig_geo_coords: {orig_geo_coords}")
-        print(f"new_geo_coord: {new_geo_coord}")
 
         self.set_orig_coord_text(self._make_point_to_text(orig_geo_coords))
         self.set_new_coord_text(self._make_point_to_text(new_geo_coord))
@@ -397,8 +391,6 @@ class SimilarityTransformDialog(QDialog):
             selected_ds = self._translation_dataset
             if selected_ds is not None:
                 selected_ds_filepaths = selected_ds.get_filepaths()
-                print(f"selected_ds_filepaths: {selected_ds_filepaths}")
-                print(f"filename: {filename}")
                 if filename in selected_ds_filepaths:
                     QMessageBox.information(self, self.tr("Wrong Save Path"), \
                                             self.tr("The save path you chose matches either the target\n" + 
@@ -467,9 +459,6 @@ class SimilarityTransformDialog(QDialog):
         self._ui.lbl_rotate_scale_message.setText(text)
 
     def _on_create_rotated_scaled_dataset(self):
-        print(f"in non gdal part!")
-        print(f"interp type: {self._get_interpolation_type()}")
-        print(f"interp name: {self._ui.cbox_interpolation.currentText()}")
         if self._rotate_scale_dataset is None:
             QMessageBox.warning(self,
                                 self.tr("Rotate/Scale Dataset Not Selected"),
@@ -491,15 +480,12 @@ class SimilarityTransformDialog(QDialog):
                                         "rotating/scaling can not occur. Please fix this and\n" \
                                         "try again."))
             return
-        print(f"Save_path: {save_path}")
 
         try:
             self.set_rotate_scale_message_text("Starting Rotate and Scale.")
             pixmap = self._rotate_scale_pane.get_rasterview().get_unscaled_pixmap()
             pixmap_height = pixmap.height()
             pixmap_width = pixmap.width()
-            orig_height = self._rotate_scale_dataset.get_height()
-            orig_width = self._rotate_scale_dataset.get_width()
             num_bands = self._rotate_scale_dataset.num_bands()
             np_dtype = self._rotate_scale_dataset.get_elem_type()  # Returns a numpy dtype
             gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype)  # Convert numpy dtype to GDAL type
@@ -507,9 +493,7 @@ class SimilarityTransformDialog(QDialog):
             output_bytes = pixmap_width * pixmap_height * num_bands * np_dtype.itemsize
             
             ratio = MAX_RAM_BYTES / output_bytes
-            print(f"about to enter if statements")
             new_dataset = driver.Create(save_path, pixmap_width, pixmap_height, num_bands, gdal_data_type)
-            print(f"just created new dataset")
             if new_dataset is None:
                 raise RuntimeError("Failed to create the output dataset")
             num_bands_per = int(ratio * num_bands)
@@ -518,52 +502,30 @@ class SimilarityTransformDialog(QDialog):
             for band_index in range(0, num_bands, num_bands_per):
                 band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < num_bands]
                 band_arr = self._rotate_scale_dataset.get_multiple_band_data(band_list_index)
-                print(f"about to write {band_list_index} to raster")
-                print(f"shape of band_arr: {band_arr.shape}")
-                # np_corrected_band_arr = band_arr.reshape(orig_height, orig_width, len(band_list_index))
-                print(f"before np_corrected_band_arr before: {band_arr.shape}")
+                # We have to transpose because opencv expects the columns in a certain order
                 np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0))
-                print(f"before np_corrected_band_arr after: {np_corrected_band_arr.shape}")
                 rotated_scaled_band_arr = cv2_rotate_scale_expand(np_corrected_band_arr, self._image_rotation, self._image_scale,
                                                                 interp=self._get_interpolation_type(),
                                                                 mask_fill_value=0)
-                print(f"type of rotated_scaled_band_arr before transpose: {type(rotated_scaled_band_arr)}")
-                # rotated_scaled_band_arr = rotated_scaled_band_arr.reshape(len(band_list_index), pixmap_height, pixmap_width)
-                print(f"after rotated_scaled_band_arr before: {rotated_scaled_band_arr.shape}")
                 rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
-                print(f"type of rotated_scaled_band_arr after transpose: {type(rotated_scaled_band_arr)}")
-                print(f"after rotated_scaled_band_arr after: {rotated_scaled_band_arr.shape}")
-                print(f"shape of rotated_scaled: {rotated_scaled_band_arr.shape}")
+                # If its a masked array, we fill it with the data ignore value so the new dataset ignores it
                 if isinstance(rotated_scaled_band_arr, np.ma.masked_array):
-                    print(f"WE ARE A MASKED ARRAY!!!")
                     rotated_scaled_band_arr = rotated_scaled_band_arr.filled(data_ignore)
                 write_raster_to_dataset(new_dataset, band_list_index, rotated_scaled_band_arr, gdal_data_type)
-                print(f"finished writing {band_list_index} to raster")
             copy_metadata_to_gdal_dataset(new_dataset, self._rotate_scale_dataset)
             new_dataset.FlushCache()
-            new_dataset.SetSpatialRef(self._rotate_scale_dataset.get_spatial_ref())
-            gt = self._rotate_scale_dataset.get_geo_transform()
-            rotation = self._image_rotation
-            scale = self._image_scale
-            pivot = self._get_rotated_scaled_dataset_spatial_center()
-            width = self._rotate_scale_dataset.get_width()
-            height = self._rotate_scale_dataset.get_height()
-            print(f"gt: {gt}")
-            print(f"rotation: {rotation}")
-            print(f"scale: {scale}")
-            print(f"pivot: {pivot}")
-            print(f"width: {width}")
-            print(f"height: {height}")
-            print(f"rotated_scaled_band_arr[0]: {rotated_scaled_band_arr.shape[0]}")
-            print(f"rotated_scaled_band_arr[1]: {rotated_scaled_band_arr.shape[1]}")
-            print(f"rotated_scaled_band_arr[2]: {rotated_scaled_band_arr.shape[2]}")
-            rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation, scale,
-                                                          width, height,
-                                                          rotated_scaled_band_arr.shape[2], rotated_scaled_band_arr.shape[1])
-            print(f"rotated_scaled_gt: {rotated_scaled_gt}")
-            new_dataset.SetGeoTransform(rotated_scaled_gt)
+            if self._rotate_scale_dataset.has_geographic_info():
+                new_dataset.SetSpatialRef(self._rotate_scale_dataset.get_spatial_ref())
+                gt = self._rotate_scale_dataset.get_geo_transform()
+                rotation = self._image_rotation
+                scale = self._image_scale
+                width = self._rotate_scale_dataset.get_width()
+                height = self._rotate_scale_dataset.get_height()
+                rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation, scale,
+                                                            width, height,
+                                                            rotated_scaled_band_arr.shape[2], rotated_scaled_band_arr.shape[1])
+                new_dataset.SetGeoTransform(rotated_scaled_gt)
             new_dataset = None
-            print(f"Done rotating and scaling!!!")
             self.set_rotate_scale_message_text("Finished Rotate and Scale.")
         except BaseException as e:
             QMessageBox.critical(self,
@@ -639,4 +601,3 @@ class SimilarityTransformDialog(QDialog):
             return
         finally:
             new_dataset = None
-

@@ -58,27 +58,22 @@ def reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset: "Rast
                                     target_dataset: "RasterDataSet", link_state: GeographicLinkState = None) -> Optional[Tuple[int, int]]:
     x, y = reference_pixel
     if reference_dataset is None:
-        print(f"returning none, refer dataset is NOne")
         return 
 
     if target_dataset is None:
-        print(f"returning none, target dataset is NOne")
         return
     
     if link_state is None:
         link_state = target_dataset.determine_link_state(reference_dataset)
 
     if link_state == GeographicLinkState.NO_LINK:
-        print(f"link state is somehow no link: {link_state}")
         return
     elif link_state == GeographicLinkState.PIXEL:
         # Pixel links mean the datasets have the same width and height
         pass
     elif link_state == GeographicLinkState.SPATIAL:
         geo_coords = reference_dataset.to_geographic_coords((x, y))
-        # print(f"geo coords: {geo_coords}")
         transformed_center = target_dataset.geo_to_pixel_coords(geo_coords)
-        # print(f"transformed cneter: {transformed_center}")
 
         x = transformed_center[0]
         y = transformed_center[1]
@@ -698,7 +693,6 @@ class RasterDataSet:
     def to_geographic_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
         if self._spatial_ref is None:
             return None
-        # print(f"Reference geotransform: {self._geo_transform}")
         geo_coord = pixel_coord_to_geo_coord(pixel_coord, self._geo_transform)
         return geo_coord
 
@@ -719,8 +713,6 @@ class RasterDataSet:
             raise ValueError("Geo transform of dataset is not invertible!")
 
         origin_px, width, x_rotation, origin_py, y_rotation, height = inv_geo_transform
-        # print(f"Target ds inverse geo transform: {inv_geo_transform}")
-        # print(f"target ds geo transform: {self.get_geo_transform()}")
         gx, gy = geo_coords
         px = origin_px + gx * width + gy * x_rotation
         py = origin_py + gx * y_rotation + gy * height
