@@ -1923,7 +1923,7 @@ class RasterPane(QWidget):
         The polygon is constructed using the viewport's top-left, top-right,
         bottom-right, and bottom-left points.
 
-        Written by an LLM
+        Written by an LLM. Reviewed by Joshua G-K.
         """
         # Extract the four corners of the viewport.
         corners = [viewport.topLeft(), viewport.topRight(), 
@@ -1934,6 +1934,7 @@ class RasterPane(QWidget):
             # Convert viewport pixel coordinates to geographic coordinates.
             geo_coords = reference_dataset.to_geographic_coords((pt.x(), pt.y()))
             # Convert geographic coordinates to pixel coordinates in the target dataset.
+            print(f"geo_coords: {geo_coords}, point: {pt}")
             pixel_coords = target_dataset.geo_to_pixel_coords(geo_coords)
             transformed_points.append(QPoint(*pixel_coords))
         

@@ -554,7 +554,13 @@ class SimilarityTransformDialog(QDialog):
             print(f"pivot: {pivot}")
             print(f"width: {width}")
             print(f"height: {height}")
-            rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation, scale, width, height)
+            print(f"rotated_scaled_band_arr[0]: {rotated_scaled_band_arr.shape[0]}")
+            print(f"rotated_scaled_band_arr[1]: {rotated_scaled_band_arr.shape[1]}")
+            print(f"rotated_scaled_band_arr[2]: {rotated_scaled_band_arr.shape[2]}")
+            rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation, scale,
+                                                          width, height,
+                                                          rotated_scaled_band_arr.shape[2], rotated_scaled_band_arr.shape[1])
+            print(f"rotated_scaled_gt: {rotated_scaled_gt}")
             new_dataset.SetGeoTransform(rotated_scaled_gt)
             new_dataset = None
             print(f"Done rotating and scaling!!!")

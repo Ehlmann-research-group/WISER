@@ -342,7 +342,7 @@
          <item>
           <widget class="QLabel" name="lbl_crs">
            <property name="text">
-            <string>Dataset's CRS</string>
+            <string>Dataset's Ref System</string>
            </property>
           </widget>
          </item>

@@ -1582,6 +1582,49 @@ class WiserTestModel:
         QTest.mouseClick(button, Qt.LeftButton)
 
     #==========================================
+    # region Similarity Transform
+    #==========================================
+
+    # Code to open up the Similarity Transform dialog
+
+    # Code to switch between rotate and scale tab and translate coordinate system tab
+
+    # For rotate and scale tab, code to edit the rotation with both the ledit
+    # and the slider. ledit is ledit_rotate, slider is slider_rotation
+
+    # Code to change the scale with the ledit, ledit_scale
+
+    # Code to change the interpolation type in the combo box (currently lets just do this with the index) cbox_interpolation
+
+    # Code to set the save file path for rotate and scale. the ledit for this is ledit_save_path_rs
+
+    # Code to press the button that starts the rotation and scale. The button for this is btn_rotate_scale
+
+    # Code to select the dataset in the rotate scale similarity transform pane
+    # Either trigger the dataset chooser action or just called rasterpane._on_dataset_changed with an
+    # action that has this data (rasterview_pos, ds_id) = act.data()
+
+    # Code to click on a pixel in the translation similarity transform pane. 
+
+    # Code to get the original spatial coord and the new spatial coord of that pixel
+
+    # Code to translate the Lat/North by editing ledit_lat_north
+
+    # Code to translate the Lon/East by editing ledit_lon_east
+
+    # Code to get the text in the ledit ledit_lat_north_ul
+
+    # Code to get the text in the ledit lon_east_ul
+
+    # Code to set the file save path by editing ledit_save_path_translate
+
+    # Code to press the Create Translation button which is btn_create_translation
+
+    # Code to select the dataset to use in the translation similarity transform pane
+    # Either trigger the dataset chooser action or just called rasterpane._on_dataset_changed with an
+    # action that has this data (rasterview_pos, ds_id) = act.data()
+
+    #==========================================
     # region Bandmath 
     #==========================================
 

@@ -671,11 +671,11 @@ def ulurll_to_gt(ul: Tuple[int, int], ur: Tuple[int, int], ll: Tuple[int, int], 
     ]
     return gt
 
-def rotate_scale_geotransform(gt, theta, scale, width, height):
+def rotate_scale_geotransform(gt, theta, scale, width_orig, height_orig, width_rot, height_rot):
     '''
     Rotates and scales the geo transform. Does so by using three corner points.
     '''
-    pix_px, pix_py = width/2, height/2
+    pix_px, pix_py = width_orig/2, height_orig/2
     rad = math.radians(theta)
     cos_t, sin_t = math.cos(rad), math.sin(rad)
 
@@ -698,9 +698,9 @@ def rotate_scale_geotransform(gt, theta, scale, width, height):
         return (ix + pix_px, iy + pix_py)
 
     upper_left = (0, 0)
-    upper_right = (width, 0)
-    bottom_left = (0, height)
-    bottom_right = (width, height)
+    upper_right = (width_orig, 0)
+    bottom_left = (0, height_orig)
+    bottom_right = (width_orig, height_orig)
 
     rotated_ul = rot_pix(upper_left)
     rotated_ur = rot_pix(upper_right)
@@ -724,7 +724,7 @@ def rotate_scale_geotransform(gt, theta, scale, width, height):
     new_ur_spatial = pixel_coord_to_geo_coord(new_ur_pix, gt)
     new_bl_spatial = pixel_coord_to_geo_coord(new_bl_pix, gt)
 
-    new_gt = ulurll_to_gt(new_ul_spatial, new_ur_spatial, new_bl_spatial, width, height, scale)
+    new_gt = ulurll_to_gt(new_ul_spatial, new_ur_spatial, new_bl_spatial, width_rot, height_rot, scale)
 
     return new_gt
 
