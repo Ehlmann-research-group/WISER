@@ -521,7 +521,8 @@ class SimilarityTransformDialog(QDialog):
                 scale = self._image_scale
                 width = self._rotate_scale_dataset.get_width()
                 height = self._rotate_scale_dataset.get_height()
-                rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation, scale,
+                # The scale is baked into rotated_scaled_band_arr
+                rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation,
                                                             width, height,
                                                             rotated_scaled_band_arr.shape[2], rotated_scaled_band_arr.shape[1])
                 new_dataset.SetGeoTransform(rotated_scaled_gt)

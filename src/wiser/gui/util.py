@@ -313,8 +313,6 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     Returns:
     Transformed array with dtype matching input.
     """
-    # print(f"img array shape: {img.shape}")
-    # print(f"img array type: {img.dtype}")
     _INTERPOLATIONS = {
         'nearest':  cv2.INTER_NEAREST,
         'linear':   cv2.INTER_LINEAR,
@@ -324,14 +322,14 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     # choose interpolation flag
     interp_flag = interp
     orig_mask = None
-    if isinstance(img, np.ma.MaskedArray):
+    if isinstance(img, np.ma.masked_array):
         orig_mask = img.mask
         img = img.filled(mask_fill_value)
+        if not isinstance(orig_mask, np.ndarray):
+            orig_mask = None
 
     # 3. Build the rotation+scale matrix
     h, w = img.shape[:2]
-    # print(f"h: {h}")
-    # print(f"w: {w}")
     cx, cy = w/2, h/2
     M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
 
@@ -342,9 +340,6 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     # shift origin to centre result
     M[0,2] += (new_w/2 - cx)
     M[1,2] += (new_h/2 - cy)
-    # print(f"new_w: {new_w}")
-    # print(f"new_h: {new_h}")
-    # print(f"interp: {interp}")
     # 5. Warp the image
     out = cv2.warpAffine(
         img,
@@ -657,21 +652,21 @@ def pixel_coord_to_geo_coord(pixel_coord: Tuple[float, float],
     geo_y = geo_transform[3] + pixel_x * geo_transform[4] + pixel_y * geo_transform[5]
     return (geo_x, geo_y)
 
-def ulurll_to_gt(ul: Tuple[int, int], ur: Tuple[int, int], ll: Tuple[int, int], width: int, height: int, scale):
+def ulurll_to_gt(ul: Tuple[int, int], ur: Tuple[int, int], ll: Tuple[int, int], width: int, height: int):
     ulx, uly = ul[0], ul[1]
     urx, ury = ur[0], ur[1]
     llx, lly = ll[0], ll[1]
     gt = [
         ulx,
-        (urx - ulx) / (width*scale),
-        (llx - ulx) / (height*scale),
+        (urx - ulx) / (width),
+        (llx - ulx) / (height),
         uly,
-        (ury - uly) / (width*scale),
-        (lly - uly) / (height*scale),
+        (ury - uly) / (width),
+        (lly - uly) / (height),
     ]
     return gt
 
-def rotate_scale_geotransform(gt, theta, scale, width_orig, height_orig, width_rot, height_rot):
+def rotate_scale_geotransform(gt, theta, width_orig, height_orig, width_rot, height_rot):
     '''
     Rotates and scales the geo transform. Does so by using three corner points.
     '''
@@ -724,7 +719,7 @@ def rotate_scale_geotransform(gt, theta, scale, width_orig, height_orig, width_r
     new_ur_spatial = pixel_coord_to_geo_coord(new_ur_pix, gt)
     new_bl_spatial = pixel_coord_to_geo_coord(new_bl_pix, gt)
 
-    new_gt = ulurll_to_gt(new_ul_spatial, new_ur_spatial, new_bl_spatial, width_rot, height_rot, scale)
+    new_gt = ulurll_to_gt(new_ul_spatial, new_ur_spatial, new_bl_spatial, width_rot, height_rot)
 
     return new_gt
 

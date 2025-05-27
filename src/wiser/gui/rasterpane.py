@@ -746,7 +746,6 @@ class RasterPane(QWidget):
                     rasterview_pos = self._get_rasterview_position(rasterview)
                     ds = rasterview.get_raster_data()
                     spatial_coord = ds.to_geographic_coords((r_coord.x(), r_coord.y()))
-                    print(f"spatial_coord: {spatial_coord}")
                     self.click_pixel.emit(rasterview_pos, r_coord)
 
 

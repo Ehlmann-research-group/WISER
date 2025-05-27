@@ -23,6 +23,7 @@ from wiser.gui.spectrum_plot import SpectrumPointDisplayInfo
 from wiser.gui.stretch_builder import ChannelStretchWidget
 from wiser.gui.geo_reference_dialog import GeoReferencerDialog, COLUMN_ID, TRANSFORM_TYPES, GeneralCRS
 from wiser.gui.reference_creator_dialog import EllipsoidAxisType, LatitudeTypes, ProjectionTypes, ShapeTypes
+from wiser.gui.similarity_transform_dialog import SimilarityTransformDialog
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
@@ -31,6 +32,8 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
+
+import time
 
 
 class LoggingApplication(QApplication):
@@ -1584,7 +1587,171 @@ class WiserTestModel:
     #==========================================
     # region Similarity Transform
     #==========================================
+    @run_in_wiser_decorator
+    def open_similarity_transform_dialog(self) -> SimilarityTransformDialog:
+        """Open the dialog exactly as a user would."""
+        self.main_window.show_similarity_transform_dialog(in_test_mode=True)
+        dlg = self.main_window._similarity_transform_dialog
+        QTest.qWaitForWindowExposed(dlg)   
+        return dlg
 
+    @run_in_wiser_decorator
+    def close_similarity_transform_dialog(self):
+        dlg = self.main_window._similarity_transform_dialog
+        QTest.keyClick(dlg, Qt.Key_Escape)
+
+    # ---------------------------------------------------------------------------
+    # Tab selection
+    # ---------------------------------------------------------------------------
+
+    @run_in_wiser_decorator
+    def switch_sim_tab(self, to_translate: bool) -> None:
+        """Flip between the two tabs (True ⇒ translate, False ⇒ rotate/scale)."""
+        dlg = self.main_window._similarity_transform_dialog
+        tab_widget = dlg._ui.tabWidget
+        index      = 1 if to_translate else 0
+        tab_bar    = tab_widget.tabBar()
+        center_pos = tab_bar.tabRect(index).center()
+        QTest.mouseClick(tab_bar, Qt.LeftButton, pos=center_pos)
+
+
+    # ---------------------------------------------------------------------------
+    # region Rotate & Scale tab widgets
+    # ---------------------------------------------------------------------------
+
+    def set_rotation_rs(self, value: float) -> None:
+        """Enter a rotation (deg CCW) via the line-edit, checking the slider syncs."""
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_rotation
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, str(value))
+        assert abs(dlg.image_rotation() - value) < 1e-2
+
+
+    def set_rotation_slider(self, value: int) -> None:
+        """Set rotation with the slider instead of the line-edit."""
+        dlg = self.main_window._similarity_transform_dialog
+        dlg._ui.slider_rotation.setValue(value)
+        assert int(float(dlg._ui.ledit_rotation.text())) == value
+
+
+    def set_scale_rs(self, value: float) -> None:
+        """Edit the isotropic scale factor."""
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_scale
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, str(value))
+        assert abs(dlg.image_scale() - value) < 1e-6
+
+
+    def choose_interpolation_rs(self, index: int) -> None:
+        """Pick an interpolation entry by *index* (0 = Nearest, …)."""
+        dlg = self.main_window._similarity_transform_dialog
+        dlg._ui.cbox_interpolation.setCurrentIndex(index)
+        assert dlg._ui.cbox_interpolation.currentIndex() == index
+
+
+    def set_save_path_rs(self, path: str) -> None:
+        """Type a filepath into the rotate/scale save-path edit."""
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_save_path_rs
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, path)
+
+
+    def run_rotate_scale(self) -> None:
+        """Press the ‘Rotate and Scale’ push-button."""
+        dlg = self.main_window._similarity_transform_dialog
+        QTest.mouseClick(dlg._ui.btn_rotate_scale, Qt.LeftButton)
+
+
+    def select_dataset_rs(
+        self,
+        dataset: RasterDataSet,
+        rasterview_pos: tuple[int, int] = (0, 0)
+    ) -> None:
+        """Load *dataset* into the rotate/scale pane (simulating the combo box)."""
+        dlg = self.main_window._similarity_transform_dialog
+        act = QAction(dlg)
+        act.setData((rasterview_pos, dataset.get_id()))
+        dlg._rotate_scale_pane._on_dataset_changed(act)
+
+
+    # ---------------------------------------------------------------------------
+    # region Translation tab widgets
+    # ---------------------------------------------------------------------------
+
+    def click_translation_pixel(
+        self,
+        pixel: tuple[int, int]
+    ) -> None:
+        """Left-click the given pixel in the translate pane’s view."""
+        dlg = self.main_window._similarity_transform_dialog
+        rv          = dlg._translate_pane.get_rasterview()
+        img_widget  = rv._image_widget
+        QTest.mouseClick(img_widget, Qt.LeftButton, pos=QPoint(*pixel))
+
+
+    def ge_spatial_coords_translate_pane(self) -> tuple[str, str]:
+        """Return (original_coord_text, new_coord_text)."""
+        dlg = self.main_window._similarity_transform_dialog
+        return (
+            dlg._ui.lbl_orig_coord_input.text(),
+            dlg._ui.lbl_new_coord_input.text()
+        )
+
+
+    def set_translate_lat(self, value: float) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_lat_north
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, str(value))
+
+
+    def set_translate_lon(self, value: float) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_lon_east
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, str(value))
+
+
+    def get_lat_north_ul_text(self) -> str:
+        dlg = self.main_window._similarity_transform_dialog
+        return dlg._ui.ledit_lat_north_ul.text()
+
+
+    def get_lon_east_ul_text(self) -> str:
+        dlg = self.main_window._similarity_transform_dialog
+        return dlg._ui.ledit_lon_east_ul.text()
+
+
+    def set_save_path_translate(self, path: str) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_save_path_translate
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, path)
+
+
+    def run_create_translation(self) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        QTest.mouseClick(dlg._ui.btn_create_translation, Qt.LeftButton)
+
+
+    def select_dataset_translate(
+        self,
+        dataset: RasterDataSet,
+        rasterview_pos: tuple[int, int] = (0, 0)
+    ) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        act = QAction(dlg)
+        act.setData((rasterview_pos, dataset.get_id()))
+        dlg._translate_pane._on_dataset_changed(act)
     # Code to open up the Similarity Transform dialog
 
     # Code to switch between rotate and scale tab and translate coordinate system tab
