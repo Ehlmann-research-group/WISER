@@ -1,1 +1,3 @@
-temp_generated
+/test_datasets/temp_generated/**
+
+!/test_datasets/temp_generated/

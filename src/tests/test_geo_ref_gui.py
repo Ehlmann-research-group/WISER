@@ -64,7 +64,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
 
         self.test_model.set_geo_ref_polynomial_order("2")
 
-        rel_path = os.path.join("..", "test_utils", "test_datasets", "test_warp_output.tif")
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "temp_generated", "test_warp_output.tif")
         self.test_model.set_geo_ref_file_save_path(rel_path)
 
         ground_truth_geo_transform = (-118.13251959615042, 1.9876715549174167e-05, 0.0, 34.14031070448446, 0.0, -1.9876715549174167e-05)
@@ -132,7 +132,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
             self.test_model.enter_lon_east_geo_ref(lon_east)
             self.test_model.press_enter_lon_east_geo_ref()
 
-        rel_path = os.path.join("..", "test_utils", "test_datasets", "test_warp_output.tif")
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "temp_generated", "test_warp_output.tif")
         self.test_model.set_geo_ref_file_save_path(rel_path)
 
         ground_truth_geo_transform = (-118.13251959615042, 1.9876715549174167e-05, 0.0, 34.14031070448446, 0.0, -1.9876715549174167e-05)
@@ -205,7 +205,7 @@ if __name__ == '__main__':
         test_model.enter_lon_east_geo_ref(lon_east)
         test_model.press_enter_lon_east_geo_ref()
 
-    rel_path = os.path.join("..", "test_utils", "test_datasets", "test_warp_output.tif")
+    rel_path = os.path.join("..", "test_utils", "test_datasets", "temp_generated", "test_warp_output.tif")
     test_model.set_geo_ref_file_save_path(rel_path)
 
     # Disables and re-enables

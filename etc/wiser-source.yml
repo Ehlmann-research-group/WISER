@@ -26,4 +26,5 @@ dependencies:
   - zlib
   - pyside2
   - pyproj
+  - opencv
 prefix: C:\Users\jgarc\anaconda3\envs\wiser-source
