@@ -273,7 +273,6 @@ class ApplicationState(QObject):
         raster_data_list = self._raster_data_loader.load_from_file(file_path, self._cache)
         
         for raster_data in raster_data_list:
-            print(f"raster_data data ignore: {raster_data.get_data_ignore_value()}")
             self.add_dataset(raster_data)
 
 

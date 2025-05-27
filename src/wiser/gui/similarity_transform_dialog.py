@@ -322,13 +322,11 @@ class SimilarityTransformDialog(QDialog):
 
     @Slot()
     def _on_run_rotate_scale(self) -> None:
-        print("Running rotate and scale")
         self._on_create_rotated_scaled_dataset()
         # Placeholder – real implementation will apply transform.
 
     @Slot()
     def _on_create_translation(self) -> None:
-        print("Creating translation")
         self._on_create_translated_dataset()
         # Placeholder – real implementation will apply translation.
 
