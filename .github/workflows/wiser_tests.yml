@@ -23,4 +23,4 @@ jobs:
               run: |
                 docker run --rm \
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
-                jgarciak/wiser-env:0.1.15
+                jgarciak/wiser-env:0.1.17
