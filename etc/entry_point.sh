@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+set -x
 
 # Start Xvfb in the background
 Xvfb :1 -screen 0 1024x768x16 &
@@ -15,4 +16,4 @@ conda run -n wiser-source /bin/bash -c "
 cd /WISER
 make generated
 cd src/tests
-pytest ."
+python -u -m pytest -q ."

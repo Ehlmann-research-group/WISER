@@ -3,7 +3,7 @@ name: Run tests
 on: [push]
 
 env:
-  WISER_IMAGE: jgarciak/wiser-env:0.1.17
+  WISER_IMAGE: jgarciak/wiser-env:0.1.18
 
 jobs:
     run-tests:
