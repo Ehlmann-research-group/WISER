@@ -3,7 +3,7 @@ name: Run tests
 on: [push]
 
 env:
-  WISER_IMAGE: jgarciak/wiser-env:0.1.18
+  WISER_IMAGE: jgarciak/wiser-env:0.1.19
 
 jobs:
     run-tests:
@@ -24,11 +24,6 @@ jobs:
 
             - name: Run tests in the container
               run: |
-                docker run --name wiser_test --detach \
+                docker run --rm \
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
                 ${{ env.WISER_IMAGE }}
-                docker logs -f wiser_test
-                docker wait wiser_test
-                EXIT_CODE=$?
-                docker rm wiser_test
-                exit $EXIT_CODE
