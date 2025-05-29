@@ -59,10 +59,10 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         gt_ds = self.test_model.load_dataset(ground_truth_path)
         test_ds = self.test_model.load_dataset(temp_save_path)
     
-        gt_arr = gt_ds.get_image_data()
+        gt_arr = gt_ds.get_impl().gdal_dataset.ReadAsArray().copy()
         gt_geo_transform = gt_ds.get_geo_transform()
 
-        test_arr = test_ds.get_image_data()
+        test_arr = test_ds.get_impl().gdal_dataset.ReadAsArray().copy()
         test_geo_transform = test_ds.get_geo_transform()
 
         self.assertTrue(np.allclose(gt_arr, test_arr), "Rotated and scaled array doesn't match ground truth")
