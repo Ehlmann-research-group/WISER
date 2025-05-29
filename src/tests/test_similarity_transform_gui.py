@@ -30,43 +30,43 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         self.test_model.close_app()
         del self.test_model
 
-    # # Write one tests to rotate and scale the caltech dataset by 30 degrees. Get the geo transform and compare
-    # # Get the array and compare. Get this from 
-    # def test_rotate_scale(self):
-    #     load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
-    #     ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif")
+    # Write one tests to rotate and scale the caltech dataset by 30 degrees. Get the geo transform and compare
+    # Get the array and compare. Get this from 
+    def test_rotate_scale(self):
+        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+        ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif")
 
-    #     temp_save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "caltech_4_100_150_nm_rot_35_scale_2_linear.tif")
-    #     ds = self.test_model.load_dataset(load_path)
+        temp_save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "caltech_4_100_150_nm_rot_35_scale_2_linear.tif")
+        ds = self.test_model.load_dataset(load_path)
 
-    #     self.test_model.open_similarity_transform_dialog()
+        self.test_model.open_similarity_transform_dialog()
 
-    #     self.test_model.switch_sim_tab(to_translate=False)
+        self.test_model.switch_sim_tab(to_translate=False)
 
-    #     self.test_model.select_dataset_rs(ds)
-    #     self.test_model.set_rotation_slider(35)
+        self.test_model.select_dataset_rs(ds)
+        self.test_model.set_rotation_slider(35)
 
-    #     self.test_model.set_scale_rs(2)
+        self.test_model.set_scale_rs(2)
 
-    #     self.test_model.choose_interpolation_rs(2)
+        self.test_model.choose_interpolation_rs(2)
 
-    #     self.test_model.set_save_path_rs(temp_save_path)
+        self.test_model.set_save_path_rs(temp_save_path)
 
-    #     self.test_model.run_rotate_scale()
+        self.test_model.run_rotate_scale()
 
-    #     self.test_model.close_similarity_transform_dialog()
+        self.test_model.close_similarity_transform_dialog()
 
-    #     gt_ds = self.test_model.load_dataset(ground_truth_path)
-    #     test_ds = self.test_model.load_dataset(temp_save_path)
+        gt_ds = self.test_model.load_dataset(ground_truth_path)
+        test_ds = self.test_model.load_dataset(temp_save_path)
     
-    #     # gt_arr = gt_ds.get_image_data().copy()
-    #     gt_geo_transform = gt_ds.get_geo_transform()
+        # gt_arr = gt_ds.get_image_data().copy()
+        gt_geo_transform = gt_ds.get_geo_transform()
 
-    #     # test_arr = test_ds.get_image_data().copy()
-    #     test_geo_transform = test_ds.get_geo_transform()
+        # test_arr = test_ds.get_image_data().copy()
+        test_geo_transform = test_ds.get_geo_transform()
 
-    #     # self.assertTrue(np.allclose(gt_arr, test_arr), "Rotated and scaled array doesn't match ground truth")
-    #     self.assertTrue(gt_geo_transform == test_geo_transform, "Rotated and scaled geo transform doesn't match ground truth")
+        # self.assertTrue(np.allclose(gt_arr, test_arr), "Rotated and scaled array doesn't match ground truth")
+        self.assertTrue(gt_geo_transform == test_geo_transform, "Rotated and scaled geo transform doesn't match ground truth")
 
     def test_translate(self):
         load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
