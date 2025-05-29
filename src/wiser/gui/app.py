@@ -64,6 +64,8 @@ from wiser.raster.data_cache import DataCache
 
 from test_utils.test_event_loop_functions import TestingWidget
 
+from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
+
 logger = logging.getLogger(__name__)
 
 
@@ -344,6 +346,22 @@ class DataVisualizerApp(QMainWindow):
 
         logger.debug(f'Final PYTHON_PATH:  "{sys.path}"')
 
+        # Permanent plugins (we keep them as plugins so future users can see how 
+        # cool plugins are made)
+        permanent_plugins = [("ContinuumRemovalPlugin", ContinuumRemovalPlugin())]
+        for pc_name, plugin_class in permanent_plugins:
+            logger.debug(f'Instantiating plugin class "{pc_name}"')
+            if not plugins.utils.is_plugin(plugin_class):
+                logging.error(f'"{pc_name}" is not a recognized plugin type; skipping')
+                continue
+            
+
+            self._app_state.add_plugin(pc_name, plugin_class)
+            # Let "Tools"-menu plugins add their actions to the menu.
+            if isinstance(plugin_class, plugins.ToolsMenuPlugin):
+                plugin_class.add_tool_menu_items(self._tools_menu, self._app_state)
+
+        # User added plugins
         plugin_classes = self._app_state.get_config('plugins')
         logger.info(f'Initializing plugin classes:  {plugin_classes}')
         for pc in plugin_classes:
@@ -364,6 +382,7 @@ class DataVisualizerApp(QMainWindow):
             # Let "Tools"-menu plugins add their actions to the menu.
             if isinstance(plugin, plugins.ToolsMenuPlugin):
                 plugin.add_tool_menu_items(self._tools_menu, self._app_state)
+
 
 
     def _make_dockable_pane(self, widget, name, title, icon, tooltip,
