@@ -59,6 +59,9 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         gt_ds = self.test_model.load_dataset(ground_truth_path)
         test_ds = self.test_model.load_dataset(temp_save_path)
     
+        # Don't use get_image_data here. For some reason the reference to the
+        # array gets unreferenced in the github actions linux server, so you
+        # must directrly make a copy.
         gt_arr = gt_ds.get_impl().gdal_dataset.ReadAsArray().copy()
         gt_geo_transform = gt_ds.get_geo_transform()
 
