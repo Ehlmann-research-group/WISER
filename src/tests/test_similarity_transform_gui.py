@@ -36,7 +36,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
     #     load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
     #     ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif")
 
-    #     temp_save_path = os.path.join("..", "test_utils", "test_datasets", "temp_generated", "caltech_4_100_150_nm_rot_35_scale_2_linear.tif")
+    #     temp_save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "caltech_4_100_150_nm_rot_35_scale_2_linear.tif")
     #     ds = self.test_model.load_dataset(load_path)
 
     #     self.test_model.open_similarity_transform_dialog()
@@ -70,7 +70,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
 
     # def test_translate(self):
     #     load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
-    #     temp_save_path = os.path.join("..", "test_utils", "test_datasets", "temp_generated", "caltech_4_100_150_nm_translate.tif")
+    #     temp_save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "caltech_4_100_150_nm_translate.tif")
     #     ds = self.test_model.load_dataset(load_path)
 
     #     self.test_model.open_similarity_transform_dialog()
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     test_model.choose_interpolation_rs(2)
 
     save_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif")
-    # save_path = os.path.join("..", "test_utils", "test_datasets", "temp_generated", "test_sim_transform.tif")
+    # save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "test_sim_transform.tif")
     test_model.set_save_path_rs(save_path)
 
     test_model.run_rotate_scale()
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     # test_model.set_translate_lon(100)
 
-    # save_path = os.path.join("..", "test_utils", "test_datasets", "temp_generated", "test_sim_transform_translate.tif")
+    # save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "test_sim_transform_translate.tif")
     # test_model.set_save_path_translate(save_path)
 
     # print(f"new spatial_coords: {test_model.ge_spatial_coords_translate_pane()}")
