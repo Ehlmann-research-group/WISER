@@ -3,7 +3,7 @@ name: Run tests
 on: [push]
 
 env:
-  WISER_IMAGE: jgarciak/wiser-env:0.1.19
+  WISER_IMAGE: jgarciak/wiser-env:0.1.17
 
 jobs:
     run-tests:
@@ -27,3 +27,4 @@ jobs:
                 docker run --rm \
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
                 ${{ env.WISER_IMAGE }}
+                
