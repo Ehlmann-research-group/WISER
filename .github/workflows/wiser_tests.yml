@@ -2,6 +2,9 @@ name: Run tests
 
 on: [push]
 
+env:
+  WISER_IMAGE: jgarciak/wiser-env:0.1.17
+
 jobs:
     run-tests:
         name: Run WISER Tests
@@ -17,10 +20,10 @@ jobs:
               run: echo ${{ github.workspace }}
 
             - name: Pull docker image
-              run: docker pull jgarciak/wiser-env:0.1.15
+              run: docker pull ${{ env.WISER_IMAGE }}
 
             - name: Run tests in the container
               run: |
                 docker run --rm \
                 --mount type=bind,src=${{ github.workspace }},dst=/WISER \
-                jgarciak/wiser-env:0.1.17
+                ${{ env.WISER_IMAGE }}
