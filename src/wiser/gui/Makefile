@@ -34,6 +34,7 @@ FILENAMES=\
 	spectrum_plot_config_ui.py \
 	split_unsplit_pane_ui.py \
 	stretch_config_widget_ui.py \
+	subdataset_chooser_dialog_ui.py \
 	system_info_ui.py
 
 TARGETS=$(addprefix $(TARGET_DIR)/, $(FILENAMES))
