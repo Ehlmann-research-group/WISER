@@ -52,7 +52,10 @@ class TestContinuumRemoval(unittest.TestCase):
 
         cr_dataset = plugin.image(min_cols, min_rows, max_cols, max_rows, min_band, max_band, context)
 
-        self.assertTrue(np.allclose(cr_dataset.get_image_data(), gt_dataset.get_image_data()))
+        cr_dataset_arr = cr_dataset.get_image_data()
+        gt_dataset_arr = gt_dataset.get_impl().gdal_dataset.ReadAsArray().copy()
+
+        self.assertTrue(np.allclose(cr_dataset_arr, gt_dataset_arr))
         self.assertTrue(cr_dataset.get_spatial_ref().IsSame(gt_dataset.get_spatial_ref()))
         self.assertTrue(cr_dataset.get_geo_transform() == gt_dataset.get_geo_transform())
         self.assertTrue(cr_dataset.get_bad_bands() == gt_dataset.get_bad_bands())
