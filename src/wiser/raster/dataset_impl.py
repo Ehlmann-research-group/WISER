@@ -83,6 +83,10 @@ class RasterDataImpl(abc.ABC):
     def get_image_data(self) -> np.ndarray:
         pass
 
+    def get_image_data_subset(self, x: int, y: int, band: int,
+                              dx: int, dy: int, dband: int) -> np.ndarray:
+        pass
+
     def get_band_data(self, band_index) -> np.ndarray:
         pass
 
@@ -253,6 +257,22 @@ class GDALRasterDataImpl(RasterDataImpl):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
             np_array = new_dataset.ReadAsArray()
         return np_array
+
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        '''
+        new_dataset: gdal.Dataset = self.reopen_dataset()
+        band_list = [band+1 for band in range(band, band+dband)]
+        np_array = new_dataset.ReadAsArray(xoff=x, xsize=dx,
+                                           yoff=y, ysize=dy,
+                                           band_list=band_list)
+        return np_array
+            
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
@@ -538,6 +558,17 @@ class PDRRasterDataImpl(RasterDataImpl):
 
     def get_image_data(self):
         return self.pdr_dataset['IMAGE']
+    
+    
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        '''
+        return self.pdr_dataset['IMAGE'][band:band+dband,y:y+dy,x:x+dx]
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
@@ -779,10 +810,6 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
         The numpy array is configured such that the pixel (x, y) values of band
         b are at element array[b][x][y].
 
-        If the data-set has a "data ignore value" and filter_data_ignore_value
-        is also set to True, the array will be filtered such that any element
-        with the "data ignore value" will be filtered to NaN.  Note that this
-        filtering will impact performance.
         '''
         new_dataset = self.reopen_dataset()
         try:
@@ -796,6 +823,32 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
             except AttributeError:
                 hdul = fits.open(self.get_filepaths()[0])
                 np_array = hdul[0].data
+
+        return np_array
+
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        '''
+        new_dataset = self.reopen_dataset()
+        try:
+            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+        except (AttributeError, RuntimeError, ValueError):
+            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+            try:
+                band_list = [band+1 for band in range(band, band+dband)]
+                hdul = fits.open(self.get_filepaths()[0])
+                np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
+                np_array = new_dataset.ReadAsArray(xoff=x, xsize=dx,
+                                           yoff=y, ysize=dy,
+                                           band_list=band_list)
+            except AttributeError:
+                hdul = fits.open(self.get_filepaths()[0])
+                np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
 
         return np_array
 
@@ -884,27 +937,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         if instances_list is []:
             raise ValueError(f"Could not open {path} as netCDF")
         return instances_list
-
-    
-    def get_image_data(self):
-        '''
-        Returns a numpy 3D array of the entire image cube.
-
-        The numpy array is configured such that the pixel (x, y) values of band
-        b are at element array[b][x][y].
-
-        If the data-set has a "data ignore value" and filter_data_ignore_value
-        is also set to True, the array will be filtered such that any element
-        with the "data ignore value" will be filtered to NaN.  Note that this
-        filtering will impact performance.
-        '''
-        new_dataset = self.reopen_dataset()
-        try:
-            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-        except (RuntimeError, ValueError):
-            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            np_array = new_dataset.ReadAsArray()
-        return np_array
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
@@ -1452,6 +1484,10 @@ class NumPyRasterDataImpl(RasterDataImpl):
 
     def get_image_data(self) -> np.ndarray:
         return self._arr
+    
+    def get_image_data_subset(self, x: int, y: int, band: int,
+                            dx: int, dy: int, dband: int) -> np.ndarray:
+        return self._arr[band:band+dband,y:y+dy,x:x+dx]
 
     def get_band_data(self, band_index) -> np.ndarray:
         return self._arr[band_index]

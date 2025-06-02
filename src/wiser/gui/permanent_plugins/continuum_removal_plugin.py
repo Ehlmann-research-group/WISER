@@ -21,10 +21,12 @@ Code originally written by Amy Wang, Cornell '23
 from __future__ import division
 
 import numpy as np
+from numba import njit, types
+from numba.typed import List
 import logging
 import os
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 from wiser import plugins, raster
 from PySide2.QtGui import *
@@ -32,9 +34,239 @@ from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 from scipy.interpolate import interp1d
 
+from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
+
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
     from wiser.gui.app_state import ApplicationState
+
+
+def crossProduct(o, a, b):
+    """Code provided by Sahil Azad
+    Calculates the cross product of two vectors oa and ob
+
+    Parameters
+    ----------
+    o: list
+        second to last value in upper hull list
+    a: list
+        last value in upper hull list
+    b: list
+        point list
+
+    Returns
+    ----------
+    Cross product of two vectors oa and ob
+    """
+
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+@numba_njit_wrapper(non_njit_func=crossProduct)
+def cross_product_numba(o, a, b):
+    """Code provided by Sahil Azad
+    Calculates the cross product of two vectors oa and ob
+
+    Parameters
+    ----------
+    o: list
+        second to last value in upper hull list
+    a: list
+        last value in upper hull list
+    b: list
+        point list
+
+    Returns
+    ----------
+    Cross product of two vectors oa and ob
+    """
+
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+def monotone(points):
+    """Code provided by Sahil Azad
+    Calculates the upper hull of the spectrum
+
+    Parameters
+    ----------
+    points: ndarray
+        Column stacked wavelengths and reflectanc values
+
+    Returns
+    ----------
+    upper: list
+        A list of points on the upper convex hull before interpolation
+    """
+
+    upper = []
+    l_len = 0
+    for p in points:
+        while l_len >= 2 and crossProduct(upper[-2], upper[-1], p) <= 0:
+            upper = upper[:-1]
+            l_len -= 1
+        upper.append(p)
+        l_len += 1
+    return upper
+
+_point_t = types.UniTuple(types.float64, 2)
+@numba_njit_wrapper(non_njit_func=monotone)
+def monotone_numba(points):
+    """Code provided by Sahil Azad
+    Calculates the upper hull of the spectrum
+
+    Parameters
+    ----------
+    points: ndarray
+        Column stacked wavelengths and reflectanc values
+
+    Returns
+    ----------
+    upper: list
+        A list of points on the upper convex hull before interpolation
+    """
+
+    # n = points.shape[0]
+    # # Preallocate the worst‐case size
+    # upper = np.empty((n, 2), dtype=points.dtype)
+    # l_len = 0
+    # for p in points:
+    #     while l_len >= 2 and cross_product_numba(upper[-2], upper[-1], p) <= 0:
+    #         upper = upper[:-1]
+    #         l_len -= 1
+    #     # Push the new point
+    #     upper[l_len, 0] = p[0]
+    #     upper[l_len, 1] = p[1]
+    #     l_len += 1
+    # return upper[:l_len]
+    # 1. Start with an empty typed list of fixed-width tuples
+    upper = List.empty_list(_point_t)              # :contentReference[oaicite:0]{index=0}
+
+    # 2. Process the points exactly as the pure-Python version
+    for k in range(points.shape[0]):
+        p = (points[k, 0], points[k, 1])           # ndarray row -> tuple
+        while len(upper) >= 2 and cross_product_numba(
+                upper[-2], upper[-1], p) <= 0:
+            upper.pop()                            # typed-list supports pop()
+        upper.append(p)                            # and append()
+
+    # 3. Convert the typed list back to a compact ndarray
+    m = len(upper)
+    hull_arr = np.empty((m, 2), dtype=np.float64)
+    for i in range(m):
+        hull_arr[i, 0], hull_arr[i, 1] = upper[i]
+    return hull_arr
+
+def continuum_removal(reflectance, waves):
+    """Calculates the continuum removed spectrum
+
+    Parameters
+    ----------
+    reflectance: list
+        second to last value in upper hull list
+    waves: list
+        last value in upper hull list
+
+    Returns
+    ----------
+    final: ndarray
+        An array of points on the continuum removed spectrum
+    iy_hull: ndarray
+        An array of points on the convex hull
+    """
+
+    # print(f"reflectance: {reflectance.shape}")
+    # print(f"Waves: {waves.shape}")
+    points = np.column_stack((waves, reflectance))
+    # print(f"points: {points.shape}")
+    hull = np.array(monotone(points))
+    coords_con_hull = hull.transpose()
+    # print(f"coords_con_hull[0].shape: {coords_con_hull[0].shape}")
+    # print(f"coords_con_hull[0]: {coords_con_hull[0]}")
+    # print(f"coords_con_hull[1].shape: {coords_con_hull[1].shape}")
+    # print(f"coords_con_hull[1]: {coords_con_hull[1]}")
+    # print(f"Waves: {waves}")
+    # y_interp = interp1d(coords_con_hull[0], coords_con_hull[1])
+    order = np.argsort(coords_con_hull[0])
+    xp = coords_con_hull[0][order]
+    fp = coords_con_hull[1][order]
+    iy_hull_np = np.interp(waves, xp, fp)
+    # iy_hull = y_interp(waves)
+    # print(f"np, scipy close?: {np.allclose(iy_hull, iy_hull_np, rtol=1e-4, atol=1e-4)}")
+    # print(f"iy_hull: {iy_hull}")
+    # print(f"iy_hull_np: {iy_hull_np}")
+    norm = np.divide(reflectance, iy_hull_np)
+    final = np.column_stack((waves, norm)).transpose(1, 0)[1]
+    return final, iy_hull_np
+
+@numba_njit_wrapper(non_njit_func=continuum_removal)
+def continuum_removal_numba(reflectance, waves):
+    """Calculates the continuum removed spectrum
+
+    Parameters
+    ----------
+    reflectance: list
+        second to last value in upper hull list
+    waves: list
+        last value in upper hull list
+
+    Returns
+    ----------
+    final: ndarray
+        An array of points on the continuum removed spectrum
+    iy_hull: ndarray
+        An array of points on the convex hull
+    """
+
+    # print(f"reflectance: {reflectance.shape}")
+    # print(f"Waves: {waves.shape}")
+    points = np.column_stack((waves, reflectance))
+    # print(f"points: {points.shape}")
+    hull = monotone_numba(points)
+    coords_con_hull = hull.transpose()
+    # y_interp = interp1d(coords_con_hull[0], coords_con_hull[1])
+    order = np.argsort(coords_con_hull[0])
+    xp = coords_con_hull[0][order]
+    fp = coords_con_hull[1][order]
+    iy_hull_np = np.interp(waves, xp, fp)
+    norm = np.divide(reflectance, iy_hull_np)
+    final = np.column_stack((waves, norm)).transpose(1, 0)[1]
+    return final, iy_hull_np
+    # iy_hull = y_interp(waves)
+    # norm = np.divide(reflectance, iy_hull)
+    # final = np.column_stack((waves, norm)).transpose(1, 0)[1]
+    # return final, iy_hull
+
+def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
+    image_spectra_2d = image_data.reshape(
+        (rows * cols, bands)
+    )  # [y][x][b] -> [y*x][b]
+    results = np.empty_like(image_spectra_2d, dtype=np.float32)
+    for i in range(image_spectra_2d.shape[0]):
+        reflectance = image_spectra_2d[i]
+        # TODO (Joshua G-K) Vectorize the continuum removal function
+        continuum_removed, hull = continuum_removal(reflectance, x_axis)
+        results[i] = continuum_removed
+    results = results.reshape((rows, cols, bands))
+    results = results.copy().transpose(
+        2, 0, 1
+    )  # [y][x][b] -> [b][y][x]
+    return results
+
+@numba_njit_wrapper(non_njit_func=continuum_removal_image)
+def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
+    image_spectra_2d = image_data.reshape(
+        (rows * cols, bands)
+    )  # [y][x][b] -> [y*x][b]
+    results = np.empty_like(image_spectra_2d, dtype=np.float32)
+    for i in range(image_spectra_2d.shape[0]):
+        reflectance = image_spectra_2d[i]
+        # TODO (Joshua G-K) Vectorize the continuum removal function
+        continuum_removed, hull = continuum_removal_numba(reflectance, x_axis)
+        results[i] = continuum_removed
+    results = results.reshape((rows, cols, bands))
+    results = results.copy().transpose(
+        2, 0, 1
+    )  # [y][x][b] -> [b][y][x]
+    return results
 
 class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
     """
@@ -263,84 +495,9 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
                 maximum += 1
                 self.image(
                     min_cols, min_rows, max_cols, max_rows, minimum, maximum, context
-                )
+                ) 
 
-    def crossProduct(self, o, a, b):
-        """Code provided by Sahil Azad
-        Calculates the cross product of two vectors oa and ob
-
-        Parameters
-        ----------
-        o: list
-            second to last value in upper hull list
-        a: list
-            last value in upper hull list
-        b: list
-            point list
-
-        Returns
-        ----------
-        Cross product of two vectors oa and ob
-        """
-
-        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-
-    def monotone(self, points):
-        """Code provided by Sahil Azad
-        Calculates the upper hull of the spectrum
-
-        Parameters
-        ----------
-        points: ndarray
-            Column stacked wavelengths and reflectanc values
-
-        Returns
-        ----------
-        upper: list
-            A list of points on the upper convex hull before interpolation
-        """
-
-        upper = []
-        l_len = 0
-        for p in points:
-            while l_len >= 2 and self.crossProduct(upper[-2], upper[-1], p) <= 0:
-                upper = upper[:-1]
-                l_len -= 1
-            upper.append(p)
-            l_len += 1
-        return upper
-
-    def continuum_removal(self, reflectance, waves):
-        """Calculates the continuum removed spectrum
-
-        Parameters
-        ----------
-        reflectance: list
-            second to last value in upper hull list
-        waves: list
-            last value in upper hull list
-
-        Returns
-        ----------
-        final: ndarray
-            An array of points on the continuum removed spectrum
-        iy_hull: ndarray
-            An array of points on the convex hull
-        """
-
-        # print(f"reflectance: {reflectance.shape}")
-        # print(f"Waves: {waves.shape}")
-        points = np.column_stack((waves, reflectance))
-        # print(f"points: {points.shape}")
-        hull = np.array(self.monotone(points))
-        coords_con_hull = hull.transpose()
-        y_interp = interp1d(coords_con_hull[0], coords_con_hull[1])
-        iy_hull = y_interp(waves)
-        norm = np.divide(reflectance, iy_hull)
-        final = np.column_stack((waves, norm)).transpose(1, 0)[1]
-        return final, iy_hull
-
-    def plot_continuum_removal(self, spec_object, context):
+    def plot_continuum_removal(self, spec_object, context) -> Tuple[raster.spectrum.NumPyArraySpectrum, raster.spectrum.NumPyArraySpectrum]:
         """Plots the continuum removed spectrum and the convex hull
 
         Parameters
@@ -354,15 +511,17 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         spectrum = spec_object.get_spectrum()
         wavelengths_org = spec_object.get_wavelengths()  # type <astropy>
         wavelengths = np.array([i.value for i in wavelengths_org])[::-1]
-        continuum_removed_spec, hull = self.continuum_removal(spectrum, wavelengths)
+        continuum_removed_spec, hull = continuum_removal_numba(spectrum, wavelengths)
         new_spec = raster.spectrum.NumPyArraySpectrum(continuum_removed_spec)
         new_spec.set_name(spec_object.get_name() + " Continuum Removed")
         new_spec.set_wavelengths(wavelengths_org)
-        context["wiser"].collect_spectrum(new_spec)
         convex_hull = raster.spectrum.NumPyArraySpectrum(hull)
         convex_hull.set_name("Convex Hull " + spec_object.get_name())
         convex_hull.set_wavelengths(wavelengths_org)
-        context["wiser"].collect_spectrum(convex_hull)
+        if context is not None:
+            context["wiser"].collect_spectrum(new_spec)
+            context["wiser"].collect_spectrum(convex_hull)
+        return (new_spec, convex_hull)
 
     def single_spectrum(self, context):
         """Plots the continuum removed spectrum and the convex hull
@@ -385,8 +544,9 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         """
 
         collectedSpectra = context["wiser"].get_collected_spectra()
+        collected_cr = []
         for spectrum in collectedSpectra:
-            self.plot_continuum_removal(spectrum, context)
+            collected_cr.append(self.plot_continuum_removal(spectrum, context))
 
     def image(
         self, min_cols, min_rows, max_cols, max_rows, min_band, max_band, context
@@ -396,9 +556,9 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         Parameters
         ----------
         min_cols: int
-            Minimum column number user chose
+            Minimum column number user chose (also width, XSize)
         min_rows: int
-            Minimum row number user chose
+            Minimum row number user chose (also height, YSize)
         max_cols: int
             Maximum column number user chose
         max_rows: int
@@ -413,27 +573,22 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
 
         app_state: ApplicationState = context["wiser"]
         dataset: RasterDataSet = context["dataset"]
-        print(f"context: {context.keys()}")
-        print(f"dataset name: {dataset.get_name()}")
-        print(f"file paths: {dataset.get_filepaths()}")
-        # TODO (Joshua G-K): Only load the image data that needs to be loaded. Don't load the whole image cube
-        image_data = dataset.get_image_data()[
-            min_band:max_band, min_rows:max_rows, min_cols:max_cols
-        ]  # A numpy array such that the pixel (x, y) values (spectrum value) of band b are at element array[b][y][x]
+        dband = max_band - min_band
+        dcols = max_cols - min_cols
+        drows = max_rows - min_rows
+        image_data = dataset.get_image_data_subset(min_cols, min_rows, min_band,
+                                                   dcols, drows, dband)
+         # A numpy array such that the pixel (x, y) values (spectrum value) of band b are at element array[b][y][x]
         filename = dataset.get_name()
         description = dataset.get_description()
         band_description = dataset.band_list()
-        print(f"band_info: {band_description}")
-        # TODO (Joshua G-K): If no wavelengths exist, then just use the band index
         if "wavelength_str" in band_description[0]:
             x_axis = np.array([float(i["wavelength_str"]) for i in band_description])
         else:
             assert "index" in band_description[0], "No key named index in return value of dataset.band_list()"
             x_axis = np.array([float(i["index"]) for i in band_description])
-        print(f"x_axis: {x_axis}")
         x_axis = x_axis[min_band:max_band]
         default_bands = dataset.default_display_bands()
-        print(f"default_bands: {default_bands}")
         if default_bands is None:
             default_bands = [0, 1, 2]
 
@@ -448,35 +603,22 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         cols = max_cols - min_cols
         rows = max_rows - min_rows
         bands = max_band - min_band
-        # TODO (Joshua G-K): Check to make sure this logic is correct
-        image_transposed = np.copy(
-            image_data.transpose(1, 2, 0), order="C"
-        )  # [b][y][x] -> [y][x][b]
-
-        image_2d = image_transposed.reshape(
-            (rows * cols, bands)
-        )  # [y][x][b] -> [y*x][b]
-        spectra = image_2d
-
-        results = []
-        for i in range(rows * cols):
-            reflectance = spectra[i]
-            # TODO (Joshua G-K) Vectorize the continuum removal function
-            continuum_removed, hull = self.continuum_removal(reflectance, x_axis)
-            results.append(continuum_removed)
-
-        image = np.array(results)
-        print(f"image.shape: {image.shape}")
-        new_image_3d = image.reshape((rows, cols, bands))  # [y*x][b] -> [y][x][b]
-        print(f"new_image_3d.shape: {new_image_3d.shape}")
-        new_image_data = new_image_3d.copy().transpose(
-            2, 0, 1
-        )  # [y][x][b] -> [b][y][x]
+        image_data, x_axis = convert_to_float32_if_needed(image_data, x_axis)
+        image_data: np.ndarray = image_data.transpose(1, 2, 0)
+        if not image_data.flags.c_contiguous:
+            image_data = np.ascontiguousarray(image_data)
+        if isinstance(image_data, np.ma.MaskedArray):
+            image_data = image_data.data
+        spectra = image_data
+        new_image_data = continuum_removal_image(spectra, x_axis, rows, cols, bands)
         print(f"new_image_data.shape: {new_image_data.shape}")
         raster_data = raster.RasterDataLoader()
         new_data = raster_data.dataset_from_numpy_array(new_image_data, app_state.get_cache())
         new_data.set_name(f"Continuum Removal on {filename}")
         new_data.set_description(description)
         new_data.set_default_display_bands(default_bands)
-        # TODO (Joshua G-K): Add all other meta data to dataset
+
+        new_data.copy_spatial_metadata(dataset)
+        new_data.copy_spectral_metadata(dataset)
         context["wiser"].add_dataset(new_data)
+        return new_data

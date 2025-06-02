@@ -426,6 +426,34 @@ class RasterDataSet:
         return arr
 
 
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Returns a 3D numpy array of values specified starting at x, y, and band
+        and going until x+dx, y+dy, band+dband.
+
+        Data returned is in format arr[b][y][x]
+        '''
+
+        # See if image data is already in the cache, if it is we just splice
+
+        # If not then we ask the impl type for the data. We don't store it in the cache.
+        # We want to mak sure the dimension is 3D, cause it could be a minimum 
+        arr = None
+        if self._data_cache:
+            cache = self._data_cache.get_computation_cache()
+            key = cache.get_cache_key(self)
+            arr = cache.get_cache_item(key)
+        if arr is None:
+            arr = self._impl.get_image_data_subset(x, y, band, dx, dy, dband)
+            if arr.ndim == 2:
+                arr = arr[np.newaxis,:,:]
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+        return arr
+
+
     def get_band_data(self, band_index: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
