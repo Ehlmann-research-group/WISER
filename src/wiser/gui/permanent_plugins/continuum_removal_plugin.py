@@ -123,32 +123,15 @@ def monotone_numba(points):
     upper: list
         A list of points on the upper convex hull before interpolation
     """
+    upper = List.empty_list(_point_t)
 
-    # n = points.shape[0]
-    # # Preallocate the worst‐case size
-    # upper = np.empty((n, 2), dtype=points.dtype)
-    # l_len = 0
-    # for p in points:
-    #     while l_len >= 2 and cross_product_numba(upper[-2], upper[-1], p) <= 0:
-    #         upper = upper[:-1]
-    #         l_len -= 1
-    #     # Push the new point
-    #     upper[l_len, 0] = p[0]
-    #     upper[l_len, 1] = p[1]
-    #     l_len += 1
-    # return upper[:l_len]
-    # 1. Start with an empty typed list of fixed-width tuples
-    upper = List.empty_list(_point_t)              # :contentReference[oaicite:0]{index=0}
-
-    # 2. Process the points exactly as the pure-Python version
     for k in range(points.shape[0]):
-        p = (points[k, 0], points[k, 1])           # ndarray row -> tuple
+        p = (points[k, 0], points[k, 1])
         while len(upper) >= 2 and cross_product_numba(
                 upper[-2], upper[-1], p) <= 0:
-            upper.pop()                            # typed-list supports pop()
-        upper.append(p)                            # and append()
+            upper.pop()
+        upper.append(p)
 
-    # 3. Convert the typed list back to a compact ndarray
     m = len(upper)
     hull_arr = np.empty((m, 2), dtype=np.float64)
     for i in range(m):
@@ -173,26 +156,13 @@ def continuum_removal(reflectance, waves):
         An array of points on the convex hull
     """
 
-    # print(f"reflectance: {reflectance.shape}")
-    # print(f"Waves: {waves.shape}")
     points = np.column_stack((waves, reflectance))
-    # print(f"points: {points.shape}")
     hull = np.array(monotone(points))
     coords_con_hull = hull.transpose()
-    # print(f"coords_con_hull[0].shape: {coords_con_hull[0].shape}")
-    # print(f"coords_con_hull[0]: {coords_con_hull[0]}")
-    # print(f"coords_con_hull[1].shape: {coords_con_hull[1].shape}")
-    # print(f"coords_con_hull[1]: {coords_con_hull[1]}")
-    # print(f"Waves: {waves}")
-    # y_interp = interp1d(coords_con_hull[0], coords_con_hull[1])
     order = np.argsort(coords_con_hull[0])
     xp = coords_con_hull[0][order]
     fp = coords_con_hull[1][order]
     iy_hull_np = np.interp(waves, xp, fp)
-    # iy_hull = y_interp(waves)
-    # print(f"np, scipy close?: {np.allclose(iy_hull, iy_hull_np, rtol=1e-4, atol=1e-4)}")
-    # print(f"iy_hull: {iy_hull}")
-    # print(f"iy_hull_np: {iy_hull_np}")
     norm = np.divide(reflectance, iy_hull_np)
     final = np.column_stack((waves, norm)).transpose(1, 0)[1]
     return final, iy_hull_np
@@ -215,14 +185,9 @@ def continuum_removal_numba(reflectance, waves):
     iy_hull: ndarray
         An array of points on the convex hull
     """
-
-    # print(f"reflectance: {reflectance.shape}")
-    # print(f"Waves: {waves.shape}")
     points = np.column_stack((waves, reflectance))
-    # print(f"points: {points.shape}")
     hull = monotone_numba(points)
     coords_con_hull = hull.transpose()
-    # y_interp = interp1d(coords_con_hull[0], coords_con_hull[1])
     order = np.argsort(coords_con_hull[0])
     xp = coords_con_hull[0][order]
     fp = coords_con_hull[1][order]
@@ -230,10 +195,6 @@ def continuum_removal_numba(reflectance, waves):
     norm = np.divide(reflectance, iy_hull_np)
     final = np.column_stack((waves, norm)).transpose(1, 0)[1]
     return final, iy_hull_np
-    # iy_hull = y_interp(waves)
-    # norm = np.divide(reflectance, iy_hull)
-    # final = np.column_stack((waves, norm)).transpose(1, 0)[1]
-    # return final, iy_hull
 
 def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
     image_spectra_2d = image_data.reshape(
@@ -611,7 +572,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             image_data = image_data.data
         spectra = image_data
         new_image_data = continuum_removal_image(spectra, x_axis, rows, cols, bands)
-        print(f"new_image_data.shape: {new_image_data.shape}")
+
         raster_data = raster.RasterDataLoader()
         new_data = raster_data.dataset_from_numpy_array(new_image_data, app_state.get_cache())
         new_data.set_name(f"Continuum Removal on {filename}")
