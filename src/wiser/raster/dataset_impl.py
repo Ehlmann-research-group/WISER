@@ -7,7 +7,7 @@ import pdr
 from pdr.loaders.datawrap import ReadArray 
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 Number = Union[int, float]
 
 from .utils import make_spectral_value, convert_spectral, get_spectral_unit, get_netCDF_reflectance_path
@@ -16,8 +16,15 @@ from .loaders import envi
 import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
+import netCDF4 as nc
 
 from astropy.io import fits
+
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
+
+from wiser.gui.subdataset_file_opener_dialog import SubdatasetFileOpenerDialog
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +153,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         self.subdataset_name = None
         self.data_ignore: Optional[Union[float, int]] = None
         self._validate_dataset()
+        print(f'GDAL DATASET INIT')
         self._save_state = SaveState.UNKNOWN
 
     def _validate_dataset(self):
@@ -195,6 +203,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         # TODO(donnie):  Sort the list?  Or does the driver return the filenames
         #     in a meaningful order?
         paths = self.gdal_dataset.GetFileList()
+        print(f'!!$$file paths: {paths}')
         if paths is None:
             paths = []
 
@@ -211,7 +220,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         file_path = self.subdataset_name if self.subdataset_name is not None else file_paths[0]  # Assuming the first file is the main dataset
         driver = self.gdal_dataset.GetDriver().ShortName
-        
+        print(f"!!%%file path: {file_path}")
         # Open the dataset with the corresponding driver
         new_dataset = gdal.OpenEx(file_path, 
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
@@ -907,6 +916,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             allowed_drivers=['netCDF']
         )
 
+        netcdf_dataset = nc.Dataset(path)
+
         if gdal_dataset is None:
             raise ValueError(f"Unable to open netCDF file: {path}")
 
@@ -915,31 +926,131 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         instances_list = []  # List to hold instances of the class
     
         if subdatasets:
-            for subdataset_name, description in subdatasets:
-                # Extract the actual subdataset name from the path (e.g., "reflectance", "Calcite", etc.)
-                subdataset_key = subdataset_name.split(':')[-1]
-                # Check if the subdataset name is in the emit_data_names set
-                # if subdataset_key in emit_data_names:
-                # Open the subdataset
-                gdal_subdataset = gdal.Open(subdataset_name)
-                if gdal_subdataset is None:
-                    raise ValueError(f"Unable to open subdataset: {subdataset_name}")
+            print(f"has subdatasets")
+            subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
+            if subdataset_chooser.exec_() == QDialog.Accepted:
+                print(f"dialog accepted yay!")
+            instances_list.append(subdataset_chooser.netcdf_impl)
+            # for subdataset_name, description in subdatasets:
+            #     print(f"going through each subdaataset")
+            #     # Extract the actual subdataset name from the path (e.g., "reflectance", "Calcite", etc.)
+            #     subdataset_key = subdataset_name.split(':')[-1]
+            #     # Check if the subdataset name is in the emit_data_names set
+            #     # if subdataset_key in emit_data_names:
+            #     # Open the subdataset
+            #     gdal_subdataset = gdal.Open(subdataset_name)
+            #     if gdal_subdataset is None:
+            #         raise ValueError(f"Unable to open subdataset: {subdataset_name}")
 
-                # Create an instance of the class for each matching subdataset
-                instance = cls(gdal_subdataset)
-                instance.subdataset_name = subdataset_name
-                instance.subdataset_key = subdataset_key
-                # Add the instance to the list
-                instances_list.append(instance)
+            #     # Create an instance of the class for each matching subdataset
+            #     instance = cls(gdal_subdataset)
+            #     instance.subdataset_name = subdataset_name
+            #     instance.subdataset_key = subdataset_key
+            #     # Add the instance to the list
+            #     instances_list.append(instance)
         else:
-            return [cls(gdal_dataset)]
+            print(f"SAVING NETCDF AS JUST A GDAL RASTER DATASET")
+            return [GDALRasterDataImpl(gdal_dataset)]
 
         if instances_list is []:
             raise ValueError(f"Could not open {path} as netCDF")
         return instances_list
 
-    def __init__(self, gdal_dataset):
+    def __init__(self, gdal_dataset: gdal.Dataset, netcdf_dataset: nc.Dataset,
+                 subdataset_name: str, spatial_ref: Optional[osr.SpatialReference],
+                 band_units: Optional[u.Unit], wavelengths: Optional[np.ndarray],
+                 geotransform: Optional[Tuple]):
+        print(f'NetCDF being created!')
         super().__init__(gdal_dataset)
+        print(f'NetCDF variable instantiated!')
+        self._netcdf_dataset = netcdf_dataset
+        self._spatial_ref: Optional[osr.SpatialReference] = spatial_ref
+        self._wavelength_units: Optional[u.Unit] = band_units
+        self._wavelengths: Optional[np.ndarray] = wavelengths
+        if geotransform is None:    
+            geotransform = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+        self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
+        self._subdataset_name = subdataset_name
+
+    # def set_geo_transform(self, gt: Tuple):
+    #     self._geotransform = gt
+
+    # def set_spatial_reference(self, srs: osr.SpatialReference):
+    #     self._spatial_ref = srs
+
+    # def set_band_unit(self, unit: u.Unit):
+    #     self._band_unit = unit
+
+    def get_filepaths(self):
+        '''
+        Returns the paths and filenames of all files associated with this raster
+        dataset.  This will be an empty list (not None) if the data is in-memory
+        only.
+        '''
+        # TODO(donnie):  Sort the list?  Or does the driver return the filenames
+        #     in a meaningful order?
+        if self._subdataset_name is None:
+            return []
+
+        return [self._subdataset_name]
+
+    def read_geo_transform(self):
+        return self._geotransform
+
+    def get_wkt_spatial_reference(self):
+        return self._spatial_ref.ExportToWkt()
+
+    def read_spatial_ref(self):
+        return self._spatial_ref
+    
+    def read_band_unit(self):
+        return self._wavelength_units
+
+    def read_band_info(self):
+        band_info = []
+
+        md = list(self._netcdf_dataset.groups['sensor_band_parameters'].variables.keys())
+        print(f'md: {md}')
+        has_band_names = ('observation_bands' in md)
+
+        for band_index in range(1, self.gdal_dataset.RasterCount + 1):
+            band = self.gdal_dataset.GetRasterBand(band_index)
+
+            info = {'index':band_index - 1, 'description':band.GetDescription()}
+
+            if self._wavelengths is not None:
+                wl_value = self._wavelengths[band_index-1]
+                wl_str = str(wl_value)
+                wl_units = self._wavelength_units.to_string()
+
+                info['wavelength_str'] = wl_str
+                info['wavelength_units'] = wl_units
+                try:
+                    wavelength = make_spectral_value(wl_value, wl_units)
+                    info['wavelength'] = wavelength
+                except:
+                    # Log this error in case anyone needs to debug it.
+                    logger.warn('Couldn\'t parse wavelength info for GDAL ' +
+                        f'dataset band {band_index - 1}:  ' +
+                        f'value "{wl_str}", units "{wl_units}"')
+    
+                # If the raw metadata doesn't actually have band names, generate
+                # a band name/description from the wavelength information, since
+                # the GDAL info is a bit ridiculously formatted.
+                if not has_band_names:
+                    if 'wavelength' in info:
+                        info['description'] = '{0:0.02f}'.format(info['wavelength'])
+                    else:
+                        # NOTE:  Using 0-based index, not 1-based index!
+                        info['description'] = f'Band {band_index - 1}'
+
+            band_info.append(info)
+
+        return band_info
+
+    def read_data_ignore_value(self):
+        return super().read_data_ignore_value()
+    
 
 
 class JP2_GDALRasterDataImpl(GDALRasterDataImpl):

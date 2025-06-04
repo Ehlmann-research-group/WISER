@@ -30,13 +30,13 @@ class RasterDataLoader:
     def __init__(self):
         # File formats that we recognize.
         self._formats = {
-            'ENVI': ENVI_GDALRasterDataImpl,
-            'GTiff': GTiff_GDALRasterDataImpl,
+            # 'ENVI': ENVI_GDALRasterDataImpl,
+            # 'GTiff': GTiff_GDALRasterDataImpl,
             'NetCDF': NetCDF_GDALRasterDataImpl,
-            'ASCII': ASC_GDALRasterDataImpl,
-            'JP2': JP2_GDALRasterDataImpl,
-            'PDS3': PDS3_GDALRasterDataImpl,
-            'PDS4': PDS4_GDALRasterDataImpl,
+            # 'ASCII': ASC_GDALRasterDataImpl,
+            # 'JP2': JP2_GDALRasterDataImpl,
+            # 'PDS3': PDS3_GDALRasterDataImpl,
+            # 'PDS4': PDS4_GDALRasterDataImpl,
         }
     
         # What to do when loading in each file format
@@ -82,14 +82,16 @@ class RasterDataLoader:
         # load the raster data.
         impl_list = None
         for (driver_name, impl_type) in self._formats.items():
-            try:
-                impl_list = impl_type.try_load_file(path)
-            except Exception as e:
-                logger.debug(f'Couldn\'t load file {path} with driver ' +
-                             f'{driver_name} and implementation {impl_type}.', e)
-        if impl_list is None:
-            raise Exception(f'Couldn\'t load file {path}:  unsupported format')
-
+            # try:
+            impl_list = impl_type.try_load_file(path)
+        #     except Exception as e:
+        #         logger.debug(f'Couldn\'t load file {path} with driver ' +
+        #                      f'{driver_name} and implementation {impl_type}.', e)
+        #         print(f'Couldn\'t load file {path} with driver ' +
+        #                      f'{driver_name} and implementation {impl_type}.\n', e)
+        # if impl_list is None:
+        #     raise Exception(f'Couldn\'t load file {path}:  unsupported format')
+        print(f"IMPL LIST: {impl_list}")
         outer_datasets = []
         for impl in impl_list:
             func = self._format_loaders[type(impl)]
