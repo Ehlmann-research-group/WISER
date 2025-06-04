@@ -68,7 +68,7 @@ class RasterDataImpl(abc.ABC):
         '''
         Returns the paths and filenames of all files associated with this raster
         dataset.  This will be an empty list (not None) if the data is in-memory
-        only.
+        only. If opening gdal subdatasets, this should return the subdataset path.
         '''
         pass
 
@@ -190,6 +190,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             elif data_ignore is not None and self.data_ignore != data_ignore:
                 raise ValueError('Cannot handle raster data with bands that ' +
                     'have different data-ignore values per band.')
+            print(f"!&&data_ignore: {data_ignore}, self.gdata_ignore: {self.data_ignore}")
 
     def get_format(self) -> str:
         return self.gdal_dataset.GetDriver().ShortName
@@ -930,7 +931,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
             if subdataset_chooser.exec_() == QDialog.Accepted:
                 print(f"dialog accepted yay!")
-            instances_list.append(subdataset_chooser.netcdf_impl)
+            if subdataset_chooser.netcdf_impl is not None:
+                instances_list.append(subdataset_chooser.netcdf_impl)
             # for subdataset_name, description in subdatasets:
             #     print(f"going through each subdaataset")
             #     # Extract the actual subdataset name from the path (e.g., "reflectance", "Calcite", etc.)
@@ -1050,6 +1052,9 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def read_data_ignore_value(self):
         return super().read_data_ignore_value()
+    
+    def delete_dataset(self):
+        return super().delete_dataset()
     
 
 
