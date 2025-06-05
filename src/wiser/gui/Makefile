@@ -15,6 +15,7 @@ FILENAMES=\
 	band_math_ui.py \
 	bug_reporting_dialog_ui.py \
 	channel_stretch_widget_ui.py \
+	dataset_editor_ui.py \
 	export_image_ui.py \
 	export_plot_image_ui.py \
 	export_spectra_dialog_ui.py \

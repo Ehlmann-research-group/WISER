@@ -614,6 +614,9 @@ class RasterPane(QWidget):
         for rv in self._rasterviews.values():
             rv.update()
 
+    def update_all_rasterview_displays(self):
+        for rv in self._rasterviews.values():
+            rv.update_display_image()
 
     def _update_rasterview_toolbars(self):
         '''

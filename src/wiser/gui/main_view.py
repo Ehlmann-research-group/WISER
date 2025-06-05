@@ -180,6 +180,9 @@ class MainViewWidget(RasterPane):
 
         # act = menu.addAction('Save')
 
+        act = menu.addAction('Edit dataset...')
+        act.triggered.connect(lambda checked=False, rv=rasterview : self._on_edit_dataset(rv))
+
         act = menu.addAction('Save as...')
         act.triggered.connect(lambda checked=False, rv=rasterview : self._on_save_dataset_as(rv))
 
@@ -258,6 +261,16 @@ class MainViewWidget(RasterPane):
 
         self._export_image.exec()
 
+
+    def _on_edit_dataset(self, rasterview):
+        '''
+        Edits the dataset in the rasterview. 
+        '''
+        dataset = rasterview.get_raster_data()
+        dataset.show_edit_dataset_dialog(self._app_state._app)
+        # Call function from dataset that lets you change values in a gui
+            # Will the values be saved? We could warn the user that we only save
+            # it for this session of WISER
 
     def _on_save_dataset_as(self, rasterview):
         dataset = rasterview.get_raster_data()

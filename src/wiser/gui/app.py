@@ -923,6 +923,23 @@ class DataVisualizerApp(QMainWindow):
 
         self._on_mainview_raster_pixel_select(rv_pos, ds_point)
 
+    def update_all_rasterpanes(self):
+        '''
+        Refreshes all the rasterviews
+        '''
+        print(f"REFRESHING ALL RASTERVIEWS")
+        self._context_pane.update_all_rasterviews()
+        self._main_view.update_all_rasterviews()
+        self._zoom_pane.update_all_rasterviews()
+
+    def update_all_rasterpane_displays(self):
+        '''
+        Refreshes all the rasterviews
+        '''
+        print(f"REFRESHING ALL RASTERVIEW DISPLAYS")
+        self._context_pane.update_all_rasterview_displays()
+        self._main_view.update_all_rasterview_displays()
+        self._zoom_pane.update_all_rasterview_displays()
 
     def _update_image_coords(self, dataset: Optional[RasterDataSet], ds_point):
         '''

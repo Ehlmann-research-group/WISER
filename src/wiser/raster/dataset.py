@@ -14,6 +14,8 @@ from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength, normalize_ndarray, can_transform_between_srs, have_spatial_overlap
 from .data_cache import DataCache
 
+from wiser.gui.dataset_editor_dialog import DatasetEditorDialog 
+
 from time import perf_counter
 
 Number = Union[int, float]
@@ -932,6 +934,15 @@ class RasterDataSet:
 
         self.set_dirty()
 
+    def show_edit_dataset_dialog(self, app):
+        '''
+        Creates an edit dataset dialog menu. Should have a label at the top that
+        says none of the changes persist on disk. THey only persist for this session.
+
+        Should have a section under this with a label 
+        '''
+        dataset_edit = DatasetEditorDialog(self, app)
+        dataset_edit.exec_()
 
     def get_save_state(self):
         return self._impl.get_save_state()
@@ -959,8 +970,17 @@ class RasterDataSet:
 
 
     def __hash__(self):
+        '''
+        I understand that the documentation here: https://docs.python.org/3/glossary.html#term-hashable
+        States that 'A hash should remain unchanged throughout the lifetime of the object', however, for
+        this object, we want the hash to change if the data ignore value changed, so cache's that used
+        this dataset will use the 'new' hashed dataset and cause computations to be redone with the
+        new data ignore value. 
+        '''
+        if self._data_ignore_value is not None:
+            print(f"self._data_ignore_Value: {self._data_ignore_value}")
+            return hash((self._id, self._data_ignore_value))
         return self._id
-
 
     def __eq__(self, other) -> bool:
         if isinstance(other, RasterDataSet):
