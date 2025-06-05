@@ -287,19 +287,31 @@ def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMa
     assert (max_curr_band-min_curr_band) < total_num_bands
     return True
 
-def max_bytes_to_chunk(dataset_bytes: int):
-    '''
-    Returns an integer that represents the amount of bytes we should be using as
-    a maximum amount for chunking. None is returned if we do not need to chunk
+def max_bytes_to_chunk(dataset_bytes: int) -> Tuple[float, bool]:
+    """
+    Determines the maximum number of bytes to use for chunking.
 
-    The logic works such that the bytes returned will 
-    be the minimum 
-    '''
+    This function returns a value representing the maximum number of bytes 
+    that should be used for chunking a dataset. If chunking is not needed, 
+    the returned value will indicate so.
+
+    Parameters
+    ----------
+    dataset_bytes : int
+        The total number of bytes in the dataset.
+
+    Returns
+    -------
+    Tuple[float, bool]
+        A tuple containing:
+        - The number of bytes to use for chunking.
+        - A boolean indicating whether chunking should be applied.
+    """
     available_mem = psutil.virtual_memory().available
     if dataset_bytes > available_mem:
-        return available_mem*RATIO_OF_MEM_TO_USE
+        return (available_mem*RATIO_OF_MEM_TO_USE, True)
     else:
-        return None
+        return (dataset_bytes, False)
 
 def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ma.MaskedArray, gdal_elem_type: int):
         if isinstance(result, np.ma.MaskedArray):

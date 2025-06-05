@@ -1497,12 +1497,17 @@ class GeoReferencerDialog(QDialog):
 
     def _georeference(self):
         save_path = self._get_save_file_path()
-        if save_path is None or \
-            self._target_rasterpane.get_rasterview().get_raster_data() is None:
+        if save_path is None:
+            self.set_message_text("Must enter a save path for geo referencing to occur!")
+            return
+        
+        if self._target_rasterpane.get_rasterview().get_raster_data() is None:
+            self.set_message_text("Must select a targetr dataset for geo referencing to occur!")
             return
 
         if not self._enough_points_for_transform():
             self._set_all_residuals_NA()
+            print(f"NOT ENOUGH POINTS FOR TRANSFORM")
             return
 
         gdal.UseExceptions()
@@ -1512,14 +1517,17 @@ class GeoReferencerDialog(QDialog):
         output_srs = osr.SpatialReference()
         output_srs = self._import_current_output_srs()
         output_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        print(f"!!!.output_srs: {output_srs}")
 
         ref_srs = self._get_reference_srs()
         ref_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         ref_projection = ref_srs.ExportToWkt()
+        print(f"!!!.ref_srs: {ref_srs}")
+        print(f"ref_projection: {ref_projection}")
         # If it doesn't have a gdal dataset, instead we create one from a smaller array just to do geo referencing
         assert ref_projection is not None and ref_srs is not None, \
                 f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
-
+        print(f"made IT past ASSERT")
         temp_gdal_ds = None
         place_holder_arr = np.zeros((1, 1), np.uint8)
         temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
@@ -1609,6 +1617,8 @@ class GeoReferencerDialog(QDialog):
                 # print(f"error_raster_x: {error_raster_x}")
                 # print(f"error_raster_y: {error_raster_y}")
 
+                print(f"error_raster_x: {round(error_raster_x, 6)}")
+                print(f"error_raster_y: {round(error_raster_y, 6)}")
                 entry.set_residual_x(round(error_raster_x, 6))
                 entry.set_residual_y(round(error_raster_y, 6))
 

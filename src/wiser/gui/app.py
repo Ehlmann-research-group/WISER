@@ -539,6 +539,7 @@ class DataVisualizerApp(QMainWindow):
             self.tr('JP2 files (*.JP2)'),
             self.tr('PDS raster files (*.PDS *.img *lnl)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
+            self.tr('Try luck with GDAL (*)'),
             # self.tr('WISER project files (*.wiser)'),
             # self.tr('All files (*)'),
         ]
@@ -550,19 +551,19 @@ class DataVisualizerApp(QMainWindow):
             self._app_state.get_current_dir(), ';;'.join(supported_formats))
 
         for filename in selected[0]:
-            # try:
+            try:
                 # Open the file on the application state.
-            self._app_state.open_file(filename)
-            # except Exception as e:
-            #     mbox = QMessageBox(QMessageBox.Critical,
-            #         self.tr('Could not open file'),
-            #         self.tr('The file {0} could not be opened.').format(filename),
-            #         QMessageBox.Ok, parent=self)
+                self._app_state.open_file(filename)
+            except Exception as e:
+                mbox = QMessageBox(QMessageBox.Critical,
+                    self.tr('Could not open file'),
+                    self.tr('The file {0} could not be opened.').format(filename),
+                    QMessageBox.Ok, parent=self)
 
-            #     mbox.setInformativeText(str(e))
-            #     mbox.setDetailedText(traceback.format_exc())
+                mbox.setInformativeText(str(e))
+                mbox.setDetailedText(traceback.format_exc())
 
-            #     mbox.exec()
+                mbox.exec()
 
     def show_save_project_dialog(self, evt):
         '''

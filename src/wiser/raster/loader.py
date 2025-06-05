@@ -11,7 +11,7 @@ from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
     GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl,
     ASC_GDALRasterDataImpl, JP2_GDALRasterDataImpl, PDS3_GDALRasterDataImpl,
-    PDS4_GDALRasterDataImpl
+    PDS4_GDALRasterDataImpl, GDALRasterDataImpl
     )
 
 from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
@@ -30,13 +30,13 @@ class RasterDataLoader:
     def __init__(self):
         # File formats that we recognize.
         self._formats = {
-            # 'ENVI': ENVI_GDALRasterDataImpl,
-            # 'GTiff': GTiff_GDALRasterDataImpl,
+            'ENVI': ENVI_GDALRasterDataImpl,
+            'GTiff': GTiff_GDALRasterDataImpl,
             'NetCDF': NetCDF_GDALRasterDataImpl,
-            # 'ASCII': ASC_GDALRasterDataImpl,
-            # 'JP2': JP2_GDALRasterDataImpl,
-            # 'PDS3': PDS3_GDALRasterDataImpl,
-            # 'PDS4': PDS4_GDALRasterDataImpl,
+            'ASCII': ASC_GDALRasterDataImpl,
+            'JP2': JP2_GDALRasterDataImpl,
+            'PDS3': PDS3_GDALRasterDataImpl,
+            'PDS4': PDS4_GDALRasterDataImpl,
         }
     
         # What to do when loading in each file format
@@ -48,6 +48,7 @@ class RasterDataLoader:
             JP2_GDALRasterDataImpl: self.load_normal_dataset,
             PDS3_GDALRasterDataImpl: self.load_normal_dataset,
             PDS4_GDALRasterDataImpl: self.load_normal_dataset,
+            GDALRasterDataImpl: self.load_normal_dataset,
         }
 
         # This is a counter so we can generate names for unnamed datasets.
@@ -82,15 +83,24 @@ class RasterDataLoader:
         # load the raster data.
         impl_list = None
         for (driver_name, impl_type) in self._formats.items():
-            # try:
-            impl_list = impl_type.try_load_file(path)
-        #     except Exception as e:
-        #         logger.debug(f'Couldn\'t load file {path} with driver ' +
-        #                      f'{driver_name} and implementation {impl_type}.', e)
-        #         print(f'Couldn\'t load file {path} with driver ' +
-        #                      f'{driver_name} and implementation {impl_type}.\n', e)
-        # if impl_list is None:
-        #     raise Exception(f'Couldn\'t load file {path}:  unsupported format')
+            try:
+                impl_list = impl_type.try_load_file(path)
+            except Exception as e:
+                logger.debug(f'Couldn\'t load file {path} with driver ' +
+                             f'{driver_name} and implementation {impl_type}.', e)
+                print(f'Couldn\'t load file {path} with driver ' +
+                             f'{driver_name} and implementation {impl_type}.\n', e)
+                
+        # Try luck with gdal
+        try:
+            if impl_list is None:
+                impl_list = GDALRasterDataImpl.try_load_file(path)
+        except Exception as e:
+            logger.debug(f'Couldn\'t load file {path} with driver ' +
+                            f'{driver_name} and implementation {impl_type}.', e)
+
+        if impl_list is None:
+            raise Exception(f'Couldn\'t load file {path}:  unsupported format')
         print(f"IMPL LIST: {impl_list}")
         outer_datasets = []
         for impl in impl_list:

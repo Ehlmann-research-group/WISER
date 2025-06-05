@@ -146,6 +146,21 @@ class RasterDataImpl(abc.ABC):
 
 class GDALRasterDataImpl(RasterDataImpl):
 
+    @classmethod
+    def try_load_file(cls, path: str) -> ['GDALRasterDataImpl']:
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+
+        gdal_dataset = gdal.OpenEx(
+            path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR
+        )
+
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open PDS4 file: {path}")
+
+        return [cls(gdal_dataset)]
+
     def __init__(self, gdal_dataset):
         super().__init__()
         self.gdal_dataset = gdal_dataset
@@ -190,7 +205,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             elif data_ignore is not None and self.data_ignore != data_ignore:
                 raise ValueError('Cannot handle raster data with bands that ' +
                     'have different data-ignore values per band.')
-            print(f"!&&data_ignore: {data_ignore}, self.gdata_ignore: {self.data_ignore}")
+            # print(f"!&&data_ignore: {data_ignore}, self.gdata_ignore: {self.data_ignore}")
 
     def get_format(self) -> str:
         return self.gdal_dataset.GetDriver().ShortName
@@ -904,7 +919,6 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
-
 class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def try_load_file(cls, path: str) -> ['NetCDF_GDALRasterDataImpl']:
@@ -1000,7 +1014,9 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return self._geotransform
 
     def get_wkt_spatial_reference(self):
-        return self._spatial_ref.ExportToWkt()
+        if self._spatial_ref:
+            return self._spatial_ref.ExportToWkt()
+        return None
 
     def read_spatial_ref(self):
         return self._spatial_ref

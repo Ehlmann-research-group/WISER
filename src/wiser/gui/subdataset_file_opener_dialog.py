@@ -75,6 +75,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         self._wavelengths: Optional[np.ndarray] = None
         self._use_wavelengths: bool = None
         self.netcdf_impl = None  # Of type NetCDF_GDALRasterDataImpl
+        self._band_count: int = None
         # Update dataset name label so the user sees which file they are working with
         description = self._gdal_dataset.GetDescription() or "<unknown>"
         self._ui.lbl_dataset_name.setText(os.path.basename(description))
@@ -83,8 +84,8 @@ class SubdatasetFileOpenerDialog(QDialog):
         self._init_subdataset_cbox()
         self._init_geo_transform()
         self._init_spatial_ref()
+        # Must be before _init_bands_table_widget
         self._init_bands_table_widget()
-        self._init_band_units()
 
         # When the geo-transform / SRS check-boxes are toggled we dim / un-dim
         # the text so the user has quick visual feedback.
@@ -261,40 +262,9 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         subdataset = self._get_selected_subdataset()
 
-        band_count = subdataset.RasterCount
-        if wavelengths is not None and band_count == len(wavelengths):
-            self._use_wavelengths = True
-        else:
-            self._use_wavelengths = False
-
-        tbl.setRowCount(band_count)
-        print(f'BAND COUNT: {band_count}')
-        for i in range(band_count):
-            if self._use_wavelengths:
-                text = f"Band {i}: {wavelengths[i]:.2f}"
-            else:
-                text = f"Band {i}"
-            tbl.setItem(i, 0, QTableWidgetItem(text))
-
-        # Disable wavelength-unit selection if we did not manage to extract any.
-        self._ui.cbox_wavelength_units.setEnabled(self._use_wavelengths)
-
-        # Hide the vertical header (row numbers)
-        self._ui.table_wdgt_bands.verticalHeader().setVisible(False)
-
-        # A little polish: resize to fit contents.
-        tbl.resizeColumnsToContents()
-        tbl.resizeRowsToContents()
-
-    def _init_band_units(self) -> None:
-        """Populate the wavelength-units combo-box with common choices."""
+        # Init the combo box for band unit
         cmb = self._ui.cbox_wavelength_units
         cmb.clear()
-
-        # If we have no wavelength information we leave the combo disabled.
-        if self._wavelengths is None:
-            cmb.setEnabled(False)
-            return
 
         # Helpful mapping of units (some duplicates removed for clarity)
         unit_options: list[tuple[str, Optional[u.Unit]]] = [
@@ -313,9 +283,52 @@ class SubdatasetFileOpenerDialog(QDialog):
         for text, unit_obj in unit_options:
             cmb.addItem(text, userData=unit_obj)
 
+        cmb.activated.connect(self.on_unit_cbox_changed)
+
         # Default to nanometers if present.
         default_index = next((i for i, (_, uobj) in enumerate(unit_options) if uobj == u.nanometer), 0)
         cmb.setCurrentIndex(default_index)
+
+        # If we have no wavelength information we leave the combo disabled.
+        if self._wavelengths is None:
+            cmb.setEnabled(False)
+
+        self._band_count = subdataset.RasterCount
+        if wavelengths is not None and self._band_count == len(wavelengths) and self._get_wavelength_units() is not None:
+            self._use_wavelengths = True
+        else:
+            self._use_wavelengths = False
+        print(f"self._get_wavelength_units(): {self._get_wavelength_units()}")
+    
+        # Disable wavelength-unit selection if we did not manage to extract any.
+        self._ui.cbox_wavelength_units.setEnabled(self._use_wavelengths)
+
+        tbl.setRowCount(self._band_count)
+        print(f'BAND COUNT: {self._band_count}')
+        for i in range(self._band_count):
+            if self._use_wavelengths:
+                text = f"Band {i}: {wavelengths[i]:.2f}"
+            else:
+                text = f"Band {i}"
+            tbl.setItem(i, 0, QTableWidgetItem(text))
+
+        # Hide the vertical header (row numbers)
+        self._ui.table_wdgt_bands.verticalHeader().setVisible(False)
+
+        # A little polish: resize to fit contents.
+        tbl.resizeColumnsToContents()
+        tbl.resizeRowsToContents()
+
+    def on_unit_cbox_changed(self, index):
+        data = self._ui.cbox_wavelength_units.currentData()
+        if data is None:
+            self._use_wavelengths = False
+        elif self._wavelengths is not None and self._band_count == len(self._wavelengths):
+            self._use_wavelengths = True
+        # The else case is if we are on a dataset that doesn't have wavelengths like glt_x,
+        # so we let the logic in init_bands_table_widget handle this.
+
+        print(f"Changed and get_units: {self._get_wavelength_units()}")
 
     # ------------------------------------------------------------------
     # Getters – public helpers that callers can use once the dialog returns
@@ -331,7 +344,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         assert subdataset is not None, "Selected subdataset can not be opened!"
         return subdataset
 
-    def _get_wavelength_units(self) -> Optional[u.Unit]:
+    def  _get_wavelength_units(self) -> Optional[u.Unit]:
         """Return the currently selected *astropy.units.Unit* or *None*."""
         return self._ui.cbox_wavelength_units.currentData()
 
