@@ -507,14 +507,19 @@ class RasterDataSet:
         if arr is None:
             arr = self._impl.get_band_data(band_index)
 
+            print(f"filter_data_ignore_value: {filter_data_ignore_value}")
+            print(f"self._data_ignore_value: {self._data_ignore_value}")
             if filter_data_ignore_value and self._data_ignore_value is not None:
+                print(f"creating mask!")
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
         
             # Must get min after making it a masked array
             if band_index in self._cached_band_stats:
+                print(f"Getting old band min band max")
                 band_min = self._cached_band_stats[band_index].get_min()
                 band_max = self._cached_band_stats[band_index].get_max()
             else:
+                print(f"getting new band min band max!!!")
                 has_inf = np.isinf(arr).any()
 
                 filtered_arr = arr
@@ -532,8 +537,10 @@ class RasterDataSet:
                 arr = np.ma.masked_array(arr, mask=mask)
             else:
                 arr = normalize_ndarray(arr, band_min, band_max)
-
-            self._cached_band_stats[band_index] = stats
+            print(f"band min: {band_min}")
+            print(f"band max: {band_max}")
+            print(f"Data ignore: {self._data_ignore_value}")
+            self._cached_band_stats[(band_index, self._data_ignore_value)] = stats
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
