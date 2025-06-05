@@ -798,7 +798,7 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None,
-        use_old_method = False, test_new_method=False) -> BandMathValue:
+        use_old_method = False, test_parallel_io=False) -> BandMathValue:
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -857,11 +857,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
     
     max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
-    print(f"Max chunking bytes: {max_chunking_bytes}")
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
 
-    test_new_method = True
-    if test_new_method or \
+    if test_parallel_io or \
     (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
      and not use_old_method):
         try:

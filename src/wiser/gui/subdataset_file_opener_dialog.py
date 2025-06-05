@@ -218,7 +218,6 @@ class SubdatasetFileOpenerDialog(QDialog):
             try:
                 srs = osr.SpatialReference()
                 srs.ImportFromWkt(srs_string)
-                print(f"srs pretty: {srs.ExportToPrettyWkt()}")
                 pretty_wkt = srs.ExportToPrettyWkt()
                 display_text = _truncate_pretty_wkt(pretty_wkt, MAX_LINES, MAX_LINE_LENGTH)
             except Exception:
@@ -298,13 +297,11 @@ class SubdatasetFileOpenerDialog(QDialog):
             self._use_wavelengths = True
         else:
             self._use_wavelengths = False
-        print(f"self._get_wavelength_units(): {self._get_wavelength_units()}")
     
         # Disable wavelength-unit selection if we did not manage to extract any.
         self._ui.cbox_wavelength_units.setEnabled(self._use_wavelengths)
 
         tbl.setRowCount(self._band_count)
-        print(f'BAND COUNT: {self._band_count}')
         for i in range(self._band_count):
             if self._use_wavelengths:
                 text = f"Band {i}: {wavelengths[i]:.2f}"
@@ -327,8 +324,6 @@ class SubdatasetFileOpenerDialog(QDialog):
             self._use_wavelengths = True
         # The else case is if we are on a dataset that doesn't have wavelengths like glt_x,
         # so we let the logic in init_bands_table_widget handle this.
-
-        print(f"Changed and get_units: {self._get_wavelength_units()}")
 
     # ------------------------------------------------------------------
     # Getters – public helpers that callers can use once the dialog returns
@@ -389,32 +384,13 @@ class SubdatasetFileOpenerDialog(QDialog):
         srs = self._get_spatial_reference()
         subdataset_choice_data = self._get_subdataset_choice()
         subdataset_name = subdataset_choice_data[1]
-        print(f"!!## subdataset name: {subdataset_name}")
         subdataset: gdal.Dataset = gdal.Open(subdataset_name)
         if self._use_wavelengths:
             wavelengths = self._wavelengths
         else:
             wavelengths = None
         geotransform = self._get_geo_transform()
-        print(f"wl_unit: {srs}")
-        print(f"wl_unit: {wl_unit}")
-        print(f"wavelengths: {wavelengths}")
-        print(f"geotransform: {geotransform}")
-        print(f"type(subdataset): {type(subdataset)}")
-        print(f"type(self._netcdf_dataset): {type(self._netcdf_dataset)}")
-        print(f"!!@@subdataset raster band: {subdataset.GetRasterBand(1).ReadAsArray()}")
         self.netcdf_impl = NetCDF_GDALRasterDataImpl(subdataset, self._netcdf_dataset, subdataset_name,
                                                 srs, wl_unit, wavelengths, geotransform)
-
-        print(f"netcdf_impl.read_band_info(): {self.netcdf_impl.read_band_info()}")
-        print(f"netcdf_impl.get_wkt_spatial_reference(): {self.netcdf_impl.get_wkt_spatial_reference()}")
-        print(f"netcdf_impl.read_spatial_ref(): {self.netcdf_impl.read_spatial_ref()}")
-        print(f"netcdf_impl.read_geo_transform(): {self.netcdf_impl.read_geo_transform()}")
-        print(f"netcdf_impl.read_band_unit(): {self.netcdf_impl.read_band_unit()}")
-
-        # Figure out if we should put SRS info on
-            # FIgure out if we should put geo transform information on there
-        
-        # Figure out if we should put wavelength info on. 
 
         super().accept()

@@ -101,7 +101,7 @@ class RasterDataLoader:
 
         if impl_list is None:
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
-        print(f"IMPL LIST: {impl_list}")
+
         outer_datasets = []
         for impl in impl_list:
             func = self._format_loaders[type(impl)]

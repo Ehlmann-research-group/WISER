@@ -168,7 +168,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         self.subdataset_name = None
         self.data_ignore: Optional[Union[float, int]] = None
         self._validate_dataset()
-        print(f'GDAL DATASET INIT')
         self._save_state = SaveState.UNKNOWN
 
     def _validate_dataset(self):
@@ -205,7 +204,6 @@ class GDALRasterDataImpl(RasterDataImpl):
             elif data_ignore is not None and self.data_ignore != data_ignore:
                 raise ValueError('Cannot handle raster data with bands that ' +
                     'have different data-ignore values per band.')
-            # print(f"!&&data_ignore: {data_ignore}, self.gdata_ignore: {self.data_ignore}")
 
     def get_format(self) -> str:
         return self.gdal_dataset.GetDriver().ShortName
@@ -219,7 +217,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         # TODO(donnie):  Sort the list?  Or does the driver return the filenames
         #     in a meaningful order?
         paths = self.gdal_dataset.GetFileList()
-        print(f'!!$$file paths: {paths}')
         if paths is None:
             paths = []
 
@@ -236,7 +233,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         file_path = self.subdataset_name if self.subdataset_name is not None else file_paths[0]  # Assuming the first file is the main dataset
         driver = self.gdal_dataset.GetDriver().ShortName
-        print(f"!!%%file path: {file_path}")
+
         # Open the dataset with the corresponding driver
         new_dataset = gdal.OpenEx(file_path, 
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
@@ -941,31 +938,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         instances_list = []  # List to hold instances of the class
     
         if subdatasets:
-            print(f"has subdatasets")
             subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
             if subdataset_chooser.exec_() == QDialog.Accepted:
-                print(f"dialog accepted yay!")
-            if subdataset_chooser.netcdf_impl is not None:
-                instances_list.append(subdataset_chooser.netcdf_impl)
-            # for subdataset_name, description in subdatasets:
-            #     print(f"going through each subdaataset")
-            #     # Extract the actual subdataset name from the path (e.g., "reflectance", "Calcite", etc.)
-            #     subdataset_key = subdataset_name.split(':')[-1]
-            #     # Check if the subdataset name is in the emit_data_names set
-            #     # if subdataset_key in emit_data_names:
-            #     # Open the subdataset
-            #     gdal_subdataset = gdal.Open(subdataset_name)
-            #     if gdal_subdataset is None:
-            #         raise ValueError(f"Unable to open subdataset: {subdataset_name}")
-
-            #     # Create an instance of the class for each matching subdataset
-            #     instance = cls(gdal_subdataset)
-            #     instance.subdataset_name = subdataset_name
-            #     instance.subdataset_key = subdataset_key
-            #     # Add the instance to the list
-            #     instances_list.append(instance)
+                if subdataset_chooser.netcdf_impl is not None:
+                    instances_list.append(subdataset_chooser.netcdf_impl)
         else:
-            print(f"SAVING NETCDF AS JUST A GDAL RASTER DATASET")
             return [GDALRasterDataImpl(gdal_dataset)]
 
         if instances_list is []:
@@ -976,9 +953,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                  subdataset_name: str, spatial_ref: Optional[osr.SpatialReference],
                  band_units: Optional[u.Unit], wavelengths: Optional[np.ndarray],
                  geotransform: Optional[Tuple]):
-        print(f'NetCDF being created!')
         super().__init__(gdal_dataset)
-        print(f'NetCDF variable instantiated!')
         self._netcdf_dataset = netcdf_dataset
         self._spatial_ref: Optional[osr.SpatialReference] = spatial_ref
         self._wavelength_units: Optional[u.Unit] = band_units
@@ -988,23 +963,12 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
         self._subdataset_name = subdataset_name
 
-    # def set_geo_transform(self, gt: Tuple):
-    #     self._geotransform = gt
-
-    # def set_spatial_reference(self, srs: osr.SpatialReference):
-    #     self._spatial_ref = srs
-
-    # def set_band_unit(self, unit: u.Unit):
-    #     self._band_unit = unit
-
     def get_filepaths(self):
         '''
         Returns the paths and filenames of all files associated with this raster
         dataset.  This will be an empty list (not None) if the data is in-memory
         only.
         '''
-        # TODO(donnie):  Sort the list?  Or does the driver return the filenames
-        #     in a meaningful order?
         if self._subdataset_name is None:
             return []
 
@@ -1072,7 +1036,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     def delete_dataset(self):
         return super().delete_dataset()
     
-
 
 class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod

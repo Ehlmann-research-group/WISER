@@ -1517,17 +1517,13 @@ class GeoReferencerDialog(QDialog):
         output_srs = osr.SpatialReference()
         output_srs = self._import_current_output_srs()
         output_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-        print(f"!!!.output_srs: {output_srs}")
 
         ref_srs = self._get_reference_srs()
         ref_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         ref_projection = ref_srs.ExportToWkt()
-        print(f"!!!.ref_srs: {ref_srs}")
-        print(f"ref_projection: {ref_projection}")
         # If it doesn't have a gdal dataset, instead we create one from a smaller array just to do geo referencing
         assert ref_projection is not None and ref_srs is not None, \
                 f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
-        print(f"made IT past ASSERT")
         temp_gdal_ds = None
         place_holder_arr = np.zeros((1, 1), np.uint8)
         temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
@@ -1617,8 +1613,6 @@ class GeoReferencerDialog(QDialog):
                 # print(f"error_raster_x: {error_raster_x}")
                 # print(f"error_raster_y: {error_raster_y}")
 
-                print(f"error_raster_x: {round(error_raster_x, 6)}")
-                print(f"error_raster_y: {round(error_raster_y, 6)}")
                 entry.set_residual_x(round(error_raster_x, 6))
                 entry.set_residual_y(round(error_raster_y, 6))
 
