@@ -943,6 +943,47 @@ class RasterDataSet:
         dataset_edit = DatasetEditorDialog(self, app)
         dataset_edit.exec_()
 
+    def update_band_info(self, wavelengths: List[u.Quantity]):
+        '''
+        Updates the band information for this dataset. Updates the units and
+        the _band_info field. These changes do not persist across sessions.
+        
+        TODO (Joshua G-K): Keep previous band description if there were some.
+        '''
+        self._band_unit = wavelengths[0].unit
+        self._has_wavelengths = True
+
+        assert isinstance(wavelengths[0], u.Quantity), "Wavelengths array passed into band info isn't made of u.Quantity"
+        assert len(wavelengths) == self.num_bands(), "Wavelengths to update band info doesn't equal num bands"
+
+        band_info = []
+
+        for band_index in range(len(wavelengths)):
+            description = f'{wavelengths[band_index]}'
+            if self._band_info is not None:
+                this_band_info = self._band_info[band_index]
+                if 'description' in this_band_info and this_band_info['description']:
+                    print(f"this_band_info['description']: {this_band_info['description']}")
+                    description = this_band_info['description']
+            print(f"description: {description}")
+            info = {'index':band_index, 'description':description}
+
+            wl_str = str(wavelengths[band_index].value)
+            wl_units = str(wavelengths[band_index].unit.to_string())
+            wavelength = wavelengths[band_index]
+
+            info['wavelength_str'] = wl_str  # String of the value, not the units
+            info['wavelength_units'] = wl_units
+            info['wavelength'] = wavelength
+
+            band_info.append(info)
+        
+        self._band_info = band_info
+        print(f"self._band_info: {self._band_info}")
+
+    def get_band_info(self):
+        return self._band_info   
+
     def get_save_state(self):
         return self._impl.get_save_state()
 

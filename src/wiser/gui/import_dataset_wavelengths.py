@@ -3,7 +3,7 @@ import os
 import sys
 import traceback
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -14,11 +14,15 @@ from astropy import units as u
 from enum import Enum
 
 import pandas as pd
+import numpy as np
 
 from .generated.import_wavelengths_ui import Ui_ImportDatasetWavelengthsDialog
 
 from wiser.raster import spectra_export
 from wiser.gui.import_spectra_text import avg_occurrences_per_line
+
+if TYPE_CHECKING:
+    from wiser.raster.dataset import RasterDataSet
 
 class Axis(Enum):
     ROW = 'Rows',
@@ -27,16 +31,19 @@ class Axis(Enum):
 
 class ImportDatasetWavelengthsDialog(QDialog):
 
-    def __init__(self, filepath: str, parent=None):
+    def __init__(self, filepath: str, dataset: 'RasterDataSet', parent=None):
         super().__init__(parent=parent)
         self._ui = Ui_ImportDatasetWavelengthsDialog()
         self._ui.setupUi(self)
 
         self._filepath = filepath
+        self._dataset = dataset
         with open(filepath) as f:
-            self._spectra_text: List[str] = f.readlines()
+            self._wavelength_text: List[str] = f.readlines()
 
-        self._spectra: Optional[List[Spectrum]] = None
+        self._wavelength_arr: Optional[np.ndarray] = None
+        self._wavelength_units: Optional[u.Unit] = None
+        self._wavelengths: Optional[List[u.Quantity]] = None
 
         # Configure the UI widgets
 
@@ -54,6 +61,9 @@ class ImportDatasetWavelengthsDialog(QDialog):
         self._ui.cbox_wavelength_units.addItem(self.tr('Wavenumber' ), 'wavenumber')
         self._ui.cbox_wavelength_units.addItem(self.tr('MHz'        ), 'mhz'       )
         self._ui.cbox_wavelength_units.addItem(self.tr('GHz'        ), 'ghz'       )
+        idx = self._ui.cbox_wavelength_units.findData('nm')
+        if idx != -1:
+            self._ui.cbox_wavelength_units.setCurrentIndex(idx)
 
         self._ui.cbox_axis.addItem(Axis.ROW.name, Axis.ROW)
         self._ui.cbox_axis.addItem(Axis.COL.name, Axis.COL)
@@ -61,6 +71,8 @@ class ImportDatasetWavelengthsDialog(QDialog):
 
         validator = QIntValidator(self)
         self._ui.ledit_wvl_index.setValidator(validator)
+        self._ui.ledit_wvl_index.setText("0")
+        self._ui.ledit_wvl_index.textChanged.connect(lambda s: self.update_results())
 
         # Hook up event-handlers
 
@@ -75,9 +87,9 @@ class ImportDatasetWavelengthsDialog(QDialog):
         self.update_results()
 
     def guess_delimiter(self):
-        avg_tabs = avg_occurrences_per_line(self._spectra_text, '\t')
-        avg_commas = avg_occurrences_per_line(self._spectra_text, ',')
-        avg_spaces = avg_occurrences_per_line(self._spectra_text, ' ')
+        avg_tabs = avg_occurrences_per_line(self._wavelength_text, '\t')
+        avg_commas = avg_occurrences_per_line(self._wavelength_text, ',')
+        avg_spaces = avg_occurrences_per_line(self._wavelength_text, ' ')
 
         # We prioritize the delimiters since commas are definitely not numbers,
         # and the others are whitespace so they can be stripped.  But, if there
@@ -103,7 +115,7 @@ class ImportDatasetWavelengthsDialog(QDialog):
         This function takes the current delimiter and guesses whether or not
         the input data has a header row or not.
         '''
-        header_row = self._spectra_text[0]
+        header_row = self._wavelength_text[0]
         parts = header_row.split(self._ui.cbox_delimiter.currentData())
 
         # If we can parse everything in the first row as a number then we
@@ -128,51 +140,61 @@ class ImportDatasetWavelengthsDialog(QDialog):
         '''
         self._ui.txtedit_results.clear()
 
-        df = None
-        separation_axis = self._ui.cbox_axis.currentData()
-        has_header = self._ui.ckbox_header_row.isChecked()
-        delimiter = self._ui.cbox_delimiter.currentData()
-        print(f"separation_axis: {separation_axis}")
-        print(f"has_header: {has_header}")
-        print(f"delimiter: |{delimiter}|")
-        if has_header:
-            header = 0
-        else:
-            header = None
-        if separation_axis == Axis.ROW:
-            df = pd.read_csv(self._filepath, sep=delimiter, header=header)
-        elif separation_axis == Axis.COL:
-            df_single = pd.read_csv(self._filepath, sep="\n", header=header, names=["raw"])
-            df = df_single["raw"].str.split(delimiter, expand=True)
-        else:
-            raise RuntimeError("Separation Axis isn't Axis.ROW or Axis.COL!")
-        print(f"!@df: \n {df}")
-
-        # Get out all the config so we can try parsing the data with it.
-        delim = self._ui.cbox_delimiter.currentData()
-        has_header = self._ui.ckbox_header_row.isChecked()
-
-        wavelength_cols = spectra_export.WavelengthCols.NO_WAVELENGTHS
-
-        wavelength_units = self._ui.cbox_wavelength_units.currentData()
-
         try:
-            spectra = spectra_export.import_spectra_text(self._spectra_text,
-                delim=delim, has_header=has_header,
-                source_name=os.path.basename(self._filepath),
-                wavelength_cols=wavelength_cols, wavelength_unit=wavelength_units)
+            df = None
+            separation_axis = self._ui.cbox_axis.currentData()
+            has_header = self._ui.ckbox_header_row.isChecked()
+            delimiter = self._ui.cbox_delimiter.currentData()
+            index = int(self._ui.ledit_wvl_index.text())
+            wvl_units = self._ui.cbox_wavelength_units.currentData()
+            print(f"separation_axis: {separation_axis}")
+            print(f"has_header: {has_header}")
+            print(f"delimiter: |{delimiter}|")
+            print(f"index: {index}")
+            print(f"wvl_units: {wvl_units}")
+            if has_header:
+                header = 0
+            else:
+                header = None
+            df = pd.read_csv(self._filepath, sep=delimiter, header=header)
+
+            if separation_axis == Axis.ROW:
+                wvl_arr = df.iloc[index,:].values
+            elif separation_axis == Axis.COL:
+                wvl_arr = df.iloc[:,index].values
+            else:
+                raise RuntimeError("Separation Axis isn't Axis.ROW or Axis.COL!")
+            print(f"!@df: \n {df}")
+
+            print(f"wvl_arr: {wvl_arr}")
+            print(f"wvl_arr.shape: {wvl_arr.shape}")
+            print(f"len(wvl_arr): {len(wvl_arr)}")
+
+            if len(wvl_arr) != self._dataset.num_bands():
+                raise ValueError(f"Number of wavelengths ({len(wvl_arr)}) != Num bands ({self._dataset.num_bands()})")
 
             msg = self.tr('Successfully parsed text into {0} spectra:')
-            msg = msg.format(len(spectra))
+            msg = msg.format(len(wvl_arr))
 
             msg += '<ul>'
-            for s in spectra:
-                s_msg = self.tr('<li>"{0}" ({1} bands)</li>')
-                s_msg = s_msg.format(s.get_name(), s.num_bands())
+            for i in range(len(wvl_arr)):
+                wvl = wvl_arr[i]
+                s_msg = self.tr('<li>Band {0}: {1}</li>')
+                s_msg = s_msg.format(i, wvl)
                 msg += s_msg
             msg += '</ul>'
 
-            self._spectra = spectra
+            self._wavelength_arr = wvl_arr
+            self._wavelength_units = wvl_units
+            print(f"self._wavelength_units: {self._wavelength_units}")
+            for w in self._wavelength_arr:
+                print(f"w: {w}")
+                print(f"type(w): {type(w)}")
+                print(f"self._wavelength_units: {self._wavelength_units}")
+                print(f"type(self._wavelength_units): {type(self._wavelength_units)}")
+                print(f"u.QUantity w, self._wavelength_units: {u.Quantity(w, self._wavelength_units)}")
+                print(f"type of u.Quantity(w, self._wavelength_units): {type(u.Quantity(w, self._wavelength_units))}")
+            self._wavelengths = [u.Quantity(w, self._wavelength_units) for w in self._wavelength_arr]
 
         except Exception as e:
             traceback.print_exc()
@@ -183,5 +205,30 @@ class ImportDatasetWavelengthsDialog(QDialog):
         self._ui.txtedit_results.setHtml(msg)
 
 
+    def get_wavelength_array(self) -> Optional[np.ndarray]:
+        return self._wavelength_arr
+
+    def get_wavelength_units(self) -> u.Unit:
+        return self._wavelength_units
+
     def get_wavelengths(self) -> List[u.Quantity]:
-        return self._spectra
+        return self._wavelengths
+    
+    def accept(self):
+        # We will have to update the dataset stuff. If the dataset already has stuff
+        # we show a warning to the user. We have to update the band_info and dataset 
+        # units 
+        if self._dataset.get_band_unit() is not None:
+            reply = QMessageBox.question(
+                self,
+                self.tr("Override Band Units?"),
+                self.tr("The dataset already has band unit information.\n"
+                        "Are you sure you want to override it?"),
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                return
+
+        self._dataset.update_band_info(self._wavelengths)
+        super().accept()

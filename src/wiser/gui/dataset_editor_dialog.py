@@ -57,7 +57,7 @@ class DatasetEditorDialog(QDialog):
             self._app._app_state.get_current_dir(), 'Text files (*.txt) ;; Tab files (*.tab) ;; All Files (*)')
         if selected[0]:
             filepath = selected[0]
-            dialog = ImportDatasetWavelengthsDialog(filepath)
+            dialog = ImportDatasetWavelengthsDialog(filepath, self._raster_dataset)
             dialog.exec_()
 
     def _get_data_ignore_value(self) -> Optional[float]:

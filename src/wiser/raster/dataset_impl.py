@@ -426,14 +426,16 @@ class GDALRasterDataImpl(RasterDataImpl):
             band = self.gdal_dataset.GetRasterBand(band_index)
 
             info = {'index':band_index - 1, 'description':band.GetDescription()}
+            print(f"band.GetDescription(): {band.GetDescription()}")
 
             gdal_metadata = band.GetMetadata()
             if 'wavelength' in gdal_metadata and 'wavelength_units' in gdal_metadata:
                 wl_str = gdal_metadata['wavelength']
                 wl_units = gdal_metadata['wavelength_units']
 
-                info['wavelength_str'] = wl_str
+                info['wavelength_str'] = wl_str  # String of the value, not the units
                 info['wavelength_units'] = wl_units
+                print(f"type wl_units: {type(wl_units)}")
                 # This could fail if the wavelength isn't a float, or if the
                 # units aren't recognized
                 try:
