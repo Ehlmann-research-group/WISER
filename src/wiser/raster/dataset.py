@@ -977,7 +977,6 @@ class RasterDataSet:
         new data ignore value. 
         '''
         if self._data_ignore_value is not None:
-            print(f"self._data_ignore_Value: {self._data_ignore_value}")
             return hash((self._id, self._data_ignore_value))
         return self._id
 

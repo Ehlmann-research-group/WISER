@@ -34,6 +34,7 @@ class DatasetEditorDialog(QDialog):
 
         # Add a QDoubleValidator that allows positive and negative values
         self._init_validators()
+        self._init_import_wvl()
 
     def _init_validators(self) -> None:
         """
@@ -44,6 +45,20 @@ class DatasetEditorDialog(QDialog):
         validator.setNotation(QDoubleValidator.StandardNotation)
         self._ui.ledit_data_ignore.setValidator(validator)
         self._ui.ledit_data_ignore.setText(str(self._raster_dataset.get_data_ignore_value()))
+
+    def _init_import_wvl(self) -> None:
+        self._ui.btn_import_wavelengths.clicked.connect(self._on_import_wvl_clicked)
+
+    def _on_import_wvl_clicked(self, checked: bool = False) -> None:
+        from wiser.gui.import_dataset_wavelengths import ImportDatasetWavelengthsDialog
+        print(f"import wvl clicked")
+        selected = QFileDialog.getOpenFileName(self,
+            self.tr("Open Wavelengths File"),
+            self._app._app_state.get_current_dir(), 'Text files (*.txt) ;; Tab files (*.tab) ;; All Files (*)')
+        if selected[0]:
+            filepath = selected[0]
+            dialog = ImportDatasetWavelengthsDialog(filepath)
+            dialog.exec_()
 
     def _get_data_ignore_value(self) -> Optional[float]:
         """

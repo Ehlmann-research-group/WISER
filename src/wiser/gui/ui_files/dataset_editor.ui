@@ -37,6 +37,13 @@ willonly persist for this session of WISER.</string>
     </layout>
    </item>
    <item>
+    <widget class="QPushButton" name="btn_import_wavelengths">
+     <property name="text">
+      <string>Import Wavelengths</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>

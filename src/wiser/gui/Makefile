@@ -25,6 +25,7 @@ FILENAMES=\
 	geo_referencer_dialog_ui.py \
 	image_coords_widget_ui.py \
 	import_spectra_text_ui.py \
+	import_wavelengths_ui.py \
 	reference_system_creator_ui.py \
 	roi_info_editor_ui.py \
 	save_dataset_advanced_details_ui.py \
