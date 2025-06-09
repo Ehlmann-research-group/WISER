@@ -54,7 +54,7 @@ class DatasetEditorDialog(QDialog):
         print(f"import wvl clicked")
         selected = QFileDialog.getOpenFileName(self,
             self.tr("Open Wavelengths File"),
-            self._app._app_state.get_current_dir(), 'Text files (*.txt) ;; Tab files (*.tab) ;; All Files (*)')
+            self._app._app_state.get_current_dir(), ' All Files (*) ;; Text files (*.txt) ;; Tab files (*.tab)')
         if selected[0]:
             filepath = selected[0]
             dialog = ImportDatasetWavelengthsDialog(filepath, self._raster_dataset)

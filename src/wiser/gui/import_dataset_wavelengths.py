@@ -44,6 +44,7 @@ class ImportDatasetWavelengthsDialog(QDialog):
         self._wavelength_arr: Optional[np.ndarray] = None
         self._wavelength_units: Optional[u.Unit] = None
         self._wavelengths: Optional[List[u.Quantity]] = None
+        self._parse_error: bool = False
 
         # Configure the UI widgets
 
@@ -65,8 +66,8 @@ class ImportDatasetWavelengthsDialog(QDialog):
         if idx != -1:
             self._ui.cbox_wavelength_units.setCurrentIndex(idx)
 
-        self._ui.cbox_axis.addItem(Axis.ROW.name, Axis.ROW)
         self._ui.cbox_axis.addItem(Axis.COL.name, Axis.COL)
+        self._ui.cbox_axis.addItem(Axis.ROW.name, Axis.ROW)
         self._ui.cbox_axis.activated.connect(lambda s: self.update_results())
 
         validator = QIntValidator(self)
@@ -195,12 +196,15 @@ class ImportDatasetWavelengthsDialog(QDialog):
                 print(f"u.QUantity w, self._wavelength_units: {u.Quantity(w, self._wavelength_units)}")
                 print(f"type of u.Quantity(w, self._wavelength_units): {type(u.Quantity(w, self._wavelength_units))}")
             self._wavelengths = [u.Quantity(w, self._wavelength_units) for w in self._wavelength_arr]
+            self._parse_error = False
 
         except Exception as e:
             traceback.print_exc()
 
             msg = self.tr('<p style="color:red">ERROR:  Could not parse text into spectra.</p><p>Reason:  {0}</p>')
             msg = msg.format(str(e))
+
+            self.parse_error = True
 
         self._ui.txtedit_results.setHtml(msg)
 
@@ -230,5 +234,6 @@ class ImportDatasetWavelengthsDialog(QDialog):
             if reply == QMessageBox.No:
                 return
 
-        self._dataset.update_band_info(self._wavelengths)
+        if not self._parse_error:
+            self._dataset.update_band_info(self._wavelengths)
         super().accept()

@@ -566,6 +566,7 @@ class SimilarityTransformDialog(QDialog):
                     raise RuntimeError("GDAL driver not available")
                 new_dataset: gdal.Dataset = driver.CreateCopy(save_path, translation_gdal_dataset, 0)
                 new_dataset.SetGeoTransform(new_geo_transform)
+                copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
                 new_dataset.FlushCache()
                 new_dataset = None
             else:

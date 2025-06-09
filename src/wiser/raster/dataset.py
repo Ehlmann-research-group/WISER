@@ -960,12 +960,6 @@ class RasterDataSet:
 
         for band_index in range(len(wavelengths)):
             description = f'{wavelengths[band_index]}'
-            if self._band_info is not None:
-                this_band_info = self._band_info[band_index]
-                if 'description' in this_band_info and this_band_info['description']:
-                    print(f"this_band_info['description']: {this_band_info['description']}")
-                    description = this_band_info['description']
-            print(f"description: {description}")
             info = {'index':band_index, 'description':description}
 
             wl_str = str(wavelengths[band_index].value)
@@ -979,7 +973,6 @@ class RasterDataSet:
             band_info.append(info)
         
         self._band_info = band_info
-        print(f"self._band_info: {self._band_info}")
 
     def get_band_info(self):
         return self._band_info   

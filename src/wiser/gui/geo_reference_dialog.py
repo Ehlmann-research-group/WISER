@@ -104,6 +104,20 @@ class UserGeneratedCRS(GeneralCRS):
 
     def get_osr_crs(self) -> Optional[osr.SpatialReference]:
         return self._crs
+    
+class WktGeneratedCRS(GeneralCRS):
+    def __init__(self, name: str, wkt: str):
+        self._name = name
+        self._wkt = wkt
+        self._crs = CRS.from_wkt(wkt)
+        print(f"self._crs.to_wkt: {self._crs.to_wkt()}")
+        crs = osr.SpatialReference()
+        crs.ImportFromWkt(wkt)
+        self._crs = crs
+        print(f"self._crs.Export: {self._crs.ExportToWkt()}")
+    
+    def get_osr_crs(self) -> Optional[osr.SpatialReference]:
+        return self._crs
 
 
 COMMON_SRS = {
@@ -425,19 +439,33 @@ class GeoReferencerDialog(QDialog):
         # Use the friendly key (e.g., "WGS84") as the display text,
         # and store the corresponding SRS string (e.g., "EPSG:4326") as userData.
         if self._reference_rasterpane is not None and self._reference_rasterpane.get_rasterview().get_raster_data() is not None:
-            ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
-            reference_srs_name = "Ref CRS: " + ref_ds.get_spatial_ref().GetName()
-            reference_srs_code = ref_ds.get_spatial_ref().GetAuthorityCode(None)
-            if reference_srs_code is None:
-                self.set_message_text("Could not get an authority code for default dataset")
-                ref_srs = ref_ds.get_spatial_ref()
-                crs = CRS.from_wkt(ref_srs.ExportToWkt())
-                if crs is not None:
-                    auth_name, auth_code = crs.to_authority()
-                    srs_cbox.addItem(reference_srs_name, AuthorityCodeCRS(auth_name, int(auth_code)))
-            else:
-                srs_cbox.addItem(reference_srs_name, AuthorityCodeCRS(ref_ds.get_spatial_ref().GetAuthorityName(None), \
-                                                      int(reference_srs_code)))
+            try:
+                ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
+                reference_srs_name = "Ref CRS: " + ref_ds.get_spatial_ref().GetName()
+                reference_srs_code = ref_ds.get_spatial_ref().GetAuthorityCode(None)
+                if reference_srs_code is None:
+                    self.set_message_text("Could not get an authority code for default dataset")
+                    ref_srs = ref_ds.get_spatial_ref()
+                    crs = CRS.from_wkt(ref_srs.ExportToWkt())
+                    if crs is not None:
+                        # print(f"crs: {crs}")
+                        # print(f"crs.name: {crs.name}")
+                        # print(f"crs.to_wkt(): {crs.to_wkt()}")
+                        # print(f"crs.to_authority(): {crs.to_authority()}")
+                        # print(f"type(crs.to_authority()): {type(crs.to_authority())}")
+                        auth_info = crs.to_authority()
+                        if auth_info is None:
+                            name = crs.name if crs.name is not None else 'Uknown Name'
+                            wkt_crs = WktGeneratedCRS(name, crs.to_wkt())
+                            srs_cbox.addItem(name, wkt_crs)
+                        else:
+                            auth_name, auth_code = crs.to_authority()
+                            srs_cbox.addItem(reference_srs_name, AuthorityCodeCRS(auth_name, int(auth_code)))
+                else:
+                    srs_cbox.addItem(reference_srs_name, AuthorityCodeCRS(ref_ds.get_spatial_ref().GetAuthorityName(None), \
+                                     int(reference_srs_code)))
+            except BaseException as e:
+                pass
 
         for name, srs in COMMON_SRS.items():
             srs_cbox.addItem(name, srs)
@@ -546,7 +574,7 @@ class GeoReferencerDialog(QDialog):
         # Get the human-readable name of the SRS
         srs_name = srs.GetName()
 
-        self._add_srs_to_output_cbox(srs_name, authority_str, float(authority_code))
+        self._add_srs_to_output_cbox(srs_name, AuthorityCodeCRS(authority_str, float(authority_code)))
 
     def _on_clear_gcps_clicked(self, checked: bool):
         """
@@ -582,19 +610,26 @@ class GeoReferencerDialog(QDialog):
         srs = self._get_reference_srs()
         auth_name = srs.GetAuthorityName(None)
         auth_code = srs.GetAuthorityCode(None)
+        wkt_str = None
         if auth_name is None or auth_code is None:
-            crs = CRS.from_wkt(srs.ExportToWkt())
-            auth_name, auth_code = crs.to_authority()
-        if auth_name is None or auth_code is None:
-            auth_name = "USER"
-            auth_code = "0"
-
+            wkt_str = srs.ExportToWkt()
+            crs = CRS.from_wkt(wkt_str)
+            wkt_auth = crs.to_authority()
+            if wkt_auth is not None:
+                auth_name, auth_code = wkt_auth
+    
         ext = Path(filename).suffix.lower()
         try:
+            print(f"auth_name: {auth_name}")
+            print(f"type(auth_name): {type(auth_name)}")
+            print(f"auth_code: {auth_code}")
+            print(f"type(auth_code): {type(auth_code)}")
+            print(f"wkt_str: {wkt_str}")
+            print(f"type(wkt_str): {type(wkt_str)}")
             if ext == ".points":
-                self._write_qgis_points_file(filename, auth_name, auth_code)
+                self._write_qgis_points_file(filename, auth_name, auth_code, wkt_str)
             elif ext == ".pts":
-                self._write_envi_pts_file(filename, auth_name, auth_code)
+                self._write_envi_pts_file(filename, auth_name, auth_code, wkt_str)
             else:
                 QMessageBox.warning(self, "Extension error",
                                     "Please use either *.points or *.pts")
@@ -614,17 +649,12 @@ class GeoReferencerDialog(QDialog):
 
         try:
             points, gcp_srs = self._read_gcp_file(filename)
-            auth_name = gcp_srs.GetAuthorityName(None)
-            auth_code = gcp_srs.GetAuthorityCode(None)
-            if auth_name is None or auth_code is None:
-                crs = CRS.from_wkt(gcp_srs.ExportToWkt())
-                auth_name, auth_code = crs.to_authority()
-            if auth_name is None or auth_code is None:
+            if points is None or gcp_srs is None:
                 raise RuntimeError(f"Passed in reference system can't be parsed. Reference system wkt:\n {gcp_srs.ExportToPrettyWkt()}")
         except Exception as e:
             QMessageBox.critical(self, "Load failed", str(e))
             return
-        self.load_gcps_and_srs(gcp_points=points, gcp_srs=AuthorityCodeCRS(auth_name, auth_code))
+        self.load_gcps_and_srs(gcp_points=points, gcp_srs=gcp_srs)
 
     def _on_show_help(self):
         QMessageBox.information(
@@ -687,7 +717,7 @@ class GeoReferencerDialog(QDialog):
         # Get the human-readable name of the SRS
         srs_name = srs.GetName()
 
-        self._add_srs_to_ref_choose_cbox(srs_name, authority_str, float(authority_code))
+        self._add_srs_to_ref_choose_cbox(srs_name, AuthorityCodeCRS(authority_str, float(authority_code)))
 
     def _on_cell_changed(self, row: int, col: int):
         table_widget = self._ui.table_gcps
@@ -918,8 +948,27 @@ class GeoReferencerDialog(QDialog):
 
     #region Helpers
 
+    def compare_srs_lenient(self, srs1: osr.SpatialReference, srs2: osr.SpatialReference):
+        '''
+        Compares srs1 and srs2, but first puts them to WKT, then reimports them as an osr.SpatialReference.
+        We do this because sometimes srs's are the same but because of how they were imported, some
+        less-important meta data may have been lost. We get rid of this meta data for both srs's by
+        using this function
+        '''
+        wkt_1 = srs1.ExportToWkt()
+        wkt_2 = srs2.ExportToWkt()
 
-    def load_gcps_and_srs(self, gcp_points: List[Tuple[float, float, float, float]], gcp_srs: AuthorityCodeCRS):
+        srs1_clone = osr.SpatialReference()
+        srs1_clone.ImportFromWkt(wkt_1)
+
+        srs2_clone = osr.SpatialReference()
+        srs2_clone.ImportFromWkt(wkt_2)
+
+        return srs1_clone.IsSame(srs2_clone)
+
+
+
+    def load_gcps_and_srs(self, gcp_points: List[Tuple[float, float, float, float]], gcp_srs: GeneralCRS):
         '''
         Loads the gcps in with the specified srs
         '''
@@ -930,7 +979,8 @@ class GeoReferencerDialog(QDialog):
         ref_ds = self._get_ref_dataset()
 
         skipped_gcps = []
-        if ref_ds is not None and gcp_srs.get_osr_crs().IsSame(ref_ds.get_spatial_ref()):
+        print(f"self.compare_srs_lenient(gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref()): {self.compare_srs_lenient(gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref())}")
+        if ref_ds is not None and self.compare_srs_lenient(gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref()):
             for map_x, map_y, pix_x, pix_y in gcp_points:
                 # Verify pixel-within-images
                 if not (0 <= pix_x < target_ds.get_width() and 0 <= pix_y < target_ds.get_height()):
@@ -952,7 +1002,7 @@ class GeoReferencerDialog(QDialog):
             self._reference_cbox.setCurrentIndex(self._reference_cbox.findData(-1))
             self._update_manual_ref_chooser_display(None)
             # Populate the srs in the cbox_choose_crs
-            self._add_srs_to_ref_choose_cbox(gcp_srs.get_osr_crs().GetName(), gcp_srs.authority_name, gcp_srs.authority_code)
+            self._add_srs_to_ref_choose_cbox(gcp_srs.get_osr_crs().GetName(), gcp_srs)
             self.set_message_text("Reference CRS changed to match GCP file; select each "
                                   "target point then press Enter to pair it.")
             for map_x, map_y, pix_x, pix_y in gcp_points:
@@ -993,38 +1043,80 @@ class GeoReferencerDialog(QDialog):
             return self._read_envi_pts_file(path)
         raise RuntimeError("Unsupported GCP file extension")
 
-    def _read_qgis_points_file(self, path: str):
+    def _read_qgis_points_file(self, path: str) -> Tuple[List, GeneralCRS]:
+        """Read a QGIS ``*.points`` file.
+
+        If the header contains ``# CRS`` the routine returns an
+        :class:`AuthorityCodeCRS`; otherwise it looks for ``# WKT`` and
+        returns a :class:`WktGeneratedCRS`.
+
+        Returns
+        -------
+        points : list[tuple[float, float, float, float]]
+            ``(map_x, map_y, pixel_x, pixel_y)`` tuples.
+        gcp_srs : GeneralCRS
+            Extracted from the header
+        """
         points = []
         gcp_srs = None
+        pending_wkt = None
+
         with open(path, newline="") as f:
             rdr = csv.reader(f)
             for row in rdr:
                 if not row:
                     continue
                 if row[0].startswith("# CRS"):
-                    _, authcode = row
+                    _, authcode = row[:2]
                     auth, code = authcode.split(":")
-                    gcp_srs = AuthorityCodeCRS(auth, int(code)).get_osr_crs()
+                    gcp_srs = AuthorityCodeCRS(auth, int(code))
+                    continue
+                if row[0].startswith("# WKT"):
+                    # WKT may contain commas, so rebuild the original line
+                    pending_wkt = ",".join(row[1:]).strip()
                     continue
                 if row[0].startswith("mapX"):
                     continue
                 map_x, map_y, pix_x, pix_y, *_ = map(float, row[:5])
                 points.append((map_x, map_y, pix_x, pix_y))
+
+        if gcp_srs is None and pending_wkt:
+            print(f"reading WKT QGIS@@@@@@@@@@")
+            # print(f"pending wkt: {pending_wkt}")
+            gcp_srs = WktGeneratedCRS("WKT", pending_wkt)
+        else:
+            print(f"Reading auth code QGIS@@@@@@@@@")
         if gcp_srs is None:
-            raise RuntimeError("No CRS line found in .points file")
+            raise RuntimeError("No CRS or WKT line found in .points file")
         return points, gcp_srs
 
-    def _read_envi_pts_file(self, path: str):
+    def _read_envi_pts_file(self, path: str) -> Tuple[List, GeneralCRS]:
+        """Read an ENVI ``*.pts`` file with optional embedded WKT.
+
+        The routine first tries the traditional ``; projection info`` comment
+        to extract *(authority, code)*.  If that is missing it looks for a
+        line beginning ``; wkt =`` and constructs a
+        :class:`WktGeneratedCRS`.
+
+        Returns
+        -------
+        points : list[tuple[float, float, float, float]]
+            ``(map_x, map_y, pixel_x, pixel_y)`` tuples.
+        gcp_srs : GeneralCRS
+            Extracted from the header
+        """
         points = []
         gcp_srs = None
+        pending_wkt = None
         with open(path) as f:
             for ln in f:
                 ln = ln.strip()
-                if ln.startswith("; projection info"):
-                    # very tolerant parse
+                if ln.lower().startswith("; projection info"):
                     inside = ln.split("{", 1)[-1].split("}", 1)[0]
                     auth, code, *_ = [x.strip().split(",")[0] for x in inside.split()]
-                    gcp_srs = AuthorityCodeCRS(auth, int(code)).get_osr_crs()
+                    gcp_srs = AuthorityCodeCRS(auth, int(code))
+                elif ln.lower().startswith("; wkt ="):
+                    pending_wkt = ln.split("=", 1)[1].strip()
                 elif ln.startswith(";") or not ln:
                     continue
                 else:
@@ -1032,27 +1124,93 @@ class GeoReferencerDialog(QDialog):
                     if len(parts) >= 5:
                         map_x, map_y, _elev, pix_x, pix_y = parts[:5]
                         points.append((map_x, map_y, pix_x, pix_y))
+        if gcp_srs is None and pending_wkt:
+            print(f"reading WKT envi@@@@@@@@@@")
+            gcp_srs = WktGeneratedCRS("WKT", pending_wkt)
+        else:
+            print(f"reading Auth Code CRS envi@@@@@@@@@@")
         if gcp_srs is None:
-            raise RuntimeError("No projection info found in .pts file")
+            raise RuntimeError("No projection info or WKT found in .pts file")
         return points, gcp_srs
 
-    def _write_qgis_points_file(self, path: str, auth: str, code: str):
+    def _write_qgis_points_file(self, path: str, auth: Optional[str] = None,
+                                  code: Optional[str] = None,
+                                  wkt: Optional[str] = None) -> None:
+        """Write ground-control points to a QGIS ``*.points`` file.
+
+        Parameters
+        ----------
+        path : str
+            Destination filepath (should end with ``.points``).
+        auth : str or None, optional
+            Authority name (e.g. ``"EPSG"``).  If *None*, the ``# CRS``
+            header line is **omitted**.
+        code : str or None, optional
+            Authority code (e.g. ``"4326"``).  Ignored when *auth* is
+            *None*.
+        wkt : str or None, optional
+            Well-Known Text definition of the CRS.  When provided it is
+            written on a dedicated line starting with ``# WKT``.  QGIS
+            will ignore this line, but *WISER* can parse it on load.
+
+        Notes
+        -----
+        The file layout becomes::
+
+            # CRS, EPSG:4326  ← optional
+            # WKT,<LONG_WKT> ← optional
+            mapX,mapY,pixelX,pixelY,enable
+            123.4, 45.6, 100.0, 200.0, 1
+            ...
+
+        Only ASCII commas are used as delimiters so the routine is
+        locale-independent.
+        """
+        header_rows = []
+        if auth and code:
+            header_rows.append(["# CRS", f"{auth}:{code}"])
+        if wkt:
+            header_rows.append(["# WKT", wkt])
+
         with open(path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["# CRS", f"{auth}:{code}"])
+            writer.writerows(header_rows)
             writer.writerow(["mapX", "mapY", "pixelX", "pixelY", "enable"])
+
             for entry in self._table_entry_list:
                 pair = entry.get_gcp_pair()
                 map_x, map_y = pair.get_reference_gcp_spatial_coord()
                 pix_x, pix_y = pair.get_target_gcp().get_point()
-                writer.writerow([map_x, map_y, pix_x, pix_y,
-                                 1 if entry.is_enabled() else 0])
+                writer.writerow([
+                    map_x, map_y, pix_x, pix_y,
+                    1 if entry.is_enabled() else 0,
+                ])
     
-    def _write_envi_pts_file(self, path: str, auth: str, code: str):
+    def _write_envi_pts_file(self, path: str, auth: Optional[str] = None,
+                              code: Optional[str] = None,
+                              wkt: Optional[str] = None) -> None:
+        """Write ground-control points to an ENVI ``*.pts`` file. auth and code
+        must be non-None or wkt must be non-None
+
+        Parameters
+        ----------
+        path : str
+            Destination filepath (should end with ``.pts``).
+        auth, code : str or None, optional
+            Authority name and code.  When either is *None*, the traditional
+            ``; projection info`` comment is skipped.
+        wkt : str or None, optional
+            Well-Known Text to embed after a ``; wkt = `` comment.  ENVI will
+            ignore this line; *WISER* uses it when the authority pair is
+            missing.
+        """
         with open(path, "w") as f:
-            f.write(f"; ENVI Ground Control Points File\n")
-            f.write(f"; projection info = {{{auth}, {code}, units=Degrees}}\n")
-            f.write(f"; Map (x,y,elev), Image (x,y)\n;\n")
+            f.write("; ENVI Ground Control Points File\n")
+            if auth and code:
+                f.write(f"; projection info = {{{auth}, {code}, units=Degrees}}\n")
+            if wkt:
+                f.write(f"; wkt = {wkt}\n")
+            f.write("; Map (x,y,elev), Image (x,y)\n;\n")
             for entry in self._table_entry_list:
                 pair = entry.get_gcp_pair()
                 map_x, map_y = pair.get_reference_gcp_spatial_coord()
@@ -1400,13 +1558,12 @@ class GeoReferencerDialog(QDialog):
             text = text[:100] + "…"
         self._ui.lbl_message.setText(text)
 
-    def _add_srs_to_output_cbox(self, srs_name: str, authority_name: str, authority_code: int):
+    def _add_srs_to_output_cbox(self, srs_name: str, crs: GeneralCRS):
         '''
         Adds the coordinate reference system that the user found to the choose combo box
         '''
         crs_choose_cbox = self._ui.cbox_srs
-        authority_crs = AuthorityCodeCRS(authority_name, authority_code)
-        osr_crs = authority_crs.get_osr_crs()
+        osr_crs = crs.get_osr_crs()
         # Check for existing entry
         for idx in range(crs_choose_cbox.count()):
             data: GeneralCRS = crs_choose_cbox.itemData(idx)
@@ -1414,22 +1571,21 @@ class GeoReferencerDialog(QDialog):
                 QMessageBox.information(
                     self,
                     "CRS Already Added",
-                    f"The CRS {authority_name}:{authority_code} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
+                    f"The CRS {srs_name}: {crs} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
                 )
                 return
 
         # If not found, add as new entry
-        crs_choose_cbox.addItem(srs_name, AuthorityCodeCRS(authority_name, authority_code))
+        crs_choose_cbox.addItem(srs_name, crs)
         crs_choose_cbox.setCurrentIndex(crs_choose_cbox.count()-1)
         self._on_switch_output_srs(crs_choose_cbox.count()-1)
 
-    def _add_srs_to_ref_choose_cbox(self, srs_name: str, authority_name: str, authority_code: int):
+    def _add_srs_to_ref_choose_cbox(self, srs_name: str, crs: GeneralCRS):
         '''
         Adds the coordinate reference system that the user found to the choose combo box
         '''
         crs_choose_cbox = self._ui.cbox_choose_crs
-        authority_crs = AuthorityCodeCRS(authority_name, authority_code)
-        osr_crs = authority_crs.get_osr_crs()
+        osr_crs = crs.get_osr_crs()
         # Check for existing entry
         for idx in range(crs_choose_cbox.count()):
             data: GeneralCRS = crs_choose_cbox.itemData(idx)
@@ -1437,12 +1593,12 @@ class GeoReferencerDialog(QDialog):
                 QMessageBox.information(
                     self,
                     "CRS Already Added",
-                    f"The CRS {authority_name}:{authority_code} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
+                    f"The CRS {srs_name} is already in the list as “{crs_choose_cbox.itemText(idx)}.”"
                 )
                 return
 
         # If not found, add as new entry
-        crs_choose_cbox.addItem(srs_name, AuthorityCodeCRS(authority_name, authority_code))
+        crs_choose_cbox.addItem(srs_name, crs)
         crs_choose_cbox.setCurrentIndex(crs_choose_cbox.count()-1)
 
     def _get_manual_ref_chosen_crs(self) -> osr.SpatialReference:
@@ -1481,7 +1637,7 @@ class GeoReferencerDialog(QDialog):
         crs: GeneralCRS = self._ui.cbox_srs.currentData()
         return crs.get_osr_crs()
 
-    def _get_reference_srs(self):
+    def _get_reference_srs(self) -> Optional[osr.SpatialReference]:
         '''
         Get the reference coordinate reference system. It is either going to be
         in the reference raster pane or the manualy entry widget.
