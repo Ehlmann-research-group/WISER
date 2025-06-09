@@ -1713,13 +1713,15 @@ class GeoReferencerDialog(QDialog):
         try:
             tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(temp_gdal_ds, None, self._transform_options)
         except BaseException as e:
+            msg = str(e)
+            if len(msg) > 200:
+                msg = msg[:197] + "..."
             QMessageBox.critical(
                 self,
                 self.tr("Error!"),
-                self.tr(f"Error:\n{e}"),
+                self.tr(f"Error:\n{msg}"),
                 QMessageBox.Ok
             )
-            print(f"Error:\n{e}")
             return
 
         try:

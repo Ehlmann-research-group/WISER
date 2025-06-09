@@ -859,12 +859,18 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
 
+    source = expr_info.spectral_metadata_source
+    data_ignore_value = DEFAULT_IGNORE_VALUE
+    if source is not None and isinstance(source.value, RasterDataSet):
+        value = source.value
+        if value.get_data_ignore_value() is not None:
+            data_ignore_value = value.get_data_ignore_value()
+
     if test_parallel_io or \
     (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
      and not use_old_method):
         try:
             eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
-
             bands, lines, samples = expr_info.shape
             # Gets the correct file path to make our temporary file
             result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
@@ -903,7 +909,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
                 
                 future = eval._write_thread_pool.submit(write_raster_to_dataset, \
                                                     out_dataset_gdal, band_index_list_current, \
-                                                    res, gdal_type)
+                                                    res, gdal_type, default_ignore_value=data_ignore_value)
                 writing_futures.append(future)
             concurrent.futures.wait(writing_futures)
         except BaseException as e:
@@ -912,8 +918,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             raise e
         finally:
             eval.stop()
-        correct_data_ignore_val = get_valid_ignore_value(out_dataset_gdal, DEFAULT_IGNORE_VALUE)
-        out_dataset.set_data_ignore_value(correct_data_ignore_val)
         return (RasterDataSet, out_dataset)
     else:
         try:

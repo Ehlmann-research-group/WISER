@@ -313,9 +313,11 @@ def max_bytes_to_chunk(dataset_bytes: int) -> Tuple[float, bool]:
     else:
         return (dataset_bytes, False)
 
-def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ma.MaskedArray, gdal_elem_type: int):
+def write_raster_to_dataset(out_dataset_gdal, band_index_list: List[int], result: np.ma.MaskedArray, gdal_elem_type: int, \
+                            default_ignore_value: Number = DEFAULT_IGNORE_VALUE):
+        
         if isinstance(result, np.ma.MaskedArray):
-            result = np.ma.filled(result, DEFAULT_IGNORE_VALUE)
+            result = np.ma.filled(result, default_ignore_value)
         
         gdal_band_list_current = [band+1 for band in band_index_list]
         
