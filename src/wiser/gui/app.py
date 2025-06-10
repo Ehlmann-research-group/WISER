@@ -62,6 +62,8 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster import RasterDataSet, roi_export
 from wiser.raster.data_cache import DataCache
 
+from wiser.utils.multiprocessing_manager import MultiProcessingManager
+
 from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
@@ -95,7 +97,9 @@ class DataVisualizerApp(QMainWindow):
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
         self._data_cache = DataCache()
+        self._multiproc_manager = MultiProcessingManager()
         self._app_state.set_data_cache(self._data_cache)
+        self._app_state.set_multiproc_manager(self._multiproc_manager)
 
         # Application Toolbars
 

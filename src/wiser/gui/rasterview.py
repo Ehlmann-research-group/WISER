@@ -294,7 +294,7 @@ def reference_pixel_to_target_pixel_rasterview(reference_pixel: Tuple[int, int],
             return
         
     return reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset, target_dataset)
-    
+
 
 class ImageColors(enum.IntFlag):
     '''
@@ -309,6 +309,9 @@ class ImageColors(enum.IntFlag):
     BLUE = 4
 
     RGB = 7
+
+def update_display_image_subprocess(self, raster_data, colors=ImageColors.RGB):
+
 
 
 class ScaleToFitMode(enum.Enum):
@@ -598,6 +601,8 @@ class RasterView(QWidget):
     @Slot(StretchBase)
     def set_stretches(self, stretches: List):
         self._stretches = stretches
+        # mpm = self._app_state.get_multiproc_manager()
+        # mpm.submit(self.update_display_image)
         self.update_display_image()
 
     def _clear_members(self):

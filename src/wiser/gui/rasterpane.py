@@ -616,6 +616,9 @@ class RasterPane(QWidget):
 
     def update_all_rasterview_displays(self):
         for rv in self._rasterviews.values():
+            # mpm = self._app_state.get_multiproc_manager()
+            # print(f"calling multiproc in update_all_rasterview_displays")
+            # mpm.submit(rv.update_display_image)
             rv.update_display_image()
 
     def _update_rasterview_toolbars(self):

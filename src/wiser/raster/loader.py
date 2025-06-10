@@ -78,7 +78,6 @@ class RasterDataLoader:
         Load a raster data-set from the specified path.  Returns a
         list of :class:`RasterDataSet` object.
         '''
-
         # Iterate through all supported formats, and try to use each one to
         # load the raster data.
         impl_list = None
@@ -86,6 +85,7 @@ class RasterDataLoader:
             try:
                 impl_list = impl_type.try_load_file(path)
             except Exception as e:
+                print(f"EXCEPTION 1")
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
                 
@@ -94,10 +94,12 @@ class RasterDataLoader:
             if impl_list is None:
                 impl_list = GDALRasterDataImpl.try_load_file(path)
         except Exception as e:
+            print(f"EXCEPTION 2")
             logger.debug(f'Couldn\'t load file {path} with driver ' +
                             f'{driver_name} and implementation {impl_type}.', e)
 
         if impl_list is None:
+            print(f"EXCEPTION 3")
             raise Exception(f'Couldn\'t load file {path}:  unsupported format')
 
         outer_datasets = []

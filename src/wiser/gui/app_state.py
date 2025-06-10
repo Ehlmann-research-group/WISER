@@ -26,6 +26,8 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
 
+from wiser.utils.multiprocessing_manager import MultiProcessingManager
+
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
 class StateChange(enum.Enum):
@@ -92,7 +94,11 @@ class ApplicationState(QObject):
         # A reference to the overall UI
         self._app = app
 
-        self._cache = None
+        self._cache: Optional[DataCache] = None
+        self._multiproc_manager: Optional[MultiProcessingManager] = None
+        
+        # Task IDs for use in multiprocessing
+        self._load_file_task_id: Optional[int] = None
 
         # The plugins currently loaded into WISER.
         self._plugins: Dict[str, Plugin] = {}
@@ -192,10 +198,15 @@ class ApplicationState(QObject):
         '''
         self._current_dir = current_dir
 
+    def set_multiproc_manager(self, multiproc_manager: MultiProcessingManager):
+        self._multiproc_manager = multiproc_manager
+        # self._multiproc_manager.finished.connect(self.file_load_finished)
+
+    def get_multiproc_manager(self) -> MultiProcessingManager:
+        return self._multiproc_manager
 
     def set_data_cache(self, data_cache: DataCache):
         self._cache = data_cache
-
 
     def update_cwd_from_path(self, path: str) -> None:
         '''
@@ -270,10 +281,20 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
 
+        # self._load_file_task_id = self._multiproc_manager.submit(
+        #     self._raster_data_loader.load_from_file, file_path, self._cache
+        # )
         raster_data_list = self._raster_data_loader.load_from_file(file_path, self._cache)
-        
+
         for raster_data in raster_data_list:
             self.add_dataset(raster_data)
+
+    # def file_load_finished(self, task_id: int, result: object):
+    #     if task_id == self._load_file_task_id:
+    #         print(f"result: {result}")
+    #         print(f"result type: {type(result)}")
+    #     for raster_data in result:
+    #         self.add_dataset(raster_data)
 
 
     def add_dataset(self, dataset: RasterDataSet):
