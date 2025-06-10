@@ -88,8 +88,6 @@ class RasterDataLoader:
             except Exception as e:
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
-                print(f'Couldn\'t load file {path} with driver ' +
-                             f'{driver_name} and implementation {impl_type}.\n', e)
                 
         # Try luck with gdal
         try:

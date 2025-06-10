@@ -109,12 +109,9 @@ class WktGeneratedCRS(GeneralCRS):
     def __init__(self, name: str, wkt: str):
         self._name = name
         self._wkt = wkt
-        self._crs = CRS.from_wkt(wkt)
-        print(f"self._crs.to_wkt: {self._crs.to_wkt()}")
         crs = osr.SpatialReference()
         crs.ImportFromWkt(wkt)
         self._crs = crs
-        print(f"self._crs.Export: {self._crs.ExportToWkt()}")
     
     def get_osr_crs(self) -> Optional[osr.SpatialReference]:
         return self._crs
