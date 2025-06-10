@@ -11,7 +11,7 @@ from .dataset import RasterDataSet
 from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
     GTiff_GDALRasterDataImpl, NumPyRasterDataImpl, NetCDF_GDALRasterDataImpl,
     ASC_GDALRasterDataImpl, JP2_GDALRasterDataImpl, PDS3_GDALRasterDataImpl,
-    PDS4_GDALRasterDataImpl, GDALRasterDataImpl
+    PDS4_GDALRasterDataImpl, GDALRasterDataImpl, JP2_GDAL_PDR_RasterDataImpl
     )
 
 from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
@@ -35,7 +35,7 @@ class RasterDataLoader:
             'NetCDF': NetCDF_GDALRasterDataImpl,
             'ASCII': ASC_GDALRasterDataImpl,
             'JP2': JP2_GDALRasterDataImpl,
-            # 'PDS3': PDS3_GDALRasterDataImpl,
+            'PDS3': PDS3_GDALRasterDataImpl,
             'PDS4': PDS4_GDALRasterDataImpl,
         }
     
@@ -46,7 +46,7 @@ class RasterDataLoader:
             NetCDF_GDALRasterDataImpl: self.load_normal_dataset,
             ASC_GDALRasterDataImpl: self.load_normal_dataset,
             JP2_GDALRasterDataImpl: self.load_normal_dataset,
-            # PDS3_GDALRasterDataImpl: self.load_normal_dataset,
+            PDS3_GDALRasterDataImpl: self.load_normal_dataset,
             PDS4_GDALRasterDataImpl: self.load_normal_dataset,
             GDALRasterDataImpl: self.load_normal_dataset,
         }

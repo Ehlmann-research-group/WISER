@@ -7,6 +7,7 @@ import pdr
 from pdr.loaders.datawrap import ReadArray 
 
 from enum import Enum
+import math
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 Number = Union[int, float]
 
@@ -225,7 +226,8 @@ class GDALRasterDataImpl(RasterDataImpl):
     def reopen_dataset(self):
         '''
         Opens and returns a new GDAL dataset equivalent to the current one, 
-        always creating a new dataset from the file path.
+        always creating a new dataset from the file path. This is needed to do
+        asynchronous I/O.
         '''
         file_paths = self.get_filepaths()
         if not file_paths:
@@ -507,6 +509,16 @@ class GDALRasterDataImpl(RasterDataImpl):
 
 class PDRRasterDataImpl(RasterDataImpl):
 
+    @classmethod
+    def try_load_file(cls, path: str) -> ['JP2_PDRRasterDataImpl']:
+
+        pdr_dataset = pdr.read(path)
+
+        return [cls(pdr_dataset)]
+    
+    def __init__(self, pdr_dataset):
+        super().__init__(pdr_dataset)
+
     def __init__(self, pdr_dataset: pdr.Data):
         self.pdr_dataset = pdr_dataset
         self.elem_type = None
@@ -516,12 +528,20 @@ class PDRRasterDataImpl(RasterDataImpl):
         self.ndims = None
         self.initialize_constants()
 
-
     def get_format(self) -> str:
         raise NotImplementedError()
 
     def get_filepaths(self):
         return [self.pdr_dataset.filename]
+
+    def reopen_dataset(self) -> pdr.Data:
+        '''
+        Opens and returns a new PDR dataset equivalent to the current one.
+        This is needed to do asynchronous I/O
+        '''
+        filepath = self.get_filepaths()
+        pdr_dataset = pdr.read(filepath)
+        return pdr_dataset
 
     def initialize_constants(self):
         # This line should be before the others since the other functions use self.ndims
@@ -581,7 +601,6 @@ class PDRRasterDataImpl(RasterDataImpl):
     def get_image_data(self):
         return self.pdr_dataset['IMAGE']
     
-    
     def get_image_data_subset(self, x: int, y: int, band: int, 
                               dx: int, dy: int, dband: int, 
                               filter_data_ignore_value=True):
@@ -606,19 +625,31 @@ class PDRRasterDataImpl(RasterDataImpl):
             raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_band_data')
 
 
-    # def sample_band_data(self, band_index, sample_factor: int):
-    #     # We can either use OpenCV's pyrDown() which just halves each dimension: https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html#gaf9bba239dfca11654cb7f50f889fc2ff 
-    #     # Or we can use OpenCV's pyrUp() which can  do arbitrary resizing.
-    #     if self.ndims == 2:
-    #         arr = self.pdr_dataset['IMAGE']
-    #     elif self.ndims == 3:
-    #         arr = self.pdr_dataset['IMAGE'][band_index,:,:]
-    #     else:
-    #         raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in sample_band_data')
+    def sample_band_data(self, band_index, sample_factor: int):
+        """
+        Read the IMAGE array with subsampling.
+        
+        - sample_factor is rounded up to the nearest integer ≥ 1.
+        - For 2D data, returns IMAGE[::sf, ::sf].
+        - For 3D data, returns IMAGE[band_index, ::sf, ::sf].
+        """
+        # round up and enforce minimum of 1
+        sf = math.ceil(sample_factor)
+        if sf < 1:
+            sf = 1
 
-    #     new_width = self.get_width() // sample_factor
-    #     new_height = self.get_height() // sample_factor
-    #     return cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        img = self.pdr_dataset['IMAGE']
+
+        if self.ndims == 2:
+            # 2D: stride both axes
+            return img[::sf, ::sf]
+
+        elif self.ndims == 3:
+            # 3D: fix band, stride the last two axes
+            return img[band_index, ::sf, ::sf]
+
+        else:
+            raise ValueError(f"Unsupported number of dimensions: {self.ndims}")
 
 
     def get_all_bands_at(self, x, y):
@@ -677,6 +708,211 @@ class PDRRasterDataImpl(RasterDataImpl):
     def __del__(self):
         pass
 
+class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
+
+    def get_format(self):
+        return DataFormatNames.JP2
+
+    @classmethod
+    def get_jpeg2000_drivers(cls):
+        driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
+        jpeg2000_drivers = []
+        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not. I don't want
+        # to have to build from source but i  mightl
+        for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
+            if drv in driver_names:
+                jpeg2000_drivers.append(drv)
+        return jpeg2000_drivers
+
+    @classmethod
+    def try_load_file(cls, path: str) -> ['JP2_GDAL_PDR_RasterDataImpl']:
+
+        if not path.endswith('.JP2'):
+            raise Exception(f"Can't load file {path} as JP2")
+
+        pdr_dataset = pdr.read(path)
+
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        allowed_drivers = cls.get_jpeg2000_drivers()
+        if not allowed_drivers:
+            raise ValueError("No JPEG2000 drivers are available in GDAL.")
+
+        for driver in allowed_drivers:
+            try:
+                gdal_dataset = gdal.OpenEx(
+                    path,
+                    nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+                    allowed_drivers=[driver]
+                )
+                if gdal_dataset is not None:
+                    logger.debug(f"Opened {path} with driver {driver}")
+                    print("Successfully opened jpeg200 file with gdal and pdr!")
+                return [cls(pdr_dataset, gdal_dataset)]
+            except RuntimeError as e:
+                logger.warning(f"Failed to open {path} with driver {driver}: {e}!@#")
+        print(f"Was not able to load gdal and pdr jp2 file !@#")
+        raise RuntimeError(f"Failed to open {path} in gdal")
+
+
+    def __init__(self, pdr_dataset: pdr.Data, gdal_dataset: gdal.Dataset):
+        self.pdr_dataset = pdr_dataset
+        self.elem_type = None
+        self.number_bands = None
+        self.width = None
+        self.height = None
+        self.ndims = None
+        self.initialize_constants()
+        super().__init__(gdal_dataset)
+
+    def initialize_constants(self):
+        # This line should be before the others since the other functions use self.ndims
+        self.get_num_dims()
+        self.get_width()
+        self.get_height()
+        self.num_bands()
+        self.get_elem_type()
+
+    def reopen_dataset(self) -> pdr.Data:
+        '''
+        Opens and returns a new PDR dataset equivalent to the current one.
+        This is needed to do asynchronous I/O
+        '''
+        filepath = self.get_filepaths()[0]
+        pdr_dataset = pdr.read(filepath)
+        return pdr_dataset
+    
+    def get_num_dims(self):
+        if self.ndims is None:
+            self.ndims = self.pdr_dataset['IMAGE'].ndim
+        
+        if self.ndims != 2 and self.ndims != 3:
+            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_num_dims')
+
+        return self.ndims
+
+    def get_width(self):
+        if self.width is None:
+            if self.ndims == 2:
+                self.width = self.pdr_dataset['IMAGE'].shape[1]
+            elif self.ndims == 3:
+                self.width = self.pdr_dataset['IMAGE'].shape[2]
+            else:
+                raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_width')
+
+        return self.width
+
+    def get_height(self):
+        if self.height is None:
+            if self.ndims == 2:
+                self.height = self.pdr_dataset['IMAGE'].shape[0]
+            elif self.ndims == 3:
+                self.height = self.pdr_dataset['IMAGE'].shape[1]
+            else:
+                raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_height')
+
+        return self.height
+
+    def num_bands(self):
+        if self.number_bands is None:
+            if self.ndims == 2:
+                return 1
+            elif self.ndims == 3:
+                self.number_bands = self.pdr_dataset['IMAGE'].shape[0]
+            else:
+                raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in num_bands')
+    
+        return self.number_bands
+
+    def get_elem_type(self) -> np.dtype:
+        if self.elem_type is None:
+            self.elem_type = self.pdr_dataset['IMAGE'].dtype
+        return self.elem_type
+
+    def get_image_data(self):
+        reopened_dataset = self.reopen_dataset()
+        return reopened_dataset['IMAGE']
+    
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        '''
+        reopened_dataset = self.reopen_dataset()
+        return reopened_dataset['IMAGE'][band:band+dband,y:y+dy,x:x+dx]
+
+    def get_band_data(self, band_index, filter_data_ignore_value=True):
+        '''
+        If the ['IMAGE'] data is already in memory then this shouldn't take long. If not then this has
+        to load the whole image cube into memory. This is why we would rather use GDAL, because we can
+        avoid loading the whole image cube into memory.
+        '''
+        reopened_dataset = self.reopen_dataset()
+        if self.ndims == 2:
+            return reopened_dataset['IMAGE']
+        elif self.ndims == 3:
+            return reopened_dataset['IMAGE'][band_index,:,:]
+        else:
+            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_band_data')
+
+
+    def sample_band_data(self, band_index, sample_factor: int):
+        """
+        Read the IMAGE array with subsampling.
+        
+        - sample_factor is rounded up to the nearest integer ≥ 1.
+        - For 2D data, returns IMAGE[::sf, ::sf].
+        - For 3D data, returns IMAGE[band_index, ::sf, ::sf].
+        """
+        reopened_dataset = self.reopen_dataset()
+        # round up and enforce minimum of 1
+        sf = math.ceil(sample_factor)
+        if sf < 1:
+            sf = 1
+
+        img = reopened_dataset['IMAGE']
+
+        if self.ndims == 2:
+            # 2D: stride both axes
+            return img[::sf, ::sf]
+
+        elif self.ndims == 3:
+            # 3D: fix band, stride the last two axes
+            return img[band_index, ::sf, ::sf]
+
+        else:
+            raise ValueError(f"Unsupported number of dimensions: {self.ndims}")
+
+    def get_all_bands_at(self, x, y):
+        reopened_dataset = self.reopen_dataset()
+        if self.ndims == 2:
+            return reopened_dataset['IMAGE'][y,x]
+        elif self.ndims == 3:
+            return reopened_dataset['IMAGE'][:,y,x]
+        else:
+            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_all_bands_at')
+
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        reopened_dataset = self.reopen_dataset()
+        if self.ndims == 3:
+            return reopened_dataset['IMAGE'][band_list_orig,:,:]
+        else:
+            raise ValueError(f"The number of dimensions this raster has is {self.ndims} " +
+                             f"so it doesn't make sense to get multiple bands")
+
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
+        reopened_dataset = self.reopen_dataset()
+        if self.ndims == 2:
+            return reopened_dataset['IMAGE'][y:y+dy,x:x+dx]
+        elif self.ndims == 3:
+            return reopened_dataset['IMAGE'][:,y:y+dy,x:x+dx]
+        else:
+            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_all_bands_at_rect')
+
+    
 
 class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     def get_format(self):
@@ -694,7 +930,6 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     
     def __init__(self, pdr_dataset):
         super().__init__(pdr_dataset)
-
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -873,7 +1108,6 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
                 np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
 
         return np_array
-
 
 class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -1072,7 +1306,6 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
                 )
                 if gdal_dataset is not None:
                     logger.debug(f"Opened {load_path} with driver {driver}")
-                    print("Successfully opened jpeg200 file!")
                     return [cls(gdal_dataset)]
             except RuntimeError as e:
                 logger.warning(f"Failed to open {load_path} with driver {driver}: {e}")
