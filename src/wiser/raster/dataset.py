@@ -947,8 +947,6 @@ class RasterDataSet:
         '''
         Updates the band information for this dataset. Updates the units and
         the _band_info field. These changes do not persist across sessions.
-        
-        TODO (Joshua G-K): Keep previous band description if there were some.
         '''
         self._band_unit = wavelengths[0].unit
         self._has_wavelengths = True

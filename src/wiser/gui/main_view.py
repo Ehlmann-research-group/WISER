@@ -268,9 +268,6 @@ class MainViewWidget(RasterPane):
         '''
         dataset = rasterview.get_raster_data()
         dataset.show_edit_dataset_dialog(self._app_state._app)
-        # Call function from dataset that lets you change values in a gui
-            # Will the values be saved? We could warn the user that we only save
-            # it for this session of WISER
 
     def _on_save_dataset_as(self, rasterview):
         dataset = rasterview.get_raster_data()

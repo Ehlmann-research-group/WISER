@@ -709,6 +709,10 @@ class PDRRasterDataImpl(RasterDataImpl):
         pass
 
 class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
+    '''
+    Currently this JP2 reader does not work with multithreading even 
+    though we reopen the pdr dataset
+    '''
 
     def get_format(self):
         return DataFormatNames.JP2
@@ -717,8 +721,7 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
     def get_jpeg2000_drivers(cls):
         driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
         jpeg2000_drivers = []
-        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not. I don't want
-        # to have to build from source but i  mightl
+        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not.
         for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
             if drv in driver_names:
                 jpeg2000_drivers.append(drv)
@@ -747,11 +750,9 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
                 )
                 if gdal_dataset is not None:
                     logger.debug(f"Opened {path} with driver {driver}")
-                    print("Successfully opened jpeg200 file with gdal and pdr!")
                 return [cls(pdr_dataset, gdal_dataset)]
             except RuntimeError as e:
-                logger.warning(f"Failed to open {path} with driver {driver}: {e}!@#")
-        print(f"Was not able to load gdal and pdr jp2 file !@#")
+                logger.warning(f"Failed to open {path} with driver {driver}: {e}")
         raise RuntimeError(f"Failed to open {path} in gdal")
 
 
@@ -1276,8 +1277,7 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
     def get_jpeg2000_drivers(cls):
         driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
         jpeg2000_drivers = []
-        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not. I don't want
-        # to have to build from source but i  mightl
+        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not.
         for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
             if drv in driver_names:
                 jpeg2000_drivers.append(drv)

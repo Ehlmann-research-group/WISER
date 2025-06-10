@@ -370,14 +370,6 @@ class SubdatasetFileOpenerDialog(QDialog):
 
     def accept(self):
         from wiser.raster.dataset_impl import NetCDF_GDALRasterDataImpl
-        # Figure out which dataset to open (we open it as an EMIT/netCDF type)
-            # Things to override in NetCDF_GDALRasterDataImpl
-                # geo transform getting, read_geo_transform
-                # srs getting, read_spatial_ref(), get_wkt_spatial_reference()
-
-                # band unit getting, read_band_unit
-                # band info, read_band_info
-                # data ignore value, read_data_ignore_value
 
         wl_unit = self._get_wavelength_units()
 

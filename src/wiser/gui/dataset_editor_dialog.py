@@ -50,8 +50,8 @@ class DatasetEditorDialog(QDialog):
         self._ui.btn_import_wavelengths.clicked.connect(self._on_import_wvl_clicked)
 
     def _on_import_wvl_clicked(self, checked: bool = False) -> None:
+        # We have to import it in here or else we get a cyclic import error
         from wiser.gui.import_dataset_wavelengths import ImportDatasetWavelengthsDialog
-        print(f"import wvl clicked")
         selected = QFileDialog.getOpenFileName(self,
             self.tr("Open Wavelengths File"),
             self._app._app_state.get_current_dir(), ' All Files (*) ;; Text files (*.txt) ;; Tab files (*.tab)')
@@ -85,11 +85,3 @@ class DatasetEditorDialog(QDialog):
         self._app.update_all_rasterpane_displays()
 
         super().accept()
-
-        # init function should call a helper function that adds a DoubleValidator to ledit_ 
-        # that allows positive and negative numbers 
-
-    # There should be a function called _get_data_ignore_value that extracts the float out of the ledit field
-
-    # You should override the accept function for the QDialog and then calls def set_data_ignore_value(self, ignore_value: Optional[Number]) -> None:
-    # on self._raster_dataset. It should also call self._app.refresh_all_rasterviews()

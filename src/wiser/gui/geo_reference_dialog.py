@@ -448,11 +448,6 @@ class GeoReferencerDialog(QDialog):
                     ref_srs = ref_ds.get_spatial_ref()
                     crs = CRS.from_wkt(ref_srs.ExportToWkt())
                     if crs is not None:
-                        # print(f"crs: {crs}")
-                        # print(f"crs.name: {crs.name}")
-                        # print(f"crs.to_wkt(): {crs.to_wkt()}")
-                        # print(f"crs.to_authority(): {crs.to_authority()}")
-                        # print(f"type(crs.to_authority()): {type(crs.to_authority())}")
                         auth_info = crs.to_authority()
                         if auth_info is None:
                             name = crs.name if crs.name is not None else 'Uknown Name'
@@ -620,12 +615,6 @@ class GeoReferencerDialog(QDialog):
     
         ext = Path(filename).suffix.lower()
         try:
-            print(f"auth_name: {auth_name}")
-            print(f"type(auth_name): {type(auth_name)}")
-            print(f"auth_code: {auth_code}")
-            print(f"type(auth_code): {type(auth_code)}")
-            print(f"wkt_str: {wkt_str}")
-            print(f"type(wkt_str): {type(wkt_str)}")
             if ext == ".points":
                 self._write_qgis_points_file(filename, auth_name, auth_code, wkt_str)
             elif ext == ".pts":
@@ -967,7 +956,6 @@ class GeoReferencerDialog(QDialog):
         return srs1_clone.IsSame(srs2_clone)
 
 
-
     def load_gcps_and_srs(self, gcp_points: List[Tuple[float, float, float, float]], gcp_srs: GeneralCRS):
         '''
         Loads the gcps in with the specified srs
@@ -979,7 +967,6 @@ class GeoReferencerDialog(QDialog):
         ref_ds = self._get_ref_dataset()
 
         skipped_gcps = []
-        print(f"self.compare_srs_lenient(gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref()): {self.compare_srs_lenient(gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref())}")
         if ref_ds is not None and self.compare_srs_lenient(gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref()):
             for map_x, map_y, pix_x, pix_y in gcp_points:
                 # Verify pixel-within-images
@@ -1081,11 +1068,7 @@ class GeoReferencerDialog(QDialog):
                 points.append((map_x, map_y, pix_x, pix_y))
 
         if gcp_srs is None and pending_wkt:
-            print(f"reading WKT QGIS@@@@@@@@@@")
-            # print(f"pending wkt: {pending_wkt}")
             gcp_srs = WktGeneratedCRS("WKT", pending_wkt)
-        else:
-            print(f"Reading auth code QGIS@@@@@@@@@")
         if gcp_srs is None:
             raise RuntimeError("No CRS or WKT line found in .points file")
         return points, gcp_srs
@@ -1125,10 +1108,7 @@ class GeoReferencerDialog(QDialog):
                         map_x, map_y, _elev, pix_x, pix_y = parts[:5]
                         points.append((map_x, map_y, pix_x, pix_y))
         if gcp_srs is None and pending_wkt:
-            print(f"reading WKT envi@@@@@@@@@@")
             gcp_srs = WktGeneratedCRS("WKT", pending_wkt)
-        else:
-            print(f"reading Auth Code CRS envi@@@@@@@@@@")
         if gcp_srs is None:
             raise RuntimeError("No projection info or WKT found in .pts file")
         return points, gcp_srs
@@ -1663,7 +1643,6 @@ class GeoReferencerDialog(QDialog):
 
         if not self._enough_points_for_transform():
             self._set_all_residuals_NA()
-            print(f"NOT ENOUGH POINTS FOR TRANSFORM")
             return
 
         gdal.UseExceptions()

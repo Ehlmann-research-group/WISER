@@ -927,7 +927,6 @@ class DataVisualizerApp(QMainWindow):
         '''
         Refreshes all the rasterviews
         '''
-        print(f"REFRESHING ALL RASTERVIEWS")
         self._context_pane.update_all_rasterviews()
         self._main_view.update_all_rasterviews()
         self._zoom_pane.update_all_rasterviews()
@@ -936,7 +935,6 @@ class DataVisualizerApp(QMainWindow):
         '''
         Refreshes all the rasterviews
         '''
-        print(f"REFRESHING ALL RASTERVIEW DISPLAYS")
         self._context_pane.update_all_rasterview_displays()
         self._main_view.update_all_rasterview_displays()
         self._zoom_pane.update_all_rasterview_displays()

@@ -148,11 +148,7 @@ class ImportDatasetWavelengthsDialog(QDialog):
             delimiter = self._ui.cbox_delimiter.currentData()
             index = int(self._ui.ledit_wvl_index.text())
             wvl_units = self._ui.cbox_wavelength_units.currentData()
-            print(f"separation_axis: {separation_axis}")
-            print(f"has_header: {has_header}")
-            print(f"delimiter: |{delimiter}|")
-            print(f"index: {index}")
-            print(f"wvl_units: {wvl_units}")
+
             if has_header:
                 header = 0
             else:
@@ -165,11 +161,6 @@ class ImportDatasetWavelengthsDialog(QDialog):
                 wvl_arr = df.iloc[:,index].values
             else:
                 raise RuntimeError("Separation Axis isn't Axis.ROW or Axis.COL!")
-            print(f"!@df: \n {df}")
-
-            print(f"wvl_arr: {wvl_arr}")
-            print(f"wvl_arr.shape: {wvl_arr.shape}")
-            print(f"len(wvl_arr): {len(wvl_arr)}")
 
             if len(wvl_arr) != self._dataset.num_bands():
                 raise ValueError(f"Number of wavelengths ({len(wvl_arr)}) != Num bands ({self._dataset.num_bands()})")
@@ -187,14 +178,6 @@ class ImportDatasetWavelengthsDialog(QDialog):
 
             self._wavelength_arr = wvl_arr
             self._wavelength_units = wvl_units
-            print(f"self._wavelength_units: {self._wavelength_units}")
-            for w in self._wavelength_arr:
-                print(f"w: {w}")
-                print(f"type(w): {type(w)}")
-                print(f"self._wavelength_units: {self._wavelength_units}")
-                print(f"type(self._wavelength_units): {type(self._wavelength_units)}")
-                print(f"u.QUantity w, self._wavelength_units: {u.Quantity(w, self._wavelength_units)}")
-                print(f"type of u.Quantity(w, self._wavelength_units): {type(u.Quantity(w, self._wavelength_units))}")
             self._wavelengths = [u.Quantity(w, self._wavelength_units) for w in self._wavelength_arr]
             self._parse_error = False
 
