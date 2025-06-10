@@ -310,9 +310,36 @@ class ImageColors(enum.IntFlag):
 
     RGB = 7
 
-def update_display_image_subprocess(self, raster_data, colors=ImageColors.RGB):
+def build_channel_image(arr: Union[np.ma.masked_array, np.ndarray], stretches):
+    band_data = arr
+    band_mask = None
+    if isinstance(arr, np.ma.masked_array):
+        band_data = arr.data
+        band_mask = arr.mask
+    new_data = make_channel_image(band_data, stretches[0], stretches[1])
 
+    new_arr = new_data
+    if isinstance(arr, np.ma.masked_array):
+        new_arr = np.ma.masked_array(new_data, mask=band_mask)
+        new_arr.data[band_mask] = 0
 
+    return new_arr
+
+def build_rgb_image(display_data: List[Union[np.ma.masked_array, np.ndarray]]):
+    if isinstance(display_data[0], np.ma.masked_array):
+        band_masks = []
+        for data in display_data:
+            band_masks.append(data.mask)
+        img_data = make_rgb_image(display_data[0].data, display_data[1].data, display_data[2].data)
+    
+        if not img_data.flags['C_CONTIGUOUS']:
+            img_data = np.ascontiguousarray(img_data)                    
+
+        mask = np.zeros(img_data.shape, dtype=bool)
+        img_data = np.ma.masked_array(img_data, mask)
+    else:
+        img_data = make_rgb_image(display_data[0], display_data[1], display_data[2])
+    return img_data
 
 class ScaleToFitMode(enum.Enum):
     '''
