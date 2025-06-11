@@ -1,6 +1,6 @@
 import os
 import threading
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 
 from concurrent.futures import ThreadPoolExecutor, Future
 from PySide2.QtWidgets import QApplication
@@ -30,7 +30,7 @@ class MultiThreadingManager(QObject):
         if app is not None:
             app.aboutToQuit.connect(self.shutdown)
 
-    def submit(self, fn, *args, **kwargs) -> int:
+    def submit(self, fn, *args, **kwargs) -> Tuple[int, Future]:
         """
         Schedule a callable on the thread pool.
         Returns a unique integer task ID.
@@ -48,7 +48,7 @@ class MultiThreadingManager(QObject):
             self._futures[task_id] = future
         future.add_done_callback(lambda fut, tid=task_id: self._on_done(tid, fut))
 
-        return task_id
+        return task_id, future
 
     def _on_done(self, task_id: int, future: Future):
         """

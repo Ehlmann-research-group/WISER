@@ -3,7 +3,7 @@ import logging
 import sys
 import time
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Callable, Any
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -310,7 +310,7 @@ class ImageColors(enum.IntFlag):
 
     RGB = 7
 
-def build_channel_image(arr: Union[np.ma.masked_array, np.ndarray], stretches):
+def build_channel_image(arr: Union[np.ma.masked_array, np.ndarray], stretches: Tuple[Any, Any]):
     band_data = arr
     band_mask = None
     if isinstance(arr, np.ma.masked_array):
@@ -340,6 +340,10 @@ def build_rgb_image(display_data: List[Union[np.ma.masked_array, np.ndarray]]):
     else:
         img_data = make_rgb_image(display_data[0], display_data[1], display_data[2])
     return img_data
+
+def call_func_with_index(index: int, func: Callable[..., Any], *args):
+    res = func(*args)
+    return (index, res)
 
 class ScaleToFitMode(enum.Enum):
     '''
@@ -622,6 +626,11 @@ class RasterView(QWidget):
         self._layout.addWidget(self._scroll_area)
         self.setLayout(self._layout)
 
+        # Set up async
+        self._all_futures = {}
+        self._band_index_max = 3
+        self._band_index_count = 0
+
     def get_stretches(self):
         return self._stretches
 
@@ -630,6 +639,7 @@ class RasterView(QWidget):
         self._stretches = stretches
         # mpm = self._app_state.get_multiproc_manager()
         # mpm.submit(self.update_display_image)
+        print(f'set_stretches_called')
         self.update_display_image()
 
     def _clear_members(self):
@@ -683,8 +693,8 @@ class RasterView(QWidget):
         else:
             self._display_bands = None
             self._stretches = None
-
-        self.update_display_image()
+        print(f'set_raster_data called')
+        self.update_display_image_async()
 
     def get_raster_data(self) -> Optional[RasterDataSet]:
         '''
@@ -739,11 +749,123 @@ class RasterView(QWidget):
 
         self._display_bands = display_bands
         self._colormap = colormap
+        print(f'set_display_bands_called')
         self.update_display_image(colors=changed)
 
 
     def get_colormap(self) -> Optional[str]:
         return self._colormap
+
+    def _use_rgb_image(self, img_data: Union[np.ma.masked_array, np.ndarray]):
+        self._img_data = img_data
+        self._img_data.flags.writeable = False
+
+        time_3 = time.perf_counter()
+
+        # This is the 100% scale QImage of the data.
+        self._image = QImage(img_data,
+            self._raster_data.get_width(), self._raster_data.get_height(),
+            QImage.Format_RGB32)
+
+        self._image_pixmap = QPixmap.fromImage(self._image)
+
+        time_4 = time.perf_counter()
+
+        # logger.debug(f'update_display_image(colors={colors}) update times:  ' +
+        #              f'channels = {time_2 - time_1:0.02f}s ' +
+        #              f'image = {time_3 - time_2:0.02f}s ' +
+        #              f'qt = {time_4 - time_3:0.02f}s')
+
+        self._update_scaled_image()
+
+
+    def _collect_display_data(self, index: int, arr):
+        print(f"_collect_display_data, index: {index}, arr: {type(arr)}, {arr.shape}")
+        self._display_data[index] = arr
+        self._band_index_count += 1
+        if self._band_index_count >= self._band_index_max:
+            mpm = self._app_state.get_multiproc_manager()
+            task_id, fut = mpm.submit(build_rgb_image, self._display_data)
+            fut.add_done_callback(lambda new_fut: self._use_rgb_image(new_fut.result()))
+            self._band_index_count = 0
+
+
+    def normalized_band_to_channel_image(self, index: int, arr):
+        # Call once we get data from update_display_image_async
+        print(f"normalized_band_to_channel_image, index: {index}, arr: {type(arr)}, {arr.shape}")
+        stretches = [None, None]
+        if self._stretches[index]:
+            stretches = self._stretches[index].get_stretches()
+        mpm = self._app_state.get_multiproc_manager()
+        task_id, fut = mpm.submit(build_channel_image, arr, stretches)
+        fut.add_done_callback(lambda new_fut: self._collect_display_data(index, new_fut.result()))
+
+    def update_display_image_async(self, colors=ImageColors.RGB):
+        img_data = None
+        if self._raster_data is None:
+            # No raster data to display
+            self._image_widget.set_dataset_info(None, self._scale_factor)
+            return
+
+        # Only generate (or regenerate) each color plane if we don't already
+        # have data for it, and if we aren't told to explicitly regenerate it.
+
+        assert len(self._display_bands) in [1, 3]
+        cache = self._raster_data.get_cache().get_render_cache()
+        key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches, self._colormap)
+
+        time_1 = time.perf_counter()
+        if cache.in_cache(key):
+            img_data = cache.get_cache_item(key)
+            time_2 = time.perf_counter()
+        elif len(self._display_bands) == 3:
+            # Check each color band to see if we need to update it.
+            color_indexes = [ImageColors.RED, ImageColors.GREEN, ImageColors.BLUE]
+            futures = []
+            self._band_index_max = 3
+            self._band_index_count = 0
+            for i in range(len(self._display_bands)):
+                if self._display_data[i] is None or color_indexes[i] in colors:
+                    # Compute the contents of this color channel.
+            
+                    mtm = self._app_state.get_multithread_manager()
+                    task_id, fut = mtm.submit(self._raster_data.get_band_data_normalized, self._display_bands[i])
+                    fut.add_done_callback(lambda new_fut: self.normalized_band_to_channel_image(i, new_fut.result()))
+                    # arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
+        else:
+            # This is a grayscale image.
+            if colors != ImageColors.NONE or self._display_data[0] is None:
+                # Regenerate the image.  Since all color bands are the same,
+                # generate the first one, then duplicate it for the other two
+                # bands.
+
+                arr = self._raster_data.get_band_data_normalized(self._display_bands[0])
+
+                band_data = arr
+                band_mask = None
+                if isinstance(arr, np.ma.masked_array):
+                    band_data = arr.data
+                    band_mask = arr.mask
+
+                stretches = [None, None]
+                if self._stretches[0]:
+                    stretches = self._stretches[0].get_stretches()
+                new_data  = make_channel_image(band_data, stretches[0], stretches[1])
+
+                new_arr = new_data
+                if isinstance(arr, np.ma.masked_array):
+                    new_arr = np.ma.masked_array(new_data, mask=band_mask)
+                    new_arr.data[band_mask] = 0
+                
+                self._display_data[0] = new_arr
+                self._display_data[1] = self._display_data[0]
+                self._display_data[2] = self._display_data[0]
+
+            time_2 = time.perf_counter()
+
+            # Combine our individual color channel(s) into a single RGB image.
+            img_data = make_grayscale_image(self._display_data[0], self._colormap)
+            cache.add_cache_item(key, img_data)
 
     def update_display_image(self, colors=ImageColors.RGB):
         img_data = None

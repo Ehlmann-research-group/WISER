@@ -1,6 +1,6 @@
 import os
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from concurrent.futures import ProcessPoolExecutor, Future
 from multiprocessing.shared_memory import SharedMemory
@@ -23,7 +23,7 @@ class MultiProcessingManager(QObject):
         self._futures: dict[int, Future] = {}
         self._next_id = 0
 
-    def submit(self, fn, *args, **kwargs) -> int:
+    def submit(self, fn, *args, **kwargs) -> Tuple[int, Future]:
         """
         Schedule a pickleable callable in a separate process.
         Returns a unique integer task ID.
@@ -36,7 +36,7 @@ class MultiProcessingManager(QObject):
         self._futures[task_id] = fut
         # callbacks run in the submitting (GUI) thread :contentReference[oaicite:4]{index=4}
         fut.add_done_callback(lambda f, tid=task_id: self._on_done(tid, f))
-        return task_id
+        return task_id, fut
 
     def _on_done(self, task_id: int, future: Future):
         """

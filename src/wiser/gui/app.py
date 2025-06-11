@@ -63,6 +63,7 @@ from wiser.raster import RasterDataSet, roi_export
 from wiser.raster.data_cache import DataCache
 
 from wiser.utils.multiprocessing_manager import MultiProcessingManager
+from wiser.utils.multithreading_manager import MultiThreadingManager
 
 from test_utils.test_event_loop_functions import TestingWidget
 
@@ -98,8 +99,10 @@ class DataVisualizerApp(QMainWindow):
         self._app_state: ApplicationState = ApplicationState(self, config=config)
         self._data_cache = DataCache()
         self._multiproc_manager = MultiProcessingManager()
+        self._multithread_manager = MultiThreadingManager()
         self._app_state.set_data_cache(self._data_cache)
         self._app_state.set_multiproc_manager(self._multiproc_manager)
+        self._app_state.set_multithread_manager(self._multithread_manager)
 
         # Application Toolbars
 

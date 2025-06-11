@@ -27,6 +27,7 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 from wiser.raster.data_cache import DataCache
 
 from wiser.utils.multiprocessing_manager import MultiProcessingManager
+from wiser.utils.multithreading_manager import MultiThreadingManager
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
@@ -96,6 +97,7 @@ class ApplicationState(QObject):
 
         self._cache: Optional[DataCache] = None
         self._multiproc_manager: Optional[MultiProcessingManager] = None
+        self._multithread_manager: Optional[MultiThreadingManager] = None
         
         # Task IDs for use in multiprocessing
         self._load_file_task_id: Optional[int] = None
@@ -198,9 +200,14 @@ class ApplicationState(QObject):
         '''
         self._current_dir = current_dir
 
+    def set_multithread_manager(self, multithread_manager: MultiThreadingManager):
+        self._multithread_manager = multithread_manager
+
+    def get_multithread_manager(self) -> Optional[MultiThreadingManager]:
+        return self._multithread_manager
+
     def set_multiproc_manager(self, multiproc_manager: MultiProcessingManager):
         self._multiproc_manager = multiproc_manager
-        # self._multiproc_manager.finished.connect(self.file_load_finished)
 
     def get_multiproc_manager(self) -> MultiProcessingManager:
         return self._multiproc_manager
