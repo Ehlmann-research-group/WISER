@@ -1,9 +1,10 @@
 import enum
 import os
 import warnings
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from PySide2.QtCore import *
+from PySide2.QtWidgets import QMessageBox
 
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color
@@ -17,6 +18,7 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import SpectralLibrary
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.loaders.envi import EnviFileFormatError
+from wiser.raster.utils import have_spatial_overlap, can_transform_between_srs
 
 from wiser.raster.stretch import StretchBase
 
@@ -24,7 +26,8 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
 
-
+if TYPE_CHECKING:
+    from wiser.gui.reference_creator_dialog import CrsCreatorState
 class StateChange(enum.Enum):
     ITEM_ADDED = 1
     ITEM_EDITED = 2
@@ -137,6 +140,10 @@ class ApplicationState(QObject):
             config = ApplicationConfig()
 
         self._config: ApplicationConfig = config
+
+        # A dictionary holding the CRSs that the user has created.
+        # The key is the CRS name.
+        self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
 
     def _take_next_id(self) -> int:
@@ -262,7 +269,7 @@ class ApplicationState(QObject):
         # Either the data doesn't look like a spectral library, or loading
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
-        
+
         raster_data_list = self._raster_data_loader.load_from_file(file_path, self._cache)
         
         for raster_data in raster_data_list:
@@ -354,6 +361,60 @@ class ApplicationState(QObject):
                 return False
 
         return True
+    
+    def multiple_datasets_link_compatible(self):
+        
+        same_size = self.multiple_datasets_same_size()
+        if same_size:
+            return same_size, GeographicLinkState.PIXEL
+        
+        datasets = list(self._datasets.values())
+        ds0_srs = datasets[0].get_spatial_ref()
+        if ds0_srs == None:
+            return False, GeographicLinkState.NO_LINK
+        
+        for ds in datasets[1:]:
+            ds_srs = ds.get_spatial_ref()
+            if ds_srs == None or not ds0_srs.IsSame(ds_srs):
+                return False, GeographicLinkState.NO_LINK
+
+        return True, GeographicLinkState.SPATIAL
+
+    def multiple_displayed_datasets_link_compatible(self) -> Tuple[bool, GeographicLinkState]:
+        
+        displayed_datasets = self._app._main_view.get_visible_datasets()
+
+        same_size = True
+        if len(displayed_datasets) < 2:
+            return False, GeographicLinkState.NO_LINK
+
+        # Else, make sure they're all the same size 
+        ds0_dim = (displayed_datasets[0].get_width(), displayed_datasets[0].get_height())
+        for ds in displayed_datasets[1:]:
+            ds_dim = (ds.get_width(), ds.get_height())
+            if ds_dim != ds0_dim:
+                same_size = False
+
+        if same_size:
+            return same_size, GeographicLinkState.PIXEL
+
+        ds0_srs: osr.SpatialReference = displayed_datasets[0].get_spatial_ref()
+        ds0 = displayed_datasets[0]
+        if ds0_srs == None:
+            return False, GeographicLinkState.NO_LINK
+        
+        # print(f"ds0_srs: {ds0_srs.GetName()}")
+
+        for ds in displayed_datasets[1:]:
+            ds_srs = ds.get_spatial_ref()
+            can_transform = can_transform_between_srs(ds0_srs, ds_srs)
+            have_overlap = have_spatial_overlap(ds0_srs, ds0.get_geo_transform(), ds0.get_width(), \
+                                            ds0.get_height(), ds_srs, ds.get_geo_transform(), \
+                                            ds.get_width(), ds.get_height())
+            if ds_srs == None or not can_transform or not have_overlap:
+                return False, GeographicLinkState.NO_LINK
+
+        return True, GeographicLinkState.SPATIAL
 
     def multiple_displayed_datasets_same_size(self):
         '''
@@ -659,3 +720,19 @@ class ApplicationState(QObject):
 
         self._collected_spectra.clear()
         self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)
+
+    def get_user_created_crs(self):
+        return self._user_created_crs
+    
+    def add_user_created_crs(self, name: str, crs: osr.SpatialReference, crs_creator_state: 'CrsCreatorState'):
+        if name in self._user_created_crs:
+            # Ask the user whether to overwrite the existing CRS
+            reply = QMessageBox.question(
+                None,
+                self.tr("CRS Already Exists"),
+                self.tr(f"A CRS named “{name}” already exists. Overwrite it?")
+            )
+            if reply == QMessageBox.Yes:
+                self._user_created_crs[name] = (crs, crs_creator_state)
+        else:
+            self._user_created_crs[name] = (crs, crs_creator_state)

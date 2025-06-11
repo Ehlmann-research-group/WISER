@@ -1,11 +1,14 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, TYPE_CHECKING
 
-from osgeo import gdal
+from osgeo import gdal, osr
 
 import numpy as np
 from astropy import units as u
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
+
+if TYPE_CHECKING:
+    from wiser.raster.dataset import RasterDataSet
 
 ARRAY_NUMBA_THRESHOLD = 150000000 # 150 MB
 
@@ -285,3 +288,124 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
         norm_data = norm_data.astype(np.float32)
 
     return norm_data
+
+def set_data_ignore_of_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
+    nodata = source_dataset.get_data_ignore_value()
+    if nodata is not None:
+        # set the same nodata on every band
+        for i in range(1, gdal_dataset.RasterCount + 1):
+            gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
+
+def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
+    # 1. Propagate wavelength names (band descriptions)
+    band_info = source_dataset.band_list()  # returns dict of lists keyed by metadata names
+    wle_names = band_info[0].get("wavelength_name")
+    if wle_names:
+        for i, band_info in enumerate(band_info):
+            wle_name = band_info.get("wavelength_name")
+            b = gdal_dataset.GetRasterBand(i+1)
+            b.SetDescription(wle_name)
+
+    # 2. Propagate data‑ignore (NoData) value
+    nodata = source_dataset.get_data_ignore_value()
+    if nodata is not None:
+        # set the same nodata on every band
+        for i in range(1, gdal_dataset.RasterCount + 1):
+            gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
+
+    # 3. Propagate default bands (for display)
+    #    e.g. (1,) or (3, 2, 1)
+    defaults = source_dataset.default_display_bands()
+    if defaults:
+        # store as comma‑separated string in metadata
+        gdal_dataset.SetMetadataItem(
+            "DEFAULT_BANDS",
+            ",".join(str(b) for b in defaults)
+        )
+
+    # 4. Propagate bad bands
+    bad = source_dataset.get_bad_bands()  # list of ints
+    if bad:
+        gdal_dataset.SetMetadataItem(
+            "BAD_BANDS",
+            ",".join(str(b) for b in bad)
+        )
+
+    # (Optional) If you also want to store wavelength units:
+    wl_str = band_info[0].get("wavelength_str")  # list of astropy.Quantity
+    if wl_str is not None:
+        for i, q in enumerate(band_info):
+            wl_str = band_info[i].get("wavelength_str")
+            gdal_dataset.GetRasterBand(i+1).SetMetadataItem(
+                "wavelength",
+                wl_str
+            )
+
+    wl_units = band_info[0].get("wavelength_units")  # Should be an astropy.Unit
+    if wl_units is not None:
+        for i, q in enumerate(band_info):
+            wl_units = band_info[i].get("wavelength_units")
+            gdal_dataset.GetRasterBand(i+1).SetMetadataItem(
+                "wavelength_units",
+                str(wl_units)
+            )
+
+    # Don't forget to flush/close when done:
+    gdal_dataset.FlushCache()
+    gdal_dataset = None
+
+def get_bbox(gt, width, height):
+    """Compute (minX, minY, maxX, maxY) of a raster given its GeoTransform."""
+    xs, ys = [], []
+    for px, py in ((0, 0), (width, 0), (0, height), (width, height)):
+        x = gt[0] + px*gt[1] + py*gt[2]
+        y = gt[3] + px*gt[4] + py*gt[5]
+        xs.append(x); ys.append(y)
+    return min(xs), min(ys), max(xs), max(ys)
+
+def reproject_bbox(bbox, src_srs, dst_srs):
+    """Reproject the 4 corners of bbox into dst_srs."""
+    ct = osr.CoordinateTransformation(src_srs, dst_srs)
+    corners = [(bbox[0], bbox[1]),
+               (bbox[0], bbox[3]),
+               (bbox[2], bbox[1]),
+               (bbox[2], bbox[3])]
+    pts = [ct.TransformPoint(x, y)[:2] for x, y in corners]
+    xs, ys = zip(*pts)
+    return min(xs), min(ys), max(xs), max(ys)
+
+def bboxes_intersect(b1, b2):
+    """Return True if b1 and b2 (minX,minY,maxX,maxY) overlap."""
+    return not (
+        b1[2] < b2[0] or  # b1.maxX < b2.minX
+        b1[0] > b2[2] or  # b1.minX > b2.maxX
+        b1[3] < b2[1] or  # b1.maxY < b2.minY
+        b1[1] > b2[3]     # b1.minY > b2.maxY
+    )
+
+
+def can_transform_between_srs(srs1: osr.SpatialReference, srs2: osr.SpatialReference):
+    try:
+        ct = osr.CoordinateTransformation(srs1, srs2)
+        return True
+    except BaseException as e:
+        return False
+
+def have_spatial_overlap(srs1: osr.SpatialReference, gt1: List[float],
+                         w1: int, h1: int,
+                         srs2: osr.SpatialReference, gt2:List[float],
+                         w2: int, h2: int):
+    """
+    Return True if two rasters (given by their OSR SpatialReference,
+    GeoTransform, width & height) overlap in space.
+    """
+    # 1) compute each envelope
+    bbox1 = get_bbox(gt1, w1, h1)
+    bbox2 = get_bbox(gt2, w2, h2)
+
+    # 2) reproject bbox2 into srs1 (if needed)
+    if not srs1.IsSame(srs2):
+        bbox2 = reproject_bbox(bbox2, srs2, srs1)
+
+    # 3) test intersection
+    return bboxes_intersect(bbox1, bbox2)

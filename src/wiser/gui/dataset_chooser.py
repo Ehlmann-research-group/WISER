@@ -115,6 +115,9 @@ class DatasetChooser(QToolButton):
         self._uncheck_all(self._dataset_menu)
 
         for act in self._dataset_menu.actions():
+
+            if act.isSeparator():
+                continue
             act_ds_id = act.data()[1]
             if act_ds_id == ds_id:
                 act.setChecked(True)
@@ -129,7 +132,6 @@ class DatasetChooser(QToolButton):
         has a check-mark by it; all other datasets will be (or become)
         deselected.
         '''
-        # print(f'Selected action:  {act}')
         for oact in self._dataset_menu.actions():
             # print(f'Action:  {oact}\t\tChecked?  {oact == act}')
             oact.setChecked(oact == act)

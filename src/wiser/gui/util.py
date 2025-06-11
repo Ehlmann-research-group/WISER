@@ -2,7 +2,7 @@ import os
 import random
 import string
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -10,6 +10,28 @@ from PySide2.QtWidgets import *
 
 import matplotlib
 import numpy as np
+from PIL import Image
+import cv2
+
+import math
+
+def clear_widget(w: QWidget):
+    # remove and delete any existing layout
+    old_layout = w.layout()
+    if old_layout is not None:
+        while old_layout.count():
+            item = old_layout.takeAt(0)
+            # if it’s a widget, delete it
+            if item.widget():
+                item.widget().deleteLater()
+            # if it’s a sub-layout, clear that too
+            elif item.layout():
+                clear_widget(item.layout().parentWidget())
+        old_layout.deleteLater()
+
+    # also remove any stray child widgets (Designer placeholder, etc)
+    for child in w.findChildren(QWidget):
+        child.setParent(None)
 
 def get_plugin_fns(app_state):
     # Collect functions from all plugins.
@@ -271,3 +293,450 @@ def generate_unused_filename(basename: str, extension: str) -> str:
             i += 1
 
     return filename
+
+def cv2_rotate_scale_expand(img: np.ndarray,
+                        angle: float,
+                        scale: float = 1.0,
+                        interp: int = 1,
+                        mask_fill_value: float = 0
+                        ) -> np.ndarray:
+    """
+    Rotate and scale an image array, expanding the output array
+    so nothing gets clipped.
+
+    Args:
+    img    : HxW or HxWxC uint8/float32 array.
+    angle  : rotation angle in degrees (positive = CCW).
+    scale  : isotropic scale factor.
+    interp : one of 'nearest','linear','cubic','lanczos'. Defaults to linear (1)
+
+    Returns:
+    Transformed array with dtype matching input.
+    """
+    _INTERPOLATIONS = {
+        'nearest':  cv2.INTER_NEAREST,
+        'linear':   cv2.INTER_LINEAR,
+        'cubic':    cv2.INTER_CUBIC,
+        'lanczos':  cv2.INTER_LANCZOS4,
+    }
+    # choose interpolation flag
+    interp_flag = interp
+    orig_mask = None
+    if isinstance(img, np.ma.masked_array):
+        orig_mask = img.mask
+        img = img.filled(mask_fill_value)
+        if not isinstance(orig_mask, np.ndarray):
+            orig_mask = None
+
+    # 3. Build the rotation+scale matrix
+    h, w = img.shape[:2]
+    cx, cy = w/2, h/2
+    M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
+
+    # 4. Compute new canvas size so nothing is clipped
+    abs_cos = abs(M[0,0]); abs_sin = abs(M[0,1])
+    new_w = int(h * abs_sin + w * abs_cos)
+    new_h = int(h * abs_cos + w * abs_sin)
+    # shift origin to centre result
+    M[0,2] += (new_w/2 - cx)
+    M[1,2] += (new_h/2 - cy)
+    # 5. Warp the image
+    out = cv2.warpAffine(
+        img,
+        M,
+        (new_w, new_h),
+        flags=interp,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=mask_fill_value
+    )
+
+    # 6. If there was a mask, warp it too and reapply
+    if orig_mask is not None:
+        # invert mask (True=masked) → valid=1, invalid=0
+        valid = (~orig_mask).astype(np.uint8) * 255
+        warped_valid = cv2.warpAffine(
+            valid,
+            M,
+            (new_w, new_h),
+            flags=cv2.INTER_NEAREST,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0
+        )
+        warped_mask = ~(warped_valid.astype(bool))
+        return np.ma.MaskedArray(out, mask=warped_mask)
+
+    return out
+
+def cv2_rotate_scale_expand_3D(img: np.ndarray,
+                        angle: float,
+                        scale: float = 1.0,
+                        interp: str = 'linear',
+                        mask_fill_value: float = 0
+                        ) -> np.ndarray:
+    """
+    Rotate and scale an image array, expanding the output array
+    so nothing gets clipped.
+
+    Args:
+    img    : HxW or HxWxC uint8/float32 array.
+    angle  : rotation angle in degrees (positive = CCW).
+    scale  : isotropic scale factor.
+    interp : one of 'nearest','linear','cubic','lanczos'.
+
+    Returns:
+    Transformed array with dtype matching input.
+    """
+    _INTERPOLATIONS = {
+        'nearest':  cv2.INTER_NEAREST,
+        'linear':   cv2.INTER_LINEAR,
+        'cubic':    cv2.INTER_CUBIC,
+        'lanczos':  cv2.INTER_LANCZOS4,
+    }
+    # choose interpolation flag
+    flag = _INTERPOLATIONS.get(interp, cv2.INTER_LINEAR)
+    orig_mask = None
+    if isinstance(img, np.ma.MaskedArray):
+        orig_mask = img.mask
+        img = img.filled(mask_fill_value)
+
+    # 3. Build the rotation+scale matrix
+    h, w = img.shape[1:3]
+    cx, cy = w/2, h/2
+    M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
+
+    # 4. Compute new canvas size so nothing is clipped
+    abs_cos = abs(M[0,0]); abs_sin = abs(M[0,1])
+    new_w = int(h * abs_sin + w * abs_cos)
+    new_h = int(h * abs_cos + w * abs_sin)
+    # shift origin to centre result
+    M[0,2] += (new_w/2 - cx)
+    M[1,2] += (new_h/2 - cy)
+
+    # 5. Warp the image
+    out = cv2.warpAffine(
+        img,
+        M,
+        (new_w, new_h),
+        flags=_INTERPOLATIONS.get(interp, cv2.INTER_LINEAR),
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=mask_fill_value
+    )
+
+    # 6. If there was a mask, warp it too and reapply
+    if orig_mask is not None:
+        # invert mask (True=masked) → valid=1, invalid=0
+        valid = (~orig_mask).astype(np.uint8) * 255
+        warped_valid = cv2.warpAffine(
+            valid,
+            M,
+            (new_w, new_h),
+            flags=cv2.INTER_NEAREST,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0
+        )
+        warped_mask = ~(warped_valid.astype(bool))
+        return np.ma.MaskedArray(out, mask=warped_mask)
+
+    return out
+
+
+def pillow_rotate_scale_expand(
+    arr: np.ndarray,
+    angle: float,
+    scale: float = 1.0,
+    resample: str = 'bilinear',
+) -> np.ndarray:
+    """
+    Rotate & scale an HxW or HxWxC array, expanding the output so nothing is clipped.
+
+    Args:
+    arr     : input array (uint8 or float) of shape (H,W) or (H,W,3/4).
+    angle   : CCW rotation in degrees.
+    scale   : uniform scale factor (1.0 = no change).
+    resample: one of 'nearest','bilinear','bicubic','lanczos'.
+
+    Returns:
+    Transformed array, same dtype as input (floats are re-normalized).
+    """
+    # map human-readable names to Pillow resampling filters
+    _RESAMPLE_MODES = {
+        'nearest': Image.NEAREST,
+        'bilinear': Image.BILINEAR,
+        'bicubic': Image.BICUBIC,
+        'lanczos': Image.LANCZOS,
+    }
+    # pick filter
+    mode = _RESAMPLE_MODES.get(resample, Image.BILINEAR)
+
+    # if float, normalize to [0,255] and cast
+    is_float = np.issubdtype(arr.dtype, np.floating)
+    if is_float:
+        lo, hi = arr.min(), arr.max()
+        arr_uint8 = ((arr - lo) / (hi - lo or 1) * 255).astype(np.uint8)
+    else:
+        arr_uint8 = arr
+    print(f"arr_uint8.shape: {arr_uint8.shape}")
+    print(f"arr.shape: {arr.shape}")
+    # build PIL image
+    img = Image.fromarray(arr_uint8.T)
+    print(f"img.size: {img.size}")
+    # 1) scale
+    if scale != 1.0:
+        w, h = img.size
+        img = img.resize((int(w * scale), int(h * scale)), resample=mode)
+
+    # 2) rotate + expand
+    img = img.rotate(angle, resample=mode, expand=True)
+
+    out = np.array(img)
+    print(f"out.shape: {out.shape}")
+    # if original was float, map back to original range
+    if is_float:
+        print(f"IS FLOAT")
+        lo, hi = arr.min(), arr.max()
+        out = out.astype(np.float32) / 255 * (hi - lo or 1) + lo
+
+    return out
+
+def rotate_scale_geotransform_v1(gt, theta, scale, width, height, pivot):
+    '''
+    First we rotate the geo transform's res and rot like this:
+    new_xres = xres_cos - xrot_sin
+    new_xrot = xrot_cos + xres_sin
+
+    new_yres = yres_cos - yrot_sin
+    new_yrot = yrot_cos + yres_sin
+
+    Then to get the new UL point by rotating all of the edge points by a pivot point. Finding the new minx and max x then rotate back
+    '''
+    ulx, xres, xrot, uly, yrot, yres = gt
+    px, py = pivot
+    rad = math.radians(theta)
+    cos_t, sin_t = math.cos(rad), math.sin(rad)
+    new_xres = xres * cos_t - xrot * sin_t
+    new_xrot = xrot * cos_t + xres * sin_t
+
+    new_yres = yres * cos_t - yrot * sin_t
+    new_yrot = yrot * cos_t + yres * sin_t
+
+    # If the scale is >1 (like 2) then we have more pixels so the resolution would be half as much
+    # If the scale is <1 then we are downsampling so the resolution would be more per pixel (less pixels)
+    new_xres_scaled = new_xres / scale
+    new_xrot_scaled = new_xrot / scale
+
+    new_yres_scaled = new_yres / scale
+    new_yrot_scaled = new_yrot / scale
+
+
+        
+    def rot(v):
+        x, y = v
+        # shift so pivot is at (0,0)
+        dx, dy = x - px, y - py
+        # rotate about origin
+        rx = dx * cos_t - dy * sin_t
+        ry = dx * sin_t + dy * cos_t
+        # shift back
+        return (rx + px, ry + py)
+
+    def rot_inverse(v):
+        x, y = v
+        dx, dy = x - px, y - py
+        # inverse rotation = rotate by –θ (or use transpose)
+        ix = dx * cos_t + dy * sin_t
+        iy = -dx * sin_t + dy * cos_t
+        return (ix + px, iy + py)
+
+    def pixel_to_spatial(pixel_x, pixel_y):
+        spatial_x = ulx + xres * pixel_x + xrot * pixel_y
+        spatial_y = uly + yres * pixel_y + yrot * pixel_x
+        return (spatial_x, spatial_y)
+    
+    upper_left = pixel_to_spatial(0, 0)
+    upper_right = pixel_to_spatial(width, 0)
+    bottom_left = pixel_to_spatial(0, height)
+    bottom_right = pixel_to_spatial(width, height)
+
+    rotated_ul = rot(upper_left)
+    rotated_ur = rot(upper_right)
+    rotated_bl = rot(bottom_left)
+    rotated_br = rot(bottom_right)
+
+    rotated_min_x = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    rotated_min_y = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_spatial_ul = rot_inverse((rotated_min_x, rotated_min_y))
+    print(f"new_spatial_ul: {new_spatial_ul}")
+    return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot_scaled, new_yres_scaled)
+
+def rotate_scale_geotransform_v2(gt, theta, scale, width, height, pivot):
+    '''
+    First we rotate the geo transform's res and rot like this:
+    new_xres = xres_cos - xrot_sin
+    new_xrot = xrot_cos + xres_sin
+
+    new_yres = yres_cos - yrot_sin
+    new_yrot = yrot_cos + yres_sin
+
+    Then to get the new UL point by rotating all of the edge points by a pivot point. Finding the new minx and max x then rotate back
+    '''
+    ulx, xres, xrot, uly, yrot, yres = gt
+    pix_px, pix_py = width/2, height/2
+    rad = math.radians(theta)
+    cos_t, sin_t = math.cos(rad), math.sin(rad)
+    new_xres = xres * cos_t - xrot * sin_t
+    new_xrot = xrot * cos_t + xres * sin_t
+
+    new_yres = yres * cos_t - yrot * sin_t
+    new_yrot = yrot * cos_t + yres * sin_t
+
+    # If the scale is >1 (like 2) then we have more pixels so the resolution would be half as much
+    # If the scale is <1 then we are downsampling so the resolution would be more per pixel (less pixels)
+    new_xres_scaled = new_xres / scale
+    new_xrot_scaled = new_xrot / scale
+
+    new_yres_scaled = new_yres / scale
+    new_yrot_scaled = new_yrot / scale
+
+    def rot_pix(v):
+        x, y = v
+        # shift so pivot is at (0,0)
+        dx, dy = x - pix_px, y - pix_py
+        # rotate about origin
+        rx = dx * cos_t - dy * sin_t
+        ry = dx * sin_t + dy * cos_t
+        # shift back
+        return (rx + pix_px, ry + pix_py)
+
+    def rot_inverse_pix(v):
+        x, y = v
+        dx, dy = x - pix_px, y - pix_py
+        # inverse rotation = rotate by –θ (or use transpose)
+        ix = dx * cos_t + dy * sin_t
+        iy = -dx * sin_t + dy * cos_t
+        return (ix + pix_px, iy + pix_py)
+    
+    upper_left = (0, 0)
+    upper_right = (width, 0)
+    bottom_left = (0, height)
+    bottom_right = (width, height)
+
+    rotated_ul = rot_pix(upper_left)
+    rotated_ur = rot_pix(upper_right)
+    rotated_bl = rot_pix(bottom_left)
+    rotated_br = rot_pix(bottom_right)
+
+    rotated_min_x = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    rotated_min_y = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_ul_orig_coord = rot_inverse_pix((rotated_min_x, rotated_min_y))
+    
+    geo_x = gt[0] + new_ul_orig_coord[0] * gt[1] + new_ul_orig_coord[1] * gt[2]
+    geo_y = gt[3] + new_ul_orig_coord[0] * gt[4] + new_ul_orig_coord[1] * gt[5]
+    new_spatial_ul = (geo_x, geo_y)
+    print(f"new_spatial_ul: {new_spatial_ul}")
+    return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot_scaled, new_yres_scaled)
+
+def pixel_coord_to_geo_coord(pixel_coord: Tuple[float, float],
+        geo_transform: Tuple[float, float, float, float, float, float]) -> Tuple[float, float]:
+    '''
+    A helper function to translate a pixel-coordinate into a linear geographic
+    coordinate using the geographic transform from GDAL.
+
+    The geo_transform argument is a 6-tuple that specifies a 2D affine
+    transformation, using the method exposed by GDAL.  See this URL for more
+    details:  https://gdal.org/tutorials/geotransforms_tut.html
+    '''
+    (pixel_x, pixel_y) = pixel_coord
+    geo_x = geo_transform[0] + pixel_x * geo_transform[1] + pixel_y * geo_transform[2]
+    geo_y = geo_transform[3] + pixel_x * geo_transform[4] + pixel_y * geo_transform[5]
+    return (geo_x, geo_y)
+
+def ulurll_to_gt(ul: Tuple[int, int], ur: Tuple[int, int], ll: Tuple[int, int], width: int, height: int):
+    ulx, uly = ul[0], ul[1]
+    urx, ury = ur[0], ur[1]
+    llx, lly = ll[0], ll[1]
+    gt = [
+        ulx,
+        (urx - ulx) / (width),
+        (llx - ulx) / (height),
+        uly,
+        (ury - uly) / (width),
+        (lly - uly) / (height),
+    ]
+    return gt
+
+def rotate_scale_geotransform(gt, theta, width_orig, height_orig, width_rot, height_rot):
+    '''
+    Rotates and scales the geo transform. Does so by using three corner points.
+    '''
+    pix_px, pix_py = width_orig/2, height_orig/2
+    rad = math.radians(theta)
+    cos_t, sin_t = math.cos(rad), math.sin(rad)
+
+    def rot_pix(v):
+        x, y = v
+        # shift so pivot is at (0,0)
+        dx, dy = x - pix_px, y - pix_py
+        # rotate about origin
+        rx = dx * cos_t - dy * sin_t
+        ry = dx * sin_t + dy * cos_t
+        # shift back
+        return (rx + pix_px, ry + pix_py)
+
+    def rot_inverse_pix(v):
+        x, y = v
+        dx, dy = x - pix_px, y - pix_py
+        # inverse rotation = rotate by –θ (or use transpose)
+        ix = dx * cos_t + dy * sin_t
+        iy = -dx * sin_t + dy * cos_t
+        return (ix + pix_px, iy + pix_py)
+
+    upper_left = (0, 0)
+    upper_right = (width_orig, 0)
+    bottom_left = (0, height_orig)
+    bottom_right = (width_orig, height_orig)
+
+    rotated_ul = rot_pix(upper_left)
+    rotated_ur = rot_pix(upper_right)
+    rotated_bl = rot_pix(bottom_left)
+    rotated_br = rot_pix(bottom_right)
+
+    new_ul_x_rot = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    new_ul_y_rot = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_ur_x_rot = max(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    new_ur_y_rot = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_bl_x_rot = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
+    new_bl_y_rot = max(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
+
+    new_ul_pix = rot_inverse_pix((new_ul_x_rot, new_ul_y_rot))
+    new_ur_pix = rot_inverse_pix((new_ur_x_rot, new_ur_y_rot))
+    new_bl_pix = rot_inverse_pix((new_bl_x_rot, new_bl_y_rot))
+
+    new_ul_spatial = pixel_coord_to_geo_coord(new_ul_pix, gt)
+    new_ur_spatial = pixel_coord_to_geo_coord(new_ur_pix, gt)
+    new_bl_spatial = pixel_coord_to_geo_coord(new_bl_pix, gt)
+
+    new_gt = ulurll_to_gt(new_ul_spatial, new_ur_spatial, new_bl_spatial, width_rot, height_rot)
+
+    return new_gt
+
+def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str = None):
+    app = QApplication.instance()
+    if app is None:
+        raise RuntimeError("App instance is not running!")
+    help_icon = app.style().standardIcon(QStyle.SP_MessageBoxQuestion)
+    help_btn.setIcon(help_icon)
+    if tooltip_message is None:
+        help_btn.setToolTip("Click for help")
+    else:
+        help_btn.setToolTip(tooltip_message)
+
+
+    help_btn.clicked.connect(
+        lambda: QDesktopServices.openUrl(
+            QUrl(f"{link}")
+        )
+    )

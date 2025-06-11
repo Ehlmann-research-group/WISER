@@ -32,6 +32,29 @@ class VariableType(enum.IntEnum):
 class BandMathExprInfo:
     '''
     This class holds information produced by the band-math expression analyzer.
+
+    This is a value that is used to keep track of the meta data information for
+    BandMathValues. For example, the resulting type of a*b when a is an image
+    cube and b is a spectrum would be an image cube.
+
+    The variables for this class and their purposes are defined below:
+        # The result-type of the band-math expression.
+        self.result_type: Optional[VariableType] = result_type
+
+        # If the result is an array, this is the element type.
+        self.elem_type: Optional[np.dtype] = None
+
+        # If the result is an array, this is the shape of the array.
+        self.shape: Tuple = None
+
+        # If the result should have spatial metadata (e.g. geographic projection
+        # info or spatial reference system) associated with it, this is the
+        # source of that metadata.
+        self.spatial_metadata_source: Any = None
+
+        # If the result should have spectral metadata (e.g. band wavelengths)
+        # associated with it, this is the source of that metadata.
+        self.spectral_metadata_source: Any = None
     '''
     def __init__(self, result_type=None):
         # The result-type of the band-math expression.

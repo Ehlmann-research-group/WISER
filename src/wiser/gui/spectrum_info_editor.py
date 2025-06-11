@@ -8,7 +8,7 @@ from .generated.spectrum_info_editor_ui import Ui_SpectrumInfoEditor
 
 from wiser.raster.spectrum import (SpectrumAverageMode, AVG_MODE_NAMES)
 from wiser.raster.spectrum import (Spectrum, RasterDataSetSpectrum,
-    SpectrumAtPoint, ROIAverageSpectrum)
+    SpectrumAtPoint, ROIAverageSpectrum, NumPyArraySpectrum)
 
 
 class SpectrumInfoEditor(QDialog):
@@ -88,11 +88,13 @@ class SpectrumInfoEditor(QDialog):
             self._ui.lineedit_location.setText(f'Region of Interest:  {roi_name}')
             self._ui.lineedit_location.setEnabled(True)
 
-        # elif isinstance(spectrum, LibrarySpectrum):
-        #     self._ui.lineedit_spectrum_type.setText(self.tr('Library spectrum'))
-        #
-        #     self._ui.lineedit_location.clear()
-        #     self._ui.lineedit_location.setEnabled(False)
+        elif isinstance(spectrum, NumPyArraySpectrum):
+            self._ui.lineedit_spectrum_type.setText(self.tr('Basic array spectrum'))
+        
+            self._ui.lineedit_location.clear()
+            self._ui.lineedit_location.setEnabled(False)
+
+            self._ui.lineedit_name.setEnabled(False)
 
             self._ui.lineedit_name.setEnabled(False)
 

@@ -9,7 +9,7 @@ sys.path.append(target_dir)
 import numpy as np
 from astropy import units as u
 
-from typing import Tuple, Union, Optional, List
+from typing import Tuple, Union, Optional, List, Dict
 
 from PySide2.QtTest import QTest
 from PySide2.QtCore import *
@@ -21,6 +21,9 @@ from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import TiledRasterView
 from wiser.gui.spectrum_plot import SpectrumPointDisplayInfo
 from wiser.gui.stretch_builder import ChannelStretchWidget
+from wiser.gui.geo_reference_dialog import GeoReferencerDialog, COLUMN_ID, TRANSFORM_TYPES, GeneralCRS
+from wiser.gui.reference_creator_dialog import EllipsoidAxisType, LatitudeTypes, ProjectionTypes, ShapeTypes
+from wiser.gui.similarity_transform_dialog import SimilarityTransformDialog
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
@@ -28,6 +31,10 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import ListSpectralLibrary
 
 from .test_event_loop_functions import FunctionEvent
+from .test_function_decorator import run_in_wiser_decorator
+
+import time
+
 
 class LoggingApplication(QApplication):
     def notify(self, receiver, event):
@@ -111,6 +118,16 @@ class WiserTestModel:
     # region App Events
     #==========================================
 
+    def click_message_box_yes_or_no(self, yes: bool):
+        # grab the active modal widget (the QMessageBox)
+        mbox = QApplication.activeModalWidget()
+        assert isinstance(mbox, QMessageBox)
+        if yes:
+            btn = mbox.button(QMessageBox.Yes)
+        else:
+            btn = mbox.button(QMessageBox.No)
+        QTest.mouseClick(btn, Qt.LeftButton)
+
     #==========================================
     # Code for interfacing with the application
     #==========================================
@@ -141,6 +158,9 @@ class WiserTestModel:
 
         return dataset
 
+    def close_dataset(self, ds_id: int):
+        self.main_window._on_close_dataset(ds_id)
+
     def import_ascii_spectra(self, file_path: str):
         '''
         In the future, we want to implement this function to interact with ImportSpectraTextDialog
@@ -159,7 +179,8 @@ class WiserTestModel:
         '''
         library = ListSpectralLibrary(spectra, path=path)
         self.app_state.add_spectral_library(library)
-    
+
+
     #==========================================
     # region Spectrum Plot
     #==========================================
@@ -404,17 +425,35 @@ class WiserTestModel:
         Sets the zoom pane's zoom level. Scale should non-negative
         and non-zero. The zoom level will show up as {scale*100}%
         '''
-        if scale <= 0:
-            return
-        rv = self.get_zoom_pane_rasterview()
-        rv._scale_factor = scale+1
-        self.zoom_pane._on_zoom_in(None)
+        def func():
+            if scale <= 0:
+                return
+            rv = self.get_zoom_pane_rasterview()
+            rv._scale_factor = scale+1
+            self.zoom_pane._on_zoom_in(None)
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
     def click_zoom_pane_zoom_in(self):
-        self.zoom_pane._act_zoom_in.trigger()
+        def func():
+            self.zoom_pane._act_zoom_in.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
     
     def click_zoom_pane_zoom_out(self):
-        self.zoom_pane._act_zoom_out.trigger()
+        def func():
+            self.zoom_pane._act_zoom_out.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
 
     #==========================================
@@ -435,11 +474,33 @@ class WiserTestModel:
         rv = self.context_pane.get_rasterview()
         return rv._img_data
 
-    def get_context_pane_highlight_regions(self):
+    def get_context_pane_highlight_region(self, ds_id) -> List[Union[QRect, QRectF]]:
+        return self.context_pane._viewport_highlight[ds_id]
+
+    def get_context_pane_highlight_regions(self) -> Dict[int, List[Union[QRect, QRectF]]]:
         return self.context_pane._viewport_highlight
+    
+    def get_context_pane_compatible_highlights(self, ds_id):
+        return self.context_pane._get_compatible_highlights(ds_id)
     
     def get_context_pane_screen_size(self) -> QSize:
         return self.context_pane.get_rasterview()._image_widget.size()
+
+    def get_cp_dataset_chooser_checked_id(self) -> Optional[int]:
+        checked_id = None
+        actions = self.context_pane._dataset_chooser._dataset_menu.actions()
+        for act in actions:
+            if act.isSeparator():
+                continue
+            if act.isChecked():
+                if checked_id is not None:
+                    raise ValueError('Multiple checked actions in context pane\'s dataset chooser!')
+                checked_id = act.data()[1]
+
+        if checked_id is None:
+            raise ValueError('No action is checked in context pane\'s dataset chooser!')
+
+        return checked_id
 
 
     # region State setting
@@ -451,7 +512,7 @@ class WiserTestModel:
         if ds_id not in self.app_state._datasets:
             raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
 
-        action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
+        action = next((act for act in dataset_menu.actions() if not act.isSeparator() and act.data()[1] == ds_id), None)
         if action:
             self.context_pane._on_dataset_changed(action)
         else:
@@ -502,6 +563,37 @@ class WiserTestModel:
         raster_point = context_rv.image_coord_to_raster_coord(QPointF(x, y))
 
         return (raster_point.x(), raster_point.y())
+
+    def set_context_pane_dataset_chooser_id(self, ds_id: int = -1):
+        '''
+        Sets the ID of the context pane's dataset chooser
+        '''
+        def func():
+            cp_ds_chooser = self.context_pane._dataset_chooser
+            cp_ds_menu = cp_ds_chooser._dataset_menu
+            action = None
+            for act in cp_ds_menu.actions():
+                if act.isSeparator():
+                    continue
+                data = act.data()
+                act_id = data[1]
+                if ds_id == act_id:
+                    action = act
+            if action is None:
+                raise ValueError("The ds_id given does not correspond to an action!")
+            # We don't need to call action.trigger(), but for the sake of completeness
+            # we will
+            action.trigger()
+            # I could not find a way to trigger context pane's dataset chooser
+            # so istead we must do this.
+            cp_ds_chooser._on_dataset_changed(action)
+            self.context_pane._on_dataset_changed(action)
+        
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
 
 
     #==========================================
@@ -575,7 +667,9 @@ class WiserTestModel:
         return visible_region
 
     def get_main_view_highlight_region(self, rv_pos: Tuple[int, int]):
-        return self.main_view._viewport_highlight
+        rv = self.get_main_view_rv(rv_pos)
+        ds_id = rv.get_raster_data().get_id()
+        return self.main_view._get_compatible_highlights(ds_id)
 
     def is_main_view_linked(self):
         return self.main_view._link_view_scrolling
@@ -587,18 +681,36 @@ class WiserTestModel:
         Clicks on the link view scrolling button. Returns the state of
         link view. (Either true or false)
         '''
-        self.main_view._act_link_view_scroll.trigger()
+        def func():
+            self.main_view._act_link_view_scroll.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
         return self.main_view._link_view_scrolling
     
     def click_main_view_zoom_in(self):
-        self.main_view._act_zoom_in.trigger()
+        def func():
+            self.main_view._act_zoom_in.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
     
     def click_main_view_zoom_out(self):
-        self.main_view._act_zoom_out.trigger()
+        def func():
+            self.main_view._act_zoom_out.trigger()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
     
     def scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
-        
+
         def scroll():
             rv = self.get_main_view_rv(rv_pos)
             scroll_area =  rv._scroll_area
@@ -736,11 +848,15 @@ class WiserTestModel:
 
 
     #==========================================
-    # region Stretch Builder state retrieval and setting
+    # region Stretch Builder
     #==========================================
 
 
+    #==========================================
     # region State retrieval
+    #==========================================
+
+
     def get_stretch_builder(self, rv_pos: Tuple[int, int] = (0,0)):
         '''
         Returns the stretch builder for main view. Even when the main view is in grid view,
@@ -936,10 +1052,749 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
+    
+    #==========================================
+    # region Geo-Referencer 
+    #==========================================
+
+
+    #==========================================
+    # Region State Getting
+    #==========================================
+    
+    @run_in_wiser_decorator
+    def open_geo_referencer(self):
+        self.main_window.show_geo_reference_dialog(in_test_mode=True)
+
+    def close_geo_referencer(self):
+        def func():
+            self.main_window._geo_ref_dialog.close()
+
+        function_event = FunctionEvent(func)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
+
+
+    # region State Setting
+
+
+    @run_in_wiser_decorator
+    def set_geo_ref_target_dataset(self, dataset_id: Optional[int]) -> None:
+        """
+        Set the target dataset by its ID. If `dataset_id` is None, select “(no data)”.
+        """
+        cbox = self.main_window._geo_ref_dialog._target_cbox
+        # find matching ID or fallback to -1
+        idx = next((i for i in range(cbox.count()) if cbox.itemData(i) == dataset_id), None)
+        if idx is None:
+            idx = next(i for i in range(cbox.count()) if cbox.itemData(i) == -1)
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    @run_in_wiser_decorator
+    def set_geo_ref_reference_dataset(self, dataset_id: Optional[int]) -> None:
+        """
+        Set the reference dataset by its ID. If `dataset_id` is None, select “(no data)”.
+        """
+        cbox = self.main_window._geo_ref_dialog._reference_cbox
+        if dataset_id is None:
+            idx = next(i for i in range(cbox.count()) if cbox.itemData(i) == -1)
+        else:
+            idx = next((i for i in range(cbox.count()) if cbox.itemData(i) == dataset_id), None)
+            if idx is None:
+                raise ValueError(f"No reference dataset with ID {dataset_id}")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    # ---------- processing parameters ---------
+
+    @run_in_wiser_decorator
+    def set_interpolation_type(self, gdal_alg_name: str) -> None:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_interpolation
+        for i in range(cbox.count()):
+            if cbox.itemText(i) == gdal_alg_name:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                break
+
+    @run_in_wiser_decorator
+    def set_geo_ref_output_crs(self, crs: GeneralCRS) -> None:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_srs
+        wanted_data = crs
+        for i in range(cbox.count()):
+            if cbox.itemData(i) == wanted_data:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                break
+
+    @run_in_wiser_decorator
+    def set_geo_ref_polynomial_order(self, order: str) -> None:
+        """
+        Accepts "1", "2", "3", or "TPS" and sets the matching transform:
+          "1"   → Affine (Polynomial 1)
+          "2"   → Polynomial 2
+          "3"   → Polynomial 3
+          "TPS" → Thin Plate Spline (TPS)
+        """
+        mapping = {
+            "1":   TRANSFORM_TYPES.POLY_1.value,
+            "2":   TRANSFORM_TYPES.POLY_2.value,
+            "3":   TRANSFORM_TYPES.POLY_3.value,
+            "TPS": TRANSFORM_TYPES.TPS.value,
+        }
+        label = mapping.get(order)
+        if label is None:
+            raise ValueError(f"Invalid transform order '{order}'")
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_poly_order
+        idx = cbox.findText(label)
+        if idx < 0:
+            raise RuntimeError(f"Transform combo missing '{label}'")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    @run_in_wiser_decorator
+    def set_geo_ref_file_save_path(self, path: str) -> None:
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_save_path
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        QTest.keyClicks(ledit, path)
+        self.main_window._geo_ref_dialog._georeference()
+
+    @run_in_wiser_decorator
+    def click_run_warp(self) -> None:
+        btn = self.main_window._geo_ref_dialog._ui.btn_run_warp
+        QTest.mouseClick(btn, Qt.LeftButton)
+
+    # ---------- GCP creation helpers ----------
+
+    def get_geo_ref_delegate(self):
+        return self.main_window._geo_ref_dialog._georeferencer_task_delegate
+
+    @run_in_wiser_decorator
+    def click_target_image(self, raster_xy: tuple[int, int]) -> None:
+        view = self.main_window._geo_ref_dialog._target_rasterpane.get_rasterview()
+        raster_xy_point = QPointF(raster_xy[0], raster_xy[1])
+        screen_coord = view.raster_coord_to_image_coord_precise(raster_xy_point)
+        viewport = view._image_widget
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,
+            screen_coord,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
+        )
+        viewport = view._image_widget
+        QApplication.postEvent(viewport, mouse_event)
+
+    @run_in_wiser_decorator
+    def press_enter_target_image(self) -> None:
+        view = self.main_window._geo_ref_dialog._target_rasterpane.get_rasterview()
+        viewport = view._image_widget
+        QTest.keyClick(viewport, Qt.Key_Return)
+
+    @run_in_wiser_decorator
+    def click_reference_image(self, raster_xy: tuple[int, int]) -> None:
+        view = self.main_window._geo_ref_dialog._reference_rasterpane.get_rasterview()
+        raster_xy_point = QPointF(raster_xy[0], raster_xy[1])
+        screen_coord = view.raster_coord_to_image_coord_precise(raster_xy_point)
+        if view.get_raster_data() is None:
+            return
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,
+            screen_coord,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
+        )
+        viewport = view._image_widget
+        QApplication.postEvent(viewport, mouse_event)
+
+    @run_in_wiser_decorator
+    def click_reference_image_spatially(self, spatial_xy: tuple[int, int]) -> None:
+        view = self.main_window._geo_ref_dialog._reference_rasterpane.get_rasterview()
+        ds = view.get_raster_data()
+        raster_xy = ds.geo_to_pixel_coords_exact(spatial_xy)
+        raster_xy_point = QPointF(raster_xy[0], raster_xy[1])
+        screen_coord = view.raster_coord_to_image_coord_precise(raster_xy_point)
+        if view.get_raster_data() is None:
+            return
+        pos = QPointF(screen_coord.x(), screen_coord.y())
+        mouse_event = QMouseEvent(
+            QEvent.MouseButtonRelease,
+            pos,
+            Qt.LeftButton,
+            Qt.MouseButtons(Qt.LeftButton),
+            Qt.NoModifier
+        )
+        viewport = view._image_widget
+        # We post an event here so we can use a QPointF to get the 
+        # exact place we want to click on the screen
+        QApplication.postEvent(viewport, mouse_event)
+
+    @run_in_wiser_decorator
+    def press_enter_reference_image(self) -> None:
+        """
+        Simulate pressing Enter while the reference pane has focus.
+        """
+        view = self.main_window._geo_ref_dialog._reference_rasterpane.get_rasterview()
+        viewport = view._image_widget
+        QTest.keyClick(viewport, Qt.Key_Return)
+
+    # ---------- manual-entry reference CRS ----------
+
+    @run_in_wiser_decorator
+    def select_manual_authority_ref(self, authority_name: str) -> None:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_authority
+        idx = cbox.findText(authority_name)
+        if idx >= 0:
+            cbox.setCurrentIndex(idx)
+    
+    @run_in_wiser_decorator
+    def select_manual_authority_target(self, authority_name: str) -> None:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_output_authority
+        idx = cbox.findText(authority_name)
+        if idx >= 0:
+            cbox.setCurrentIndex(idx)
+
+    @run_in_wiser_decorator
+    def enter_manual_authority_code_ref(self, code: int) -> None:
+        le = self.main_window._geo_ref_dialog._ui.ledit_srs_code
+        le.setText(str(code))
+    
+    @run_in_wiser_decorator
+    def enter_manual_authority_code_target(self, code: int) -> None:
+        le = self.main_window._geo_ref_dialog._ui.ledit_output_code
+        le.setText(str(code))
+
+    @run_in_wiser_decorator
+    def click_find_crs_ref(self) -> None:
+        btn = self.main_window._geo_ref_dialog._ui.btn_find_crs
+        QTest.mouseClick(btn, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def click_find_crs_target(self) -> None:
+        btn = self.main_window._geo_ref_dialog._ui.btn_find_output_crs
+        QTest.mouseClick(btn, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def choose_manual_crs_geo_ref(self, crs: GeneralCRS) -> bool:
+        cbox = self.main_window._geo_ref_dialog._ui.cbox_choose_crs
+        wanted = crs
+        for i in range(cbox.count()):
+            if cbox.itemData(i) == wanted:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                return True
+        return False
+
+    # ---------- manual reference point ----------
+
+    @run_in_wiser_decorator
+    def enter_lat_north_geo_ref(self, value: float) -> None:
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_lat_north
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        QTest.keyClicks(ledit, str(value))
+
+    @run_in_wiser_decorator
+    def press_enter_lat_north_geo_ref(self) -> None:
+        QTest.keyClick(self.main_window._geo_ref_dialog._ui.ledit_lat_north, Qt.Key_Return)
+
+    @run_in_wiser_decorator
+    def enter_lon_east_geo_ref(self, value: float) -> None:
+        ledit = self.main_window._geo_ref_dialog._ui.ledit_lon_east
+        QTest.keyClick(ledit, Qt.Key_A, Qt.ControlModifier)
+        QTest.keyClick(ledit, Qt.Key_Delete)
+        QTest.keyClicks(ledit, str(value))
+
+    @run_in_wiser_decorator
+    def press_enter_lon_east_geo_ref(self) -> None:
+        QTest.keyClick(self.main_window._geo_ref_dialog._ui.ledit_lon_east, Qt.Key_Return)
+
+    # ---------- table-editing utilities ----------
+
+    @run_in_wiser_decorator
+    def get_geo_ref_table_item(self, row: int, col: int):
+        return self.main_window._geo_ref_dialog._ui.table_gcps.item(row, col)
+    @run_in_wiser_decorator
+    def change_geo_red_table_value(self, row: int, new_val: float, col_id: COLUMN_ID) -> None:
+        self.get_geo_ref_table_item(row, col_id).setText(str(new_val))
+
+    @run_in_wiser_decorator
+    def click_gcp_enable_btn_geo_ref(self, row: int) -> None:
+        chk: QCheckBox = self.main_window._geo_ref_dialog._ui.table_gcps.cellWidget(
+            row, COLUMN_ID.ENABLED_COL)
+        
+        # use QStyle to get the rectangle of the actual indicator sub-control
+        opt = QStyleOptionButton()
+        opt.initFrom(chk)
+        indicator_rect = chk.style().subElementRect(
+            QStyle.SE_CheckBoxIndicator,
+            opt,
+            chk
+        )
+
+        click_point = indicator_rect.center()
+        QTest.mouseClick(chk, Qt.LeftButton, Qt.NoModifier, click_point)
+
+    @run_in_wiser_decorator
+    def remove_gcp_geo_ref(self, row: int) -> None:
+        btn: QPushButton = self.main_window._geo_ref_dialog._ui.table_gcps.cellWidget(
+            row, COLUMN_ID.REMOVAL_COL)
+        QTest.mouseClick(btn, Qt.LeftButton)
+
+    
+    #==========================================
+    # region Reference System Creator 
+    #==========================================
+
+
+    def get_user_created_crs(self):
+        return self.main_window._app_state.get_user_created_crs()
+
+    def open_crs_creator(self):
+        self.main_window.show_reference_creator_dialog(in_test_mode=True)
+
+    @run_in_wiser_decorator
+    def crs_creator_get_starting_crs(self) -> Optional[str]:
+        """Current 'Starting CRS' name (None if «(None)» selected)."""
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_user_crs
+        text = cbox.currentText()
+        return None if text.strip() in ("", "(None)") else text
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_projection_type(self) -> ProjectionTypes:
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_proj_type
+        all_items = [
+            (cbox.itemText(i), cbox.itemData(i))
+            for i in range(cbox.count())
+        ]
+        return cbox.currentData()
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_shape_type(self) -> ShapeTypes:
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_shape
+        return cbox.currentData()
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_semi_major(self) -> Optional[float]:
+        dlg = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_semi_major.text().strip()
+        return float(txt) if txt else None
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_axis_ingestion_type(self) -> EllipsoidAxisType:
+        """
+        Returns (axis_type_enum, value_or_None)
+        """
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_flat_minor
+        axis_type = cbox.currentData()
+        return axis_type
+    
+    def crs_creator_get_axis_value(self) -> Optional[float]:
+        dlg  = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_flat_minor.text().strip()
+        value = float(txt) if txt else None
+        return value
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_prime_meridian(self) -> Optional[float]:
+        dlg = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_prime_meridian.text().strip()
+        return float(txt) if txt else None
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_center_longitude(self) -> Optional[float]:
+        dlg = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_center_lon.text().strip()   # widget is ledit_center_lon
+        return float(txt) if txt else None
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_latitude_choice(self) -> LatitudeTypes:
+        dlg  = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_lat_chooser
+        return cbox.currentData()
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_latitude_value(self) -> Optional[float]:
+        dlg = self.main_window._crs_creator_dialog
+        txt = dlg._ui.ledit_lat_value.text().strip()
+        return float(txt) if txt else None
+
+
+    @run_in_wiser_decorator
+    def crs_creator_get_crs_name(self) -> str:
+        dlg = self.main_window._crs_creator_dialog
+        return dlg._ui.ledit_crs_name.text().strip()
+
+    @run_in_wiser_decorator
+    def crs_creator_set_starting_crs(self, name: Optional[str]) -> None:
+        """
+        Select a “Starting CRS” entry by name (use None for the «(None)» option).
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_user_crs
+        wanted = "(None)" if name in (None, "") else str(name)
+
+        idx = cbox.findText(wanted, Qt.MatchFixedString)
+        if idx == -1:
+            raise ValueError(f"Starting CRS “{wanted}” not found in combo‑box")
+
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    @run_in_wiser_decorator
+    def crs_creator_set_projection_type(self, proj_type: ProjectionTypes) -> None:
+        """
+        proj_type : ProjectionTypes enum
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_proj_type
+        idx = cbox.findData(proj_type)
+        if idx == -1:
+            raise ValueError(f"{proj_type} not in projection combo-box")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    @run_in_wiser_decorator
+    def crs_creator_set_shape_type(self, shape_type: ShapeTypes) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_shape
+        idx = cbox.findData(shape_type)
+        if idx == -1:
+            raise ValueError(f"{shape_type} not in shape combo-box")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    @run_in_wiser_decorator
+    def crs_creator_set_semi_major(self, value: float) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_semi_major
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_set_axis_ingestion(self, axis_type, value: float) -> None:
+        """
+        axis_type : EllipsoidAxisType enum
+        value     : numeric value to enter
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_flat_minor
+        idx = cbox.findData(axis_type)
+        if idx == -1:
+            raise ValueError(f"{axis_type} not in axis‑type combo‑box")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+        le = dlg._ui.ledit_flat_minor
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_set_prime_meridian(self, value: float) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_prime_meridian
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_set_center_longitude(self, value: float) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_center_lon
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_set_latitude_choice(self, lat_type: LatitudeTypes) -> None:
+        """
+        lat_type : LatitudeTypes enum
+        """
+        dlg = self.main_window._crs_creator_dialog
+        cbox = dlg._ui.cbox_lat_chooser
+        idx = cbox.findData(lat_type)
+        if idx == -1:
+            raise ValueError(f"{lat_type} not in latitude-choice combo-box")
+        cbox.setCurrentIndex(idx)
+        cbox.activated.emit(idx)
+
+    @run_in_wiser_decorator
+    def crs_creator_set_latitude_value(self, value: float) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_lat_value
+        le.clear()
+        QTest.keyClicks(le, str(value))
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_set_crs_name(self, name: str) -> None:
+        dlg = self.main_window._crs_creator_dialog
+        le = dlg._ui.ledit_crs_name
+        le.clear()
+        QTest.keyClicks(le, name)
+        le.editingFinished.emit()
+
+    @run_in_wiser_decorator
+    def crs_creator_press_field_reset(self) -> None:
+        """
+        ok=True  → press the OK/Save button
+        ok=False → press Cancel
+        """
+        dlg = self.main_window._crs_creator_dialog
+        button = dlg._ui.btn_reset_fields
+        QTest.mouseClick(button, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_press_okay(self) -> None:
+        """
+        ok=True  → press the OK/Save button
+        ok=False → press Cancel
+        """
+        dlg = self.main_window._crs_creator_dialog
+        button = dlg._ui.btn_create_crs
+        QTest.mouseClick(button, Qt.LeftButton)
+
+    @run_in_wiser_decorator
+    def crs_creator_press_okay(self, ok: bool = True) -> None:
+        """
+        ok=True  → press the OK/Save button
+        ok=False → press Cancel
+        """
+        dlg = self.main_window._crs_creator_dialog
+        bb  = dlg._ui.buttonBox          # QDialogButtonBox
+        button = bb.button(QDialogButtonBox.Ok if ok else QDialogButtonBox.Cancel)
+        if button is None:
+            raise RuntimeError("OK/Cancel buttons not found in buttonBox")
+        QTest.mouseClick(button, Qt.LeftButton)
+
+    #==========================================
+    # region Similarity Transform
+    #==========================================
+    @run_in_wiser_decorator
+    def open_similarity_transform_dialog(self) -> SimilarityTransformDialog:
+        """Open the dialog exactly as a user would."""
+        self.main_window.show_similarity_transform_dialog(in_test_mode=True)
+        dlg = self.main_window._similarity_transform_dialog
+        QTest.qWaitForWindowExposed(dlg)   
+        return dlg
+
+    @run_in_wiser_decorator
+    def close_similarity_transform_dialog(self):
+        dlg = self.main_window._similarity_transform_dialog
+        QTest.keyClick(dlg, Qt.Key_Escape)
+
+    # ---------------------------------------------------------------------------
+    # Tab selection
+    # ---------------------------------------------------------------------------
+
+    @run_in_wiser_decorator
+    def switch_sim_tab(self, to_translate: bool) -> None:
+        """Flip between the two tabs (True ⇒ translate, False ⇒ rotate/scale)."""
+        dlg = self.main_window._similarity_transform_dialog
+        tab_widget = dlg._ui.tabWidget
+        index      = 1 if to_translate else 0
+        tab_bar    = tab_widget.tabBar()
+        center_pos = tab_bar.tabRect(index).center()
+        QTest.mouseClick(tab_bar, Qt.LeftButton, pos=center_pos)
+
+
+    # ---------------------------------------------------------------------------
+    # region Rotate & Scale tab widgets
+    # ---------------------------------------------------------------------------
+
+    def set_rotation_rs(self, value: float) -> None:
+        """Enter a rotation (deg CCW) via the line-edit, checking the slider syncs."""
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_rotation
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, str(value))
+        assert abs(dlg.image_rotation() - value) < 1e-2
+
+
+    def set_rotation_slider(self, value: int) -> None:
+        """Set rotation with the slider instead of the line-edit."""
+        dlg = self.main_window._similarity_transform_dialog
+        dlg._ui.slider_rotation.setValue(value)
+        assert int(float(dlg._ui.ledit_rotation.text())) == value
+
+
+    def set_scale_rs(self, value: float) -> None:
+        """Edit the isotropic scale factor."""
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_scale
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, str(value))
+        assert abs(dlg.image_scale() - value) < 1e-6
+
+
+    def choose_interpolation_rs(self, index: int) -> None:
+        """Pick an interpolation entry by *index* (0 = Nearest, …)."""
+        dlg = self.main_window._similarity_transform_dialog
+        dlg._ui.cbox_interpolation.setCurrentIndex(index)
+        assert dlg._ui.cbox_interpolation.currentIndex() == index
+
+
+    def set_save_path_rs(self, path: str) -> None:
+        """Type a filepath into the rotate/scale save-path edit."""
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_save_path_rs
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, path)
+
+
+    def run_rotate_scale(self) -> None:
+        """Press the ‘Rotate and Scale’ push-button."""
+        dlg = self.main_window._similarity_transform_dialog
+        QTest.mouseClick(dlg._ui.btn_rotate_scale, Qt.LeftButton)
+
+
+    def select_dataset_rs(
+        self,
+        dataset: RasterDataSet,
+        rasterview_pos: tuple[int, int] = (0, 0)
+    ) -> None:
+        """Load *dataset* into the rotate/scale pane (simulating the combo box)."""
+        dlg = self.main_window._similarity_transform_dialog
+        act = QAction(dlg)
+        act.setData((rasterview_pos, dataset.get_id()))
+        dlg._rotate_scale_pane._on_dataset_changed(act)
+
+
+    # ---------------------------------------------------------------------------
+    # region Translation tab widgets
+    # ---------------------------------------------------------------------------
+
+    def click_translation_pixel(
+        self,
+        pixel: tuple[int, int]
+    ) -> None:
+        """Left-click the given pixel in the translate pane’s view."""
+        dlg = self.main_window._similarity_transform_dialog
+        rv          = dlg._translate_pane.get_rasterview()
+        img_widget  = rv._image_widget
+        QTest.mouseClick(img_widget, Qt.LeftButton, pos=QPoint(*pixel))
+
+
+    def ge_spatial_coords_translate_pane(self) -> tuple[str, str]:
+        """Return (original_coord_text, new_coord_text)."""
+        dlg = self.main_window._similarity_transform_dialog
+        return (
+            dlg._ui.lbl_orig_coord_input.text(),
+            dlg._ui.lbl_new_coord_input.text()
+        )
+
+
+    def set_translate_lat(self, value: float) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_lat_north
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, str(value))
+
+
+    def set_translate_lon(self, value: float) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_lon_east
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, str(value))
+
+
+    def get_lat_north_ul_text(self) -> str:
+        dlg = self.main_window._similarity_transform_dialog
+        return dlg._ui.ledit_lat_north_ul.text()
+
+
+    def get_lon_east_ul_text(self) -> str:
+        dlg = self.main_window._similarity_transform_dialog
+        return dlg._ui.ledit_lon_east_ul.text()
+
+
+    def set_save_path_translate(self, path: str) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        ledit = dlg._ui.ledit_save_path_translate
+        ledit.setFocus()
+        ledit.selectAll()
+        QTest.keyClicks(ledit, path)
+
+
+    def run_create_translation(self) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        QTest.mouseClick(dlg._ui.btn_create_translation, Qt.LeftButton)
+
+
+    def select_dataset_translate(
+        self,
+        dataset: RasterDataSet,
+        rasterview_pos: tuple[int, int] = (0, 0)
+    ) -> None:
+        dlg = self.main_window._similarity_transform_dialog
+        act = QAction(dlg)
+        act.setData((rasterview_pos, dataset.get_id()))
+        dlg._translate_pane._on_dataset_changed(act)
+    # Code to open up the Similarity Transform dialog
+
+    # Code to switch between rotate and scale tab and translate coordinate system tab
+
+    # For rotate and scale tab, code to edit the rotation with both the ledit
+    # and the slider. ledit is ledit_rotate, slider is slider_rotation
+
+    # Code to change the scale with the ledit, ledit_scale
+
+    # Code to change the interpolation type in the combo box (currently lets just do this with the index) cbox_interpolation
+
+    # Code to set the save file path for rotate and scale. the ledit for this is ledit_save_path_rs
+
+    # Code to press the button that starts the rotation and scale. The button for this is btn_rotate_scale
+
+    # Code to select the dataset in the rotate scale similarity transform pane
+    # Either trigger the dataset chooser action or just called rasterpane._on_dataset_changed with an
+    # action that has this data (rasterview_pos, ds_id) = act.data()
+
+    # Code to click on a pixel in the translation similarity transform pane. 
+
+    # Code to get the original spatial coord and the new spatial coord of that pixel
+
+    # Code to translate the Lat/North by editing ledit_lat_north
+
+    # Code to translate the Lon/East by editing ledit_lon_east
+
+    # Code to get the text in the ledit ledit_lat_north_ul
+
+    # Code to get the text in the ledit lon_east_ul
+
+    # Code to set the file save path by editing ledit_save_path_translate
+
+    # Code to press the Create Translation button which is btn_create_translation
+
+    # Code to select the dataset to use in the translation similarity transform pane
+    # Either trigger the dataset chooser action or just called rasterpane._on_dataset_changed with an
+    # action that has this data (rasterview_pos, ds_id) = act.data()
+
     #==========================================
     # region Bandmath 
     #==========================================
-    
+
     # TODO (Joshua G-K): Write the way to interface with bandmath
 
     #==========================================

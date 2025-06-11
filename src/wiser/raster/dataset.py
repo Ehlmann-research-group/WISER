@@ -5,13 +5,16 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from astropy import units as u
+import enum
 
-from osgeo import osr
+from osgeo import osr, gdal
 
 from .dataset_impl import RasterDataImpl, SaveState
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from .utils import find_band_near_wavelength, normalize_ndarray
+from .utils import find_band_near_wavelength, normalize_ndarray, can_transform_between_srs, have_spatial_overlap
 from .data_cache import DataCache
+
+from wiser.gui.dataset_editor_dialog import DatasetEditorDialog 
 
 from time import perf_counter
 
@@ -19,6 +22,11 @@ Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
 
 DEFAULT_MASK_VALUE = 0
+
+class GeographicLinkState(enum.Enum):
+    NO_LINK = 0
+    PIXEL = 1
+    SPATIAL = 2
 
 def pixel_coord_to_geo_coord(pixel_coord: Tuple[Number, Number],
         geo_transform: Tuple[Number, Number, Number, Number, Number, Number]) -> Tuple[Number, Number]:
@@ -47,7 +55,33 @@ def geo_coord_to_angular_coord(geo_coord: Tuple[Number, Number], spatial_ref) ->
     ang_spatial_ref = spatial_ref.CloneGeogCS()
     coord_xform = osr.CoordinateTransformation(spatial_ref, ang_spatial_ref)
     return coord_xform.TransformPoint(geo_x, geo_y)
+    
+def reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset: "RasterDataSet", \
+                                    target_dataset: "RasterDataSet", link_state: GeographicLinkState = None) -> Optional[Tuple[int, int]]:
+    x, y = reference_pixel
+    if reference_dataset is None:
+        return 
 
+    if target_dataset is None:
+        return
+    
+    if link_state is None:
+        link_state = target_dataset.determine_link_state(reference_dataset)
+
+    if link_state == GeographicLinkState.NO_LINK:
+        return
+    elif link_state == GeographicLinkState.PIXEL:
+        # Pixel links mean the datasets have the same width and height
+        pass
+    elif link_state == GeographicLinkState.SPATIAL:
+        geo_coords = reference_dataset.to_geographic_coords((x, y))
+        transformed_center = target_dataset.geo_to_pixel_coords(geo_coords)
+
+        x = transformed_center[0]
+        y = transformed_center[1]
+    else:
+        raise ValueError(f"Uknown dataset link state: {link_state}")
+    return (x, y)
 
 class BandStats:
     '''
@@ -115,6 +149,9 @@ class RasterDataSet:
         # The Spatial Reference System for the dataset.  Only present if this
         # dataset is geographic.
         self._spatial_ref: Optional[osr.SpatialReference] = impl.read_spatial_ref()
+
+        # The wkt spatial reference for this dataset
+        self._wkt_spatial_reference: Optional[str] = impl.get_wkt_spatial_reference()
 
         # True if the dataset has wavelengths (or units that can be converted to
         # wavelengths) for ALL bands.
@@ -391,6 +428,34 @@ class RasterDataSet:
         return arr
 
 
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Returns a 3D numpy array of values specified starting at x, y, and band
+        and going until x+dx, y+dy, band+dband.
+
+        Data returned is in format arr[b][y][x]
+        '''
+
+        # See if image data is already in the cache, if it is we just splice
+
+        # If not then we ask the impl type for the data. We don't store it in the cache.
+        # We want to mak sure the dimension is 3D, cause it could be a minimum 
+        arr = None
+        if self._data_cache:
+            cache = self._data_cache.get_computation_cache()
+            key = cache.get_cache_key(self)
+            arr = cache.get_cache_item(key)
+        if arr is None:
+            arr = self._impl.get_image_data_subset(x, y, band, dx, dy, dband)
+            if arr.ndim == 2:
+                arr = arr[np.newaxis,:,:]
+            if filter_data_ignore_value and self._data_ignore_value is not None:
+                arr = np.ma.masked_values(arr, self._data_ignore_value)
+        return arr
+
+
     def get_band_data(self, band_index: int, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
         '''
         Returns a numpy 2D array of the specified band's data.  The first band
@@ -467,8 +532,7 @@ class RasterDataSet:
                 arr = np.ma.masked_array(arr, mask=mask)
             else:
                 arr = normalize_ndarray(arr, band_min, band_max)
-
-            self._cached_band_stats[band_index] = stats
+            self._cached_band_stats[(band_index, self._data_ignore_value)] = stats
 
             if self._data_cache:
                 cache.add_cache_item(key, arr)
@@ -630,7 +694,7 @@ class RasterDataSet:
 
 
     def get_wkt_spatial_reference(self) -> Optional[str]:
-        return self._impl.get_wkt_spatial_reference()
+        return self._wkt_spatial_reference
 
 
     def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
@@ -655,14 +719,138 @@ class RasterDataSet:
             band_stats = BandStats(index, band_min, band_max)
             self._cached_band_stats[index] = band_stats
 
-
     def to_geographic_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
+        if self._spatial_ref is None:
+            return None
+        geo_coord = pixel_coord_to_geo_coord(pixel_coord, self._geo_transform)
+        return geo_coord
+
+    def to_angular_coords(self, pixel_coord: Tuple[int, int]) -> Optional[Tuple[float, float]]:
         if self._spatial_ref is None:
             return None
 
         geo_coord = pixel_coord_to_geo_coord(pixel_coord, self._geo_transform)
         ang_coord = geo_coord_to_angular_coord(geo_coord, self._spatial_ref)
         return ang_coord
+
+    def geo_to_pixel_coords(self, geo_coords: Tuple[float, float]) -> Optional[Tuple[int, int]]:
+        if self._geo_transform is None:
+            return None
+        
+        inv_geo_transform = gdal.InvGeoTransform(self._geo_transform)
+        if inv_geo_transform is None:
+            raise ValueError("Geo transform of dataset is not invertible!")
+
+        origin_px, width, x_rotation, origin_py, y_rotation, height = inv_geo_transform
+        gx, gy = geo_coords
+        px = origin_px + gx * width + gy * x_rotation
+        py = origin_py + gx * y_rotation + gy * height
+        return (int(px+0.5), int(py+0.5))  # +0.5 for rounding
+    
+    def geo_to_pixel_coords_exact(self, geo_coords: Tuple[float, float]) -> Optional[Tuple[int, int]]:
+        if self._geo_transform is None:
+            return None
+        
+        inv_geo_transform = gdal.InvGeoTransform(self._geo_transform)
+        if inv_geo_transform is None:
+            raise ValueError("Geo transform of dataset is not invertible!")
+
+        origin_px, width, x_rotation, origin_py, y_rotation, height = inv_geo_transform
+        gx, gy = geo_coords
+        px = origin_px + gx * width + gy * x_rotation
+        py = origin_py + gx * y_rotation + gy * height
+        return (px, py)  # +0.5 for rounding
+
+    def is_pixel_in_image_bounds(self, pixel: Tuple[int, int]) -> bool:
+        """
+        Checks to see if the pixel is in the bounds of the image.
+
+        The 0th index of pixel corresponds to the width (x-coordinate) and the 1st index 
+        corresponds to the height (y-coordinate). The coordinate (0, 0) is the top left 
+        most valid pixel.
+        
+        Args:
+            - pixel: The pixel that we want to know is inbounds or not
+
+        Returns:
+            True if the pixel is within the bounds of the image, False otherwise.
+        """
+        x, y = pixel
+        width = self.get_width()
+        height = self.get_height()
+        
+        # Check if the pixel is within the valid coordinate range:
+        return 0 <= x < width and 0 <= y < height
+
+    def is_spatial_coord_in_spatial_bounds(self, spatial_coord: Tuple[float, float]) -> bool:
+        """
+        Checks to see if the spatial coordinate is in the spatial bounds of the image.
+
+        The 0th index of spatial_coord corresponds to the x coordinate in spatial terms,
+        and the 1st index corresponds to the y coordinate. The spatial extent of the image is
+        determined using self._geo_transform (as returned by GDAL's GetGeoTransform) along with
+        the image dimensions from self.get_width() (x direction) and self.get_height() (y direction).
+
+        Args:
+            - spatial_coord: The spatial coordinate that we want to know is inbounds or not
+
+        Returns:
+            True if the spatial coordinate is within the spatial bounds of the image, False otherwise.
+        """
+        # Retrieve the geo transform tuple
+        gt = self._geo_transform
+        origin_x, pixel_width, _, origin_y, _, pixel_height = gt
+
+        # Get the image dimensions in pixels
+        width = self.get_width()
+        height = self.get_height()
+
+        # Compute the spatial coordinate of the image's opposite corner.
+        # For the x direction:
+        end_x = origin_x + pixel_width * width
+        # For the y direction:
+        end_y = origin_y + pixel_height * height
+
+        # Determine the min and max bounds in the x and y directions.
+        # This accounts for cases where pixel_width or pixel_height might be negative.
+        min_x = min(origin_x, end_x)
+        max_x = max(origin_x, end_x)
+        min_y = min(origin_y, end_y)
+        max_y = max(origin_y, end_y)
+
+        # Unpack the provided spatial coordinate.
+        x, y = spatial_coord
+
+        # Check if the coordinate is within the computed spatial bounds.
+        return (min_x <= x <= max_x) and (min_y <= y <= max_y)
+
+    def determine_link_state(self, dataset: "RasterDataSet") -> GeographicLinkState:
+        """
+        Tests to see if the passed in dataset is compatible to link with the current dataset
+        Returns:
+            0 is no link,
+            1 is pixel link, 
+            2 is spatial link
+        """
+        ds0_dim = (self.get_width(), self.get_height())
+        ds_dim = (dataset.get_width(), dataset.get_height())
+
+        if ds_dim == ds0_dim:
+            return GeographicLinkState.PIXEL
+        
+        ds0_srs = self.get_spatial_ref()
+        
+        ds_srs = dataset.get_spatial_ref()
+        can_transform = can_transform_between_srs(ds0_srs, ds_srs)
+        have_overlap = have_spatial_overlap(ds0_srs, self.get_geo_transform(), self.get_width(), \
+                                        self.get_height(), ds_srs, dataset.get_geo_transform(), \
+                                        dataset.get_width(), dataset.get_height())
+        if ds0_srs == None or ds_srs == None or not can_transform or not have_overlap:
+            return GeographicLinkState.NO_LINK
+        
+        return GeographicLinkState.SPATIAL
+        
+
 
 
     def copy_metadata_from(self, dataset: 'RasterDataSet') -> None:
@@ -706,6 +894,12 @@ class RasterDataSet:
         else:
             self._spatial_ref = None
 
+        if source._wkt_spatial_reference is not None:
+            print(f"SETTING WKT S")
+            self._wkt_spatial_reference = source._wkt_spatial_reference
+        else:
+            self._wkt_spatial_reference = None
+
         self.set_dirty()
 
 
@@ -739,6 +933,47 @@ class RasterDataSet:
 
         self.set_dirty()
 
+    def show_edit_dataset_dialog(self, app):
+        '''
+        Creates an edit dataset dialog menu. Should have a label at the top that
+        says none of the changes persist on disk. THey only persist for this session.
+
+        Should have a section under this with a label 
+        '''
+        dataset_edit = DatasetEditorDialog(self, app)
+        dataset_edit.exec_()
+
+    def update_band_info(self, wavelengths: List[u.Quantity]):
+        '''
+        Updates the band information for this dataset. Updates the units and
+        the _band_info field. These changes do not persist across sessions.
+        '''
+        self._band_unit = wavelengths[0].unit
+        self._has_wavelengths = True
+
+        assert isinstance(wavelengths[0], u.Quantity), "Wavelengths array passed into band info isn't made of u.Quantity"
+        assert len(wavelengths) == self.num_bands(), "Wavelengths to update band info doesn't equal num bands"
+
+        band_info = []
+
+        for band_index in range(len(wavelengths)):
+            description = f'{wavelengths[band_index]}'
+            info = {'index':band_index, 'description':description}
+
+            wl_str = str(wavelengths[band_index].value)
+            wl_units = str(wavelengths[band_index].unit.to_string())
+            wavelength = wavelengths[band_index]
+
+            info['wavelength_str'] = wl_str  # String of the value, not the units
+            info['wavelength_units'] = wl_units
+            info['wavelength'] = wavelength
+
+            band_info.append(info)
+        
+        self._band_info = band_info
+
+    def get_band_info(self):
+        return self._band_info   
 
     def get_save_state(self):
         return self._impl.get_save_state()
@@ -750,7 +985,6 @@ class RasterDataSet:
 
     def get_impl(self):
         return self._impl
-
 
     def get_subdataset_name(self) -> str:
         if hasattr(self._impl, 'subdataset_name'):
@@ -767,8 +1001,16 @@ class RasterDataSet:
 
 
     def __hash__(self):
+        '''
+        I understand that the documentation here: https://docs.python.org/3/glossary.html#term-hashable
+        States that 'A hash should remain unchanged throughout the lifetime of the object', however, for
+        this object, we want the hash to change if the data ignore value changed, so cache's that used
+        this dataset will use the 'new' hashed dataset and cause computations to be redone with the
+        new data ignore value. 
+        '''
+        if self._data_ignore_value is not None:
+            return hash((self._id, self._data_ignore_value))
         return self._id
-
 
     def __eq__(self, other) -> bool:
         if isinstance(other, RasterDataSet):
@@ -870,7 +1112,6 @@ def find_truecolor_bands(dataset: RasterDataSet,
     red_band   = find_band_near_wavelength(bands, red)
     green_band = find_band_near_wavelength(bands, green)
     blue_band  = find_band_near_wavelength(bands, blue)
-
     # If that didn't work, report None
     if red_band is None or green_band is None or blue_band is None:
         return None

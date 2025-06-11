@@ -7,7 +7,8 @@ import pdr
 from pdr.loaders.datawrap import ReadArray 
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+import math
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 Number = Union[int, float]
 
 from .utils import make_spectral_value, convert_spectral, get_spectral_unit, get_netCDF_reflectance_path
@@ -16,8 +17,15 @@ from .loaders import envi
 import numpy as np
 from astropy import units as u
 from osgeo import gdal, gdalconst, gdal_array, osr
+import netCDF4 as nc
 
 from astropy.io import fits
+
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
+
+from wiser.gui.subdataset_file_opener_dialog import SubdatasetFileOpenerDialog
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +69,7 @@ class RasterDataImpl(abc.ABC):
         '''
         Returns the paths and filenames of all files associated with this raster
         dataset.  This will be an empty list (not None) if the data is in-memory
-        only.
+        only. If opening gdal subdatasets, this should return the subdataset path.
         '''
         pass
 
@@ -83,7 +91,14 @@ class RasterDataImpl(abc.ABC):
     def get_image_data(self) -> np.ndarray:
         pass
 
+    def get_image_data_subset(self, x: int, y: int, band: int,
+                              dx: int, dy: int, dband: int) -> np.ndarray:
+        pass
+
     def get_band_data(self, band_index) -> np.ndarray:
+        pass
+
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
         pass
 
     def sample_band_data(self, band_index, sample_factor: int):
@@ -131,6 +146,21 @@ class RasterDataImpl(abc.ABC):
 
 
 class GDALRasterDataImpl(RasterDataImpl):
+
+    @classmethod
+    def try_load_file(cls, path: str) -> ['GDALRasterDataImpl']:
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+
+        gdal_dataset = gdal.OpenEx(
+            path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR
+        )
+
+        if gdal_dataset is None:
+            raise ValueError(f"Unable to open PDS4 file: {path}")
+
+        return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
         super().__init__()
@@ -196,7 +226,8 @@ class GDALRasterDataImpl(RasterDataImpl):
     def reopen_dataset(self):
         '''
         Opens and returns a new GDAL dataset equivalent to the current one, 
-        always creating a new dataset from the file path.
+        always creating a new dataset from the file path. This is needed to do
+        asynchronous I/O.
         '''
         file_paths = self.get_filepaths()
         if not file_paths:
@@ -204,7 +235,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 
         file_path = self.subdataset_name if self.subdataset_name is not None else file_paths[0]  # Assuming the first file is the main dataset
         driver = self.gdal_dataset.GetDriver().ShortName
-        
+
         # Open the dataset with the corresponding driver
         new_dataset = gdal.OpenEx(file_path, 
             nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
@@ -250,6 +281,22 @@ class GDALRasterDataImpl(RasterDataImpl):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
             np_array = new_dataset.ReadAsArray()
         return np_array
+
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        '''
+        new_dataset: gdal.Dataset = self.reopen_dataset()
+        band_list = [band+1 for band in range(band, band+dband)]
+        np_array = new_dataset.ReadAsArray(xoff=x, xsize=dx,
+                                           yoff=y, ysize=dy,
+                                           band_list=band_list)
+        return np_array
+            
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
@@ -372,10 +419,49 @@ class GDALRasterDataImpl(RasterDataImpl):
         reading the driver-specific metadata for the format.
         '''
         band_info = []
+
+        md = self.gdal_dataset.GetMetadata()
+        has_band_names = ('band names' in md)
+
+        # Note:  GDAL indexes bands from 1, not 0.
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
             band = self.gdal_dataset.GetRasterBand(band_index)
+
             info = {'index':band_index - 1, 'description':band.GetDescription()}
+
+            gdal_metadata = band.GetMetadata()
+            if 'wavelength' in gdal_metadata and 'wavelength_units' in gdal_metadata:
+                wl_str = gdal_metadata['wavelength']
+                wl_units = gdal_metadata['wavelength_units']
+
+                info['wavelength_str'] = wl_str  # String of the value, not the units
+                info['wavelength_units'] = wl_units
+                # This could fail if the wavelength isn't a float, or if the
+                # units aren't recognized
+                try:
+                    wl_value = float(wl_str)
+                    wavelength = make_spectral_value(wl_value, wl_units)
+                    # TODO(donnie):  Why is everything converted to nanometers?
+                    # wavelength = convert_spectral(wavelength, u.nm)
+                    info['wavelength'] = wavelength
+                except:
+                    # Log this error in case anyone needs to debug it.
+                    logger.warn('Couldn\'t parse wavelength info for GDAL ' +
+                        f'dataset band {band_index - 1}:  ' +
+                        f'value "{wl_str}", units "{wl_units}"')
+
+                # If the raw metadata doesn't actually have band names, generate
+                # a band name/description from the wavelength information, since
+                # the GDAL info is a bit ridiculously formatted.
+                if not has_band_names:
+                    if 'wavelength' in info:
+                        info['description'] = '{0:0.02f}'.format(info['wavelength'])
+                    else:
+                        # NOTE:  Using 0-based index, not 1-based index!
+                        info['description'] = f'Band {band_index - 1}'
+
             band_info.append(info)
+
         return band_info
 
     def read_data_ignore_value(self) -> Optional[Number]:
@@ -423,6 +509,16 @@ class GDALRasterDataImpl(RasterDataImpl):
 
 class PDRRasterDataImpl(RasterDataImpl):
 
+    @classmethod
+    def try_load_file(cls, path: str) -> ['JP2_PDRRasterDataImpl']:
+
+        pdr_dataset = pdr.read(path)
+
+        return [cls(pdr_dataset)]
+    
+    def __init__(self, pdr_dataset):
+        super().__init__(pdr_dataset)
+
     def __init__(self, pdr_dataset: pdr.Data):
         self.pdr_dataset = pdr_dataset
         self.elem_type = None
@@ -432,12 +528,20 @@ class PDRRasterDataImpl(RasterDataImpl):
         self.ndims = None
         self.initialize_constants()
 
-
     def get_format(self) -> str:
         raise NotImplementedError()
 
     def get_filepaths(self):
         return [self.pdr_dataset.filename]
+
+    def reopen_dataset(self) -> pdr.Data:
+        '''
+        Opens and returns a new PDR dataset equivalent to the current one.
+        This is needed to do asynchronous I/O
+        '''
+        filepath = self.get_filepaths()
+        pdr_dataset = pdr.read(filepath)
+        return pdr_dataset
 
     def initialize_constants(self):
         # This line should be before the others since the other functions use self.ndims
@@ -496,6 +600,16 @@ class PDRRasterDataImpl(RasterDataImpl):
 
     def get_image_data(self):
         return self.pdr_dataset['IMAGE']
+    
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        '''
+        return self.pdr_dataset['IMAGE'][band:band+dband,y:y+dy,x:x+dx]
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
@@ -511,19 +625,32 @@ class PDRRasterDataImpl(RasterDataImpl):
             raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_band_data')
 
 
-    # def sample_band_data(self, band_index, sample_factor: int):
-    #     # We can either use OpenCV's pyrDown() which just halves each dimension: https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html#gaf9bba239dfca11654cb7f50f889fc2ff 
-    #     # Or we can use OpenCV's pyrUp() which can  do arbitrary resizing.
-    #     if self.ndims == 2:
-    #         arr = self.pdr_dataset['IMAGE']
-    #     elif self.ndims == 3:
-    #         arr = self.pdr_dataset['IMAGE'][band_index,:,:]
-    #     else:
-    #         raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in sample_band_data')
+    def sample_band_data(self, band_index, sample_factor: int):
+        """
+        Read the IMAGE array with subsampling.
+        
+        - sample_factor is rounded up to the nearest integer ≥ 1.
+        - For 2D data, returns IMAGE[::sf, ::sf].
+        - For 3D data, returns IMAGE[band_index, ::sf, ::sf].
+        """
+        # round up and enforce minimum of 1
+        sf = math.ceil(sample_factor)
+        if sf < 1:
+            sf = 1
 
-    #     new_width = self.get_width() // sample_factor
-    #     new_height = self.get_height() // sample_factor
-    #     return cv2.resize(arr, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        img = self.pdr_dataset['IMAGE']
+
+        if self.ndims == 2:
+            # 2D: stride both axes
+            return img[::sf, ::sf]
+
+        elif self.ndims == 3:
+            # 3D: fix band, stride the last two axes
+            return img[band_index, ::sf, ::sf]
+
+        else:
+            raise ValueError(f"Unsupported number of dimensions: {self.ndims}")
+
 
     def get_all_bands_at(self, x, y):
         if self.ndims == 2:
@@ -581,6 +708,212 @@ class PDRRasterDataImpl(RasterDataImpl):
     def __del__(self):
         pass
 
+class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
+    '''
+    Currently this JP2 reader does not work with multithreading even 
+    though we reopen the pdr dataset
+    '''
+
+    def get_format(self):
+        return DataFormatNames.JP2
+
+    @classmethod
+    def get_jpeg2000_drivers(cls):
+        driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
+        jpeg2000_drivers = []
+        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not.
+        for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
+            if drv in driver_names:
+                jpeg2000_drivers.append(drv)
+        return jpeg2000_drivers
+
+    @classmethod
+    def try_load_file(cls, path: str) -> ['JP2_GDAL_PDR_RasterDataImpl']:
+
+        if not path.endswith('.JP2'):
+            raise Exception(f"Can't load file {path} as JP2")
+
+        pdr_dataset = pdr.read(path)
+
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        allowed_drivers = cls.get_jpeg2000_drivers()
+        if not allowed_drivers:
+            raise ValueError("No JPEG2000 drivers are available in GDAL.")
+
+        for driver in allowed_drivers:
+            try:
+                gdal_dataset = gdal.OpenEx(
+                    path,
+                    nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+                    allowed_drivers=[driver]
+                )
+                if gdal_dataset is not None:
+                    logger.debug(f"Opened {path} with driver {driver}")
+                return [cls(pdr_dataset, gdal_dataset)]
+            except RuntimeError as e:
+                logger.warning(f"Failed to open {path} with driver {driver}: {e}")
+        raise RuntimeError(f"Failed to open {path} in gdal")
+
+
+    def __init__(self, pdr_dataset: pdr.Data, gdal_dataset: gdal.Dataset):
+        self.pdr_dataset = pdr_dataset
+        self.elem_type = None
+        self.number_bands = None
+        self.width = None
+        self.height = None
+        self.ndims = None
+        self.initialize_constants()
+        super().__init__(gdal_dataset)
+
+    def initialize_constants(self):
+        # This line should be before the others since the other functions use self.ndims
+        self.get_num_dims()
+        self.get_width()
+        self.get_height()
+        self.num_bands()
+        self.get_elem_type()
+
+    def reopen_dataset(self) -> pdr.Data:
+        '''
+        Opens and returns a new PDR dataset equivalent to the current one.
+        This is needed to do asynchronous I/O
+        '''
+        filepath = self.get_filepaths()[0]
+        pdr_dataset = pdr.read(filepath)
+        return pdr_dataset
+    
+    def get_num_dims(self):
+        if self.ndims is None:
+            self.ndims = self.pdr_dataset['IMAGE'].ndim
+        
+        if self.ndims != 2 and self.ndims != 3:
+            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_num_dims')
+
+        return self.ndims
+
+    def get_width(self):
+        if self.width is None:
+            if self.ndims == 2:
+                self.width = self.pdr_dataset['IMAGE'].shape[1]
+            elif self.ndims == 3:
+                self.width = self.pdr_dataset['IMAGE'].shape[2]
+            else:
+                raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_width')
+
+        return self.width
+
+    def get_height(self):
+        if self.height is None:
+            if self.ndims == 2:
+                self.height = self.pdr_dataset['IMAGE'].shape[0]
+            elif self.ndims == 3:
+                self.height = self.pdr_dataset['IMAGE'].shape[1]
+            else:
+                raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_height')
+
+        return self.height
+
+    def num_bands(self):
+        if self.number_bands is None:
+            if self.ndims == 2:
+                return 1
+            elif self.ndims == 3:
+                self.number_bands = self.pdr_dataset['IMAGE'].shape[0]
+            else:
+                raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in num_bands')
+    
+        return self.number_bands
+
+    def get_elem_type(self) -> np.dtype:
+        if self.elem_type is None:
+            self.elem_type = self.pdr_dataset['IMAGE'].dtype
+        return self.elem_type
+
+    def get_image_data(self):
+        reopened_dataset = self.reopen_dataset()
+        return reopened_dataset['IMAGE']
+    
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        '''
+        reopened_dataset = self.reopen_dataset()
+        return reopened_dataset['IMAGE'][band:band+dband,y:y+dy,x:x+dx]
+
+    def get_band_data(self, band_index, filter_data_ignore_value=True):
+        '''
+        If the ['IMAGE'] data is already in memory then this shouldn't take long. If not then this has
+        to load the whole image cube into memory. This is why we would rather use GDAL, because we can
+        avoid loading the whole image cube into memory.
+        '''
+        reopened_dataset = self.reopen_dataset()
+        if self.ndims == 2:
+            return reopened_dataset['IMAGE']
+        elif self.ndims == 3:
+            return reopened_dataset['IMAGE'][band_index,:,:]
+        else:
+            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_band_data')
+
+
+    def sample_band_data(self, band_index, sample_factor: int):
+        """
+        Read the IMAGE array with subsampling.
+        
+        - sample_factor is rounded up to the nearest integer ≥ 1.
+        - For 2D data, returns IMAGE[::sf, ::sf].
+        - For 3D data, returns IMAGE[band_index, ::sf, ::sf].
+        """
+        reopened_dataset = self.reopen_dataset()
+        # round up and enforce minimum of 1
+        sf = math.ceil(sample_factor)
+        if sf < 1:
+            sf = 1
+
+        img = reopened_dataset['IMAGE']
+
+        if self.ndims == 2:
+            # 2D: stride both axes
+            return img[::sf, ::sf]
+
+        elif self.ndims == 3:
+            # 3D: fix band, stride the last two axes
+            return img[band_index, ::sf, ::sf]
+
+        else:
+            raise ValueError(f"Unsupported number of dimensions: {self.ndims}")
+
+    def get_all_bands_at(self, x, y):
+        reopened_dataset = self.reopen_dataset()
+        if self.ndims == 2:
+            return reopened_dataset['IMAGE'][y,x]
+        elif self.ndims == 3:
+            return reopened_dataset['IMAGE'][:,y,x]
+        else:
+            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_all_bands_at')
+
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        reopened_dataset = self.reopen_dataset()
+        if self.ndims == 3:
+            return reopened_dataset['IMAGE'][band_list_orig,:,:]
+        else:
+            raise ValueError(f"The number of dimensions this raster has is {self.ndims} " +
+                             f"so it doesn't make sense to get multiple bands")
+
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
+        reopened_dataset = self.reopen_dataset()
+        if self.ndims == 2:
+            return reopened_dataset['IMAGE'][y:y+dy,x:x+dx]
+        elif self.ndims == 3:
+            return reopened_dataset['IMAGE'][:,y:y+dy,x:x+dx]
+        else:
+            raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_all_bands_at_rect')
+
+    
 
 class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     def get_format(self):
@@ -593,11 +926,11 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
             raise Exception(f"Can't load file {path} as JP2")
 
         pdr_dataset = pdr.read(path)
+
         return [cls(pdr_dataset)]
     
     def __init__(self, pdr_dataset):
         super().__init__(pdr_dataset)
-
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -632,6 +965,30 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
+    @classmethod
+    def get_load_filename(cls, path: str) -> str:
+        """
+        For ASCII Grid files, ensure the file has a .asc extension.
+        """
+        if not path.lower().endswith('.asc'):
+            raise ValueError(f"Expected an .asc file, got: {path}")
+        return path
+
+    @classmethod
+    def try_load_file(cls, path: str) -> ['ASC_GDALRasterDataImpl']:
+        # Turn on exceptions when calling into GDAL
+        gdal.UseExceptions()
+        load_path = cls.get_load_filename(path)
+        gdal_dataset = gdal.OpenEx(load_path,
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=['AAIGrid'])
+        if gdal_dataset is None:
+            raise IOError(f"Could not open dataset: {load_path}")
+        return [cls(gdal_dataset)]
+
+    def __init__(self, gdal_dataset):
+        super().__init__(gdal_dataset)
 
 class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -711,10 +1068,6 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
         The numpy array is configured such that the pixel (x, y) values of band
         b are at element array[b][x][y].
 
-        If the data-set has a "data ignore value" and filter_data_ignore_value
-        is also set to True, the array will be filtered such that any element
-        with the "data ignore value" will be filtered to NaN.  Note that this
-        filtering will impact performance.
         '''
         new_dataset = self.reopen_dataset()
         try:
@@ -731,6 +1084,31 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
 
         return np_array
 
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        '''
+        new_dataset = self.reopen_dataset()
+        try:
+            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+        except (AttributeError, RuntimeError, ValueError):
+            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+            try:
+                band_list = [band+1 for band in range(band, band+dband)]
+                hdul = fits.open(self.get_filepaths()[0])
+                np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
+                np_array = new_dataset.ReadAsArray(xoff=x, xsize=dx,
+                                           yoff=y, ysize=dy,
+                                           band_list=band_list)
+            except AttributeError:
+                hdul = fits.open(self.get_filepaths()[0])
+                np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
+
+        return np_array
 
 class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -766,13 +1144,12 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
         )
 
         if gdal_dataset is None:
-            raise ValueError(f"Unable to open PDS3 file: {path}")
+            raise ValueError(f"Unable to open PDS4 file: {path}")
 
         return [cls(gdal_dataset)]
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
-
 
 class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -786,6 +1163,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             allowed_drivers=['netCDF']
         )
 
+        netcdf_dataset = nc.Dataset(path)
+
         if gdal_dataset is None:
             raise ValueError(f"Unable to open netCDF file: {path}")
 
@@ -794,62 +1173,114 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         instances_list = []  # List to hold instances of the class
     
         if subdatasets:
-            for subdataset_name, description in subdatasets:
-                # Extract the actual subdataset name from the path (e.g., "reflectance", "Calcite", etc.)
-                subdataset_key = subdataset_name.split(':')[-1]
-                
-                # Check if the subdataset name is in the emit_data_names set
-                if subdataset_key in emit_data_names:
-                    # Open the subdataset
-                    gdal_subdataset = gdal.Open(subdataset_name)
-                    if gdal_subdataset is None:
-                        raise ValueError(f"Unable to open subdataset: {subdataset_name}")
-                    
-                    # Create an instance of the class for each matching subdataset
-                    instance = cls(gdal_subdataset)
-                    instance.subdataset_name = subdataset_name
-                    instance.subdataset_key = subdataset_key
-                    # Add the instance to the list
-                    instances_list.append(instance)
+            subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
+            if subdataset_chooser.exec_() == QDialog.Accepted:
+                if subdataset_chooser.netcdf_impl is not None:
+                    instances_list.append(subdataset_chooser.netcdf_impl)
+        else:
+            return [GDALRasterDataImpl(gdal_dataset)]
 
+        if instances_list is []:
+            raise ValueError(f"Could not open {path} as netCDF")
         return instances_list
 
-    
-    def get_image_data(self):
-        '''
-        Returns a numpy 3D array of the entire image cube.
-
-        The numpy array is configured such that the pixel (x, y) values of band
-        b are at element array[b][x][y].
-
-        If the data-set has a "data ignore value" and filter_data_ignore_value
-        is also set to True, the array will be filtered such that any element
-        with the "data ignore value" will be filtered to NaN.  Note that this
-        filtering will impact performance.
-        '''
-        new_dataset = self.reopen_dataset()
-        try:
-            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-        except (RuntimeError, ValueError):
-            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            np_array = new_dataset.ReadAsArray()
-        return np_array
-
-    def __init__(self, gdal_dataset):
+    def __init__(self, gdal_dataset: gdal.Dataset, netcdf_dataset: nc.Dataset,
+                 subdataset_name: str, spatial_ref: Optional[osr.SpatialReference],
+                 band_units: Optional[u.Unit], wavelengths: Optional[np.ndarray],
+                 geotransform: Optional[Tuple]):
         super().__init__(gdal_dataset)
+        self._netcdf_dataset = netcdf_dataset
+        self._spatial_ref: Optional[osr.SpatialReference] = spatial_ref
+        self._wavelength_units: Optional[u.Unit] = band_units
+        self._wavelengths: Optional[np.ndarray] = wavelengths
+        if geotransform is None:    
+            geotransform = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+        self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
+        self._subdataset_name = subdataset_name
 
+    def get_filepaths(self):
+        '''
+        Returns the paths and filenames of all files associated with this raster
+        dataset.  This will be an empty list (not None) if the data is in-memory
+        only.
+        '''
+        if self._subdataset_name is None:
+            return []
+
+        return [self._subdataset_name]
+
+    def read_geo_transform(self):
+        return self._geotransform
+
+    def get_wkt_spatial_reference(self):
+        if self._spatial_ref:
+            return self._spatial_ref.ExportToWkt()
+        return None
+
+    def read_spatial_ref(self):
+        return self._spatial_ref
+    
+    def read_band_unit(self):
+        return self._wavelength_units
+
+    def read_band_info(self):
+        band_info = []
+
+        md = list(self._netcdf_dataset.groups['sensor_band_parameters'].variables.keys())
+        print(f'md: {md}')
+        has_band_names = ('observation_bands' in md)
+
+        for band_index in range(1, self.gdal_dataset.RasterCount + 1):
+            band = self.gdal_dataset.GetRasterBand(band_index)
+
+            info = {'index':band_index - 1, 'description':band.GetDescription()}
+
+            if self._wavelengths is not None:
+                wl_value = self._wavelengths[band_index-1]
+                wl_str = str(wl_value)
+                wl_units = self._wavelength_units.to_string()
+
+                info['wavelength_str'] = wl_str
+                info['wavelength_units'] = wl_units
+                try:
+                    wavelength = make_spectral_value(wl_value, wl_units)
+                    info['wavelength'] = wavelength
+                except:
+                    # Log this error in case anyone needs to debug it.
+                    logger.warn('Couldn\'t parse wavelength info for GDAL ' +
+                        f'dataset band {band_index - 1}:  ' +
+                        f'value "{wl_str}", units "{wl_units}"')
+    
+                # If the raw metadata doesn't actually have band names, generate
+                # a band name/description from the wavelength information, since
+                # the GDAL info is a bit ridiculously formatted.
+                if not has_band_names:
+                    if 'wavelength' in info:
+                        info['description'] = '{0:0.02f}'.format(info['wavelength'])
+                    else:
+                        # NOTE:  Using 0-based index, not 1-based index!
+                        info['description'] = f'Band {band_index - 1}'
+
+            band_info.append(info)
+
+        return band_info
+
+    def read_data_ignore_value(self):
+        return super().read_data_ignore_value()
+    
+    def delete_dataset(self):
+        return super().delete_dataset()
+    
 
 class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def get_jpeg2000_drivers(cls):
         driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
         jpeg2000_drivers = []
-        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not. I don't want
-        # to have to build from source but i  mightl
+        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not.
         for drv in ['JP2OpenJPEG', 'JP2ECW', 'JP2KAK', 'JPEG2000']:
             if drv in driver_names:
                 jpeg2000_drivers.append(drv)
-        print(f'Found these jpeg2000 drivers: {jpeg2000_drivers}')
         return jpeg2000_drivers
 
     @classmethod
@@ -875,7 +1306,6 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
                 )
                 if gdal_dataset is not None:
                     logger.debug(f"Opened {load_path} with driver {driver}")
-                    print("Successfully opened jpeg200 file!")
                     return [cls(gdal_dataset)]
             except RuntimeError as e:
                 logger.warning(f"Failed to open {load_path} with driver {driver}: {e}")
@@ -1273,7 +1703,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
                 except:
                     # Log this error in case anyone needs to debug it.
                     logger.warn('Couldn\'t parse wavelength info for GDAL ' +
-                        f'dataset {self.get_name()} band {band_index - 1}:  ' +
+                        f'dataset band {band_index - 1}:  ' +
                         f'value "{wl_str}", units "{wl_units}"')
 
                 # If the raw metadata doesn't actually have band names, generate
@@ -1382,11 +1812,17 @@ class NumPyRasterDataImpl(RasterDataImpl):
 
     def get_image_data(self) -> np.ndarray:
         return self._arr
+    
+    def get_image_data_subset(self, x: int, y: int, band: int,
+                            dx: int, dy: int, dband: int) -> np.ndarray:
+        return self._arr[band:band+dband,y:y+dy,x:x+dx]
 
     def get_band_data(self, band_index) -> np.ndarray:
         return self._arr[band_index]
 
-    
+    def get_multiple_band_data(self, band_list_orig):
+        return self._arr[band_list_orig,:,:]
+
     def sample_band_data(self, band_index, sample_factor: int):
         return self._arr[band_index,::sample_factor,::sample_factor]
 

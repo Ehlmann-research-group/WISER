@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Union
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -17,7 +17,7 @@ from .plugin_utils import add_plugin_context_menu_items
 from wiser import plugins
 
 from wiser.raster import roi_export
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, reference_pixel_to_target_pixel_ds
 from wiser.raster.dataset import find_display_bands
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType, SinglePixelSelection
@@ -30,6 +30,8 @@ from .ui_roi import draw_roi, get_picked_roi_selections
 from .ui_selection_rectangle import RectangleSelectionCreator, RectangleSelectionEditor
 from .ui_selection_polygon import PolygonSelectionCreator, PolygonSelectionEditor
 from .ui_selection_multi_pixel import MultiPixelSelectionCreator, MultiPixelSelectionEditor
+
+from wiser.gui.rasterview import GeographicLinkState
 
 
 class RecenterMode(Enum):
@@ -60,7 +62,7 @@ class TiledRasterView(RasterView):
     '''
 
     def __init__(self, rasterpane, position, app_state: ApplicationState, parent=None, forward=None):
-        super().__init__(parent=parent, forward=forward, app_state=app_state)
+        super().__init__(parent=parent, forward=forward, app_state=app_state, rasterpane=rasterpane)
 
         self._rasterpane = rasterpane
         self._position = position
@@ -296,7 +298,10 @@ class RasterPane(QWidget):
         self._zoom_options = zoom_options
         self._initial_zoom = initial_zoom
 
-        self._viewport_highlight = None
+        # The key is for the dataset the viewport belongs to. 
+        # The value is a list of viewports because one dataset
+        # can show up in the context pane multiple times.
+        self._viewport_highlight: Dict[int, List[Union[QRect, QRectF]]] = None
         self._pixel_highlight: SinglePixelSelection = None
 
         self._task_delegate = None
@@ -467,7 +472,7 @@ class RasterPane(QWidget):
 
 
 
-    def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1)):
+    def _init_rasterviews(self, num_views: Tuple[int, int]=(1, 1), rasterview_class: TiledRasterView = TiledRasterView):
         '''
         Initialize the raster-pane to have MxN raster-views displayed in the
         pane.  The default is to have only one raster-view showing in the pane.
@@ -520,7 +525,7 @@ class RasterPane(QWidget):
 
                 rasterview = self._rasterviews.get(position)
                 if rasterview is None:
-                    rasterview = TiledRasterView(self, position, self._app_state, forward=forward)
+                    rasterview = rasterview_class(self, position, self._app_state, forward=forward)
                     rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
 
                     self._rasterviews[position] = rasterview
@@ -534,6 +539,7 @@ class RasterPane(QWidget):
         self._num_views = num_views
         self.views_changed.emit(self._num_views)
 
+    # region Getters
 
     def _get_rasterview_position(self, rasterview) -> Optional[Tuple[int, int]]:
         '''
@@ -577,6 +583,10 @@ class RasterPane(QWidget):
         used by panes that will only ever have one raster-view.
         '''
         return self._rasterviews[rasterview_pos]
+    
+    
+    def get_all_rasterviews(self) -> List[RasterView]:
+        return list(self._rasterviews.values())
 
 
     def get_rasterview_with_data(self) -> Optional[RasterView]:
@@ -604,6 +614,9 @@ class RasterPane(QWidget):
         for rv in self._rasterviews.values():
             rv.update()
 
+    def update_all_rasterview_displays(self):
+        for rv in self._rasterviews.values():
+            rv.update_display_image()
 
     def _update_rasterview_toolbars(self):
         '''
@@ -627,6 +640,18 @@ class RasterPane(QWidget):
                 regions.append(region)
 
         return regions
+    
+    def get_all_regions(self) -> List:
+        '''
+        Returns a list of all regions. None regions are included.
+        '''
+        regions = []
+        for rv in self._rasterviews.values():
+            region = rv.get_visible_region()
+            regions.append(region)
+
+        return regions
+
 
 
     def get_app_state(self):
@@ -664,6 +689,15 @@ class RasterPane(QWidget):
         for rv in self._rasterviews.values():
             rv.scale_image(scale)
 
+    def set_scale_around_point(self, scale: float, point: Tuple[int, int]):
+        '''
+        Sets the zoom scale of this raster pane.  When a pane contains multiple
+        raster views, the scale is set on all of the views.
+
+        As one would expect, this will generate a viewport-changed event.
+        '''
+        for rv in self._rasterviews.values():
+            rv.scale_image_around_point(scale, point)
 
     def resizeEvent(self, event):
         '''
@@ -676,6 +710,8 @@ class RasterPane(QWidget):
     # def _onRasterResize(self, rasterview, resize_event):
     #     self._emit_viewport_change()
 
+    # region _onRaster
+
 
     def _onRasterMousePress(self, rasterview, mouse_event):
         if self._has_delegate_for_rasterview(rasterview):
@@ -687,7 +723,7 @@ class RasterPane(QWidget):
             done = self._task_delegate.on_mouse_move(mouse_event)
             self._update_delegate(done)
 
-    def _onRasterMouseRelease(self, rasterview, mouse_event):
+    def _onRasterMouseRelease(self, rasterview: 'RasterView', mouse_event):
         '''
         When the display image is clicked on, this method gets invoked, and it
         translates the click event's coordinates into the location on the
@@ -711,6 +747,8 @@ class RasterPane(QWidget):
                 r_coord = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
                 if rasterview.is_raster_coord_in_bounds(r_coord):
                     rasterview_pos = self._get_rasterview_position(rasterview)
+                    ds = rasterview.get_raster_data()
+                    spatial_coord = ds.to_geographic_coords((r_coord.x(), r_coord.y()))
                     self.click_pixel.emit(rasterview_pos, r_coord)
 
 
@@ -735,7 +773,7 @@ class RasterPane(QWidget):
             menu.exec_(context_menu_event.globalPos())
 
 
-    def _afterRasterScroll(self, widget, dx, dy):
+    def _afterRasterScroll(self, widget, dx, dy, propagate_scroll):
         '''
         This function is called when the scroll-area moves around.  Fire an
         event that the visible region of the raster-view has changed.
@@ -865,7 +903,7 @@ class RasterPane(QWidget):
         pass
 
 
-    def _afterRasterScroll(self, rasterview, dx, dy):
+    def _afterRasterScroll(self, rasterview, dx, dy, propagate_scroll):
         '''
         This function is called when the raster-view's scrollbars are moved.
 
@@ -969,6 +1007,11 @@ class RasterPane(QWidget):
         Sets the dataset being displayed in the specified view of the raster
         pane.
         '''
+        if dataset is not None:
+            self._act_band_chooser.setEnabled(True)
+        else:
+            self._act_band_chooser.setEnabled(False)
+
         rasterview = self.get_rasterview(rasterview_pos)
 
         # If the rasterview is already showing the specified dataset, skip!
@@ -979,11 +1022,15 @@ class RasterPane(QWidget):
         stretches = None
         if dataset is not None:
             ds_id = dataset.get_id()
+            if ds_id not in self._display_bands:
+                display_bands = find_display_bands(dataset)
+                self._display_bands[ds_id] = display_bands
+
             bands = self._display_bands[ds_id]
             stretches = self._app_state.get_stretches(ds_id, bands)
 
         rasterview.set_raster_data(dataset, bands, stretches)
-        if dataset is not None and self._num_views == (1, 1):
+        if dataset is not None and self._num_views == (1, 1) and self._dataset_chooser is not None:
             self._dataset_chooser.check_dataset(dataset.get_id())
 
         # This is a check to see if this rasterpane is MainView
@@ -1046,42 +1093,106 @@ class RasterPane(QWidget):
             for rv in self._rasterviews.values():
                 rv.make_point_visible(x, y)
 
+    def create_viewport_highlight_dictionary(self, viewport: Union[List[QRect], QRect, QRectF], \
+                               rasterview: Union[List[RasterView], RasterView]):
+        """
+        This function is used to create the viewport highlight dictionary. It associates viewports
+        with the dataset ID's of the rasterviews that the viewport corresponds to.
 
-    def set_viewport_highlight(self, viewport):
+        self._viewport_highlight values can be a list with Nones in them
+        """
+        # We make sure both the viewport and rasterviews are lists
+        if not isinstance(rasterview, list):
+            rasterviews = [rasterview]
+        else:
+            rasterviews = rasterview
+
+        if not isinstance(viewport, list):
+            viewports = [viewport]
+        else:
+            viewports = viewport
+
+            
+        assert len(rasterviews) == len(viewports), \
+            f"Number of rasterviews and viewports passed in are not the same!" + \
+            f"Number of rasterviews: {len(rasterviews)}. Number of viewports: {len(viewports)}"
+    
+        # We reset the viewport highlight variable because we don't want past 
+        # highlights affecting the current frame's highlights
+        self._viewport_highlight = {}
+
+        for i in range(len(rasterviews)):
+            rv = rasterviews[i]
+            rv_viewport = viewports[i]
+    
+            dataset = rv.get_raster_data()
+            if dataset is None:
+                continue
+            ds_id = dataset.get_id()
+    
+            if ds_id in self._viewport_highlight:
+                self._viewport_highlight[ds_id].append(rv_viewport)
+            else:    
+                self._viewport_highlight[ds_id] = [rv_viewport]
+
+    def set_viewport_highlight(self, viewport: Union[List[QRect], QRect, QRectF], \
+                               rasterview: Union[List[RasterView], RasterView]):
         '''
         Sets the "viewport highlight" to be displayed in this raster-pane.  This
         is used to allow the Context Pane to show the Main View viewport, and
-        the Main View can show the Zoom Pane viewport.
-
-        TODO(donnie):  This will need to be updated for multiple viewports and
-        linked windows.
+        the Main View can show the Zoom Pane viewport. However, the Context Pane
+        and the Main View both override this function to better support multiple
+        viewports. The function just has basic functionality. If it does not meet
+        the expectation for your subclass, then override it. 
         '''
-        # print(f'{self}:  Setting viewport highlight to {viewport}')
+        # We make sure both the viewport and rasterviews are lists
+        if not isinstance(rasterview, list):
+            rasterviews = [rasterview]
+        else:
+            rasterviews = rasterview
 
-        self._viewport_highlight = viewport
+        if not isinstance(viewport, list):
+            viewports = [viewport]
+        else:
+            viewports = viewport
 
-        # If the specified viewport highlight region is not entirely within this
-        # raster-view's visible area, scroll such that the viewport highlight is
-        # in the middle of the raster-view's visible area.
+            
+        assert len(rasterviews) == len(viewports), \
+            f"Number of rasterviews and viewports passed in are not the same!" + \
+            f"Number of rasterviews: {len(rasterviews)}. Number of viewports: {len(viewports)}"
+    
+        # We reset the viewport highlight variable because
+        # we don't want past highlights affecting the current
+        # frames highlights
+        self._viewport_highlight = {}
 
-        # TODO(donnie):  Do we want to force all raster-views to switch to
-        #     displaying the viewport?
-        for rv in self._rasterviews.values():
-            visible = rv.get_visible_region()
-            if visible is None or viewport is None or isinstance(viewport, list):
-                rv.update()
+        for i in range(len(rasterviews)):
+            rv = rasterviews[i]
+            rv_viewport = viewports[i]
+
+            if rv_viewport is None:
                 continue
+    
+            dataset = rv.get_raster_data()
+            if dataset is None:
+                continue
+            ds_id = dataset.get_id()
+    
+            if ds_id in self._viewport_highlight:
+                self._viewport_highlight[ds_id].append(rv_viewport)
+            else:    
+                self._viewport_highlight[ds_id] = [rv_viewport]
 
-            if not visible.contains(viewport):
-                center = viewport.center()
-                rv.make_point_visible(center.x(), center.y())
+        # NOTE: Whatever class subclasses this should implement the rest of this function.
+        # This implementation should call rv.update() on all the rasterviews (or just
+        # the rasterviews you want to call it on) and possibly center some of the 
+        # rasterviews around the viewport
 
-            # Repaint raster-view
-            rv.update()
 
 
     def set_pixel_highlight(self, pixel_sel: Optional[SinglePixelSelection],
-                            recenter:RecenterMode=RecenterMode.ALWAYS):
+                            recenter:RecenterMode=RecenterMode.ALWAYS,
+                            are_views_linked: bool = False):
         '''
         Sets the "pixel highlight" to be displayed in this raster-pane.  This is
         used by both the main image window and the zoom window, to indicate the
@@ -1093,6 +1204,9 @@ class RasterPane(QWidget):
         dataset = None
         if pixel_sel is not None:
             coord = pixel_sel.get_pixel()
+            # We should only be passed in a pixel selection that 
+            # has a dataset, although if we do not there is default
+            # behavior to just call update() on all the rasterviews
             dataset = pixel_sel.get_dataset()
 
         for rasterview in self._rasterviews.values():
@@ -1100,7 +1214,7 @@ class RasterPane(QWidget):
             rv_dataset = rasterview.get_raster_data()
             visible = rasterview.get_visible_region()
 
-            if rv_dataset is None or visible is None or pixel_sel is None:
+            if rv_dataset is None or visible is None or pixel_sel is None or dataset is None:
                 # Don't worry about recentering things, or displaying things -
                 # we are missing something that is necessary to display a pixel
                 # selection anyway.  Just update the rasterview to remove any
@@ -1108,25 +1222,43 @@ class RasterPane(QWidget):
                 rasterview.update()
                 continue
 
-            if dataset is not None and rv_dataset is not dataset:
+            if not are_views_linked and rv_dataset is not dataset:
                 # The selection's dataset was specified, and the rasterview is
                 # showing a different dataset.  Update the rasterview to remove
-                # any pixel selection, and move on.
+                # any pixel selection, and move on. The views are not linked so 
+                # we don't want to do anything
+                rasterview.update()
+                continue
+
+            if dataset.determine_link_state(rv_dataset) == GeographicLinkState.NO_LINK:
+                # This should, in theory, never be reached. If the views are linked, then
+                # determine_link_state will never return NO_LINK and if the datasets
+                # are the same then this won't return NO_LINK. I say this based off the
+                # above if statement.
                 rasterview.update()
                 continue
 
             # If we got here, we want to show the selection in this rasterview.
             # The only question is whether we need to recenter the rasterview to
             # ensure that the pixel selection is visible.
+
+            # First we must get the pixel coordinate in this rasterview's frame
+            # of reference
+            target_pixel = reference_pixel_to_target_pixel_ds((coord.x(), coord.y()), reference_dataset=dataset,
+                                                             target_dataset=rv_dataset)
+            if target_pixel is None:
+                raise ValueError("Could not project pixel selections between coordinates!")
+            target_coord = QPoint(*target_pixel)
             do_recenter = False
             if recenter == RecenterMode.ALWAYS:
                 do_recenter = True
             elif recenter == RecenterMode.IF_NOT_VISIBLE:
-                do_recenter = not visible.contains(coord)
+                do_recenter = not visible.contains(target_coord)
+
             if do_recenter:
                 # Scroll the raster-view such that the pixel is in the middle of the
                 # raster-view's visible area.
-                rasterview.make_point_visible(coord.x(), coord.y())
+                rasterview.make_point_visible(target_coord.x(), target_coord.y())
 
             # Repaint raster-view
             rasterview.update()
@@ -1192,7 +1324,8 @@ class RasterPane(QWidget):
         self.show_dataset(dataset, display_pos)
 
         # Always do this when we add a data set
-        self._act_band_chooser.setEnabled(True)
+        if self._act_band_chooser:
+            self._act_band_chooser.setEnabled(True)
         self._update_zoom_widgets()
 
     def _on_dataset_removed(self, ds_id):
@@ -1202,7 +1335,8 @@ class RasterPane(QWidget):
         dataset.  Also, if any rasterviews are showing the dataset, the function
         switches them to a different dataset (if more than one is loaded).
         '''
-        del self._display_bands[ds_id]
+        if ds_id in self._display_bands:
+            del self._display_bands[ds_id]
 
         # print(f'on_dataset_removed:  band info:  {self._display_bands}')
 
@@ -1214,7 +1348,8 @@ class RasterPane(QWidget):
         self._update_rasterview_toolbars()
 
         if self._app_state.num_datasets() == 0:
-            self._act_band_chooser.setEnabled(False)
+            if self._act_band_chooser:
+                self._act_band_chooser.setEnabled(False)
 
 
     def _on_dataset_changed(self, act):
@@ -1230,7 +1365,6 @@ class RasterPane(QWidget):
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
         colormap = rasterview.get_colormap()
-
         dialog = BandChooserDialog(self._app_state, dataset, display_bands,
             colormap=colormap, parent=self)
         dialog.setModal(True)
@@ -1239,7 +1373,6 @@ class RasterPane(QWidget):
             bands = dialog.get_display_bands()
             is_global = dialog.apply_globally()
             colormap = dialog.get_colormap_name()
-
             self.display_bands_change.emit(dataset.get_id(), bands, colormap, is_global)
 
             # Only update our display bands if the change was not global, since
@@ -1283,6 +1416,20 @@ class RasterPane(QWidget):
 
         if self._max_zoom_scale is None or new_scale <= self._max_zoom_scale:
             self.set_scale(new_scale)
+
+        self._update_zoom_widgets()
+
+    def _on_zoom_in_around_point(self, point: Tuple[int, int]):
+        '''
+        Zoom in the zoom-view by one level. 
+        
+        The variable point should be in local viewport coordinates.
+        '''
+        scale = self.get_scale()
+        new_scale = self._zoom_in_scale(scale)
+
+        if self._max_zoom_scale is None or new_scale <= self._max_zoom_scale:
+            self.set_scale_around_point(new_scale, point)
 
         self._update_zoom_widgets()
 
@@ -1450,6 +1597,8 @@ class RasterPane(QWidget):
 
         return roi
 
+    def get_display_bands(self):
+        return self._display_bands
 
     def _on_edit_roi_info(self, roi):
         '''
@@ -1473,7 +1622,6 @@ class RasterPane(QWidget):
         '''
 
         # TODO(donnie):  What to do if the task-delegate already exists?!
-
         selection_type = act.data()
 
         if selection_type == SelectionType.RECTANGLE:
@@ -1656,63 +1804,145 @@ class RasterPane(QWidget):
 
     def _draw_viewport_highlight(self, rasterview, widget, paint_event):
         '''
-        This helper function draws the viewport highlight in this raster-pane.
+        This helper function draws the viewport highlight(s) in this raster-pane
+        onto the passed in widget.
         The color to draw with is taken from the application state's config.
+
+        It should only be drawing viewport highlights on the Context Pane and
+        Main View. 
+        
+        If this rasterpane is the Context Pane, then self._viewport_highlights
+        can have multiple key's and the list of values for any key can be 
+        greater than 1.
+
+        If this rasterpane is the Main View, then self._viewport_highlights 
+        should only have one key and the value should be a list of length 1.
 
         If there is no viewport highlight, this is a no-op.
         '''
-
-        if self._viewport_highlight is None:
+        if self._viewport_highlight is None or not self._viewport_highlight:
             return
 
-        # The viewport highlight will either be a box (QRect or QRectF), or it
-        # will be a list of boxes in some circumstances.
-        if self._viewport_highlight is not None and \
-           not isinstance(self._viewport_highlight, list):
-            highlights = [self._viewport_highlight]
-        else:
-            highlights = self._viewport_highlight
+        # If the rasterview doesn't have a dataset, its not displaying anything
+        # so we don't need to draw a viewport
+        dataset = rasterview.get_raster_data()
+        if dataset is None:
+            return
+        ds_id = dataset.get_id()
+
+        # An array of QRect's that are compatible with the ds_id
+        # The compatible_highlights array will be a list of either 
+        # QRect or QRectF
+        compatible_highlights = self._get_compatible_highlights(ds_id)
+
+        if not compatible_highlights:
+            return
 
         # Draw the viewport highlight.
         with get_painter(widget) as painter:
             color = self._app_state.get_config('raster.viewport_highlight_color')
             painter.setPen(QPen(color))
 
-            for box in highlights:
-                scale = self.get_scale()
+            self.draw_highlights(compatible_highlights, painter, widget)
+    
+    def draw_highlights(self, highlights: List[Union[QRect, QRectF, QPolygon]], painter: QPainter, widget: QWidget):
+        """
+        Draws every highlight in the provided list onto the widget using the painter.
+        
+        Each highlight can be a QRect, QRectF, or QPolygon. For rectangle types,
+        the coordinates are scaled using self.get_scale() and clamped to the widget size.
+        For polygons, every point is scaled accordingly.
+        """
+        # Get the highlight color from application configuration.
+        color = self._app_state.get_config('raster.viewport_highlight_color')
+        painter.setPen(QPen(color))
+        
+        # Get the current scale factor.
+        scale = self.get_scale()
+        
+        for highlight in highlights:
+            if isinstance(highlight, (QRect, QRectF)):
+                # Scale the rectangle coordinates and dimensions.
+                scaled_rect = QRect(
+                    int(highlight.x() * scale),
+                    int(highlight.y() * scale),
+                    int(highlight.width() * scale),
+                    int(highlight.height() * scale)
+                )
+                
+                # Clamp the dimensions to be within the widget's bounds.
+                if scaled_rect.width() >= widget.width():
+                    scaled_rect.setWidth(widget.width() - 1)
+                if scaled_rect.height() >= widget.height():
+                    scaled_rect.setHeight(widget.height() - 1)
+                    
+                painter.drawRect(scaled_rect)
+                
+            elif isinstance(highlight, QPolygon):
+                # Scale each point in the polygon.
+                scaled_points = []
+                for i in range(highlight.count()):
+                    pt = highlight.value(i)
+                    scaled_points.append(QPoint(int(pt.x() * scale), int(pt.y() * scale)))
+                scaled_polygon = QPolygon(scaled_points)
+                painter.drawPolygon(scaled_polygon)
+                
+            else:
+                # If the highlight is not one of the expected types, we skip it.
+                continue
 
-                scaled = QRect(box.x() * scale, box.y() * scale,
-                               box.width() * scale, box.height() * scale)
+    def _get_compatible_highlights(self, ds_id: int) -> Optional[List[Union[QRect, QRectF, QPolygon]]]:
+        """
+        Retrieves a list of highlight regions (QRect or QRectF) that are compatible 
+        with the given dataset. Compatibility here is just if the datasets are the
+        same.
 
-                if scaled.width() >= widget.width():
-                    scaled.setWidth(widget.width() - 1)
+        Args:
+            ds_id (str): The identifier of the target dataset.
 
-                if scaled.height() >= widget.height():
-                    scaled.setHeight(widget.height() - 1)
+        Returns:
+            List[Union[QRect, QRectF]]: A list of compatible highlight regions, 
+            transformed if necessary based on the link state.
 
-                painter.drawRect(scaled)
+        Raises:
+            ValueError: If an unexpected GeographicLinkState is encountered.
+        """
+        if self._viewport_highlight:
+            viewports = self._viewport_highlight.get(ds_id, None)
+            if viewports is None:
+                return viewports
+            viewports = [viewport for viewport in viewports if viewport is not None]
+            return viewports
+        return None
+    
+    def _transform_viewport_to_polygon(self, viewport: QRect, reference_dataset: RasterDataSet,
+                            target_dataset: RasterDataSet) -> QPolygon:
+        """
+        Transforms the viewport's pixel coordinates from the reference_dataset
+        into geographic coordinates, then into target_dataset pixel coordinates,
+        and returns a QPolygon defined by those transformed points.
+        
+        The polygon is constructed using the viewport's top-left, top-right,
+        bottom-right, and bottom-left points.
 
+        Written by an LLM. Reviewed by Joshua G-K.
+        """
+        # Extract the four corners of the viewport.
+        corners = [viewport.topLeft(), viewport.topRight(), 
+                viewport.bottomRight(), viewport.bottomLeft()]
 
-    def _draw_pixel_highlight(self, rasterview, widget, paint_event):
-        '''
-        This helper function draws the "currently selected pixel" highlight in
-        this raster-pane.  The color to draw with is taken from the application
-        state's config.
+        transformed_points = []
+        for pt in corners:
+            # Convert viewport pixel coordinates to geographic coordinates.
+            geo_coords = reference_dataset.to_geographic_coords((pt.x(), pt.y()))
+            # Convert geographic coordinates to pixel coordinates in the target dataset.
+            pixel_coords = target_dataset.geo_to_pixel_coords(geo_coords)
+            transformed_points.append(QPoint(*pixel_coords))
+        
+        # Create a QPolygon from the transformed points.
+        return QPolygon(transformed_points)
 
-        If there is no "currently selected pixel" highlight, or if the highlight
-        specifies a different dataset than the rasterview is showing, this is a
-        no-op.
-        '''
-
-        if self._pixel_highlight is None:
-            return
-
-        dataset = self._pixel_highlight.get_dataset()
-        if dataset is not None and rasterview.get_raster_data() is not dataset:
-            return
-
-        coord = self._pixel_highlight.get_pixel()
-
+    def _draw_crosshair_at_coord(self, coord, widget):
         with get_painter(widget) as painter:
             color = self._app_state.get_config('raster.pixel_cursor_color')
             painter.setPen(QPen(color))
@@ -1759,3 +1989,26 @@ class RasterPane(QWidget):
 
             else:
                 raise ValueError(f'Unrecognized pixel cursor type {reticle_type}')
+
+    def _draw_pixel_highlight(self, rasterview, widget, paint_event):
+        '''
+        This helper function draws the "currently selected pixel" highlight in
+        this raster-pane.  The color to draw with is taken from the application
+        state's config.
+
+        If there is no "currently selected pixel" highlight, or if the highlight
+        specifies a different dataset than the rasterview is showing, this is a
+        no-op.
+        '''
+
+        if self._pixel_highlight is None:
+            return
+
+        dataset = self._pixel_highlight.get_dataset()
+        if dataset is not None and rasterview.get_raster_data() is not dataset:
+            return
+
+        coord = self._pixel_highlight.get_pixel()
+
+        self._draw_crosshair_at_coord(coord, widget)
+

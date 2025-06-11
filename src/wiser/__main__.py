@@ -6,7 +6,6 @@ import logging.config
 import os
 import sys
 
-
 #============================================================================
 # Load gdal plugins into path 
 # 

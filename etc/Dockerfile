@@ -14,8 +14,6 @@ SHELL ["conda", "run", "-n", "wiser-source", "/bin/bash", "-c"]
 
 ENV PATH /opt/conda/envs/myenv/bin:$PATH
 
-RUN pip install --no-cache-dir -r WISER-etc/requirements.txt
-
 RUN apt-get update && apt-get install -y xvfb
 
 ENTRYPOINT [ "WISER-etc/entry_point.sh" ]

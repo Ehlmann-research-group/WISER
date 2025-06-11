@@ -15,7 +15,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from osgeo import gdal
+from osgeo import gdal, osr
 
 from .app_config import PixelReticleType
 
@@ -38,6 +38,7 @@ from .image_coords_widget import ImageCoordsWidget
 
 from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
+from .similarity_transform_dialog import SimilarityTransformDialog
 
 from .util import *
 
@@ -50,6 +51,8 @@ from wiser import plugins
 
 from .bandmath_dialog import BandMathDialog
 from .fits_loading_dialog import FitsSpectraLoadingDialog
+from .geo_reference_dialog import GeoReferencerDialog
+from .reference_creator_dialog import ReferenceCreatorDialog
 from wiser import bandmath
 
 from wiser.raster.selection import SinglePixelSelection
@@ -60,6 +63,8 @@ from wiser.raster import RasterDataSet, roi_export
 from wiser.raster.data_cache import DataCache
 
 from test_utils.test_event_loop_functions import TestingWidget
+
+from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +199,9 @@ class DataVisualizerApp(QMainWindow):
         # TESTING ITEMS
 
         self._invisible_testing_widget = TestingWidget()
+        self._geo_ref_dialog: GeoReferencerDialog = None
+        self._crs_creator_dialog: ReferenceCreatorDialog = None
+        self._similarity_transform_dialog: SimilarityTransformDialog = None
 
     def _init_menus(self):
 
@@ -277,6 +285,15 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
 
+        act = self._tools_menu.addAction(self.tr('Geo Reference'))
+        act.triggered.connect(self.show_geo_reference_dialog)
+
+        act = self._tools_menu.addAction(self.tr('Reference System Creator'))
+        act.triggered.connect(self.show_reference_creator_dialog)
+
+        act = self._tools_menu.addAction(self.tr('Similarity Transform'))
+        act.triggered.connect(self.show_similarity_transform_dialog)
+
         # Help menu
 
         self._help_menu = self.menuBar().addMenu(self.tr('&Help'))
@@ -329,6 +346,22 @@ class DataVisualizerApp(QMainWindow):
 
         logger.debug(f'Final PYTHON_PATH:  "{sys.path}"')
 
+        # Permanent plugins (we keep them as plugins so future users can see how 
+        # cool plugins are made)
+        permanent_plugins = [("ContinuumRemovalPlugin", ContinuumRemovalPlugin())]
+        for pc_name, plugin_class in permanent_plugins:
+            logger.debug(f'Instantiating plugin class "{pc_name}"')
+            if not plugins.utils.is_plugin(plugin_class):
+                logging.error(f'"{pc_name}" is not a recognized plugin type; skipping')
+                continue
+            
+
+            self._app_state.add_plugin(pc_name, plugin_class)
+            # Let "Tools"-menu plugins add their actions to the menu.
+            if isinstance(plugin_class, plugins.ToolsMenuPlugin):
+                plugin_class.add_tool_menu_items(self._tools_menu, self._app_state)
+
+        # User added plugins
         plugin_classes = self._app_state.get_config('plugins')
         logger.info(f'Initializing plugin classes:  {plugin_classes}')
         for pc in plugin_classes:
@@ -349,6 +382,7 @@ class DataVisualizerApp(QMainWindow):
             # Let "Tools"-menu plugins add their actions to the menu.
             if isinstance(plugin, plugins.ToolsMenuPlugin):
                 plugin.add_tool_menu_items(self._tools_menu, self._app_state)
+
 
 
     def _make_dockable_pane(self, widget, name, title, icon, tooltip,
@@ -498,15 +532,18 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
-            self.tr('All supported files (*.img *.hdr *.tiff *.tif *.tfw *.nc *.sli *.hdr)'),
+            self.tr('All supported files (*.img *.hdr *.tiff *.tif *.tfw *.nc *.sli *.hdr, *.JP2 *.PDS *.lbl *xml)'),
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
             self.tr('NetCDF raster files (*.nc)'),
-            # self.tr('PDS raster files (*.PDS *.IMG)'),
+            self.tr('JP2 files (*.JP2)'),
+            self.tr('PDS raster files (*.PDS *.img *.lbl *.xml)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
+            self.tr('Try luck with GDAL (*)'),
             # self.tr('WISER project files (*.wiser)'),
             # self.tr('All files (*)'),
         ]
+
 
         # Let the user select one or more files to open.
         selected = QFileDialog.getOpenFileNames(self,
@@ -844,6 +881,34 @@ class DataVisualizerApp(QMainWindow):
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
 
+    def show_geo_reference_dialog(self, in_test_mode = False):
+        if self._geo_ref_dialog is None:
+            self._geo_ref_dialog = GeoReferencerDialog(self._app_state, self._main_view, parent=self)
+        # Note the best solution to the inability to properly close QDialogs
+        # in our tests, but for now it gets the job done
+        if not in_test_mode:
+            self._geo_ref_dialog.exec_()
+        else:
+            self._geo_ref_dialog.show()
+
+    def show_reference_creator_dialog(self, in_test_mode = False):
+        if self._crs_creator_dialog is None:
+            self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state)
+        if not in_test_mode:
+            if self._crs_creator_dialog.exec_() == QDialog.Accepted:
+                print(f"Reference creator accepted!")
+        else:
+            self._crs_creator_dialog.show()
+    
+    def show_similarity_transform_dialog(self, in_test_mode = False):
+        if self._similarity_transform_dialog is None:
+            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state)
+        if not in_test_mode:
+            if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
+                print(f"Reference creator accepted!")
+        else:
+            self._similarity_transform_dialog.show()
+
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
         '''
@@ -858,6 +923,21 @@ class DataVisualizerApp(QMainWindow):
 
         self._on_mainview_raster_pixel_select(rv_pos, ds_point, recenter_mode=RecenterMode.IF_NOT_VISIBLE)
 
+    def update_all_rasterpanes(self):
+        '''
+        Refreshes all the rasterviews
+        '''
+        self._context_pane.update_all_rasterviews()
+        self._main_view.update_all_rasterviews()
+        self._zoom_pane.update_all_rasterviews()
+
+    def update_all_rasterpane_displays(self):
+        '''
+        Refreshes all the rasterviews
+        '''
+        self._context_pane.update_all_rasterview_displays()
+        self._main_view.update_all_rasterview_displays()
+        self._zoom_pane.update_all_rasterview_displays()
 
     def _update_image_coords(self, dataset: Optional[RasterDataSet], ds_point):
         '''
@@ -917,15 +997,14 @@ class DataVisualizerApp(QMainWindow):
         if rasterview_position is None:
             return
 
-        if self._main_view.is_multi_view() and not self._main_view.is_scrolling_linked():
-            # Get a list of all visible regions from all views
-            visible_region = self._main_view.get_all_visible_regions()
-        else:
-            rasterview = self._main_view.get_rasterview(rasterview_position)
-            visible_region = rasterview.get_visible_region()
+        # In the context pane we just want to show the currently selected dataset.
+        # The function _get_compatible_dataset is used to filter any view that
+        # doesn't belong to the context pane's dataset.
+        visible_region = self._main_view.get_all_regions()
+        rasterview = self._main_view.get_all_rasterviews()
 
-        self._context_pane.set_viewport_highlight(visible_region)
-
+        self._context_pane.set_viewport_highlight(visible_region, rasterview)
+        return
 
     def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point, recenter_mode=RecenterMode.NEVER):
         '''
@@ -962,9 +1041,12 @@ class DataVisualizerApp(QMainWindow):
             # Linked scrolling:  Don't change the dataset of any other panes;
             # just show the corresponding data in those panes' datasets.
 
-            sel = SinglePixelSelection(ds_point, None)
+            sel = SinglePixelSelection(ds_point, ds)
 
-            self._main_view.set_pixel_highlight(sel, recenter=recenter_mode)
+            self._context_pane.show_dataset(ds)
+
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, are_views_linked=True)
+        
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the "active spectrum" based on the current config and the
@@ -1016,10 +1098,11 @@ class DataVisualizerApp(QMainWindow):
 
     def _update_zoom_viewport_highlight(self):
         visible_area = None
+        rv = self._zoom_pane.get_rasterview()
         if self._zoom_pane.isVisible():
             visible_area = self._zoom_pane.get_rasterview().get_visible_region()
 
-        self._main_view.set_viewport_highlight(visible_area)
+        self._main_view.set_viewport_highlight(visible_area, rv)
 
 
     def _on_zoom_raster_pixel_select(self, rasterview_position, ds_point):
@@ -1059,10 +1142,11 @@ class DataVisualizerApp(QMainWindow):
             # Linked scrolling:  Don't change the dataset of any other panes;
             # just show the corresponding data in those panes' datasets.
 
-            sel = SinglePixelSelection(ds_point, None)
+            sel = SinglePixelSelection(ds_point, ds)
 
             # Update the main and zoom windows to show the selected dataset and pixel.
-            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, 
+                                                are_views_linked=True)
             self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
             # Set the "active spectrum" based on the current config and the
