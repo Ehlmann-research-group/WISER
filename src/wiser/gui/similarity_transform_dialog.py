@@ -490,22 +490,37 @@ class SimilarityTransformDialog(QDialog):
 
             output_bytes = pixmap_width * pixmap_height * num_bands * np_dtype.itemsize
             
-            ratio = MAX_RAM_BYTES / output_bytes
+            if output_bytes > MAX_RAM_BYTES:
+                ratio = MAX_RAM_BYTES / output_bytes  # Proportion of bands to use for each iteration
+            else:
+                ratio = 1
             new_dataset = driver.Create(save_path, pixmap_width, pixmap_height, num_bands, gdal_data_type)
             if new_dataset is None:
                 raise RuntimeError("Failed to create the output dataset")
             num_bands_per = int(ratio * num_bands)
+            if num_bands_per <= 0:
+                num_bands_per == 1
             ds_data_ignore = self._rotate_scale_dataset.get_data_ignore_value()
             data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
             for band_index in range(0, num_bands, num_bands_per):
                 band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < num_bands]
                 band_arr = self._rotate_scale_dataset.get_multiple_band_data(band_list_index)
                 # We have to transpose because opencv expects the columns in a certain order
-                np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0))
+                if len(band_arr.shape) == 2:
+                    np_corrected_band_arr = band_arr
+                elif len(band_arr.shape == 3):
+                    np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0)) # b, y ,x -> y, x, b
+                else:
+                    raise RuntimeError(f"Band Array does not have dimensions 2 or 3, it has dimensions {len(band_arr.shape)}")
                 rotated_scaled_band_arr = cv2_rotate_scale_expand(np_corrected_band_arr, self._image_rotation, self._image_scale,
                                                                 interp=self._get_interpolation_type(),
                                                                 mask_fill_value=0)
-                rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
+                if len(rotated_scaled_band_arr.shape) == 2:
+                    rotated_scaled_band_arr = rotated_scaled_band_arr
+                elif len(rotated_scaled_band_arr.shape) == 3:
+                    rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
+                else:
+                    raise RuntimeError(f"The rotated and scaled array dimension is neither 2 or 3, its {len(rotated_scaled_band_arr.shape)}")
                 # If its a masked array, we fill it with the data ignore value so the new dataset ignores it
                 if isinstance(rotated_scaled_band_arr, np.ma.masked_array):
                     rotated_scaled_band_arr = rotated_scaled_band_arr.filled(data_ignore)
@@ -528,7 +543,7 @@ class SimilarityTransformDialog(QDialog):
             self.set_rotate_scale_message_text("Finished Rotate and Scale.")
         except BaseException as e:
             QMessageBox.critical(self,
-                                 self.tr("Error While Translating Dataset"),
+                                 self.tr("Error While Rotating & Scaling Dataset"),
                                  self.tr(f"Error:\n\n{e}"))
             return
         finally:

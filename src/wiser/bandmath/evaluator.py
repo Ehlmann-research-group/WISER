@@ -852,6 +852,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     numInterFinder = NumberOfIntermediatesFinder(lower_variables, lower_functions)
     numInterFinder.transform(tree)
     number_of_intermediates = numInterFinder.get_max_intermediates()
+    number_of_intermediates += 1
     logger.debug(f'Number of intermediates: {number_of_intermediates}')
 
     gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
@@ -871,7 +872,15 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
      and not use_old_method):
         try:
             eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
-            bands, lines, samples = expr_info.shape
+            bands = 1
+            lines = 1
+            samples = 1
+            if len(expr_info.shape) == 2:
+                lines, samples = expr_info.shape
+            elif len(expr_info.shape) == 3:
+                bands, lines, samples = expr_info.shape
+            else:
+                raise RuntimeError(f"expr_info shape is neither 2 or 3, its {expr_info.shape}")
             # Gets the correct file path to make our temporary file
             result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
             folder_path = os.path.dirname(result_path)
