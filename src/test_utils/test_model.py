@@ -84,7 +84,10 @@ class WiserTestModel:
         self.testing_widget = self.main_window._invisible_testing_widget
     
     def run(self):
-        QTimer.singleShot(10, self.app.quit)
+        def func():
+            self.app.processEvents()
+            self.app.quit()
+        QTimer.singleShot(10, func)
         self.app.exec_()
 
     def close_app(self):
@@ -110,6 +113,15 @@ class WiserTestModel:
     #==========================================
     # region App Events
     #==========================================
+
+    def call_function_in_event_loop(self, function_to_call):
+        '''
+        Calls function_to_call in the app's event loop
+        '''
+        function_event = FunctionEvent(function_to_call)
+
+        self.app.postEvent(self.testing_widget, function_event)
+        self.run()
 
     #==========================================
     # Code for interfacing with the application
@@ -402,7 +414,7 @@ class WiserTestModel:
     def set_zoom_pane_zoom_level(self, scale: int):
         '''
         Sets the zoom pane's zoom level. Scale should non-negative
-        and non-zero. The zoom level will show up as {scale*100}%
+        and non-zero. The zoom level will be around {scale*100}%
         '''
         if scale <= 0:
             return
@@ -596,9 +608,21 @@ class WiserTestModel:
     
     def click_main_view_zoom_out(self):
         self.main_view._act_zoom_out.trigger()
-    
+
+    def set_main_view_zoom_level(self, scale: int, rv_pos: Tuple[int, int]=(0, 0)):
+        '''
+        Sets the main view's zoom level. Scale should non-negative
+        and non-zero. The zoom level will be around {scale*100}%
+        '''
+        if scale <= 0:
+            return
+        rv = self.get_main_view_rv(rv_pos)
+        rv._scale_factor = scale+1
+        self.main_view._on_zoom_in(None)
+
+
     def scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
-        
+
         def scroll():
             rv = self.get_main_view_rv(rv_pos)
             scroll_area =  rv._scroll_area
@@ -608,7 +632,7 @@ class WiserTestModel:
             scroll_area.horizontalScrollBar().setValue(
                 scroll_area.horizontalScrollBar().value() + dx
             )
-        
+
         func_event = FunctionEvent(scroll)
 
         self.app.postEvent(self.testing_widget, func_event)
@@ -941,6 +965,116 @@ class WiserTestModel:
     #==========================================
     
     # TODO (Joshua G-K): Write the way to interface with bandmath
+
+    #==========================================
+    # region Image Coords Widget
+    #==========================================
+
+    def get_image_coords_widget(self):
+        return self.main_window._image_coords
+
+    #==========================================
+    # region Geo Coords Widget
+    #==========================================
+
+
+    # region State retrieval
+
+    def get_geo_coords_tab_widget(self):
+        return self.get_geo_coords_dialog()._ui.tabWidget
+
+    def get_geo_coords_dialog(self):
+        return self.get_image_coords_widget()._dialog
+
+    def get_display_config_tab(self):
+        return self.get_geo_coords_dialog()._ui.tab_config
+
+    def get_goto_coord_tab(self):
+        return self.get_geo_coords_dialog()._ui.tab_goto_coord
+
+    def get_goto_pixel_tab(self):
+        return self.get_geo_coords_dialog()._ui.tab_goto_pixel
+
+    # region State setting
+
+    def open_geo_coords_dialog(self):
+        '''
+        Clicks the button to open the geo coords dialog
+        '''
+        def func():
+            QTest.mouseClick(self.get_image_coords_widget()._ui.tbtn_geo_goto, Qt.LeftButton)
+
+        self.call_function_in_event_loop(func)
+    
+    def cancel_geo_coords_dialog(self):
+        '''
+        Clicks the button to cancel the geo coords dialog
+        '''
+        def func():
+            self.get_geo_coords_dialog().reject()
+        self.call_function_in_event_loop(func)
+    
+    def accept_geo_coords_dialog(self):
+        '''
+        Clicks the button to accept the geo coords dialog
+        '''
+        def func():
+            self.get_geo_coords_dialog().accept()
+        self.call_function_in_event_loop(func)
+    
+    def click_config_tab_geo_coords_dialog(self):
+        '''
+        Goes to the 'Display Config' tab in the geo coords dialog
+        window
+        '''
+        def func():
+            display_config_widget = self.get_display_config_tab()
+            self.get_geo_coords_tab_widget().setCurrentWidget(display_config_widget)
+        self.call_function_in_event_loop(func)
+    
+    
+    def click_goto_coordinate_tab_geo_coords_dialog(self):
+        '''
+        Goes to the 'Goto Coordinate' tab in the geo coords dialog
+        window
+        '''
+        def func():
+            goto_coord_widget = self.get_goto_coord_tab()
+            self.get_geo_coords_tab_widget().setCurrentWidget(goto_coord_widget)
+        self.call_function_in_event_loop(func)
+
+
+    def click_goto_pixel_tab_geo_coords_dialog(self):
+        '''
+        Goes to the 'Goto Coordinate' tab in the geo coords dialog
+        window
+        '''
+        def func():
+            goto_pixel_widget = self.get_goto_pixel_tab()
+            self.get_geo_coords_tab_widget().setCurrentWidget(goto_pixel_widget)
+        self.call_function_in_event_loop(func)
+
+    def goto_pixel_using_geo_coords_dialog(self, pixel: Tuple[int, int]):
+        self.open_geo_coords_dialog()
+        self.click_goto_pixel_tab_geo_coords_dialog()
+        def func():
+            x_pixel_ledit = self.get_geo_coords_dialog()._ui.ledit_x_pixel
+            y_pixel_ledit = self.get_geo_coords_dialog()._ui.ledit_y_pixel
+            goto_button = self.get_geo_coords_dialog()._ui.btn_goto_pixel
+
+            x_pixel_ledit.clear()
+            QTest.keyClicks(x_pixel_ledit, str(pixel[0]))
+
+            y_pixel_ledit.clear()
+            QTest.keyClicks(y_pixel_ledit, str(pixel[1]))
+
+            QTest.mouseClick(goto_button, Qt.LeftButton, delay=50)
+
+            # cancel_button = self.get_geo_coords_dialog()._ui.buttonBox.button(QDialogButtonBox.Cancel)
+            # QTest.mouseClick(cancel_button, Qt.LeftButton)
+
+        self.call_function_in_event_loop(func)
+
 
     #==========================================
     # region General
