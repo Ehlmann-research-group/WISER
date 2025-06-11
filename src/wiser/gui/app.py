@@ -921,7 +921,7 @@ class DataVisualizerApp(QMainWindow):
             rv_pos = (0, 0)
             self._main_view.show_dataset(dataset)
 
-        self._on_mainview_raster_pixel_select(rv_pos, ds_point)
+        self._on_mainview_raster_pixel_select(rv_pos, ds_point, recenter_mode=RecenterMode.IF_NOT_VISIBLE)
 
     def update_all_rasterpanes(self):
         '''
@@ -1006,7 +1006,7 @@ class DataVisualizerApp(QMainWindow):
         self._context_pane.set_viewport_highlight(visible_region, rasterview)
         return
 
-    def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point):
+    def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point, recenter_mode=RecenterMode.NEVER):
         '''
         When the user clicks in the main view, the following things happen:
         *   The pixel is shown in the center of the zoom pane, and a selection
@@ -1046,7 +1046,7 @@ class DataVisualizerApp(QMainWindow):
             self._context_pane.show_dataset(ds)
 
             self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, are_views_linked=True)
-
+        
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the "active spectrum" based on the current config and the
@@ -1061,7 +1061,7 @@ class DataVisualizerApp(QMainWindow):
 
             self._context_pane.show_dataset(ds)
 
-            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+            self._main_view.set_pixel_highlight(sel, recenter=recenter_mode)
 
             self._zoom_pane.show_dataset(ds)
             self._zoom_pane.set_pixel_highlight(sel)
