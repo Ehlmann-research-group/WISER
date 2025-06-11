@@ -508,7 +508,7 @@ class SimilarityTransformDialog(QDialog):
                 # We have to transpose because opencv expects the columns in a certain order
                 if len(band_arr.shape) == 2:
                     np_corrected_band_arr = band_arr
-                elif len(band_arr.shape == 3):
+                elif len(band_arr.shape) == 3:
                     np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0)) # b, y ,x -> y, x, b
                 else:
                     raise RuntimeError(f"Band Array does not have dimensions 2 or 3, it has dimensions {len(band_arr.shape)}")

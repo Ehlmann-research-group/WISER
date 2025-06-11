@@ -99,9 +99,6 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         translated_gt = ds_translate.get_geo_transform()
         self.assertTrue(ground_truth_gt == translated_gt)
 
-        
-
-    # Write one test to translate the geo transform by 100, 200. Get the geo transform and comprae
 
 if __name__ == '__main__':
     test_model = WiserTestModel(use_gui=True)
