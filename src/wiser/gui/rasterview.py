@@ -892,12 +892,10 @@ class RasterView(QWidget):
 
             scale_change = self._scale_factor / old_scale_factor
 
-            print(f"Width!!!!")
             self._update_scrollbar_around_point(self._scroll_area.horizontalScrollBar(),
                 self._scroll_area.viewport().width(), scale_change, \
                     point[0], propagate_scroll=propagate_scroll)
 
-            print(f"Height!!!!")
             self._update_scrollbar_around_point(self._scroll_area.verticalScrollBar(),
                 self._scroll_area.viewport().height(), scale_change, \
                     point[1], propagate_scroll=propagate_scroll)
@@ -921,29 +919,17 @@ class RasterView(QWidget):
         # within the scroll-area's viewport, the scrollbar's value needs to be
         # multiplied by the scale_change.
 
-        print(f"!!!!!!!!!!!!!!!!!!!!!!")
         view_diff = view_size * (scale_change - 1)
-        print(f"view_size value: {view_size}")
         point_diff = ((position - view_size / 2) * scale_change)
         point_pos_new = scrollbar.value() * scale_change + view_diff / 2 + point_diff
         ratio_size = abs((((position / (view_size / 2)) - 1)) )
         ratio_size = ((position / (view_size / 2)) - 1)
-        print(f"view_size/2: {view_size/2}")
-        print(f"position / view_size / 2: {position / view_size / 2}")
-        print(f"ratio_size: {ratio_size}")
-        print(f"alternative: {(position - view_size / 2) / view_size / 2}")
         center_diff = ratio_size * (view_size / 2) * scale_change
         new_center = point_pos_new - center_diff
-        print(f"position value: {position}")
-        print(f"position * scale_change value: {position * scale_change}")
-        print(f"point_diff value: {point_diff}")
         scrollbar_value = scrollbar.value() * scale_change + view_diff / 2
-        print(f"Old scroll_bar value: {scrollbar_value}")
         scrollbar_value = scrollbar.value() * scale_change + view_diff / 2 + point_diff * ratio_size
         scrollbar_value = new_center
-        print(f"New scroll_bar value: {scrollbar_value}")
         self._scroll_area.propagate_scroll = propagate_scroll
-        print(f"!!!!!!!!!!!!!!!!!!!!!!")
         self._scroll_area._update_scrollbar_no_propagation(scrollbar, scrollbar_value)
 
 

@@ -300,7 +300,6 @@ class SimilarityTransformPane(RasterPane):
             self.set_display_bands(dataset.get_id(), bands, colormap=colormap)
 
     def _on_similarity_transform_raster_pixel_select(self, rasterview_position, ds_point):
-        print(f"_on_similarity_transform_raster_pixel_select called!\n raster pos: {rasterview_position}, ds_point: {ds_point}")
         # Get the dataset of the main view.  If no dataset is being displayed or
         # this is not the translation pane, then this is a no-op
         if self._translation:

@@ -402,8 +402,6 @@ class ApplicationState(QObject):
         ds0 = displayed_datasets[0]
         if ds0_srs == None:
             return False, GeographicLinkState.NO_LINK
-        
-        # print(f"ds0_srs: {ds0_srs.GetName()}")
 
         for ds in displayed_datasets[1:]:
             ds_srs = ds.get_spatial_ref()

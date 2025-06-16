@@ -475,11 +475,11 @@ def pillow_rotate_scale_expand(
         arr_uint8 = ((arr - lo) / (hi - lo or 1) * 255).astype(np.uint8)
     else:
         arr_uint8 = arr
-    print(f"arr_uint8.shape: {arr_uint8.shape}")
-    print(f"arr.shape: {arr.shape}")
+    # print(f"arr_uint8.shape: {arr_uint8.shape}")
+    # print(f"arr.shape: {arr.shape}")
     # build PIL image
     img = Image.fromarray(arr_uint8.T)
-    print(f"img.size: {img.size}")
+    # print(f"img.size: {img.size}")
     # 1) scale
     if scale != 1.0:
         w, h = img.size
@@ -489,153 +489,14 @@ def pillow_rotate_scale_expand(
     img = img.rotate(angle, resample=mode, expand=True)
 
     out = np.array(img)
-    print(f"out.shape: {out.shape}")
+    # print(f"out.shape: {out.shape}")
     # if original was float, map back to original range
     if is_float:
-        print(f"IS FLOAT")
         lo, hi = arr.min(), arr.max()
+        # print(f"is_float true, lo: {lo}, hi: {hi}")
         out = out.astype(np.float32) / 255 * (hi - lo or 1) + lo
 
     return out
-
-def rotate_scale_geotransform_v1(gt, theta, scale, width, height, pivot):
-    '''
-    First we rotate the geo transform's res and rot like this:
-    new_xres = xres_cos - xrot_sin
-    new_xrot = xrot_cos + xres_sin
-
-    new_yres = yres_cos - yrot_sin
-    new_yrot = yrot_cos + yres_sin
-
-    Then to get the new UL point by rotating all of the edge points by a pivot point. Finding the new minx and max x then rotate back
-    '''
-    ulx, xres, xrot, uly, yrot, yres = gt
-    px, py = pivot
-    rad = math.radians(theta)
-    cos_t, sin_t = math.cos(rad), math.sin(rad)
-    new_xres = xres * cos_t - xrot * sin_t
-    new_xrot = xrot * cos_t + xres * sin_t
-
-    new_yres = yres * cos_t - yrot * sin_t
-    new_yrot = yrot * cos_t + yres * sin_t
-
-    # If the scale is >1 (like 2) then we have more pixels so the resolution would be half as much
-    # If the scale is <1 then we are downsampling so the resolution would be more per pixel (less pixels)
-    new_xres_scaled = new_xres / scale
-    new_xrot_scaled = new_xrot / scale
-
-    new_yres_scaled = new_yres / scale
-    new_yrot_scaled = new_yrot / scale
-
-
-        
-    def rot(v):
-        x, y = v
-        # shift so pivot is at (0,0)
-        dx, dy = x - px, y - py
-        # rotate about origin
-        rx = dx * cos_t - dy * sin_t
-        ry = dx * sin_t + dy * cos_t
-        # shift back
-        return (rx + px, ry + py)
-
-    def rot_inverse(v):
-        x, y = v
-        dx, dy = x - px, y - py
-        # inverse rotation = rotate by –θ (or use transpose)
-        ix = dx * cos_t + dy * sin_t
-        iy = -dx * sin_t + dy * cos_t
-        return (ix + px, iy + py)
-
-    def pixel_to_spatial(pixel_x, pixel_y):
-        spatial_x = ulx + xres * pixel_x + xrot * pixel_y
-        spatial_y = uly + yres * pixel_y + yrot * pixel_x
-        return (spatial_x, spatial_y)
-    
-    upper_left = pixel_to_spatial(0, 0)
-    upper_right = pixel_to_spatial(width, 0)
-    bottom_left = pixel_to_spatial(0, height)
-    bottom_right = pixel_to_spatial(width, height)
-
-    rotated_ul = rot(upper_left)
-    rotated_ur = rot(upper_right)
-    rotated_bl = rot(bottom_left)
-    rotated_br = rot(bottom_right)
-
-    rotated_min_x = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
-    rotated_min_y = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
-
-    new_spatial_ul = rot_inverse((rotated_min_x, rotated_min_y))
-    print(f"new_spatial_ul: {new_spatial_ul}")
-    return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot_scaled, new_yres_scaled)
-
-def rotate_scale_geotransform_v2(gt, theta, scale, width, height, pivot):
-    '''
-    First we rotate the geo transform's res and rot like this:
-    new_xres = xres_cos - xrot_sin
-    new_xrot = xrot_cos + xres_sin
-
-    new_yres = yres_cos - yrot_sin
-    new_yrot = yrot_cos + yres_sin
-
-    Then to get the new UL point by rotating all of the edge points by a pivot point. Finding the new minx and max x then rotate back
-    '''
-    ulx, xres, xrot, uly, yrot, yres = gt
-    pix_px, pix_py = width/2, height/2
-    rad = math.radians(theta)
-    cos_t, sin_t = math.cos(rad), math.sin(rad)
-    new_xres = xres * cos_t - xrot * sin_t
-    new_xrot = xrot * cos_t + xres * sin_t
-
-    new_yres = yres * cos_t - yrot * sin_t
-    new_yrot = yrot * cos_t + yres * sin_t
-
-    # If the scale is >1 (like 2) then we have more pixels so the resolution would be half as much
-    # If the scale is <1 then we are downsampling so the resolution would be more per pixel (less pixels)
-    new_xres_scaled = new_xres / scale
-    new_xrot_scaled = new_xrot / scale
-
-    new_yres_scaled = new_yres / scale
-    new_yrot_scaled = new_yrot / scale
-
-    def rot_pix(v):
-        x, y = v
-        # shift so pivot is at (0,0)
-        dx, dy = x - pix_px, y - pix_py
-        # rotate about origin
-        rx = dx * cos_t - dy * sin_t
-        ry = dx * sin_t + dy * cos_t
-        # shift back
-        return (rx + pix_px, ry + pix_py)
-
-    def rot_inverse_pix(v):
-        x, y = v
-        dx, dy = x - pix_px, y - pix_py
-        # inverse rotation = rotate by –θ (or use transpose)
-        ix = dx * cos_t + dy * sin_t
-        iy = -dx * sin_t + dy * cos_t
-        return (ix + pix_px, iy + pix_py)
-    
-    upper_left = (0, 0)
-    upper_right = (width, 0)
-    bottom_left = (0, height)
-    bottom_right = (width, height)
-
-    rotated_ul = rot_pix(upper_left)
-    rotated_ur = rot_pix(upper_right)
-    rotated_bl = rot_pix(bottom_left)
-    rotated_br = rot_pix(bottom_right)
-
-    rotated_min_x = min(rotated_ul[0], rotated_ur[0], rotated_bl[0], rotated_br[0])
-    rotated_min_y = min(rotated_ul[1], rotated_ur[1], rotated_bl[1], rotated_br[1])
-
-    new_ul_orig_coord = rot_inverse_pix((rotated_min_x, rotated_min_y))
-    
-    geo_x = gt[0] + new_ul_orig_coord[0] * gt[1] + new_ul_orig_coord[1] * gt[2]
-    geo_y = gt[3] + new_ul_orig_coord[0] * gt[4] + new_ul_orig_coord[1] * gt[5]
-    new_spatial_ul = (geo_x, geo_y)
-    print(f"new_spatial_ul: {new_spatial_ul}")
-    return (new_spatial_ul[0], new_xres_scaled, new_xrot_scaled, new_spatial_ul[1], new_yrot_scaled, new_yres_scaled)
 
 def pixel_coord_to_geo_coord(pixel_coord: Tuple[float, float],
         geo_transform: Tuple[float, float, float, float, float, float]) -> Tuple[float, float]:

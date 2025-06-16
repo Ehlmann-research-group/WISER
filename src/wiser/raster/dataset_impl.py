@@ -1226,9 +1226,10 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     def read_band_info(self):
         band_info = []
 
-        md = list(self._netcdf_dataset.groups['sensor_band_parameters'].variables.keys())
-        print(f'md: {md}')
-        has_band_names = ('observation_bands' in md)
+        has_band_names = False
+        if 'sensor_band_parameters' in self._netcdf_dataset.groups:
+            md = list(self._netcdf_dataset.groups['sensor_band_parameters'].variables.keys())
+            has_band_names = ('observation_bands' in md)
 
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
             band = self.gdal_dataset.GetRasterBand(band_index)

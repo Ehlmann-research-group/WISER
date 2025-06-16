@@ -438,7 +438,7 @@ class GeoReferencerDialog(QDialog):
         if self._reference_rasterpane is not None and self._reference_rasterpane.get_rasterview().get_raster_data() is not None:
             try:
                 ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
-                reference_srs_name = "Ref CRS: " + ref_ds.get_spatial_ref().GetName()
+                reference_srs_name = "Input Ref CRS: " + ref_ds.get_spatial_ref().GetName()
                 reference_srs_code = ref_ds.get_spatial_ref().GetAuthorityCode(None)
                 if reference_srs_code is None:
                     self.set_message_text("Could not get an authority code for default dataset")

@@ -670,7 +670,6 @@ class RasterDataSet:
                 try:
                     arr[mask_ignore_val] = np.nan
                 except BaseException as e:
-                    print(f"Exception occured when trying to mask array with np.nan:\n{e}")
                     arr[mask_ignore_val] = DEFAULT_MASK_VALUE
         return arr
 
@@ -895,7 +894,6 @@ class RasterDataSet:
             self._spatial_ref = None
 
         if source._wkt_spatial_reference is not None:
-            print(f"SETTING WKT S")
             self._wkt_spatial_reference = source._wkt_spatial_reference
         else:
             self._wkt_spatial_reference = None
