@@ -30,6 +30,7 @@ from wiser.gui.subdataset_file_opener_dialog import SubdatasetFileOpenerDialog
 logger = logging.getLogger(__name__)
 
 CHUNK_WRITE_SIZE = 250000000
+gdal.SetConfigOption('GDAL_NETCDF_IGNORE_XY_AXIS_NAME_CHECKS', 'YES')
 
 
 class SaveState(Enum):

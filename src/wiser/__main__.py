@@ -7,7 +7,7 @@ import os
 import sys
 
 #============================================================================
-# Load gdal plugins into path 
+# Load gdal plugins into path and set gdal environment variables
 # 
 if getattr(sys, 'frozen', False):
     # If PyInstaller has placed gdal_netCDF.dll, etc. into a "gdalplugins" folder
