@@ -45,14 +45,13 @@ typecheck:
 
 build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
+	MACOSX_DEPLOYMENT_TARGET=11.0 \
 	pyinstaller --noconfirm WISER-macOS.spec
 
 
 dist-mac : build-mac
 	# Codesign the built application
-	codesign -s "$(AD_CODESIGN_KEY_NAME)" --deep --force \
-		--entitlements install-mac/entitlements.plist \
-		-o runtime dist/$(APP_NAME).app
+	bash install-mac/sign_wiser.sh
 
 	# Generate a .dmg file containing the Mac application.
 	hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ \
@@ -74,19 +73,6 @@ dist-mac : build-mac
 # resources, which require a few steps just to get the icons to even
 # show up in the frozen UI.
 dist-win : generated
-# pyinstaller --log-level=DEBUG --name $(APP_NAME) --noconfirm \
-#     --icon icons\wiser.ico \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\intel-wiser\Library\plugins\platforms;platforms \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\intel-wiser\Library\plugins\iconengines;iconengines \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\intel-wiser\Library\lib\gdalplugins\gdal_FITS.dll;gdalplugins \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\intel-wiser\Library\lib\gdalplugins\gdal_netCDF.dll;gdalplugins \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\intel-wiser\Library\lib\gdalplugins\gdal_HDF4.dll;gdalplugins \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\intel-wiser\Library\lib\gdalplugins\gdal_HDF5.dll;gdalplugins \
-# 	--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
-# 	--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
-# 	--collect-all osgeo \
-# 	--exclude-module PyQt5 \
-# 	src\wiser\__main__.py
 	pyinstaller WISER.spec
 
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi

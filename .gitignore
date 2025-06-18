@@ -17,6 +17,7 @@ Install-WISER-*.exe
 
 # This file contains secrets for distribution, DO NOT CHECK IN!
 Secret.mk
+Secret.sh
 
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*
