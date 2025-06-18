@@ -335,7 +335,11 @@ class SubdatasetFileOpenerDialog(QDialog):
         '''
         current_data = self._ui.cbox_subdataset_choice.currentData()
         subdataset_name = current_data[1]
-        subdataset: gdal.Dataset = gdal.Open(subdataset_name)
+        gdal.PushErrorHandler('CPLQuietErrorHandler')  # :contentReference[oaicite:0]{index=0}
+        try:
+            subdataset: gdal.Dataset = gdal.Open(subdataset_name)
+        finally:
+            gdal.PopErrorHandler()
         assert subdataset is not None, "Selected subdataset can not be opened!"
         return subdataset
 
