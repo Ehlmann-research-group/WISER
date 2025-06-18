@@ -9,6 +9,8 @@ from pdr.loaders.datawrap import ReadArray
 from enum import Enum
 import math
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from contextlib import contextmanager
+
 Number = Union[int, float]
 
 from .utils import make_spectral_value, convert_spectral, get_spectral_unit, get_netCDF_reflectance_path
@@ -357,10 +359,6 @@ class GDALRasterDataImpl(RasterDataImpl):
         '''
         Returns a numpy 1D array of the values of all bands at the specified
         (x, y) coordinate in the raster data.
-
-        If filter_bad_values is set to True, bands that are marked as "bad" in
-        the metadata will be set to NaN, and bands with the "data ignore value"
-        will also be set to NaN.
         '''
 
         # TODO(donnie):  All kinds of potential pitfalls here!  In GDAL,
@@ -1199,6 +1197,111 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
         self._subdataset_name = subdataset_name
 
+    @contextmanager
+    def _quiet_gdal_warnings(self):
+        # Install a thread-local handler that drops all errors and warnings
+        gdal.PushErrorHandler('CPLQuietErrorHandler')  # :contentReference[oaicite:0]{index=0}
+        try:
+            yield
+        finally:
+            gdal.PopErrorHandler()
+
+    def get_image_data(self):
+        '''
+        Returns a numpy 3D array of the entire image cube.
+
+        The numpy array is configured such that the pixel (x, y) values of band
+        b are at element array[b][x][y].
+        
+        This uses a context manager to quiet netcdf specific gdal warnings that 
+        are extraneous
+        '''
+        with self._quiet_gdal_warnings():
+            arr = super().get_image_data()
+        return arr
+    
+    def get_image_data_subset(self, x: int, y: int, band: int, 
+                              dx: int, dy: int, dband: int, 
+                              filter_data_ignore_value=True):
+        '''
+        Gets image subset from x to x+dx, y to y+dy, and band to band+dband.
+        The array returned can be dimension 2 or 3. If it is dimension two you
+        will want to add a dimension to its front.
+        
+        This uses a context manager to quiet netcdf specific gdal warnings that 
+        are extraneous
+        '''
+        with self._quiet_gdal_warnings():
+            arr = super().get_image_data_subset(x, y, band, dx, dy, dband, filter_data_ignore_value)
+        return arr
+
+    def get_band_data(self, band_index, filter_data_ignore_value=True):
+        '''
+        Returns a numpy 2D array of the specified band's data.  The first band
+        is at index 0.
+
+        The numpy array is configured such that the pixel (x, y) values are at
+        element array[x][y].
+
+        If the data-set has a "data ignore value" and filter_data_ignore_value
+        is also set to True, the array will be filtered such that any element
+        with the "data ignore value" will be filtered to NaN.  Note that this
+        filtering will impact performance.
+        
+        This uses a context manager to quiet netcdf specific gdal warnings that 
+        are extraneous
+        '''
+        with self._quiet_gdal_warnings():
+            arr = super().get_band_data(band_index, filter_data_ignore_value)
+        return arr
+
+    def sample_band_data(self, band_index, sample_factor: int):
+        '''
+        Returns a numpy 2D array of the specified band's data but resampled. 
+        The first band is at index 0.
+        
+        This uses a context manager to quiet netcdf specific gdal warnings that 
+        are extraneous
+        '''
+        with self._quiet_gdal_warnings():
+            arr = super().sample_band_data(band_index, sample_factor)
+        return arr
+
+    def get_all_bands_at(self, x, y):
+        '''
+        Returns a numpy 1D array of the values of all bands at the specified
+        (x, y) coordinate in the raster data.
+
+        This uses a context manager to quiet netcdf specific gdal warnings that 
+        are extraneous
+        '''
+        with self._quiet_gdal_warnings():
+            arr = super().get_all_bands_at(x, y)
+        return arr
+
+    def get_multiple_band_data(self, band_list_orig: List[int]) -> np.ndarray:
+        '''
+        Returns a numpy 3D array of all the x & y values at the specified bands.
+
+        This uses a context manager to quiet netcdf specific gdal warnings that 
+        are extraneous
+        '''
+        with self._quiet_gdal_warnings():
+            arr = super().get_all_bands_at(band_list_orig)
+        return arr
+
+    def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
+        '''
+        Returns a numpy 3D array of the values of all bands at the specified
+        rectangle in the raster data.
+
+        This uses a context manager to quiet netcdf specific gdal warnings that 
+        are extraneous
+        '''
+        with self._quiet_gdal_warnings():
+            arr = super().get_all_bands_at_rect(x, y, dx, dy)
+        return arr
+
     def get_filepaths(self):
         '''
         Returns the paths and filenames of all files associated with this raster
@@ -1266,12 +1369,14 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             band_info.append(info)
 
         return band_info
-
-    def read_data_ignore_value(self):
-        return super().read_data_ignore_value()
     
-    def delete_dataset(self):
-        return super().delete_dataset()
+    def read_geo_transform(self) -> Tuple:
+        with self._quiet_gdal_warnings():
+            return super().read_geo_transform()
+    
+    def get_wkt_spatial_reference(self) -> Optional[str]:
+        with self._quiet_gdal_warnings():
+            return super().get_wkt_spatial_reference()
     
 
 class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
