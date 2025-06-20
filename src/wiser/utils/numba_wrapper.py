@@ -3,7 +3,20 @@ import numpy as np
 try:
     from numba import jit
     from numba.experimental import jitclass
-    from numba import types, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64
+    from numba import (
+        types,
+        int8,
+        int16,
+        int32,
+        int64,
+        uint8,
+        uint16,
+        uint32,
+        uint64,
+        float32,
+        float64,
+    )
+
     NUMBA_AVAILABLE = True
 
     def numpy_spec_to_numba_spec(numpy_spec, default_array_dtype=float32):
@@ -54,7 +67,7 @@ try:
             np.float64: float64,
             np.str_: types.unicode_type,
         }
-        
+
         numba_spec = []
         for name, typ in numpy_spec:
             if typ == np.str_:
@@ -72,6 +85,7 @@ try:
 except ImportError:
     NUMBA_AVAILABLE = False
 
+
 def numba_njit_wrapper(non_njit_func, nopython=True):
     """
     Custom function to wrap Numba's NJIT functionality and availability.
@@ -82,13 +96,16 @@ def numba_njit_wrapper(non_njit_func, nopython=True):
         parallel (bool): Enable parallel computation.
 
     """
+
     def decorator(func):
         if NUMBA_AVAILABLE:
             return jit(nopython=nopython)(func)
         else:
             # If Numba is not available, return the non jit function
             return non_njit_func
+
     return decorator
+
 
 def numba_jitclass_wrapper(numpy_spec, nonjit_class):
     """
@@ -102,13 +119,16 @@ def numba_jitclass_wrapper(numpy_spec, nonjit_class):
         A decorator that applies Numba's `jitclass` if available; otherwise,
         it returns the non jit class.
     """
+
     def decorator(cls):
         if NUMBA_AVAILABLE:
             numba_spec = numpy_spec_to_numba_spec(numpy_spec)
             return jitclass(numba_spec)(cls)
         else:
             return nonjit_class
+
     return decorator
+
 
 def convert_to_float32_if_needed(*args):
     """
@@ -124,7 +144,6 @@ def convert_to_float32_if_needed(*args):
     for arg in args:
         # Check if `arg` is a NumPy array or a NumPy scalar
         if isinstance(arg, (np.ndarray, np.number)):
-
             # If it's an array, check its dtype
             if isinstance(arg, np.ndarray):
                 # Check if dtype is floating
@@ -132,7 +151,7 @@ def convert_to_float32_if_needed(*args):
                     # If not float32, convert to float32
                     if arg.dtype != np.float32:
                         arg = arg.astype(np.float32)
-     
+
             # If it's a NumPy scalar (np.number)
             else:
                 # Check if the scalar is float-like
