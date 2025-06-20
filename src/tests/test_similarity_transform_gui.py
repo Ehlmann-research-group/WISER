@@ -1,6 +1,6 @@
 import unittest
 
-import os 
+import os
 
 import tests.context
 # import context
@@ -15,13 +15,14 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+
 class TestSimliarityTransformGUI(unittest.TestCase):
-    '''
+    """
     Tests the GeoReferencer by going through the GUI.
 
     Waht it doesn't test:
     1. Doesn't test filtering logic of choosing a file name
-    '''
+    """
 
     def setUp(self):
         self.test_model = WiserTestModel()
@@ -31,12 +32,25 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         del self.test_model
 
     # Write one tests to rotate and scale the caltech dataset by 30 degrees. Get the geo transform and compare
-    # Get the array and compare. Get this from 
+    # Get the array and compare. Get this from
     def test_rotate_scale(self):
-        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
-        ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif")
+        load_path = os.path.join(
+            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
+        )
+        ground_truth_path = os.path.join(
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif",
+        )
 
-        temp_save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "caltech_4_100_150_nm_rot_35_scale_2_linear.tif")
+        temp_save_path = os.path.join(
+            "..",
+            "test_utils",
+            "test_datasets",
+            "artifacts",
+            "caltech_4_100_150_nm_rot_35_scale_2_linear.tif",
+        )
         ds = self.test_model.load_dataset(load_path)
 
         self.test_model.open_similarity_transform_dialog()
@@ -58,7 +72,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
 
         gt_ds = self.test_model.load_dataset(ground_truth_path)
         test_ds = self.test_model.load_dataset(temp_save_path)
-    
+
         # Don't use get_image_data here. For some reason the reference to the
         # array gets unreferenced in the github actions linux server, so you
         # must directrly make a copy.
@@ -68,12 +82,26 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         test_arr = test_ds.get_impl().gdal_dataset.ReadAsArray().copy()
         test_geo_transform = test_ds.get_geo_transform()
 
-        self.assertTrue(np.allclose(gt_arr, test_arr), "Rotated and scaled array doesn't match ground truth")
-        self.assertTrue(gt_geo_transform == test_geo_transform, "Rotated and scaled geo transform doesn't match ground truth")
+        self.assertTrue(
+            np.allclose(gt_arr, test_arr),
+            "Rotated and scaled array doesn't match ground truth",
+        )
+        self.assertTrue(
+            gt_geo_transform == test_geo_transform,
+            "Rotated and scaled geo transform doesn't match ground truth",
+        )
 
     def test_translate(self):
-        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
-        temp_save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "caltech_4_100_150_nm_translate.tif")
+        load_path = os.path.join(
+            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
+        )
+        temp_save_path = os.path.join(
+            "..",
+            "test_utils",
+            "test_datasets",
+            "artifacts",
+            "caltech_4_100_150_nm_translate.tif",
+        )
         ds = self.test_model.load_dataset(load_path)
 
         self.test_model.open_similarity_transform_dialog()
@@ -95,12 +123,19 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         ds_translate = self.test_model.load_dataset(temp_save_path)
 
         orig_gt = ds.get_geo_transform()
-        ground_truth_gt = (orig_gt[0]+lon_translate_amt, orig_gt[1], orig_gt[2], orig_gt[3]+lat_translate_amt, orig_gt[4], orig_gt[5])
+        ground_truth_gt = (
+            orig_gt[0] + lon_translate_amt,
+            orig_gt[1],
+            orig_gt[2],
+            orig_gt[3] + lat_translate_amt,
+            orig_gt[4],
+            orig_gt[5],
+        )
         translated_gt = ds_translate.get_geo_transform()
         self.assertTrue(ground_truth_gt == translated_gt)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_model = WiserTestModel(use_gui=True)
 
     rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
@@ -117,7 +152,12 @@ if __name__ == '__main__':
 
     test_model.choose_interpolation_rs(2)
 
-    save_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif")
+    save_path = os.path.join(
+        "..",
+        "test_utils",
+        "test_datasets",
+        "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif",
+    )
     # save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "test_sim_transform.tif")
     test_model.set_save_path_rs(save_path)
 
@@ -150,4 +190,3 @@ if __name__ == '__main__':
     # test_model.run_create_translation()
 
     test_model.app.exec_()
-    

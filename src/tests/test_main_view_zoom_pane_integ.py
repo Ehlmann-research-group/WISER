@@ -19,8 +19,8 @@ from PySide2.QtWidgets import *
 
 from .utils import are_pixels_close, are_qrects_close
 
-class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
+class TestMainViewZoomPaneIntegration(unittest.TestCase):
     def setUp(self):
         self.test_model = WiserTestModel()
 
@@ -29,10 +29,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         del self.test_model
 
     def test_click_mv_highlight_zp(self):
-        '''
-        Clicks in mainview. Makes sure the zoom pane's clicked pixel is the 
+        """
+        Clicks in mainview. Makes sure the zoom pane's clicked pixel is the
         same as main view's.
-        '''
+        """
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -50,13 +50,13 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         zp_pixel = self.test_model.get_zoom_pane_selected_pixel()
 
-        self.assertTrue(pixel==zp_pixel)
+        self.assertTrue(pixel == zp_pixel)
 
     def test_mv_highlight_equal_zp_region(self):
-        '''
-        Zooms into zoom pane. Then clicks in main view. Ensures the main view's 
+        """
+        Zooms into zoom pane. Then clicks in main view. Ensures the main view's
         yellow highlight box is the same as zoom pane's visible region.
-        '''
+        """
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -88,11 +88,11 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(mv_highlight_region == zp_region)
 
     def test_click_mv_zp_region_overlap(self):
-        '''
+        """
         Tests to see if clicking in the zoom pane region snaps the main view rv to it.
         Note that the zoompane visible region and the mainview visible region aren't going
         to be equal, so we just check that they overlap.
-        '''
+        """
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -106,7 +106,7 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         pixel = (49, 49)
 
-        # Zoom into both Zoom Pane and Main View so its possible to 
+        # Zoom into both Zoom Pane and Main View so its possible to
         # move each view around
         self.test_model.set_zoom_pane_zoom_level(4)
         self.test_model.click_main_view_zoom_in()
@@ -125,9 +125,9 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(mv_region.intersects(zp_region))
 
     def test_click_zp_highlight_pixel_mv(self):
-        '''
-        Tests that clicking in zoom pane also creates the click in mainview 
-        '''
+        """
+        Tests that clicking in zoom pane also creates the click in mainview
+        """
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -144,17 +144,17 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.click_raster_coord_zoom_pane(pixel)
 
         mv_pixel = self.test_model.get_main_view_rv_clicked_raster_coord((0, 0))
-    
+
         self.assertTrue(pixel == mv_pixel)
 
     def test_click_zp_move_mv(self):
-        '''
+        """
         Tries to separate the mainview and zoom pane. Then clicks in the zoom pane
         and checks if the main view moved to the click. Also checks if the main view
         has the same pixel clicked as the zoom pane. Due to some rounding issues with how
         we do clicks in test_model, a nearby pixel is highlighted clicked. This issue
         isn't present in the actual application.
-        '''
+        """
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -182,10 +182,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.click_main_view_zoom_in()
 
         # Make mainview scroll to top left
-        self.test_model.scroll_main_view_rv_dx((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dx((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dy((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dy((0,0), 1000)
+        self.test_model.scroll_main_view_rv_dx((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dx((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dy((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dy((0, 0), 1000)
 
         pixel = self.test_model.get_zoom_pane_center_raster_point()
         pixel = (pixel.x(), pixel.y())
@@ -193,7 +193,7 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.click_raster_coord_zoom_pane(pixel)
 
         mv_pixel = self.test_model.get_main_view_rv_clicked_raster_coord((0, 0))
-    
+
         # Ensure the pixels are the same
         self.assertTrue(pixel == mv_pixel)
 
@@ -209,10 +209,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(are_pixels_close(center_pixel_mv, center_pixel_zp))
 
     def test_scroll_zp_move_mv(self):
-        '''
+        """
         Zooms in zoom pane and mainview. Then scrolls zoom pane to ensure
-        the mainview follows. 
-        '''
+        the mainview follows.
+        """
         # Create first array
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -240,10 +240,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.click_main_view_zoom_in()
 
         # Make mainview scroll to top left
-        self.test_model.scroll_main_view_rv_dx((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dx((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dy((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dy((0,0), 1000)
+        self.test_model.scroll_main_view_rv_dx((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dx((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dy((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dy((0, 0), 1000)
 
         self.test_model.scroll_zoom_pane_dx(-1000)
 
@@ -259,10 +259,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(are_pixels_close(center_pixel_zp, center_pixel_mv))
 
     def test_not_linked_highlight_box(self):
-        '''
+        """
         Ensures that when raster views aren't linked, the highlight box
         only shows up in the rasterview's with the correct dataset
-        '''
+        """
         # Create first array
         rows, cols, channels = 75, 75, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -274,7 +274,9 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         # Create second array
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        row_values = np.concatenate(
+            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
+        ).reshape(rows, 1)
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -304,16 +306,16 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         rv_10_region = self.test_model.get_main_view_highlight_region((1, 0))
 
         zp_region = self.test_model.get_zoom_pane_visible_region()
-    
+
         self.assertTrue(are_qrects_close(zp_region, rv_00_region))
         self.assertTrue(rv_01_region == None)
         self.assertTrue(rv_10_region == None)
 
     def test_linked_highlight_box(self):
-        '''
+        """
         Ensures that when raster views are linked, the highlight box
         shows up in all the rasterview's with the compatible dataset
-        '''
+        """
         # Create first array
         rows, cols, channels = 75, 75, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -325,7 +327,9 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         # Create second array
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        row_values = np.concatenate(
+            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
+        ).reshape(rows, 1)
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -363,8 +367,7 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(rv_00_region == rv_10_region)
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     tester = TestMainViewZoomPaneIntegration()
     test_model = WiserTestModel(use_gui=True)
 
@@ -379,7 +382,9 @@ if __name__ == '__main__':
 
     # Create second array
     # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-    row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+    row_values = np.concatenate(
+        (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
+    ).reshape(rows, 1)
     impl2 = np.tile(row_values, (1, cols))
     np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 

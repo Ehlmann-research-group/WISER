@@ -13,8 +13,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-class TestOpenDataset(unittest.TestCase):
 
+class TestOpenDataset(unittest.TestCase):
     def setUp(self):
         self.test_model = WiserTestModel()
 
@@ -23,60 +23,78 @@ class TestOpenDataset(unittest.TestCase):
         del self.test_model
 
     def test_all_panes_same(self):
-        '''
-        Ensures that after opening a dataset for the first time, all panes 
+        """
+        Ensures that after opening a dataset for the first time, all panes
         are the same
-        '''
-        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
+        """
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
-        
         self.test_model.load_dataset(np_impl)
 
         main_view_arr = self.test_model.get_main_view_rv_image_data()
         context_pane_arr = self.test_model.get_context_pane_image_data()
         zoom_pane_arr = self.test_model.get_zoom_pane_image_data()
 
-        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(main_view_arr, zoom_pane_arr)
+        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(
+            main_view_arr, zoom_pane_arr
+        )
         self.assertTrue(all_equal)
 
     def test_all_panes_same_stretch_builder1(self):
-        '''
+        """
         Ensures that after doing something in stretch builder, all of the rasterviews are the same.
-        So they all get updated to a different value. 
-        '''
-        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
+        So they all get updated to a different value.
+        """
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
-        
         self.test_model.load_dataset(np_impl)
 
         self.test_model.click_stretch_hist_equalize()
@@ -86,16 +104,20 @@ class TestOpenDataset(unittest.TestCase):
         context_pane_arr = self.test_model.get_context_pane_image_data()
         zoom_pane_arr = self.test_model.get_zoom_pane_image_data()
 
-        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(main_view_arr, zoom_pane_arr)
+        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(
+            main_view_arr, zoom_pane_arr
+        )
         self.assertTrue(all_equal)
-    
+
     # Test to ensure we can open a hdr file.
     def test_open_hdr(self):
         # Get the directory where the current file is located
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
         # Compute the absolute path to the target file
-        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "envi.hdr"))
+        target_path = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "envi.hdr")
+        )
 
         self.test_model.load_dataset(target_path)
 
@@ -105,7 +127,9 @@ class TestOpenDataset(unittest.TestCase):
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
         # Compute the absolute path to the target file
-        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "gtiff.tiff"))
+        target_path = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "gtiff.tiff")
+        )
 
         self.test_model.load_dataset(target_path)
 

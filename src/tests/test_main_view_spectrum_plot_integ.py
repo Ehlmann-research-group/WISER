@@ -12,8 +12,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
 
+class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
     def setUp(self):
         self.test_model = WiserTestModel()
 
@@ -22,27 +22,35 @@ class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
         del self.test_model
 
     def test_click_main_view(self):
-        '''
-        Ensures the right spectrum appears in the spectrum plot when we 
+        """
+        Ensures the right spectrum appears in the spectrum plot when we
         click in main view
-        '''
-        np_impl = np.array([[[0.  , 0.  , 0.  , 1.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 1.  , 2.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 2.  , 1.  , 2.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
+        """
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 1.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 1.0, 2.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 2.0, 1.0, 2.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
         pixel_to_click = (0, 0)
 
@@ -56,29 +64,37 @@ class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
         spectrum_array = spectrum.get_spectrum()
 
         self.assertTrue(np.array_equal(expected_array, spectrum_array))
-    
+
     def test_collecting_spectra(self):
-        '''
+        """
         Clicks on the main view. Collects the active spectrum. Clicks again.
         Ensures we get the right active spectrum. Then ensure the collected spectrum is correct.
-        '''
-        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
+        """
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
         pixel_to_click = (0, 0)
 
@@ -99,13 +115,15 @@ class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
 
         self.assertTrue(np.array_equal(expected_array, spectrum_array))
 
-        collected_spectrum_array = self.test_model.get_collected_spectra()[0].get_spectrum()
+        collected_spectrum_array = self.test_model.get_collected_spectra()[
+            0
+        ].get_spectrum()
 
         expected_array = np.array([0.0, 0.0, 0.0])
 
         self.assertTrue(np.array_equal(expected_array, collected_spectrum_array))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     tester = TestMainViewSpectrumPlotIntegration()
     tester.test_click_main_view()
