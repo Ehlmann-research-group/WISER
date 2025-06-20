@@ -4,14 +4,13 @@ import unittest
 
 import numpy as np
 
-import tests.context
 # import context
 
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 
-from wiser.raster.spectrum import Spectrum, NumPyArraySpectrum
+from wiser.raster.spectrum import NumPyArraySpectrum
 
 from astropy import units as u
 

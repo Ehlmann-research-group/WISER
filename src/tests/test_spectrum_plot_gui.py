@@ -2,7 +2,6 @@ import os
 
 import unittest
 
-import tests.context
 # import context
 
 from test_utils.test_model import WiserTestModel
@@ -10,7 +9,6 @@ from test_utils.test_model import WiserTestModel
 import numpy as np
 from astropy import units as u
 
-from PySide2.QtTest import QTest
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -184,7 +182,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
         rel_path = os.path.join(
             "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
         )
-        caltech_ds = self.test_model.load_dataset(rel_path)
+        self.test_model.load_dataset(rel_path)
 
         # Get a spectrum with wavelength nm in spectrum plot
         self.test_model.click_raster_coord_main_view_rv((0, 0), (0, 0))
@@ -194,7 +192,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         # Ensure the plot uses wavelengths
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(True == plot_use_wavelengths)
+        self.assertTrue(plot_use_wavelengths)
 
         # Collect the spectrum
         self.test_model.collect_active_spectrum()
@@ -205,7 +203,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         # Ensure the plot no longer uses wavelengths
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(False == plot_use_wavelengths)
+        self.assertTrue(not plot_use_wavelengths)
 
     def test_use_wavelengths(self):
         """
@@ -246,7 +244,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
         rel_path = os.path.join(
             "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
         )
-        caltech_ds = self.test_model.load_dataset(rel_path)
+        self.test_model.load_dataset(rel_path)
 
         # Get a spectrum with wavelength nm in spectrum plot
         self.test_model.click_raster_coord_main_view_rv((0, 0), (0, 0))
@@ -256,7 +254,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         # Ensure the plot uses wavelengths
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(True == plot_use_wavelengths)
+        self.assertTrue(plot_use_wavelengths)
 
         # Collect the spectrum
         self.test_model.collect_active_spectrum()
@@ -267,14 +265,14 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         # Ensure the plot no longer uses wavelengths
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(False == plot_use_wavelengths)
+        self.assertTrue(not plot_use_wavelengths)
 
         # Get rid of the active spectra which has no wavelengths
         self.test_model.remove_active_spectrum()
 
         # Ensure we have wavelengths again
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(True == plot_use_wavelengths)
+        self.assertTrue(plot_use_wavelengths)
 
     def test_switch_clicked_dataset(self):
         """
@@ -337,7 +335,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         ds1 = self.test_model.load_dataset(np_impl)
 
-        ds2 = self.test_model.load_dataset(np_impl2)
+        self.test_model.load_dataset(np_impl2)
 
         # Click on ds2 to get spectrum and ensure that that its correct
         self.test_model.click_raster_coord_main_view_rv((0, 0), pixel)

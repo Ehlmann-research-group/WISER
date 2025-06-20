@@ -1,24 +1,16 @@
 import unittest
 
-import tests.context
 
 # import context
-from wiser.raster import utils
 
 from test_utils.test_model import WiserTestModel
 
 import numpy as np
-from astropy import units as u
-import time
 
-from PySide2.QtTest import QTest
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from wiser.gui.app import DataVisualizerApp
-from wiser.raster.loader import RasterDataLoader
-from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
 
 

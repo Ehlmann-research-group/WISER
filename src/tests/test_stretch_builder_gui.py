@@ -2,27 +2,22 @@ import unittest
 
 import numpy as np
 
-import tests.context
 # import context
 
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.rasterview import (
-    RasterView,
     make_channel_image_numba,
-    make_channel_image_python,
     make_rgb_image_numba,
     make_grayscale_image,
 )
 
 from wiser.raster.utils import normalize_ndarray_numba
 from wiser.raster.stretch import (
-    StretchBaseUsingNumba,
     StretchLinearUsingNumba,
     StretchHistEqualizeUsingNumba,
     StretchSquareRootUsingNumba,
     StretchLog2UsingNumba,
-    StretchHistEqualize,
 )
 
 from PySide2.QtCore import *
@@ -307,8 +302,8 @@ class TestStretchBuilderGUI(unittest.TestCase):
         link_slider_state = self.test_model.get_stretch_builder_slider_link_state()
         link_min_max_state = self.test_model.get_stretch_builder_min_max_link_state()
 
-        self.assertTrue(link_slider_state == False)
-        self.assertTrue(link_min_max_state == True)
+        self.assertTrue(not link_slider_state)
+        self.assertTrue(link_min_max_state)
 
         # Now we make sure the stretch builder saved the state for ds1
         self.test_model.set_main_view_rv((0, 0), ds1.get_id())
@@ -316,8 +311,8 @@ class TestStretchBuilderGUI(unittest.TestCase):
         link_slider_state = self.test_model.get_stretch_builder_slider_link_state()
         link_min_max_state = self.test_model.get_stretch_builder_min_max_link_state()
 
-        self.assertTrue(link_slider_state == True)
-        self.assertTrue(link_min_max_state == False)
+        self.assertTrue(link_slider_state)
+        self.assertTrue(not link_min_max_state)
 
     def test_stretch_low_high_ledit(self):
         """

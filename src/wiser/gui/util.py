@@ -2,7 +2,7 @@ import os
 import random
 import string
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -14,6 +14,7 @@ from PIL import Image
 import cv2
 
 import math
+
 
 def clear_widget(w: QWidget):
     # remove and delete any existing layout
@@ -33,10 +34,11 @@ def clear_widget(w: QWidget):
     for child in w.findChildren(QWidget):
         child.setParent(None)
 
+
 def get_plugin_fns(app_state):
     # Collect functions from all plugins.
     functions = {}
-    for (plugin_name, plugin) in app_state.get_plugins().items():
+    for plugin_name, plugin in app_state.get_plugins().items():
         try:
             plugin_fns = plugin.get_bandmath_functions()
 
@@ -51,13 +53,16 @@ def get_plugin_fns(app_state):
             # report a warning about it.
             for k in plugin_fns.keys():
                 if k in functions:
-                    print(f'WARNING:  Function "{k}" is defined ' +
-                            f'multiple times (last seen in plugin {plugin_name})')
+                    print(
+                        f'WARNING:  Function "{k}" is defined '
+                        + f"multiple times (last seen in plugin {plugin_name})"
+                    )
 
             functions.update(plugin_fns)
         except:
             pass
     return functions
+
 
 def delete_all_files_in_folder(folder_path):
     # Check if the folder exists
@@ -65,7 +70,7 @@ def delete_all_files_in_folder(folder_path):
         # List all files in the directory
         for filename in os.listdir(folder_path):
             file_path = os.path.join(folder_path, filename)
-            
+
             # Check if it's a file and not a directory
             if os.path.isfile(file_path):
                 try:
@@ -78,26 +83,28 @@ def delete_all_files_in_folder(folder_path):
     else:
         print(f"Directory {folder_path} does not exist.")
 
+
 def scale_qpoint_by_float(point: QPoint, scale: float):
     return QPoint(float(point.x() * scale), float(point.y() * scale))
 
+
 def str_or_none(s: Optional[str]) -> str:
-    '''
+    """
     Formats an optional string for logging.  If the argument is a string then
     the function returns the string in double-quotes.  If the argument is
     ``None`` then the function returns the string ``'None'``.
-    '''
+    """
     if s is not None:
         return f'"{s}"'
     else:
-        return 'None'
+        return "None"
 
 
 def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None, before=None):
-    '''
+    """
     A helper function to set up a toolbar action using the common configuration
     used for these actions.
-    '''
+    """
     act = QAction(QIcon(icon_path), text, parent)
 
     if shortcut is not None:
@@ -111,24 +118,26 @@ def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None, before=N
     return act
 
 
-def make_dockable(widget: QWidget, title: str, parent: Optional[QWidget]) -> QDockWidget:
+def make_dockable(
+    widget: QWidget, title: str, parent: Optional[QWidget]
+) -> QDockWidget:
     dockable = QDockWidget(title, parent=parent)
     dockable.setWidget(widget)
     return dockable
 
 
 class PainterWrapper:
-    '''
+    """
     This class provides a context manager so that a QPainter object can be
     managed by a Python "with" statement.
 
     For more information see:
     https://docs.python.org/3/reference/datamodel.html#context-managers
-    '''
+    """
 
     def __init__(self, _painter: QPainter):
         if _painter is None:
-            raise ValueError('_painter cannot be None')
+            raise ValueError("_painter cannot be None")
 
         self._painter: QPainter = _painter
 
@@ -144,19 +153,19 @@ class PainterWrapper:
 
 
 def get_painter(widget: QWidget) -> PainterWrapper:
-    '''
+    """
     This helper function makes a QPainter for writing to the specified QWidget,
     and then wraps it with a PainterWrapper context manager.  It is intended to
     be used with the Python "with" statement, like this:
 
     with get_painter(some_widget) as painter:
         painter.xxxx()  # Draw stuff
-    '''
+    """
     return PainterWrapper(QPainter(widget))
 
 
 def make_filename(s: str) -> str:
-    '''
+    """
     This helper function makes a filename out of a string, following these
     rules:
     *   Any letters or numbers are left unchanged.
@@ -167,40 +176,44 @@ def make_filename(s: str) -> str:
 
     If the function is given a string consisting of only whitespace, or an
     empty string, it will throw a ValueError.
-    '''
+    """
 
     # Apply this filter to collapse any whitespace characters down to one space.
     # If the string is entirely whitespace, the result will be an empty string.
-    s = ' '.join(s.strip().split())
+    s = " ".join(s.strip().split())
 
     if len(s) == 0:
-        raise ValueError('Cannot make a filename out of an empty string')
+        raise ValueError("Cannot make a filename out of an empty string")
 
     # Filter out any characters that are not alphanumeric, or some basic
     # punctuation and spaces.
-    result = ''
+    result = ""
     for ch in s:
-        if ch in string.ascii_letters or ch in string.digits or ch in ['_', '-', '.', ' ']:
+        if (
+            ch in string.ascii_letters
+            or ch in string.digits
+            or ch in ["_", "-", ".", " "]
+        ):
             result += ch
 
     return result
 
 
 def get_matplotlib_colors():
-    '''
+    """
     Generates a list of all recognized matplotlib color names, which are
     suitable for displaying graphical plots.
 
     The definition of "suitable for displaying graphical plots" is currently
     that the color be dark enough to show up on a white background.
-    '''
+    """
     names = matplotlib.colors.get_named_colors_mapping().keys()
     colors = []
     for name in names:
         if len(name) <= 1:
             continue
 
-        if name.find(':') != -1:
+        if name.find(":") != -1:
             continue
 
         # Need to exclude colors that are too bright to show up on the white
@@ -219,10 +232,10 @@ def get_matplotlib_colors():
 
 
 def get_random_matplotlib_color(exclude_colors: List[str] = []) -> str:
-    '''
+    """
     Returns a random matplotlib color name from the available matplotlib colors
     returned by the get_matplotlib_colors().
-    '''
+    """
     all_names = get_matplotlib_colors()
     while True:
         name = random.choice(all_names)
@@ -231,7 +244,7 @@ def get_random_matplotlib_color(exclude_colors: List[str] = []) -> str:
 
 
 def get_color_icon(color_name: str, width: int = 16, height: int = 16) -> QIcon:
-    '''
+    """
     Generate a QIcon of the specified color and optional size.  If the size is
     unspecified, a 16x16 icon is generated.
 
@@ -242,7 +255,7 @@ def get_color_icon(color_name: str, width: int = 16, height: int = 16) -> QIcon:
     *   width is the icon's width in pixels, and defaults to 16.
 
     *   height is the icon's height in pixels, and defaults to 16.
-    '''
+    """
     rgba = matplotlib.colors.to_rgba_array(color_name).flatten()
 
     img = QImage(width, height, QImage.Format_RGB32)
@@ -252,10 +265,10 @@ def get_color_icon(color_name: str, width: int = 16, height: int = 16) -> QIcon:
 
 
 def clear_treewidget_selections(tree_widget: QTreeWidget) -> None:
-    '''
+    """
     Given a QTreeWidget object, this function clears all selections of
     tree widget items.
-    '''
+    """
 
     def clear_treewidget_item_selections(item: QTreeWidgetItem) -> None:
         if item.isSelected():
@@ -270,7 +283,7 @@ def clear_treewidget_selections(tree_widget: QTreeWidget) -> None:
 
 
 def generate_unused_filename(basename: str, extension: str) -> str:
-    '''
+    """
     Generates a filename that is currently unused on the filesystem.  The
     base name (including path) and extension to use are both specified as
     arguments to this function.
@@ -281,12 +294,12 @@ def generate_unused_filename(basename: str, extension: str) -> str:
     If it is already used, the function will generate a filename of the form
     "basename_i.extension", where i starts at 1, and is incremented until
     the filename is unused.
-    '''
-    filename = f'{basename}.{extension}'
+    """
+    filename = f"{basename}.{extension}"
     if os.path.exists(filename):
         i = 1
         while True:
-            filename = f'{basename}_{i}.{extension}'
+            filename = f"{basename}_{i}.{extension}"
             if not os.path.exists(filename):
                 break
 
@@ -294,12 +307,14 @@ def generate_unused_filename(basename: str, extension: str) -> str:
 
     return filename
 
-def cv2_rotate_scale_expand(img: np.ndarray,
-                        angle: float,
-                        scale: float = 1.0,
-                        interp: int = 1,
-                        mask_fill_value: float = 0
-                        ) -> np.ndarray:
+
+def cv2_rotate_scale_expand(
+    img: np.ndarray,
+    angle: float,
+    scale: float = 1.0,
+    interp: int = 1,
+    mask_fill_value: float = 0,
+) -> np.ndarray:
     """
     Rotate and scale an image array, expanding the output array
     so nothing gets clipped.
@@ -313,14 +328,6 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     Returns:
     Transformed array with dtype matching input.
     """
-    _INTERPOLATIONS = {
-        'nearest':  cv2.INTER_NEAREST,
-        'linear':   cv2.INTER_LINEAR,
-        'cubic':    cv2.INTER_CUBIC,
-        'lanczos':  cv2.INTER_LANCZOS4,
-    }
-    # choose interpolation flag
-    interp_flag = interp
     orig_mask = None
     if isinstance(img, np.ma.masked_array):
         orig_mask = img.mask
@@ -330,16 +337,17 @@ def cv2_rotate_scale_expand(img: np.ndarray,
 
     # 3. Build the rotation+scale matrix
     h, w = img.shape[:2]
-    cx, cy = w/2, h/2
+    cx, cy = w / 2, h / 2
     M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
 
     # 4. Compute new canvas size so nothing is clipped
-    abs_cos = abs(M[0,0]); abs_sin = abs(M[0,1])
+    abs_cos = abs(M[0, 0])
+    abs_sin = abs(M[0, 1])
     new_w = int(h * abs_sin + w * abs_cos)
     new_h = int(h * abs_cos + w * abs_sin)
     # shift origin to centre result
-    M[0,2] += (new_w/2 - cx)
-    M[1,2] += (new_h/2 - cy)
+    M[0, 2] += new_w / 2 - cx
+    M[1, 2] += new_h / 2 - cy
     # 5. Warp the image
     out = cv2.warpAffine(
         img,
@@ -347,7 +355,7 @@ def cv2_rotate_scale_expand(img: np.ndarray,
         (new_w, new_h),
         flags=interp,
         borderMode=cv2.BORDER_CONSTANT,
-        borderValue=mask_fill_value
+        borderValue=mask_fill_value,
     )
 
     # 6. If there was a mask, warp it too and reapply
@@ -360,19 +368,21 @@ def cv2_rotate_scale_expand(img: np.ndarray,
             (new_w, new_h),
             flags=cv2.INTER_NEAREST,
             borderMode=cv2.BORDER_CONSTANT,
-            borderValue=0
+            borderValue=0,
         )
         warped_mask = ~(warped_valid.astype(bool))
         return np.ma.MaskedArray(out, mask=warped_mask)
 
     return out
 
-def cv2_rotate_scale_expand_3D(img: np.ndarray,
-                        angle: float,
-                        scale: float = 1.0,
-                        interp: str = 'linear',
-                        mask_fill_value: float = 0
-                        ) -> np.ndarray:
+
+def cv2_rotate_scale_expand_3D(
+    img: np.ndarray,
+    angle: float,
+    scale: float = 1.0,
+    interp: str = "linear",
+    mask_fill_value: float = 0,
+) -> np.ndarray:
     """
     Rotate and scale an image array, expanding the output array
     so nothing gets clipped.
@@ -387,13 +397,11 @@ def cv2_rotate_scale_expand_3D(img: np.ndarray,
     Transformed array with dtype matching input.
     """
     _INTERPOLATIONS = {
-        'nearest':  cv2.INTER_NEAREST,
-        'linear':   cv2.INTER_LINEAR,
-        'cubic':    cv2.INTER_CUBIC,
-        'lanczos':  cv2.INTER_LANCZOS4,
+        "nearest": cv2.INTER_NEAREST,
+        "linear": cv2.INTER_LINEAR,
+        "cubic": cv2.INTER_CUBIC,
+        "lanczos": cv2.INTER_LANCZOS4,
     }
-    # choose interpolation flag
-    flag = _INTERPOLATIONS.get(interp, cv2.INTER_LINEAR)
     orig_mask = None
     if isinstance(img, np.ma.MaskedArray):
         orig_mask = img.mask
@@ -401,16 +409,17 @@ def cv2_rotate_scale_expand_3D(img: np.ndarray,
 
     # 3. Build the rotation+scale matrix
     h, w = img.shape[1:3]
-    cx, cy = w/2, h/2
+    cx, cy = w / 2, h / 2
     M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
 
     # 4. Compute new canvas size so nothing is clipped
-    abs_cos = abs(M[0,0]); abs_sin = abs(M[0,1])
+    abs_cos = abs(M[0, 0])
+    abs_sin = abs(M[0, 1])
     new_w = int(h * abs_sin + w * abs_cos)
     new_h = int(h * abs_cos + w * abs_sin)
     # shift origin to centre result
-    M[0,2] += (new_w/2 - cx)
-    M[1,2] += (new_h/2 - cy)
+    M[0, 2] += new_w / 2 - cx
+    M[1, 2] += new_h / 2 - cy
 
     # 5. Warp the image
     out = cv2.warpAffine(
@@ -419,7 +428,7 @@ def cv2_rotate_scale_expand_3D(img: np.ndarray,
         (new_w, new_h),
         flags=_INTERPOLATIONS.get(interp, cv2.INTER_LINEAR),
         borderMode=cv2.BORDER_CONSTANT,
-        borderValue=mask_fill_value
+        borderValue=mask_fill_value,
     )
 
     # 6. If there was a mask, warp it too and reapply
@@ -432,7 +441,7 @@ def cv2_rotate_scale_expand_3D(img: np.ndarray,
             (new_w, new_h),
             flags=cv2.INTER_NEAREST,
             borderMode=cv2.BORDER_CONSTANT,
-            borderValue=0
+            borderValue=0,
         )
         warped_mask = ~(warped_valid.astype(bool))
         return np.ma.MaskedArray(out, mask=warped_mask)
@@ -441,10 +450,7 @@ def cv2_rotate_scale_expand_3D(img: np.ndarray,
 
 
 def pillow_rotate_scale_expand(
-    arr: np.ndarray,
-    angle: float,
-    scale: float = 1.0,
-    resample: str = 'bilinear',
+    arr: np.ndarray, angle: float, scale: float = 1.0, resample: str = "bilinear"
 ) -> np.ndarray:
     """
     Rotate & scale an HxW or HxWxC array, expanding the output so nothing is clipped.
@@ -460,10 +466,10 @@ def pillow_rotate_scale_expand(
     """
     # map human-readable names to Pillow resampling filters
     _RESAMPLE_MODES = {
-        'nearest': Image.NEAREST,
-        'bilinear': Image.BILINEAR,
-        'bicubic': Image.BICUBIC,
-        'lanczos': Image.LANCZOS,
+        "nearest": Image.NEAREST,
+        "bilinear": Image.BILINEAR,
+        "bicubic": Image.BICUBIC,
+        "lanczos": Image.LANCZOS,
     }
     # pick filter
     mode = _RESAMPLE_MODES.get(resample, Image.BILINEAR)
@@ -498,22 +504,32 @@ def pillow_rotate_scale_expand(
 
     return out
 
-def pixel_coord_to_geo_coord(pixel_coord: Tuple[float, float],
-        geo_transform: Tuple[float, float, float, float, float, float]) -> Tuple[float, float]:
-    '''
+
+def pixel_coord_to_geo_coord(
+    pixel_coord: Tuple[float, float],
+    geo_transform: Tuple[float, float, float, float, float, float],
+) -> Tuple[float, float]:
+    """
     A helper function to translate a pixel-coordinate into a linear geographic
     coordinate using the geographic transform from GDAL.
 
     The geo_transform argument is a 6-tuple that specifies a 2D affine
     transformation, using the method exposed by GDAL.  See this URL for more
     details:  https://gdal.org/tutorials/geotransforms_tut.html
-    '''
+    """
     (pixel_x, pixel_y) = pixel_coord
     geo_x = geo_transform[0] + pixel_x * geo_transform[1] + pixel_y * geo_transform[2]
     geo_y = geo_transform[3] + pixel_x * geo_transform[4] + pixel_y * geo_transform[5]
     return (geo_x, geo_y)
 
-def ulurll_to_gt(ul: Tuple[int, int], ur: Tuple[int, int], ll: Tuple[int, int], width: int, height: int):
+
+def ulurll_to_gt(
+    ul: Tuple[int, int],
+    ur: Tuple[int, int],
+    ll: Tuple[int, int],
+    width: int,
+    height: int,
+):
     ulx, uly = ul[0], ul[1]
     urx, ury = ur[0], ur[1]
     llx, lly = ll[0], ll[1]
@@ -527,11 +543,14 @@ def ulurll_to_gt(ul: Tuple[int, int], ur: Tuple[int, int], ll: Tuple[int, int], 
     ]
     return gt
 
-def rotate_scale_geotransform(gt, theta, width_orig, height_orig, width_rot, height_rot):
-    '''
+
+def rotate_scale_geotransform(
+    gt, theta, width_orig, height_orig, width_rot, height_rot
+):
+    """
     Rotates and scales the geo transform. Does so by using three corner points.
-    '''
-    pix_px, pix_py = width_orig/2, height_orig/2
+    """
+    pix_px, pix_py = width_orig / 2, height_orig / 2
     rad = math.radians(theta)
     cos_t, sin_t = math.cos(rad), math.sin(rad)
 
@@ -580,11 +599,16 @@ def rotate_scale_geotransform(gt, theta, width_orig, height_orig, width_rot, hei
     new_ur_spatial = pixel_coord_to_geo_coord(new_ur_pix, gt)
     new_bl_spatial = pixel_coord_to_geo_coord(new_bl_pix, gt)
 
-    new_gt = ulurll_to_gt(new_ul_spatial, new_ur_spatial, new_bl_spatial, width_rot, height_rot)
+    new_gt = ulurll_to_gt(
+        new_ul_spatial, new_ur_spatial, new_bl_spatial, width_rot, height_rot
+    )
 
     return new_gt
 
-def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str = None):
+
+def make_into_help_button(
+    help_btn: QToolButton, link: str, tooltip_message: str = None
+):
     app = QApplication.instance()
     if app is None:
         raise RuntimeError("App instance is not running!")
@@ -595,9 +619,4 @@ def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str
     else:
         help_btn.setToolTip(tooltip_message)
 
-
-    help_btn.clicked.connect(
-        lambda: QDesktopServices.openUrl(
-            QUrl(f"{link}")
-        )
-    )
+    help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"{link}")))

@@ -1,6 +1,5 @@
 import unittest
 
-import tests.context
 from wiser.gui.util import make_filename
 
 

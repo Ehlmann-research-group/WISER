@@ -1,18 +1,13 @@
-import os
 
 import unittest
 
-import tests.context
 # import context
 
-from typing import Tuple, Union
 
 from test_utils.test_model import WiserTestModel
 
 import numpy as np
-from astropy import units as u
 
-from PySide2.QtTest import QTest
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -292,8 +287,8 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.set_main_view_layout((2, 2))
 
         ds1 = self.test_model.load_dataset(np_impl)
-        ds2 = self.test_model.load_dataset(np_impl2)
-        ds3 = self.test_model.load_dataset(np_impl3)
+        self.test_model.load_dataset(np_impl2)
+        self.test_model.load_dataset(np_impl3)
 
         self.test_model.click_zoom_pane_display_toggle()
 
@@ -308,8 +303,8 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         zp_region = self.test_model.get_zoom_pane_visible_region()
 
         self.assertTrue(are_qrects_close(zp_region, rv_00_region))
-        self.assertTrue(rv_01_region == None)
-        self.assertTrue(rv_10_region == None)
+        self.assertTrue(rv_01_region is None)
+        self.assertTrue(rv_10_region is None)
 
     def test_linked_highlight_box(self):
         """
@@ -345,8 +340,8 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.set_main_view_layout((2, 2))
 
         ds1 = self.test_model.load_dataset(np_impl)
-        ds2 = self.test_model.load_dataset(np_impl2)
-        ds3 = self.test_model.load_dataset(np_impl3)
+        self.test_model.load_dataset(np_impl2)
+        self.test_model.load_dataset(np_impl3)
 
         self.test_model.click_zoom_pane_display_toggle()
 

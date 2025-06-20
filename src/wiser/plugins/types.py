@@ -1,22 +1,22 @@
 import abc
 import enum
-import importlib
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .gui.app_state import ApplicationState
 
 from PySide2.QtWidgets import QMenu
 
-from wiser.bandmath import BandMathValue, BandMathFunction
+from wiser.bandmath import BandMathFunction
 
 
 class ContextMenuType(enum.Enum):
-    '''
+    """
     This enumeration specifies the kind of context-menu event that occurred,
     so that plugins know what items to add to the menu.
-    '''
+    """
 
     # Context-menu display in a raster-view, which probably is showing a
     # dataset.  The current dataset is passed to the plugin.
@@ -39,22 +39,22 @@ class ContextMenuType(enum.Enum):
 
 
 class Plugin(abc.ABC):
-    ''' The base type for all WISER plugins. '''
+    """The base type for all WISER plugins."""
+
     pass
 
 
 class ToolsMenuPlugin(Plugin):
-    '''
+    """
     This is the base type for plugins that integrate into the WISER "Tools"
     application-menu.
-    '''
+    """
 
     def __init__(self):
         super().__init__()
 
-
-    def add_tool_menu_items(self, tool_menu: QMenu, wiser: 'ApplicationState') -> None:
-        '''
+    def add_tool_menu_items(self, tool_menu: QMenu, wiser: "ApplicationState") -> None:
+        """
         This method is called by WISER to allow plugins to add menu actions or
         submenus into the Tools application menu.
 
@@ -67,22 +67,26 @@ class ToolsMenuPlugin(Plugin):
 
         Use QMenu.addAction() to add individual actions, or QMenu.addMenu() to
         add sub-menus to the Tools menu.
-        '''
+        """
         pass
 
 
 class ContextMenuPlugin(Plugin):
-    '''
+    """
     This is the base type for plugins that integrate into WISER pop-up context
     menus.
-    '''
+    """
 
     def __init__(self):
         super().__init__()
 
-    def add_context_menu_items(self, context_type: ContextMenuType,
-            context_menu: QMenu, context: Dict[str, Any]) -> None:
-        '''
+    def add_context_menu_items(
+        self,
+        context_type: ContextMenuType,
+        context_menu: QMenu,
+        context: Dict[str, Any],
+    ) -> None:
+        """
         This method is called by WISER when it is constructing a context menu,
         so that the plugin can add any menu-actions relevant to the context.
 
@@ -169,20 +173,20 @@ class ContextMenuPlugin(Plugin):
             act = context_menu.addAction(context_menu.tr('Some task...'))
             act.triggered.connect(lambda checked=False: self.on_some_task(context=context))
 
-        '''
+        """
         pass
 
 
 class BandMathPlugin(Plugin):
-    '''
+    """
     This is the base type for plugins that provide custom band-math functions.
-    '''
+    """
 
     def __init__(self):
         super().__init__()
 
     def get_bandmath_functions(self) -> Dict[str, BandMathFunction]:
-        '''
+        """
         This method returns a dictionary of all band-math functions provided by
         the plugin.
 
@@ -198,5 +202,5 @@ class BandMathPlugin(Plugin):
         Band-math expressions are *case-insensitive*.  Therefore, all function
         names specified by a plugin are converted to lowercase when loaded into
         the band-math evaluator.
-        '''
+        """
         pass

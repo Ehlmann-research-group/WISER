@@ -1,6 +1,5 @@
 import unittest
 
-import tests.context
 from wiser.raster import utils
 
 import numpy as np

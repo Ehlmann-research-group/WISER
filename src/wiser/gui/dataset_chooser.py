@@ -1,34 +1,32 @@
-import os
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import wiser.gui.generated.resources
 
 from .app_state import ApplicationState
-from wiser.raster.dataset import RasterDataSet
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .rasterpane import RasterPane
 
 
 class DatasetChooser(QToolButton):
-    '''
+    """
     This toolbar button allows the user to quickly select a dataset to display,
     by popping up a menu that shows the list of datasets.  The dataset-list menu
     stays in sync with the current application state, and what datasets have
     been loaded.
-    '''
+    """
 
-    def __init__(self, rasterpane: 'RasterPane', app_state: ApplicationState):
-        '''
+    def __init__(self, rasterpane: "RasterPane", app_state: ApplicationState):
+        """
         NOTE:  The RasterPane argument allows the dataset chooser to be informed
                when the raster-pane switches to multiple views.  It may be set
                to None, in which case the chooser will act like it is only
                managing one view.
-        '''
+        """
         super().__init__()
 
         self._rasterpane = rasterpane
@@ -36,8 +34,8 @@ class DatasetChooser(QToolButton):
 
         self._dataset_menu = QMenu()
 
-        self.setIcon(QIcon(':/icons/stack.svg'))
-        self.setToolTip(self.tr('Select dataset to view'))
+        self.setIcon(QIcon(":/icons/stack.svg"))
+        self.setToolTip(self.tr("Select dataset to view"))
         self.setPopupMode(QToolButton.InstantPopup)
         self.setMenu(self._dataset_menu)
 
@@ -51,12 +49,11 @@ class DatasetChooser(QToolButton):
 
         self._populate_dataset_menu()
 
-
     def _populate_dataset_menu(self):
-        '''
+        """
         This helper function clears and repopulates the dataset menu from the
         current list of datasets in the application state.
-        '''
+        """
 
         if self._rasterpane is not None:
             num_views = self._rasterpane.get_num_views()
@@ -70,7 +67,7 @@ class DatasetChooser(QToolButton):
             (rows, cols) = num_views
             for r in range(rows):
                 for c in range(cols):
-                    rv_menu = QMenu(self.tr('Row {r} column {c}').format(r=r, c=c))
+                    rv_menu = QMenu(self.tr("Row {r} column {c}").format(r=r, c=c))
                     self._dataset_menu.addMenu(rv_menu)
 
                     self._add_dataset_menu_items(rv_menu, (r, c))
@@ -79,7 +76,6 @@ class DatasetChooser(QToolButton):
             # We only have one raster-view in the pane.  Use the top level menu
             # for the dataset list.
             self._add_dataset_menu_items(self._dataset_menu)
-
 
     def _add_dataset_menu_items(self, menu: QMenu, rasterview_pos=(0, 0)):
         # Find the action that is currently selected (if any)
@@ -104,18 +100,19 @@ class DatasetChooser(QToolButton):
             menu.addAction(act)
 
     def check_dataset(self, ds_id: int):
-        '''
+        """
         Checks the desired dataset in the dataset chooser. This
         function should only be called if the num views is (1, 1).
-        '''
+        """
         if self._rasterpane.get_num_views() != (1, 1):
-            raise ValueError(f"The function check_dataset should only be called when raster " +
-                             f"pane has one view")
+            raise ValueError(
+                "The function check_dataset should only be called when raster "
+                + "pane has one view"
+            )
 
         self._uncheck_all(self._dataset_menu)
 
         for act in self._dataset_menu.actions():
-
             if act.isSeparator():
                 continue
             act_ds_id = act.data()[1]
@@ -127,15 +124,14 @@ class DatasetChooser(QToolButton):
             act.setChecked(False)
 
     def _on_dataset_changed(self, act: QAction):
-        '''
+        """
         This helper function ensures that only the currently selected dataset
         has a check-mark by it; all other datasets will be (or become)
         deselected.
-        '''
+        """
         for oact in self._dataset_menu.actions():
             # print(f'Action:  {oact}\t\tChecked?  {oact == act}')
             oact.setChecked(oact == act)
-
 
     def _on_dataset_added(self, ds_id: int):
         self._populate_dataset_menu()

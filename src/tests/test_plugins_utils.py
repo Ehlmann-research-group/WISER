@@ -1,6 +1,5 @@
 import unittest
 
-import tests.context
 
 from wiser import plugins
 from wiser.plugins import utils

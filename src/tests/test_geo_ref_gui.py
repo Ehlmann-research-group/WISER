@@ -2,21 +2,16 @@ import unittest
 
 import os
 
-import tests.context
 # import context
 
-from tests.utils import are_pixels_close, are_qrects_close
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.geo_reference_dialog import (
     AuthorityCodeCRS,
-    UserGeneratedCRS,
-    GeneralCRS,
 )
 
 import numpy as np
 
-from PySide2.QtTest import QTest
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *

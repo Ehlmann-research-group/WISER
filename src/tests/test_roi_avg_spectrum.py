@@ -18,7 +18,6 @@ from PySide2.QtCore import QPoint
 from wiser.gui.app import DataVisualizerApp
 
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.roi import RegionOfInterest
 
 from wiser.raster.spectrum import ROIAverageSpectrum
 

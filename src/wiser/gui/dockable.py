@@ -4,8 +4,9 @@ from PySide2.QtWidgets import *
 
 
 class DockablePane(QDockWidget):
-    def __init__(self, widget, name, title, app_state, icon=None, tooltip=None,
-                 parent=None):
+    def __init__(
+        self, widget, name, title, app_state, icon=None, tooltip=None, parent=None
+    ):
         super().__init__(title, parent=parent)
 
         self._name = name
@@ -20,21 +21,18 @@ class DockablePane(QDockWidget):
         elif isinstance(icon, QIcon):
             self._icon = icon
         elif icon is not None:
-            raise TypeError(f'Unrecognized type for icon argument:  {type(icon)}')
+            raise TypeError(f"Unrecognized type for icon argument:  {type(icon)}")
 
         self._tooltip = tooltip
 
         # Make sure we get visibility-changed notifications
         self.visibilityChanged.connect(self._on_visibility_changed)
 
-
     def get_icon(self):
         return self._icon
 
-
     def get_tooltip(self):
         return self._tooltip
-
 
     def _on_visibility_changed(self, visible):
         # Work around a known Qt bug:  if a dockable window is floating, and is
@@ -43,3 +41,6 @@ class DockablePane(QDockWidget):
         if self.isFloating() and not visible:
             self.setFloating(False)
             self.setFloating(True)
+
+
+

@@ -1,6 +1,6 @@
 import logging
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -22,20 +22,20 @@ logger = logging.getLogger(__name__)
 
 
 def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
-    '''
+    """
     Given a variable name, this function guesses the variable's type.  The guess
     is very simple:
 
     *   If the variable starts with "i" then the guess is IMAGE_CUBE
     *   If the variable starts with "s" then the guess is SPECTRUM
     *   Otherwise, the guess is IMAGE_BAND
-    '''
+    """
     variable = variable.strip().lower()
 
-    if variable.startswith('i'):
+    if variable.startswith("i"):
         return bandmath.VariableType.IMAGE_CUBE
 
-    elif variable.startswith('s'):
+    elif variable.startswith("s"):
         return bandmath.VariableType.SPECTRUM
 
     else:
@@ -44,32 +44,32 @@ def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
 
 
 def get_memory_size(size_bytes: int) -> str:
-    '''
+    """
     This helper function takes a size in bytes, and generates a human-readable
     string versino of the size.  The size will be reported using bytes,
     kilobytes (=2**10 bytes), megabytes (=2**20 bytes), gigabytes, or terabytes,
     depending on the most appropriate option for the input size.
-    '''
-    suffixes = ['B', 'KB', 'MB', 'GB', 'TB']
+    """
+    suffixes = ["B", "KB", "MB", "GB", "TB"]
     size = size_bytes
     for i in range(len(suffixes)):
         if size < 1024:
             if i == 0:
-                return f'{size}{suffixes[i]}'
+                return f"{size}{suffixes[i]}"
             else:
-                return f'{size:.1f}{suffixes[i]}'
+                return f"{size:.1f}{suffixes[i]}"
         size /= 1024.0
 
-    return f'{size:.1f}{suffixes[-1]}'
+    return f"{size:.1f}{suffixes[-1]}"
 
 
 def all_bindings_specified(bindings: Dict[str, Tuple[bandmath.VariableType, Any]]):
-    '''
+    """
     This helper function returns True if all variables in the ``bindings``
     dictionary specify usable values, or ``False`` otherwise.  (A missing value
     is indicated by ``None``.)
-    '''
-    for (name, (type, value)) in bindings.items():
+    """
+    for name, (type, value) in bindings.items():
         if value is None:
             return False
 
@@ -77,10 +77,10 @@ def all_bindings_specified(bindings: Dict[str, Tuple[bandmath.VariableType, Any]
 
 
 def make_dataset_chooser(app_state) -> QComboBox:
-    '''
+    """
     This helper function returns a combobox for choosing a dataset from the
     set of currently loaded datasets.
-    '''
+    """
     chooser = QComboBox()
     chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
@@ -91,16 +91,16 @@ def make_dataset_chooser(app_state) -> QComboBox:
 
 
 def make_spectrum_chooser(app_state) -> QComboBox:
-    '''
+    """
     This helper function returns a combobox for choosing a spectrum from the
     set of currently loaded spectra.
-    '''
+    """
     chooser = QComboBox()
     chooser.setSizeAdjustPolicy(QComboBox.AdjustToContents)
     active = app_state.get_active_spectrum()
     if active:
         # Add active spectrum to list
-        name = app_state.tr('Active:  {name}').format(name=active.get_name())
+        name = app_state.tr("Active:  {name}").format(name=active.get_name())
         chooser.addItem(name, active.get_id())
 
     collected = app_state.get_collected_spectra()
@@ -111,7 +111,7 @@ def make_spectrum_chooser(app_state) -> QComboBox:
             chooser.insertSeparator(chooser.count())
 
         for s in collected:
-            name = f'{s.get_name()}'
+            name = f"{s.get_name()}"
             chooser.addItem(name, s.get_id())
 
     # Add spectral libraries to list
@@ -125,16 +125,17 @@ def make_spectrum_chooser(app_state) -> QComboBox:
         lib_id = lib.get_id()
         for index in range(lib.num_spectra()):
             name = lib.get_spectrum_name(index)
-            chooser.addItem(name, (lib_id, index, ) )
+            chooser.addItem(name, (lib_id, index))
 
     return chooser
 
 
 class DatasetBandChooserWidget(QWidget):
-    '''
+    """
     This class presents a dataset-chooser and a band-chooser in a single widget,
     for the selection of a band in a band-math expression.
-    '''
+    """
+
     def __init__(self, app_state, parent=None):
         super().__init__(parent=parent)
 
@@ -156,12 +157,11 @@ class DatasetBandChooserWidget(QWidget):
 
         self.dataset_chooser.activated.connect(self._on_dataset_changed)
 
-
     def _populate_band_chooser(self):
-        '''
+        """
         Populate the bands in the band-chooser widget, based on the currently
         selected dataset.
-        '''
+        """
         self.band_chooser.clear()
 
         ds_id = self.dataset_chooser.currentData()
@@ -170,40 +170,37 @@ class DatasetBandChooserWidget(QWidget):
         except KeyError:
             # This probably isn't a serious problem; for example, it can
             # occur when WISER has no datasets loaded.
-            logger.info(f'Couldn\'t retrieve dataset with ID {ds_id}')
+            logger.info(f"Couldn't retrieve dataset with ID {ds_id}")
             return
 
         for b in dataset.band_list():
             # TODO(donnie):  Generate a band name in some generalized way.
 
-            desc = b['description']
+            desc = b["description"]
             if desc:
-                desc = f'Band {b["index"]}: {desc}'
+                desc = f"Band {b['index']}: {desc}"
             else:
-                desc = f'Band {b["index"]}'
+                desc = f"Band {b['index']}"
 
-            self.band_chooser.addItem(desc, b['index'])
-
+            self.band_chooser.addItem(desc, b["index"])
 
     def _on_dataset_changed(self, index):
-        '''
+        """
         When the dataset is changed by the user, we need to repopulate the list
         of available bands.
-        '''
+        """
         self._populate_band_chooser()
 
-
     def get_ds_band(self) -> Tuple[int, int]:
-        '''
+        """
         This method returns the currently selected dataset and band.  The
         information is reported as a 2-tuple of this form:  (dataset ID,
         band index).
-        '''
-        return (self.dataset_chooser.currentData(),
-                self.band_chooser.currentData())
+        """
+        return (self.dataset_chooser.currentData(), self.band_chooser.currentData())
 
 
-''' TODO(donnie):  Coming soon...
+""" TODO(donnie):  Coming soon...
 class VariableTypeDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -222,25 +219,24 @@ class VariableTypeDelegate(QStyledItemDelegate):
         # that as the variable's initial type.
         type_guess = guess_variable_type_from_name(var)
         type_widget.setCurrentIndex(type_widget.findData(type_guess))
-'''
+"""
 
 
 class ExpressionReturnEventFilter(QObject):
-    '''
+    """
     This event-filter helper class is installed on the expression line-edit so
     that pressing Return/Enter after typing an expression will not cause the
     dialog to close; rather, it will cause the expression to be analyzed and the
     variable-list to be updated.  It seems to be natural to press Enter at the
     end of typing an expression.
-    '''
+    """
 
     def __init__(self, bandmath_dialog):
         super().__init__()
         self._bandmath_dialog = bandmath_dialog
 
     def eventFilter(self, obj, evt) -> bool:
-        if (evt.type() == QEvent.KeyPress and
-            evt.key() in [Qt.Key_Return, Qt.Key_Enter]):
+        if evt.type() == QEvent.KeyPress and evt.key() in [Qt.Key_Return, Qt.Key_Enter]:
             # Instead of letting the Return/Enter event propagate up (where it
             # would close the band-math dialog), cause the expression to be
             # analyzed instead.
@@ -253,9 +249,12 @@ class ExpressionReturnEventFilter(QObject):
 
 
 class BandMathDialog(QDialog):
-
-    def __init__(self, app_state: ApplicationState,
-            rasterview: Optional[RasterView] = None, parent=None):
+    def __init__(
+        self,
+        app_state: ApplicationState,
+        rasterview: Optional[RasterView] = None,
+        parent=None,
+    ):
         super().__init__(parent=parent)
 
         self._app_state = app_state
@@ -281,7 +280,7 @@ class BandMathDialog(QDialog):
         self._expr_filter = ExpressionReturnEventFilter(self)
         self._ui.ledit_expression.installEventFilter(self._expr_filter)
 
-        #==================================
+        # ==================================
         # "Current expression" UI widgets
 
         self._ui.btn_toggle_help.clicked.connect(self._on_toggle_help)
@@ -293,13 +292,13 @@ class BandMathDialog(QDialog):
         self._ui.ledit_expression.editingFinished.connect(lambda: self._analyze_expr())
         self._ui.btn_add_to_saved.clicked.connect(self._on_add_expr_to_saved)
 
-        #==================================
+        # ==================================
         # Variable-bindings table
 
         # TODO(donnie):  Coming soon...
         # self._ui.tbl_variables.setItemDelegateForColumn(1, VariableTypeDelegate())
 
-        #==================================
+        # ==================================
         # "Saved expressions" UI widgets
 
         self._ui.cbox_saved_exprs.activated.connect(self._on_choose_saved_expr)
@@ -309,15 +308,14 @@ class BandMathDialog(QDialog):
 
         # Do this here so that we can use the text-translation facilities.
         self._variable_types_text = {
-            bandmath.VariableType.IMAGE_CUBE: self.tr('Image'),
-            bandmath.VariableType.IMAGE_BAND: self.tr('Image Band'),
-            bandmath.VariableType.SPECTRUM: self.tr('Spectrum'),
-            bandmath.VariableType.REGION_OF_INTEREST: self.tr('Region of Interest'),
-            bandmath.VariableType.NUMBER: self.tr('Number'),
-            bandmath.VariableType.BOOLEAN: self.tr('Boolean'),
-            bandmath.VariableType.STRING: self.tr('String'),
+            bandmath.VariableType.IMAGE_CUBE: self.tr("Image"),
+            bandmath.VariableType.IMAGE_BAND: self.tr("Image Band"),
+            bandmath.VariableType.SPECTRUM: self.tr("Spectrum"),
+            bandmath.VariableType.REGION_OF_INTEREST: self.tr("Region of Interest"),
+            bandmath.VariableType.NUMBER: self.tr("Number"),
+            bandmath.VariableType.BOOLEAN: self.tr("Boolean"),
+            bandmath.VariableType.STRING: self.tr("String"),
         }
-
 
     def _on_toggle_help(self, checked=False):
         is_visible = self._ui.tedit_bandmath_help.isVisible()
@@ -336,15 +334,14 @@ class BandMathDialog(QDialog):
 
         self.resize(dialog_size)
 
-
     def _analyze_expr(self):
-        '''
+        """
         This helper method parses and analyzes the current band-math expression,
         identifying all variables in the expression, and updating the list of
         variable bindings shown in the dialog.  If all variables are bound, the
         method also analyzes the expression to predict the type, shape and size
         of the expression's result, and displays this information in the UI.
-        '''
+        """
         self._expr_info = None
         expr = self.get_expression()
         if not expr:
@@ -359,36 +356,48 @@ class BandMathDialog(QDialog):
 
             bindings = self.get_variable_bindings()
             if not all_bindings_specified(bindings):
-                self._ui.lbl_result_info.setText(self.tr(
-                    'Please specify values for all variables'))
+                self._ui.lbl_result_info.setText(
+                    self.tr("Please specify values for all variables")
+                )
                 return
 
             # Analyze the expression and share info about the result.
             self._ui.lbl_result_info.clear()
-            self._ui.lbl_result_info.setStyleSheet('QLabel { color: black; }')
+            self._ui.lbl_result_info.setStyleSheet("QLabel { color: black; }")
             functions = get_plugin_fns(self._app_state)
             expr_info = bandmath.get_bandmath_expr_info(expr, bindings, functions)
 
-            if expr_info.result_type not in [bandmath.VariableType.IMAGE_CUBE,
-                bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM]:
-                self._ui.lbl_result_info.setText(self.tr('Enter an ' +
-                    'expression that produces an image cube, band, or spectrum'))
-                self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
+            if expr_info.result_type not in [
+                bandmath.VariableType.IMAGE_CUBE,
+                bandmath.VariableType.IMAGE_BAND,
+                bandmath.VariableType.SPECTRUM,
+            ]:
+                self._ui.lbl_result_info.setText(
+                    self.tr(
+                        "Enter an "
+                        + "expression that produces an image cube, band, or spectrum"
+                    )
+                )
+                self._ui.lbl_result_info.setStyleSheet("QLabel { color: red; }")
                 return
 
             self._expr_info = expr_info
 
-            type_str = self._variable_types_text.get(expr_info.result_type,
-                self.tr('Unrecognized type'))
-            dims_str = ''
-            mem_size_str = ''
+            type_str = self._variable_types_text.get(
+                expr_info.result_type, self.tr("Unrecognized type")
+            )
+            dims_str = ""
+            mem_size_str = ""
 
-            if expr_info.result_type in [bandmath.VariableType.IMAGE_CUBE,
-                bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM]:
-                dims_str = f' {get_dimensions(expr_info.result_type, expr_info.shape)}'
-                mem_size_str = f' ({get_memory_size(expr_info.result_size())})'
+            if expr_info.result_type in [
+                bandmath.VariableType.IMAGE_CUBE,
+                bandmath.VariableType.IMAGE_BAND,
+                bandmath.VariableType.SPECTRUM,
+            ]:
+                dims_str = f" {get_dimensions(expr_info.result_type, expr_info.shape)}"
+                mem_size_str = f" ({get_memory_size(expr_info.result_size())})"
 
-            s = self.tr('Result: {type}{dimensions}{mem_size}')
+            s = self.tr("Result: {type}{dimensions}{mem_size}")
             s = s.format(type=type_str, dimensions=dims_str, mem_size=mem_size_str)
             self._ui.lbl_result_info.setText(s)
 
@@ -396,30 +405,29 @@ class BandMathDialog(QDialog):
             # This would be an exception raised by the analysis code to indicate
             # a semantic error in the expression.
             logger.exception(f'Bandmath UI:  Analysis error on expression "{expr}"')
-            self._ui.lbl_result_info.setText(self.tr('Error:  {0}').format(e.orig_exc))
-            self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
+            self._ui.lbl_result_info.setText(self.tr("Error:  {0}").format(e.orig_exc))
+            self._ui.lbl_result_info.setStyleSheet("QLabel { color: red; }")
 
-        except lark.exceptions.LarkError as e:
+        except lark.exceptions.LarkError:
             # This would be an exception raised by the parsing code.
             logger.exception(f'Bandmath UI:  Parse error on expression "{expr}"')
-            self._ui.lbl_result_info.setText(self.tr('Parse error!'))
-            self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
+            self._ui.lbl_result_info.setText(self.tr("Parse error!"))
+            self._ui.lbl_result_info.setStyleSheet("QLabel { color: red; }")
 
         except Exception as e:
             # This would likely be an exception generated by an internal WISER
             # bug.
             logger.exception(f'Bandmath UI:  Other error on expression "{expr}"')
-            self._ui.lbl_result_info.setText(self.tr('Error:  {0}').format(e))
-            self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
-
+            self._ui.lbl_result_info.setText(self.tr("Error:  {0}").format(e))
+            self._ui.lbl_result_info.setStyleSheet("QLabel { color: red; }")
 
     def _sync_binding_table_with_variables(self, variables):
-        '''
+        """
         This helper function synchronizes the GUI's variable-binding table with
         the variables found in the current expression.  New variables are added
         to the table; existing variables are left untouched; and missing
         variables are removed from the table.
-        '''
+        """
         # Disable sorting while we update the table.
         self._ui.tbl_variables.setSortingEnabled(False)
 
@@ -443,9 +451,11 @@ class BandMathDialog(QDialog):
                 # Second column is the type of variable.
 
                 type_widget = QComboBox()
-                type_widget.addItem(self.tr('Image'), bandmath.VariableType.IMAGE_CUBE)
-                type_widget.addItem(self.tr('Image band'), bandmath.VariableType.IMAGE_BAND)
-                type_widget.addItem(self.tr('Spectrum'), bandmath.VariableType.SPECTRUM)
+                type_widget.addItem(self.tr("Image"), bandmath.VariableType.IMAGE_CUBE)
+                type_widget.addItem(
+                    self.tr("Image band"), bandmath.VariableType.IMAGE_BAND
+                )
+                type_widget.addItem(self.tr("Spectrum"), bandmath.VariableType.SPECTRUM)
                 type_widget.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
                 # Guess the type of the variable based on its name, and choose
@@ -454,8 +464,10 @@ class BandMathDialog(QDialog):
                 type_widget.setCurrentIndex(type_widget.findData(type_guess))
 
                 type_widget.activated.connect(
-                    lambda index, var_name=var :
-                    self._on_variable_type_change(index, var_name))
+                    lambda index, var_name=var: self._on_variable_type_change(
+                        index, var_name
+                    )
+                )
 
                 # item = QTableWidgetItem('Image band')
                 # item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
@@ -474,7 +486,6 @@ class BandMathDialog(QDialog):
                 value_widget = self._make_value_widget(type_guess)
                 self._ui.tbl_variables.setCellWidget(new_row, 2, value_widget)
 
-
         # Remove deleted variables from the list of bindings.  Do this in
         # reverse order so we don't have to adjust for rows shifting up.
         for row in range(self._ui.tbl_variables.rowCount() - 1, -1, -1):
@@ -487,26 +498,24 @@ class BandMathDialog(QDialog):
 
         self._ui.tbl_variables.resizeColumnsToContents()
 
-
     def _find_variable_in_bindings(self, variable) -> int:
-        '''
+        """
         Look for the specified variable in the variable-bindings table.
         If found, the row index is returned.  If not found, -1 is returned.
-        '''
+        """
         for i in range(self._ui.tbl_variables.rowCount()):
             if self._ui.tbl_variables.item(i, 0).text() == variable:
                 return i
 
         return -1
 
-
     def _make_value_widget(self, variable_type: bandmath.VariableType):
-        '''
+        """
         Given a specific variable-type (e.g. "image cube," "image band," or
         "spectrum"), this method constructs a Qt widget for letting the user
         specify the value to use.  The widget is populated with the current
         values from the WISER application state.
-        '''
+        """
         value_widget = None
 
         if variable_type == bandmath.VariableType.IMAGE_CUBE:
@@ -515,26 +524,27 @@ class BandMathDialog(QDialog):
 
         elif variable_type == bandmath.VariableType.IMAGE_BAND:
             value_widget = DatasetBandChooserWidget(self._app_state)
-            value_widget.dataset_chooser.activated.connect(self._on_variable_shape_change)
+            value_widget.dataset_chooser.activated.connect(
+                self._on_variable_shape_change
+            )
 
         elif variable_type == bandmath.VariableType.SPECTRUM:
             value_widget = make_spectrum_chooser(self._app_state)
             value_widget.activated.connect(self._on_variable_shape_change)
 
         else:
-            raise AssertionError(f'Unrecognized variable type {variable_type}')
+            raise AssertionError(f"Unrecognized variable type {variable_type}")
 
         return value_widget
 
-
     def _on_variable_type_change(self, type_index: int, var_name: str):
-        '''
+        """
         When a variable's type changes, the dialog must show a new value-chooser
         for that variable.
-        '''
+        """
         var_row = self._find_variable_in_bindings(var_name)
         if var_row == -1:
-            raise AssertionError(f'Received unrecognized variable name {var_name}')
+            raise AssertionError(f"Received unrecognized variable name {var_name}")
 
         var_type = self._ui.tbl_variables.cellWidget(var_row, 1).currentData()
         value_widget = self._make_value_widget(var_type)
@@ -545,23 +555,26 @@ class BandMathDialog(QDialog):
         # Update the expression analysis
         self._analyze_expr()
 
-
     def _on_variable_shape_change(self, index: int):
-        '''
+        """
         When a variable's shape changes, the dialog must update its analysis of
         the expression's results.
-        '''
+        """
         self._analyze_expr()
-
 
     def _on_add_expr_to_saved(self, checked=False):
         expr = self.get_expression()
 
         # Verify that we have a parseable expression.
         if not bandmath.bandmath_parses(expr):
-            QMessageBox.critical(self, self.tr('Parse Error'),
-                self.tr('The current band-math expression does not parse.\n\n' +
-                        'Please fix the expression before saving it.'))
+            QMessageBox.critical(
+                self,
+                self.tr("Parse Error"),
+                self.tr(
+                    "The current band-math expression does not parse.\n\n"
+                    + "Please fix the expression before saving it."
+                ),
+            )
             return
 
         # Verify that the expression doesn't already appear in the saved
@@ -571,9 +584,14 @@ class BandMathDialog(QDialog):
             #     whitespace is the only difference.
             saved_expr = self._ui.cbox_saved_exprs.itemText(i).casefold()
             if expr == saved_expr:
-                QMessageBox.critical(self, self.tr('Expression already saved'),
-                    self.tr('The current band-math expression is already\n' +
-                            'in the saved-expressions list.'))
+                QMessageBox.critical(
+                    self,
+                    self.tr("Expression already saved"),
+                    self.tr(
+                        "The current band-math expression is already\n"
+                        + "in the saved-expressions list."
+                    ),
+                )
                 return
 
         # Add the expression to the end of the list, and make sure it is
@@ -582,25 +600,29 @@ class BandMathDialog(QDialog):
         self._ui.cbox_saved_exprs.setCurrentIndex(self._ui.cbox_saved_exprs.count() - 1)
         self._saved_exprs_modified = True
 
-
     def _on_load_saved_exprs(self, checked=False):
-        '''
+        """
         This helper method implements the "load a saved-expressions file".  If
         there are unsaved expressions, the user is prompted about discarding
         them before loading any new expression list.
-        '''
+        """
         # Are there unsaved changes to the saved-expressions list?
         if self._ui.cbox_saved_exprs.count() > 0 and self._saved_exprs_modified:
-            response = QMessageBox.question(self, self.tr('Un-saved Expressions'),
-                self.tr('Discard unsaved changes to saved expressions?'))
+            response = QMessageBox.question(
+                self,
+                self.tr("Un-saved Expressions"),
+                self.tr("Discard unsaved changes to saved expressions?"),
+            )
 
             if response != QMessageBox.Yes:
                 return
 
-        (path, _) = QFileDialog.getOpenFileName(self,
-            self.tr('Read Saved-Expressions from File'),
+        (path, _) = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Read Saved-Expressions from File"),
             self._app_state.get_current_dir(),
-            self.tr('Text files (*.txt);;All files (*)'))
+            self.tr("Text files (*.txt);;All files (*)"),
+        )
 
         if not path:
             return
@@ -611,8 +633,11 @@ class BandMathDialog(QDialog):
                 lines = f.readlines()
 
         except Exception as e:
-            QMessageBox.critical(self, self.tr('Couldn\'t Open File'),
-                self.tr('Couldn\'t open file {0}:\n\n{1}').format(path, e))
+            QMessageBox.critical(
+                self,
+                self.tr("Couldn't Open File"),
+                self.tr("Couldn't open file {0}:\n\n{1}").format(path, e),
+            )
             return
 
         # Strip leading and trailing whitespace off every line, and
@@ -629,47 +654,54 @@ class BandMathDialog(QDialog):
 
         self._saved_exprs_modified = False
 
-
     def _on_save_saved_exprs(self, checked=False):
-        (path, _) = QFileDialog.getSaveFileName(self,
-            self.tr('Write Saved-Expressions to File'),
+        (path, _) = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Write Saved-Expressions to File"),
             self._app_state.get_current_dir(),
-            self.tr('Text files (*.txt);;All files (*)'))
+            self.tr("Text files (*.txt);;All files (*)"),
+        )
 
         if not path:
             return
 
         try:
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 for i in range(self._ui.cbox_saved_exprs.count()):
                     expr = self._ui.cbox_saved_exprs.itemText(i)
-                    f.write(f'{expr}\n')
+                    f.write(f"{expr}\n")
 
         except Exception as e:
-            QMessageBox.critical(self, self.tr('Couldn\'t Open File'),
-                self.tr('Couldn\'t open file {0}:\n\n{1}').format(path, e))
+            QMessageBox.critical(
+                self,
+                self.tr("Couldn't Open File"),
+                self.tr("Couldn't open file {0}:\n\n{1}").format(path, e),
+            )
             return
 
         self._saved_exprs_modified = False
 
     def _on_choose_saved_expr(self, index):
-        '''
+        """
         Handle events where the user chooses one of the saved expressions.
-        '''
+        """
         expr = self._ui.cbox_saved_exprs.currentText()
         self._ui.ledit_expression.setText(expr)
         self._analyze_expr()
 
-
     def _check_saved_expressions(self):
         if self._ui.cbox_saved_exprs.count() > 0 and self._saved_exprs_modified:
-            response = QMessageBox.question(self, self.tr('Un-saved Expressions'),
-                self.tr('Do you want to save your changes\n' +
-                        'to the saved-expressions list?'))
+            response = QMessageBox.question(
+                self,
+                self.tr("Un-saved Expressions"),
+                self.tr(
+                    "Do you want to save your changes\n"
+                    + "to the saved-expressions list?"
+                ),
+            )
 
             if response == QMessageBox.Yes:
                 self._on_save_saved_exprs()
-
 
     def accept(self):
         # Have changes been made to the saved-expressions list?
@@ -680,14 +712,16 @@ class BandMathDialog(QDialog):
 
         bindings = self.get_variable_bindings()
         if not all_bindings_specified(bindings):
-            QMessageBox.critical(self, self.tr('Binding Error'),
-                self.tr('Please specify all variable bindings.'))
+            QMessageBox.critical(
+                self,
+                self.tr("Binding Error"),
+                self.tr("Please specify all variable bindings."),
+            )
             return
 
         # TODO(donnie):  Check for obvious issues with the band math?
 
         super().accept()
-
 
     def reject(self):
         # Have changes been made to the saved-expressions list?
@@ -695,29 +729,26 @@ class BandMathDialog(QDialog):
 
         super().reject()
 
-
     def get_expression(self) -> str:
-        '''
+        """
         Returns the math expression as entered by the user, with leading and
         trailing whitespace stripped, and the expression casefolded to
         lowercase.
-        '''
+        """
         return self._ui.ledit_expression.text().strip().casefold()
-
 
     def get_expression_info(self) -> Optional[bandmath.BandMathExprInfo]:
         return self._expr_info
 
-
     def get_variable_bindings(self) -> Dict[str, Tuple[bandmath.VariableType, Any]]:
-        '''
+        """
         Returns the variable bindings as specified by the user.  The result is
         in the form that is required by bandmath.evaluator.eval_bandmath_expr().
 
         Note that this function doesn't guarantee that the variable-bindings
         actually reflect the expression, or that there are no semantic errors
         or mismatched types in the expression.
-        '''
+        """
         variables = {}
         for row in range(self._ui.tbl_variables.rowCount()):
             var = self._ui.tbl_variables.item(row, 0).text()
@@ -730,7 +761,9 @@ class BandMathDialog(QDialog):
                     value = self._app_state.get_dataset(ds_id)
 
             elif type == bandmath.VariableType.IMAGE_BAND:
-                (ds_id, band_index) = self._ui.tbl_variables.cellWidget(row, 2).get_ds_band()
+                (ds_id, band_index) = self._ui.tbl_variables.cellWidget(
+                    row, 2
+                ).get_ds_band()
                 if ds_id is not None and band_index is not None:
                     dataset = self._app_state.get_dataset(ds_id)
                     value = RasterDataBand(dataset, band_index)
@@ -746,21 +779,23 @@ class BandMathDialog(QDialog):
                     value = lib.get_spectrum(spectrum_index)
 
                 else:
-                    raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
+                    raise TypeError(
+                        f"Unrecognized type of spectrum info:  {spectrum_info}"
+                    )
 
             else:
                 raise AssertionError(
-                    f'Unrecognized binding type {type} for variable {var}')
+                    f"Unrecognized binding type {type} for variable {var}"
+                )
 
             variables[var] = (type, value)
 
         return variables
 
-
     def get_result_name(self) -> Optional[str]:
-        '''
+        """
         Return the optional name of the result.
-        '''
+        """
         name = self._ui.ledit_result_name.text().strip()
         if not name:
             name = None

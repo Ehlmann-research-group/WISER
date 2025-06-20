@@ -14,13 +14,15 @@ class CoordinateDisplayConfig:
         # Projected CRS display configuration
 
     def __str__(self):
-        return f'CoordinateDisplayConfig[{self.spatial_ref}]'
+        return f"CoordinateDisplayConfig[{self.spatial_ref}]"
 
 
 def srs_has_degrees(spatial_ref) -> bool:
-    return (spatial_ref is not None and
-            spatial_ref.IsGeographic() and
-            spatial_ref.GetAngularUnitsName().lower().startswith('degree'))
+    return (
+        spatial_ref is not None
+        and spatial_ref.IsGeographic()
+        and spatial_ref.GetAngularUnitsName().lower().startswith("degree")
+    )
 
 
 def get_srs_units(spatial_ref) -> Optional[str]:

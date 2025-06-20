@@ -1,10 +1,7 @@
-import sys
-import os
 
 import unittest
 import numpy as np
 
-import tests.context
 
 from wiser import bandmath
 from wiser.bandmath import VariableType
