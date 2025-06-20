@@ -12,7 +12,6 @@ from spectra import NumPySpectralData
 
 
 class ImageViewer(QMainWindow):
-
     def __init__(self):
         super().__init__(None)
 
@@ -51,7 +50,7 @@ class ImageViewer(QMainWindow):
 
         print("Converting raw data to RGB color data")
 
-        '''
+        """
         # TODO(donnie):  This is a slow way to generate an image.  Generate a blob
         #     of data using numpy, and stuff that into the QImage.
 
@@ -66,9 +65,9 @@ class ImageViewer(QMainWindow):
         for y in range(spectral_data.get_height()):
             for x in range(spectral_data.get_width()):
                 image.setPixel(x, y, qRgb(red_data[y][x], grn_data[y][x], blu_data[y][x]))
-        '''
+        """
 
-        ''' '''
+        """ """
         # This is a very fast way of generating an image.  It could probably be
         # made even faster by combining some of these steps, although the
         # present formulation could also be parallelized.
@@ -76,13 +75,16 @@ class ImageViewer(QMainWindow):
         red_data = (red_data * 255 + 30).clip(0, 255).astype(numpy.uint32)
         grn_data = (grn_data * 255 + 30).clip(0, 255).astype(numpy.uint32)
         blu_data = (blu_data * 255 + 30).clip(0, 255).astype(numpy.uint32)
-        img_data = (red_data << 16 | grn_data << 8 | blu_data) | 0xff000000
+        img_data = (red_data << 16 | grn_data << 8 | blu_data) | 0xFF000000
 
         print("Making QImage")
-        image = QImage(img_data,
-            spectral_data.get_width(), spectral_data.get_height(),
-            QImage.Format_RGB32)
-        ''' '''
+        image = QImage(
+            img_data,
+            spectral_data.get_width(),
+            spectral_data.get_height(),
+            QImage.Format_RGB32,
+        )
+        """ """
 
         print("QImage is complete")
 
@@ -90,13 +92,12 @@ class ImageViewer(QMainWindow):
         return image
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     filename = sys.argv[1]
     header_filename = sys.argv[2]
-    print(f'Opening {filename} with header {header_filename}')
+    print(f"Opening {filename} with header {header_filename}")
 
     df = envi.load_envi_data(filename, header_filename)
     sd = NumPySpectralData(df[1], df[0])

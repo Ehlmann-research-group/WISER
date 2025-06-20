@@ -27,6 +27,8 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
+    "generated",
+    "bandmath_benchmark.py",
 ]
 
 # Same as Black.
@@ -40,8 +42,8 @@ target-version = "py39"
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
-select = ["E", "F"]
-ignore = []
+select = ["E", "F", "W292"]
+ignore = ["F403", "F405", "E501", "E722"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
