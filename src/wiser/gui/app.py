@@ -384,7 +384,6 @@ class DataVisualizerApp(QMainWindow):
                 plugin.add_tool_menu_items(self._tools_menu, self._app_state)
 
 
-
     def _make_dockable_pane(self, widget, name, title, icon, tooltip,
                             allowed_areas, area):
 
@@ -948,6 +947,9 @@ class DataVisualizerApp(QMainWindow):
 
         pixel_coord = ds_point.toTuple()
         self._image_coords.update_coords(dataset, pixel_coord)
+
+    def get_spectrum_plot(self) -> SpectrumPlot:
+        return self._spectrum_plot
 
 
     def _on_display_bands_change(self, ds_id: int, bands: Tuple,

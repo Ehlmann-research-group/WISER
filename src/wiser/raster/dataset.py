@@ -848,9 +848,6 @@ class RasterDataSet:
             return GeographicLinkState.NO_LINK
         
         return GeographicLinkState.SPATIAL
-        
-
-
 
     def copy_metadata_from(self, dataset: 'RasterDataSet') -> None:
         if dataset.num_bands() != self.num_bands():
@@ -866,7 +863,6 @@ class RasterDataSet:
         self._has_wavelengths = self._compute_has_wavelengths()
 
         self.set_dirty()
-
 
     def copy_spatial_metadata(self, source: Union['RasterDataSet', 'RasterDataBand']) -> None:
         '''
@@ -899,7 +895,6 @@ class RasterDataSet:
             self._wkt_spatial_reference = None
 
         self.set_dirty()
-
 
     def copy_spectral_metadata(self, source: Union['RasterDataSet', 'Spectrum']) -> None:
         if isinstance(source, RasterDataSet):

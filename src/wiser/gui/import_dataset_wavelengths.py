@@ -23,6 +23,7 @@ from wiser.gui.import_spectra_text import avg_occurrences_per_line
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
+    from wiser.gui.app import DataVisualizerApp
 
 class Axis(Enum):
     ROW = 'Rows',
@@ -31,11 +32,13 @@ class Axis(Enum):
 
 class ImportDatasetWavelengthsDialog(QDialog):
 
-    def __init__(self, filepath: str, dataset: 'RasterDataSet', parent=None):
+    def __init__(self, filepath: str, dataset: 'RasterDataSet', app: "DataVisualizerApp", \
+                 parent=None):
         super().__init__(parent=parent)
         self._ui = Ui_ImportDatasetWavelengthsDialog()
         self._ui.setupUi(self)
 
+        self._app = app
         self._filepath = filepath
         self._dataset = dataset
         with open(filepath) as f:
@@ -219,4 +222,5 @@ class ImportDatasetWavelengthsDialog(QDialog):
 
         if not self._parse_error:
             self._dataset.update_band_info(self._wavelengths)
+            self._app.get_spectrum_plot().recount_spectra_wavelengths()
         super().accept()
