@@ -777,7 +777,7 @@ class DataVisualizerApp(QMainWindow):
 
 
     def show_bandmath_dialog(self):
-        dialog = BandMathDialog(self._app_state)
+        dialog = BandMathDialog(self._app_state, parent=self)
         if dialog.exec() == QDialog.Accepted:
             expression = dialog.get_expression()
             expr_info = dialog.get_expression_info()
@@ -892,7 +892,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_reference_creator_dialog(self, in_test_mode = False):
         if self._crs_creator_dialog is None:
-            self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state)
+            self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state, parent=self)
         if not in_test_mode:
             if self._crs_creator_dialog.exec_() == QDialog.Accepted:
                 print(f"Reference creator accepted!")
@@ -901,7 +901,7 @@ class DataVisualizerApp(QMainWindow):
     
     def show_similarity_transform_dialog(self, in_test_mode = False):
         if self._similarity_transform_dialog is None:
-            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state)
+            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state, parent=self)
         if not in_test_mode:
             if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
                 print(f"Reference creator accepted!")

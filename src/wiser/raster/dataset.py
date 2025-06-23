@@ -933,7 +933,7 @@ class RasterDataSet:
 
         Should have a section under this with a label 
         '''
-        dataset_edit = DatasetEditorDialog(self, app)
+        dataset_edit = DatasetEditorDialog(self, app, parent=app)
         dataset_edit.exec_()
 
     def update_band_info(self, wavelengths: List[u.Quantity]):
