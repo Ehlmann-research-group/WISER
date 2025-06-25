@@ -10,6 +10,7 @@ jobs:
     env:
       DMG_URL: https://my.microsoftpersonalcontent.com/personal/ca5453510e2c3763/_layouts/15/download.aspx?UniqueId=e7b93dea-191f-4740-b86a-40a3f7486411&Translate=false&tempauth=v1e.eyJzaXRlaWQiOiJlYTdkNjc4ZC1mYmNjLTQ0OGYtYjk2Yy02Y2ExMTY5MTA3MmIiLCJhdWQiOiIwMDAwMDAwMy0wMDAwLTBmZjEtY2UwMC0wMDAwMDAwMDAwMDAvbXkubWljcm9zb2Z0cGVyc29uYWxjb250ZW50LmNvbUA5MTg4MDQwZC02YzY3LTRjNWItYjExMi0zNmEzMDRiNjZkYWQiLCJleHAiOiIxNzUwODg4MDM2In0.7Fx40sx6_LvANS4XZHshCvRTWsIUMfeLtW3NvzJha490EvFfP95Omgkh_bLdqG_PpD26NeOueZ7t35EEYOIbLLiM8jfFvmBDoqjC-UVEBh2zLC6TCkgpK4RFDVPRE1g5wsYFzs7eezcl27k4X5izKZhBy1ry4gJvJ0IL6jkxLrVKgbDtMQAw5c07hygcDrNG2MiDkiMdy_c4XJIvG-2aZP9x7fNNH3asHUZzIGtbMuc3ANkqTqa6nvZvzTgnj-892NqhI8UWBKXt9biI34CgrpRrs_crgLZJmboxVo5SbKh4NVCfkxAmFiFUMmVzIVd2BkaQtVxSWmUTxjuZjHuSXBFFcqUDMd3k0m3zz8I67P116LXyV_Cjyio41TWR9maCZsf5GtmGpGCslefT2IU8RW1HZ7MuqL5V3KrvjykHi_yXHX1XaY4EbdNXPvjlPOStOkvC-a0KFlEq_S64DPji2xAFpbSS0LYb4-8SxBKFaTlEFuNDBiKAiZ5Mg5EQZ1VZyDjM_y_wy8D8hC__ltfaHQ.gKNDEywGBAwdUpYN3X8RgntJ19DSfC6Kvp4vjvxZmwE&ApiVersion=2.0
       VOLUME_NAME: WISER
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -46,11 +47,29 @@ jobs:
           set -o pipefail
           hdiutil attach wiser.dmg -nobrowse -mountpoint "/Volumes/$VOLUME_NAME" 2>&1 | tee attach.log
 
-      - name: Run WISER binary
-        if: success()  # only run if mount succeeded
+      - name: Inspect mount contents
+        if: success()
         run: |
-          echo ">> Running /Volumes/$VOLUME_NAME/Contents/MacOS/WISER_Bin"
-          "/Volumes/$VOLUME_NAME/Contents/MacOS/WISER_Bin"
+          echo ">> Listing top-level of /Volumes/$VOLUME_NAME"
+          ls -l /Volumes/"$VOLUME_NAME"
+          echo
+          echo ">> Listing /Volumes/$VOLUME_NAME/Contents"
+          ls -l /Volumes/"$VOLUME_NAME"/Contents
+          echo
+          echo ">> Listing /Volumes/$VOLUME_NAME/Contents/MacOS"
+          ls -l /Volumes/"$VOLUME_NAME"/Contents/MacOS
+          echo
+
+      - name: Run WISER binary
+        if: success()
+        run: |
+          echo ">> Changing directory into MacOS bundle"
+          cd /Volumes/"$VOLUME_NAME"/Contents/MacOS
+          echo ">> Current directory: $(pwd)"
+          echo ">> Contents:"
+          ls -l
+          echo ">> Executing ./WISER_Bin"
+          ./WISER_Bin
 
       - name: Detach DMG
         if: always()
