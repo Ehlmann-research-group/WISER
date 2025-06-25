@@ -7,7 +7,7 @@ jobs:
   run-wiser:
     runs-on: macos-latest
     env:
-      DMG_URL: https://1drv.ms/u/c/ca5453510e2c3763/Eeo9uecfGUBHuGpAo_dIZBEBwaK50eteX6aMcpU_-WQwNA?e=lRZ83U
+      DMG_URL: https://onedrive.live.com/personal/ca5453510e2c3763/_layouts/15/download.aspx?SourceUrl=%2Fpersonal%2Fca5453510e2c3763%2FDocuments%2FWISER%2DIntel%2FWISER%2D1%2E2b1%2Dintel%2Edmg
       VOLUME_NAME: WISER
     steps:
       - name: Checkout code
