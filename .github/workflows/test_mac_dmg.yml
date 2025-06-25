@@ -2,7 +2,6 @@ name: Mount and Run WISER
 
 on:
   workflow_dispatch:
-  push:
 
 jobs:
   run-wiser:
