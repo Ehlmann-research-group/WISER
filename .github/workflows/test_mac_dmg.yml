@@ -8,7 +8,7 @@ jobs:
   run-wiser:
     runs-on: macos-latest
     env:
-      DMG_URL: https://onedrive.live.com/download?cid=ca5453510e2c3763&resid=ca5453510e2c3763%21123&authkey=!ABCdefGHIjkl
+      DMG_URL: https://my.microsoftpersonalcontent.com/personal/ca5453510e2c3763/_layouts/15/download.aspx?UniqueId=e7b93dea-191f-4740-b86a-40a3f7486411&Translate=false&tempauth=v1e.eyJzaXRlaWQiOiJlYTdkNjc4ZC1mYmNjLTQ0OGYtYjk2Yy02Y2ExMTY5MTA3MmIiLCJhdWQiOiIwMDAwMDAwMy0wMDAwLTBmZjEtY2UwMC0wMDAwMDAwMDAwMDAvbXkubWljcm9zb2Z0cGVyc29uYWxjb250ZW50LmNvbUA5MTg4MDQwZC02YzY3LTRjNWItYjExMi0zNmEzMDRiNjZkYWQiLCJleHAiOiIxNzUwODg4MDM2In0.7Fx40sx6_LvANS4XZHshCvRTWsIUMfeLtW3NvzJha490EvFfP95Omgkh_bLdqG_PpD26NeOueZ7t35EEYOIbLLiM8jfFvmBDoqjC-UVEBh2zLC6TCkgpK4RFDVPRE1g5wsYFzs7eezcl27k4X5izKZhBy1ry4gJvJ0IL6jkxLrVKgbDtMQAw5c07hygcDrNG2MiDkiMdy_c4XJIvG-2aZP9x7fNNH3asHUZzIGtbMuc3ANkqTqa6nvZvzTgnj-892NqhI8UWBKXt9biI34CgrpRrs_crgLZJmboxVo5SbKh4NVCfkxAmFiFUMmVzIVd2BkaQtVxSWmUTxjuZjHuSXBFFcqUDMd3k0m3zz8I67P116LXyV_Cjyio41TWR9maCZsf5GtmGpGCslefT2IU8RW1HZ7MuqL5V3KrvjykHi_yXHX1XaY4EbdNXPvjlPOStOkvC-a0KFlEq_S64DPji2xAFpbSS0LYb4-8SxBKFaTlEFuNDBiKAiZ5Mg5EQZ1VZyDjM_y_wy8D8hC__ltfaHQ.gKNDEywGBAwdUpYN3X8RgntJ19DSfC6Kvp4vjvxZmwE&ApiVersion=2.0
       VOLUME_NAME: WISER
     steps:
       - name: Checkout code
