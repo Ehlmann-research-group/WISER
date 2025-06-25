@@ -2,6 +2,7 @@ name: Mount and Run WISER
 
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   run-wiser:
@@ -13,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Debug: Show curl version
+      - name: Show curl version
         run: curl --version
 
       - name: Download DMG with verbose output
@@ -27,7 +28,7 @@ jobs:
           echo ">> First few bytes of downloaded file:"
           hexdump -C wiser.dmg | head -n 10
 
-      - name: Debug: Inspect downloaded file
+      - name: Inspect downloaded file
         run: |
           echo ">> File size and permissions"
           ls -l wiser.dmg
