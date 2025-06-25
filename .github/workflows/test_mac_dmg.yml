@@ -7,29 +7,52 @@ jobs:
   run-wiser:
     runs-on: macos-latest
     env:
-      DMG_URL: https://onedrive.live.com/personal/ca5453510e2c3763/_layouts/15/download.aspx?SourceUrl=%2Fpersonal%2Fca5453510e2c3763%2FDocuments%2FWISER%2DIntel%2FWISER%2D1%2E2b1%2Dintel%2Edmg
+      DMG_URL: https://onedrive.live.com/download?cid=ca5453510e2c3763&resid=ca5453510e2c3763%21123&authkey=!ABCdefGHIjkl
       VOLUME_NAME: WISER
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Download DMG
+      - name: Debug: Show curl version
+        run: curl --version
+
+      - name: Download DMG with verbose output
         run: |
-          echo "Downloading DMG from OneDrive..."
-          curl -L "$DMG_URL" -o wiser.dmg
+          echo ">> Downloading: $DMG_URL"
+          curl -vL "$DMG_URL" -o wiser.dmg 2>&1 | tee curl.log
+          echo
+          echo ">> HTTP status from curl.log:"
+          grep -E "HTTP/.* [23].." curl.log || grep -E "HTTP/.* [45].." curl.log
+          echo
+          echo ">> First few bytes of downloaded file:"
+          hexdump -C wiser.dmg | head -n 10
+
+      - name: Debug: Inspect downloaded file
+        run: |
+          echo ">> File size and permissions"
+          ls -l wiser.dmg
+          echo
+          echo ">> Human-readable size"
+          du -h wiser.dmg
+          echo
+          echo ">> File type detection"
+          file wiser.dmg
+          echo
 
       - name: Mount DMG
         run: |
-          echo "Mounting disk image..."
-          hdiutil attach wiser.dmg -nobrowse -mountpoint /Volumes/$VOLUME_NAME
+          echo ">> Attempting to attach wiser.dmg as /Volumes/$VOLUME_NAME"
+          set -o pipefail
+          hdiutil attach wiser.dmg -nobrowse -mountpoint "/Volumes/$VOLUME_NAME" 2>&1 | tee attach.log
 
       - name: Run WISER binary
+        if: success()  # only run if mount succeeded
         run: |
-          echo "Running WISER_Bin..."
-          /Volumes/$VOLUME_NAME/Contents/MacOS/WISER_Bin
+          echo ">> Running /Volumes/$VOLUME_NAME/Contents/MacOS/WISER_Bin"
+          "/Volumes/$VOLUME_NAME/Contents/MacOS/WISER_Bin"
 
       - name: Detach DMG
         if: always()
         run: |
-          echo "Detaching disk image..."
-          hdiutil detach /Volumes/$VOLUME_NAME
+          echo ">> Detaching /Volumes/$VOLUME_NAME"
+          hdiutil detach "/Volumes/$VOLUME_NAME" || echo "Volume not mounted, skipping detach."
