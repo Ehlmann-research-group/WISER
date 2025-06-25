@@ -1,0 +1,35 @@
+name: Mount and Run WISER
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-wiser:
+    runs-on: macos-latest
+    env:
+      DMG_URL: https://1drv.ms/u/c/ca5453510e2c3763/Eeo9uecfGUBHuGpAo_dIZBEBwaK50eteX6aMcpU_-WQwNA?e=lRZ83U
+      VOLUME_NAME: WISER
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download DMG
+        run: |
+          echo "Downloading DMG from OneDrive..."
+          curl -L "$DMG_URL" -o wiser.dmg
+
+      - name: Mount DMG
+        run: |
+          echo "Mounting disk image..."
+          hdiutil attach wiser.dmg -nobrowse -mountpoint /Volumes/$VOLUME_NAME
+
+      - name: Run WISER binary
+        run: |
+          echo "Running WISER_Bin..."
+          /Volumes/$VOLUME_NAME/Contents/MacOS/WISER_Bin
+
+      - name: Detach DMG
+        if: always()
+        run: |
+          echo "Detaching disk image..."
+          hdiutil detach /Volumes/$VOLUME_NAME
