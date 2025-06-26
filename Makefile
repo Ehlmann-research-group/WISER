@@ -48,6 +48,8 @@ build-mac : generated
 	MACOSX_DEPLOYMENT_TARGET=11.0 \
 	pyinstaller --noconfirm WISER-macOS.spec
 
+	./check_arch.sh
+
 
 dist-mac : build-mac
 	# Codesign the built application

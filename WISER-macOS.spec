@@ -41,6 +41,7 @@ exe = EXE(pyz,
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
+          target_arch='x86_64',
           upx=True,
           console=False )
 coll = COLLECT(exe,

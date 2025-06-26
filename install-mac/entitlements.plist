@@ -13,9 +13,10 @@
 	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
 	<true/>
 
-	<!--
+	<!-- This is needed to do on the first pass, the second pass once we know our libraries
+	are validated we can disable it 
+	-->
 	<key>com.apple.security.cs.disable-library-validation</key>
 	<true/>
-	-->
 </dict>
 </plist>
