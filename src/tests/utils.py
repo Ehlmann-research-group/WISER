@@ -22,7 +22,7 @@ def are_pixels_close(pixel1, pixel2) -> bool:
         epsilon = 2
         return abs(pixel1[0]-pixel2[0]) <= epsilon and diff_similar
 
-def are_qrects_close(qrect1: QRect, qrect2: QRect, epsilon=2) -> bool:
+def are_qrects_close(qrect1: QRect, qrect2: QRect, epsilon=3) -> bool:
     '''
     Helper functions to determine if two qrects are close. Used for when scrolling
     in zoom pane and center's don't exactly align. Not exact alignment seems to
