@@ -37,9 +37,9 @@ INTERPOLATION_TYPES = {
     "Nearest Exact":     cv2.INTER_NEAREST_EXACT,
     "Linear":            cv2.INTER_LINEAR,
     "Linear Exact":      cv2.INTER_LINEAR_EXACT,
-    "Cubic":             cv2.INTER_CUBIC,
+    # "Cubic":             cv2.INTER_CUBIC,
     "Area":              cv2.INTER_AREA,
-    "Lanczos4":          cv2.INTER_LANCZOS4,
+    # "Lanczos4":          cv2.INTER_LANCZOS4,
 }
 
 class SimilarityTransformDialog(QDialog):
