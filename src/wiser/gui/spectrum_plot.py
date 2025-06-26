@@ -166,7 +166,6 @@ class SpectrumDisplayInfo:
 
         return self._icon
 
-
     def get_spectrum(self) -> Spectrum:
         return self._spectrum
 
@@ -911,6 +910,14 @@ class SpectrumPlot(QWidget):
 
             self._plot_uses_wavelengths = use_wavelengths
 
+    def recount_spectra_wavelengths(self):
+        count = 0
+        for id, spectrum_display_info in self._spectrum_display_info.items():
+            spectrum = spectrum_display_info.get_spectrum()
+            if spectrum.has_wavelengths():
+                count += 1
+        self._displayed_spectra_with_wavelengths = count
+        self._refresh_wavelengths(self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info))
 
     def _remove_spectrum_from_plot(self, spectrum, treeitem):
         id = spectrum.get_id()

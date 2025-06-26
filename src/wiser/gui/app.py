@@ -384,7 +384,6 @@ class DataVisualizerApp(QMainWindow):
                 plugin.add_tool_menu_items(self._tools_menu, self._app_state)
 
 
-
     def _make_dockable_pane(self, widget, name, title, icon, tooltip,
                             allowed_areas, area):
 
@@ -778,7 +777,7 @@ class DataVisualizerApp(QMainWindow):
 
 
     def show_bandmath_dialog(self):
-        dialog = BandMathDialog(self._app_state)
+        dialog = BandMathDialog(self._app_state, parent=self)
         if dialog.exec() == QDialog.Accepted:
             expression = dialog.get_expression()
             expr_info = dialog.get_expression_info()
@@ -893,7 +892,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_reference_creator_dialog(self, in_test_mode = False):
         if self._crs_creator_dialog is None:
-            self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state)
+            self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state, parent=self)
         if not in_test_mode:
             if self._crs_creator_dialog.exec_() == QDialog.Accepted:
                 print(f"Reference creator accepted!")
@@ -902,7 +901,7 @@ class DataVisualizerApp(QMainWindow):
     
     def show_similarity_transform_dialog(self, in_test_mode = False):
         if self._similarity_transform_dialog is None:
-            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state)
+            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state, parent=self)
         if not in_test_mode:
             if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
                 print(f"Reference creator accepted!")
@@ -948,6 +947,9 @@ class DataVisualizerApp(QMainWindow):
 
         pixel_coord = ds_point.toTuple()
         self._image_coords.update_coords(dataset, pixel_coord)
+
+    def get_spectrum_plot(self) -> SpectrumPlot:
+        return self._spectrum_plot
 
 
     def _on_display_bands_change(self, ds_id: int, bands: Tuple,
