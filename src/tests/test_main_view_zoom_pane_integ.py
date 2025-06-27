@@ -304,7 +304,7 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         rv_10_region = self.test_model.get_main_view_highlight_region((1, 0))
 
         zp_region = self.test_model.get_zoom_pane_visible_region()
-    
+
         self.assertTrue(are_qrects_close(zp_region, rv_00_region))
         self.assertTrue(rv_01_region == None)
         self.assertTrue(rv_10_region == None)
