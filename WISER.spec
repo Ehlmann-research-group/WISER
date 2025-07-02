@@ -1,7 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
 
 datas = [('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath')]
 binaries = [('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\plugins\\platforms', 'platforms'), ('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\plugins\\iconengines', 'iconengines'), ('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'), ('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\lib\\gdalplugins\\gdal_netCDF.dll', 'gdalplugins'), ('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'), ('C:\\Users\\jgarc\\anaconda3\\envs\\wiser-source\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins')]
@@ -10,6 +11,59 @@ tmp_ret = collect_all('osgeo')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
+a1 = Analysis(
+    ['src\\wiser\\__main__.py'],
+    pathex=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=['PyQt5'],
+    noarchive=False,
+    optimize=0,
+)
+
+print(f"------------------------108j310u4nu10831904141vn41n4891y----------------------------")
+
+print(f"a1.pure: {a1.pure}")
+# 3) BUILD UP NEW hiddenimports by collecting submodules for every top-level package
+top_modules = { entry[0].split('.', 1)[0] for entry in a1.pure }
+
+
+IGNORED_TOP_PACKAGES = {
+    "PySide2",
+}
+
+for pkg in sorted(top_modules):
+    # if pkg is in the ignore list, or is a submodule of something in it, skip
+    if any(pkg == ign or pkg.startswith(ign + ".")
+           for ign in IGNORED_TOP_PACKAGES):
+        continue
+    hiddenimports.extend(collect_submodules(pkg))
+
+print(f"top_modules: {top_modules}")
+# for pkg in sorted(top_modules):
+#     try:
+#         # collect_submodules will only grab real submodules
+#         hiddenimports.extend(collect_submodules(pkg))
+#     except Exception:
+#         # skip anything that isn't really a package
+#         pass
+
+# remove duplicates while preserving order
+_seen = set()
+_hidden = []
+for m in hiddenimports:
+    if m not in _seen:
+        _seen.add(m)
+        _hidden.append(m)
+print(f"hidden: {_hidden}")
+hiddenimports = _hidden
+
+print(f"------------------------108j310u4nu10831904141vn41n4891y----------------------------")
+# 4) SECOND PASS: rebuild Analysis with the full hiddenimports list
 a = Analysis(
     ['src\\wiser\\__main__.py'],
     pathex=[],
@@ -23,7 +77,9 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
-pyz = PYZ(a.pure)
+
+# 5) the rest of your spec unchanged
+pyz = PYZ(a.pure, a.zipped_data)
 
 exe = EXE(
     pyz,
@@ -43,6 +99,7 @@ exe = EXE(
     entitlements_file=None,
     icon=['icons\\wiser.ico'],
 )
+
 coll = COLLECT(
     exe,
     a.binaries,
@@ -52,3 +109,4 @@ coll = COLLECT(
     upx_exclude=[],
     name='WISER',
 )
+print(f"Done!")
