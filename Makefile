@@ -65,6 +65,9 @@ dist-mac : build-mac
 	xcrun notarytool submit dist/$(APP_NAME)-$(APP_VERSION).dmg \
 		--apple-id $(AD_USERNAME) --team-id $(AD_TEAM_ID) --password $(AD_PASSWORD)
 
+build-win : generated
+	pyinstaller WISER.spec > debug_win_pyinstaller.txt 2>&1
+
 # To debug PyInstaller issues:
 #   - drop the "--windowed" option
 #   - add a "--debug [bootloader|imports|noarchive|all]" option
