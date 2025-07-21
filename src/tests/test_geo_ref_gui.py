@@ -1,3 +1,17 @@
+"""Integration tests for WISER's GeoReferencer GUI.
+
+This module validates the complete georeferencing workflow using the WISER GUI.
+It simulates user actions like setting GCPs, choosing CRS values, and applying 
+geometric transformations. It verifies the output against known ground truth.
+
+What's covered:
+- End-to-end raster georeferencing with image-based and manual CRS entry.
+- Enabling/disabling/removing GCPs.
+- Validating geo-transformation output against expected results.
+
+What's not covered:
+- Internal filtering logic for filename/path selection.
+"""
 import unittest
 
 import os 
@@ -5,7 +19,6 @@ import os
 import tests.context
 # import context
 
-from tests.utils import are_pixels_close, are_qrects_close
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.geo_reference_dialog import AuthorityCodeCRS, UserGeneratedCRS, GeneralCRS
@@ -18,21 +31,38 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 class TestGeoReferencerGUI(unittest.TestCase):
-    '''
-    Tests the GeoReferencer by going through the GUI.
+    """Test case for validating the GeoReferencer UI workflow in WISER.
 
-    Waht it doesn't test:
-    1. Doesn't test filtering logic of choosing a file name
-    '''
+    This class simulates user-driven georeferencing operations via the GUI,
+    including GCP input, CRS selection, interpolation setting, and file export.
+    It ensures that warping is correctly applied and results in an expected
+    affine transform.
+
+    Attributes:
+        test_model (WiserTestModel): Interface to simulate GUI operations in WISER.
+    """
 
     def setUp(self):
+        """Initializes the test model before each test by launching the WISER app."""
         self.test_model = WiserTestModel()
 
     def tearDown(self):
+        """Cleans up after each test by closing the WISER application."""
         self.test_model.close_app()
         del self.test_model
 
     def test_rasterpane_e2e(self):
+        """Performs an end-to-end test of image-based georeferencing through the GUI.
+
+        This test:
+        - Loads a dataset.
+        - Opens the GeoReferencer dialog.
+        - Adds GCPs with both target and reference image clicks.
+        - Sets interpolation type, CRS, polynomial order, and output path.
+        - Disables and removes invalid GCPs.
+        - Runs the warp operation.
+        - Compares the resulting geo-transform to a known ground truth.
+        """
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         ds = self.test_model.load_dataset(rel_path)
 
@@ -83,11 +113,19 @@ class TestGeoReferencerGUI(unittest.TestCase):
         ds_warp = self.test_model.load_dataset(rel_path)
 
         warped_transform = ds_warp.get_geo_transform()
-        print(f"warped_transform: {warped_transform}")
-        print(f"ground_truth_geo_transform: {ground_truth_geo_transform}")
         self.assertTrue(np.allclose(warped_transform, ground_truth_geo_transform))
 
     def test_manual_entry_e2e(self):
+        """Performs an end-to-end test of manually entering geocoordinates in the GeoReferencer.
+
+        This test:
+        - Loads a dataset and opens the GeoReferencer.
+        - Adds GCPs using manual latitude/longitude input instead of spatial clicks.
+        - Selects and verifies CRS entries.
+        - Sets interpolation and warp options.
+        - Disables and removes invalid GCPs.
+        - Executes the warp and checks the output affine transform.
+        """
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         ds = self.test_model.load_dataset(rel_path)
 
@@ -101,7 +139,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
                 [(144, 4), (395878.48156122735, 3778274.252152171)],
                 [(80, 84), (395745.30016513495, 3778118.96401564)],
                 [(44, 99), (395672.2851735266, 3778091.6713232244)],
-                [(56, 28), (395751.2234671218, 3778276.7707845406)],  # This point is incorrect, we disable it
+                [(56, 28), (395751.2234671218, 3778276.7707845406)], # This point is incorrect, we disable it
                 [(64, 122), (395751.2234671218, 3778276.7707845406)]  # This point is incorrect, we remove it
             ]
 
@@ -143,7 +181,6 @@ class TestGeoReferencerGUI(unittest.TestCase):
         # Disables invalid point
         self.test_model.click_gcp_enable_btn_geo_ref(6)
 
-
         # Removes invalid point
         self.test_model.remove_gcp_geo_ref(7)
 
@@ -154,11 +191,10 @@ class TestGeoReferencerGUI(unittest.TestCase):
         warped_transform = ds_warp.get_geo_transform()
         self.assertTrue(np.allclose(warped_transform, ground_truth_geo_transform))
 
-
+"""
+Code to make sure new tests work as desired
+"""
 if __name__ == '__main__':
-    '''
-    Code to make sure new tests work as desired
-    '''
     test_model = WiserTestModel(use_gui=True)
 
     rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
