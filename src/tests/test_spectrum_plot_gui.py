@@ -377,6 +377,9 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(np.array_equal(active_spectrum_arr, np.array([np.nan, np.nan, np.nan]), equal_nan=True))
 
 
+"""
+Code to make sure tests work as desired. Feel free to change to your needs.
+"""
 if __name__ == '__main__':
         test_model = WiserTestModel(use_gui=True)
         
