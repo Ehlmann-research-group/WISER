@@ -1,3 +1,11 @@
+"""Integration tests for verifying raster pane rendering behavior in WISER.
+
+This module tests whether raster data is properly rendered and synchronized 
+in the Main View and Context Pane after loading or interacting with datasets.
+
+It uses synthetic NumPy arrays as mock datasets and verifies their appearance 
+through WISER's GUI interface using the `WiserTestModel` abstraction.
+"""
 import unittest
 
 import tests.context
@@ -21,6 +29,16 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
 
 class TestRasterPanes(unittest.TestCase):
+    """
+    Test suite for validating image rendering in raster panes.
+
+    This class contains tests to ensure the image data shown in the Main View 
+    and Context Pane raster views is correct and matches expected values when 
+    a dataset is loaded.
+
+    Attributes:
+        test_model (WiserTestModel): A GUI test harness used to control and verify WISER behavior.
+    """
 
     def setUp(self):
         self.test_model = WiserTestModel()
@@ -30,9 +48,12 @@ class TestRasterPanes(unittest.TestCase):
         del self.test_model
 
     def test_open_main_view(self):
-        '''
-        Ensures that the image data in main view's rasterview is correct when opening.
-        '''
+        """
+        Tests that the main view's raster view renders the correct pixel values.
+
+        Loads a synthetic dataset and compares the raster view image data against 
+        an expected 2D color-mapped representation.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -68,9 +89,12 @@ class TestRasterPanes(unittest.TestCase):
         self.test_model.close_app()
         
     def test_open_context_pane(self):
-        '''
-        Ensures that the image data in context pane's rasterview is correct when opening.
-        '''
+        """
+        Tests that the context pane's raster view renders the correct pixel values.
+
+        Loads a synthetic dataset and compares the context pane image data against 
+        an expected 2D color-mapped representation.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -104,7 +128,10 @@ class TestRasterPanes(unittest.TestCase):
         self.assertTrue(equal)
 
         self.test_model.close_app()
-    
+
+"""
+Code to make sure tests work as desired. Feel free to change to your needs.
+"""
 if __name__ == '__main__':
     test_model = WiserTestModel(use_gui=True)
     

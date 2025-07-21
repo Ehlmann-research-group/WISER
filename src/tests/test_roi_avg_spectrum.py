@@ -1,5 +1,13 @@
-import unittest
+"""Unit tests for ROI average spectrum calculations and ROI raster transformations.
 
+This module verifies:
+- The correctness of region-based spectrum calculations in the WISER GUI.
+- The behavior of raster-to-rectangle compression algorithms.
+- The accuracy of raster masks created from compound ROIs.
+
+Tests include GUI-based and non-GUI validation for datasets represented as NumPy arrays.
+"""
+import unittest
 
 import numpy as np
 
@@ -22,9 +30,21 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 class TestRoiAvgSpectrum(unittest.TestCase):
+    """
+    Test suite for validating ROI-based spectrum calculations and raster masking.
+
+    Includes both GUI-integrated tests using the WISER application and
+    backend-only tests for geometric transformations on rasterized ROIs.
+    """
 
     # Function to just display the dataset to screen and close
     def test_roi_avg_spectrum_gui(self):
+        """
+        Tests average ROI spectrum generation for a multi-band raster via GUI.
+
+        Sets up the WISER app, loads a synthetic 6-band dataset, defines a compound ROI,
+        and asserts that the calculated average spectrum matches the expected band values.
+        """
         app = QApplication.instance() or QApplication([])  # Initialize the QApplication   
         wiser_ui = None
 
@@ -89,6 +109,12 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             del app
 
     def test_roi_avg_spectrum_1_band_gui(self):
+        """
+        Tests average ROI spectrum generation for a 1-band raster via GUI.
+
+        Loads a synthetic single-band dataset, defines an ROI, and asserts that
+        the average spectrum is not equal to a manipulated expected value, confirming variability.
+        """
         app = QApplication.instance() or QApplication([])  # Initialize the QApplication   
         wiser_ui = None
 

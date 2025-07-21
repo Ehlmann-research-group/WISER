@@ -1,3 +1,17 @@
+"""Test support module for interacting with the WISER GUI application.
+
+This module provides tools for writing high-level GUI tests for the WISER application.
+It includes:
+
+- `WiserTestModel`, a testing utility class that exposes a simplified interface
+  to interact with various parts of the GUI (e.g. raster panes, dataset views, clicks).
+- `LoggingApplication`, a subclass of QApplication that can optionally log event notifications.
+- Environment setup to ensure the WISER project root is included in `sys.path`.
+- Qt imports and key GUI components from WISER to support test interaction.
+- Integration with the event loop using `FunctionEvent` and `run_in_wiser_decorator`.
+
+This module is intended to be used for integration and GUI-level testing.
+"""
 import sys
 import os
 
@@ -42,20 +56,35 @@ class LoggingApplication(QApplication):
         return super().notify(receiver, event)
 
 class WiserTestModel:
-    '''
+    """
     This class serves as a layer between running tests and interactin with WISER's internals.
 
-    The functions this class expose should be easy to use to write tests. Functions should be 
-    on the level of:
-        - Get mainview dataset. 
-        - Is mainview multivew.
-        - Get zoompane dataset
-        - Get zoompane click pixel
-        - Get context pane dataset.
-    And so on.
+    The functions this class expose should be easy to use to write tests. Functions should do
+    specific actions that mimic what a user would do in the GUI. If a function can't accurately
+    mimic what a user would do in the gui (by calling the events of objects or using mouse
+    event), then they shold just call the specific function in WISER that the user's event
+    would have called.
 
-    We should have this class create one instance of the application. We need a reset button 
-    '''
+    This class just creates one instance of the application. When this class is used in a test,
+    the test should always call WIserTestModel.close_app()
+
+    Args:
+        use_gui (bool): Whether the WiserTestModel should open up the GUI when running the tests.
+                        This is useful when manually confirming tests.
+
+    Attributes:
+        app (QApplication): The main Qt application instance.
+        use_gui (bool): If True, displays windows; otherwise runs in headless mode.
+        main_window (DataVisualizerApp): The main WISER application window.
+        app_state: Internal application state object from WISER.
+        data_cache: The WISER data cache.
+        spectrum_plot: The spectrum plot widget.
+        context_pane: The context pane widget.
+        main_view (TiledRasterView): The main raster view pane.
+        zoom_pane (RasterView): The zoomed-in raster pane.
+        testing_widget (QWidget): The invisible widget for posting test events.
+        raster_data_loader (RasterDataLoader): Loader for raster datasets.
+    """
 
     def __init__(self, use_gui=False):
         if not use_gui:
@@ -68,10 +97,12 @@ class WiserTestModel:
         self.raster_data_loader = RasterDataLoader()
     
     def _tear_down_windows(self):
+        """Closes all open windows and processes pending events."""
         QApplication.closeAllWindows()
         QApplication.processEvents()
 
     def _set_up(self):
+        """Initializes and shows the main WISER window and references internal components."""
         self.main_window = DataVisualizerApp()
         if not self.use_gui:
             self.main_window.setAttribute(Qt.WA_DontShowOnScreen)
@@ -91,10 +122,20 @@ class WiserTestModel:
         self.testing_widget = self.main_window._invisible_testing_widget
     
     def run(self):
+        """
+        Runs the Qt event loop briefly to process pending events.
+
+        This is useful for ensuring that any posted function events or UI updates complete.
+        """
         QTimer.singleShot(10, self.app.quit)
         self.app.exec_()
 
     def close_app(self):
+        """
+        Closes the application and all windows, cleaning up the `QApplication` instance.
+
+        This should be called at the end of every test using this class to avoid leaks.
+        """
         self._tear_down_windows()
         if hasattr(self, "app"):
             self.app.quit()
@@ -102,15 +143,21 @@ class WiserTestModel:
             del self.app
 
     def quit_app(self):
+        """
+        Quits the current Qt application instance without cleanup.
+        """
         self.app.quit()
     
     def __del__(self):
+        """Ensures the application is closed upon object deletion."""
         self.close_app()
 
     def reset(self):
-        '''
-        Resets the main window
-        '''
+        """
+        Resets the main window and all internal state to their initial configuration.
+
+        Equivalent to closing all windows and reinitializing the GUI.
+        """
         self._tear_down_windows()
         self._set_up()
 
@@ -119,6 +166,17 @@ class WiserTestModel:
     #==========================================
 
     def click_message_box_yes_or_no(self, yes: bool):
+        """
+        Simulates a user clicking "Yes" or "No" on an active QMessageBox.
+
+        This is useful for confirming modal dialogs programmatically in tests.
+
+        Args:
+            yes (bool): If True, clicks "Yes"; otherwise clicks "No".
+
+        Raises:
+            AssertionError: If the active modal widget is not a QMessageBox.
+        """
         # grab the active modal widget (the QMessageBox)
         mbox = QApplication.activeModalWidget()
         assert isinstance(mbox, QMessageBox)
@@ -136,12 +194,12 @@ class WiserTestModel:
     # Loading datasets and spectra
 
     def load_dataset(self, dataset_info: Union[str, np.ndarray, np.ma.masked_array]) -> RasterDataSet:
-        '''
+        """
         Loads in a dataset, adds it to app state, returns the dataset
 
         Arguments:
         - dataset_info. Can either be a string for a file path or a nump array
-        '''
+        """
         dataset = None
         if isinstance(dataset_info, str):
             dataset_path = dataset_info
@@ -162,21 +220,21 @@ class WiserTestModel:
         self.main_window._on_close_dataset(ds_id)
 
     def import_ascii_spectra(self, file_path: str):
-        '''
+        """
         In the future, we want to implement this function to interact with ImportSpectraTextDialog
-        '''
+        """
         raise NotImplementedError
     
     def import_spectral_library(self, file_path: str):
-        '''
+        """
         Imports a spectral library.
-        '''
+        """
         self.app_state.open_file(file_path)
     
     def import_spectra(self, spectra: List[Spectrum], path='placeholder'):
-        '''
+        """
         Imports the spectra. Path is just used as a name here.
-        '''
+        """
         library = ListSpectralLibrary(spectra, path=path)
         self.app_state.add_spectral_library(library)
 
@@ -237,7 +295,7 @@ class WiserTestModel:
         self.app_state.set_active_spectrum(spectrum)
 
     def click_spectrum_plot(self, x_value, y_value):
-        '''
+        """
         The place to click on the spectrum plot. x_value and y_value
         can be though of as in terms of the points on the plot. For 
         example, if you had points (500, 0.5) and (600, 1), you can enter
@@ -246,7 +304,7 @@ class WiserTestModel:
         Arguments:
         - x_value, a number
         - y_value, a number
-        '''
+        """
         self.spectrum_plot._update_spectrum_mouse_click(pick_location=(x_value, y_value))
     
     def remove_active_spectrum(self):
@@ -255,10 +313,10 @@ class WiserTestModel:
         self.spectrum_plot._on_discard_spectrum(tree_item, display_confirm=False)
 
     def set_spectrum_plot_dataset(self, ds_id: int):
-        '''
+        """
         Sets the dataset for the spectrum plot to sample from. If ds_id is below zero, we set to
         using the clicked dataset.
-        '''
+        """
         if ds_id < 0:
             ds_id = -1
         
@@ -323,17 +381,17 @@ class WiserTestModel:
             return (pixel.x(), pixel.y())
     
     def get_zoom_pane_center_raster_point(self):
-        '''
+        """
         Returns the center raster coordinate of the zoom pane's visible region
-        '''
+        """
         qrect = self.get_zoom_pane_visible_region()
         center = qrect.center() # QPointF(qrect.topLeft()) + QPointF(qrect.width(), qrect.height())/2
         return center
     
     def get_zoom_pane_image_size(self) -> Tuple[int, int]:
-        '''
+        """
         Gets the size of visible region in raster coordinates
-        '''
+        """
         return (self.get_zoom_pane_visible_region().width(), self.get_zoom_pane_visible_region().height())
 
 
@@ -360,11 +418,11 @@ class WiserTestModel:
         self._scroll_zoom_pane(0, dy)
 
     def _scroll_zoom_pane(self, dx, dy):
-        '''
+        """
         Scrolls the zoom pane by either dx, or dy. 
 
         An LLM wrote this code.
-        '''
+        """
         dx *= 2
         dy *= 2
         # Get the raster view and its scroll area
@@ -397,10 +455,10 @@ class WiserTestModel:
         self.app.exec_()
 
     def click_raster_coord_zoom_pane(self, raster_coord: Tuple[int, int]):
-        '''
+        """
         Clicks on the zoom pane's rasterview. The pixel clicked is in raster coords.
         This function ignores delegates that are on the rasterview 
-        '''
+        """
         def click():
             raster_point = QPoint(int(raster_coord[0]), int(raster_coord[1]))
             self.zoom_pane.click_pixel.emit((0, 0), raster_point)
@@ -421,10 +479,10 @@ class WiserTestModel:
 
 
     def set_zoom_pane_zoom_level(self, scale: int):
-        '''
+        """
         Sets the zoom pane's zoom level. Scale should non-negative
         and non-zero. The zoom level will show up as {scale*100}%
-        '''
+        """
         def func():
             if scale <= 0:
                 return
@@ -540,11 +598,11 @@ class WiserTestModel:
 
     
     def click_display_coord_context_pane(self, pixel: Tuple[int, int]) -> Tuple[int, int]:
-        '''
+        """
         Given a pixel in display coordinates, selects the corresponding
         raster pixel. This function outputs the raster pixel coordinate
         of the input pixel.
-        '''
+        """
         x = pixel[0]
         y = pixel[1]
 
@@ -565,9 +623,9 @@ class WiserTestModel:
         return (raster_point.x(), raster_point.y())
 
     def set_context_pane_dataset_chooser_id(self, ds_id: int = -1):
-        '''
+        """
         Sets the ID of the context pane's dataset chooser
-        '''
+        """
         def func():
             cp_ds_chooser = self.context_pane._dataset_chooser
             cp_ds_menu = cp_ds_chooser._dataset_menu
@@ -624,14 +682,14 @@ class WiserTestModel:
             return (pixel.x(), pixel.y())
     
     def get_main_view_rv_center_raster_coord(self, rv_pos: Tuple[int, int]):
-        '''
+        """
         Returns the center of the rasterview's visible region in raster coordinates
         and in the coordinate space of the rasterview (so the top-left of the rasterview
         is zero zero)
 
         The more zoomed out the rasterview is, the more inaccurate the center
         coordinate is. It may not match up with click_raster_coord_main_view_rv.
-        '''
+        """
         # rv = self.get_main_view_rv(rv_pos)
         # center_local_pos_x = rv._image_widget.width()/2
         # center_local_pos_y = rv._image_widget.height()/2
@@ -642,11 +700,11 @@ class WiserTestModel:
         return (center_point.x(), center_point.y())
 
     def get_main_view_rv_center_display_coord(self, rv_pos: Tuple[int, int]):
-        '''
+        """
         Returns the center of the rasterview's visible region in display pixel coordinates 
         and in the coordinate space of the rasterview (so the top-left of the rasterview
         is zero zero)
-        '''
+        """
         rv = self.get_main_view_rv(rv_pos)
         center_local_pos_x = rv._image_widget.width()/2
         center_local_pos_y = rv._image_widget.height()/2
@@ -677,10 +735,10 @@ class WiserTestModel:
     # region State setting
 
     def click_link_button(self) -> bool:
-        '''
+        """
         Clicks on the link view scrolling button. Returns the state of
         link view. (Either true or false)
-        '''
+        """
         def func():
             self.main_view._act_link_view_scroll.trigger()
 
@@ -733,13 +791,13 @@ class WiserTestModel:
         self._scroll_main_view_rv(rv_pos, dx=0, dy=dy)
 
     def _scroll_main_view_rv(self, rv_pos: Tuple[int, int], dx: int, dy: int):
-        '''
+        """
         Scrolls the specified main view rasterview by either dx, or dy.
 
         One of either dx or dy should be zero.  
 
         An LLM wrote this code.
-        '''
+        """
         dx *= 2
         dy *= 2
         # Get the raster view and its scroll area
@@ -772,13 +830,13 @@ class WiserTestModel:
 
     
     def click_display_coord_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
-        '''
+        """
         Clicks on the rasterview at rv_pos. The location clicked is in display coordinates
         with the rasterview's image widget as the coordinate system. Display coordinates is
         the Qt coordinate system. This is different from raster coordinates which are a in
         the image coordinate system (so if the dataset was 500x600, valid values would just
         be in the 500x600 range)
-        '''
+        """
         x = pixel[0]
         y = pixel[1]
 
@@ -799,10 +857,10 @@ class WiserTestModel:
         return (raster_coord.x(), raster_coord.y())
 
     def click_raster_coord_main_view_rv(self, rv_pos: Tuple[int, int], raster_coord: Tuple[int, int]):
-        '''
+        """
         Clicks on the rasterview at rv_pos. The pixel clicked is in raster coords. This function
         ignores delegates that are on the rasterview 
-        '''
+        """
         raster_point = QPoint(int(raster_coord[0]), int(raster_coord[1]))
         self.main_view.click_pixel.emit(rv_pos, raster_point)
     
@@ -858,13 +916,13 @@ class WiserTestModel:
 
 
     def get_stretch_builder(self, rv_pos: Tuple[int, int] = (0,0)):
-        '''
+        """
         Returns the stretch builder for main view. Even when the main view is in grid view,
         the stretch builder instance is shared across the rasterviews. It is just opened
         with different parameters each time. 
 
         This function thus gives you the state of the stretch builder as it was last opened
-        '''
+        """
         rv = self.get_main_view_rv(rv_pos)
         if isinstance(rv, TiledRasterView):
             rv._act_stretch_builder.trigger()
@@ -878,9 +936,9 @@ class WiserTestModel:
         return self.get_stretch_builder(rv_pos)._stretch_config
 
     def get_channel_stretch(self, index: int, rv_pos: Tuple[int, int] = (0,0)) -> ChannelStretchWidget:
-        '''
+        """
         Gets the channel stretch at the specified index
-        '''
+        """
         return self.get_stretch_builder(rv_pos)._channel_widgets[index]
     
     def get_channel_stretch_raw_hist_info(self, index: int, rv_pos: Tuple[int, int] = (0,0)):
@@ -972,11 +1030,11 @@ class WiserTestModel:
         self.run()
 
     def close_stretch_builder(self, rv_pos: Tuple[int, int] = (0,0)):
-        '''
+        """
         Gets and then closes stretch builder. It may seem redundant to open then close
         stretch builder, but if stretch builder is already open and you want to close it,
         then this works.
-        '''
+        """
         def func():
             stretch_builder = self.get_stretch_builder(rv_pos)
             # stretch_builder.accept()
@@ -987,10 +1045,10 @@ class WiserTestModel:
         self.run()
 
     def set_stretch_low_ledit(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0,0)):
-        '''
+        """
         Set the stretch low of the specified channel. Make sure to set the channel to linear
         stretch first
-        '''
+        """
         def func():
             channel_stretch_widget = self.get_channel_stretch(channel_index, rv_pos)
             stretch_low_ledit = channel_stretch_widget._ui.lineedit_stretch_low
@@ -1004,10 +1062,10 @@ class WiserTestModel:
         self.run()
 
     def set_stretch_high_ledit(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0,0)):
-        '''
+        """
         Set the stretch high of the specified channel. Make sure to set the channel to linear
         stretch first
-        '''
+        """
         def func():
             channel_stretch_widget = self.get_channel_stretch(channel_index, rv_pos)
             stretch_high_ledit = channel_stretch_widget._ui.lineedit_stretch_high
@@ -1021,9 +1079,9 @@ class WiserTestModel:
         self.run()
 
     def set_stretch_low_slider(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0,0)):
-        '''
+        """
         Set the stretch low slider value. This slider only has value range [0, 1], so it is in normalized form
-        '''
+        """
         def func():
             channel_stretch_widget = self.get_channel_stretch(channel_index, rv_pos)
             stretch_low_slider = channel_stretch_widget._ui.slider_stretch_low
@@ -1037,9 +1095,9 @@ class WiserTestModel:
         self.run()
 
     def set_stretch_high_slider(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0,0)):
-        '''
+        """
         Set the stretch high slider value. Slider value should be in the range between 0 and 1.
-        '''
+        """
         def func():
             channel_stretch_widget = self.get_channel_stretch(channel_index, rv_pos)
             stretch_high_slider = channel_stretch_widget._ui.slider_stretch_high
