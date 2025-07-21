@@ -192,7 +192,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
         self.assertTrue(np.allclose(warped_transform, ground_truth_geo_transform))
 
 """
-Code to make sure new tests work as desired
+Code to make sure tests work as desired
 """
 if __name__ == '__main__':
     test_model = WiserTestModel(use_gui=True)

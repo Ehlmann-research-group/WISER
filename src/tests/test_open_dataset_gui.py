@@ -1,3 +1,9 @@
+"""Integration tests for verifying consistent raster display across panes in WISER.
+
+This module checks that all panes (main view, context pane, zoom pane) display 
+the same raster data after opening or modifying datasets. It also verifies 
+support for loading external file types such as ENVI `.hdr` and GeoTIFF `.tiff` files.
+"""
 import os
 
 import unittest
@@ -14,6 +20,15 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 class TestOpenDataset(unittest.TestCase):
+    """
+    Test suite for validating dataset loading and raster view consistency in WISER.
+
+    Tests ensure that all relevant views (main, context, zoom) are synchronized
+    in appearance after loading data and applying display transformations.
+
+    Attributes:
+        test_model (WiserTestModel): Test harness for interacting with the WISER UI programmatically.
+    """
 
     def setUp(self):
         self.test_model = WiserTestModel()
@@ -23,10 +38,7 @@ class TestOpenDataset(unittest.TestCase):
         del self.test_model
 
     def test_all_panes_same(self):
-        '''
-        Ensures that after opening a dataset for the first time, all panes 
-        are the same
-        '''
+        """Tests that all panes display identical raster data immediately after loading a dataset."""
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -55,10 +67,7 @@ class TestOpenDataset(unittest.TestCase):
         self.assertTrue(all_equal)
 
     def test_all_panes_same_stretch_builder1(self):
-        '''
-        Ensures that after doing something in stretch builder, all of the rasterviews are the same.
-        So they all get updated to a different value. 
-        '''
+        """Tests that histogram equalization and log conditioning in the stretch builder update all panes equally."""
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -88,29 +97,27 @@ class TestOpenDataset(unittest.TestCase):
 
         all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(main_view_arr, zoom_pane_arr)
         self.assertTrue(all_equal)
-    
-    # Test to ensure we can open a hdr file.
+
     def test_open_hdr(self):
-        # Get the directory where the current file is located
+        """Tests that an ENVI `.hdr` file can be successfully opened and loaded into WISER."""
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Compute the absolute path to the target file
         target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "envi.hdr"))
 
         self.test_model.load_dataset(target_path)
 
-    # Test to ensure we can open a tiff file.
     def test_open_tiff(self):
-        # Get the directory where the current file is located
+        """Tests that a GeoTIFF `.tiff` file can be successfully opened and loaded into WISER."""
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Compute the absolute path to the target file
         target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "gtiff.tiff"))
 
         self.test_model.load_dataset(target_path)
 
-    # # Test to ensure we can open a nc file.
+    # # Currently this test causes an error, in the future we want to figure out why, but for now we 
+    # # will just leave this commented out.
     # def test_open_nc(self):
+    #     """Tests that a NetCDF `.nc` file can be successfully opened and loaded into WISER."""
     #     # Get the directory where the current file is located
     #     current_dir = os.path.dirname(os.path.abspath(__file__))
 
