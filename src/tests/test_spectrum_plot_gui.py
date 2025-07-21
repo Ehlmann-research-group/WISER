@@ -1,3 +1,9 @@
+"""Unit tests for the Spectrum Plot UI in WISER.
+
+This module verifies that the spectrum plot behaves correctly when interacting with datasets
+via raster view and zoom pane. Tests include spectrum selection, wavelength units, and spectrum
+state updates across different datasets with and without spectral metadata.
+"""
 import os
 
 import unittest
@@ -16,6 +22,14 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 class TestSpectrumPlotUI(unittest.TestCase):
+    """Tests for spectrum plotting and user interaction in the WISER GUI.
+
+    Simulates user actions such as clicking on raster views and zoom panes,
+    and validates spectrum extraction and unit handling in the spectrum plot UI.
+
+    Attributes:
+        test_model (WiserTestModel): A GUI-driven test controller for interacting with WISER.
+    """
 
     def setUp(self):
         self.test_model = WiserTestModel()
@@ -25,11 +39,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         del self.test_model
 
     def test_click(self):
-        '''
-        Clicks on mainview to get a spectrum. Ensures that spectrum is accurate. Simulates a click
-        on the spectrum (not through a QEvent, just by calling a function in spectrum_plot). Ensures
-        the clicked location is accurate.
-        '''
+        """Tests spectrum extraction and plot click interaction.
+
+        Loads a simple dataset, simulates a click on the raster view, and then on the spectrum plot.
+        Verifies the extracted spectrum and clicked coordinate match expected values.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -67,10 +81,10 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(np.array_equal(np.array(clicked_point), np.array((1., 1.0))))
 
     def test_wavelength_main_view(self):
-        '''
-        Loads in an envi dataset. Ensures there are correct units on it's spectra in spectrum plot
-        after clicking in main view.
-        '''
+        """Tests that wavelength units are shown in the spectrum plot after clicking in the main view.
+
+        Loads an ENVI dataset and verifies that the x-axis of the spectrum plot is labeled in nanometers.
+        """
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
@@ -83,10 +97,10 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(spectrum_plot_units == correct_unit)
 
     def test_wavelength_zoom_pane(self):
-        '''
-        Loads in an envi dataset. Ensures there are correct units on it's spectra in spectrum plot
-        after clicking in zoom pane.
-        '''
+        """Tests that wavelength units are shown in the spectrum plot after clicking in the zoom pane.
+
+        Loads an ENVI dataset and verifies that the x-axis of the spectrum plot is labeled in nanometers.
+        """
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
@@ -99,10 +113,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(spectrum_plot_units == correct_unit)
     
     def test_changing_wavelengths(self):
-        '''
-        Loads in two datasets with different units. Ensures spectrum plot can
-        switch between the two units when clicking between the datasets.
-        '''
+        """Tests switching between datasets with different wavelength units.
+
+        Verifies that the spectrum plot correctly updates its x-axis units when switching between
+        datasets using nanometers and micrometers.
+        """
         self.test_model.set_main_view_layout((1, 2))
 
         # This will be in the (0, 0) raster view position
@@ -132,11 +147,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(spectrum_plot_units == correct_unit)
     
     def test_no_use_wavelengths(self):
-        '''
-        Loads in a dataset with units. Clicks on it. Loads in a dataset
-        without units. Clicks on it. Ensures the spectrum plot doesn't have
-        units.
-        '''
+        """Tests behavior when switching from a dataset with wavelengths to one without.
+
+        Verifies that the spectrum plot disables wavelength display after switching to a dataset
+        that lacks spectral metadata.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -158,7 +173,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
         np_ds = self.test_model.load_dataset(np_impl)
     
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
-        caltech_ds = self.test_model.load_dataset(rel_path)
+        self.test_model.load_dataset(rel_path)
 
         # Get a spectrum with wavelength nm in spectrum plot
         self.test_model.click_raster_coord_main_view_rv((0, 0), (0, 0))
@@ -182,13 +197,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(False == plot_use_wavelengths)
     
     def test_use_wavelengths(self):
-        '''
-        Loads in a dataset with units and one without units.
-        Clicks on both datasets and saves a spectrum inm both
-        and ensures the units in spectrum plot update accordingly.
-        Then discard the non-unit spectrum and ensure spectrum plot
-        updates accordingly.
-        '''
+        """Tests spectrum plot update when switching between datasets with and without wavelengths.
+
+        Ensures that adding and removing spectra correctly enables and disables the use of wavelengths
+        on the x-axis depending on the presence of spectral metadata.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -210,7 +223,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
         np_ds = self.test_model.load_dataset(np_impl)
     
         rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
-        caltech_ds = self.test_model.load_dataset(rel_path)
+        self.test_model.load_dataset(rel_path)
 
         # Get a spectrum with wavelength nm in spectrum plot
         self.test_model.click_raster_coord_main_view_rv((0, 0), (0, 0))
@@ -241,10 +254,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(True == plot_use_wavelengths)
 
     def test_switch_clicked_dataset(self):
-        '''
-        Ensures the active spectrum updates correctly when clicking
-        between two datasets
-        '''
+        """Tests that the spectrum plot correctly switches active dataset.
+
+        Loads two datasets and simulates clicking in each to ensure the active spectrum reflects
+        the correct dataset.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -286,7 +300,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         ds1 = self.test_model.load_dataset(np_impl)
     
-        ds2 = self.test_model.load_dataset(np_impl2)
+        self.test_model.load_dataset(np_impl2)
 
         # Click on ds2 to get spectrum and ensure that that its correct
         self.test_model.click_raster_coord_main_view_rv((0, 0), pixel)
@@ -305,10 +319,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.assertTrue(np.array_equal(active_spectrum_arr, np.array([0., 0., 0.])))
 
     def test_switch_clicked_dataset_out_of_bounds(self):
-        '''
-        Ensures that if you try to get a spectrum that is out of bounds
-        in a dataset, it doesn't error and instead returns nans
-        '''
+        """Tests behavior when clicking outside dataset bounds.
+
+        Verifies that requesting a spectrum from an out-of-bounds pixel does not crash and
+        returns a spectrum of NaNs.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
