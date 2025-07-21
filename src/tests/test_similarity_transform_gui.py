@@ -1,3 +1,12 @@
+"""GUI tests for similarity transform operations in the WISER application.
+
+This module tests rotation, scaling, and translation of geospatial datasets
+through the Similarity Transform dialog in the WISER GUI. The tests simulate
+user interactions and verify geotransform metadata and image content against ground truth files.
+
+Note:
+    File selection and filtering logic are not tested here.
+"""
 import unittest
 
 import os 
@@ -10,18 +19,19 @@ from test_utils.test_model import WiserTestModel
 
 import numpy as np
 
-from PySide2.QtTest import QTest
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 class TestSimliarityTransformGUI(unittest.TestCase):
-    '''
-    Tests the GeoReferencer by going through the GUI.
+    """Unit tests for the Similarity Transform dialog using the WISER GUI.
 
-    Waht it doesn't test:
-    1. Doesn't test filtering logic of choosing a file name
-    '''
+    This test class validates rotation, scaling, and translation transformations
+    applied to raster datasets through simulated GUI interaction.
+
+    Attributes:
+        test_model (WiserTestModel): Model for driving the GUI and accessing internal state.
+    """
 
     def setUp(self):
         self.test_model = WiserTestModel()
@@ -30,9 +40,17 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         self.test_model.close_app()
         del self.test_model
 
-    # Write one tests to rotate and scale the caltech dataset by 30 degrees. Get the geo transform and compare
-    # Get the array and compare. Get this from 
     def test_rotate_scale(self):
+        """
+        Tests rotating and scaling a dataset using the GUI.
+
+        Loads a dataset, applies a 35° rotation and 2x scaling using linear interpolation,
+        and compares both the pixel array and geotransform to a known ground truth file.
+
+        Asserts:
+            The transformed array matches the ground truth array.
+            The geotransform metadata is identical to the ground truth.
+        """
         load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_rot_35_scale_2_linear_gt.tif")
 
@@ -72,6 +90,15 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         self.assertTrue(gt_geo_transform == test_geo_transform, "Rotated and scaled geo transform doesn't match ground truth")
 
     def test_translate(self):
+        """
+        Tests translating a dataset using the GUI.
+
+        Applies latitude and longitude translations to a dataset and checks
+        that the resulting geotransform reflects the specified offsets.
+
+        Asserts:
+            The translated geotransform matches the expected values.
+        """
         load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         temp_save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "caltech_4_100_150_nm_translate.tif")
         ds = self.test_model.load_dataset(load_path)
@@ -100,6 +127,9 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         self.assertTrue(ground_truth_gt == translated_gt)
 
 
+"""
+Code to make sure tests work as desired. Feel free to change to your needs.
+"""
 if __name__ == '__main__':
     test_model = WiserTestModel(use_gui=True)
 

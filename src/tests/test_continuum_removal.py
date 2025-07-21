@@ -1,3 +1,12 @@
+"""Unit tests for the Continuum Removal plugin in WISER.
+
+This module tests both image-based and spectral continuum removal functionality
+offered by the `ContinuumRemovalPlugin`. The tests compare the output with known
+ground-truth data, including image arrays, spatial references, and spectra.
+
+Classes:
+    TestContinuumRemoval: Unit test case for validating continuum removal on datasets and spectra.
+"""
 import os
 
 import unittest
@@ -20,15 +29,34 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 class TestContinuumRemoval(unittest.TestCase):
+    """Tests the continuum removal functionality in WISER.
 
+    This test case validates the plugin’s ability to:
+    - Apply continuum removal to hyperspectral image datasets.
+    - Apply continuum removal to individual spectra.
+    
+    The plugin output is compared against ground-truth results to verify correctness.
+
+    Attributes:
+        test_model (WiserTestModel): Test harness for interacting with the WISER application.
+    """
     def setUp(self):
+        """Sets up a fresh WISER test model before each test."""
         self.test_model = WiserTestModel()
 
     def tearDown(self):
+        """Cleans up the WISER application and test model after each test."""
         self.test_model.close_app()
         del self.test_model
 
     def test_continuum_removal_image(self):
+        """Tests image-based continuum removal against a ground-truth output.
+
+        Loads a test dataset and its precomputed continuum-removed result, then:
+        - Applies the plugin to compute the continuum-removed dataset.
+        - Compares the resulting data array, spatial reference, geo transform, 
+        bad bands, wavelength presence, and display bands to the ground truth.
+        """
         plugin = ContinuumRemovalPlugin()
 
         load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
@@ -65,6 +93,14 @@ class TestContinuumRemoval(unittest.TestCase):
         self.assertTrue(cr_dataset._band_info == gt_dataset._band_info)
 
     def test_continuum_removal_spectra(self):
+        """Tests continuum removal on a single spectrum.
+
+        Compares the plugin's output spectrum and convex hull to known correct results.
+        Validates:
+        - Continuum-removed spectrum values
+        - Convex hull spectrum values
+        - Wavelength consistency across input and output
+        """
         plugin = ContinuumRemovalPlugin()
 
         gt_cr_spectrum_y = np.array([1.0, 1.0, 0.4978490837090547, 1.0])

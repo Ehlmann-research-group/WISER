@@ -1,3 +1,18 @@
+"""
+Unit tests for validating Zoom Pane and Spectrum Plot integration in WISER.
+
+This module verifies that pixel selections made in the Zoom Pane correctly update
+the active spectrum displayed in the Spectrum Plot. It also checks the correctness
+of spectrum collection behavior after user interactions.
+
+Tests in this module cover:
+- Activation of the correct spectrum after clicking on a specific pixel.
+- Accurate retention and display of collected spectra.
+- Synchronization between raster pixel values and spectral data representation.
+
+Classes:
+    TestZoomPaneSpectrumPlotIntegration: Contains test cases for click and spectrum collection behavior.
+"""
 import unittest
 
 import tests.context
@@ -13,6 +28,12 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
+    """
+    Unit tests for verifying integration between the Zoom Pane and Spectrum Plot in WISER.
+
+    This class tests interactions where user clicks in the Zoom Pane and the corresponding
+    active or collected spectrum is reflected accurately in the Spectrum Plot.
+    """
 
     def setUp(self):
         self.test_model = WiserTestModel()
@@ -22,9 +43,14 @@ class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
         del self.test_model
 
     def test_click_zoom_pane(self):
-        '''
-        Clicks in zoom pane and ensures the active spectrum in spectrum plot is correct.
-        '''
+        """Test activation of spectrum after clicking on a pixel in the Zoom Pane.
+
+        Loads a known dataset, simulates a user click at a specific pixel in the Zoom Pane,
+        and verifies that the active spectrum in the Spectrum Plot matches the expected value.
+
+        Asserts:
+            The spectrum from the clicked pixel matches the expected spectrum array.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -57,9 +83,16 @@ class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
         self.assertTrue(np.array_equal(expected_array, spectrum_array))
 
     def test_collecting_spectra(self):
-        '''
-        Clicks in zoom pane, collects the spectrum, and ensures the collected spectrum is correct.
-        '''
+        """Test collecting a spectrum after clicking in the Zoom Pane.
+
+        Simulates a click at two different pixels in the Zoom Pane. The first spectrum is collected,
+        and then the second spectrum is activated. Verifies correctness of both the collected and active
+        spectrum arrays.
+
+        Asserts:
+            The collected spectrum matches the pixel at the first click.
+            The active spectrum matches the pixel at the second click.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
