@@ -66,7 +66,7 @@ dist-mac : build-mac
 		--apple-id $(AD_USERNAME) --team-id $(AD_TEAM_ID) --password $(AD_PASSWORD)
 
 build-win : generated
-	pyinstaller WISER.spec > debug_win_pyinstaller.txt 2>&1
+	pyinstaller WISER.spec
 
 # To debug PyInstaller issues:
 #   - drop the "--windowed" option
@@ -76,22 +76,7 @@ build-win : generated
 # include all the necessary Qt DLLs.  The worst one is the SVG icon
 # resources, which require a few steps just to get the icons to even
 # show up in the frozen UI.
-dist-win : generated
-# pyinstaller --log-level=DEBUG --name $(APP_NAME) --noconfirm \
-#     --icon icons\wiser.ico \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\platforms;platforms \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\plugins\iconengines;iconengines \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_FITS.dll;gdalplugins \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_netCDF.dll;gdalplugins \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF4.dll;gdalplugins \
-# 	--add-binary C:\Users\jgarc\anaconda3\envs\wiser-source\Library\lib\gdalplugins\gdal_HDF5.dll;gdalplugins \
-# 	--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
-# 	--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
-# 	--collect-all osgeo \
-# 	--exclude-module PyQt5 \
-# 	src\wiser\__main__.py
-	pyinstaller WISER.spec
-
+dist-win : build-win
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 
 clean:
