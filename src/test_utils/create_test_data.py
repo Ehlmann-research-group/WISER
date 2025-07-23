@@ -87,16 +87,18 @@ wavelength_units = "nm"
 
 def main():
 
-    # 2. Write to ENVI (.hdr)
-    #    Note that GDAL's ENVI driver will produce "test_envi.hdr" and "test_envi"
-    #    as the actual binary data (no extension). 
+    # Write to ENVI (.hdr)
+    # Note that GDAL's ENVI driver will produce "test_envi.hdr" and "test_envi"
+    # as the actual binary data (no extension). 
     filepath = f'test_datasets/envi_{bands}_{rows}_{cols}'
     create_raster(data, filepath, "ENVI")
 
-    # 3. Write to GeoTIFF (.tiff)
+    # Write to GeoTIFF (.tiff)
     filepath = f'test_datasets/gtiff_{bands}_{rows}_{cols}.tiff'
     create_raster(data, "test_datasets/gtiff.tiff", "GTiff")
 
+    # Write to NetCDF 
+    # Note that this currently doesn't work.
     # create_netcdf_from_3d_array(data, "test_datasets/netcdf.nc")
 
 if __name__ == "__main__":

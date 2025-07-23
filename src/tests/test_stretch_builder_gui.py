@@ -1,3 +1,16 @@
+"""
+Unit tests for verifying the functionality of the Stretch Builder GUI in WISER.
+
+This module tests the visual and numerical correctness of applying different image
+stretches and conditioners (e.g., histogram equalization, log scaling) using the
+WISER GUI and internal raster processing utilities.
+
+Tested features include:
+- GUI interactions in the Stretch Builder
+- Histogram calculation and stretch normalization
+- Image rendering with various stretch strategies
+- Dataset switching behavior and state persistence
+"""
 import unittest
 
 import numpy as np
@@ -7,19 +20,25 @@ import tests.context
 
 from test_utils.test_model import WiserTestModel
 
-from wiser.gui.rasterview import RasterView, make_channel_image_numba, \
-    make_channel_image_python, make_rgb_image_numba, make_grayscale_image
+from wiser.gui.rasterview import make_channel_image_numba, \
+    make_rgb_image_numba, make_grayscale_image
 
 from wiser.raster.utils import normalize_ndarray_numba
-from wiser.raster.stretch import StretchBaseUsingNumba, StretchLinearUsingNumba, \
-    StretchHistEqualizeUsingNumba, StretchSquareRootUsingNumba, StretchLog2UsingNumba, \
-    StretchHistEqualize
+from wiser.raster.stretch import StretchLinearUsingNumba, \
+    StretchHistEqualizeUsingNumba, StretchSquareRootUsingNumba, StretchLog2UsingNumba
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 class TestStretchBuilderGUI(unittest.TestCase):
+    """
+    Test suite for validating the behavior of the Stretch Builder GUI in WISER.
+
+    This class uses WiserTestModel to simulate user interactions and verify the
+    correctness of GUI-related state changes, image rendering, and data normalization
+    resulting from stretch operations.
+    """
 
     def setUp(self):
         self.test_model = WiserTestModel()
@@ -29,10 +48,12 @@ class TestStretchBuilderGUI(unittest.TestCase):
         del self.test_model
      
     def test_open_stretch_builder_gui(self):
-        '''
-        Ensures that the mainview rasterview image data changes correctly after applying
-        stretches and conditioners in stretch builder.
-        '''
+        """
+        Test that stretch and conditioner application updates the raster view image data.
+
+        Applies histogram equalization followed by a logarithmic conditioner and verifies
+        that the resulting image matches the expected output.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -66,9 +87,12 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(np.array_equal(result_arr, expected))
 
     def test_stretch_builder_histogram_gui(self):
-        '''
-        Ensures the histograms are correct.
-        '''
+        """
+        Test that histogram bins and edges computed in the GUI match numpy expectations.
+
+        Compares the raw histograms extracted from the Stretch Builder with numpy-generated
+        histograms to verify GUI-side correctness.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -108,9 +132,12 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(np.allclose(hist_edges_raw_2, histogram_edges_expected))
     
     def test_apply_min_max_bounds(self):
-        '''
-        Ensures apply min and max bounds work.
-        '''
+        """
+        Test normalization behavior when applying explicit min and max bounds.
+
+        Verifies that pixels outside the bounds are set to NaN and those inside are scaled
+        between 0 and 1 as expected.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -148,10 +175,11 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(close)
 
     def test_apply_min_max_bounds_while_linked(self):
-        '''
-        Ensures the proper min and max bounds are applied to all ChannelStretchWidgets when
-        linked.
-        '''
+        """Test normalization with min/max bounds when link state is enabled.
+
+        Ensures that bounds applied to one channel are propagated to others,
+        and normalized values are consistent across channels.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -197,10 +225,12 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(close)
 
     def test_save_link_state(self):
-        '''
-        Ensures that we save correctly save the slider link state in stretch builder
-        when switching between datasets.
-        '''
+        """
+        Test persistence of slider and min/max linking states across datasets.
+
+        Verifies that Stretch Builder retains dataset-specific settings when switching
+        between datasets and reopening the GUI.
+        """
         # Create first array
         rows, cols, channels = 50, 50, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -252,9 +282,11 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(link_min_max_state == False)
 
     def test_stretch_low_high_ledit(self):
-        '''
-        Ensures the stretch low and high line edits work
-        '''
+        """Test behavior of setting stretch low/high values using line edits.
+
+        Ensures all raster views (main, zoom, context) render identically after setting
+        low/high bounds via text fields.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -299,9 +331,11 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.assertTrue(close)
 
     def test_stretch_low_high_slider(self):
-        '''
-        Ensures the stretch low and high sliders work
-        '''
+        """Test behavior of setting stretch low/high values using sliders.
+
+        Ensures all raster views (main, zoom, context) render identically after setting
+        low/high bounds via slider interactions.
+        """
         np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
@@ -345,9 +379,11 @@ class TestStretchBuilderGUI(unittest.TestCase):
         close = np.allclose(context_pane_rv_img_data, expected_norm_data)
         self.assertTrue(close)
 
-
-
     def test_normalize_array(self):
+        """Test array normalization with different min and max values.
+
+        Asserts that an array is scaled correctly to the [0, 1] range.
+        """
         arr = np.array([[1, 2, 3],
                         [1, 2, 3],
                         [1, 2, 3]])
@@ -360,6 +396,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_normalize_array_same_min_max(self):
+        """Test normalization behavior when min and max are equal.
+
+        Ensures the normalized output is a zero-filled array when no dynamic range is present.
+        """
         arr = np.array([[3, 3, 3],
                         [3, 3, 3],
                         [3, 3, 3]])
@@ -370,6 +410,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_none_none(self):
+        """Test rendering of a channel image with no stretch or conditioner.
+
+        Asserts that pixel intensities are linearly scaled to 8-bit without any modification.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -380,6 +424,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_linear_none(self):
+        """Test rendering with linear stretch only.
+
+        Verifies that a linear stretch is applied before scaling the image to 8-bit.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -392,6 +440,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_equalize_none(self):
+        """Test rendering with histogram equalization only.
+
+        Applies histogram equalization and verifies output scaling to 8-bit.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -410,6 +462,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_none_sqrt(self):
+        """Test rendering with square root conditioner only.
+
+        Verifies the output reflects a square root curve applied to linear data.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -422,6 +478,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_linear_sqrt(self):
+        """Test rendering with both linear stretch and square root conditioner.
+
+        Ensures the combined transformation produces the expected 8-bit image.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -435,6 +495,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_equalize_sqrt(self):
+        """Test rendering with histogram equalization and square root conditioner.
+
+        Asserts the image is first equalized and then conditioned before conversion.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -450,6 +514,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_none_log(self):
+        """Test rendering with log2 conditioner only.
+
+        Verifies that logarithmic contrast enhancement is correctly applied.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -462,6 +530,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_linear_log(self):
+        """Test rendering with linear stretch and log2 conditioner.
+
+        Ensures combined linear-logarithmic transformation produces the expected image.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -475,6 +547,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_channel_img_equalize_log(self):
+        """Test rendering with histogram equalization and log2 conditioner.
+
+        Applies both transformations and checks final image pixel values.
+        """
         arr = np.array([[0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0],
                         [0.0, 0.25, 0.5, 0.75, 1.0]])
@@ -490,6 +566,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_rgb_image(self):
+        """Test RGB image composition from three input channels.
+
+        Asserts that RGB pixel values are correctly packed into 32-bit integers.
+        """
         ch1 = np.array([[1, 2, 3],
                         [4, 5, 6],
                         [7, 8, 9]])
@@ -508,6 +588,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         np.testing.assert_array_almost_equal(result, expected)
 
     def test_make_grayscale_image(self):
+        """Test grayscale image generation with a colormap.
+
+        Verifies that a colormap (e.g., cividis) is correctly applied to grayscale input.
+        """
         ch1 = np.array([[1, 2, 3],
                         [4, 5, 6],
                         [7, 8, 9]], dtype=np.uint8)
@@ -517,6 +601,10 @@ class TestStretchBuilderGUI(unittest.TestCase):
         result = make_grayscale_image(ch1, colormap='cividis')
         np.testing.assert_array_almost_equal(result, expected)
 
+
+"""
+Code to make sure tests work as desired. Feel free to change to your needs.
+"""
 if __name__ == '__main__':
     test_model = WiserTestModel(use_gui=True)
     # test = TestStretchBuilderGUI()
