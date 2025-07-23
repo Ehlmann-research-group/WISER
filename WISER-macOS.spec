@@ -25,11 +25,9 @@ existing_hidden_imports = [
              ]
 
 existing_binaries = [
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/drivers.ini', 'gdalplugins'),
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_FITS.dylib', 'gdalplugins'),
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/wiser-source/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
+        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
     ]  
 
 temp_a = Analysis(['src/wiser/__main__.py'],
@@ -94,6 +92,7 @@ exe = EXE(pyz,
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
+          target_arch='x86_64',
           upx=True,
           console=False )
 coll = COLLECT(exe,
