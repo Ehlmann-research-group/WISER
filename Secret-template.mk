@@ -16,9 +16,9 @@ AD_CODESIGN_KEY_NAME="Your Key Name"
 # These are your Apple ID credentials for your developer account
 AD_USERNAME=your.appleid.email@example.com
 AD_PASSWORD=your-app-specific-password
+AD_TEAM_ID=your-app-specific-team-id
 
 #-----------------------------------------------------------------------------
 # Windows Secrets
 
 SHA1_THUMBPRINT=your.sha1.thumbprint.for.yubikey
-
