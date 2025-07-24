@@ -617,6 +617,12 @@ class ApplicationState(QObject):
         '''
         return self._all_spectra[spectrum_id]
 
+    def get_all_spectra(self):
+        '''
+        Retrieves all spectra in thet spectrum plot.
+        '''
+        return self._all_spectra
+
     def get_active_spectrum(self):
         '''
         Retrieve the current active spectrum.  The "active spectrum" is the
