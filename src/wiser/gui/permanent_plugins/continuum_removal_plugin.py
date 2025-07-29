@@ -8,7 +8,7 @@ This plugin has 4 main functionalities:
     * Continuum remove a subset of the image
     * Continuum remove the whole image
 
-This script requires that `numpy`, `pyside2`, and `scipy` be installed within the Python
+This script requires that `numpy`, `pyside6`, and `scipy` be installed within the Python
 environment you are running this script in.
 
 This script requires the following .ui files to be in the same folder as this python script:
@@ -29,9 +29,9 @@ import os
 from typing import TYPE_CHECKING, Tuple
 
 from wiser import plugins, raster
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
-from PySide2.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
 from scipy.interpolate import interp1d
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
@@ -254,7 +254,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         ----------
         context_type: ContextMenuType
             the plugin type and where it can be used
-        context_menu: PySide2.QtWidgets.QMenu
+        context_menu: PySide6.QtWidgets.QMenu
             the context menu available to the plugin
         context: dict
             Available WISER classes
@@ -305,7 +305,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
 
         Parameters
         ----------
-        dialog: PySide2.QtWidgets.QDialog
+        dialog: PySide6.QtWidgets.QDialog
             Dialog that shows the dimensions GUI
         cols: int
             Total number of columns in the image
@@ -327,7 +327,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
 
         Parameters
         ----------
-        dialog: PySide2.QtWidgets.QDialog
+        dialog: PySide6.QtWidgets.QDialog
             Dialog that shows the dimensions GUI
         last: int
             Total number of bands
@@ -343,9 +343,9 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
 
         Parameters
         ----------
-        combo: PySide2.QtWidgets.QComboBox
+        combo: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available bands
-        spin: PySide2.QtWidgets.QAbstractSpinBox.QSpinBox
+        spin: PySide6.QtWidgets.QAbstractSpinBox.QSpinBox
             Editable spin box that has a range of all available band numbers
         """
 
@@ -357,9 +357,9 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
 
         Parameters
         ----------
-        combo: PySide2.QtWidgets.QComboBox
+        combo: PySide6.QtWidgets.QComboBox
             Combo box that displayes a drop down menu of all available bands
-        spin: PySide2.QtWidgets.QAbstractSpinBox.QSpinBox
+        spin: PySide6.QtWidgets.QAbstractSpinBox.QSpinBox
             Editable spin box that has a range of all available band numbers
         """
 

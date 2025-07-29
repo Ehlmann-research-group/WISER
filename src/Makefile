@@ -1,4 +1,4 @@
-RCC=pyside2-rcc
+RCC=pyside6-rcc
 
 RESOURCE_DIR=wiser/resources
 TARGET_DIR=wiser/gui/generated

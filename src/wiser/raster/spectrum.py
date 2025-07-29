@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 
 from collections import deque
 
-from PySide2.QtCore import *
+from PySide6.QtCore import *
 
 import numpy as np
 from astropy import units as u

@@ -5,9 +5,9 @@ import time
 
 from typing import Dict, List, Optional, Tuple, Union
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import numpy as np
 from matplotlib import cm
@@ -143,7 +143,7 @@ def make_rgb_image_python(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> 
     if isinstance(rgb_data, np.ma.MaskedArray):
         rgb_data.fill_value = 0xff000000
 
-    # Qt5/PySide2 complains if the array is not contiguous.
+    # Qt6/PySide6 complains if the array is not contiguous.
     if not rgb_data.flags['C_CONTIGUOUS']:
         rgb_data = np.ascontiguousarray(rgb_data)
 
@@ -274,7 +274,7 @@ def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) ->
     if isinstance(rgb_data, np.ma.MaskedArray):
         rgb_data.fill_value = 0xff000000
 
-    # Qt5/PySide2 complains if the array is not contiguous.
+    # Qt6/PySide6 complains if the array is not contiguous.
     if not rgb_data.flags['C_CONTIGUOUS']:
         rgb_data = np.ascontiguousarray(rgb_data)
 
@@ -1217,7 +1217,7 @@ class RasterView(QWidget):
     #     else:
     #         self.rgb_selector.setVisible(False)
 
-    # TODO(donnie):  Should be Slot(ImageColors, int), but causes PySide2 to
+    # TODO(donnie):  Should be Slot(ImageColors, int), but causes PySide6 to
     #     crash at startup.
     @Slot(int, int)
     def rgb_band_changed(self, color, band_index):

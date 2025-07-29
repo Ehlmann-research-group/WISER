@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from wiser.plugins import ContextMenuPlugin, ContextMenuType
 
-from PySide2.QtWidgets import QMenu, QMessageBox
+from PySide6.QtWidgets import QMenu, QMessageBox
 
 
 class HelloContextPlugin(ContextMenuPlugin):

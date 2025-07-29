@@ -1,8 +1,8 @@
 from typing import List, Tuple, Union
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from .generated.channel_stretch_widget_ui import Ui_ChannelStretchWidget
 from .generated.stretch_config_widget_ui import Ui_StretchConfigWidget
@@ -16,13 +16,11 @@ import numpy as np
 import numpy.ma as ma
 
 import matplotlib
-matplotlib.use('Qt5Agg')
-# TODO(donnie):  Seems to generate errors:
-# matplotlib.rcParams['backend.qt5'] = 'PySide2'
+matplotlib.use('qtagg')
 
 import matplotlib.pyplot as plt
 
-from matplotlib.backends.backend_qt5agg import FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvas
 
 def remove_nans_python(data):
     return data[~np.isnan(data)]
@@ -912,10 +910,10 @@ class StretchBuilderDialog(QDialog):
         # is shown.
 
         try:
-            # Qt 5.14 introduces the QWidget.screen() attribute
+            # Qt 6.14 introduces the QWidget.screen() attribute
             screen_height = self.screen().size().height()
         except AttributeError:
-            # Fallback for <Qt 5.14
+            # Fallback for <Qt 6.14
             screen_height = self.window().windowHandle().screen().size().height()
 
         accept_rejection_region_height = 75

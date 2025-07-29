@@ -5,9 +5,9 @@ from typing import Any, Optional
 
 from .types import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin
 
-from PySide2.QtCore import QFile
-from PySide2.QtUiTools import QUiLoader
-from PySide2.QtWidgets import QWidget
+from PySide6.QtCore import QFile
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QWidget
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ def load_ui_file(ui_file_path: str, parent: Optional[QWidget] = None) -> QWidget
         path = os.path.join(os.path.dirname(__file__), 'some_widget.ui')
         widget = load_ui_file(path)
     '''
-    # https://doc.qt.io/archives/qtforpython-5.12/PySide2/QtUiTools/QUiLoader.html
+    # https://doc.qt.io/archives/qtforpython-5.12/PySide6/QtUiTools/QUiLoader.html
     logger.info(f'Loading Qt .ui file:  "{ui_file_path}"')
     f = QFile(ui_file_path)
     if not f.open(QFile.ReadOnly):

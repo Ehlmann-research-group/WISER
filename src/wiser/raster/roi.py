@@ -5,7 +5,7 @@ from .selection import (
     selection_from_pyrep, SelectionType,
     )
 
-from PySide2.QtCore import QRect
+from PySide6.QtCore import QRect
 
 class RegionOfInterest:
     '''

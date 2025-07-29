@@ -1,5 +1,5 @@
 import unittest
-from PySide2.QtCore import *
+from PySide6.QtCore import *
 
 import tests.context
 from wiser.gui.spectrum_plot import (generate_ticks)

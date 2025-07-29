@@ -3,8 +3,8 @@ import os
 import warnings
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from PySide2.QtCore import *
-from PySide2.QtWidgets import QMessageBox
+from PySide6.QtCore import *
+from PySide6.QtWidgets import QMessageBox
 
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color

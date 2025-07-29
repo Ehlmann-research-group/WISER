@@ -16,7 +16,7 @@ from .dataset_impl import (RasterDataImpl, ENVI_GDALRasterDataImpl,
 
 from wiser.gui.fits_loading_dialog import FitsDatasetLoadingDialog
 
-from PySide2.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog
 
 logger = logging.getLogger(__name__)
 

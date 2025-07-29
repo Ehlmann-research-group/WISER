@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional, Set, Tuple
 
-from PySide2.QtCore import *
+from PySide6.QtCore import *
 
 from .dataset import RasterDataSet
 from .polygon import rasterize_polygon

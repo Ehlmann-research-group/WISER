@@ -14,7 +14,7 @@ import numpy as np
 from wiser.raster.spectrum import raster_to_combined_rectangles_x_axis, create_raster_from_roi
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection, PolygonSelection, MultiPixelSelection
-from PySide2.QtCore import QPoint
+from PySide6.QtCore import QPoint
 
 from wiser.gui.app import DataVisualizerApp
 
@@ -26,9 +26,9 @@ from wiser.raster.spectrum import ROIAverageSpectrum
 import logging
 import traceback
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 class TestRoiAvgSpectrum(unittest.TestCase):
     """
     Test suite for validating ROI-based spectrum calculations and raster masking.

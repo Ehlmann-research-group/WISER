@@ -1,4 +1,4 @@
-from PySide2.QtCore import (QRunnable, Signal, QObject)
+from PySide6.QtCore import (QRunnable, Signal, QObject)
 
 class WorkerSignals(QObject):
     update = Signal(str)

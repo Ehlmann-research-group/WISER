@@ -16,10 +16,10 @@ from test_utils.test_model import WiserTestModel
 import numpy as np
 from astropy import units as u
 
-from PySide2.QtTest import QTest
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtTest import QTest
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 class TestSpectrumPlotUI(unittest.TestCase):
     """Tests for spectrum plotting and user interaction in the WISER GUI.

@@ -3,9 +3,9 @@ import sys
 
 from typing import List, Optional
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from .generated.reference_system_creator_ui import Ui_ReferenceSystemCreator
 

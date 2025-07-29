@@ -3,9 +3,9 @@ import os
 import traceback
 import warnings
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from typing import Dict
 
@@ -31,16 +31,14 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster import utils as raster_utils
 
 import matplotlib
-matplotlib.use('Qt5Agg')
-# TODO(donnie):  Seems to generate errors:
-# matplotlib.rcParams['backend.qt5'] = 'PySide2'
+matplotlib.use('qtagg')
 
 import matplotlib.pyplot as plt
 
 import numpy as np
 from astropy import units as u
 
-from matplotlib.backends.backend_qt5agg import FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvas
 
 from typing import List, Optional, Tuple
 

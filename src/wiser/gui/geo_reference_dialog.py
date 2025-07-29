@@ -1,9 +1,9 @@
 import os
 from typing import List, Optional, Dict, Tuple
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 from .generated.geo_referencer_dialog_ui import Ui_GeoReferencerDialog
 

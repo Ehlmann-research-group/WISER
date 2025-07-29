@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .gui.app_state import ApplicationState
 
-from PySide2.QtWidgets import QMenu
+from PySide6.QtWidgets import QMenu
 
 from wiser.bandmath import BandMathValue, BandMathFunction
 

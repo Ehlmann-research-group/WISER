@@ -25,10 +25,10 @@ from wiser.gui.geo_reference_dialog import AuthorityCodeCRS, UserGeneratedCRS, G
 
 import numpy as np
 
-from PySide2.QtTest import QTest
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtTest import QTest
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 class TestGeoReferencerGUI(unittest.TestCase):
     """Test case for validating the GeoReferencer UI workflow in WISER.

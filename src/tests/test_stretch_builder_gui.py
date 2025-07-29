@@ -27,9 +27,9 @@ from wiser.raster.utils import normalize_ndarray_numba
 from wiser.raster.stretch import StretchLinearUsingNumba, \
     StretchHistEqualizeUsingNumba, StretchSquareRootUsingNumba, StretchLog2UsingNumba
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 class TestStretchBuilderGUI(unittest.TestCase):
     """

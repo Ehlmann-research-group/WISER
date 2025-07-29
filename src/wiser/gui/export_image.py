@@ -2,9 +2,9 @@ import os
 import traceback
 from typing import Dict, List, Optional, Tuple
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 import numpy as np
 import PIL

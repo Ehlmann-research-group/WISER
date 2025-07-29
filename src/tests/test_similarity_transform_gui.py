@@ -19,9 +19,9 @@ from test_utils.test_model import WiserTestModel
 
 import numpy as np
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 class TestSimliarityTransformGUI(unittest.TestCase):
     """Unit tests for the Similarity Transform dialog using the WISER GUI.

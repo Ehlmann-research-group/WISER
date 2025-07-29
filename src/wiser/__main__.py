@@ -5,6 +5,9 @@ import logging
 import logging.config
 import os
 import sys
+import pdb
+
+os.environ["QT_DEBUG_PLUGINS"] = "1"
 
 #============================================================================
 # Load gdal plugins into path and set gdal environment variables
@@ -93,9 +96,19 @@ warnings.filterwarnings('ignore', '(?s).*MATPLOTLIBDATA.*', category=UserWarning
 # This is why we do the debugging setup first.
 #
 
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
+
+from PySide6 import QtCore
+
+print(f"QtCore file {QtCore.__file__}")
+
+plugin_path = os.path.join(
+    os.path.dirname(QtCore.__file__),
+    "plugins",
+    "platforms",
+)
 
 import matplotlib
 
@@ -111,14 +124,13 @@ from wiser.gui import bug_reporting
 
 def qt_debug_callback(*args, **kwargs):
     # TODO(donnie):  This is an experiment to see if we can get useful info
-    #     out of Qt5 for WISER.  So far it has not panned out.  (2021-04-14)
+    #     out of Qt6 for WISER.  So far it has not panned out.  (2021-04-14)
     logger.debug(f'qt_debug_callback:  args={args}  kwargs={kwargs}')
 
 def main():
     '''
     Main entry-point for the WISER application.
     '''
-
     logger.info('=== STARTING WISER APPLICATION ===')
 
     #========================================================================
@@ -189,11 +201,7 @@ def main():
     #========================================================================
     # Qt Platform Initialization
 
-    qInstallMessageHandler(qt_debug_callback)
-
-    # Turn on high-DPI application scaling in Qt.
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+    # qInstallMessageHandler(qt_debug_callback)
 
     # TODO(donnie):  Pass Qt arguments
     app = QApplication([])

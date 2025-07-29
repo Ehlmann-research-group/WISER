@@ -9,7 +9,7 @@ from wiser.raster.spectrum import calc_roi_spectrum
 from wiser.raster.data_cache import DataCache
 
 from wiser.gui.app_state import ApplicationState
-# from PySide2.QtCore import *
+# from PySide6.QtCore import *
 from wiser.bandmath.types import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
 import cProfile
