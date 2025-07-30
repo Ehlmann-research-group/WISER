@@ -24,3 +24,6 @@ src/wiser/profiling/output/*
 
 src_bundle/*
 uv/*
+
+!src_bundle/.gitkeep
+!uv/.gitkeep
