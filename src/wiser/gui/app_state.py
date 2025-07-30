@@ -28,6 +28,7 @@ from wiser.raster.data_cache import DataCache
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
+
 class StateChange(enum.Enum):
     ITEM_ADDED = 1
     ITEM_EDITED = 2
