@@ -1,0 +1,16 @@
+numpy
+pyside6
+gdal>=3.9
+matplotlib
+astropy
+pyinstaller
+pillow
+bugsnag
+lark
+pdr
+netCDF4
+opencv-python
+psutil
+pyproj
+numba
+scipy

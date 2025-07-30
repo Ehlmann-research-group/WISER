@@ -14,7 +14,7 @@ the entire file's contents with `dd`.
 Required packages:
 
 *   numpy 1.17.0
-*   PySide2 5.13.0 (Qt Python bindings)
+*   PySide6 5.13.0 (Qt Python bindings)
 
 To run:
 

@@ -1,0 +1,7 @@
+bandmath
+gui
+plugins
+profiling
+raster
+resources
+utils

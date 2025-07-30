@@ -160,7 +160,7 @@ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
 OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 
-Qt 5 / PySide2:
+Qt 6 / PySide6:
 
 See https://doc.qt.io/qt-5/opensourcelicense.html for licensing details of
-Qt 5 and PySide2.
+Qt 6 and PySide6.

@@ -1,10 +1,10 @@
 GUI Plugins in WISER
 ====================
 
-WISER is written using the `Qt 5 API and the PySide2 Python bindings
+WISER is written using the `Qt 6 API and the PySide6 Python bindings
 <https://doc.qt.io/qtforpython-5/>`_ provided by `The Qt Company
 <https://www.qt.io/>`_.  Plugins that wish to provide graphical user interfaces
-for configuration or workflow must also use Qt 5 to build this functionality.
+for configuration or workflow must also use Qt 6 to build this functionality.
 This is likely to be common in tool plugins and context-menu plugins; band-math
 plugins, on the other hand, should not show UI components.
 
@@ -15,8 +15,8 @@ A plugin can construct a Qt user interface programmatically, but it is much
 easier to use `Qt Designer <https://doc.qt.io/qt-5/qtdesigner-manual.html>`_ to
 lay out a user interface and save it into a ``.ui`` file used by the plugin.
 Once a ``.ui`` file has been created, there are two possible approaches for
-instantiating the UI.  One is to use the ``PySide2.QUiTools.QUiLoader`` class to
-load the ``.ui`` file dynamically, and the other is to use ``pyside2-uic`` to
+instantiating the UI.  One is to use the ``PySide6.QUiTools.QUiLoader`` class to
+load the ``.ui`` file dynamically, and the other is to use ``pyside6-uic`` to
 generate Python code from the ``.ui`` file.  Each approach has its benefits and
 drawbacks, which are described below.  The second approach is recommended for
 more sophisticated user interfaces, as it encourages an object-oriented approach
@@ -109,23 +109,23 @@ the UI widgets within the dialog.  The code continues:
             if value % 2 == 0:
                 sbox.setValue(value + 1)
 
-Using ``pyside2-uic``
+Using ``pyside6-uic``
 ^^^^^^^^^^^^^^^^^^^^^
 
 The second way to build a graphical user interface using Qt Designer is to use
-the ``pyside2-uic`` tool (part of Qt 5/PySide2) to generate Python code from the
+the ``pyside6-uic`` tool (part of Qt 6/PySide6) to generate Python code from the
 ``.ui`` file made via Qt Designer.  The benefit is that it's very easy to access
 the various UI widgets from your Python program, so if you have complex
 workflows or UI interactions, input validation, event handling, etc., then this
 will likely be your preferred approach.  The downside is that you must set up a
-Python development environment that includes Qt 5/PySide2, so that you can use
-the tools that come along with the PySide2 library.
+Python development environment that includes Qt 6/PySide6, so that you can use
+the tools that come along with the PySide6 library.
 
-Use the ``pyside2-uic`` program to generate Python code from the ``.ui`` file:
+Use the ``pyside6-uic`` program to generate Python code from the ``.ui`` file:
 
 .. code-block:: console
 
-    pyside2-uic gaussian_blur_config.ui > ui_gaussian_blur_config.py
+    pyside6-uic gaussian_blur_config.ui > ui_gaussian_blur_config.py
 
 .. note::
    This code-gen step must occur after any change to the ``.ui`` file, or else

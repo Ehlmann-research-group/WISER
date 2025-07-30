@@ -33,7 +33,7 @@ Each of these classes has slightly different functionality to implement.
 these libraries:
 
 *   Python 3
-*   Qt5 / PySide2 (for graphical UI interactions)
+*   Qt6 / PySide6 (for graphical UI interactions)
 *   NumPy / AstroPy (for operations involving imaging spectroscopy data)
 
 In addition, plugins may rely on other third-party libraries for doing

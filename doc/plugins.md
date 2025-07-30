@@ -39,7 +39,7 @@ the application.  It is reasonable to expect users to know this API.  It will
 be well-documented, and over time we will refine it to be powerful and easy to
 use.
 
-**Are we expecting users to know Qt5 and PySide2?**  These libraries are quite
+**Are we expecting users to know Qt6 and PySide6?**  These libraries are quite
 involved, and we probably don't want to require users to know about them.  On
 the other hand, if users _are_ familiar with these libraries, we would like the
 user to be able to use them to create more sophisticated UIs.

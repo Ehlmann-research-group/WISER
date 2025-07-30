@@ -6,11 +6,11 @@ the use of [MacPorts](https://www.macports.org).  If anyone wants to figure out
 how to set up a development environment under [Homebrew](https://brew.sh) and
 write up instructions, this would be greatly appreciated.**
 
-WISER requires the Qt5 and GDAL libraries to be installed on the system.  Under
+WISER requires the Qt6 and GDAL libraries to be installed on the system.  Under
 MacPorts this is straightforward:
 
 ```
-sudo port install qt5
+sudo port install qt6
 sudo port install gdal
 ```
 
@@ -18,9 +18,7 @@ Once these operations are completed, one can set up a Python environment to
 develop and run the application.  
 
 ```
-# NOTE:  Python 3.7 is recommended for WISER development, to avoid
-#        compatibility issues with Qt5 and PySide2.
-sudo port install python37
+sudo port install python39
 
 # Install your favorite version of virtualenv, at least Python 3.7, but
 # Python 3.8+ will also work.
@@ -47,7 +45,7 @@ pip install numpy
 pip install astropy
 pip install matplotlib
 pip install GDAL==3.3.1
-pip install PySide2
+pip install PySide6
 pip install pillow
 pip install lark
 pip install bugsnag

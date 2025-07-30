@@ -5,7 +5,7 @@ and performance issues in Python programs.
 
 ## Debug Seg-Faults in Python
 
-Some libraries, like Qt PySide2 and GDAL, are Python bindings for C/C++ code.
+Some libraries, like Qt PySide6 and GDAL, are Python bindings for C/C++ code.
 This means it is very possible to generate SIGSEGVs and other faults from buggy
 Python code.  To diagnose the cause of such faults, use the built-in Python
 [faulthandler](https://docs.python.org/3/library/faulthandler.html) module.

@@ -1,0 +1,44 @@
+[project]
+name = "WISER"
+version = "1.2b.1"
+authors = [
+  { name="Joshua Garcia-Kimble", email="jgarciak@caltech.edu" },
+  { name="Donnie Pinkston", email="donnie@cms.caltech.edu" },
+]
+description = "The Workbench for Imaging Spectroscopy Exploration and Research (WISER)"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+dependencies = ["numpy",
+                "pyside6",
+                "gdal>=3.9",
+                "matplotlib",
+                "astropy",
+                "pyinstaller",
+                "pillow",
+                "bugsnag",
+                "lark",
+                "pdr",
+                "netCDF4",
+                "opencv-python",
+                "psutil",
+                "pyproj",
+                "numba",
+                "scipy",
+                ]
+
+[project.urls]
+Homepage = "https://https://github.com/Ehlmann-research-group/WISER"
+Issues = "https://https://github.com/Ehlmann-research-group/WISER/issues"
+
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src/wiser"]

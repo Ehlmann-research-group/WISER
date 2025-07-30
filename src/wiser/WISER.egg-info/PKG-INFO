@@ -1,3 +1,34 @@
+Metadata-Version: 2.4
+Name: WISER
+Version: 1.2b1
+Summary: The Workbench for Imaging Spectroscopy Exploration and Research (WISER)
+Author-email: Joshua Garcia-Kimble <jgarciak@caltech.edu>, Donnie Pinkston <donnie@cms.caltech.edu>
+License-Expression: MIT
+Project-URL: Homepage, https://https://github.com/Ehlmann-research-group/WISER
+Project-URL: Issues, https://https://github.com/Ehlmann-research-group/WISER/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: pyside6
+Requires-Dist: gdal>=3.9
+Requires-Dist: matplotlib
+Requires-Dist: astropy
+Requires-Dist: pyinstaller
+Requires-Dist: pillow
+Requires-Dist: bugsnag
+Requires-Dist: lark
+Requires-Dist: pdr
+Requires-Dist: netCDF4
+Requires-Dist: opencv-python
+Requires-Dist: psutil
+Requires-Dist: pyproj
+Requires-Dist: numba
+Requires-Dist: scipy
+Dynamic: license-file
+
 # WISER:  The Workbench for Imaging Spectroscopy Exploration and Research
 
 WISER is an open-source, extensible tool for visualizing and analyzing spectral

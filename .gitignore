@@ -21,3 +21,6 @@ Secret.sh
 
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*
+
+src_bundle/*
+uv/*

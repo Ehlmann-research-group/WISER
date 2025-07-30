@@ -59,8 +59,8 @@ The Workbench is built upon these libraries:
 *   [GDAL](https://gdal.org/) for loading and saving raster data
 *   [NumPy](https://numpy.org/) and [AstroPy](https://www.astropy.org/) for
     internal calculations and data representation
-*   [Qt 5](https://www.qt.io/) and the
-    [PySide2 Python bindings](https://wiki.qt.io/Qt_for_Python) for the
+*   [Qt 6](https://www.qt.io/) and the
+    [PySide6 Python bindings](https://wiki.qt.io/Qt_for_Python) for the
     Graphical User Interface
 *   [matplotlib](https://matplotlib.org/) for drawing spectral plots and other
     graphs

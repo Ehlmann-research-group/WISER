@@ -21,7 +21,7 @@ existing_datas = [
              ]
 
 existing_hidden_imports = [
-                 'PySide2.QtXml',
+                 'PySide6.QtXml',
              ]
 
 existing_binaries = [
@@ -48,7 +48,7 @@ top_modules = { entry[0].split('.', 1)[0] for entry in temp_a.pure }
 
 
 IGNORED_TOP_PACKAGES = {
-    "PySide2",
+    "PySide6",
 }
 
 for pkg in sorted(top_modules):
