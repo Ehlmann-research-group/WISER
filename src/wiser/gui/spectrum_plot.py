@@ -404,11 +404,13 @@ class SpectrumPlotGeneric(QWidget):
     This widget provides a spectrum-plot window in the user interface.
     '''
 
-    def __init__(self, parent=None):
+    def __init__(self, app_state, parent=None):
         super().__init__(parent=parent)
 
         #=====================================================================
         # General configuration for the spectrum plot
+
+        self._app_state = app_state
 
         # Are we displaying a legend?
         self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
@@ -782,6 +784,10 @@ class SpectrumPlotGeneric(QWidget):
     def set_selection_crosshair(self, crosshair: bool) -> None:
         self._selection_crosshair = crosshair
         self._update_spectrum_mouse_click()
+
+
+    def get_app_state(self):
+        return self._app_state
 
 
     def _add_spectrum_to_plot(self, spectrum, treeitem):
@@ -1369,6 +1375,7 @@ class SpectrumPlotGeneric(QWidget):
 
 
     def _remove_collected_spectrum_at_index(self, index):
+        self._on_collected_spectra_changed(StateChange.ITEM_REMOVED, index)
         if 0 <= index < len(self._collected_spectra) - 1:
             del self._collected_spectra[index]
 
@@ -1389,7 +1396,8 @@ class SpectrumPlotGeneric(QWidget):
         # If we got here, we are discarding all collected spectra.  Do the
         # operation on the app-state; it will fire the appropriate event to
         # cause the UI to update properly.
-        self._collected_spectra = []
+        self._collected_spectra.clear()
+        self._on_collected_spectra_changed(StateChange.ITEM_REMOVED, -1)
 
 
     def _on_show_all_spectra(self, treeitem):
@@ -1573,7 +1581,6 @@ class SpectrumPlot(SpectrumPlotGeneric):
         # Initialize widget's internal state
 
         self._app = app
-        self._app_state = app._app_state
 
         # What dataset are we showing spectra from on new mouse-clicks?
         self._dataset: RasterDataSet = None
@@ -1583,15 +1590,15 @@ class SpectrumPlot(SpectrumPlotGeneric):
 
         # Set up event handlers
 
-        self._app_state.active_spectrum_changed.connect(self._on_active_spectrum_changed)
-        self._app_state.collected_spectra_changed.connect(self._on_collected_spectra_changed)
+        app._app_state.active_spectrum_changed.connect(self._on_active_spectrum_changed)
+        app._app_state.collected_spectra_changed.connect(self._on_collected_spectra_changed)
 
-        self._app_state.spectral_library_added.connect(self._on_spectral_library_added)
-        self._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
+        app._app_state.spectral_library_added.connect(self._on_spectral_library_added)
+        app._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
 
-        self._app_state.dataset_removed.connect(self._on_dataset_removed)
+        app._app_state.dataset_removed.connect(self._on_dataset_removed)
 
-        super().__init__(parent=parent)
+        super().__init__(app._app_state, parent=parent)
 
     def _init_ui(self):
 
@@ -1628,9 +1635,6 @@ class SpectrumPlot(SpectrumPlotGeneric):
         self._toolbar.addWidget(tbtn_load_spectra)
 
         super()._init_ui()
-
-    def get_app_state(self):
-        return self._app_state
 
     def _on_dataset_changed(self, act):
         (_, ds_id) = act.data()
