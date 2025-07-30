@@ -31,7 +31,7 @@ from .context_pane import ContextPane
 from .main_view import MainViewWidget
 from .zoom_pane import ZoomPane
 
-from .spectrum_plot import SpectrumPlot
+from .spectrum_plot import SpectrumPlot, SpectrumPlotGeneric
 from .infoview import DatasetInfoView
 
 from .image_coords_widget import ImageCoordsWidget
@@ -285,6 +285,10 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
 
+        
+        act = self._tools_menu.addAction(self.tr('Test Plot'))
+        act.triggered.connect(self.open_new_plot)
+
         act = self._tools_menu.addAction(self.tr('Geo Reference'))
         act.triggered.connect(self.show_geo_reference_dialog)
 
@@ -305,6 +309,13 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._help_menu.addAction(self.tr('Show WISER manual'))
         act.triggered.connect(self.show_wiser_manual)
+
+    
+    def open_new_plot(self):
+        new_plot = SpectrumPlotGeneric(self._app_state)
+        new_plot.setWindowModality(Qt.WindowModal)
+        new_plot.show()
+        new_plot.add_collected_spectrum(self._app_state.get_active_spectrum())
 
 
     def _init_toolbars(self):
