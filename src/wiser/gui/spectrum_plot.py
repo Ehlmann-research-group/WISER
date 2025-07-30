@@ -407,7 +407,6 @@ class SpectrumPlotGeneric(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
-
         #=====================================================================
         # General configuration for the spectrum plot
 
@@ -465,6 +464,9 @@ class SpectrumPlotGeneric(QWidget):
 
         # Initialize UI components of the widget
 
+        self._toolbar = QToolBar(self.tr('Spectrum Toolbar'), parent=self)
+        self._toolbar.setIconSize(QSize(20, 20))
+
         self._init_ui()
 
 
@@ -472,10 +474,6 @@ class SpectrumPlotGeneric(QWidget):
     
         #==================================================
         # TOOLBAR
-
-        self._toolbar = QToolBar(self.tr('Spectrum Toolbar'), parent=self)
-        self._toolbar.setIconSize(QSize(20, 20))
-
         # Plot-configuration button on the right
 
         spacer = QWidget()
@@ -1567,7 +1565,6 @@ class SpectrumPlotGeneric(QWidget):
 class SpectrumPlot(SpectrumPlotGeneric):
     
     def __init__(self, app, parent=None):
-        super().__init__(parent=parent)
 
         # Initialize widget's internal state
 
@@ -1576,7 +1573,10 @@ class SpectrumPlot(SpectrumPlotGeneric):
 
         # What dataset are we showing spectra from on new mouse-clicks?
         self._dataset: RasterDataSet = None
-        
+    
+        # Display state for the "active spectrum"
+        self._active_spectrum_color = None
+
         # Set up event handlers
 
         self._app_state.active_spectrum_changed.connect(self._on_active_spectrum_changed)
@@ -1587,9 +1587,10 @@ class SpectrumPlot(SpectrumPlotGeneric):
 
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
+        super().__init__(parent=parent)
+
     def _init_ui(self):
-        super()._init_ui()
-    
+
         #==================================================
         # TOOLBAR
 
@@ -1621,6 +1622,8 @@ class SpectrumPlot(SpectrumPlotGeneric):
         act.triggered.connect(self._app.import_spectra_from_textfile)
 
         self._toolbar.addWidget(tbtn_load_spectra)
+
+        super()._init_ui()
 
     def get_app_state(self):
         return self._app_state
