@@ -1299,6 +1299,11 @@ class SpectrumPlotGeneric(QWidget):
             self._click.remove_plot()
             self._click = None
 
+    def add_collected_spectrum(self, spectrum: Spectrum):
+        self._collected_spectra.append(spectrum)
+        index = len(self._collected_spectra)-1
+        self._on_collected_spectra_changed(StateChange.ITEM_ADDED, index=index)
+
     def _on_collected_spectra_changed(self, change, index):
         if change == StateChange.ITEM_ADDED:
             spectrum = self._collected_spectra[index]
@@ -1351,7 +1356,18 @@ class SpectrumPlotGeneric(QWidget):
 
 
     def _on_discard_spectrum(self, treeitem, display_confirm = True):
-        super()._on_discard_spectrum(treeitem, display_confirm)
+        spectrum = treeitem.data(0, Qt.UserRole)
+
+        if display_confirm:
+            # Get confirmation from the user.
+            confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
+                self.tr('Are you sure you want to discard this spectrum?') +
+                '\n\n' + spectrum.get_name())
+
+            if confirm != QMessageBox.Yes:
+                # User canceled the discard operation.
+                return
+
         # If we got here, we are discarding the spectrum.
         if treeitem.parent() is self._treeitem_collected:
             # The spectrum is in the collected spectra.
@@ -1364,9 +1380,15 @@ class SpectrumPlotGeneric(QWidget):
                 self._treeitem_collected.setHidden(True)
             '''
 
+        # Are we showing a point on the discarded spectrum?
+        if self._click is not None and self._click.get_spectrum() is spectrum:
+            self._click.remove_plot()
+            self._click = None
+
 
     def _remove_collected_spectrum_at_index(self, index):
-        del self._collected_spectra[index]
+        if 0 <= index < len(self._collected_spectra) - 1:
+            del self._collected_spectra[index]
 
 
     def _on_discard_collected_spectra(self):
