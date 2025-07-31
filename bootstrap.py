@@ -45,7 +45,7 @@ def ensure_env():
     # if env_dir.exists():
     #     clear_env(env_dir)
 
-    subprocess.run([uv_exec_path, "venv", str(env_dir), "--python", "3"], check=True)
+    subprocess.run([uv_exec_path, "venv", str(env_dir), "--python", "3.11"], check=True)
 
     try:
         res = subprocess.run(

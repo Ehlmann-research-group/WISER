@@ -14,7 +14,13 @@ result = subprocess.run(
 )
 
 datas = [('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath')]
-binaries = [('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\plugins\\platforms', 'platforms'), ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\plugins\\iconengines', 'iconengines'), ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'), ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\lib\\gdalplugins\\gdal_netCDF.dll', 'gdalplugins'), ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'), ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins')]
+binaries = [('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\plugins\\platforms', 'platforms'),
+            ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\plugins\\iconengines', 'iconengines'),
+            ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'),
+            ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\lib\\gdalplugins\\gdal_netCDF.dll', 'gdalplugins'),
+            ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'),
+            ('C:\\Users\\jgarc\\anaconda3\\envs\\intel-wiser\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins')
+            ]
 hiddenimports = ['PySide6.QtSvg', 'PySide6.QtXml']
 tmp_ret = collect_all('osgeo')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]

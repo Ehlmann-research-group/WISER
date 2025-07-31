@@ -1,6 +1,6 @@
 numpy
 pyside6
-gdal>=3.9
+gdal @ https://github.com/cgohlke/geospatial-wheels/releases/download/v2025.7.4/gdal-3.11.1-cp311-cp311-win_amd64.whl
 matplotlib
 astropy
 pyinstaller
@@ -12,5 +12,5 @@ netCDF4
 opencv-python
 psutil
 pyproj
-numba
+numba>=0.57.0
 scipy
