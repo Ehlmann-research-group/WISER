@@ -32,7 +32,6 @@ from wiser import plugins, raster
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
-from scipy.interpolate import interp1d
 
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 
