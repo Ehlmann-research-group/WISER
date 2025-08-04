@@ -37,6 +37,34 @@ class ContextMenuType(enum.Enum):
     # dataset (if available).
     ROI_PICK = 12
 
+class BatchProcessingInputType(enum.IntEnum):
+    '''
+    Types of variables that are supported as inputs
+    to the batch processing functionality
+    '''
+
+    IMAGE_CUBE = 1
+
+    IMAGE_BAND = 2
+
+    SPECTRUM = 3
+
+    NUMBER = 4
+
+class BatchProcessingOutputType(enum.IntEnum):
+    '''
+    Types of variables that are supported by the batch processing functionality
+    '''
+
+    # Should be of shape (bands, rows, cols)
+    IMAGE_CUBE = 1
+
+    # Should be of shape (rows, cols)
+    IMAGE_BAND = 2
+
+    # Should be of shape (bands,)
+    SPECTRUM = 3
+
 
 class Plugin(abc.ABC):
     ''' The base type for all WISER plugins. '''
@@ -198,5 +226,68 @@ class BandMathPlugin(Plugin):
         Band-math expressions are *case-insensitive*.  Therefore, all function
         names specified by a plugin are converted to lowercase when loaded into
         the band-math evaluator.
+        '''
+        pass
+
+class BatchProcessingPlugin(Plugin):
+    '''
+    This is the base type for plugins that provide custom batch processing
+    functions.
+    '''
+
+    def __init__(self):
+        super().__init__()
+
+    def get_ordered_input_types(self) -> List[BatchProcessingInputType]:
+        '''
+        Returns the ordered list of the input variable types as should be passed
+        into the :meth:`process` method.
+
+        These inputs are given to  :meth:`process` method as arrays.
+        '''
+        pass 
+
+    def get_ordered_output_types(self) -> List[BatchProcessingOutputType]:
+        '''
+        Returns the ordered list of the output variable types as are returned
+        by the :meth:`process` method.
+        '''
+        pass
+
+    def process(self, *args):
+        '''
+        Perform the batch processing operation on a single record of inputs.
+
+        :param inputs:  
+            A variable-length tuple of values, whose types and ordering
+            *must* exactly match those returned by
+            :meth:`get_ordered_input_types`.  For example, if
+            ``get_ordered_input_types()`` returns
+            ``[StringType, IntegerType, FloatType]``, then here:
+            
+            - ``inputs[0]`` will be a ``str``  
+            - ``inputs[1]`` will be an ``int``  
+            - ``inputs[2]`` will be a ``float``  
+
+        :type inputs: Tuple[Any, ...]
+
+        :returns:  
+            A tuple of output values, whose types and ordering *must*
+            exactly match those from :meth:`get_ordered_output_types`.
+            For example, if ``get_ordered_output_types()`` returns
+            ``[BooleanType, ListType]``, then here you must return
+            a 2-tuple ``(bool, list)``.
+
+        :rtype: Tuple[Any, ...]
+
+        :raises ValueError:  
+            If the number of ``inputs`` does not match
+            ``len(self.get_ordered_input_types())`` or if any value
+            is of the wrong Python type.
+
+        :raises BatchProcessingError:  
+            If any error occurs during processing (e.g.
+            computation failure, I/O error, etc.).  Raising this will
+            abort the entire batch.
         '''
         pass

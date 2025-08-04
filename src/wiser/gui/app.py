@@ -49,6 +49,7 @@ from . import bug_reporting
 
 from wiser import plugins
 
+from .batch_processing import BatchProcessing
 from .bandmath_dialog import BandMathDialog
 from .fits_loading_dialog import FitsSpectraLoadingDialog
 from .geo_reference_dialog import GeoReferencerDialog
@@ -65,6 +66,8 @@ from wiser.raster.data_cache import DataCache
 from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
+
+from multiprocessing import Process
 
 logger = logging.getLogger(__name__)
 
@@ -285,6 +288,9 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
 
+        act = self._tools_menu.addAction(self.tr('Batch Processing'))
+        act.triggered.connect(self.show_batch_processer)
+
         act = self._tools_menu.addAction(self.tr('Geo Reference'))
         act.triggered.connect(self.show_geo_reference_dialog)
 
@@ -293,6 +299,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr('Similarity Transform'))
         act.triggered.connect(self.show_similarity_transform_dialog)
+
+        act = self._tools_menu.addAction(self.tr('Similarity Transform'))
+        act.triggered.connect(self.test_multi_proc)
 
         # Help menu
 
@@ -305,6 +314,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._help_menu.addAction(self.tr('Show WISER manual'))
         act.triggered.connect(self.show_wiser_manual)
+
+    def test_multi_proc(self):
+        p = Process()
 
 
     def _init_toolbars(self):
@@ -774,6 +786,11 @@ class DataVisualizerApp(QMainWindow):
                 spectra = dialog.get_spectra()
                 library = ListSpectralLibrary(spectra, path=path)
                 self._app_state.add_spectral_library(library)
+
+
+    def show_batch_processer(self):
+        self._batch_processer = BatchProcessing(self._app_state)
+        self._batch_processer.show()
 
 
     def show_bandmath_dialog(self):

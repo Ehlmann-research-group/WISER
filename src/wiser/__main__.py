@@ -5,6 +5,7 @@ import logging
 import logging.config
 import os
 import sys
+import multiprocessing
 
 #============================================================================
 # Load gdal plugins into path and set gdal environment variables
@@ -236,4 +237,7 @@ def main():
 
 
 if __name__ == '__main__':
+    multiprocessing.freeze_support()
+    multiprocessing.set_start_method('spawn')
+
     main()

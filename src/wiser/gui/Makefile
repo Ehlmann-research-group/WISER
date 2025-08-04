@@ -13,6 +13,7 @@ FILENAMES=\
 	app_config_ui.py \
 	band_chooser_ui.py \
 	band_math_ui.py \
+	batch_processing_ui.py \
 	bug_reporting_dialog_ui.py \
 	channel_stretch_widget_ui.py \
 	dataset_editor_ui.py \

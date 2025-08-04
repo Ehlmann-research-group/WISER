@@ -3,7 +3,7 @@ import logging
 
 from typing import Any, Optional
 
-from .types import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin
+from .types import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin, BatchProcessingPlugin
 
 from PySide2.QtCore import QFile
 from PySide2.QtUiTools import QUiLoader
@@ -20,7 +20,8 @@ def is_plugin(obj: Any):
     '''
     return (isinstance(obj, ToolsMenuPlugin) or
             isinstance(obj, ContextMenuPlugin) or
-            isinstance(obj, BandMathPlugin))
+            isinstance(obj, BandMathPlugin) or
+            isinstance(obj, BatchProcessingPlugin))
 
 
 def instantiate(fully_qualified_class_name: str) -> Plugin:

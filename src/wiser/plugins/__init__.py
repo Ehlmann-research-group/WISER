@@ -3,7 +3,7 @@ Plug-in API for extending WISER.
 '''
 
 from .types import ContextMenuType
-from .types import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin
+from .types import Plugin, ToolsMenuPlugin, ContextMenuPlugin, BandMathPlugin, BatchProcessingPlugin
 
 from .decorators import log_exceptions
 
@@ -13,6 +13,7 @@ __all__ = [
     'ToolsMenuPlugin',
     'ContextMenuPlugin',
     'BandMathPlugin',
+    'BatchProcessingPlugin',
     'ContextMenuType',
     'log_exceptions',
     'load_ui_file',
