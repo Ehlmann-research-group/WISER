@@ -51,13 +51,15 @@ class JobRowWidget(QWidget):
     A single job row:
     | Job<ID> | inputs (grows) | outputs (grows) | [Run] [Cancel] |
     """
-    def __init__(self, app_state: 'ApplicationState', plugin: 'BatchProcessingPlugin', job_id: int, parent=None):
+    def __init__(self, app_state: 'ApplicationState', plugin: 'BatchProcessingPlugin', 
+                 list_widget: QListWidget, job_id: int, parent=None):
         super().__init__(parent)
 
         self._app_state = app_state
         self._plugin = plugin
         self._input_types = plugin.get_ordered_input_types()
         self._output_types = plugin.get_ordered_output_types()
+        self._list_widget = list_widget
 
         h = QHBoxLayout(self)
         h.setContentsMargins(4, 4, 4, 4)
@@ -108,23 +110,40 @@ class JobRowWidget(QWidget):
 
         h.addWidget(outputs_box, 1)
 
-        # Two stacked buttons
+        # — Run / Cancel / Remove buttons —
         btn_box = QWidget()
-        vbtn = QVBoxLayout(btn_box)
-        vbtn.setContentsMargins(0, 0, 0, 0)
+        vbtn    = QVBoxLayout(btn_box)
+        vbtn.setContentsMargins(0,0,0,0)
         vbtn.setSpacing(4)
-        vbtn.addWidget(QPushButton("Run"))
-        vbtn.addWidget(QPushButton("Cancel"))
+        run_btn    = QPushButton("Run")
+        cancel_btn = QPushButton("Cancel")
+        remove_btn = QPushButton("Remove")      # ← new button
+
+        vbtn.addWidget(run_btn)
+        vbtn.addWidget(cancel_btn)
+        vbtn.addWidget(remove_btn)              # ← add it here
         vbtn.addStretch()
         btn_box.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         h.addWidget(btn_box)
+
+        # wire up removal
+        remove_btn.clicked.connect(self._on_remove)
+    
+    def _on_remove(self):
+        # find my row in the list and take it out
+        lw = self._list_widget
+        for i in range(lw.count()):
+            if lw.itemWidget(lw.item(i)) is self:
+                lw.takeItem(i)
+                return
 
 class PluginRowWidget(QWidget):
     """
     A row that shows a plugin name, + / - buttons, and its own QListWidget
     containing JobRowWidgets.
     """
-    _job_id_counter = itertools.count(1)  # demo only
+    # _job_id_counter = itertools.count(1)  # demo only
+    MAX_VISIBLE_JOBS = 5    # show up to 5 rows, then scroll
 
     def __init__(self, app_state: 'ApplicationState', plugin_name: str, plugin: 'BatchProcessingPlugin', parent=None):
         super().__init__(parent)
@@ -136,7 +155,7 @@ class PluginRowWidget(QWidget):
         outer.setContentsMargins(4, 4, 4, 4)
         outer.setSpacing(6)
 
-        # --- Header bar ----------------------------------------------------
+        # Header bar
         header = QWidget()
         h = QHBoxLayout(header)
         h.setContentsMargins(0, 0, 0, 0)
@@ -148,37 +167,58 @@ class PluginRowWidget(QWidget):
         h.addStretch()  # push buttons to the far right
 
         btn_add = QPushButton("+")
-        btn_remove = QPushButton("-")
         btn_add.setFixedWidth(24)
-        btn_remove.setFixedWidth(24)
         h.addWidget(btn_add)
-        h.addWidget(btn_remove)
+
+        # header.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # header.setFixedHeight(20)
 
         outer.addWidget(header)
 
-        # --- Job list ------------------------------------------------------
+        # Job list 
         self.jobList = QListWidget()
         self.jobList.setSelectionMode(QAbstractItemView.SingleSelection)
         outer.addWidget(self.jobList)
 
-        # --- Wire up buttons ----------------------------------------------
+        # Wire up buttons
         btn_add.clicked.connect(self._add_job)
-        btn_remove.clicked.connect(self._remove_selected_job)
 
-    # ---------------------------------------------------------------------
     # Slots
     def _add_job(self):
-        job_id = next(self._job_id_counter)
-        widget = JobRowWidget(self._app_state, self._plugin, job_id)
+        # job_id = next(self._job_id_counter)
+        job_id = self.jobList.count() + 1
+        widget = JobRowWidget(self._app_state, self._plugin, self.jobList, job_id)
         item = QListWidgetItem(self.jobList)
         item.setSizeHint(widget.sizeHint())
         self.jobList.addItem(item)
         self.jobList.setItemWidget(item, widget)
+        self._update_job_list_height()
 
     def _remove_selected_job(self):
         row = self.jobList.currentRow()
         if row >= 0:
             self.jobList.takeItem(row)
+        self._update_job_list_height()
+
+        
+    def _update_job_list_height(self):
+        """
+        Resize jobList so it just fits its contents, up to MAX_VISIBLE_JOBS.
+        Beyond that it will scroll.
+        """
+        count = self.jobList.count()
+        if count == 0:
+            height = 0
+        else:
+            # assume uniform heights; pick the first row’s hint
+            row_h = self.jobList.sizeHintForRow(0)
+            # number of rows to actually show
+            rows = min(count, self.MAX_VISIBLE_JOBS)
+            # account for frame & spacing
+            frame = self.jobList.frameWidth() * 2
+            height = frame + row_h * rows
+
+        self.jobList.setFixedHeight(height)
 
 
 class BatchProcessing(QWidget):
