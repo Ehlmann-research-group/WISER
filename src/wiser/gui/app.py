@@ -50,6 +50,7 @@ from . import bug_reporting
 from wiser import plugins
 
 from .batch_processing import BatchProcessing
+from .batch_processing_wizard import BatchProcessingWizard
 from .bandmath_dialog import BandMathDialog
 from .fits_loading_dialog import FitsSpectraLoadingDialog
 from .geo_reference_dialog import GeoReferencerDialog
@@ -290,6 +291,9 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr('Batch Processing'))
         act.triggered.connect(self.show_batch_processer)
+        
+        act = self._tools_menu.addAction(self.tr('Batch Processing 2.0'))
+        act.triggered.connect(self.show_batch_processing_wizard)
 
         act = self._tools_menu.addAction(self.tr('Geo Reference'))
         act.triggered.connect(self.show_geo_reference_dialog)
@@ -787,6 +791,10 @@ class DataVisualizerApp(QMainWindow):
                 library = ListSpectralLibrary(spectra, path=path)
                 self._app_state.add_spectral_library(library)
 
+
+    def show_batch_processing_wizard(self):
+        self._batch_processing_wizard = BatchProcessingWizard()
+        self._batch_processing_wizard.exec_()
 
     def show_batch_processer(self):
         self._batch_processer = BatchProcessing(self._app_state)
