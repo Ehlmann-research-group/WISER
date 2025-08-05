@@ -520,12 +520,22 @@ class BandMathDialog(QDialog):
         elif variable_type == bandmath.VariableType.SPECTRUM:
             value_widget = make_spectrum_chooser(self._app_state)
             value_widget.activated.connect(self._on_variable_shape_change)
+            value_widget.activated.connect(lambda index: self._show_type(index, value_widget))
 
         else:
             raise AssertionError(f'Unrecognized variable type {variable_type}')
 
         return value_widget
 
+    def _show_type(self, index: int, value_widget: QComboBox):
+        '''
+        Get the spectrum at the index and show its type
+        '''
+        spectrum_id = value_widget.currentData()
+        spectrum = self._app_state.get_spectrum(spectrum_id)
+        print(f'spectrum type: {type(spectrum)}')
+        print(f'spectrum: {spectrum}')
+        print(f'spectrum name: {spectrum.get_name()}')
 
     def _on_variable_type_change(self, type_index: int, var_name: str):
         '''

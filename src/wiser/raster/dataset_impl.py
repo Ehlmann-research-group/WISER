@@ -63,6 +63,13 @@ emit_data_names = set(['reflectance', 'reflectance_uncertainty', 'mask', \
 
 class RasterDataImpl(abc.ABC):
 
+    def copy(self) -> 'RasterDataImpl':
+        '''
+        Creates a copy of this raster data implementation.
+        This is an abstract method that must be implemented by subclasses.
+        '''
+        raise NotImplementedError("Subclasses must implement copy()")
+
     def get_format(self) -> str:
         ''' Returns a string describing the raster data format. '''
         pass
@@ -208,6 +215,23 @@ class GDALRasterDataImpl(RasterDataImpl):
                 raise ValueError('Cannot handle raster data with bands that ' +
                     'have different data-ignore values per band.')
 
+    def copy(self) -> 'GDALRasterDataImpl':
+        '''
+        Creates a copy of this GDAL raster data implementation.
+        Since GDAL datasets are file-based, we reopen the dataset from the file.
+        '''
+        # Reopen the dataset from the file to create a fresh copy
+        new_dataset = self.reopen_dataset()
+        
+        if new_dataset is None:
+            raise ValueError(f"Unable to reopen dataset from {self.get_filepaths()[0]} for copying")
+        
+        copy_impl = GDALRasterDataImpl(new_dataset)
+        copy_impl.subdataset_key = self.subdataset_key
+        copy_impl.subdataset_name = self.subdataset_name
+        copy_impl._save_state = self._save_state
+        return copy_impl
+
     def get_format(self) -> str:
         return self.gdal_dataset.GetDriver().ShortName
 
@@ -298,7 +322,6 @@ class GDALRasterDataImpl(RasterDataImpl):
                                            yoff=y, ysize=dy,
                                            band_list=band_list)
         return np_array
-            
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
         '''
@@ -526,6 +549,16 @@ class PDRRasterDataImpl(RasterDataImpl):
         self.ndims = None
         self.initialize_constants()
 
+    def copy(self) -> 'PDRRasterDataImpl':
+        '''
+        Creates a copy of this PDR raster data implementation.
+        Since PDR datasets are file-based, we reopen the dataset from the file.
+        '''
+        new_pdr_dataset = self.reopen_dataset()
+        copy_impl = PDRRasterDataImpl(new_pdr_dataset)
+        copy_impl._save_state = getattr(self, '_save_state', SaveState.UNKNOWN)
+        return copy_impl
+
     def get_format(self) -> str:
         raise NotImplementedError()
 
@@ -706,6 +739,7 @@ class PDRRasterDataImpl(RasterDataImpl):
     def __del__(self):
         pass
 
+
 class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
     '''
     Currently this JP2 reader does not work with multithreading even 
@@ -763,6 +797,29 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
         self.ndims = None
         self.initialize_constants()
         super().__init__(gdal_dataset)
+
+    def copy(self) -> 'JP2_GDAL_PDR_RasterDataImpl':
+        '''
+        Creates a copy of this JP2 GDAL PDR raster data implementation.
+        Since both PDR and GDAL datasets are file-based, we reopen both from the file.
+        '''
+        filepath = self.get_filepaths()[0]
+        new_pdr_dataset = pdr.read(filepath)
+        
+        # Reopen GDAL dataset
+        driver = self.gdal_dataset.GetDriver().ShortName
+        new_gdal_dataset = gdal.OpenEx(filepath, 
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=[driver])
+        
+        if new_gdal_dataset is None:
+            raise ValueError(f"Unable to reopen GDAL dataset from {filepath} for copying")
+        
+        copy_impl = JP2_GDAL_PDR_RasterDataImpl(new_pdr_dataset, new_gdal_dataset)
+        copy_impl.subdataset_key = self.subdataset_key
+        copy_impl.subdataset_name = self.subdataset_name
+        copy_impl._save_state = self._save_state
+        return copy_impl
 
     def initialize_constants(self):
         # This line should be before the others since the other functions use self.ndims
@@ -911,7 +968,6 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
         else:
             raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_all_bands_at_rect')
 
-    
 
 class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     def get_format(self):
@@ -929,6 +985,16 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     
     def __init__(self, pdr_dataset):
         super().__init__(pdr_dataset)
+
+    def copy(self) -> 'JP2_PDRRasterDataImpl':
+        '''
+        Creates a copy of this JP2 PDR raster data implementation.
+        Since PDR datasets are file-based, we reopen the dataset from the file.
+        '''
+        new_pdr_dataset = self.reopen_dataset()
+        copy_impl = JP2_PDRRasterDataImpl(new_pdr_dataset)
+        copy_impl._save_state = getattr(self, '_save_state', SaveState.UNKNOWN)
+        return copy_impl
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -963,6 +1029,13 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+    def copy(self) -> 'GTiff_GDALRasterDataImpl':
+        '''
+        Creates a copy of this GeoTIFF GDAL raster data implementation.
+        '''
+        gdal_dataset = self.reopen_dataset()
+        return GTiff_GDALRasterDataImpl(gdal_dataset)
+
 class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def get_load_filename(cls, path: str) -> str:
@@ -987,6 +1060,13 @@ class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
+
+    def copy(self) -> 'ASC_GDALRasterDataImpl':
+        '''
+        Creates a copy of this ASCII Grid GDAL raster data implementation.
+        '''
+        gdal_dataset = self.reopen_dataset()
+        return ASC_GDALRasterDataImpl(gdal_dataset)
 
 class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -1056,6 +1136,13 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
+
+    def copy(self) -> 'FITS_GDALRasterDataImpl':
+        '''
+        Creates a copy of this FITS GDAL raster data implementation.
+        '''
+        gdal_dataset = self.reopen_dataset()
+        return FITS_GDALRasterDataImpl(gdal_dataset)
 
     def get_image_data(self):
         '''
@@ -1128,6 +1215,12 @@ class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+    def copy(self) -> 'PDS3_GDALRasterDataImpl':
+        '''
+        Creates a copy of this PDS3 GDAL raster data implementation.
+        '''
+        gdal_dataset = self.reopen_dataset()
+        return PDS3_GDALRasterDataImpl(gdal_dataset)
 
 class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -1148,6 +1241,13 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
+
+    def copy(self) -> 'PDS4_GDALRasterDataImpl':
+        '''
+        Creates a copy of this PDS4 GDAL raster data implementation.
+        '''
+        gdal_dataset = self.reopen_dataset()
+        return PDS4_GDALRasterDataImpl(gdal_dataset)
 
 class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -1195,6 +1295,34 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             geotransform = (0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
         self._geotransform: Tuple[int, int, int, int, int, int] = geotransform
         self._subdataset_name = subdataset_name
+
+    def copy(self) -> 'NetCDF_GDALRasterDataImpl':
+        '''
+        Creates a copy of this NetCDF GDAL raster data implementation.
+        '''
+        # Reopen the NetCDF dataset
+        filepath = self.get_filepaths()[0]
+        new_netcdf_dataset = nc.Dataset(filepath)
+        
+        # Reopen the GDAL dataset
+        driver = self.gdal_dataset.GetDriver().ShortName
+        new_gdal_dataset = gdal.OpenEx(filepath, 
+            nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR,
+            allowed_drivers=[driver])
+        
+        if new_gdal_dataset is None:
+            raise ValueError(f"Unable to reopen GDAL dataset from {filepath} for copying")
+        
+        copy_impl = NetCDF_GDALRasterDataImpl(
+            new_gdal_dataset, new_netcdf_dataset,
+            self._subdataset_name, self._spatial_ref,
+            self._wavelength_units, self._wavelengths,
+            self._geotransform
+        )
+        copy_impl.subdataset_key = self.subdataset_key
+        copy_impl.subdataset_name = self.subdataset_name
+        copy_impl._save_state = self._save_state
+        return copy_impl
 
     @contextmanager
     def _quiet_gdal_warnings(self):
@@ -1422,6 +1550,12 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+    def copy(self) -> 'JP2_GDALRasterDataImpl':
+        '''
+        Creates a copy of this JP2 GDAL raster data implementation.
+        '''
+        gdal_dataset = self.reopen_dataset()
+        return JP2_GDALRasterDataImpl(gdal_dataset)
 
 class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
@@ -1744,6 +1878,12 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         md = self.gdal_dataset.GetMetadata('ENVI')
         logger.info(f'ENVI metadata is:\n{pprint.pformat(md)}')
 
+    def copy(self) -> 'ENVI_GDALRasterDataImpl':
+        '''
+        Creates a copy of this ENVI GDAL raster data implementation.
+        '''
+        gdal_dataset = self.reopen_dataset()
+        return ENVI_GDALRasterDataImpl(gdal_dataset)
 
     def read_description(self) -> Optional[str]:
         '''
@@ -1888,6 +2028,13 @@ class NumPyRasterDataImpl(RasterDataImpl):
 
     def __init__(self, arr: np.ndarray):
         self._arr = arr
+
+    def copy(self) -> 'NumPyRasterDataImpl':
+        '''
+        Creates a copy of this NumPy raster data implementation.
+        The underlying array is copied to avoid sharing memory.
+        '''
+        return NumPyRasterDataImpl(self._arr.copy())
 
     def get_format(self) -> str:
         ''' Returns a string describing the raster data format. '''

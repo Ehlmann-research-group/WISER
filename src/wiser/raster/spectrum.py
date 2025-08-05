@@ -396,6 +396,38 @@ class Spectrum(abc.ABC):
     def is_discardable(self) -> bool:
         # By default, spectra are discardable.
         return True
+    
+    def copy(self) -> 'NumPyArraySpectrum':
+        """
+        Return a deep-copy of this spectrum, wrapped in a NumPyArraySpectrum.
+        Carries over name, source_name, wavelengths, editability, discardability,
+        color and ID.
+        """
+        # 1) copy the raw data
+        arr_copy = np.array(self.get_spectrum(), copy=True)
+
+        # 2) prepare metadata
+        name        = self.get_name()
+        source_name = self.get_source_name()
+        wavelengths = self.get_wavelengths() if self.has_wavelengths() else None
+        editable    = self.is_editable()
+        discardable = self.is_discardable()
+
+        # 3) build the new NumPyArraySpectrum
+        new_spec = NumPyArraySpectrum(
+            arr=arr_copy,
+            name=name,
+            source_name=source_name,
+            wavelengths=wavelengths,
+            editable=editable,
+            discardable=discardable
+        )
+
+        # 4) copy over optional fields
+        new_spec.set_color(self.get_color())
+        new_spec.set_id(self.get_id())
+
+        return new_spec
 
 
 #===============================================================================
