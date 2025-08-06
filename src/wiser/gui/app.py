@@ -793,7 +793,7 @@ class DataVisualizerApp(QMainWindow):
 
 
     def show_batch_processing_wizard(self):
-        self._batch_processing_wizard = BatchProcessingWizard()
+        self._batch_processing_wizard = BatchProcessingWizard(self._app_state)
         self._batch_processing_wizard.exec_()
 
     def show_batch_processer(self):
