@@ -6,6 +6,9 @@ from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QMessageBox
 
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
+
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color
 
@@ -146,6 +149,8 @@ class ApplicationState(QObject):
         # The key is the CRS name.
         self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
+        self._process_pool_executor: ProcessPoolExecutor = None
+
 
     def _take_next_id(self) -> int:
         '''
@@ -166,6 +171,13 @@ class ApplicationState(QObject):
 
     def get_plugins(self) -> Dict[str, Plugin]:
         return dict(self._plugins)
+
+
+    def get_process_pool_executor(self) -> ProcessPoolExecutor:
+        if self._process_pool_executor is None or getattr(self._process_pool_executor, "_shutdown", False):
+            # ctx = mp.get_context("fork")
+            self._process_pool_executor = ProcessPoolExecutor(max_workers=1)
+        return self._process_pool_executor
 
 
     def get_loader(self):

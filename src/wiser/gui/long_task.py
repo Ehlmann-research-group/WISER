@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *

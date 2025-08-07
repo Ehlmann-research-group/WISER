@@ -11,6 +11,9 @@ import webbrowser
 
 from typing import Dict, List, Optional, Tuple
 
+from wiser.gui.long_task import LongRunningTask
+from wiser.gui.test_processing import submit_tasks_mimic, process_mimic
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -89,6 +92,8 @@ class DataVisualizerApp(QMainWindow):
         super().__init__(None)
         self.setWindowTitle(self.tr('Workbench for Imaging Spectroscopy Exploration and Research'))
         self.setWindowIcon(QIcon(':/icons/wiser.ico'))
+
+        self._long_running_task = None
 
         # Internal state
 
@@ -295,6 +300,9 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr('Batch Processing 2.0'))
         act.triggered.connect(self.show_batch_processing_wizard)
 
+        act = self._tools_menu.addAction(self.tr('Fun Multiprocessing stuff'))
+        act.triggered.connect(self.fun_multiprocessing_stuff)
+
         act = self._tools_menu.addAction(self.tr('Geo Reference'))
         act.triggered.connect(self.show_geo_reference_dialog)
 
@@ -322,6 +330,21 @@ class DataVisualizerApp(QMainWindow):
     def test_multi_proc(self):
         p = Process()
 
+    def fun_multiprocessing_stuff(self):
+        path_list = ["C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\BatchProcessingTest\\InputFiles\\ang20160910t185702_rdn_v2n2_clip_subset", \
+                     "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\BatchProcessingTest\\InputFiles\\ang20171108t184227_corr_v2p13_subset_bil"]
+        self._long_running_task = LongRunningTask(submit_tasks_mimic, {'process_pool_executor': self._app_state.get_process_pool_executor(),
+                                                                       'func': process_mimic, 
+                                                                       'unique_files': path_list})
+        self._long_running_task.started.connect(self.long_running_task_start)
+        self._long_running_task.finished.connect(self.long_running_task_ended)
+        self._long_running_task.start()
+
+    def long_running_task_start(self):
+        print(f"Long Running Task Started!@#$")
+
+    def long_running_task_ended(self):
+        print(f"Long Running Task Ended!@#$")
 
     def _init_toolbars(self):
         act = add_toolbar_action(self._main_toolbar, ':/icons/open-image.svg',

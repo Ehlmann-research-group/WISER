@@ -1,18 +1,35 @@
 from __future__ import annotations
 import os
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Tuple
+from concurrent.futures import as_completed, ProcessPoolExecutor
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from wiser import plugins
+from wiser.gui.long_task import LongRunningTask
 
 from .generated.batch_processing_wizard_ui import Ui_BatchProcessingWizard
 
 if TYPE_CHECKING:
     from .app_state import ApplicationState
+
+def submit_tasks(process_pool_executor: ProcessPoolExecutor, plugin: plugins.BatchProcessingPlugin, unique_files: List[str]) -> None:
+    for path in unique_files:
+        future_to_path = {
+            process_pool_executor.submit(plugin.process, path): path
+            for path in unique_files
+            }
+    for future in as_completed(future_to_path):
+        path = future_to_path[future]
+        try:
+            future.result()
+            print(f"Processed {path}")
+        except Exception as e:
+            print(f"Error processing {path}: {e}")
 
 def _folder_selector(parent: QWidget, line_edit: QLineEdit, title: str) -> None:
     """Open ``QFileDialog`` and put the chosen directory in *line_edit*."""
@@ -35,6 +52,27 @@ def _path_cell(parent: QWidget, title: str) -> Tuple[QWidget, QLineEdit]:
     layout.addWidget(edit, 1)
     layout.addWidget(btn, 0)
     return container, edit
+
+def list_all_files(folder_path: str) -> List[Path]:
+    """
+    Return a list of all files (with extensions) in the given folder (non-recursive).
+    """
+    p = Path(folder_path)
+    return [f.resolve() for f in p.iterdir() if f.is_file()]
+
+def filter_unique_by_basename(files: List[Path]) -> List[Path]:
+    """
+    Given a list of file Paths, remove any files that share the same stem
+    (base filename without extension), keeping only the first occurrence.
+    """
+    unique: dict[str, Path] = {}
+    for f in files:
+        stem = f.stem
+        if stem not in unique:
+            unique[stem] = f
+    return list(unique.values())
+
+
 
 class BatchProcessingWizard(QWizard):
     """Interactive wizard for batch‑processing plugins."""
@@ -382,11 +420,65 @@ class BatchProcessingWizard(QWizard):
     # Connect Designer buttons -------------------------------------------------------------------------
     # -------------------------------------------------------------------------------------------------
 
-    def _on_run_clicked(self) -> None:  # noqa: D401 – slot
-        # Placeholder – emit a signal or call the application’s batch runner
-        QMessageBox.information(self, "Run", "Batch running not implemented yet.")
+    def _on_long_task_started(self, long_thread: LongRunningTask) -> None:
+        print(f"Long task started: {long_thread}")
+    
+    def _on_long_task_finished(self, long_thread: LongRunningTask) -> None:
+        print(f"Long task finished: {long_thread}")
+        if long_thread.has_error():
+            print(f"Error: {long_thread.get_error()}")
+        else:
+            print(f"Processed {long_thread.get_result()}")
 
-    def _on_cancel_clicked(self) -> None:  # noqa: D401 – slot
+    def _on_run_clicked(self) -> None:
+        process_pool_executor = self._app_state.get_process_pool_executor()
+        # Gather and print out each plugin’s selection
+        for fq_name, plugin in self._plugins_to_run:
+            # Print the plugin name (fully-qualified) and the plugin object itself
+            print(f"Plugin name: {fq_name}")
+            print("Plugin object:", plugin)
+
+            # Derive the short name to look up our stored paths
+            short_name = fq_name.split(".")[-1]
+
+            # Look up input and output folder lists
+            input_dirs = self._input_paths.get(short_name, [])
+            output_dirs = self._output_paths.get(short_name, [])
+
+            # Print the folder paths
+            print("  Input folders:")
+            for idx, path in enumerate(input_dirs, start=1):
+                print(f"    {idx}: {path!r}")
+                unique_files = filter_unique_by_basename(list_all_files(path))
+                long_thread = LongRunningTask(submit_tasks, {'process_pool_executor': process_pool_executor, 'plugin': plugin, 'unique_files': unique_files})
+                long_thread.started.connect(self._on_long_task_started)
+                long_thread.finished.connect(self._on_long_task_finished)
+                long_thread.start()
+
+                # future_to_path = {
+                #     process_pool_executor.submit(plugin.process, path): path
+                #     for path in unique_files
+                #     }   
+                # for future in as_completed(future_to_path):
+                #     path = future_to_path[future]
+                #     try:
+                #         future.result()
+                #         print(f"Processed {path}")
+                #     except Exception as e:
+                #         print(f"Error processing {path}: {e}")
+
+
+            print("  Output folders:")
+            for idx, path in enumerate(output_dirs, start=1):
+                print(f"    {idx}: {path!r}")
+
+            print("-" * 40)
+
+        # Notify user that plan has been printed
+        QMessageBox.information(self, "Run", "Batch plan has been printed to the console.")
+
+
+    def _on_cancel_clicked(self) -> None:
         self.reject()
 
 
