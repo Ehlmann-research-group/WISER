@@ -319,6 +319,18 @@ class BandMathDialog(QDialog):
         }
 
 
+    def get_batch_processing_ui_components(self) -> List[QWidget]:
+        ui_components = [
+            self._ui.lbl_input_folder,
+            self._ui.ledit_input_folder,
+            self._ui.btn_input_folder,
+            self._ui.lbl_output_folder,
+            self._ui.ledit_output_folder,
+            self._ui.btn_output_folder,
+        ]
+        return ui_components
+
+
     def _on_toggle_help(self, checked=False):
         is_visible = self._ui.tedit_bandmath_help.isVisible()
         dialog_size = self.size()

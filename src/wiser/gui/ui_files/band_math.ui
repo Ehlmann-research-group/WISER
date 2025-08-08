@@ -13,15 +13,15 @@
   <property name="windowTitle">
    <string>Band Math</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="1,0,0">
-   <item row="11" column="0" colspan="2">
-    <widget class="Line" name="line">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+  <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="1,0,0">
+   <item row="18" column="1">
+    <widget class="QPushButton" name="btn_load_saved_exprs">
+     <property name="text">
+      <string>Load from file...</string>
      </property>
     </widget>
    </item>
-   <item row="8" column="0" rowspan="2" colspan="2">
+   <item row="14" column="0" rowspan="2" colspan="2">
     <widget class="QLabel" name="lbl_result_info">
      <property name="text">
       <string>Result:  (unknown)</string>
@@ -32,33 +32,13 @@
     </widget>
    </item>
    <item row="13" column="1">
-    <widget class="QPushButton" name="btn_save_saved_exprs">
+    <widget class="QPushButton" name="btn_create_batch_job">
      <property name="text">
-      <string>Save to file...</string>
+      <string>Create Batch Job</string>
      </property>
     </widget>
    </item>
-   <item row="12" column="0">
-    <widget class="QLabel" name="lbl_saved_exprs">
-     <property name="text">
-      <string>Saved expressions:</string>
-     </property>
-     <property name="buddy">
-      <cstring>cbox_saved_exprs</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="0">
-    <widget class="QLineEdit" name="ledit_expression"/>
-   </item>
-   <item row="12" column="1">
-    <widget class="QPushButton" name="btn_load_saved_exprs">
-     <property name="text">
-      <string>Load from file...</string>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="0" colspan="2">
+   <item row="12" column="0" colspan="2">
     <widget class="QTableWidget" name="tbl_variables">
      <property name="horizontalScrollBarPolicy">
       <enum>Qt::ScrollBarAlwaysOn</enum>
@@ -86,34 +66,35 @@
      </column>
     </widget>
    </item>
-   <item row="3" column="0">
-    <widget class="QLabel" name="lbl_math_expr">
+   <item row="6" column="1">
+    <widget class="QPushButton" name="btn_input_folder">
      <property name="text">
-      <string>Expression:</string>
-     </property>
-     <property name="buddy">
-      <cstring>ledit_expression</cstring>
+      <string>...</string>
      </property>
     </widget>
    </item>
-   <item row="3" column="1">
-    <widget class="QPushButton" name="btn_toggle_help">
+   <item row="10" column="0" rowspan="2" colspan="2">
+    <widget class="QLabel" name="lbl_variables">
      <property name="text">
-      <string>Toggle Help</string>
+      <string>Variable bindings:</string>
      </property>
     </widget>
    </item>
-   <item row="13" column="0">
-    <widget class="QComboBox" name="cbox_saved_exprs"/>
+   <item row="8" column="0">
+    <layout class="QHBoxLayout" name="hlayout_ouput_folder">
+     <item>
+      <widget class="QLabel" name="lbl_output_folder">
+       <property name="text">
+        <string>Output Folder (Optional):</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="ledit_output_folder"/>
+     </item>
+    </layout>
    </item>
-   <item row="4" column="1">
-    <widget class="QPushButton" name="btn_add_to_saved">
-     <property name="text">
-      <string>Save expression</string>
-     </property>
-    </widget>
-   </item>
-   <item row="20" column="0" colspan="2">
+   <item row="26" column="0" colspan="2">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -123,7 +104,51 @@
      </property>
     </widget>
    </item>
-   <item row="3" column="2" rowspan="11">
+   <item row="16" column="0" colspan="2">
+    <widget class="QWidget" name="wgt_result_name" native="true">
+     <layout class="QGridLayout" name="gridLayout_2">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="lbl_result_name">
+        <property name="text">
+         <string>Result name (optional):</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_result_name</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="ledit_result_name"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="19" column="1">
+    <widget class="QPushButton" name="btn_save_saved_exprs">
+     <property name="text">
+      <string>Save to file...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="19" column="0">
+    <widget class="QComboBox" name="cbox_saved_exprs"/>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLineEdit" name="ledit_expression"/>
+   </item>
+   <item row="3" column="2" rowspan="17">
     <widget class="QTextEdit" name="tedit_bandmath_help">
      <property name="focusPolicy">
       <enum>Qt::NoFocus</enum>
@@ -175,42 +200,97 @@ p, li { white-space: pre-wrap; }
      </property>
     </widget>
    </item>
-   <item row="5" column="0" rowspan="2" colspan="2">
-    <widget class="QLabel" name="lbl_variables">
+   <item row="4" column="1">
+    <widget class="QPushButton" name="btn_add_to_saved">
      <property name="text">
-      <string>Variable bindings:</string>
+      <string>Save expression</string>
      </property>
     </widget>
    </item>
-   <item row="10" column="0" colspan="2">
-    <widget class="QWidget" name="wgt_result_name" native="true">
-     <layout class="QGridLayout" name="gridLayout_2">
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="lbl_result_name">
-        <property name="text">
-         <string>Result name (optional):</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_result_name</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="ledit_result_name"/>
-      </item>
-     </layout>
+   <item row="18" column="0">
+    <widget class="QLabel" name="lbl_saved_exprs">
+     <property name="text">
+      <string>Saved expressions:</string>
+     </property>
+     <property name="buddy">
+      <cstring>cbox_saved_exprs</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="17" column="0" colspan="2">
+    <widget class="Line" name="line">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="0">
+    <layout class="QHBoxLayout" name="hlayout_load_into_wiser">
+     <item>
+      <spacer name="hspacer_load_into_wiser">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="chkbox_load_into_wiser">
+       <property name="text">
+        <string>Load Result Into WISER</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="lbl_math_expr">
+     <property name="text">
+      <string>Expression:</string>
+     </property>
+     <property name="buddy">
+      <cstring>ledit_expression</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <layout class="QHBoxLayout" name="hlayout_input_folder">
+     <item>
+      <widget class="QLabel" name="lbl_input_folder">
+       <property name="text">
+        <string>Input Folder:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="ledit_input_folder"/>
+     </item>
+    </layout>
+   </item>
+   <item row="5" column="0">
+    <widget class="QCheckBox" name="chkbox_enable_batch">
+     <property name="text">
+      <string>Enable Batch Processing</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QPushButton" name="btn_toggle_help">
+     <property name="text">
+      <string>Toggle Help</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="1">
+    <widget class="QPushButton" name="btn_output_folder">
+     <property name="text">
+      <string>...</string>
+     </property>
     </widget>
    </item>
   </layout>
