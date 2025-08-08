@@ -351,6 +351,14 @@ class BandMathDialog(QDialog):
             if isinstance(element, QWidget):
                 element.setVisible(is_enabled)
 
+        dialog_size = self.size()
+        batch_job_table_size = self._ui.tbl_wdgt_batch_jobs.size()
+        self._ui.tbl_wdgt_batch_jobs.setVisible(is_enabled)
+        if is_enabled:
+            dialog_size.setWidth(dialog_size.height() + batch_job_table_size.height())
+        else:
+            dialog_size.setWidth(dialog_size.width() - batch_job_table_size.width())
+
         if is_enabled:
             self._ui.lbl_result_name.setText(self.tr('Result prefix (required):'))
         else:
