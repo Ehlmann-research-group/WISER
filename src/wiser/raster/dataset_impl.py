@@ -170,8 +170,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         self.subdataset_key = None
         self.subdataset_name = None
         self.data_ignore: Optional[Union[float, int]] = None
-        self._validate_dataset()
         self._save_state = SaveState.UNKNOWN
+        self._validate_dataset()
 
     def _validate_dataset(self):
         '''
