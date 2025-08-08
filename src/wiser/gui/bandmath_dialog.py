@@ -318,17 +318,43 @@ class BandMathDialog(QDialog):
             bandmath.VariableType.STRING: self.tr('String'),
         }
 
+        self._init_batch_process_ui()
 
-    def get_batch_processing_ui_components(self) -> List[QWidget]:
+    def _init_batch_process_ui(self):
+        self._ui.chkbox_enable_batch.stateChanged.connect(self._on_enable_batch_changed)
+        self._sync_batch_process_ui()
+
+
+    def _get_batch_processing_ui_components(self) -> List[QObject]:
         ui_components = [
+            self._ui.hlayout_input_folder,
             self._ui.lbl_input_folder,
             self._ui.ledit_input_folder,
             self._ui.btn_input_folder,
+            self._ui.hlayout_output_folder,
             self._ui.lbl_output_folder,
             self._ui.ledit_output_folder,
             self._ui.btn_output_folder,
+            self._ui.hlayout_load_into_wiser,
+            self._ui.chkbox_load_into_wiser,
+            self._ui.btn_create_batch_job
         ]
         return ui_components
+
+    def _on_enable_batch_changed(self, state: int):
+        self._sync_batch_process_ui()
+
+    def _sync_batch_process_ui(self):
+        is_enabled = self._ui.chkbox_enable_batch.isChecked()
+        batch_process_ui_elements = self._get_batch_processing_ui_components()
+        for element in batch_process_ui_elements:
+            if isinstance(element, QWidget):
+                element.setVisible(is_enabled)
+
+        if is_enabled:
+            self._ui.lbl_result_name.setText(self.tr('Result prefix (required):'))
+        else:
+            self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
 
 
     def _on_toggle_help(self, checked=False):

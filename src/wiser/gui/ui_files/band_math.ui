@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>728</width>
-    <height>460</height>
+    <width>727</width>
+    <height>457</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -81,11 +81,11 @@
     </widget>
    </item>
    <item row="8" column="0">
-    <layout class="QHBoxLayout" name="hlayout_ouput_folder">
+    <layout class="QHBoxLayout" name="hlayout_output_folder">
      <item>
       <widget class="QLabel" name="lbl_output_folder">
        <property name="text">
-        <string>Output Folder (Optional):</string>
+        <string>Output Folder (optional):</string>
        </property>
       </widget>
      </item>
