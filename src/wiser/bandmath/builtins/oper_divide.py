@@ -39,8 +39,21 @@ class OperatorDivide(BandMathFunction):
 
         # If we got here, we are dividing more complex data types.
 
-        if lhs.result_type == VariableType.IMAGE_CUBE:
+        if lhs.result_type == VariableType.IMAGE_CUBE_BATCH:
             # Dimensions:  [band][y][x]
+            # Because this is a batch variable, we don't set the metadata
+            # here since we do not have it until the user runs the batch
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+            info.elem_type = np.float32
+            return info
+
+        elif lhs.result_type == VariableType.IMAGE_CUBE:
+            # Dimensions:  [band][y][x]
+
+            if rhs.result_type == VariableType.IMAGE_BAND_BATCH:
+                info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+                info.elem_type = np.float32
+                return info
 
             # See if we can actually divide LHS with RHS.
             check_image_cube_compatible(rhs, lhs.shape)
@@ -55,6 +68,12 @@ class OperatorDivide(BandMathFunction):
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
 
+            return info
+
+        elif lhs.result_type == VariableType.IMAGE_BAND_BATCH:
+            # Dimensions:  [y][x]
+            info = BandMathExprInfo(VariableType.IMAGE_BAND_BATCH)
+            info.elem_type = np.float32
             return info
 
         elif lhs.result_type == VariableType.IMAGE_BAND:

@@ -571,8 +571,6 @@ class BandMathDialog(QDialog):
 
         if folder:
             folder = os.path.normpath(folder)
-            print(f"input path: {self._ui.ledit_input_folder.text().strip()}")
-            print(f"output path: {folder}")
             if folder == os.path.normpath(self._ui.ledit_input_folder.text().strip()):
                 QMessageBox.warning(
                     self._ui.ledit_output_folder.window(),
@@ -600,8 +598,6 @@ class BandMathDialog(QDialog):
 
         if folder:
             folder = os.path.normpath(folder)
-            print(f"input path: {folder}")
-            print(f"output path: {self._ui.ledit_output_folder.text().strip()}")
             if folder == os.path.normpath(self._ui.ledit_output_folder.text().strip()):
                 QMessageBox.warning(
                     self._ui.ledit_input_folder.window(),
@@ -610,12 +606,13 @@ class BandMathDialog(QDialog):
                 )
                 return
             self._ui.ledit_input_folder.setText(folder)
+            self._analyze_expr()
     
     def _get_input_folder(self):
-        self._ui.ledit_input_folder.text()
+        return self._ui.ledit_input_folder.text()
 
     def _get_output_folder(self):
-        self._ui.ledit_output_folder.text()
+        return self._ui.ledit_output_folder.text()
 
     def _is_loud_results_enabled(self):
         return self._ui.chkbox_load_into_wiser.isChecked()
@@ -709,6 +706,7 @@ class BandMathDialog(QDialog):
             self._sync_binding_table_with_variables(variables)
 
             bindings = self.get_variable_bindings()
+            
             if not all_bindings_specified(bindings):
                 self._ui.lbl_result_info.setText(self.tr(
                     'Please specify values for all variables'))
@@ -721,7 +719,8 @@ class BandMathDialog(QDialog):
             expr_info = bandmath.get_bandmath_expr_info(expr, bindings, functions)
 
             if expr_info.result_type not in [bandmath.VariableType.IMAGE_CUBE,
-                bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM]:
+                bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM,
+                bandmath.VariableType.IMAGE_CUBE_BATCH, bandmath.VariableType.IMAGE_BAND_BATCH]:
                 self._ui.lbl_result_info.setText(self.tr('Enter an ' +
                     'expression that produces an image cube, band, or spectrum'))
                 self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
@@ -738,6 +737,7 @@ class BandMathDialog(QDialog):
                 bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM]:
                 dims_str = f' {get_dimensions(expr_info.result_type, expr_info.shape)}'
                 mem_size_str = f' ({get_memory_size(expr_info.result_size())})'
+            
 
             s = self.tr('Result: {type}{dimensions}{mem_size}')
             s = s.format(type=type_str, dimensions=dims_str, mem_size=mem_size_str)
@@ -801,7 +801,6 @@ class BandMathDialog(QDialog):
                 type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_CUBE], bandmath.VariableType.IMAGE_CUBE)
                 type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_BAND], bandmath.VariableType.IMAGE_BAND)
                 type_widget.addItem(self._variable_types_text[bandmath.VariableType.SPECTRUM], bandmath.VariableType.SPECTRUM)
-                print(f"is batch processing enabled?: {self._ui.chkbox_enable_batch.isChecked()}")
                 if self._is_batch_processing_enabled():
                     type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH], bandmath.VariableType.IMAGE_CUBE_BATCH)
                     type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_BAND_BATCH], bandmath.VariableType.IMAGE_BAND_BATCH)

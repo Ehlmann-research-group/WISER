@@ -100,6 +100,13 @@ class OperatorCompare(BandMathFunction):
         elif rhs.result_type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
 
+            if lhs.result_type == VariableType.IMAGE_BAND_BATCH:
+                # We have the same type of image cube batch and image band batch
+                # because in eval_bandmath_expr we will differentiate
+                info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+                info.elem_type = np.byte
+                return info
+
             # See if we can actually compare LHS and RHS.
             check_image_cube_compatible(lhs, rhs.shape)
 
