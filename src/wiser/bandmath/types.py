@@ -28,6 +28,10 @@ class VariableType(enum.IntEnum):
 
     STRING = 7
 
+    IMAGE_CUBE_BATCH = 8
+
+    IMAGE_BAND_BATCH = 9
+
 
 class BandMathExprInfo:
     '''

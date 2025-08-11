@@ -31,7 +31,11 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="ledit_input_folder"/>
+      <widget class="QLineEdit" name="ledit_input_folder">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -134,7 +138,11 @@ p, li { white-space: pre-wrap; }
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="ledit_output_folder"/>
+      <widget class="QLineEdit" name="ledit_output_folder">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>

@@ -57,8 +57,31 @@ class OperatorCompare(BandMathFunction):
 
         # If we got here, we are comparing more complex data types.
 
-        if lhs.result_type == VariableType.IMAGE_CUBE:
+        
+        if lhs.result_type == VariableType.IMAGE_CUBE_BATCH:
             # Dimensions:  [band][y][x]
+            # Because this is a batch variable, we don't set the metadata
+            # here since we do not have it until the user runs the batch
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+            info.elem_type = np.byte
+            return info
+        
+        elif rhs.result_type == VariableType.IMAGE_CUBE_BATCH:
+            # Dimensions:  [band][y][x]
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+            info.elem_type = np.byte
+            return info
+    
+        elif lhs.result_type == VariableType.IMAGE_CUBE:
+            # Dimensions:  [band][y][x]
+
+            # Manually check if it's a batch variable
+            if rhs.result_type == VariableType.IMAGE_BAND_BATCH:
+                # We have the same type of image cube batch and image band batch
+                # because in eval_bandmath_expr we will differentiate
+                info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+                info.elem_type = np.byte
+                return info
 
             # See if we can actually compare LHS and RHS.
             check_image_cube_compatible(rhs, lhs.shape)
@@ -89,6 +112,18 @@ class OperatorCompare(BandMathFunction):
             info.spatial_metadata_source = rhs.spatial_metadata_source
             info.spectral_metadata_source = rhs.spectral_metadata_source
 
+            return info
+        
+        elif lhs.result_type == VariableType.IMAGE_BAND_BATCH:
+            # Dimensions:  [y][x]
+            info = BandMathExprInfo(VariableType.IMAGE_BAND_BATCH)
+            info.elem_type = np.byte
+            return info
+
+        elif rhs.result_type == VariableType.IMAGE_BAND_BATCH:
+            # Dimensions:  [y][x]
+            info = BandMathExprInfo(VariableType.IMAGE_BAND_BATCH)
+            info.elem_type = np.byte
             return info
 
         elif lhs.result_type == VariableType.IMAGE_BAND:

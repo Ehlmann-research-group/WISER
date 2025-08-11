@@ -1,10 +1,14 @@
+from enum import Enum
 import logging
+import os
 
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+
+from astropy import units as u
 
 import lark
 
@@ -129,6 +133,24 @@ def make_spectrum_chooser(app_state) -> QComboBox:
 
     return chooser
 
+def make_image_cube_batch_chooser(text: str) -> QLabel:
+    '''
+    This helper function returns a label telling the user that this variable
+    uses the input folder path for all image cubes
+    '''
+    label = QLabel()
+    label.setText(text)
+    return label
+
+def make_image_band_batch_chooser(text: str) -> QLabel:
+    '''
+    This helper function returns a label telling the user that this variable
+    uses the input folder path for all image bands, a combo box to let the user
+    choose the type of way to select the image band (whether by index or wavelength).
+    '''
+    label = QLabel()
+    label.setText(text)
+    return label
 
 class DatasetBandChooserWidget(QWidget):
     '''
@@ -202,6 +224,194 @@ class DatasetBandChooserWidget(QWidget):
         return (self.dataset_chooser.currentData(),
                 self.band_chooser.currentData())
 
+
+class ImageBandBatchChooserWidget(QWidget):
+    """
+    Compact widget for choosing an image band for batch processing.
+
+    Layout (by mode):
+      - Index:      [Select: ▾] [<band index>]
+      - Wavelength: [Select: ▾] [<wavelength>] [units ▾] epsilon [<ε>]
+
+    Notes
+    -----
+    - Band index input is int-validated.
+    - Wavelength and epsilon inputs are float-validated.
+    - Units list mirrors astropy.units names/aliases used in your codebase.
+    """
+
+    modeChanged = Signal(str)  # "index" or "wavelength"
+
+    class Mode(str, Enum):
+        INDEX = "index"
+        WAVELENGTH = "wavelength"
+
+    # Visible keys -> astropy units (use keys in the UI; values for computation)
+    UNIT_MAP: Dict[str, u.UnitBase] = {
+        "nanometers": u.nanometer,
+        "centimeters": u.cm,
+        "meters": u.m,
+        "micrometers": u.micrometer,
+        "millimeters": u.millimeter,
+        "microns": u.micron,
+        "cm": u.centimeter,
+        "m": u.meter,
+        "mm": u.millimeter,
+        "nm": u.nanometer,
+        "um": u.micrometer,
+        "wavenumber": u.cm ** -1,
+        "angstroms": u.angstrom,
+        "ghz": u.GHz,
+        "mhz": u.MHz,
+    }
+
+    def __init__(self, app_state, table_widget: QTableWidget, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self._app_state = app_state  # reserved for future use
+        self._tbl_wdgt_parent = table_widget
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # --- Layout: single row, roomy and elastic
+        row = QHBoxLayout()
+        row.setContentsMargins(QMargins(0, 0, 0, 0))
+        row.setSpacing(8)
+        self.setLayout(row)
+
+        # Mode selector (no separate "Select:" label)
+        self._cmb_mode = QComboBox()
+        self._cmb_mode.addItem("Band Index", self.Mode.INDEX.value)
+        self._cmb_mode.addItem("Wavelength", self.Mode.WAVELENGTH.value)
+        self._cmb_mode.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self._cmb_mode.setMinimumContentsLength(10)
+        self._cmb_mode.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        row.addWidget(self._cmb_mode)
+
+        # Primary value (index or wavelength)
+        self._ledit_value = QLineEdit()
+        self._ledit_value.setPlaceholderText("Band index")
+        self._ledit_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        row.addWidget(self._ledit_value)
+
+        # Units (wavelength-only)
+        self._cmb_units = QComboBox()
+        self._cmb_units.addItems(list(self.UNIT_MAP.keys()))
+        self._cmb_units.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self._cmb_units.setMinimumContentsLength(9)
+        self._cmb_units.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        row.addWidget(self._cmb_units)
+
+        # Epsilon (wavelength-only)
+        self._lbl_eps = QLabel("epsilon")
+        row.addWidget(self._lbl_eps)
+
+        self._ledit_eps = QLineEdit()
+        self._ledit_eps.setPlaceholderText("e.g., 1")
+        self._ledit_eps.setToolTip(
+            "If the exact wavelength is not found, use the closest value within "
+            "epsilon. If none are within epsilon, skip the calculation."
+        )
+        self._ledit_eps.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        row.addWidget(self._ledit_eps)
+
+        # # Spacer lets the row grow and prevents crowding
+        # row.addItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
+
+        # Validators (switched per mode)
+        self._int_validator = QIntValidator(0, 10**9, self)
+        self._float_validator_value = QDoubleValidator(0.0, 1e15, 8, self)
+        self._float_validator_value.setNotation(QDoubleValidator.StandardNotation)
+        self._float_validator_eps = QDoubleValidator(0.0, 1e15, 8, self)
+        self._float_validator_eps.setNotation(QDoubleValidator.StandardNotation)
+
+        # Initial state and signals
+        self.set_mode(self.Mode.INDEX.value)
+        self._cmb_mode.currentIndexChanged.connect(self._on_mode_changed)
+
+    # ---------------- Public API ----------------
+    def current_mode(self) -> str:
+        """Return current mode: 'index' or 'wavelength'."""
+        return self._cmb_mode.currentData()
+
+    def set_mode(self, mode: str) -> None:
+        """Programmatically set mode and update UI."""
+        idx = self._cmb_mode.findData(mode)
+        if idx >= 0:
+            self._cmb_mode.setCurrentIndex(idx)
+        self._apply_mode(mode)
+
+    def get_settings(self) -> Dict[str, Optional[object]]:
+        """
+        Return current settings. For wavelength mode, includes both the UI key
+        and the resolved astropy unit object.
+
+        Returns
+        -------
+        dict
+            {
+              "mode": "index" | "wavelength",
+              "index": str or None,
+              "wavelength": str or None,
+              "units_key": str or None,
+              "unit": astropy.units.UnitBase or None,
+              "epsilon": str or None,
+            }
+        """
+        mode = self.current_mode()
+        if mode == self.Mode.INDEX.value:
+            return {
+                "mode": mode,
+                "index": self._ledit_value.text().strip(),
+                "wavelength": None,
+                "units_key": None,
+                "unit": None,
+                "epsilon": None,
+            }
+
+        key = self._cmb_units.currentText()
+        return {
+            "mode": mode,
+            "index": None,
+            "wavelength": self._ledit_value.text().strip(),
+            "units_key": key,
+            "unit": self.UNIT_MAP.get(key),
+            "epsilon": self._ledit_eps.text().strip(),
+        }
+
+    # ---------------- Internals -----------------
+    def _on_mode_changed(self, _i: int) -> None:
+        self._apply_mode(self.current_mode())
+        self.modeChanged.emit(self.current_mode())
+
+    def _apply_mode(self, mode: str) -> None:
+        """Update placeholders, validators, and visibility for the mode."""
+        is_wavelength = (mode == self.Mode.WAVELENGTH.value)
+
+        # Configure the primary value field
+        if is_wavelength:
+            self._ledit_value.setPlaceholderText("Wavelength")
+            self._ledit_value.setValidator(self._float_validator_value)
+            if not self._ledit_eps.text():
+                self._ledit_eps.setText("5")
+            # Default to a common unit if nothing selected yet
+            if self._cmb_units.currentIndex() < 0:
+                self._cmb_units.setCurrentIndex(self._cmb_units.findText("nm"))
+        else:
+            self._ledit_value.setPlaceholderText("Band index")
+            self._ledit_value.setValidator(self._int_validator)
+
+        # Epsilon is always float-validated
+        self._ledit_eps.setValidator(self._float_validator_eps)
+
+        # Toggle wavelength-only controls
+        self._cmb_units.setVisible(is_wavelength)
+        self._lbl_eps.setVisible(is_wavelength)
+        self._ledit_eps.setVisible(is_wavelength)
+
+        # Nudge layouts to recompute
+        self.layout().invalidate()
+        self.updateGeometry()
+        if self._tbl_wdgt_parent:
+            self._tbl_wdgt_parent.resizeColumnsToContents()
 
 ''' TODO(donnie):  Coming soon...
 class VariableTypeDelegate(QStyledItemDelegate):
@@ -316,13 +526,106 @@ class BandMathDialog(QDialog):
             bandmath.VariableType.NUMBER: self.tr('Number'),
             bandmath.VariableType.BOOLEAN: self.tr('Boolean'),
             bandmath.VariableType.STRING: self.tr('String'),
+            bandmath.VariableType.IMAGE_CUBE_BATCH: self.tr('Image Batch'),
+            bandmath.VariableType.IMAGE_BAND_BATCH: self.tr('Image Band Batch')
         }
+
+        #==================================
+        # Batch processing initialization
+        
+        # There are other values important to batch processing:
+        # If batch processing is enabled, if we load results into
+        # WISER, and if there is an output path folder. These
+        # are done with getters.
+
 
         self._init_batch_process_ui()
 
     def _init_batch_process_ui(self):
-        self._ui.chkbox_enable_batch.stateChanged.connect(self._on_enable_batch_changed)
+        # Wire up folder pickers
+        self._ui.btn_input_folder.clicked.connect(
+            lambda: self._pick_input_folder("Select input folder")
+        )
+        self._ui.btn_output_folder.clicked.connect(
+            lambda: self._pick_output_folder("Select output folder")
+        )
+        self._ui.chkbox_enable_batch.clicked.connect(self._on_enable_batch_changed)
         self._sync_batch_process_ui()
+
+
+    def _pick_output_folder(self, title: str) -> None:
+        """Open a folder chooser and write the selected path into the given QLineEdit."""
+        start_dir = self._ui.ledit_output_folder.text().strip()
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = os.path.expanduser("~")
+
+        options = QFileDialog.Options()
+        options |= QFileDialog.ShowDirsOnly
+
+        folder = QFileDialog.getExistingDirectory(
+            parent=self._ui.ledit_output_folder.window(),
+            caption=title,
+            dir=start_dir,
+            options=options
+        )
+
+        if folder:
+            folder = os.path.normpath(folder)
+            print(f"input path: {self._ui.ledit_input_folder.text().strip()}")
+            print(f"output path: {folder}")
+            if folder == os.path.normpath(self._ui.ledit_input_folder.text().strip()):
+                QMessageBox.warning(
+                    self._ui.ledit_output_folder.window(),
+                    "Invalid Output Folder",
+                    "The output folder was not selected because it is the same as the input folder."
+                )
+                return
+            self._ui.ledit_output_folder.setText(folder)
+
+    def _pick_input_folder(self, title: str) -> None:
+        """Open a folder chooser and write the selected path into the given QLineEdit."""
+        start_dir = self._ui.ledit_input_folder.text().strip()
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = os.path.expanduser("~")
+
+        options = QFileDialog.Options()
+        options |= QFileDialog.ShowDirsOnly
+
+        folder = QFileDialog.getExistingDirectory(
+            parent=self._ui.ledit_input_folder.window(),
+            caption=title,
+            dir=start_dir,
+            options=options
+        )
+
+        if folder:
+            folder = os.path.normpath(folder)
+            print(f"input path: {folder}")
+            print(f"output path: {self._ui.ledit_output_folder.text().strip()}")
+            if folder == os.path.normpath(self._ui.ledit_output_folder.text().strip()):
+                QMessageBox.warning(
+                    self._ui.ledit_input_folder.window(),
+                    "Invalid Input Folder",
+                    "The input folder was not selected because it is the same as the output folder."
+                )
+                return
+            self._ui.ledit_input_folder.setText(folder)
+    
+    def _get_input_folder(self):
+        self._ui.ledit_input_folder.text()
+
+    def _get_output_folder(self):
+        self._ui.ledit_output_folder.text()
+
+    def _is_loud_results_enabled(self):
+        return self._ui.chkbox_load_into_wiser.isChecked()
+    
+    def _is_batch_processing_enabled(self):
+        return self._ui.chkbox_enable_batch.isChecked()
+
+    def _init_test_bandmath_processing(self):
+
+        return 
 
 
     def _get_batch_processing_ui_components(self) -> List[QObject]:
@@ -341,8 +644,10 @@ class BandMathDialog(QDialog):
         ]
         return ui_components
 
-    def _on_enable_batch_changed(self, state: int):
+    def _on_enable_batch_changed(self, checked: bool):
+        print(f"on enable batch")
         self._sync_batch_process_ui()
+        self._analyze_expr()
 
     def _sync_batch_process_ui(self):
         is_enabled = self._ui.chkbox_enable_batch.isChecked()
@@ -473,7 +778,11 @@ class BandMathDialog(QDialog):
         for var in variables:
             # Look for the variable in the current table of bindings.
             index = self._find_variable_in_bindings(var)
-            if index == -1:
+            batch_proc_mismatch = (self._is_batch_var_row(index) != self._is_batch_processing_enabled())
+            if index == -1 or batch_proc_mismatch:
+                if batch_proc_mismatch and index != -1:
+                    self._ui.tbl_variables.removeRow(index)
+
                 # Couldn't find variable in the table of bindings.
                 # Add a new row for it.
                 new_row = self._ui.tbl_variables.rowCount()
@@ -489,9 +798,13 @@ class BandMathDialog(QDialog):
                 # Second column is the type of variable.
 
                 type_widget = QComboBox()
-                type_widget.addItem(self.tr('Image'), bandmath.VariableType.IMAGE_CUBE)
-                type_widget.addItem(self.tr('Image band'), bandmath.VariableType.IMAGE_BAND)
-                type_widget.addItem(self.tr('Spectrum'), bandmath.VariableType.SPECTRUM)
+                type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_CUBE], bandmath.VariableType.IMAGE_CUBE)
+                type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_BAND], bandmath.VariableType.IMAGE_BAND)
+                type_widget.addItem(self._variable_types_text[bandmath.VariableType.SPECTRUM], bandmath.VariableType.SPECTRUM)
+                print(f"is batch processing enabled?: {self._ui.chkbox_enable_batch.isChecked()}")
+                if self._is_batch_processing_enabled():
+                    type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH], bandmath.VariableType.IMAGE_CUBE_BATCH)
+                    type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_BAND_BATCH], bandmath.VariableType.IMAGE_BAND_BATCH)
                 type_widget.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
                 # Guess the type of the variable based on its name, and choose
@@ -534,6 +847,17 @@ class BandMathDialog(QDialog):
         self._ui.tbl_variables.resizeColumnsToContents()
 
 
+    def _is_batch_var_row(self, row_index: int):
+        row_cbox = self._ui.tbl_variables.cellWidget(row_index, 1)
+        if row_cbox:
+            for i in range(row_cbox.count()):
+                text = row_cbox.itemText(i)
+                if text == self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH] or \
+                    text == self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH]:
+                    return True
+        return False
+
+
     def _find_variable_in_bindings(self, variable) -> int:
         '''
         Look for the specified variable in the variable-bindings table.
@@ -567,6 +891,10 @@ class BandMathDialog(QDialog):
             value_widget = make_spectrum_chooser(self._app_state)
             value_widget.activated.connect(self._on_variable_shape_change)
 
+        elif variable_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
+            value_widget = make_image_cube_batch_chooser(self.tr('Using Input Folder'))
+        elif variable_type == bandmath.VariableType.IMAGE_BAND_BATCH:
+            value_widget = ImageBandBatchChooserWidget(self._app_state, self._ui.tbl_variables)
         else:
             raise AssertionError(f'Unrecognized variable type {variable_type}')
 
@@ -793,7 +1121,11 @@ class BandMathDialog(QDialog):
 
                 else:
                     raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
-
+            elif type == bandmath.VariableType.IMAGE_CUBE_BATCH or \
+                type == bandmath.VariableType.IMAGE_BAND_BATCH:
+                # We casn have the same type of image cube batch and image band batch
+                # because in eval_bandmath_expr we will differentiate
+                value = self._get_input_folder()
             else:
                 raise AssertionError(
                     f'Unrecognized binding type {type} for variable {var}')
