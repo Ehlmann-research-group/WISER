@@ -22,6 +22,8 @@ from wiser import bandmath
 from wiser.bandmath.utils import get_dimensions
 from wiser.gui.util import get_plugin_fns
 
+import copy
+
 logger = logging.getLogger(__name__)
 
 
@@ -461,6 +463,125 @@ class ExpressionReturnEventFilter(QObject):
 
         return False
 
+class BandmathBatchJob:
+    '''
+    A batch job is a single unit of work that is to be performed by the batch
+    processing system.  It contains the expression to be evaluated, the variables
+    to be used, the input and output folders, and the load-into-wiser flag.
+    '''
+
+    def __init__(self, job_id: int, expression: str, expr_info: bandmath.BandMathExprInfo, 
+                 variables: Dict[str, Tuple[bandmath.VariableType, Any]], input_folder: str,
+                 output_folder: str, load_into_wiser: bool, result_prefix: str):
+        self._job_id = job_id
+        self._expression = expression
+        self._expr_info = copy.deepcopy(expr_info)
+        self._variables = copy.deepcopy(variables)
+        self._input_folder = input_folder
+        self._output_folder = output_folder
+        self._load_into_wiser = load_into_wiser
+        self._result_prefix = result_prefix
+
+    def get_job_id(self) -> int:
+        return self._job_id
+
+    def set_job_id(self, job_id: int) -> None:
+        self._job_id = job_id
+
+    def get_expression(self) -> str:
+        return self._expression
+
+    def get_expr_info(self) -> bandmath.BandMathExprInfo:
+        return self._expr_info
+
+    def get_variables(self) -> Dict[str, Tuple[bandmath.VariableType, Any]]:
+        return self._variables
+
+    def get_input_folder(self) -> str:
+        return self._input_folder
+
+    def set_input_folder(self, input_folder: str) -> None:
+        self._input_folder = input_folder
+
+    def get_output_folder(self) -> str:
+        return self._output_folder
+
+    def set_output_folder(self, output_folder: str) -> None:
+        self._output_folder = output_folder
+
+    def get_load_into_wiser(self) -> bool:
+        return self._load_into_wiser
+
+    def set_load_into_wiser(self, load_into_wiser: bool) -> None:
+        self._load_into_wiser = load_into_wiser
+
+    def get_result_prefix(self) -> str:
+        return self._result_prefix
+
+    def set_result_prefix(self, result_prefix: str) -> None:
+        self._result_prefix = result_prefix
+    
+    def __eq__(self, other):
+        if not isinstance(other, BandmathBatchJob):
+            return False
+        return (
+            self._job_id == other._job_id and
+            self._expression == other._expression and
+            self._input_folder == other._input_folder and
+            self._output_folder == other._output_folder and
+            self._load_into_wiser == other._load_into_wiser and
+            self._result_prefix == other._result_prefix
+        )
+
+
+class BatchJobInfoWidget(QWidget):
+    def __init__(self, expression: str, input_folder: str,
+                 output_folder: str, is_load_into_wiser_enabled: bool,
+                 result_name: str, width_hint=150, parent=None):
+        super().__init__(parent)
+        self._width_hint = width_hint
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(2)
+
+        # Expression
+        lbl_expr = QLabel(f"Expression: {expression}")
+        lbl_expr.setWordWrap(True)
+        layout.addWidget(lbl_expr)
+
+        # Input Folder
+        lbl_input = QLabel(f"Input Folder: {input_folder}")
+        lbl_input.setWordWrap(True)
+        layout.addWidget(lbl_input)
+
+        # Output Folder (only if exists)
+        if output_folder:
+            lbl_output = QLabel(f"Output Folder: {output_folder}")
+            lbl_output.setWordWrap(True)
+            layout.addWidget(lbl_output)
+
+        # Loading into WISER?
+        load_wiser_text = "yes" if is_load_into_wiser_enabled else "no"
+        lbl_load_wiser = QLabel(f"Loading into WISER? {load_wiser_text}")
+        lbl_load_wiser.setWordWrap(True)
+        layout.addWidget(lbl_load_wiser)
+
+        # Result Prefix
+        lbl_result = QLabel(f"Result Prefix: {result_name}")
+        lbl_result.setWordWrap(True)
+        layout.addWidget(lbl_result)
+
+        self.setLayout(layout)
+
+        # Let the view know we can grow, but prefer the given width hint
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+    def sizeHint(self):
+        # Use the layout’s computed height but our fixed-ish width hint
+        h = self.layout().sizeHint().height() if self.layout() else super().sizeHint().height()
+        return QSize(self._width_hint, h)
+
 
 class BandMathDialog(QDialog):
 
@@ -538,7 +659,7 @@ class BandMathDialog(QDialog):
         # WISER, and if there is an output path folder. These
         # are done with getters.
 
-
+        self._batch_jobs: List[BandmathBatchJob] = []
         self._init_batch_process_ui()
 
     def _init_batch_process_ui(self):
@@ -552,6 +673,83 @@ class BandMathDialog(QDialog):
         self._ui.chkbox_enable_batch.clicked.connect(self._on_enable_batch_changed)
         self._sync_batch_process_ui()
 
+        self._ui.btn_create_batch_job.clicked.connect(self._on_create_batch_job)
+
+        tbl = self._ui.tbl_wdgt_batch_jobs
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        tbl.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+        self._ui.btn_run_all.clicked.connect(self._run_all_batch_jobs)
+
+    def _run_all_batch_jobs(self):
+        for job in self._batch_jobs:
+            self._run_batch_job(job)
+        
+    def _run_batch_job(self, job: BandmathBatchJob):
+        pass
+
+    def _on_create_batch_job(self):
+        job = BandmathBatchJob(
+            job_id=self._app_state.get_next_process_pool_id(),
+            expression=self.get_expression(),
+            expr_info=self._expr_info,
+            variables=self.get_variable_bindings(),
+            input_folder=self._get_input_folder(),
+            output_folder=self._get_output_folder(),
+            load_into_wiser=self._is_load_into_wiser_enabled(),
+            result_prefix=self.get_result_name()
+        )
+
+        self._batch_jobs.append(job)
+        self._add_batch_job_to_table(job)
+        
+    def _add_batch_job_to_table(self, batch_job: BandmathBatchJob):
+        t = self._ui.tbl_wdgt_batch_jobs
+        new_row = t.rowCount()
+        t.insertRow(new_row)
+
+        # Col 0: id label
+        t.setCellWidget(new_row, 0, self._create_job_id_label(batch_job))
+
+        # Col 1: info widget + an item carrying the size hint
+        info_widget = self._create_batch_job_info_widget(batch_job)
+        info_widget.updateGeometry()  # ensure layout computed before we read sizeHint
+        t.setCellWidget(new_row, 1, info_widget)
+
+        size_item = QTableWidgetItem()
+        size_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+        size_item.setData(Qt.SizeHintRole, info_widget.sizeHint())
+        t.setItem(new_row, 1, size_item)
+
+        # Col 2: start button
+        t.setCellWidget(new_row, 2, self._create_job_start_button_widget(batch_job))
+
+        # Defer so Qt can polish the embedded widget's layout; then size to contents
+        QTimer.singleShot(0, lambda: (t.resizeColumnToContents(1),
+                                    t.resizeRowToContents(new_row)))
+
+    def _create_job_id_label(self, batch_job: BandmathBatchJob) -> QLabel:
+        return QLabel(f"{batch_job.get_job_id()}")
+
+    def _create_job_start_button_widget(self, batch_job: BandmathBatchJob) -> QWidget:
+        return QPushButton("Start")
+
+    def _create_batch_job_info_widget(self, batch_job: BandmathBatchJob) -> QWidget:
+        """
+        Creates a QWidget with job info in a vertical layout for use inside a QTableWidget.
+        Expands vertically as needed, and horizontally up to 150px.
+        """
+        info_widget = BatchJobInfoWidget(
+            batch_job.get_expression(),
+            batch_job.get_input_folder(),
+            batch_job.get_output_folder(),
+            batch_job.get_load_into_wiser(),
+            batch_job.get_result_prefix(),
+            width_hint=150
+        )
+
+        return info_widget
 
     def _pick_output_folder(self, title: str) -> None:
         """Open a folder chooser and write the selected path into the given QLineEdit."""
@@ -614,7 +812,7 @@ class BandMathDialog(QDialog):
     def _get_output_folder(self):
         return self._ui.ledit_output_folder.text()
 
-    def _is_loud_results_enabled(self):
+    def _is_load_into_wiser_enabled(self):
         return self._ui.chkbox_load_into_wiser.isChecked()
     
     def _is_batch_processing_enabled(self):
@@ -646,6 +844,15 @@ class BandMathDialog(QDialog):
         self._sync_batch_process_ui()
         self._analyze_expr()
 
+    def _apply_right_column_stretch(self, right_visible: bool, left_col: int, right_col: int):
+        g = self._ui.gridLayout                   # your QGridLayout
+        # Give left:right a 3:1 split when visible; give right 0 when hidden
+        g.setColumnStretch(left_col, 3 if right_visible else 1)
+        g.setColumnStretch(right_col, 1 if right_visible else 0)
+        # Ensure hidden column doesn't reserve width
+        g.setColumnMinimumWidth(right_col, 0)
+        g.invalidate()
+
     def _sync_batch_process_ui(self):
         is_enabled = self._ui.chkbox_enable_batch.isChecked()
         batch_process_ui_elements = self._get_batch_processing_ui_components()
@@ -656,6 +863,8 @@ class BandMathDialog(QDialog):
         dialog_size = self.size()
         batch_job_table_size = self._ui.tbl_wdgt_batch_jobs.size()
         self._ui.tbl_wdgt_batch_jobs.setVisible(is_enabled)
+        self._ui.btn_run_all.setVisible(is_enabled)
+        self._ui.btn_cancel_all.setVisible(is_enabled)
         if is_enabled:
             dialog_size.setWidth(dialog_size.height() + batch_job_table_size.height())
         else:
@@ -665,6 +874,10 @@ class BandMathDialog(QDialog):
             self._ui.lbl_result_name.setText(self.tr('Result prefix (required):'))
         else:
             self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
+
+        left_most_col = 0
+        batch_proc_col = 3
+        self._apply_right_column_stretch(is_enabled, left_most_col, batch_proc_col)
 
 
     def _on_toggle_help(self, checked=False):

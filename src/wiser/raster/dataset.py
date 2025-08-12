@@ -113,6 +113,9 @@ class RasterDataSet:
     '''
     A 2D raster data-set for imaging spectroscopy, possibly with many bands of
     data for each pixel.
+
+    This class is not deep copyable. If you try to deep copy it, you will get
+    an reference to the same object.
     '''
 
     def __init__(self, impl: RasterDataImpl, data_cache: DataCache = None):
@@ -1018,6 +1021,13 @@ class RasterDataSet:
         else:
             return False
         return True
+    
+    def __deepcopy__(self, memo):
+        '''
+        This class is not deep copyable. If you try to deep copy it, you will get
+        an reference to the same object.
+        '''
+        return self
 
 
 class RasterDataBand:
@@ -1082,6 +1092,15 @@ class RasterDataBand:
         object.
         '''
         return self._dataset.get_band_stats(self._band_index)
+
+
+    def __deepcopy__(self, memo):
+        '''
+        This class is not deep copyable. If you try to deep copy it, you will get
+        an reference to the same object.
+        '''
+        return self
+
 
 def find_truecolor_bands(dataset: RasterDataSet,
                          red: u.Quantity = RED_WAVELENGTH,

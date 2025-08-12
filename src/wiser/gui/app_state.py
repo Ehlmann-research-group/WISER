@@ -146,6 +146,12 @@ class ApplicationState(QObject):
         # The key is the CRS name.
         self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
+        self._process_pool_id = 0
+
+    def get_next_process_pool_id(self):
+        id = self._process_pool_id
+        self._process_pool_id += 1
+        return id
 
     def _take_next_id(self) -> int:
         '''

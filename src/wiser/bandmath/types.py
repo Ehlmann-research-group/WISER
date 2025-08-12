@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+import copy
+
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
 from wiser.raster.spectrum import Spectrum
 
@@ -84,6 +86,18 @@ class BandMathExprInfo:
         ''' Returns an estimate of this result's size in bytes. '''
         shape_size = np.prod(self.shape) if self.shape is not None else 1
         return np.dtype(self.elem_type).itemsize * shape_size
+    
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if isinstance(v, BandMathValue):
+                setattr(result, k, v)
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+
+        return result
 
     def __repr__(self) -> str:
         if self.result_type in [VariableType.IMAGE_CUBE,
