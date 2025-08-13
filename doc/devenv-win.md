@@ -46,7 +46,7 @@ to work though, and simply requires a bit more setup.
     conda install conda-forge::blas=*=openblas
     conda install -c conda-forge numpy
 
-    conda install pyside6
+    conda install pyside2
     conda install gdal
 
     # This verison of matplotlib is required due to a pyinstaller incompatibility
@@ -135,9 +135,9 @@ needs to be downloaded and installed so that the `SignTool` utility is available
     This should result in the creation of an NSIS installer in the local
     directory.
 
-**NOTE:**  On Python 3.9 and PySide6 5.13.2, there is an issue with a Python
-file that is part of `pyside6-uic`.  Specifically, the `uiparser.py` file (at
-path `C:\ProgramData\Miniconda3\Lib\site-packages\pyside6uic\uiparser.py`)
+**NOTE:**  On Python 3.9 and PySide2 5.13.2, there is an issue with a Python
+file that is part of `pyside2-uic`.  Specifically, the `uiparser.py` file (at
+path `C:\ProgramData\Miniconda3\Lib\site-packages\pyside2uic\uiparser.py`)
 has a call to `elem.getiterator()` on line 797 that needs to be changed to
 `elem.iter()` instead.  Because of where this file lives, it needs to be
 edited with Administrator permissions, or else the edits cannot be saved.
