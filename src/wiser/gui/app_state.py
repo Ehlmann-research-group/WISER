@@ -1,7 +1,7 @@
 import enum
 import os
 import warnings
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QMessageBox
@@ -25,6 +25,8 @@ from wiser.raster.stretch import StretchBase
 from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
+
+from wiser.gui.multiprocessing_manager import MultiprocessingManager
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
@@ -146,12 +148,13 @@ class ApplicationState(QObject):
         # The key is the CRS name.
         self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
-        self._process_pool_id = 0
+        self._process_pool_manager = MultiprocessingManager()
+
+    def submit_parallel_task(self, operation: Callable, kwargs: Dict = {}):
+        return self._process_pool_manager.create_task(operation, kwargs)
 
     def get_next_process_pool_id(self):
-        id = self._process_pool_id
-        self._process_pool_id += 1
-        return id
+        return self._process_pool_manager.get_next_process_pool_id()
 
     def _take_next_id(self) -> int:
         '''
