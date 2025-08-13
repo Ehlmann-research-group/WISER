@@ -6,6 +6,7 @@ from PySide2.QtCore import *
 
 from wiser.gui.parallel_task import ParallelRunningTask
 
+
 class MultiprocessingManager(QObject):
     '''
     Requirements:

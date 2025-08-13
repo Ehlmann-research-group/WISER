@@ -144,8 +144,7 @@ class AsyncTransformer(lark.visitors.Transformer):
         Asynchronously transform a tree node.
         This function recursively transforms the children first, and then calls the transformation method for the node.
         """
-        # task_list = [child async for child in self._transform_children(tree.children)]
-        children_tasks = [asyncio.create_task(self._transform_children(tree.children))]# for c in tree.children] #  [child async for child in self._transform_children(tree.children)]
+        children_tasks = [asyncio.create_task(self._transform_children(tree.children))]
         children = await asyncio.gather(*children_tasks)
         flattened_children = [item for sublist in children for item in sublist]
         return await self._call_userfunc(tree, flattened_children)
@@ -830,7 +829,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     #     etc.
 
     # print(f"GDAL Python Version: {gdal.__version__}")
-    lower_variables = {}
+    lower_variables: Dict[str, Tuple[VariableType, Any]] = {}
     for name, value in variables.items():
         lower_variables[name.lower()] = value
 
@@ -855,6 +854,16 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     number_of_intermediates += 1
     logger.debug(f'Number of intermediates: {number_of_intermediates}')
 
+    '''
+    When doing batch processing we longer have elem_type or result_size. We could either redo the exprinfo calculation
+    or not and just have this batch calculatrion be more error prone. We will have to get the result size after this though.
+    Which means we will have to rerun the expression info. We should do that at the start, which means we should keep this the 
+    same and have a function on the outside that handles all of the logic of going through the folder, extracting the data into
+    RasterDataSet, getting bandmath expr info, and running eval_bandmath_expr. However, the variables dict has 
+    RasterDataSet/RasterDataBand objects as the any value. This value gets carried into the lark.Transformer 
+    in "BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)"  as lower_variables.
+
+    '''
     gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
     
     max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)

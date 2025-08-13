@@ -477,6 +477,8 @@ class BandmathBatchJob:
         self._expression = expression
         self._expr_info = copy.deepcopy(expr_info)
         self._variables = copy.deepcopy(variables)
+        for var_name, var_value in self._variables.items():
+            print(f'{var_name}: {type(var_value[1])}')
         self._input_folder = input_folder
         self._output_folder = output_folder
         self._load_into_wiser = load_into_wiser
