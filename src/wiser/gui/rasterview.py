@@ -724,12 +724,17 @@ class RasterView(QWidget):
         # have data for it, and if we aren't told to explicitly regenerate it.
 
         assert len(self._display_bands) in [1, 3]
-        cache = self._raster_data.get_cache().get_render_cache()
-        key = cache.get_cache_key(self._raster_data, self._display_bands, self._stretches, self._colormap)
+        
+        cache = self._raster_data.get_cache()
+        render_cache = None
+        key = None
+        if cache:
+            render_cache = cache.get_render_cache()
+            key = render_cache.get_cache_key(self._raster_data, self._display_bands, self._stretches, self._colormap)
 
         time_1 = time.perf_counter()
-        if cache.in_cache(key):
-            img_data = cache.get_cache_item(key)
+        if render_cache and key and render_cache.in_cache(key):
+            img_data = render_cache.get_cache_item(key)
             time_2 = time.perf_counter()
         elif len(self._display_bands) == 3:
             # Check each color band to see if we need to update it.
@@ -776,7 +781,8 @@ class RasterView(QWidget):
                     img_data = make_rgb_image(self._display_data[0], self._display_data[1], self._display_data[2])
             else:
                 img_data = make_rgb_image_python(self._display_data[0], self._display_data[1], self._display_data[2])
-            cache.add_cache_item(key, img_data)
+            if render_cache and key:
+                render_cache.add_cache_item(key, img_data)
 
         else:
             # This is a grayscale image.
@@ -811,7 +817,8 @@ class RasterView(QWidget):
 
             # Combine our individual color channel(s) into a single RGB image.
             img_data = make_grayscale_image(self._display_data[0], self._colormap)
-            cache.add_cache_item(key, img_data)
+            if render_cache and key:
+                render_cache.add_cache_item(key, img_data)
 
         # This is necessary because the QImage doesn't take ownership of the
         # data we pass it, and if we drop this reference to the data then Python

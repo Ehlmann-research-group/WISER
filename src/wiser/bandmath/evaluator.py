@@ -2,7 +2,7 @@ import os
 import logging
 import inspect
 
-from typing import Any, Callable, Dict, Tuple, Coroutine
+from typing import Any, Callable, Dict, Tuple, Coroutine, Union
 
 import lark
 from lark import Visitor, Tree, Token, v_args
@@ -794,6 +794,48 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
         logger.debug(' * unary_negate_expr')
         return self.find_current_interm_and_update_max(args[1], 0)
 
+def deserialize_subprocess_bandmath_job(self):
+    pass
+
+def serialize_subprocess_bandmath_job(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+        variables: Dict[str, Tuple[VariableType, Any]],
+        functions: Dict[str, BandMathFunction] = None,
+        use_old_method = False, test_parallel_io=False):
+    '''
+    This function is meant to serialize the 'variables' and 'functions' dictionaries into a format that can be
+    passed to the sub process. In the subprocess, we will deserialize the variables and functions and then pass them
+    to the eval_bandmath_expr function.
+    '''
+    # For each variable we have to make it into a string or numpy form, then we have to pass this into
+    # a new variables
+    variables_serialized = {}
+    for var_name, var_tuple in variables.items():
+        var_type = var_tuple[0]
+        var_value = var_tuple[1]
+        # TODO (Joshua G-K): Serialize the variables and make a new variables and functions Dict
+        # TODO (Joshua G-K) rewrite BandMathExprInfo to not have a gdal dataset object in it by rewriting 
+        # spatial_metadata_source and spectral_metadata_source 
+            
+
+    # For each of the functions, try it, if its not serializable, call the function that will let us serialize it later
+
+    pass
+
+def get_serialized_variable(var_type: VariableType, var_value: Any) -> Union[str, np.ndarray]:
+    '''
+    Returns a serialized version of the variable that can be called later to deserialize it in the 
+    sub process
+    '''
+    if var_type == VariableType.IMAGE_CUBE:
+        assert isinstance(var_value, RasterDataSet)
+        impl = var_value.get_impl()
+        if isinstance(impl, GDALRasterDataImpl):
+            return impl.get_filepaths()[0]
+        elif isinstance(impl, JP2_PDRRasterDataImpl):
+            return impl.get_filepaths()[0]
+        else:
+            raise ValueError(f"Unsupported variable type: {var_type}")
+
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, Any]],
         functions: Dict[str, BandMathFunction] = None,
@@ -853,7 +895,6 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     number_of_intermediates = numInterFinder.get_max_intermediates()
     number_of_intermediates += 1
     logger.debug(f'Number of intermediates: {number_of_intermediates}')
-
     '''
     When doing batch processing we longer have elem_type or result_size. We could either redo the exprinfo calculation
     or not and just have this batch calculatrion be more error prone. We will have to get the result size after this though.
@@ -862,8 +903,12 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     RasterDataSet, getting bandmath expr info, and running eval_bandmath_expr. However, the variables dict has 
     RasterDataSet/RasterDataBand objects as the any value. This value gets carried into the lark.Transformer 
     in "BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)"  as lower_variables.
+    '''
 
     '''
+    After this point we do it per thing 
+    '''
+
     gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
     
     max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)

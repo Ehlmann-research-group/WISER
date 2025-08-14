@@ -214,8 +214,8 @@ class GDALRasterDataImpl(RasterDataImpl):
     def get_filepaths(self):
         '''
         Returns the paths and filenames of all files associated with this raster
-        dataset.  This will be an empty list (not None) if the data is in-memory
-        only.
+        dataset. This will be an empty list (not None) if the data is in-memory
+        only. If this is a list, 0 index is the primary file path.
         '''
         # TODO(donnie):  Sort the list?  Or does the driver return the filenames
         #     in a meaningful order?
@@ -508,7 +508,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 class PDRRasterDataImpl(RasterDataImpl):
 
     @classmethod
-    def try_load_file(cls, path: str) -> ['JP2_PDRRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['PDRRasterDataImpl']:
 
         pdr_dataset = pdr.read(path)
 
@@ -705,6 +705,7 @@ class PDRRasterDataImpl(RasterDataImpl):
 
     def __del__(self):
         pass
+
 
 class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
     '''
@@ -911,7 +912,6 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
         else:
             raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_all_bands_at_rect')
 
-    
 
 class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     def get_format(self):
@@ -929,6 +929,7 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     
     def __init__(self, pdr_dataset):
         super().__init__(pdr_dataset)
+
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -963,6 +964,7 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
+
 class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def get_load_filename(cls, path: str) -> str:
@@ -987,6 +989,7 @@ class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
+
 
 class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -1108,6 +1111,7 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
 
         return np_array
 
+
 class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def try_load_file(cls, path: str) -> ['PDS3_GDALRasterDataImpl']:
@@ -1148,6 +1152,7 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
+
 
 class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod

@@ -9,7 +9,7 @@ import enum
 
 from osgeo import osr, gdal
 
-from .dataset_impl import RasterDataImpl, SaveState
+from .dataset_impl import RasterDataImpl, SaveState, GDALRasterDataImpl, PDRRasterDataImpl, NumPyRasterDataImpl, ENVI_GDALRasterDataImpl
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
 from .utils import find_band_near_wavelength, normalize_ndarray, can_transform_between_srs, have_spatial_overlap
 from .data_cache import DataCache
@@ -178,7 +178,7 @@ class RasterDataSet:
         return True
 
 
-    def get_cache(self) -> DataCache:
+    def get_cache(self) -> Optional[DataCache]:
         return self._data_cache
 
 
@@ -995,6 +995,114 @@ class RasterDataSet:
             return True
         return False
 
+    @staticmethod
+    def deserialize_into_class(dataset_serialize_value: Union[str, np.ndarray], dataset_metadata: Dict) -> 'RasterDataSet':
+        '''
+        We need to properly open up the dataset, if it is a subdataset, then we need to properly
+        open that subdataset.
+
+        Args:
+            - dataset_serialize_value: A string that represents the file path to the dataset, or a numpy array
+            that represents the data in the dataset.
+            - dataset_metadata: A dictionary that represents the metadata needed to recreate this object.
+
+        Returns:
+            A RasterDataSet object that represents the dataset.
+        '''
+        if dataset_serialize_value is None:
+            raise ValueError("dataset_serialize_value is None")
+        
+        if dataset_metadata is None:
+            raise ValueError("dataset_metadata is None")
+        try:
+            if isinstance(dataset_serialize_value, str):
+                impl = None
+                if dataset_metadata.get('subdataset_name') is not None:
+                    assert dataset_metadata['impl_type'] == 'GDALRasterDataImpl'
+                    impl = GDALRasterDataImpl.try_load_file(dataset_serialize_value)
+                elif dataset_metadata.get('impl_type') == 'ENVI_GDALRasterDataImpl':    
+                    impl = ENVI_GDALRasterDataImpl.try_load_file(dataset_serialize_value)
+                elif dataset_metadata.get('impl_type') == 'GDALRasterDataImpl':
+                    impl = GDALRasterDataImpl.try_load_file(dataset_serialize_value)
+                elif dataset_metadata.get('impl_type') == 'PDRRasterDataImpl':
+                    impl = PDRRasterDataImpl.try_load_file(dataset_serialize_value)
+                elif dataset_metadata.get('impl_type') == 'NumPyRasterDataImpl':
+                    raise ValueError("Numpy array should not have dataset_serialize_value as string")
+                else:
+                    raise ValueError(f"Unsupported implementation type: {dataset_metadata.get('impl_type')}")
+                dataset = RasterDataSet(impl, None)
+                dataset.copy_metadata_from(dataset_metadata)
+                return dataset
+            elif isinstance(dataset_serialize_value, np.ndarray):
+                impl = NumPyRasterDataImpl(dataset_serialize_value)
+                dataset = RasterDataSet(impl, None)
+                return dataset
+        except Exception as e:
+            raise ValueError(f"Error deserializing dataset:\n{e}")
+
+    def copy_metadata_from(self, dataset_metadata: Dict) -> None:
+        '''
+        Copies the metadata from the dataset_metadata dictionary into this object.
+        '''
+        raise NotImplementedError("This method is not implemented for RasterDataSet")
+
+    def get_serialize_value(self) -> Tuple[Union[str, np.ndarray], Dict]:
+        '''
+        Gives a tuple that represents all of the data needed to recreate this object.
+        The first element is a string that represents the file path to the dataset, or a numpy array
+        that represents the data in the dataset. The second element is a dictionary that represents
+        the metadata needed to recreate this object.
+        '''
+        impl = self.get_impl()
+        recreation_value: Union[str, np.ndarray] = None
+        if isinstance(impl, ENVI_GDALRasterDataImpl):
+            impl_type_str = 'ENVI_GDALRasterDataImpl'
+        elif isinstance(impl, GDALRasterDataImpl):
+            impl_type_str = 'GDALRasterDataImpl'
+        elif isinstance(impl, PDRRasterDataImpl):
+            impl_type_str = 'PDRRasterDataImpl'
+        elif isinstance(impl, NumPyRasterDataImpl): 
+            impl_type_str = 'NumPyRasterDataImpl'
+        else:
+            raise ValueError(f"Unsupported implementation type: {type(impl)}")
+        
+        metadata = {
+            'impl_type': impl_type_str
+        }
+        if isinstance(impl, (GDALRasterDataImpl, PDRRasterDataImpl)):
+            # For GDALRasterDataImpl objects we need meta data values
+            # for the data ignore value, wavelengths, wavelength units,
+            # bad bands, spatial reference, geo transform, and subdataset name.
+            recreation_value = impl.get_filepaths()[0]
+            metadata['elem_type'] = self.get_elem_type()
+            metadata['data_ignore_value'] = self.get_data_ignore_value()
+            metadata['bad_bands'] = self.get_bad_bands()
+            metadata['spatial_ref'] = self.get_spatial_ref()
+            metadata['geo_transform'] = self.get_geo_transform()
+            metadata['subdataset_name'] = self.get_subdataset_name()
+            if self._compute_has_wavelengths():
+                metadata['wavelengths'] = [band['wavelength'] for band in self._band_info]
+                metadata['wavelength_units'] = self.get_band_unit()
+            else:
+                metadata['wavelengths'] = None
+                metadata['wavelength_units'] = None
+            return recreation_value, metadata
+        elif isinstance(impl, NumPyRasterDataImpl):
+            recreation_value = impl.get_image_data()
+            metadata['elem_type'] = self.get_elem_type()
+            metadata['data_ignore_value'] = self.get_data_ignore_value()
+            metadata['bad_bands'] = self.get_bad_bands()
+            metadata['spatial_ref'] = self.get_spatial_ref()
+            metadata['geo_transform'] = self.get_geo_transform()
+            if self._compute_has_wavelengths():
+                metadata['wavelengths'] = [band['wavelength'] for band in self._band_info]
+                metadata['wavelength_units'] = self.get_band_unit()
+            else:
+                metadata['wavelengths'] = None
+                metadata['wavelength_units'] = None
+            return recreation_value, metadata
+        else:
+            raise ValueError(f"Unsupported implementation type: {type(impl)}")
 
     def __hash__(self):
         '''
@@ -1093,6 +1201,27 @@ class RasterDataBand:
         '''
         return self._dataset.get_band_stats(self._band_index)
 
+
+    @staticmethod
+    def deserialize_into_class(band_index: int, dataset_metadata: Dict) -> 'RasterDataBand':
+        dataset = RasterDataSet.deserialize_into_class(dataset_metadata['dataset_serialize_value'], dataset_metadata['dataset_metadata'])
+        return RasterDataBand(dataset, band_index)
+    
+    def get_serialize_value(self) -> Tuple[Union[str, np.ndarray], Dict]:
+        '''
+        Gives a tuple that represents all of the data needed to recreate this object.
+        The first element is a string that represents the file path to the dataset, or a numpy array
+        that represents the data in the dataset. The second element is a dictionary that represents
+        the metadata needed to recreate this object.
+        '''
+        dataset_serialize_value, dataset_metadata = self._dataset.get_serialize_value()
+        metadata = {
+            'band_index': self._band_index,
+            'dataset_serialize_value': dataset_serialize_value,
+            'dataset_metadata': dataset_metadata
+        }
+        return (None, metadata)
+        
 
     def __deepcopy__(self, memo):
         '''

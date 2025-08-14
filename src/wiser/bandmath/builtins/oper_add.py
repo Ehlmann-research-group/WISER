@@ -14,7 +14,6 @@ from wiser.bandmath.utils import (
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
     get_lhs_rhs_values_async, get_result_dtype, MathOperations,
 )
-from wiser.raster.dataset import RasterDataSet
 
 class OperatorAdd(BandMathFunction):
     '''
