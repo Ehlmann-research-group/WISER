@@ -2,13 +2,14 @@ from enum import Enum
 import logging
 import os
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from astropy import units as u
+import numpy as np
 
 import lark
 
@@ -17,15 +18,16 @@ from .generated.band_math_ui import Ui_BandMathDialog
 from .app_state import ApplicationState
 from .rasterview import RasterView
 
-from wiser.raster.dataset import RasterDataBand
+from wiser.raster.dataset import RasterDataBand, RasterDataSet
+from wiser.raster.spectrum import Spectrum
 from wiser import bandmath
 from wiser.bandmath.utils import get_dimensions
+from wiser.bandmath.types import BANDMATH_VALUE_TYPE
 from wiser.gui.util import get_plugin_fns
 
 import copy
 
 logger = logging.getLogger(__name__)
-
 
 def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
     '''
@@ -1297,7 +1299,7 @@ class BandMathDialog(QDialog):
         return self._expr_info
 
 
-    def get_variable_bindings(self) -> Dict[str, Tuple[bandmath.VariableType, Any]]:
+    def get_variable_bindings(self) -> Dict[str, Tuple[bandmath.VariableType, BANDMATH_VALUE_TYPE]]:
         '''
         Returns the variable bindings as specified by the user.  The result is
         in the form that is required by bandmath.evaluator.eval_bandmath_expr().

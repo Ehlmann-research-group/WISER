@@ -22,9 +22,13 @@ from .utils import (
     get_valid_ignore_value,
 )
 
+from wiser.bandmath.types import BANDMATH_VALUE_TYPE
+from wiser.raster.serializable import Serializable, SerializedForm
+
 from wiser.raster.data_cache import DataCache
 
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, RasterDataBand
+from wiser.raster.spectrum import Spectrum
 
 from osgeo import gdal
 
@@ -177,7 +181,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
     '''
-    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
+    def __init__(self, variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
                        functions: Dict[str, Callable],
                        shape: Tuple[int, int, int] = None,
                        use_parallelization = True):
@@ -470,7 +474,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
     '''
-    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
+    def __init__(self, variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
                        functions: Dict[str, Callable]):
         self._variables = variables
         self._functions = functions
@@ -673,7 +677,7 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
     '''
     A Lark Transformer for evaluating band-math expressions.
     '''
-    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
+    def __init__(self, variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
                        functions: Dict[str, Callable]):
         self._variables = variables
         self._functions = functions
@@ -798,9 +802,10 @@ def deserialize_subprocess_bandmath_job(self):
     pass
 
 def serialize_subprocess_bandmath_job(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
-        variables: Dict[str, Tuple[VariableType, Any]],
+        variables: Dict[str, SerializedForm],
         functions: Dict[str, BandMathFunction] = None,
-        use_old_method = False, test_parallel_io=False):
+        use_old_method = False, test_parallel_io=False) -> \
+    Dict[str, Tuple[VariableType, SerializedForm]]:
     '''
     This function is meant to serialize the 'variables' and 'functions' dictionaries into a format that can be
     passed to the sub process. In the subprocess, we will deserialize the variables and functions and then pass them
@@ -812,6 +817,10 @@ def serialize_subprocess_bandmath_job(bandmath_expr: str, expr_info: BandMathExp
     for var_name, var_tuple in variables.items():
         var_type = var_tuple[0]
         var_value = var_tuple[1]
+        if isinstance(var_value, Serializable):
+            variables_serialized[var_name] = (var_type, var_value.get_serialized_form())
+        else:
+            variables_serialized[var_name] = var_tuple
         # TODO (Joshua G-K): Serialize the variables and make a new variables and functions Dict
         # TODO (Joshua G-K) rewrite BandMathExprInfo to not have a gdal dataset object in it by rewriting 
         # spatial_metadata_source and spectral_metadata_source 
@@ -821,7 +830,7 @@ def serialize_subprocess_bandmath_job(bandmath_expr: str, expr_info: BandMathExp
 
     pass
 
-def get_serialized_variable(var_type: VariableType, var_value: Any) -> Union[str, np.ndarray]:
+def get_serialized_variable(var_type: VariableType, var_value: BANDMATH_VALUE_TYPE) -> Union[str, np.ndarray]:
     '''
     Returns a serialized version of the variable that can be called later to deserialize it in the 
     sub process
@@ -837,7 +846,7 @@ def get_serialized_variable(var_type: VariableType, var_value: Any) -> Union[str
             raise ValueError(f"Unsupported variable type: {var_type}")
 
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
-        variables: Dict[str, Tuple[VariableType, Any]],
+        variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
         functions: Dict[str, BandMathFunction] = None,
         use_old_method = False, test_parallel_io=False) -> BandMathValue:
     '''
@@ -871,7 +880,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     #     etc.
 
     # print(f"GDAL Python Version: {gdal.__version__}")
-    lower_variables: Dict[str, Tuple[VariableType, Any]] = {}
+    lower_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]] = {}
     for name, value in variables.items():
         lower_variables[name.lower()] = value
 

@@ -1,7 +1,7 @@
 import abc
 import enum
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union, Dict
 
 from collections import deque
 
@@ -13,9 +13,10 @@ from astropy import units as u
 
 from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, SpectralMetadata
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import SelectionType
+from wiser.raster.serializable import Serializable, SerializedForm
 
 
 #============================================================================
@@ -304,7 +305,7 @@ def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spectr
 # CLASSES TO REPRESENT SPECTRA
 
 
-class Spectrum(abc.ABC):
+class Spectrum(abc.ABC, Serializable):
     '''
     The base class for representing spectra of interest to the user of the
     application.
@@ -396,7 +397,51 @@ class Spectrum(abc.ABC):
     def is_discardable(self) -> bool:
         # By default, spectra are discardable.
         return True
-
+    
+    def get_serialized_form(self) -> SerializedForm:
+        '''
+        This should return all of the information needed to recreate this object.
+        The first element is this class, so we can get the deserialize_into_class function
+        The second element is a string that represents the file path to the dataset, or a numpy array
+        that represents the data in the dataset. The third element is a dictionary that represents
+        the metadata needed to recreate this object.
+        '''
+        spectrum_arr = self.get_spectrum()
+        metadata = {
+            'name': self.get_name(),
+            'source_name': self.get_source_name(),
+            'id': self.get_id(),
+            'elem_type': self.get_elem_type(),
+            'wavelengths': self.get_wavelengths(),
+            'wavelength_units': self.get_wavelength_units(),
+            'editable': self.is_editable(),
+            'discardable': self.is_discardable()
+        }
+        return SerializedForm(self.__class__, spectrum_arr, metadata)
+    
+    def get_spectral_metadata(self) -> SpectralMetadata:
+        spectral_metadata = SpectralMetadata(self._band_info,
+                                             self.get_bad_bands(),
+                                             None,
+                                             self._data_ignore_value,
+                                             self.has_wavelengths(),
+                                             self.get_wavelength_units())
+        return spectral_metadata
+        
+    @staticmethod
+    def deserialize_into_class(spectrum_arr: Union[str, np.ndarray], metadata: Dict) -> 'NumPyArraySpectrum':
+        '''
+        This should recreate the object from the serialized form that is obtained from the get_serialized_form method.
+        '''
+        name = metadata['name']
+        source_name = metadata['source_name']
+        id = metadata['id']
+        wavelengths = metadata['wavelengths']
+        editable = metadata['editable']
+        discardable = metadata['discardable']
+        spectrum = NumPyArraySpectrum(spectrum_arr, name, source_name, wavelengths, editable, discardable)
+        spectrum.set_id(id)
+        return spectrum
 
 #===============================================================================
 # NUMPY ARRAY SPECTRA

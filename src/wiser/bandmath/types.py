@@ -1,7 +1,7 @@
 import abc
 import enum
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -9,6 +9,10 @@ import copy
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
 from wiser.raster.spectrum import Spectrum
+
+
+FolderPathType = str
+BANDMATH_VALUE_TYPE = Union[RasterDataSet, RasterDataBand, Spectrum, FolderPathType, bool, np.float32]
 
 
 class VariableType(enum.IntEnum):
@@ -133,7 +137,7 @@ class BandMathValue:
 
         self.name: Optional[str] = None
         self.type: VariableType = type
-        self.value: Any = value
+        self.value: BANDMATH_VALUE_TYPE = value
         self.computed: bool = computed
         self.is_intermediate = is_intermediate
 

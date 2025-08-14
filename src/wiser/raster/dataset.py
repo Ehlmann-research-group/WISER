@@ -16,6 +16,8 @@ from .data_cache import DataCache
 
 from wiser.gui.dataset_editor_dialog import DatasetEditorDialog 
 
+from wiser.raster.serializable import Serializable, SerializedForm
+
 from time import perf_counter
 
 Number = Union[int, float]
@@ -108,8 +110,56 @@ class BandStats:
     def __str__(self):
         return f'BandStats[index={self._band_index}, min={self._min_value}, max={self._max_value}]'
 
+class SpatialMetadata():
 
-class RasterDataSet:
+    def __init__(self, geo_transform, spatial_ref, wkt_spatial_reference):
+        self._geo_transform = geo_transform
+        self._spatial_ref = spatial_ref
+        self._wkt_spatial_reference = wkt_spatial_reference
+        
+    def get_geo_transform(self) -> Tuple:
+        return self._geo_transform
+    
+    def get_spatial_ref(self) -> osr.SpatialReference:
+        return self._spatial_ref
+    
+    def get_wkt_spatial_reference(self) -> str:
+        return self._wkt_spatial_reference
+    
+    def __str__(self):
+        return f'SpatialMetadata[geo_transform={self._geo_transform}, spatial_ref={self._spatial_ref}, wkt_spatial_reference={self._wkt_spatial_reference}]'
+    
+class SpectralMetadata():
+
+    def __init__(self, band_info: Dict[str, Any], bad_bands: List[int], 
+                 default_display_bands: DisplayBands, data_ignore_value: Number, 
+                 has_wavelengths: bool, wavelength_units: Optional[u.Unit] = None):
+        self._band_info = band_info
+        self._bad_bands = bad_bands
+        self._default_display_bands = default_display_bands
+        self._data_ignore_value = data_ignore_value
+        self._has_wavelengths = has_wavelengths
+        self._wavelength_units = wavelength_units
+        
+    def get_band_info(self) -> Dict[str, Any]:
+        return self._band_info
+    
+    def get_bad_bands(self) -> List[int]:
+        return self._bad_bands
+    
+    def get_default_display_bands(self) -> DisplayBands:
+        return self._default_display_bands
+    
+    def get_data_ignore_value(self) -> Number:
+        return self._data_ignore_value
+    
+    def get_has_wavelengths(self) -> bool:
+        return self._has_wavelengths
+    
+    def __str__(self):
+        return f'SpectralMetadata[band_info={self._band_info}, bad_bands={self._bad_bands}, default_display_bands={self._default_display_bands}, data_ignore_value={self._data_ignore_value}, has_wavelengths={self._has_wavelengths}]'
+
+class RasterDataSet(Serializable):
     '''
     A 2D raster data-set for imaging spectroscopy, possibly with many bands of
     data for each pixel.
@@ -898,6 +948,20 @@ class RasterDataSet:
             self._wkt_spatial_reference = None
 
         self.set_dirty()
+    
+    def get_spatial_metadata(self) -> SpatialMetadata:
+        spatial_metadata = SpatialMetadata(self._geo_transform, 
+                                           self._spatial_ref,
+                                           self._wkt_spatial_reference)
+        return spatial_metadata
+    
+    def get_spectral_metadata(self) -> SpectralMetadata:
+        spectral_metadata = SpectralMetadata(self._band_info,
+                                             self.get_bad_bands(),
+                                             self._default_display_bands,
+                                             self._data_ignore_value,
+                                             self.has_wavelengths())
+        return spectral_metadata
 
     def copy_spectral_metadata(self, source: Union['RasterDataSet', 'Spectrum']) -> None:
         if isinstance(source, RasterDataSet):
@@ -1031,7 +1095,7 @@ class RasterDataSet:
                 else:
                     raise ValueError(f"Unsupported implementation type: {dataset_metadata.get('impl_type')}")
                 dataset = RasterDataSet(impl, None)
-                dataset.copy_metadata_from(dataset_metadata)
+                dataset.copy_serialized_metadata_from(dataset_metadata)
                 return dataset
             elif isinstance(dataset_serialize_value, np.ndarray):
                 impl = NumPyRasterDataImpl(dataset_serialize_value)
@@ -1040,17 +1104,42 @@ class RasterDataSet:
         except Exception as e:
             raise ValueError(f"Error deserializing dataset:\n{e}")
 
-    def copy_metadata_from(self, dataset_metadata: Dict) -> None:
+    def copy_serialized_metadata_from(self, dataset_metadata: Dict) -> None:
         '''
-        Copies the metadata from the dataset_metadata dictionary into this object.
+        Copies the metadata from the dataset_metadata dictionary into this object. This
+        is useful when reconstructing RasterDataSet objects meta data in another process.
+        This is needed because the user can change the in memory copy of the RasterDataSet
+        object and so if we reconstruct this object just from the impl dataset, we would
+        not get this changed metadata. 
         '''
-        raise NotImplementedError("This method is not implemented for RasterDataSet")
+        serial_elem_type = dataset_metadata['elem_type']
+        serial_data_ignore_value = dataset_metadata['data_ignore_value']
+        serial_bad_bands = dataset_metadata['bad_bands']
+        serial_spatial_ref = dataset_metadata['spatial_ref']
+        serial_geo_transform = dataset_metadata['geo_transform']
+        serial_wavelengths = dataset_metadata['wavelengths']
+        serial_wavelength_units = dataset_metadata['wavelength_units']
+        if serial_elem_type is not None:
+            self._elem_type = serial_elem_type
+        if serial_data_ignore_value is not None:
+            self._data_ignore_value = serial_data_ignore_value
+        if serial_bad_bands is not None:
+            self._bad_bands = serial_bad_bands
+        if serial_spatial_ref is not None:
+            self._spatial_ref = serial_spatial_ref
+        if serial_geo_transform is not None:
+            self._geo_transform = serial_geo_transform
+        if serial_wavelengths is not None:
+            self._band_info = serial_wavelengths
+        if serial_wavelength_units is not None:
+            self._band_unit = serial_wavelength_units
 
-    def get_serialize_value(self) -> Tuple[Union[str, np.ndarray], Dict]:
+    def get_serialized_form(self) -> SerializedForm:
         '''
         Gives a tuple that represents all of the data needed to recreate this object.
-        The first element is a string that represents the file path to the dataset, or a numpy array
-        that represents the data in the dataset. The second element is a dictionary that represents
+        The first element is this class, so we can get the deserialize_into_class function
+        The second element is a string that represents the file path to the dataset, or a numpy array
+        that represents the data in the dataset. The third element is a dictionary that represents
         the metadata needed to recreate this object.
         '''
         impl = self.get_impl()
@@ -1086,7 +1175,7 @@ class RasterDataSet:
             else:
                 metadata['wavelengths'] = None
                 metadata['wavelength_units'] = None
-            return recreation_value, metadata
+            return SerializedForm(self.__class__, recreation_value, metadata)
         elif isinstance(impl, NumPyRasterDataImpl):
             recreation_value = impl.get_image_data()
             metadata['elem_type'] = self.get_elem_type()
@@ -1100,7 +1189,7 @@ class RasterDataSet:
             else:
                 metadata['wavelengths'] = None
                 metadata['wavelength_units'] = None
-            return recreation_value, metadata
+            return SerializedForm(self.__class__, recreation_value, metadata)
         else:
             raise ValueError(f"Unsupported implementation type: {type(impl)}")
 
@@ -1138,7 +1227,7 @@ class RasterDataSet:
         return self
 
 
-class RasterDataBand:
+class RasterDataBand(Serializable):
     '''
     A helper class to represent a single band of a raster data set.  This is a
     simple wrapper around class:RasterDataSet that also tracks a single band.
@@ -1201,26 +1290,40 @@ class RasterDataBand:
         '''
         return self._dataset.get_band_stats(self._band_index)
 
+    def get_spatial_metadata(self) -> SpatialMetadata:
+        ds = self._dataset
+        spatial_metadata = SpatialMetadata(ds._geo_transform, 
+                                           ds._spatial_ref,
+                                           ds._wkt_spatial_reference)
+        return spatial_metadata
+    
+    def get_spectral_metadata(self) -> SpectralMetadata:
+        return None
 
     @staticmethod
     def deserialize_into_class(band_index: int, dataset_metadata: Dict) -> 'RasterDataBand':
         dataset = RasterDataSet.deserialize_into_class(dataset_metadata['dataset_serialize_value'], dataset_metadata['dataset_metadata'])
         return RasterDataBand(dataset, band_index)
     
-    def get_serialize_value(self) -> Tuple[Union[str, np.ndarray], Dict]:
+    def get_serialized_form(self) -> SerializedForm:
         '''
         Gives a tuple that represents all of the data needed to recreate this object.
-        The first element is a string that represents the file path to the dataset, or a numpy array
-        that represents the data in the dataset. The second element is a dictionary that represents
+        The first element is this class, so we can get the deserialize_into_class function
+        The second element is a string that represents the file path to the dataset, or a numpy array
+        that represents the data in the dataset. The third element is a dictionary that represents
         the metadata needed to recreate this object.
         '''
-        dataset_serialize_value, dataset_metadata = self._dataset.get_serialize_value()
+        serialized_form = self._dataset.get_serialized_form()
+        serializable_class = serialized_form.get_serializable_class()
+        dataset_serialize_value = serialized_form.get_serialize_value()
+        dataset_metadata = serialized_form.get_metadata()
         metadata = {
             'band_index': self._band_index,
+            'dataset_serializable_class': serializable_class,
             'dataset_serialize_value': dataset_serialize_value,
             'dataset_metadata': dataset_metadata
         }
-        return (None, metadata)
+        return SerializedForm(self.__class__, None, metadata)
         
 
     def __deepcopy__(self, memo):
