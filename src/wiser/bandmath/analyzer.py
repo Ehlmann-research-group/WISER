@@ -136,7 +136,7 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             if type in [VariableType.IMAGE_CUBE, VariableType.SPECTRUM]:
                 assert isinstance(bmv.value, (RasterDataSet, Spectrum)), \
                     "Image cube or Spectrum is neither RasterDataSet or Spectrum"
-                info.spectral_metadata_source = bmv
+                info.spectral_metadata_source = bmv.value.get_spectral_metadata()
 
         logger.debug(f'Variable "{name}":  {info}')
 

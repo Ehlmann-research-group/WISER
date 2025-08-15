@@ -7,7 +7,7 @@ import numpy as np
 
 import copy
 
-from wiser.raster.dataset import RasterDataSet, RasterDataBand
+from wiser.raster.dataset import RasterDataSet, RasterDataBand, SpectralMetadata, SpatialMetadata
 from wiser.raster.spectrum import Spectrum
 
 
@@ -60,11 +60,11 @@ class BandMathExprInfo:
         # If the result should have spatial metadata (e.g. geographic projection
         # info or spatial reference system) associated with it, this is the
         # source of that metadata.
-        self.spatial_metadata_source: Any = None
+        self.spatial_metadata_source: SpatialMetadata = None
 
         # If the result should have spectral metadata (e.g. band wavelengths)
         # associated with it, this is the source of that metadata.
-        self.spectral_metadata_source: Any = None
+        self.spectral_metadata_source: SpectralMetadata = None
     '''
     def __init__(self, result_type=None):
         # The result-type of the band-math expression.
@@ -77,13 +77,13 @@ class BandMathExprInfo:
         self.shape: Tuple = None
 
         # If the result should have spatial metadata (e.g. geographic projection
-        # info or spatial reference system) associated with it, this is the
-        # source of that metadata.
-        self.spatial_metadata_source: Any = None
+        # info or spatial reference system) associated with it, this is that
+        # metadata
+        self.spatial_metadata_source: SpatialMetadata = None
 
         # If the result should have spectral metadata (e.g. band wavelengths)
-        # associated with it, this is the source of that metadata.
-        self.spectral_metadata_source: Any = None
+        # associated with it, this is that metadata
+        self.spectral_metadata_source: SpectralMetadata = None
 
 
     def result_size(self):

@@ -1,7 +1,7 @@
 import copy
 import math
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
 from astropy import units as u
@@ -19,6 +19,9 @@ from wiser.gui.dataset_editor_dialog import DatasetEditorDialog
 from wiser.raster.serializable import Serializable, SerializedForm
 
 from time import perf_counter
+
+if TYPE_CHECKING:
+    from wiser.raster.spectrum import Spectrum
 
 Number = Union[int, float]
 DisplayBands = Union[Tuple[int], Tuple[int, int, int]]
@@ -132,13 +135,18 @@ class SpatialMetadata():
 class SpectralMetadata():
 
     def __init__(self, band_info: Dict[str, Any], bad_bands: List[int], 
-                 default_display_bands: DisplayBands, data_ignore_value: Number, 
-                 has_wavelengths: bool, wavelength_units: Optional[u.Unit] = None):
+                 default_display_bands: DisplayBands, num_bands: int,
+                 data_ignore_value: Number, has_wavelengths: bool, 
+                 wavelengths: List[u.Quantity] = None, wavelength_units: Optional[u.Unit] = None):
         self._band_info = band_info
         self._bad_bands = bad_bands
         self._default_display_bands = default_display_bands
+        self._num_bands = num_bands
         self._data_ignore_value = data_ignore_value
+        if self._bad_bands:
+            assert len(self._bad_bands) == self._num_bands
         self._has_wavelengths = has_wavelengths
+        self._wavelengths = wavelengths
         self._wavelength_units = wavelength_units
         
     def get_band_info(self) -> Dict[str, Any]:
@@ -150,11 +158,20 @@ class SpectralMetadata():
     def get_default_display_bands(self) -> DisplayBands:
         return self._default_display_bands
     
+    def get_num_bands(self) -> int:
+        return self._num_bands
+    
     def get_data_ignore_value(self) -> Number:
         return self._data_ignore_value
     
     def get_has_wavelengths(self) -> bool:
         return self._has_wavelengths
+    
+    def get_wavelengths(self) -> List[u.Quantity]:
+        return self._wavelengths
+
+    def get_wavelength_units(self) -> u.Unit:
+        return self._wavelength_units
     
     def __str__(self):
         return f'SpectralMetadata[band_info={self._band_info}, bad_bands={self._bad_bands}, default_display_bands={self._default_display_bands}, data_ignore_value={self._data_ignore_value}, has_wavelengths={self._has_wavelengths}]'
@@ -917,7 +934,7 @@ class RasterDataSet(Serializable):
 
         self.set_dirty()
 
-    def copy_spatial_metadata(self, source: Union['RasterDataSet', 'RasterDataBand']) -> None:
+    def copy_spatial_metadata(self, source: SpatialMetadata) -> None:
         '''
         Copy the spatial metadata from the source object.  The source must
         either be a RasterDataSet or a RasterDataBand object.
@@ -928,22 +945,15 @@ class RasterDataSet(Serializable):
         this object.
         '''
 
-        if isinstance(source, RasterDataBand):
-            # Get the dataset out of the band object.
-            source = source.get_dataset()
-
-        if not isinstance(source, RasterDataSet):
-            raise TypeError(f'Unhandled source-type {type(source)}')
-
-        self._geo_transform = source._geo_transform
+        self._geo_transform = source.get_geo_transform()
 
         if source._spatial_ref is not None:
-            self._spatial_ref = source._spatial_ref.Clone()
+            self._spatial_ref = source.get_spatial_ref().Clone()
         else:
             self._spatial_ref = None
 
         if source._wkt_spatial_reference is not None:
-            self._wkt_spatial_reference = source._wkt_spatial_reference
+            self._wkt_spatial_reference = source.get_geo_transform()
         else:
             self._wkt_spatial_reference = None
 
@@ -956,40 +966,56 @@ class RasterDataSet(Serializable):
         return spatial_metadata
     
     def get_spectral_metadata(self) -> SpectralMetadata:
-        spectral_metadata = SpectralMetadata(self._band_info,
-                                             self.get_bad_bands(),
-                                             self._default_display_bands,
-                                             self._data_ignore_value,
-                                             self.has_wavelengths())
+        wavelengths = None
+        if self.has_wavelengths:
+            wavelengths = []
+            for band_info in self._band_info:
+                wavelengths.append(band_info['wavelength'])
+        spectral_metadata = SpectralMetadata(band_info=self._band_info,
+                                             bad_bands=self.get_bad_bands(),
+                                             default_display_bands=self._default_display_bands,
+                                             num_bands=self.num_bands(),
+                                             data_ignore_value=self._data_ignore_value,
+                                             has_wavelengths=self.has_wavelengths(),
+                                             wavelengths=wavelengths,
+                                             wavelength_units=self.get_band_unit()
+                                            )
         return spectral_metadata
 
-    def copy_spectral_metadata(self, source: Union['RasterDataSet', 'Spectrum']) -> None:
-        if isinstance(source, RasterDataSet):
-            self._band_info = copy.deepcopy(source._band_info)
-            self._bad_bands = list(source._bad_bands)
-            self._default_display_bands = source._default_display_bands
-            if source.get_data_ignore_value() is not None:
-                self._data_ignore_value = source.get_data_ignore_value()
-
+    def copy_spectral_metadata(self, source: SpectralMetadata) -> None:
+        band_info = source.get_band_info()
+        bad_bands = source.get_bad_bands()
+        default_display_bands = source.get_default_display_bands()
+        data_ignore_value = source.get_data_ignore_value()
+        has_wavelengths = source.get_has_wavelengths()
+        wavelengths = source.get_wavelengths()
+        wavelength_units = source.get_wavelength_units()
+        
+        if band_info and bad_bands and default_display_bands:
+            self._band_info = band_info
+            self._bad_bands = bad_bands
+            self._default_display_bands = default_display_bands
+            if data_ignore_value:
+                self._data_ignore_value
             self._has_wavelengths = self._compute_has_wavelengths()
-
-        elif isinstance(source, Spectrum):
-            self._band_info = []
-            if source.has_wavelengths():
-                for (band_index, wavelength) in enumerate(source.get_wavelengths()):
-                    info = {'index':band_index - 1, 'description':band.GetDescription()}
+        else:
+            if has_wavelengths:
+                assert wavelengths, "Even though has_wavelengths is True, wavelengths don't exist"
+                assert has_wavelengths and wavelength_units
+                self._band_info = []
+                for (band_index, wavelength) in enumerate(wavelengths):
+                    info = {'index':band_index - 1, 'description':f'Band: {band_index - 1}',
+                            'wavelength': wavelength, 'wavelength_str': str(wavelength.unit), \
+                            'wavelength_units': str(wavelength.value)}
+                    self._band_info.append(info)
+            else:
+                for (band_index, wavelength) in range(source.get_num_bands()):
+                    info = {'index':band_index - 1, 'description':f'Band: {band_index - 1}'}
                     self._band_info.append(info)
 
-            else:
-                pass    # No spectral metadata to copy
-
-            self._bad_bands
             self._default_display_bands = None
 
             self._has_wavelengths = self._compute_has_wavelengths()
-
-        else:
-            raise TypeError(f'Unhandled source-type {type(source)}')
 
         self.set_dirty()
 

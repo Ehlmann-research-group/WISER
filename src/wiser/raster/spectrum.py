@@ -420,12 +420,14 @@ class Spectrum(abc.ABC, Serializable):
         return SerializedForm(self.__class__, spectrum_arr, metadata)
     
     def get_spectral_metadata(self) -> SpectralMetadata:
-        spectral_metadata = SpectralMetadata(self._band_info,
-                                             self.get_bad_bands(),
-                                             None,
-                                             self._data_ignore_value,
-                                             self.has_wavelengths(),
-                                             self.get_wavelength_units())
+        spectral_metadata = SpectralMetadata(band_info=None,
+                                             bad_bands=None,
+                                             default_display_bands=None,
+                                             num_bands=self.num_bands(),
+                                             data_ignore_value=None,
+                                             has_wavelengths=self.has_wavelengths(),
+                                             wavelengths=self.get_wavelengths(),
+                                             wavelength_units=self.get_wavelength_units())
         return spectral_metadata
         
     @staticmethod
@@ -546,20 +548,9 @@ class NumPyArraySpectrum(Spectrum):
                 return self._wavelengths[0].unit
         return None
 
-    def copy_spectral_metadata(self, source):
-        if isinstance(source, RasterDataSet):
-            src_wavelengths = None
-            if source.has_wavelengths():
-                src_wavelengths = [b['wavelength'] for b in source.band_list()]
-
-            self.set_wavelengths(src_wavelengths)
-
-        elif isinstance(source, Spectrum):
-            self.set_wavelengths(source.get_wavelengths())
-
-        else:
-            raise ValueError(f'Don\'t know how to get spectral metadata from type {type(source)}.')
-
+    def copy_spectral_metadata(self, source: SpectralMetadata):
+        assert source.get_wavelengths(), "SpectralMetadata has no wavelengths"
+        self.set_wavelengths(source.get_wavelengths())
 
     def get_spectrum(self) -> np.ndarray:
         '''
