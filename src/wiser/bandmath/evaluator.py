@@ -30,8 +30,13 @@ from wiser.raster.loader import RasterDataLoader
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand, SpectralMetadata, RasterDataBatchBand
 from wiser.raster.spectrum import Spectrum
+from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset_impl import SaveState
+
+from wiser.gui.subprocessing_manager import ProcessManager
 
 from osgeo import gdal
+import multiprocessing as mp
 
 from .builtins import (
     OperatorCompare,
@@ -39,8 +44,6 @@ from .builtins import (
     OperatorUnaryNegate, OperatorPower,
     )
 
-from wiser.raster.loader import RasterDataLoader
-from wiser.raster.dataset_impl import SaveState
 
 from .builtins.constants import SCALAR_BYTES, NUM_WRITERS, DEFAULT_IGNORE_VALUE, NUM_READERS, LHS_KEY, RHS_KEY
 
@@ -891,18 +894,31 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     in "BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)"  as lower_variables.
     '''
 
-    '''
-    After this point we do it per thing 
-    '''
     print(f"About to serialize bandmath variables")
     serialized_variables = serialize_bandmath_variables(lower_variables)
+    '''
+    After this point we do it in a process
+    '''
+    
+    # return serialized_results
+
+def subprocess_bandmath(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+                        serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
+                        lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+                        use_old_method: bool, test_parallel_io: bool, child_conn: mp.Pipe, return_queue: mp.Queue):
     print(f"About to prepare bandmath variables")
     prepared_variables = prepare_bandmath_variables(serialized_variables)
     print(f"About to eval full bandmath expr")
-    datasets = eval_full_bandmath_expr(expr_info, result_name, cache, prepared_variables, lower_functions, \
+    results = eval_full_bandmath_expr(expr_info, result_name, cache, prepared_variables, lower_functions, \
                             number_of_intermediates, tree, use_old_method, test_parallel_io)
-    return datasets
+    serialized_results: List[Tuple[VariableType, SerializedForm]] = []
+    for result_type, result_value in results:
+        if not isinstance(result_value, (RasterDataSet, RasterDataBand, Spectrum)):
+            raise ValueError(f"Unsupported result type: {type(result_value)}")
+        serialized_results.append((result_type, result_value.get_serialized_form()))
+    return_queue.put(serialized_results)
     print(f"Done with eval full bandmath expr")
+
 
 # def prepare_singular_variable(var_type: VariableType, var_value: BANDMATH_VALUE_TYPE) -> \
 

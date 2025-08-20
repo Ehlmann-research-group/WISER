@@ -25,6 +25,9 @@ class ParallelTask(QThread):
     # task object.
     started = Signal(object)
 
+    # Signal: The task's progress
+    progress = Signal(object)
+
     # Signal:  The task has finished.  The argument of the signal is this task
     # object.
     succeeded = Signal(object)

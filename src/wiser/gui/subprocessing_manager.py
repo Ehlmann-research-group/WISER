@@ -48,13 +48,11 @@ class ProcessManager(QObject):
 
     def __init__(self, operation: Callable, kwargs: Dict = {}):
         super().__init__()
-        self._parent_conn, self._child_conn = mp.Pipe()
+        self._parent_conn, self._child_conn = mp.Pipe(duplex=False)
         self._return_q = mp.Queue()
         kwargs['child_conn'] = self._child_conn
         kwargs['return_queue'] = self._return_q
         self._process = mp.Process(target=operation, kwargs=kwargs)
-
-        self._pid = self._process.pid
 
         self._task = ParallelTaskProcess(self._process, self._return_q)
 
@@ -63,6 +61,9 @@ class ProcessManager(QObject):
 
     def get_task(self):
         return self._task
+    
+    def start_task(self):
+        self._task.start()
 
     def get_pid(self):
         return self._pid
