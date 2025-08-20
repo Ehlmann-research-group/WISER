@@ -2,7 +2,7 @@ import os
 import logging
 import inspect
 
-from typing import Any, Callable, Dict, Tuple, Coroutine, Union
+from typing import Any, Callable, Dict, Tuple, Coroutine, Union, List
 
 import lark
 from lark import Visitor, Tree, Token, v_args
@@ -26,8 +26,9 @@ from wiser.bandmath.types import BANDMATH_VALUE_TYPE
 from wiser.raster.serializable import Serializable, SerializedForm
 
 from wiser.raster.data_cache import DataCache
+from wiser.raster.loader import RasterDataLoader
 
-from wiser.raster.dataset import RasterDataSet, RasterDataBand
+from wiser.raster.dataset import RasterDataSet, RasterDataBand, SpectralMetadata, RasterDataBatchBand
 from wiser.raster.spectrum import Spectrum
 
 from osgeo import gdal
@@ -801,11 +802,8 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
 def deserialize_subprocess_bandmath_job(self):
     pass
 
-def serialize_subprocess_bandmath_job(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
-        variables: Dict[str, SerializedForm],
-        functions: Dict[str, BandMathFunction] = None,
-        use_old_method = False, test_parallel_io=False) -> \
-    Dict[str, Tuple[VariableType, SerializedForm]]:
+def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]) -> \
+    Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]:
     '''
     This function is meant to serialize the 'variables' and 'functions' dictionaries into a format that can be
     passed to the sub process. In the subprocess, we will deserialize the variables and functions and then pass them
@@ -821,14 +819,7 @@ def serialize_subprocess_bandmath_job(bandmath_expr: str, expr_info: BandMathExp
             variables_serialized[var_name] = (var_type, var_value.get_serialized_form())
         else:
             variables_serialized[var_name] = var_tuple
-        # TODO (Joshua G-K): Serialize the variables and make a new variables and functions Dict
-        # TODO (Joshua G-K) rewrite BandMathExprInfo to not have a gdal dataset object in it by rewriting 
-        # spatial_metadata_source and spectral_metadata_source 
-            
-
-    # For each of the functions, try it, if its not serializable, call the function that will let us serialize it later
-
-    pass
+    return variables_serialized
 
 def get_serialized_variable(var_type: VariableType, var_value: BANDMATH_VALUE_TYPE) -> Union[str, np.ndarray]:
     '''
@@ -917,88 +908,212 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     '''
     After this point we do it per thing 
     '''
+    print(f"About to serialize bandmath variables")
+    serialized_variables = serialize_bandmath_variables(lower_variables)
+    print(f"About to prepare bandmath variables")
+    prepared_variables = prepare_bandmath_variables(serialized_variables)
+    print(f"About to eval full bandmath expr")
+    eval_full_bandmath_expr(expr_info, result_name, cache, prepared_variables, lower_functions, \
+                            number_of_intermediates, tree, use_old_method, test_parallel_io)
+    print(f"Done with eval full bandmath expr")
 
-    gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
-    
-    max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
-    logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
+# def prepare_singular_variable(var_type: VariableType, var_value: BANDMATH_VALUE_TYPE) -> \
 
-    source = expr_info.spectral_metadata_source
-    data_ignore_value = DEFAULT_IGNORE_VALUE
-    if source is not None and isinstance(source.value, RasterDataSet):
-        value = source.value
-        if value.get_data_ignore_value() is not None:
-            data_ignore_value = value.get_data_ignore_value()
+def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value: Union[SerializedForm, str, bool], \
+                                loader: RasterDataLoader, filepath: str = None) -> Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]:
+    '''
+    This function is used to convert a serialized form into a variable.
+    '''
+    if var_type == VariableType.IMAGE_CUBE:
+        assert isinstance(var_value, SerializedForm)
+        serialize_value = var_value.get_serialize_value()
+        serialize_metadata = var_value.get_metadata()
+        obj = RasterDataSet.deserialize_into_class(serialize_value, serialize_metadata)
+        return{var_name: (var_type, obj)}
 
-    if test_parallel_io or \
-    (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
-     and not use_old_method):
-        try:
-            eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
-            bands = 1
-            lines = 1
-            samples = 1
-            if len(expr_info.shape) == 2:
-                lines, samples = expr_info.shape
-            elif len(expr_info.shape) == 3:
-                bands, lines, samples = expr_info.shape
-            else:
-                raise RuntimeError(f"expr_info shape is neither 2 or 3, its {expr_info.shape}")
-            # Gets the correct file path to make our temporary file
-            result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
-            folder_path = os.path.dirname(result_path)
-            if not os.path.exists(folder_path):
-                os.makedirs(folder_path)
-            
-            out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal_type)
-            # We declare the dataset write after so if any errors occur below,
-            # the file gets destroyed (which happens in del of RasterDataSet)
-            out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
-            out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
-            out_dataset.set_dirty()
-            
-            # Based on memory limits (currently set in constants,, but we could make it more adjustable)
-            # find the number of bands that we can access without exceeding it
-            bytes_per_element = np.dtype(expr_info.elem_type).itemsize if expr_info.elem_type is not None else SCALAR_BYTES
-            max_bytes = max_chunking_bytes/bytes_per_element
-            max_bytes_per_intermediate = max_bytes / number_of_intermediates
-            num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
-            num_bands = 1 if num_bands < 1 else num_bands
+    elif var_type == VariableType.IMAGE_CUBE_BATCH:
+        assert isinstance(var_value, str), "Image Cube Batch variables should be strings"
+        assert filepath is not None, "Filepath is required for Image Cube Batch variables"
+        dataset = loader.load_from_file(filepath, interactive=False)[0]
+        return {var_name: (VariableType.IMAGE_CUBE, dataset)}
 
-            writing_futures = []
-            for band_index in range(0, bands, num_bands):
-                band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
-                band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
-                # print(f"Min: {min(band_index_list_current)} | Max: {max(band_index_list_current)}")
-                
-                eval.index_list_current = band_index_list_current
-                eval.index_list_next = band_index_list_next
-                
-                result_value = eval.transform(tree)
-                if isinstance(result_value, (asyncio.Future, Coroutine)):
-                    result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
-                res = result_value.value
-                
-                future = eval._write_thread_pool.submit(write_raster_to_dataset, \
-                                                    out_dataset_gdal, band_index_list_current, \
-                                                    res, gdal_type, default_ignore_value=data_ignore_value)
-                writing_futures.append(future)
-            concurrent.futures.wait(writing_futures)
-        except BaseException as e:
-            if eval is not None:
-                eval.stop()
-            raise e
-        finally:
-            eval.stop()
-        return (RasterDataSet, out_dataset)
+    elif var_type == VariableType.IMAGE_BAND:
+        assert isinstance(var_value, SerializedForm)
+        serialize_value = var_value.get_serialize_value()
+        serialize_metadata = var_value.get_metadata()
+        obj = RasterDataBand.deserialize_into_class(serialize_value, serialize_metadata)
+        return {var_name: (var_type, obj)}
+
+    elif var_type == VariableType.IMAGE_BAND_BATCH:
+        assert isinstance(var_value, SerializedForm), "Image Band Batch variables should be SerializedForm"
+        assert filepath is not None, "Filepath is required for Image Band Batch variables"
+        serializable_class = var_value.get_serializable_class()
+        serialize_metadata = var_value.get_metadata()
+        band = serializable_class.deserialize_into_class(filepath, serialize_metadata)
+        return {var_name: (VariableType.IMAGE_BAND, band)}
+
+    elif var_type == VariableType.SPECTRUM:
+        assert isinstance(var_value, SerializedForm)
+        serialize_value = var_value.get_serialize_value()
+        serialize_metadata = var_value.get_metadata()
+        obj = Spectrum.deserialize_into_class(serialize_value, serialize_metadata)
+        return {var_name: (var_type, obj)}
+
+    elif var_type == VariableType.NUMBER:
+        return {var_name: (var_type, var_value)}
+
+    elif var_type == VariableType.BOOLEAN:
+        return {var_name: (var_type, var_value)}
+
     else:
-        try:
-            eval = BandMathEvaluator(lower_variables, lower_functions)
-            result_value = eval.transform(tree)
-            res = result_value.value
-        except BaseException as e:
-            eval.stop()
-            raise e
-        finally:
-            eval.stop()
-        return (result_value.type, result_value.value)
+        raise ValueError(f"Unsupported variable type: {var_type}")
+
+def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]) -> \
+    List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]]:
+    '''
+    This function is used to unroll the serialized variables into the original variables and if there are batch variables
+    make all of the filepaths into the appropriate structure in wiser. The serialized variables are in the class SerializedForm.
+    We extracted the deserialized data from the SerializedForm class by first getting the class that we want to create using
+    SerializedForm.get_serializable_class(). Then we can get the serialize_value and metadata from the SerializedForm and pass
+    this into the deserialize_into_class function of the class that we got from SerializedForm.get_serializable_class().
+
+    Args:
+        serialized_variables: A dictionary of variables that have been serialized.
+
+    Returns:
+        A list of dictionaries of variables that have been unrolled. We can pass these variables into eval_full_bandmath_expr
+        and it will evaluate the bandmath expression for each of the variables in the list.
+    '''
+    filepaths = []
+    prepared_variables = []
+    # We need to check if we are doing batching or not. If we are, then we need to 
+    # make a list of the filepaths and then we need to make a list of the variables.
+    for var_name, var_tuple in serialized_variables.items():
+        var_type = var_tuple[0]
+        var_value = var_tuple[1]
+
+        # All batch variables 
+        if var_type == VariableType.IMAGE_CUBE_BATCH:
+            assert isinstance(var_value, str), "Image Cube Batch variables should be strings"
+            folder_path = var_value
+            filepaths = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+            break
+        elif var_type == VariableType.IMAGE_BAND_BATCH:
+            assert isinstance(var_value, SerializedForm), "Image Band Batch variables should be SerializedForm"
+            folder_path = var_value.get_serialize_value()
+            filepaths = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+            break
+
+    # This just lets us use serialized_form_to_variable without changing anything to this code
+    if len(filepaths) == 0:
+        filepaths = [None]
+
+    loader = RasterDataLoader()
+    for filepath in filepaths:
+        single_batch_variables = {}
+        for var_name, var_tuple in serialized_variables.items():
+            var_type = var_tuple[0]
+            var_value = var_tuple[1]
+            single_batch_variables.update(serialized_form_to_variable(var_name, var_type, var_value, loader, filepath))
+        prepared_variables.append(single_batch_variables)
+    return prepared_variables
+
+def eval_full_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+        prepared_variables: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
+        lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+        use_old_method = False, test_parallel_io=False):
+    '''
+    This function is used to evaluate one band math expression. Now this expression may or may not be 
+    an expression that has batching. If it does, then we will have to do the batching logic here.
+    '''
+    count = 0
+    for lower_variables in prepared_variables:
+        print(f"Evaling batch {count}")
+        count += 1
+        gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
+        
+        max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
+        logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
+
+        spectral_metadata = expr_info.spectral_metadata_source
+        data_ignore_value = DEFAULT_IGNORE_VALUE
+        if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
+            data_ignore_value = spectral_metadata.get_data_ignore_value()
+
+        # We need to feed to use the filepaths of the folder to feed into eval
+
+        # We need to get the folder path, then for each of the files we need to open it as the proper thing (dataset, band, etc.)
+        # Then make it that variable 
+
+        if test_parallel_io or \
+        (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
+        and not use_old_method):
+            try:
+                eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
+                bands = 1
+                lines = 1
+                samples = 1
+                if len(expr_info.shape) == 2:
+                    lines, samples = expr_info.shape
+                elif len(expr_info.shape) == 3:
+                    bands, lines, samples = expr_info.shape
+                else:
+                    raise RuntimeError(f"expr_info shape is neither 2 or 3, its {expr_info.shape}")
+                # Gets the correct file path to make our temporary file
+                result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
+                folder_path = os.path.dirname(result_path)
+                if not os.path.exists(folder_path):
+                    os.makedirs(folder_path)
+                
+                out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal_type)
+                # We declare the dataset write after so if any errors occur below,
+                # the file gets destroyed (which happens in del of RasterDataSet)
+                out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
+                out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+                out_dataset.set_dirty()
+                
+                # Based on memory limits (currently set in constants,, but we could make it more adjustable)
+                # find the number of bands that we can access without exceeding it
+                bytes_per_element = np.dtype(expr_info.elem_type).itemsize if expr_info.elem_type is not None else SCALAR_BYTES
+                max_bytes = max_chunking_bytes/bytes_per_element
+                max_bytes_per_intermediate = max_bytes / number_of_intermediates
+                num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
+                num_bands = 1 if num_bands < 1 else num_bands
+
+                writing_futures = []
+                for band_index in range(0, bands, num_bands):
+                    band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
+                    band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
+                    # print(f"Min: {min(band_index_list_current)} | Max: {max(band_index_list_current)}")
+                    
+                    eval.index_list_current = band_index_list_current
+                    eval.index_list_next = band_index_list_next
+                    
+                    result_value = eval.transform(tree)
+                    if isinstance(result_value, (asyncio.Future, Coroutine)):
+                        result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
+                    res = result_value.value
+                    
+                    future = eval._write_thread_pool.submit(write_raster_to_dataset, \
+                                                        out_dataset_gdal, band_index_list_current, \
+                                                        res, gdal_type, default_ignore_value=data_ignore_value)
+                    writing_futures.append(future)
+                concurrent.futures.wait(writing_futures)
+            except BaseException as e:
+                if eval is not None:
+                    eval.stop()
+                raise e
+            finally:
+                eval.stop()
+            return (RasterDataSet, out_dataset)
+        else:
+            try:
+                eval = BandMathEvaluator(lower_variables, lower_functions)
+                result_value = eval.transform(tree)
+                res = result_value.value
+            except BaseException as e:
+                eval.stop()
+                raise e
+            finally:
+                eval.stop()
+            return (result_value.type, result_value.value)

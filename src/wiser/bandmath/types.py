@@ -7,12 +7,14 @@ import numpy as np
 
 import copy
 
-from wiser.raster.dataset import RasterDataSet, RasterDataBand, SpectralMetadata, SpatialMetadata
+from wiser.raster.dataset import RasterDataSet, RasterDataBand, RasterDataBatchBand, \
+    SpectralMetadata, SpatialMetadata
 from wiser.raster.spectrum import Spectrum
 
 
 FolderPathType = str
-BANDMATH_VALUE_TYPE = Union[RasterDataSet, RasterDataBand, Spectrum, FolderPathType, bool, np.float32]
+BANDMATH_VALUE_TYPE = Union[RasterDataSet, RasterDataBand, RasterDataBatchBand, \
+                            Spectrum, FolderPathType, bool, np.float32]
 
 
 class VariableType(enum.IntEnum):

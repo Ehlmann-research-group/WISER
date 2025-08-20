@@ -26,7 +26,7 @@ class Serializable():
         This should recreate the object from the serialized form that is obtained from the get_serialized_form method.
         '''
         raise NotImplementedError("This method must be implemented by the subclass")
-    
+
 class SerializedForm:
     '''
     This class is used to represent the serialized form of an object.

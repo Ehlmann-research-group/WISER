@@ -18,7 +18,7 @@ from .generated.band_math_ui import Ui_BandMathDialog
 from .app_state import ApplicationState
 from .rasterview import RasterView
 
-from wiser.raster.dataset import RasterDataBand, RasterDataSet
+from wiser.raster.dataset import RasterDataBand, RasterDataSet, RasterDataBatchBand
 from wiser.raster.spectrum import Spectrum
 from wiser import bandmath
 from wiser.bandmath.utils import get_dimensions
@@ -1337,11 +1337,22 @@ class BandMathDialog(QDialog):
 
                 else:
                     raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
-            elif type == bandmath.VariableType.IMAGE_CUBE_BATCH or \
-                type == bandmath.VariableType.IMAGE_BAND_BATCH:
-                # We casn have the same type of image cube batch and image band batch
-                # because in eval_bandmath_expr we will differentiate
+            elif type == bandmath.VariableType.IMAGE_CUBE_BATCH:
                 value = self._get_input_folder()
+            elif type == bandmath.VariableType.IMAGE_BAND_BATCH:
+                input_folder = self._get_input_folder()
+                band_batch_chooser: ImageBandBatchChooserWidget = self._ui.tbl_variables.cellWidget(row, 2)
+                row_mode = band_batch_chooser.get_settings()['mode']
+                row_band_index = band_batch_chooser.get_settings()['index']
+                row_wavelength_value = band_batch_chooser.get_settings()['wavelength']
+                row_wavelength_units = band_batch_chooser.get_settings()['units_key']
+                row_epsilon = band_batch_chooser.get_settings()['epsilon']
+                if row_mode == ImageBandBatchChooserWidget.Mode.INDEX:  
+                    value = RasterDataBatchBand(input_folder, band_index=row_band_index)
+                elif row_mode == ImageBandBatchChooserWidget.Mode.WAVELENGTH:
+                    value = RasterDataBatchBand(input_folder, wavelength_value=row_wavelength_value, wavelength_units=row_wavelength_units, epsilon=row_epsilon)
+                else:
+                    raise AssertionError(f'Unrecognized mode: {row_mode}')
             else:
                 raise AssertionError(
                     f'Unrecognized binding type {type} for variable {var}')

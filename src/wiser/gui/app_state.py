@@ -26,7 +26,7 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
 
-from wiser.gui.multiprocessing_manager import MultiprocessingManager
+from wiser.gui.subprocessing_manager import MultiprocessingManager
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState

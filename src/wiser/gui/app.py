@@ -797,8 +797,10 @@ class DataVisualizerApp(QMainWindow):
             try:
                 if not result_name:
                     result_name = self.tr('Computed')
+                print(f"About to eval bandmath expr")
                 (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name, self._data_cache,
                     variables, functions)
+                print(f"Done with eval bandmath expr")
 
                 logger.debug(f'Result of band-math evaluation is type ' +
                              f'{result_type}, value:\n{result}')

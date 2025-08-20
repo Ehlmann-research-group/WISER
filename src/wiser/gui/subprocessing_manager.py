@@ -1,0 +1,102 @@
+from typing import Callable, Dict, List
+
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing as mp
+
+from PySide2.QtCore import *
+
+from wiser.gui.parallel_task import ParallelTaskProcess, ParallelTaskProcessPool
+
+
+class ProcessManager(QObject):
+    '''
+    This class is used to manage a single process. It is used to run a function in a separate process.
+    and get the process ID for that process but also set up the communication between the parent and 
+    child processes. The function passed into this class should use this inter-process communication.
+    Specifically, the function should use the child_conn to send data to the parent process and use the
+    return_queue to get the return value from the child process. We use this class instead of
+    MultiprocessingManager so we can get the process id of the process at creation time.
+
+    Attributes:
+        _parent_conn (mp.Pipe): The parent connection.
+        _child_conn (mp.Pipe): The child connection.
+        _return_q (mp.Queue): The return queue.
+        _process (mp.Process): The process.
+        _task (ParallelTaskProcess): The task.
+        _pid (int): The process ID.
+
+    Example Use:
+    ```
+    def operation(child_conn, return_queue, x):
+        time.sleep(10)
+        child_conn.send([1, 2, 'Running'])
+        time.sleep(10)
+        child_conn.send([2, 2, 'Running'])
+        return_queue.put([x])
+
+    process_manager = ProcessManager(operation, kwargs)
+    process_manager.get_task().start()
+    # This should be in a thread
+    while process_manager.get_process().is_alive():
+        child_comms = process_manager.get_parent_conn().recv()
+        # You can use child_comms for status bars or other comms
+        print(child_comms)
+    result = process_manager.get_task().get_result()
+    ```
+
+    '''
+
+    def __init__(self, operation: Callable, kwargs: Dict = {}):
+        super().__init__()
+        self._parent_conn, self._child_conn = mp.Pipe()
+        self._return_q = mp.Queue()
+        kwargs['child_conn'] = self._child_conn
+        kwargs['return_queue'] = self._return_q
+        self._process = mp.Process(target=operation, kwargs=kwargs)
+
+        self._pid = self._process.pid
+
+        self._task = ParallelTaskProcess(self._process, self._return_q)
+
+    def get_parent_conn(self):
+        return self._parent_conn
+
+    def get_task(self):
+        return self._task
+
+    def get_pid(self):
+        return self._pid
+    
+    def get_process(self):
+        return self._process
+
+class MultiprocessingManager(QObject):
+    '''
+    Requirements:
+    - Takes in a function to run asychronously, prepares that function to be run
+    - Lets user set up callback function, error, cancelled, started, finished signals. 
+
+    - Multiprocmanager can make parallel running tasks, users should use a class called
+    - multiprocfunction that has a pipe and this is passed into create task. When a task
+    - is started, multiproc function gets the process id of the task and 
+    '''
+    
+    def __init__(self):
+        super().__init__()
+        self._process_pool_executor = ProcessPoolExecutor()
+
+        # You can check to see if the task has finished by called
+        # task.isFinished()
+        self._tasks: List[ParallelTaskProcessPool] = []
+
+        self._next_process_pool_id = 0
+
+    def get_next_process_pool_id(self):
+        id = self._next_process_pool_id
+        self._next_process_pool_id += 1
+        return id
+
+    def create_task(self, operation: Callable, kwargs: Dict = {}):
+        task = ParallelTaskProcessPool(self._process_pool_executor, operation, kwargs)
+        self._tasks.append(task)
+        return task
