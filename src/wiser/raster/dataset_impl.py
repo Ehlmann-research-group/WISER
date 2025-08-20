@@ -315,6 +315,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
+        print(f"band_index: {band_index}")
         # Note that GDAL indexes bands from 1, not 0.
         new_dataset = self.reopen_dataset()
         band = new_dataset.GetRasterBand(band_index + 1)

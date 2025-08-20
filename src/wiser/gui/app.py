@@ -783,6 +783,8 @@ class DataVisualizerApp(QMainWindow):
             expr_info = dialog.get_expression_info()
             variables = dialog.get_variable_bindings()
             result_name = dialog.get_result_name()
+            batch_enabled = dialog.is_batch_processing_enabled()
+            load_into_wiser = dialog.is_load_into_wiser_enabled()
 
             logger.info(f'Evaluating band-math expression:  {expression}\n' +
                         f'Variable bindings:\n{pprint.pformat(variables)}\n' +
@@ -798,82 +800,85 @@ class DataVisualizerApp(QMainWindow):
                 if not result_name:
                     result_name = self.tr('Computed')
                 print(f"About to eval bandmath expr")
-                (result_type, result) = bandmath.eval_bandmath_expr(expression, expr_info, result_name, self._data_cache,
+                results = bandmath.eval_bandmath_expr(expression, expr_info, result_name, self._data_cache,
                     variables, functions)
                 print(f"Done with eval bandmath expr")
 
-                logger.debug(f'Result of band-math evaluation is type ' +
-                             f'{result_type}, value:\n{result}')
+                if batch_enabled and not load_into_wiser:
+                    return
+                for result_type, result in results:
+                    logger.debug(f'Result of band-math evaluation is type ' +
+                                f'{result_type}, value:\n{result}')
 
-                # Compute a timestamp to put in the description
-                timestamp = datetime.datetime.now().isoformat()
+                    # Compute a timestamp to put in the description
+                    timestamp = datetime.datetime.now().isoformat()
 
-                loader = self._app_state.get_loader()
-                if result_type == RasterDataSet:
-                    new_dataset = result
+                    loader = self._app_state.get_loader()
+                    if result_type == RasterDataSet:
+                        new_dataset = result
 
-                    new_dataset.set_name(
-                        self._app_state.unique_dataset_name(result_name))
-                    new_dataset.set_description(
-                        f'Computed image-cube:  {expression} ({timestamp})')
-                    if expr_info.spatial_metadata_source:
-                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+                        new_dataset.set_name(
+                            self._app_state.unique_dataset_name(result_name))
+                        new_dataset.set_description(
+                            f'Computed image-cube:  {expression} ({timestamp})')
+                        if expr_info.spatial_metadata_source:
+                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
 
-                    if expr_info.spectral_metadata_source:
-                        new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
+                        if expr_info.spectral_metadata_source:
+                            new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
 
-                    self._app_state.add_dataset(new_dataset)
+                        self._app_state.add_dataset(new_dataset)
 
-                elif result_type == bandmath.VariableType.IMAGE_CUBE:
-                    new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
+                    elif result_type == bandmath.VariableType.IMAGE_CUBE:
+                        new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
 
-                    if not result_name:
-                        result_name = self.tr('Computed')
+                        if not result_name:
+                            result_name = self.tr('Computed')
 
-                    new_dataset.set_name(
-                        self._app_state.unique_dataset_name(result_name))
-                    new_dataset.set_description(
-                        f'Computed image-cube:  {expression} ({timestamp})')
+                        new_dataset.set_name(
+                            self._app_state.unique_dataset_name(result_name))
+                        new_dataset.set_description(
+                            f'Computed image-cube:  {expression} ({timestamp})')
 
-                    if expr_info.spatial_metadata_source:
-                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+                        if expr_info.spatial_metadata_source:
+                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
 
-                    if expr_info.spectral_metadata_source:
-                        new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
+                        if expr_info.spectral_metadata_source:
+                            new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
 
-                    self._app_state.add_dataset(new_dataset)
+                        self._app_state.add_dataset(new_dataset)
 
-                elif result_type == bandmath.VariableType.IMAGE_BAND:
-                    # Convert the image band into a 1-band image cube
-                    result = result[np.newaxis, :]
-                    new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
+                    elif result_type == bandmath.VariableType.IMAGE_BAND:
+                        # Convert the image band into a 1-band image cube
+                        result = result[np.newaxis, :]
+                        new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
 
-                    if not result_name:
-                        result_name = self.tr('Computed')
+                        if not result_name:
+                            result_name = self.tr('Computed')
 
-                    new_dataset.set_name(
-                        self._app_state.unique_dataset_name(result_name))
-                    new_dataset.set_description(
-                        f'Computed image-band:  {expression} ({timestamp})')
+                        new_dataset.set_name(
+                            self._app_state.unique_dataset_name(result_name))
+                        new_dataset.set_description(
+                            f'Computed image-band:  {expression} ({timestamp})')
 
-                    if expr_info.spatial_metadata_source:
-                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+                        if expr_info.spatial_metadata_source:
+                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
 
-                    self._app_state.add_dataset(new_dataset)
+                        self._app_state.add_dataset(new_dataset)
 
-                elif result_type == bandmath.VariableType.SPECTRUM:
+                    elif result_type == bandmath.VariableType.SPECTRUM:
 
-                    if not result_name:
-                        result_name = self.tr('Computed:  {expression} ({timestamp})')
-                        result_name = result_name.format(expression=expression,
-                                                         timestamp=timestamp)
+                        if not result_name:
+                            result_name = self.tr('Computed:  {expression} ({timestamp})')
+                            result_name = result_name.format(expression=expression,
+                                                            timestamp=timestamp)
 
-                    new_spectrum = NumPyArraySpectrum(result, name=result_name)
+                        new_spectrum = NumPyArraySpectrum(result, name=result_name)
 
-                    if expr_info.spectral_metadata_source:
-                        new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
+                        if expr_info.spectral_metadata_source:
+                            new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
 
-                    self._app_state.set_active_spectrum(new_spectrum)
+                        self._app_state.set_active_spectrum(new_spectrum)
 
             except Exception as e:
                 logger.exception('Couldn\'t evaluate band-math expression')

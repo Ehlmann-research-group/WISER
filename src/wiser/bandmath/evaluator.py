@@ -821,25 +821,11 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
             variables_serialized[var_name] = var_tuple
     return variables_serialized
 
-def get_serialized_variable(var_type: VariableType, var_value: BANDMATH_VALUE_TYPE) -> Union[str, np.ndarray]:
-    '''
-    Returns a serialized version of the variable that can be called later to deserialize it in the 
-    sub process
-    '''
-    if var_type == VariableType.IMAGE_CUBE:
-        assert isinstance(var_value, RasterDataSet)
-        impl = var_value.get_impl()
-        if isinstance(impl, GDALRasterDataImpl):
-            return impl.get_filepaths()[0]
-        elif isinstance(impl, JP2_PDRRasterDataImpl):
-            return impl.get_filepaths()[0]
-        else:
-            raise ValueError(f"Unsupported variable type: {var_type}")
 
 def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
         functions: Dict[str, BandMathFunction] = None,
-        use_old_method = False, test_parallel_io=False) -> BandMathValue:
+        use_old_method = False, test_parallel_io=False) -> Tuple[Any, Any]:
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -913,8 +899,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     print(f"About to prepare bandmath variables")
     prepared_variables = prepare_bandmath_variables(serialized_variables)
     print(f"About to eval full bandmath expr")
-    eval_full_bandmath_expr(expr_info, result_name, cache, prepared_variables, lower_functions, \
+    datasets = eval_full_bandmath_expr(expr_info, result_name, cache, prepared_variables, lower_functions, \
                             number_of_intermediates, tree, use_old_method, test_parallel_io)
+    return datasets
     print(f"Done with eval full bandmath expr")
 
 # def prepare_singular_variable(var_type: VariableType, var_value: BANDMATH_VALUE_TYPE) -> \
@@ -947,10 +934,13 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
     elif var_type == VariableType.IMAGE_BAND_BATCH:
         assert isinstance(var_value, SerializedForm), "Image Band Batch variables should be SerializedForm"
         assert filepath is not None, "Filepath is required for Image Band Batch variables"
+        assert 'band_index' in var_value.get_metadata() and var_value.get_metadata()['band_index'] is not None, \
+            "Band index is required for Image Band Batch variables"
         serializable_class = var_value.get_serializable_class()
         serialize_metadata = var_value.get_metadata()
         serialize_metadata.update({'filepath': filepath})
-        band = serializable_class.deserialize_into_class(filepath, serialize_metadata)
+        band_index  = int(serialize_metadata['band_index'])
+        band = serializable_class.deserialize_into_class(band_index, serialize_metadata)
         return {var_name: (VariableType.IMAGE_BAND, band)}
 
     elif var_type == VariableType.SPECTRUM:
@@ -968,6 +958,38 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
 
     else:
         raise ValueError(f"Unsupported variable type: {var_type}")
+
+def get_unique_filepaths(folder: str):
+    """
+    Get all file paths in a folder, but ignore duplicates with the same
+    base name. Prefer files with an extension over those without.
+
+    Args:
+        folder (str): Path to the folder to scan.
+
+    Returns:
+        list[str]: List of file paths.
+    """
+    files_seen = {}
+    for entry in os.listdir(folder):
+        full_path = os.path.join(folder, entry)
+        if not os.path.isfile(full_path):
+            continue
+
+        base, ext = os.path.splitext(entry)
+        has_ext = bool(ext)
+
+        # If we've never seen this base name, store it
+        if base not in files_seen:
+            files_seen[base] = (full_path, has_ext)
+        else:
+            # Prefer the version with extension
+            existing_path, existing_has_ext = files_seen[base]
+            if not existing_has_ext and has_ext:
+                files_seen[base] = (full_path, has_ext)
+            # If both have extensions or both don't, keep the first one
+
+    return [path for path, _ in files_seen.values()]
 
 def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]) -> \
     List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]]:
@@ -997,12 +1019,12 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
         if var_type == VariableType.IMAGE_CUBE_BATCH:
             assert isinstance(var_value, str), "Image Cube Batch variables should be strings"
             folder_path = var_value
-            filepaths = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+            filepaths = get_unique_filepaths(folder_path)
             break
         elif var_type == VariableType.IMAGE_BAND_BATCH:
             assert isinstance(var_value, SerializedForm), "Image Band Batch variables should be SerializedForm"
             folder_path = var_value.get_serialize_value()
-            filepaths = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+            filepaths = get_unique_filepaths(folder_path)
             break
 
     # This just lets us use serialized_form_to_variable without changing anything to this code
@@ -1022,12 +1044,14 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
 def eval_full_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         prepared_variables: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-        use_old_method = False, test_parallel_io=False):
+        use_old_method = False, test_parallel_io=False) -> List[Tuple[RasterDataSet.__class__, RasterDataSet]]:
     '''
     This function is used to evaluate one band math expression. Now this expression may or may not be 
     an expression that has batching. If it does, then we will have to do the batching logic here.
     '''
     count = 0
+    print(f"Length of prepared variables: {len(prepared_variables)}")
+    outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet]] = []
     for lower_variables in prepared_variables:
         print(f"Evaling batch {count}")
         count += 1
@@ -1040,11 +1064,6 @@ def eval_full_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache
         data_ignore_value = DEFAULT_IGNORE_VALUE
         if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
             data_ignore_value = spectral_metadata.get_data_ignore_value()
-
-        # We need to feed to use the filepaths of the folder to feed into eval
-
-        # We need to get the folder path, then for each of the files we need to open it as the proper thing (dataset, band, etc.)
-        # Then make it that variable 
 
         if test_parallel_io or \
         (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
@@ -1101,20 +1120,23 @@ def eval_full_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache
                     writing_futures.append(future)
                 concurrent.futures.wait(writing_futures)
             except BaseException as e:
+                print(f"Exception in eval_full_bandmath_expr:\n{e}")
                 if eval is not None:
                     eval.stop()
                 raise e
             finally:
                 eval.stop()
-            return (RasterDataSet, out_dataset)
+            outputs.append((RasterDataSet, out_dataset))
         else:
             try:
                 eval = BandMathEvaluator(lower_variables, lower_functions)
                 result_value = eval.transform(tree)
                 res = result_value.value
             except BaseException as e:
+                print(f"Exception in eval_full_bandmath_expr non-async:\n{e}")
                 eval.stop()
                 raise e
             finally:
                 eval.stop()
-            return (result_value.type, result_value.value)
+            outputs.append((result_value.type, result_value.value))
+    return outputs

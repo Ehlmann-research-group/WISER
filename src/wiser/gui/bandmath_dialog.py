@@ -710,7 +710,7 @@ class BandMathDialog(QDialog):
             variables=self.get_variable_bindings(),
             input_folder=self._get_input_folder(),
             output_folder=self._get_output_folder(),
-            load_into_wiser=self._is_load_into_wiser_enabled(),
+            load_into_wiser=self.is_load_into_wiser_enabled(),
             result_prefix=self.get_result_name()
         )
 
@@ -825,10 +825,10 @@ class BandMathDialog(QDialog):
     def _get_output_folder(self):
         return self._ui.ledit_output_folder.text()
 
-    def _is_load_into_wiser_enabled(self):
+    def is_load_into_wiser_enabled(self):
         return self._ui.chkbox_load_into_wiser.isChecked()
     
-    def _is_batch_processing_enabled(self):
+    def is_batch_processing_enabled(self):
         return self._ui.chkbox_enable_batch.isChecked()
 
     def _init_test_bandmath_processing(self):
@@ -853,7 +853,6 @@ class BandMathDialog(QDialog):
         return ui_components
 
     def _on_enable_batch_changed(self, checked: bool):
-        print(f"on enable batch")
         self._sync_batch_process_ui()
         self._analyze_expr()
 
@@ -1004,7 +1003,7 @@ class BandMathDialog(QDialog):
         for var in variables:
             # Look for the variable in the current table of bindings.
             index = self._find_variable_in_bindings(var)
-            batch_proc_mismatch = (self._is_batch_var_row(index) != self._is_batch_processing_enabled())
+            batch_proc_mismatch = (self._is_batch_var_row(index) != self.is_batch_processing_enabled())
             if index == -1 or batch_proc_mismatch:
                 if batch_proc_mismatch and index != -1:
                     self._ui.tbl_variables.removeRow(index)
@@ -1027,7 +1026,7 @@ class BandMathDialog(QDialog):
                 type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_CUBE], bandmath.VariableType.IMAGE_CUBE)
                 type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_BAND], bandmath.VariableType.IMAGE_BAND)
                 type_widget.addItem(self._variable_types_text[bandmath.VariableType.SPECTRUM], bandmath.VariableType.SPECTRUM)
-                if self._is_batch_processing_enabled():
+                if self.is_batch_processing_enabled():
                     type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH], bandmath.VariableType.IMAGE_CUBE_BATCH)
                     type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_BAND_BATCH], bandmath.VariableType.IMAGE_BAND_BATCH)
                 type_widget.setSizeAdjustPolicy(QComboBox.AdjustToContents)
@@ -1320,21 +1319,21 @@ class BandMathDialog(QDialog):
         variables = {}
         for row in range(self._ui.tbl_variables.rowCount()):
             var = self._ui.tbl_variables.item(row, 0).text()
-            type = self._ui.tbl_variables.cellWidget(row, 1).currentData()
+            var_type = self._ui.tbl_variables.cellWidget(row, 1).currentData()
             value = None
 
-            if type == bandmath.VariableType.IMAGE_CUBE:
+            if var_type == bandmath.VariableType.IMAGE_CUBE:
                 ds_id = self._ui.tbl_variables.cellWidget(row, 2).currentData()
                 if ds_id is not None:
                     value = self._app_state.get_dataset(ds_id)
 
-            elif type == bandmath.VariableType.IMAGE_BAND:
+            elif var_type == bandmath.VariableType.IMAGE_BAND:
                 (ds_id, band_index) = self._ui.tbl_variables.cellWidget(row, 2).get_ds_band()
                 if ds_id is not None and band_index is not None:
                     dataset = self._app_state.get_dataset(ds_id)
                     value = RasterDataBand(dataset, band_index)
 
-            elif type == bandmath.VariableType.SPECTRUM:
+            elif var_type == bandmath.VariableType.SPECTRUM:
                 spectrum_info = self._ui.tbl_variables.cellWidget(row, 2).currentData()
                 if isinstance(spectrum_info, int):
                     value = self._app_state.get_spectrum(spectrum_info)
@@ -1346,9 +1345,9 @@ class BandMathDialog(QDialog):
 
                 else:
                     raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
-            elif type == bandmath.VariableType.IMAGE_CUBE_BATCH:
+            elif var_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
                 value = self._get_input_folder()
-            elif type == bandmath.VariableType.IMAGE_BAND_BATCH:
+            elif var_type == bandmath.VariableType.IMAGE_BAND_BATCH:
                 input_folder = self._get_input_folder()
                 band_batch_chooser: ImageBandBatchChooserWidget = self._ui.tbl_variables.cellWidget(row, 2)
                 print(f"type(band_batch_chooser): {type(band_batch_chooser)}")
@@ -1369,9 +1368,9 @@ class BandMathDialog(QDialog):
                     raise AssertionError(f'Unrecognized mode: {row_mode}')
             else:
                 raise AssertionError(
-                    f'Unrecognized binding type {type} for variable {var}')
+                    f'Unrecognized binding type {var_type} for variable {var}')
 
-            variables[var] = (type, value)
+            variables[var] = (var_type, value)
 
         return variables
 

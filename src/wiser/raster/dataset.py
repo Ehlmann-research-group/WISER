@@ -1373,7 +1373,7 @@ class RasterDataBand(RasterBand, Serializable):
             'dataset_serialize_value': dataset_serialize_value,
             'dataset_metadata': dataset_metadata
         }
-        return SerializedForm(self.__class__, None, metadata)
+        return SerializedForm(self.__class__, self._band_index, metadata)
 
 
 class RasterDataDynamicBand(RasterBand, Serializable):
@@ -1419,9 +1419,9 @@ class RasterDataDynamicBand(RasterBand, Serializable):
     def deserialize_into_class(band_index: int, band_metadata: Dict) -> 'RasterDataBatchBand':
         from wiser.raster.loader import RasterDataLoader
         loader = RasterDataLoader()
-        wavelength_value = band_metadata['wavelength_value']
+        wavelength_value = float(band_metadata['wavelength_value']) if band_metadata['wavelength_value'] is not None else None
         wavelength_units = band_metadata['wavelength_units']
-        epsilon = band_metadata['epsilon']
+        epsilon = float(band_metadata['epsilon']) if band_metadata['epsilon'] is not None else None
         assert band_index is not None or (wavelength_value is not None and wavelength_units is not None and epsilon is not None), \
             "Either band_index or wavelength_value, wavelength_units, and epsilon must be provided"
         # TODO (Joshua G-K): Make a cleaner way of passing in the filepath if we are coming from a RasterDataBatchBand
