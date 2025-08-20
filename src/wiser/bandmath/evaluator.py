@@ -949,6 +949,7 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
         assert filepath is not None, "Filepath is required for Image Band Batch variables"
         serializable_class = var_value.get_serializable_class()
         serialize_metadata = var_value.get_metadata()
+        serialize_metadata.update({'filepath': filepath})
         band = serializable_class.deserialize_into_class(filepath, serialize_metadata)
         return {var_name: (VariableType.IMAGE_BAND, band)}
 

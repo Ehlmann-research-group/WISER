@@ -7,8 +7,8 @@ import numpy as np
 
 import copy
 
-from wiser.raster.dataset import RasterDataSet, RasterDataBand, RasterDataBatchBand, \
-    SpectralMetadata, SpatialMetadata
+from wiser.raster.dataset import (RasterDataSet, RasterDataBand, RasterDataDynamicBand,
+                                RasterDataBatchBand, RasterBand,  SpectralMetadata, SpatialMetadata)
 from wiser.raster.spectrum import Spectrum
 
 
@@ -157,7 +157,7 @@ class BandMathValue:
                 return self.value.get_shape()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_shape()
 
         elif self.type == VariableType.SPECTRUM:
@@ -178,7 +178,7 @@ class BandMathValue:
                 return self.value.get_elem_type()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_elem_type()
 
         elif self.type == VariableType.SPECTRUM:
@@ -206,7 +206,7 @@ class BandMathValue:
                 return self.value.get_image_data()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_data()
 
         elif self.type == VariableType.SPECTRUM:
@@ -252,7 +252,7 @@ class BandMathValue:
                     return self.value.get_multiple_band_data(band_list)
 
             elif self.type == VariableType.IMAGE_BAND:
-                if isinstance(self.value, RasterDataBand):
+                if isinstance(self.value, RasterBand):
                     return self.value.get_data()
 
             elif self.type == VariableType.SPECTRUM:

@@ -509,9 +509,17 @@ def reorder_args(lhs_type: VariableType, rhs_type: VariableType,
     '''
     # Since logical AND is commutative, arrange the arguments to make the
     # calculation logic easier.
-    if lhs_type == VariableType.IMAGE_CUBE or rhs_type == VariableType.IMAGE_CUBE:
+    if lhs_type == VariableType.IMAGE_CUBE_BATCH or rhs_type == VariableType.IMAGE_CUBE_BATCH:
+        if lhs_type != VariableType.IMAGE_CUBE_BATCH:
+            (rhs, lhs) = (lhs, rhs)
+
+    elif lhs_type == VariableType.IMAGE_CUBE or rhs_type == VariableType.IMAGE_CUBE:
         # If there is only one image cube, make sure it is on the LHS.
         if lhs_type != VariableType.IMAGE_CUBE:
+            (rhs, lhs) = (lhs, rhs)
+
+    elif lhs_type == VariableType.IMAGE_BAND_BATCH or rhs_type == VariableType.IMAGE_BAND_BATCH:
+        if lhs_type != VariableType.IMAGE_BAND_BATCH:
             (rhs, lhs) = (lhs, rhs)
 
     elif lhs_type == VariableType.IMAGE_BAND or rhs_type == VariableType.IMAGE_BAND:
@@ -552,14 +560,16 @@ def check_image_cube_compatible(arg: BandMathExprInfo,
     assert len(cube_shape) == 3
 
     # Only certain types can be compatible with operations involving image cubes
-    if arg.result_type not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND,
+    if arg.result_type not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_CUBE_BATCH,
+            VariableType.IMAGE_BAND, VariableType.IMAGE_BAND_BATCH,
             VariableType.SPECTRUM, VariableType.NUMBER, VariableType.BOOLEAN]:
         raise ValueError(
             f'Cannot perform operation between IMAGE_CUBE and {arg.result_type}')
 
     # Dimensions:  [band][y][x]
-
-    if arg.result_type == VariableType.IMAGE_CUBE:
+    if arg.result_type == VariableType.IMAGE_CUBE_BATCH or arg.result_type == VariableType.IMAGE_BAND_BATCH:
+        return
+    elif arg.result_type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         if arg.shape != cube_shape:
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,

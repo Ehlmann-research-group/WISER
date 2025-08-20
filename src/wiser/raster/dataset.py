@@ -1280,6 +1280,9 @@ class RasterBand(ABC):
         '''
         return (self.get_height(), self.get_width())
 
+    def get_data(self) -> np.ndarray:
+        raise NotImplementedError("get_data is not implemented for RasterBand, implement in subclass")
+
     def get_elem_type(self) -> np.dtype:
         '''
         Returns the element-type of the raster data set.
@@ -1299,7 +1302,6 @@ class RasterBand(ABC):
     
     def get_spectral_metadata(self) -> SpectralMetadata:
         return None
-        
 
     def __deepcopy__(self, memo):
         '''
@@ -1307,7 +1309,7 @@ class RasterBand(ABC):
         an reference to the same object.
         '''
         return self
-        
+
 
 class RasterDataBand(RasterBand, Serializable):
     '''
@@ -1414,13 +1416,25 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             return self._dataset.get_band_stats(band)
 
     @staticmethod
-    def deserialize_into_class(band_index: int, wavelength_value: float, \
-                               wavelength_units: u.Unit, epsilon: float, \
-                                band_metadata: Dict) -> 'RasterDataBatchBand':
+    def deserialize_into_class(band_index: int, band_metadata: Dict) -> 'RasterDataBatchBand':
+        from wiser.raster.loader import RasterDataLoader
+        loader = RasterDataLoader()
+        wavelength_value = band_metadata['wavelength_value']
+        wavelength_units = band_metadata['wavelength_units']
+        epsilon = band_metadata['epsilon']
         assert band_index is not None or (wavelength_value is not None and wavelength_units is not None and epsilon is not None), \
             "Either band_index or wavelength_value, wavelength_units, and epsilon must be provided"
-        dataset = RasterDataSet.deserialize_into_class(band_metadata['dataset_serialize_value'], band_metadata['dataset_metadata'])
-        return RasterDataBatchBand(dataset, band_index, wavelength_value, wavelength_units, epsilon)
+        # TODO (Joshua G-K): Make a cleaner way of passing in the filepath if we are coming from a RasterDataBatchBand
+        # Currently, if we call this function using the data from a RasterDataBatchBand, we will have to load the dataset
+        # using the filepath which will have to be added to band_metadata.
+        if 'dataset_serializable_class' in band_metadata:
+            assert 'dataset_serialize_value' in band_metadata and 'dataset_metadata' in band_metadata, \
+                "dataset_serialize_value and dataset_metadata must be provided if dataset_serializable_class is provided"
+            dataset = band_metadata['dataset_serializable_class'].deserialize_into_class(band_metadata['dataset_serialize_value'], \
+                                                        band_metadata['dataset_metadata'])
+        else:
+            dataset = loader.load_from_file(band_metadata['filepath'], interactive=False)[0]
+        return RasterDataDynamicBand(dataset, band_index, wavelength_value, wavelength_units, epsilon)
     
     def get_serialized_form(self) -> SerializedForm:
         '''
@@ -1443,7 +1457,7 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             'dataset_serialize_value': dataset_serialize_value,
             'dataset_metadata': dataset_metadata
         }
-        return SerializedForm(self.__class__, None, metadata)
+        return SerializedForm(self.__class__, self._band_index, metadata)
 
 
 class RasterDataBatchBand(Serializable):

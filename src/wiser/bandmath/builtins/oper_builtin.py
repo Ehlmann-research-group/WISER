@@ -27,10 +27,18 @@ class OperatorTrigFunction(BandMathFunction):
         arg_info = infos[0]
 
         if arg_info.result_type not in [VariableType.IMAGE_CUBE,
+                                        VariableType.IMAGE_CUBE_BATCH,
                                         VariableType.IMAGE_BAND, 
+                                        VariableType.IMAGE_BAND_BATCH,
                                         VariableType.SPECTRUM, 
                                         VariableType.NUMBER]:
             self._report_type_error(arg_info.result_type)
+
+        if arg_info.result_type == VariableType.IMAGE_CUBE_BATCH or arg_info.result_type == VariableType.IMAGE_BAND_BATCH:
+            info = BandMathExprInfo(arg_info.result_type)
+            info.shape = arg_info.shape
+            info.elem_type = np.float32
+            return info
 
         # Output type will be the same as the input type
         info = BandMathExprInfo(arg_info.result_type)
@@ -86,6 +94,11 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
                                               MathOperations.TRIG_FUNCTION)
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
+            return info
+        elif (lhs.result_type == VariableType.IMAGE_CUBE_BATCH):
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+            info.shape = lhs.shape
+            info.elem_type = np.float32
             return info
         elif (lhs.result_type == VariableType.IMAGE_CUBE):
             check_image_cube_compatible(rhs, lhs.shape)

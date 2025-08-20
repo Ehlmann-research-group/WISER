@@ -362,9 +362,12 @@ class ImageBandBatchChooserWidget(QWidget):
         """
         mode = self.current_mode()
         if mode == self.Mode.INDEX.value:
+            index_text = self._ledit_value.text().strip()
+            index = int(index_text) if index_text.isdigit() else None
+            print(f"Index: {index}")
             return {
                 "mode": mode,
-                "index": self._ledit_value.text().strip(),
+                "index": index,
                 "wavelength": None,
                 "units_key": None,
                 "unit": None,
@@ -372,13 +375,19 @@ class ImageBandBatchChooserWidget(QWidget):
             }
 
         key = self._cmb_units.currentText()
+        wvl_text = self._ledit_value.text().strip()
+        wvl = float(wvl_text) if wvl_text.replace('.', '', 1).isdigit() else None
+        epsilon_text = self._ledit_eps.text().strip()
+        epsilon = float(epsilon_text) if epsilon_text.replace('.', '', 1).isdigit() else None
+        print(f"Wavelength: {wvl}")
+        print(f"Epsilon: {epsilon}")
         return {
             "mode": mode,
             "index": None,
-            "wavelength": self._ledit_value.text().strip(),
+            "wavelength": wvl,
             "units_key": key,
             "unit": self.UNIT_MAP.get(key),
-            "epsilon": self._ledit_eps.text().strip(),
+            "epsilon": epsilon,
         }
 
     # ---------------- Internals -----------------
@@ -1342,11 +1351,16 @@ class BandMathDialog(QDialog):
             elif type == bandmath.VariableType.IMAGE_BAND_BATCH:
                 input_folder = self._get_input_folder()
                 band_batch_chooser: ImageBandBatchChooserWidget = self._ui.tbl_variables.cellWidget(row, 2)
+                print(f"type(band_batch_chooser): {type(band_batch_chooser)}")
                 row_mode = band_batch_chooser.get_settings()['mode']
                 row_band_index = band_batch_chooser.get_settings()['index']
                 row_wavelength_value = band_batch_chooser.get_settings()['wavelength']
                 row_wavelength_units = band_batch_chooser.get_settings()['units_key']
                 row_epsilon = band_batch_chooser.get_settings()['epsilon']
+                print(f"type(row_band_index): {type(row_band_index)}")
+                print(f"type(row_wavelength_value): {type(row_wavelength_value)}")
+                print(f"type(row_wavelength_units): {type(row_wavelength_units)}")
+                print(f"type(row_epsilon): {type(row_epsilon)}")
                 if row_mode == ImageBandBatchChooserWidget.Mode.INDEX:  
                     value = RasterDataBatchBand(input_folder, band_index=row_band_index)
                 elif row_mode == ImageBandBatchChooserWidget.Mode.WAVELENGTH:
