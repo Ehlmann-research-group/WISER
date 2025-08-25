@@ -121,26 +121,26 @@ class ParallelTaskProcess(ParallelTask):
                 ready = mp_conn.wait([self._process.sentinel, queue_reader, self._parent_conn])
                 # If there is a message available we read it. 
                 if queue_reader in ready:
-                    print(f"About to receive message from return queue")
+                    # print(f"About to receive message from return queue")
                     try:
                         msg = self._return_queue.get_nowait()
                         assert self._return_queue.empty(), "Return queue is not empty, even though we just got a message"
-                        print(f"Type of msg: {type(msg)}")
-                        print(f"Setting result to {msg}")
+                        # print(f"Type of msg: {type(msg)}")
+                        # print(f"Setting result to {msg}")
                         self._result = msg
-                        print(f"Received message return queue: {msg}")
+                        # print(f"Received message return queue: {msg}")
                         self.progress.emit(msg)
                     except Exception as e:
                         logger.exception("Failed to read return value: %s", e)
-                        print(f"Setting result to None because of error: 1\n{e}")
+                        # print(f"Setting result to None because of error: 1\n{e}")
                         self._result = None
-                print(f"Received ready: {ready}")
+                # print(f"Received ready: {ready}")
 
                 if self._parent_conn in ready:
-                    print(f"About to receive message from parent connection")
+                    # print(f"About to receive message from parent connection")
                     try:
                         msg = self._parent_conn.recv()
-                        print(f"Received message parent_conn: {msg}")
+                        # print(f"Received message parent_conn: {msg}")
                         self.progress.emit(msg)
                     except (EOFError, OSError):
                         # Child closed its end; keep waiting for sentinel
@@ -150,12 +150,12 @@ class ParallelTaskProcess(ParallelTask):
                 if self._process.sentinel in ready:
                     # drain any remaining messages without blocking
                     try:
-                        print(f"About to drain parent connection")
+                        # print(f"About to drain parent connection")
                         while self._parent_conn.poll():
-                            print(f"Draining parent connection")
+                            # print(f"Draining parent connection")
                             try:
                                 msg = self._parent_conn.recv()
-                                print(f"Received message process.sent: {msg}")
+                                # print(f"Received message process.sent: {msg}")
                                 self.progress.emit(msg)# 
                             except (EOFError, OSError):
                                 break

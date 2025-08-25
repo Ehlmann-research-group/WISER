@@ -1155,7 +1155,7 @@ class RasterDataSet(Serializable):
         serial_bad_bands = dataset_metadata.get('bad_bands', None)
         serial_wkt_spatial_ref = dataset_metadata.get('wkt_spatial_ref', None)
         serial_geo_transform = dataset_metadata.get('geo_transform', None)
-        serial_wavelengths = dataset_metadata.get('wavelengths', None)
+        serial_wavelengths: List[u.Quantity] = dataset_metadata.get('wavelengths', None)
         serial_wavelength_units = dataset_metadata.get('wavelength_units', None)
         print(f"copy_serialized_metadata_from: {dataset_metadata}")
         if serial_elem_type is not None:
@@ -1172,7 +1172,12 @@ class RasterDataSet(Serializable):
         if serial_geo_transform is not None:
             self._geo_transform = serial_geo_transform
         if serial_wavelengths is not None:
-            self._band_info = serial_wavelengths
+                self._band_info = []
+                for (band_index, wavelength) in enumerate(serial_wavelengths):
+                    info = {'index':band_index - 1, 'description':f'Band: {band_index - 1}',
+                            'wavelength': wavelength, 'wavelength_str': str(wavelength.unit), \
+                            'wavelength_units': str(wavelength.value)}
+                    self._band_info.append(info)
         if serial_wavelength_units is not None:
             self._band_unit = serial_wavelength_units
 

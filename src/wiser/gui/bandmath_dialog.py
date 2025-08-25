@@ -941,6 +941,9 @@ class BandMathDialog(QDialog):
             self._ui.lbl_result_info.clear()
             self._ui.lbl_result_info.setStyleSheet('QLabel { color: black; }')
             functions = get_plugin_fns(self._app_state)
+            print(f"type(expr): {expr}")
+            print(f"type(bindings): {bindings}")
+            print(f"type(functions): {functions}")
             expr_info = bandmath.get_bandmath_expr_info(expr, bindings, functions)
 
             if expr_info.result_type not in [bandmath.VariableType.IMAGE_CUBE,

@@ -22,6 +22,7 @@ from .utils import (
     get_valid_ignore_value,
 )
 
+from wiser import bandmath
 from wiser.bandmath.types import BANDMATH_VALUE_TYPE
 from wiser.raster.serializable import Serializable, SerializedForm
 
@@ -808,8 +809,6 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
         logger.debug(' * unary_negate_expr')
         return self.find_current_interm_and_update_max(args[1], 0)
 
-def deserialize_subprocess_bandmath_job(self):
-    pass
 
 def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]) -> \
     Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]:
@@ -907,6 +906,7 @@ def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
     After this point we do it in a process
     '''
     kwargs = {
+        "bandmath_expr": bandmath_expr,
         "expr_info": expr_info,
         "result_name": result_name,
         "cache": None,
@@ -917,6 +917,10 @@ def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
         "use_old_method": use_old_method,
         "test_parallel_io": test_parallel_io
     }
+    prepared_variables_list = prepare_bandmath_variables(serialized_variables)
+    # prepared_expr_info_list = prepare_expr_info(bandmath_expr, prepared_variables_list, lower_functions)
+    print(f"prepared_variables_list: {len(prepared_variables_list)}")
+    # print(f"prepared_expr_info_list: {len(prepared_expr_info_list)}")
     process_manager = ProcessManager(subprocess_bandmath, kwargs)
     app_state.add_running_process(process_manager)
     task = process_manager.get_task()
@@ -929,14 +933,17 @@ def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
     # return serialized_results
 
 
-def subprocess_bandmath(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
                         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
                         use_old_method: bool, test_parallel_io: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
     print(f"About to prepare bandmath variables")
-    prepared_variables = prepare_bandmath_variables(serialized_variables)
+    prepared_variables_list = prepare_bandmath_variables(serialized_variables)
+    prepared_expr_info_list = prepare_expr_info(bandmath_expr, prepared_variables_list, lower_functions)
+    print(f"prepared_variables_list: {len(prepared_variables_list)}")
+    print(f"prepared_expr_info_list: {len(prepared_expr_info_list)}")
     print(f"About to eval full bandmath expr")
-    results = eval_full_bandmath_expr(expr_info, result_name, cache, prepared_variables, lower_functions, \
+    results = eval_full_bandmath_expr(prepared_expr_info_list, result_name, cache, prepared_variables_list, lower_functions, \
                             number_of_intermediates, tree, use_old_method, test_parallel_io, child_conn)
     serialized_results: List[Tuple[VariableType, SerializedForm]] = []
     for result_type, result_value in results:
@@ -1039,6 +1046,23 @@ def get_unique_filepaths(folder: str):
 
     return [path for path, _ in files_seen.values()]
 
+def prepare_expr_info(bandmath_expr: str, \
+                      variables_list: List[Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]], \
+                      functions: Dict[str, BandMathFunction]) -> List[BandMathExprInfo]:
+    '''
+    This function is used to expand expr_info to include expression info for each of the variable dictionaries
+    in the list 
+    '''
+    # Go through each of the variables in the list and get the expr_info for each of them
+    expr_info_list = []
+    for variables in variables_list:
+        expression = bandmath_expr
+        print(f"type(expression): {expression}")
+        print(f"type(variables): {variables}")
+        print(f"type(functions): {functions}")
+        expr_info_list.append(bandmath.get_bandmath_expr_info(expression, variables, functions))
+    return expr_info_list
+
 def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]) -> \
     List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]]:
     '''
@@ -1089,20 +1113,21 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
         prepared_variables.append(single_batch_variables)
     return prepared_variables
 
-def eval_full_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
-        prepared_variables: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
+def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_name: str, cache: DataCache,
+        prepared_variables_list: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
         use_old_method = False, test_parallel_io = False, child_conn: mp_conn.Connection = None) -> List[Tuple[RasterDataSet.__class__, RasterDataSet]]:
     '''
     This function is used to evaluate one band math expression. Now this expression may or may not be 
     an expression that has batching. If it does, then we will have to do the batching logic here.
     '''
+    assert len(expr_info_list) == len(prepared_variables_list), "The number of expr_info_list and prepared_variables_list must be the same"
     count = 0
-    print(f"Length of prepared variables: {len(prepared_variables)}")
+    print(f"Length of prepared variables: {len(prepared_variables_list)}")
     outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet]] = []
-    for lower_variables in prepared_variables:
+    for lower_variables, expr_info in zip(prepared_variables_list, expr_info_list):
         count += 1
-        child_conn.send({"Numerator": count, "Denominator": len(prepared_variables), "Status": "Running"})
+        child_conn.send({"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Running"})
         print(f"Evaling batch {count}")
         gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
         

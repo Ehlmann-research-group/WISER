@@ -34,12 +34,6 @@ class OperatorTrigFunction(BandMathFunction):
                                         VariableType.NUMBER]:
             self._report_type_error(arg_info.result_type)
 
-        if arg_info.result_type == VariableType.IMAGE_CUBE_BATCH or arg_info.result_type == VariableType.IMAGE_BAND_BATCH:
-            info = BandMathExprInfo(arg_info.result_type)
-            info.shape = arg_info.shape
-            info.elem_type = np.float32
-            return info
-
         # Output type will be the same as the input type
         info = BandMathExprInfo(arg_info.result_type)
         info.shape = arg_info.shape
