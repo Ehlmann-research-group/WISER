@@ -12,7 +12,7 @@ from .constants import LHS_KEY, RHS_KEY
 from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    get_lhs_rhs_values_async, get_result_dtype, MathOperations,
+    get_lhs_rhs_values_async, get_result_dtype, MathOperations, reorder_args,
 )
 
 class OperatorPower(BandMathFunction):
@@ -38,11 +38,16 @@ class OperatorPower(BandMathFunction):
             return BandMathExprInfo(VariableType.NUMBER)
 
         # If we got here, we are working with more complex data types.
+        (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
 
         if lhs.result_type == VariableType.IMAGE_CUBE_BATCH:
             # Dimensions:  [band][y][x]
             # Because this is a batch variable, we don't set the metadata
             # here since we do not have it until the user runs the batch
+            # 
+            # Additionally, when we actually do the apply phase, we recalculate
+            # the expression info with IMAGE_CUBE, so this IMAGE_CUBE_BATCH
+            # conditional can be thought of as a place holder.
             info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
             info.elem_type = np.float32
             return info

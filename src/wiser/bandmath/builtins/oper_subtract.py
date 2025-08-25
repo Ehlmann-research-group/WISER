@@ -68,6 +68,10 @@ class OperatorSubtract(BandMathFunction):
             # Dimensions:  [band][y][x]
             # Because this is a batch variable, we don't set the metadata
             # here since we do not have it until the user runs the batch
+            # 
+            # Additionally, when we actually do the apply phase, we recalculate
+            # the expression info with IMAGE_CUBE, so this IMAGE_CUBE_BATCH
+            # conditional can be thought of as a place holder.
             info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
             info.elem_type = np.float32
             return info
