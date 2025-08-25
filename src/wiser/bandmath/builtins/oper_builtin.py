@@ -89,11 +89,6 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
             return info
-        elif (lhs.result_type == VariableType.IMAGE_CUBE_BATCH):
-            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
-            info.shape = lhs.shape
-            info.elem_type = np.float32
-            return info
         elif (lhs.result_type == VariableType.IMAGE_CUBE):
             check_image_cube_compatible(rhs, lhs.shape)
 
