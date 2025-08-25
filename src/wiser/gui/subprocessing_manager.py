@@ -86,7 +86,6 @@ class ProcessManager(QObject):
         return self._task
     
     def start_task(self):
-        # Only ever start the task through here!
         self._task.start()
 
     def get_pid(self) -> Union[int, None]:

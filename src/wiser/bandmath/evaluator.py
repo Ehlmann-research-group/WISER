@@ -817,8 +817,6 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
     passed to the sub process. In the subprocess, we will deserialize the variables and functions and then pass them
     to the eval_bandmath_expr function.
     '''
-    # For each variable we have to make it into a string or numpy form, then we have to pass this into
-    # a new variables
     variables_serialized = {}
     for var_name, var_tuple in variables.items():
         var_type = var_tuple[0]
@@ -826,12 +824,14 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
         if isinstance(var_value, Serializable):
             variables_serialized[var_name] = (var_type, var_value.get_serialized_form())
         else:
+            # else, the variable is either a numpy array or a string which is already serializeable
             variables_serialized[var_name] = var_tuple
     return variables_serialized
 
 
-def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
-        bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+def eval_bandmath_expr(app_state: 'ApplicationState', succeeded_callback: Callable, \
+        progress_callback: Callable, error_callback: Callable, bandmath_expr: str, \
+        expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
         functions: Dict[str, BandMathFunction] = None,
         use_old_method = False, test_parallel_io=False) -> Tuple[Any, Any]:
@@ -847,17 +847,22 @@ def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
     *   VariableType.IMAGE_BAND:  RasterDataBand, 2D np.ndarray [y][x]
     *   VariableType.SPECTRUM:  Spectrum, 1D np.ndarray [band]
 
-    Functions are passed in a dictionary of string names that map to a callable.
-    TODO:  MORE DETAIL HERE, ONCE WE IMPLEMENT THIS.
+    Functions are passed in a dictionary of string names that map to the class
+    BandMathFunction
 
     If successful, the result of the calculation is returned as a 2-tuple of the
-    same form as the variables, although the value is always either a number or
-    a NumPy array:
+    same form as the variables or as a 2-tuple where the first variable is the 
+    class RasterDataSet and the second is an instantiation of that class.
+    This 2-tuple value is sent to the passed in callable.
 
     *   VariableType.IMAGE_CUBE:  3D np.ndarray [band][x][y]
     *   VariableType.IMAGE_BAND:  2D np.ndarray [x][y]
     *   VariableType.SPECTRUM:  1D np.ndarray [band]
     *   VariableType.NUMBER:  float
+    *   RasterDataSet:  RasterDataSet (instantiation)
+
+    The function returns the ProcessManager object that is managing the underlying
+    QThread and subprocess.
     '''
 
     # Just to be defensive against potentially bad inputs, make sure all names
@@ -865,7 +870,6 @@ def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
     # TODO(donnie):  Can also make sure they are valid, trimmed of whitespace,
     #     etc.
 
-    # print(f"GDAL Python Version: {gdal.__version__}")
     lower_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]] = {}
     for name, value in variables.items():
         lower_variables[name.lower()] = value
@@ -890,21 +894,11 @@ def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
     number_of_intermediates = numInterFinder.get_max_intermediates()
     number_of_intermediates += 1
     logger.debug(f'Number of intermediates: {number_of_intermediates}')
-    '''
-    When doing batch processing we longer have elem_type or result_size. We could either redo the exprinfo calculation
-    or not and just have this batch calculatrion be more error prone. We will have to get the result size after this though.
-    Which means we will have to rerun the expression info. We should do that at the start, which means we should keep this the 
-    same and have a function on the outside that handles all of the logic of going through the folder, extracting the data into
-    RasterDataSet, getting bandmath expr info, and running eval_bandmath_expr. However, the variables dict has 
-    RasterDataSet/RasterDataBand objects as the any value. This value gets carried into the lark.Transformer 
-    in "BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)"  as lower_variables.
-    '''
 
-    print(f"About to serialize bandmath variables")
+    # We must serialize RasterDataSet, RasterBand, and Spectrum objects because they
+    # could have an underlying gdal or osgeo object that can't be pickled
     serialized_variables = serialize_bandmath_variables(lower_variables)
-    '''
-    After this point we do it in a process
-    '''
+
     kwargs = {
         "bandmath_expr": bandmath_expr,
         "expr_info": expr_info,
@@ -917,34 +911,33 @@ def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
         "use_old_method": use_old_method,
         "test_parallel_io": test_parallel_io
     }
-    prepared_variables_list = prepare_bandmath_variables(serialized_variables)
-    # prepared_expr_info_list = prepare_expr_info(bandmath_expr, prepared_variables_list, lower_functions)
-    print(f"prepared_variables_list: {len(prepared_variables_list)}")
-    # print(f"prepared_expr_info_list: {len(prepared_expr_info_list)}")
+
     process_manager = ProcessManager(subprocess_bandmath, kwargs)
     app_state.add_running_process(process_manager)
     task = process_manager.get_task()
-    task.error.connect(lambda task: print(f"Error in subprocess! Error: {task.get_error()}"))
-    task.progress.connect(lambda x: print(x))
-    task.succeeded.connect(lambda task: print(f"Successfully finished subprocess! Result: {task.get_result()}"))
-    task.succeeded.connect(lambda task: callback(task.get_result()))
+    # The error slot is passed the process_manager's task
+    task.error.connect(error_callback)
+    # The progress slot is passed the message that subprocess_bandmath
+    # sends over the pipe
+    task.progress.connect(progress_callback)
+    task.succeeded.connect(lambda task: succeeded_callback(task.get_result()))
     process_manager.start_task()
     return process_manager
-    # return serialized_results
 
 
 def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
                         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
                         use_old_method: bool, test_parallel_io: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
-    print(f"About to prepare bandmath variables")
+    # This is where we take everything out of the batch folder and make individual pairs of BandMathExprInfo and
+    # variable dictionaries for each. That way we can just use the same machinery as we do for regular bandmath.
     prepared_variables_list = prepare_bandmath_variables(serialized_variables)
     prepared_expr_info_list = prepare_expr_info(bandmath_expr, prepared_variables_list, lower_functions)
-    print(f"prepared_variables_list: {len(prepared_variables_list)}")
-    print(f"prepared_expr_info_list: {len(prepared_expr_info_list)}")
-    print(f"About to eval full bandmath expr")
+    # This function actually calls the lark transformer and does the heavy lifting.
     results = eval_full_bandmath_expr(prepared_expr_info_list, result_name, cache, prepared_variables_list, lower_functions, \
                             number_of_intermediates, tree, use_old_method, test_parallel_io, child_conn)
+    # At this point, everything in the folder has been processed. Now we collect the results to put them
+    # on the return queue.
     serialized_results: List[Tuple[VariableType, SerializedForm]] = []
     for result_type, result_value in results:
         if not isinstance(result_value, (RasterDataSet, RasterDataBand, Spectrum, \
@@ -954,12 +947,7 @@ def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_
             serialized_results.append((result_type, result_value.get_serialized_form()))
         else:
             serialized_results.append((result_type, result_value))
-    print(f"About to put serialized results into return queue")
     return_queue.put(serialized_results)
-    print(f"Done with eval full bandmath expr")
-
-
-# def prepare_singular_variable(var_type: VariableType, var_value: BANDMATH_VALUE_TYPE) -> \
 
 def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value: Union[SerializedForm, str, bool], \
                                 loader: RasterDataLoader, filepath: str = None) -> Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]:

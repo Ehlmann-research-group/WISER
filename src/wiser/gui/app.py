@@ -68,6 +68,7 @@ from wiser.raster.data_cache import DataCache
 from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
+from wiser.gui.parallel_task import ParallelTaskProcess
 
 logger = logging.getLogger(__name__)
 
@@ -778,10 +779,10 @@ class DataVisualizerApp(QMainWindow):
                 library = ListSpectralLibrary(spectra, path=path)
                 self._app_state.add_spectral_library(library)
 
-    def bandmath_callback(self, results: List[Tuple[VariableType, SerializedForm]],
+    def bandmath_success_callback(self, results: List[Tuple[VariableType, SerializedForm]],
                         expr_info: BandMathExprInfo, expression: str, result_name: str,
                         batch_enabled: bool, load_into_wiser: bool):
-        print(f"Entered bandmath_callback!!")
+        print(f"Entered bandmath_success_callback!!")
         # print(f"Results: {results}")
         # print(f"Type of results: {type(results)}")
         for result_type, result in results:
@@ -870,6 +871,12 @@ class DataVisualizerApp(QMainWindow):
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
 
+    def bandmath_progress_callback(self, msg):
+        print(f"Bandmath progress:\n{msg}")
+
+    def bandmath_error_callback(self, task: ParallelTaskProcess):
+        print(f"Task error:\n{task.get_error()}")
+
     def show_bandmath_dialog(self):
         dialog = BandMathDialog(self._app_state, parent=self)
         if dialog.exec() == QDialog.Accepted:
@@ -884,21 +891,17 @@ class DataVisualizerApp(QMainWindow):
                         f'Variable bindings:\n{pprint.pformat(variables)}\n' +
                         f'Result name:  {result_name}')
 
-            # print(f'Spatial metadata comes from {expr_info.spatial_metadata_source}')
-            # print(f'Spectral metadata comes from {expr_info.spectral_metadata_source}')
-
             # Collect functions from all plugins.
             functions = get_plugin_fns(self._app_state)
 
             try:
                 if not result_name:
                     result_name = self.tr('Computed')
-                print(f"About to eval bandmath expr")
-                callback = lambda results: self.bandmath_callback(results, expr_info, expression, \
+                success_callback = lambda results: self.bandmath_success_callback(results, expr_info, expression, \
                                                                   result_name, batch_enabled, load_into_wiser)
-                process_manager = bandmath.eval_bandmath_expr(self._app_state, callback, expression, expr_info, \
+                process_manager = bandmath.eval_bandmath_expr(self._app_state, success_callback, self.bandmath_progress_callback, \
+                                                              self.bandmath_error_callback, expression, expr_info, \
                                                               result_name, self._data_cache, variables, functions)
-                print(f"Put bandmath into subprocess")
             except Exception as e:
                 logger.exception('Couldn\'t evaluate band-math expression')
                 QMessageBox.critical(self, self.tr('Bandmath Evaluation Error'),
@@ -922,7 +925,7 @@ class DataVisualizerApp(QMainWindow):
             self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state, parent=self)
         if not in_test_mode:
             if self._crs_creator_dialog.exec_() == QDialog.Accepted:
-                print(f"Reference creator accepted!")
+                pass
         else:
             self._crs_creator_dialog.show()
     
@@ -931,7 +934,7 @@ class DataVisualizerApp(QMainWindow):
             self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state, parent=self)
         if not in_test_mode:
             if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
-                print(f"Reference creator accepted!")
+                pass
         else:
             self._similarity_transform_dialog.show()
 
