@@ -1,13 +1,34 @@
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Union
 
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
+import multiprocessing.connection as mp_conn
 
 from PySide2.QtCore import *
 
 from wiser.gui.parallel_task import ParallelTaskProcess, ParallelTaskProcessPool
 
+import traceback
 
+SENTINEL_RESULT = "__RESULT__"
+SENTINEL_ERROR  = "__ERROR__"
+
+def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue: mp.Queue, **kwargs):
+    try:
+        op(child_conn=child_conn, return_queue=return_queue, **kwargs)
+    except Exception:
+        tb = traceback.format_exc()
+        # send both ways so you always see it
+        try: child_conn.send({ "type": "error", "traceback": tb })
+        except Exception: pass
+        try: return_queue.put((SENTINEL_ERROR, tb))
+        except Exception: pass
+        # re-raise so exitcode is nonzero
+        raise
+    finally:
+        try: child_conn.close()
+        except Exception: pass
+    
 class ProcessManager(QObject):
     '''
     This class is used to manage a single process. It is used to run a function in a separate process.
@@ -43,33 +64,39 @@ class ProcessManager(QObject):
         print(child_comms)
     result = process_manager.get_task().get_result()
     ```
-
     '''
+
+    _next_process_id = 0
 
     def __init__(self, operation: Callable, kwargs: Dict = {}):
         super().__init__()
         self._parent_conn, self._child_conn = mp.Pipe(duplex=False)
         self._return_q = mp.Queue()
+        kwargs['op'] = operation
         kwargs['child_conn'] = self._child_conn
         kwargs['return_queue'] = self._return_q
-        self._process = mp.Process(target=operation, kwargs=kwargs)
+        print(f"Made child process")
+        self._process = mp.Process(target=child_trampoline, kwargs=kwargs)
+        print(f"Made parallel task")
+        self._task = ParallelTaskProcess(self._process, self._parent_conn, self._child_conn, self._return_q)
+        self._process_manager_id = type(self)._next_process_id
+        type(self)._next_process_id += 1
 
-        self._task = ParallelTaskProcess(self._process, self._return_q)
-
-    def get_parent_conn(self):
-        return self._parent_conn
-
-    def get_task(self):
+    def get_task(self) -> ParallelTaskProcess:
         return self._task
     
     def start_task(self):
+        # Only ever start the task through here!
         self._task.start()
 
-    def get_pid(self):
-        return self._pid
+    def get_pid(self) -> Union[int, None]:
+        return self._task.get_process_id()
     
     def get_process(self):
         return self._process
+    
+    def get_process_manager_id(self) -> int:
+        return self._process_manager_id
 
 class MultiprocessingManager(QObject):
     '''

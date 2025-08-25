@@ -1,12 +1,13 @@
 import logging
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 import multiprocessing as mp
+import multiprocessing.connection as mp_conn
 from concurrent.futures import ProcessPoolExecutor
 
 logger = logging.getLogger(__name__)
@@ -87,30 +88,106 @@ class ParallelTaskProcess(ParallelTask):
         kwargs (Dict): The keyword arguments to pass to the function.
     '''
 
-    def __init__(self, process: mp.Process = None, return_queue: mp.Queue = None,
+    def __init__(self, process: mp.Process = None, parent_conn: mp_conn.Connection = None, \
+                 child_conn: mp_conn.Connection = None, return_queue: mp.Queue = None,
                  operation: Callable = None, kwargs: Dict = {}):
         super().__init__(operation, kwargs)
 
         # The process to use.
         self._process = process
-        self._process_id = process.pid
+
+        # The parent connection to get the return value from the child process.
+        self._parent_conn = parent_conn
+
+        # The child connection to send data to the child process.
+        self._child_conn = child_conn
 
         # The return queue to get the return value from the child process.
         self._return_queue = return_queue
 
+        self._process_id: int | None = None
+
     def run(self):
+        print(f"Running parallel task")
+        # Include the queue's reader in the wait set so we can drain results
+        queue_reader = self._return_queue._reader  # Connection (private)
         self.started.emit(self)
         try:
+            print(f"Starting process")
             self._process.start()
-            self._process.join()
-            self._result = self._return_queue.get()
+            self._process_id = self._process.pid
+            self._child_conn.close()
+            while True:
+                ready = mp_conn.wait([self._process.sentinel, queue_reader, self._parent_conn])
+                # If there is a message available we read it. 
+                if queue_reader in ready:
+                    print(f"About to receive message from return queue")
+                    try:
+                        msg = self._return_queue.get_nowait()
+                        assert self._return_queue.empty(), "Return queue is not empty, even though we just got a message"
+                        print(f"Type of msg: {type(msg)}")
+                        print(f"Setting result to {msg}")
+                        self._result = msg
+                        print(f"Received message return queue: {msg}")
+                        self.progress.emit(msg)
+                    except Exception as e:
+                        logger.exception("Failed to read return value: %s", e)
+                        print(f"Setting result to None because of error: 1\n{e}")
+                        self._result = None
+                print(f"Received ready: {ready}")
+
+                if self._parent_conn in ready:
+                    print(f"About to receive message from parent connection")
+                    try:
+                        msg = self._parent_conn.recv()
+                        print(f"Received message parent_conn: {msg}")
+                        self.progress.emit(msg)
+                    except (EOFError, OSError):
+                        # Child closed its end; keep waiting for sentinel
+                        pass
+                # If the process is ready, we need to flush all the messages on the parent
+                # pipe and close the process
+                if self._process.sentinel in ready:
+                    # drain any remaining messages without blocking
+                    try:
+                        print(f"About to drain parent connection")
+                        while self._parent_conn.poll():
+                            print(f"Draining parent connection")
+                            try:
+                                msg = self._parent_conn.recv()
+                                print(f"Received message process.sent: {msg}")
+                                self.progress.emit(msg)# 
+                            except (EOFError, OSError):
+                                break
+                    except Exception:
+                        pass
+                    self._process.join()
+                    break
+            # Once we reach here, the process has finished, so we get the stuff
+            # on the return queue.
+            print(f"About to get result from return queue")
+            try:
+                # return queue should be empty, but if its not, we will get the result
+                if not self._return_queue.empty():
+                    self._result = self._return_queue.get()
+                print(f"Got result from return queue: {self._result}")
+            except Exception as e:
+                logger.exception("Failed to read return value: %s", e)
+                print(f"Setting result to None because of error: 3\n{e}")
+                self._result = None
         except Exception as e:
             logger.exception(f'Error starting process {self._process_id}: {e}')
             self._error = e
             self.error.emit(self)
             return
         
+        self._parent_conn.close()
+        self._return_queue.close()
+        print(f"Emitting succeeded signal")
         self.succeeded.emit(self)
+    
+    def get_process_id(self) -> Union[int, None]:
+        return self._process_id
 
 class ParallelTaskProcessPool(ParallelTask):
 

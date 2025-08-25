@@ -17,6 +17,9 @@ from PySide2.QtWidgets import *
 
 from osgeo import gdal, osr
 
+from wiser.bandmath.types import VariableType, BandMathExprInfo
+from wiser.raster.serializable import SerializedForm
+
 from .app_config import PixelReticleType
 
 from wiser.bandmath.utils import TEMP_FOLDER_PATH
@@ -775,35 +778,15 @@ class DataVisualizerApp(QMainWindow):
                 library = ListSpectralLibrary(spectra, path=path)
                 self._app_state.add_spectral_library(library)
 
-
-    def show_bandmath_dialog(self):
-        dialog = BandMathDialog(self._app_state, parent=self)
-        if dialog.exec() == QDialog.Accepted:
-            expression = dialog.get_expression()
-            expr_info = dialog.get_expression_info()
-            variables = dialog.get_variable_bindings()
-            result_name = dialog.get_result_name()
-            batch_enabled = dialog.is_batch_processing_enabled()
-            load_into_wiser = dialog.is_load_into_wiser_enabled()
-
-            logger.info(f'Evaluating band-math expression:  {expression}\n' +
-                        f'Variable bindings:\n{pprint.pformat(variables)}\n' +
-                        f'Result name:  {result_name}')
-
-            # print(f'Spatial metadata comes from {expr_info.spatial_metadata_source}')
-            # print(f'Spectral metadata comes from {expr_info.spectral_metadata_source}')
-
-            # Collect functions from all plugins.
-            functions = get_plugin_fns(self._app_state)
-
+    def bandmath_callback(self, results: List[Tuple[VariableType, SerializedForm]],
+                        expr_info: BandMathExprInfo, expression: str, result_name: str,
+                        batch_enabled: bool, load_into_wiser: bool):
+        print(f"Entered bandmath_callback!!")
+        # print(f"Results: {results}")
+        # print(f"Type of results: {type(results)}")
+        for result_type, result in results:
+            # print(f"Result type: {result_type}, Result: {result}")
             try:
-                if not result_name:
-                    result_name = self.tr('Computed')
-                print(f"About to eval bandmath expr")
-                results = bandmath.eval_bandmath_expr(expression, expr_info, result_name, self._data_cache,
-                    variables, functions)
-                print(f"Done with eval bandmath expr")
-
                 if batch_enabled and not load_into_wiser:
                     return
                 for result_type, result in results:
@@ -886,6 +869,43 @@ class DataVisualizerApp(QMainWindow):
                     self.tr('Couldn\'t evaluate band-math expression') +
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
+
+    def show_bandmath_dialog(self):
+        dialog = BandMathDialog(self._app_state, parent=self)
+        if dialog.exec() == QDialog.Accepted:
+            expression = dialog.get_expression()
+            expr_info = dialog.get_expression_info()
+            variables = dialog.get_variable_bindings()
+            result_name = dialog.get_result_name()
+            batch_enabled = dialog.is_batch_processing_enabled()
+            load_into_wiser = dialog.is_load_into_wiser_enabled()
+
+            logger.info(f'Evaluating band-math expression:  {expression}\n' +
+                        f'Variable bindings:\n{pprint.pformat(variables)}\n' +
+                        f'Result name:  {result_name}')
+
+            # print(f'Spatial metadata comes from {expr_info.spatial_metadata_source}')
+            # print(f'Spectral metadata comes from {expr_info.spectral_metadata_source}')
+
+            # Collect functions from all plugins.
+            functions = get_plugin_fns(self._app_state)
+
+            try:
+                if not result_name:
+                    result_name = self.tr('Computed')
+                print(f"About to eval bandmath expr")
+                callback = lambda results: self.bandmath_callback(results, expr_info, expression, \
+                                                                  result_name, batch_enabled, load_into_wiser)
+                process_manager = bandmath.eval_bandmath_expr(self._app_state, callback, expression, expr_info, \
+                                                              result_name, self._data_cache, variables, functions)
+                print(f"Put bandmath into subprocess")
+            except Exception as e:
+                logger.exception('Couldn\'t evaluate band-math expression')
+                QMessageBox.critical(self, self.tr('Bandmath Evaluation Error'),
+                    self.tr('Couldn\'t evaluate band-math expression') +
+                    f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
+                return
+
 
     def show_geo_reference_dialog(self, in_test_mode = False):
         if self._geo_ref_dialog is None:

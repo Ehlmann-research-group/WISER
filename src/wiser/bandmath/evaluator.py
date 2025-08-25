@@ -2,7 +2,7 @@ import os
 import logging
 import inspect
 
-from typing import Any, Callable, Dict, Tuple, Coroutine, Union, List
+from typing import Any, Callable, Dict, Tuple, Coroutine, Union, List, TYPE_CHECKING
 
 import lark
 from lark import Visitor, Tree, Token, v_args
@@ -33,10 +33,14 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset_impl import SaveState
 
+if TYPE_CHECKING:
+    from wiser.gui.app_state import ApplicationState
+
 from wiser.gui.subprocessing_manager import ProcessManager
 
 from osgeo import gdal
 import multiprocessing as mp
+import multiprocessing.connection as mp_conn
 
 from .builtins import (
     OperatorCompare,
@@ -46,6 +50,8 @@ from .builtins import (
 
 
 from .builtins.constants import SCALAR_BYTES, NUM_WRITERS, DEFAULT_IGNORE_VALUE, NUM_READERS, LHS_KEY, RHS_KEY
+
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -825,7 +831,8 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
     return variables_serialized
 
 
-def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+def eval_bandmath_expr(app_state: 'ApplicationState', callback: Callable, \
+        bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
         functions: Dict[str, BandMathFunction] = None,
         use_old_method = False, test_parallel_io=False) -> Tuple[Any, Any]:
@@ -899,23 +906,48 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     '''
     After this point we do it in a process
     '''
-    
+    kwargs = {
+        "expr_info": expr_info,
+        "result_name": result_name,
+        "cache": None,
+        "serialized_variables": serialized_variables,
+        "lower_functions": lower_functions,
+        "number_of_intermediates": number_of_intermediates,
+        "tree": tree,
+        "use_old_method": use_old_method,
+        "test_parallel_io": test_parallel_io
+    }
+    process_manager = ProcessManager(subprocess_bandmath, kwargs)
+    app_state.add_running_process(process_manager)
+    task = process_manager.get_task()
+    task.error.connect(lambda task: print(f"Error in subprocess! Error: {task.get_error()}"))
+    task.progress.connect(lambda x: print(x))
+    task.succeeded.connect(lambda task: print(f"Successfully finished subprocess! Result: {task.get_result()}"))
+    task.succeeded.connect(lambda task: callback(task.get_result()))
+    process_manager.start_task()
+    return process_manager
     # return serialized_results
+
 
 def subprocess_bandmath(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
                         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-                        use_old_method: bool, test_parallel_io: bool, child_conn: mp.Pipe, return_queue: mp.Queue):
+                        use_old_method: bool, test_parallel_io: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
     print(f"About to prepare bandmath variables")
     prepared_variables = prepare_bandmath_variables(serialized_variables)
     print(f"About to eval full bandmath expr")
     results = eval_full_bandmath_expr(expr_info, result_name, cache, prepared_variables, lower_functions, \
-                            number_of_intermediates, tree, use_old_method, test_parallel_io)
+                            number_of_intermediates, tree, use_old_method, test_parallel_io, child_conn)
     serialized_results: List[Tuple[VariableType, SerializedForm]] = []
     for result_type, result_value in results:
-        if not isinstance(result_value, (RasterDataSet, RasterDataBand, Spectrum)):
+        if not isinstance(result_value, (RasterDataSet, RasterDataBand, Spectrum, \
+                                         np.ndarray, np.ma.masked_array)):
             raise ValueError(f"Unsupported result type: {type(result_value)}")
-        serialized_results.append((result_type, result_value.get_serialized_form()))
+        if isinstance(result_value, Serializable):
+            serialized_results.append((result_type, result_value.get_serialized_form()))
+        else:
+            serialized_results.append((result_type, result_value))
+    print(f"About to put serialized results into return queue")
     return_queue.put(serialized_results)
     print(f"Done with eval full bandmath expr")
 
@@ -1060,7 +1092,7 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
 def eval_full_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         prepared_variables: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-        use_old_method = False, test_parallel_io=False) -> List[Tuple[RasterDataSet.__class__, RasterDataSet]]:
+        use_old_method = False, test_parallel_io = False, child_conn: mp_conn.Connection = None) -> List[Tuple[RasterDataSet.__class__, RasterDataSet]]:
     '''
     This function is used to evaluate one band math expression. Now this expression may or may not be 
     an expression that has batching. If it does, then we will have to do the batching logic here.
@@ -1069,8 +1101,9 @@ def eval_full_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache
     print(f"Length of prepared variables: {len(prepared_variables)}")
     outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet]] = []
     for lower_variables in prepared_variables:
-        print(f"Evaling batch {count}")
         count += 1
+        child_conn.send({"Numerator": count, "Denominator": len(prepared_variables), "Status": "Running"})
+        print(f"Evaling batch {count}")
         gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
         
         max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)

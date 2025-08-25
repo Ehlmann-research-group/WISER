@@ -120,16 +120,17 @@ class BandStats:
 
 class SpatialMetadata():
 
-    def __init__(self, geo_transform, spatial_ref, wkt_spatial_reference):
+    def __init__(self, geo_transform, wkt_spatial_reference):
         self._geo_transform = geo_transform
-        self._spatial_ref = spatial_ref
         self._wkt_spatial_reference = wkt_spatial_reference
         
     def get_geo_transform(self) -> Tuple:
         return self._geo_transform
     
     def get_spatial_ref(self) -> osr.SpatialReference:
-        return self._spatial_ref
+        srs = osr.SpatialReference()
+        srs.ImportFromWkt(self._wkt_spatial_reference)
+        return srs
     
     def get_wkt_spatial_reference(self) -> str:
         return self._wkt_spatial_reference
@@ -941,8 +942,7 @@ class RasterDataSet(Serializable):
 
     def copy_spatial_metadata(self, source: SpatialMetadata) -> None:
         '''
-        Copy the spatial metadata from the source object.  The source must
-        either be a RasterDataSet or a RasterDataBand object.
+        Copy the spatial metadata from the SpatialMetadata object.
 
         The spatial metadata includes the geographical transform, and the
         spatial reference system, if the raster has one.  Any mutable values are
@@ -952,21 +952,23 @@ class RasterDataSet(Serializable):
 
         self._geo_transform = source.get_geo_transform()
 
-        if source._spatial_ref is not None:
+        if source.get_spatial_ref() is not None:
             self._spatial_ref = source.get_spatial_ref().Clone()
         else:
             self._spatial_ref = None
 
-        if source._wkt_spatial_reference is not None:
-            self._wkt_spatial_reference = source.get_geo_transform()
+        if source.get_wkt_spatial_reference() is not None:
+            self._wkt_spatial_reference = source.get_wkt_spatial_reference()
+            if self._spatial_ref is None:
+                self._spatial_ref = osr.SpatialReference()
+                self._spatial_ref.ImportFromWkt(source.get_wkt_spatial_reference())
         else:
             self._wkt_spatial_reference = None
 
         self.set_dirty()
     
     def get_spatial_metadata(self) -> SpatialMetadata:
-        spatial_metadata = SpatialMetadata(self._geo_transform, 
-                                           self._spatial_ref,
+        spatial_metadata = SpatialMetadata(self._geo_transform,
                                            self._wkt_spatial_reference)
         return spatial_metadata
     
@@ -995,13 +997,22 @@ class RasterDataSet(Serializable):
         has_wavelengths = source.get_has_wavelengths()
         wavelengths = source.get_wavelengths()
         wavelength_units = source.get_wavelength_units()
-        
-        if band_info and bad_bands and default_display_bands:
+        print(f"band_info: {band_info}")
+        print(f"Bad bands: {bad_bands}")
+        print(f"default_display_bands: {default_display_bands}")
+        print(f"data_ignore_value: {data_ignore_value}")
+        print(f"has_wavelengths: {has_wavelengths}")
+        print(f"wavelengths: {wavelengths}")
+        print(f"wavelength_units: {wavelength_units}")
+        # There are two options here. Either we get the spectral information from the band info, or
+        # we get it from the wavelengths 
+        if band_info:
+            print(f"Copying spectral metadata, band_info, bad_bands, default_display_bands")
             self._band_info = band_info
-            self._bad_bands = bad_bands
-            self._default_display_bands = default_display_bands
+            self._bad_bands = bad_bands if bad_bands else [1] * self.num_bands()
+            self._default_display_bands = default_display_bands if default_display_bands else None
             if data_ignore_value:
-                self._data_ignore_value
+                self._data_ignore_value = data_ignore_value
             self._has_wavelengths = self._compute_has_wavelengths()
         else:
             if has_wavelengths:
@@ -1018,7 +1029,8 @@ class RasterDataSet(Serializable):
                     info = {'index':band_index - 1, 'description':f'Band: {band_index - 1}'}
                     self._band_info.append(info)
 
-            self._default_display_bands = None
+            self._bad_bands = None if bad_bands is None else bad_bands
+            self._default_display_bands = None if default_display_bands is None else default_display_bands
 
             self._has_wavelengths = self._compute_has_wavelengths()
 
@@ -1122,12 +1134,11 @@ class RasterDataSet(Serializable):
                 else:
                     raise ValueError(f"Unsupported implementation type: {dataset_metadata.get('impl_type')}")
                 dataset = RasterDataSet(impl, None)
-                dataset.copy_serialized_metadata_from(dataset_metadata)
-                return dataset
             elif isinstance(dataset_serialize_value, np.ndarray):
                 impl = NumPyRasterDataImpl(dataset_serialize_value)
                 dataset = RasterDataSet(impl, None)
-                return dataset
+            dataset.copy_serialized_metadata_from(dataset_metadata)
+            return dataset
         except Exception as e:
             raise ValueError(f"Error deserializing dataset:\n{e}")
 
@@ -1142,18 +1153,22 @@ class RasterDataSet(Serializable):
         serial_elem_type = dataset_metadata.get('elem_type', None)
         serial_data_ignore_value = dataset_metadata.get('data_ignore_value', None)
         serial_bad_bands = dataset_metadata.get('bad_bands', None)
-        serial_spatial_ref = dataset_metadata.get('spatial_ref', None)
+        serial_wkt_spatial_ref = dataset_metadata.get('wkt_spatial_ref', None)
         serial_geo_transform = dataset_metadata.get('geo_transform', None)
         serial_wavelengths = dataset_metadata.get('wavelengths', None)
         serial_wavelength_units = dataset_metadata.get('wavelength_units', None)
+        print(f"copy_serialized_metadata_from: {dataset_metadata}")
         if serial_elem_type is not None:
             self._elem_type = serial_elem_type
         if serial_data_ignore_value is not None:
             self._data_ignore_value = serial_data_ignore_value
         if serial_bad_bands is not None:
             self._bad_bands = serial_bad_bands
-        if serial_spatial_ref is not None:
-            self._spatial_ref = serial_spatial_ref
+        if serial_wkt_spatial_ref is not None:
+            self._wkt_spatial_reference = serial_wkt_spatial_ref
+            spatial_ref = osr.SpatialReference()
+            spatial_ref.ImportFromWkt(serial_wkt_spatial_ref)
+            self._spatial_ref = spatial_ref
         if serial_geo_transform is not None:
             self._geo_transform = serial_geo_transform
         if serial_wavelengths is not None:
@@ -1194,35 +1209,26 @@ class RasterDataSet(Serializable):
             # for the data ignore value, wavelengths, wavelength units,
             # bad bands, spatial reference, geo transform, and subdataset name.
             recreation_value = impl.get_filepaths()[0]
-            metadata['elem_type'] = self.get_elem_type()
-            metadata['data_ignore_value'] = self.get_data_ignore_value()
-            metadata['bad_bands'] = self.get_bad_bands()
-            metadata['spatial_ref'] = self.get_spatial_ref()
-            metadata['geo_transform'] = self.get_geo_transform()
-            metadata['subdataset_name'] = self.get_subdataset_name()
-            if self._compute_has_wavelengths():
-                metadata['wavelengths'] = [band['wavelength'] for band in self._band_info]
-                metadata['wavelength_units'] = self.get_band_unit()
-            else:
-                metadata['wavelengths'] = None
-                metadata['wavelength_units'] = None
-            return SerializedForm(self.__class__, recreation_value, metadata)
         elif isinstance(impl, NumPyRasterDataImpl):
             recreation_value = impl.get_image_data()
-            metadata['elem_type'] = self.get_elem_type()
-            metadata['data_ignore_value'] = self.get_data_ignore_value()
-            metadata['bad_bands'] = self.get_bad_bands()
-            metadata['spatial_ref'] = self.get_spatial_ref()
-            metadata['geo_transform'] = self.get_geo_transform()
-            if self._compute_has_wavelengths():
-                metadata['wavelengths'] = [band['wavelength'] for band in self._band_info]
-                metadata['wavelength_units'] = self.get_band_unit()
-            else:
-                metadata['wavelengths'] = None
-                metadata['wavelength_units'] = None
             return SerializedForm(self.__class__, recreation_value, metadata)
         else:
             raise ValueError(f"Unsupported implementation type: {type(impl)}")
+
+        metadata['elem_type'] = self.get_elem_type()
+        metadata['data_ignore_value'] = self.get_data_ignore_value()
+        metadata['bad_bands'] = self.get_bad_bands()
+        metadata['wkt_spatial_ref'] = self.get_wkt_spatial_reference()
+        metadata['geo_transform'] = self.get_geo_transform()
+        metadata['subdataset_name'] = self.get_subdataset_name()
+        if self._compute_has_wavelengths():
+            metadata['wavelengths'] = [band['wavelength'] for band in self._band_info]
+            metadata['wavelength_units'] = self.get_band_unit()
+        else:
+            metadata['wavelengths'] = None
+            metadata['wavelength_units'] = None
+        print(f"get_serialized_form metadata: {metadata}")
+        return SerializedForm(self.__class__, recreation_value, metadata)
 
     def __hash__(self):
         '''
@@ -1295,8 +1301,7 @@ class RasterBand(ABC):
 
     def get_spatial_metadata(self) -> SpatialMetadata:
         ds = self._dataset
-        spatial_metadata = SpatialMetadata(ds._geo_transform, 
-                                           ds._spatial_ref,
+        spatial_metadata = SpatialMetadata(ds._geo_transform,
                                            ds._wkt_spatial_reference)
         return spatial_metadata
     
