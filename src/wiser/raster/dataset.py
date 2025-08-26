@@ -997,17 +997,9 @@ class RasterDataSet(Serializable):
         has_wavelengths = source.get_has_wavelengths()
         wavelengths = source.get_wavelengths()
         wavelength_units = source.get_wavelength_units()
-        print(f"band_info: {band_info}")
-        print(f"Bad bands: {bad_bands}")
-        print(f"default_display_bands: {default_display_bands}")
-        print(f"data_ignore_value: {data_ignore_value}")
-        print(f"has_wavelengths: {has_wavelengths}")
-        print(f"wavelengths: {wavelengths}")
-        print(f"wavelength_units: {wavelength_units}")
         # There are two options here. Either we get the spectral information from the band info, or
         # we get it from the wavelengths 
         if band_info:
-            print(f"Copying spectral metadata, band_info, bad_bands, default_display_bands")
             self._band_info = band_info
             self._bad_bands = bad_bands if bad_bands else [1] * self.num_bands()
             self._default_display_bands = default_display_bands if default_display_bands else None
@@ -1157,7 +1149,6 @@ class RasterDataSet(Serializable):
         serial_geo_transform = dataset_metadata.get('geo_transform', None)
         serial_wavelengths: List[u.Quantity] = dataset_metadata.get('wavelengths', None)
         serial_wavelength_units = dataset_metadata.get('wavelength_units', None)
-        print(f"copy_serialized_metadata_from: {dataset_metadata}")
         if serial_elem_type is not None:
             self._elem_type = serial_elem_type
         if serial_data_ignore_value is not None:
@@ -1232,7 +1223,6 @@ class RasterDataSet(Serializable):
         else:
             metadata['wavelengths'] = None
             metadata['wavelength_units'] = None
-        print(f"get_serialized_form metadata: {metadata}")
         return SerializedForm(self.__class__, recreation_value, metadata)
 
     def __hash__(self):

@@ -782,11 +782,7 @@ class DataVisualizerApp(QMainWindow):
     def bandmath_success_callback(self, results: List[Tuple[VariableType, SerializedForm]],
                         expr_info: BandMathExprInfo, expression: str, result_name: str,
                         batch_enabled: bool, load_into_wiser: bool):
-        print(f"Entered bandmath_success_callback!!")
-        # print(f"Results: {results}")
-        # print(f"Type of results: {type(results)}")
         for result_type, result in results:
-            # print(f"Result type: {result_type}, Result: {result}")
             try:
                 if batch_enabled and not load_into_wiser:
                     return

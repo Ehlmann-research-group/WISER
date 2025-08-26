@@ -952,7 +952,7 @@ def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_
 def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value: Union[SerializedForm, str, bool], \
                                 loader: RasterDataLoader, filepath: str = None) -> Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]:
     '''
-    This function is used to convert a serialized form into a variable.
+    This function is used to convert a serialized form of an object back into the original object.
     '''
     if var_type == VariableType.IMAGE_CUBE:
         assert isinstance(var_value, SerializedForm)
@@ -1045,9 +1045,6 @@ def prepare_expr_info(bandmath_expr: str, \
     expr_info_list = []
     for variables in variables_list:
         expression = bandmath_expr
-        print(f"type(expression): {expression}")
-        print(f"type(variables): {variables}")
-        print(f"type(functions): {functions}")
         expr_info_list.append(bandmath.get_bandmath_expr_info(expression, variables, functions))
     return expr_info_list
 
@@ -1111,12 +1108,10 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_name:
     '''
     assert len(expr_info_list) == len(prepared_variables_list), "The number of expr_info_list and prepared_variables_list must be the same"
     count = 0
-    print(f"Length of prepared variables: {len(prepared_variables_list)}")
     outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet]] = []
     for lower_variables, expr_info in zip(prepared_variables_list, expr_info_list):
         count += 1
         child_conn.send({"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Running"})
-        print(f"Evaling batch {count}")
         gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
         
         max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
@@ -1182,7 +1177,6 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_name:
                     writing_futures.append(future)
                 concurrent.futures.wait(writing_futures)
             except BaseException as e:
-                print(f"Exception in eval_full_bandmath_expr:\n{e}")
                 if eval is not None:
                     eval.stop()
                 raise e
@@ -1195,7 +1189,6 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_name:
                 result_value = eval.transform(tree)
                 res = result_value.value
             except BaseException as e:
-                print(f"Exception in eval_full_bandmath_expr non-async:\n{e}")
                 eval.stop()
                 raise e
             finally:

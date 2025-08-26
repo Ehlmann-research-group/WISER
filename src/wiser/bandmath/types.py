@@ -274,7 +274,7 @@ class BandMathFunction(abc.ABC):
     of the result based on their input types, so that the user interface can
     provide useful feedback to users.
 
-    This class should be serializable. If it is not, then it should 
+    This class should be serializable.
     '''
 
     def get_description(self):

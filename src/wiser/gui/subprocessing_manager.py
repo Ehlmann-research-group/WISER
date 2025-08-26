@@ -75,9 +75,7 @@ class ProcessManager(QObject):
         kwargs['op'] = operation
         kwargs['child_conn'] = self._child_conn
         kwargs['return_queue'] = self._return_q
-        print(f"Made child process")
         self._process = mp.Process(target=child_trampoline, kwargs=kwargs)
-        print(f"Made parallel task")
         self._task = ParallelTaskProcess(self._process, self._parent_conn, self._child_conn, self._return_q)
         self._process_manager_id = type(self)._next_process_id
         type(self)._next_process_id += 1
