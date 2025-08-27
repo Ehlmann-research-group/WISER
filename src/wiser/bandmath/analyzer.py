@@ -6,6 +6,9 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import lark
 import numpy as np
 
+from wiser.raster.dataset import RasterDataSet, RasterDataBand
+from wiser.raster.spectrum import Spectrum
+
 from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
 from .functions import BandMathFunction, get_builtin_functions
 
@@ -110,14 +113,14 @@ class BandMathAnalyzer(lark.visitors.Transformer):
     def variable(self, args) -> BandMathExprInfo:
         # Look up the variable's type and value.
         name = args[0]
-        (type, value) = self._variables[name]
+        (_type, value) = self._variables[name]
 
-        info = BandMathExprInfo(type)
-        if type in [VariableType.IMAGE_CUBE,
+        info = BandMathExprInfo(_type)
+        if _type in [VariableType.IMAGE_CUBE,
                     VariableType.IMAGE_BAND,
                     VariableType.SPECTRUM]:
             # These types also have a shape and an element-type.
-            bmv = BandMathValue(type, value)
+            bmv = BandMathValue(_type, value)
             info.elem_type = bmv.get_elem_type()
             info.shape = bmv.get_shape()
 
@@ -125,11 +128,13 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             # result.
             # TODO(donnie):  What about raster bands?
 
-            if type in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND]:
-                info.spatial_metadata_source = bmv
+            if _type in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND]:
+                if isinstance(bmv.value, (RasterDataSet, RasterDataBand)):
+                    info.spatial_metadata_source = bmv.value.get_spatial_metadata()
 
-            if type in [VariableType.IMAGE_CUBE, VariableType.SPECTRUM]:
-                info.spectral_metadata_source = bmv
+            if _type in [VariableType.IMAGE_CUBE, VariableType.SPECTRUM]:
+                if isinstance(bmv.value, (RasterDataSet, Spectrum)):
+                    info.spectral_metadata_source = bmv.value.get_spectral_metadata()
 
         logger.debug(f'Variable "{name}":  {info}')
 
