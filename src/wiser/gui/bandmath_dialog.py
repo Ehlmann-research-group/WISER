@@ -485,7 +485,7 @@ class BandmathBatchJob:
 
     def __init__(self, job_id: int, expression: str, expr_info: bandmath.BandMathExprInfo, 
                  variables: Dict[str, Tuple[bandmath.VariableType, Any]], input_folder: str,
-                 output_folder: str, load_into_wiser: bool, result_prefix: str):
+                 output_folder: str, load_into_wiser: bool, result_suffix: str):
         self._job_id = job_id
         self._expression = expression
         self._expr_info = copy.deepcopy(expr_info)
@@ -493,7 +493,7 @@ class BandmathBatchJob:
         self._input_folder = input_folder
         self._output_folder = output_folder
         self._load_into_wiser = load_into_wiser
-        self._result_prefix = result_prefix
+        self._result_suffix = result_suffix
         self._process_manager: Optional[ProcessManager] = None
         self._btn_start: Optional[QPushButton] = None
         self._btn_cancel: Optional[QPushButton] = None
@@ -564,11 +564,11 @@ class BandmathBatchJob:
     def set_load_into_wiser(self, load_into_wiser: bool) -> None:
         self._load_into_wiser = load_into_wiser
 
-    def get_result_prefix(self) -> str:
-        return self._result_prefix
+    def get_result_suffix(self) -> str:
+        return self._result_suffix
 
-    def set_result_prefix(self, result_prefix: str) -> None:
-        self._result_prefix = result_prefix
+    def set_result_suffix(self, result_suffix: str) -> None:
+        self._result_suffix = result_suffix
     
     def __eq__(self, other):
         if not isinstance(other, BandmathBatchJob):
@@ -579,7 +579,7 @@ class BandmathBatchJob:
             self._input_folder == other._input_folder and
             self._output_folder == other._output_folder and
             self._load_into_wiser == other._load_into_wiser and
-            self._result_prefix == other._result_prefix
+            self._result_suffix == other._result_suffix
         )
 
 
@@ -758,11 +758,10 @@ class BandMathDialog(QDialog):
 
         bandmath_success_callback(parent=self, app_state=self._app_state,
                                 results=results, expr_info=job.get_expr_info(), 
-                                expression=job.get_expression(), result_name=job.get_result_prefix(),
+                                expression=job.get_expression(),
                                 batch_enabled=True, load_into_wiser=job.get_load_into_wiser())
 
     def on_bandmath_job_started(self, job: BandmathBatchJob, task: ParallelTask):
-        print(f"Bandmath started callback")
         try:
             job.get_btn_start().setEnabled(False)
             job.get_btn_cancel().setEnabled(True)
@@ -773,7 +772,6 @@ class BandMathDialog(QDialog):
             pass
 
     def on_bandmath_job_cancelled(self, job: BandmathBatchJob, task: ParallelTask):
-        print(f"Bandmath cancelled callback")
         try:
             job.get_btn_start().setEnabled(True)
             job.get_btn_cancel().setEnabled(False)
@@ -784,7 +782,6 @@ class BandMathDialog(QDialog):
             pass
 
     def on_bandmath_job_progress(self, job: BandmathBatchJob, progress: Dict[str, str]):
-        # update the progress bar
         # The dict progress has 3 entries. Numerator, Denominator, and Status message like so:
         # {'Numerator': 1, 'Denominator': 2, 'Status': 'Running'}
         # We will update the progress bar with the Numerator and Denominator and have the status
@@ -816,7 +813,7 @@ class BandMathDialog(QDialog):
                                                       started_callback=started_callback,
                                                       cancelled_callback=cancelled_callback,
                                                       bandmath_expr=job.get_expression(), expr_info=job.get_expr_info(),
-                                                      app_state=self._app_state, result_name=job.get_result_prefix(),
+                                                      app_state=self._app_state, result_name=job.get_result_suffix(),
                                                       cache=self._app_state.get_cache(), variables=job.get_variables(),
                                                       functions=functions)
         job.set_process_manager(process_manager)
@@ -852,7 +849,7 @@ class BandMathDialog(QDialog):
             input_folder=self._get_input_folder(),
             output_folder=self._get_output_folder(),
             load_into_wiser=self.load_results_into_wiser(),
-            result_prefix=self.get_result_name()
+            result_suffix=self.get_result_name()
         )
 
         self._batch_jobs.append(job)
@@ -965,7 +962,7 @@ class BandMathDialog(QDialog):
             batch_job.get_input_folder(),
             batch_job.get_output_folder(),
             batch_job.get_load_into_wiser(),
-            batch_job.get_result_prefix(),
+            batch_job.get_result_suffix(),
             width_hint=150
         )
 
@@ -1081,7 +1078,7 @@ class BandMathDialog(QDialog):
             dialog_size.setWidth(dialog_size.width() - batch_job_table_size.width())
 
         if is_enabled:
-            self._ui.lbl_result_name.setText(self.tr('Result prefix (required):'))
+            self._ui.lbl_result_name.setText(self.tr('Result suffix (required):'))
         else:
             self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
 
