@@ -33,10 +33,9 @@ class ParallelTask(QThread):
     # object.
     succeeded = Signal(object)
 
-    # Signal:  The task has been cancelled.  The argument of the signal is this
-    # task object and a boolean indicating whether the task was cancelled.
-    # This has yet to be built out as of 08/19/2025.
-    cancelled = Signal(object, bool)
+    # Signal:  The task has been cancelled/terminated.  The argument of the signal is this
+    # task object.
+    cancelled = Signal(object)
 
     # Signal:  The task has thrown an error.  The argument of the signal is this
     # task object.
@@ -61,12 +60,8 @@ class ParallelTask(QThread):
         # Whether the task has been cancelled.
         self._cancelled = False
 
-    def cancel(self):
-        if self._future is not None:
-            self._future.cancel()
-            self.cancelled.emit(self, True)
-        else:
-            self.cancelled.emit(self, False)
+    def cancel(self, **kwargs):
+        raise NotImplementedError("This method should be overridden by the subclass")
 
     def has_error(self):
         return (self._error is not None)
@@ -107,6 +102,17 @@ class ParallelTaskProcess(ParallelTask):
 
         self._process_id: int | None = None
 
+        self._exit_code: int | None = None
+
+    def cancel(self, **kwargs):
+        print(f"Terminating process in parallel task")
+        try:
+            self._process.terminate()
+        except ValueError:
+            # This error occurs when the process is already terminated
+            # or hasn't started.
+            pass
+
     def run(self):
         # Include the queue's reader in the wait set so we can drain results
         queue_reader = self._return_queue._reader  # Connection (private)
@@ -123,7 +129,6 @@ class ParallelTaskProcess(ParallelTask):
                         msg = self._return_queue.get_nowait()
                         assert self._return_queue.empty(), "Return queue is not empty, even though we just got a message"
                         self._result = msg
-                        self.progress.emit(msg)
                     except Exception as e:
                         logger.exception("Failed to read return value: %s", e)
                         self._result = None
@@ -148,7 +153,10 @@ class ParallelTaskProcess(ParallelTask):
                                 break
                     except Exception:
                         pass
-                    self._process.join()
+                    finally:
+                        self._process.join()
+                        self._exit_code = self._process.exitcode
+                        self._process.close()
                     break
             # Once we reach here, the process has finished, so we get the stuff
             # on the return queue.
@@ -167,7 +175,12 @@ class ParallelTaskProcess(ParallelTask):
         
         self._parent_conn.close()
         self._return_queue.close()
-        self.succeeded.emit(self)
+        if self._exit_code == 0:
+            self.succeeded.emit(self)
+        elif self._exit_code is not None and self._exit_code < 0:
+            self.cancelled.emit(self)
+        else:
+            self.error.emit(self)
     
     def get_process_id(self) -> Union[int, None]:
         return self._process_id

@@ -89,7 +89,7 @@ class ProcessManager(QObject):
     def get_pid(self) -> Union[int, None]:
         return self._task.get_process_id()
     
-    def get_process(self):
+    def get_process(self) -> mp.Process:
         return self._process
     
     def get_process_manager_id(self) -> int:

@@ -829,12 +829,14 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
     return variables_serialized
 
 
-def eval_bandmath_expr(succeeded_callback: Callable, \
-        progress_callback: Callable, error_callback: Callable, bandmath_expr: str, \
-        expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+def eval_bandmath_expr(
+        bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
-        functions: Dict[str, BandMathFunction] = None, app_state: 'ApplicationState' = None,
-        use_old_method = False, test_parallel_io=False) -> ProcessManager:
+        functions: Dict[str, BandMathFunction] = None, succeeded_callback: Callable = lambda _: None, \
+        progress_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
+        started_callback: Callable = lambda _: None, cancelled_callback: Callable = lambda _: None, \
+        app_state: 'ApplicationState' = None, use_old_method = False, test_parallel_io=False
+        ) -> ProcessManager:
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -917,6 +919,9 @@ def eval_bandmath_expr(succeeded_callback: Callable, \
         app_state.add_running_process(process_manager)
 
     task = process_manager.get_task()
+    task.cancelled.connect(cancelled_callback)
+    # The started slot is passed the task
+    task.started.connect(started_callback)
     # The error slot is passed the process_manager's task
     task.error.connect(error_callback)
     # The progress slot is passed the message that subprocess_bandmath
@@ -981,8 +986,9 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
     elif var_type == VariableType.IMAGE_BAND_BATCH:
         assert isinstance(var_value, SerializedForm), "Image Band Batch variables should be SerializedForm"
         assert filepath is not None, "Filepath is required for Image Band Batch variables"
-        assert 'band_index' in var_value.get_metadata() and var_value.get_metadata()['band_index'] is not None, \
-            "Band index is required for Image Band Batch variables"
+        assert ('band_index' in var_value.get_metadata() and var_value.get_metadata()['band_index'] is not None) or \
+            ('wavelength_value' in var_value.get_metadata() and var_value.get_metadata()['wavelength_value'] is not None), \
+            "Band index or wavelength value is required for Image Band Batch variables"
         serializable_class = var_value.get_serializable_class()
         serialize_metadata = var_value.get_metadata()
         serialize_metadata.update({'filepath': filepath})
@@ -1201,4 +1207,6 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_name:
             finally:
                 eval.stop()
             outputs.append((result_value.type, result_value.value))
+
+    child_conn.send({"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Finished"})
     return outputs
