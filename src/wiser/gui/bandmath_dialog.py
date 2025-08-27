@@ -1,10 +1,15 @@
+from enum import Enum
 import logging
+import os
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+
+from astropy import units as u
+import numpy as np
 
 import lark
 
@@ -13,13 +18,16 @@ from .generated.band_math_ui import Ui_BandMathDialog
 from .app_state import ApplicationState
 from .rasterview import RasterView
 
-from wiser.raster.dataset import RasterDataBand
+from wiser.raster.dataset import RasterDataBand, RasterDataSet, RasterDataBatchBand
+from wiser.raster.spectrum import Spectrum
 from wiser import bandmath
 from wiser.bandmath.utils import get_dimensions
+from wiser.bandmath.types import BANDMATH_VALUE_TYPE
 from wiser.gui.util import get_plugin_fns
 
-logger = logging.getLogger(__name__)
+import copy
 
+logger = logging.getLogger(__name__)
 
 def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
     '''
@@ -129,6 +137,24 @@ def make_spectrum_chooser(app_state) -> QComboBox:
 
     return chooser
 
+def make_image_cube_batch_chooser(text: str) -> QLabel:
+    '''
+    This helper function returns a label telling the user that this variable
+    uses the input folder path for all image cubes
+    '''
+    label = QLabel()
+    label.setText(text)
+    return label
+
+def make_image_band_batch_chooser(text: str) -> QLabel:
+    '''
+    This helper function returns a label telling the user that this variable
+    uses the input folder path for all image bands, a combo box to let the user
+    choose the type of way to select the image band (whether by index or wavelength).
+    '''
+    label = QLabel()
+    label.setText(text)
+    return label
 
 class DatasetBandChooserWidget(QWidget):
     '''
@@ -203,6 +229,201 @@ class DatasetBandChooserWidget(QWidget):
                 self.band_chooser.currentData())
 
 
+class ImageBandBatchChooserWidget(QWidget):
+    """
+    Compact widget for choosing an image band for batch processing.
+
+    Layout (by mode):
+      - Index:      [Select: ▾] [<band index>]
+      - Wavelength: [Select: ▾] [<wavelength>] [units ▾] epsilon [<ε>]
+
+    Notes
+    -----
+    - Band index input is int-validated.
+    - Wavelength and epsilon inputs are float-validated.
+    - Units list mirrors astropy.units names/aliases used in your codebase.
+    """
+
+    modeChanged = Signal(str)  # "index" or "wavelength"
+
+    class Mode(str, Enum):
+        INDEX = "index"
+        WAVELENGTH = "wavelength"
+
+    # Visible keys -> astropy units (use keys in the UI; values for computation)
+    UNIT_MAP: Dict[str, u.UnitBase] = {
+        "nanometers": u.nanometer,
+        "centimeters": u.cm,
+        "meters": u.m,
+        "micrometers": u.micrometer,
+        "millimeters": u.millimeter,
+        "microns": u.micron,
+        "cm": u.centimeter,
+        "m": u.meter,
+        "mm": u.millimeter,
+        "nm": u.nanometer,
+        "um": u.micrometer,
+        "wavenumber": u.cm ** -1,
+        "angstroms": u.angstrom,
+        "ghz": u.GHz,
+        "mhz": u.MHz,
+    }
+
+    def __init__(self, app_state, table_widget: QTableWidget, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self._app_state = app_state  # reserved for future use
+        self._tbl_wdgt_parent = table_widget
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # --- Layout: single row, roomy and elastic
+        row = QHBoxLayout()
+        row.setContentsMargins(QMargins(0, 0, 0, 0))
+        row.setSpacing(8)
+        self.setLayout(row)
+
+        # Mode selector (no separate "Select:" label)
+        self._cmb_mode = QComboBox()
+        self._cmb_mode.addItem("Band Index", self.Mode.INDEX.value)
+        self._cmb_mode.addItem("Wavelength", self.Mode.WAVELENGTH.value)
+        self._cmb_mode.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self._cmb_mode.setMinimumContentsLength(10)
+        self._cmb_mode.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        row.addWidget(self._cmb_mode)
+
+        # Primary value (index or wavelength)
+        self._ledit_value = QLineEdit()
+        self._ledit_value.setPlaceholderText("Band index")
+        self._ledit_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        row.addWidget(self._ledit_value)
+
+        # Units (wavelength-only)
+        self._cmb_units = QComboBox()
+        self._cmb_units.addItems(list(self.UNIT_MAP.keys()))
+        self._cmb_units.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self._cmb_units.setMinimumContentsLength(9)
+        self._cmb_units.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        row.addWidget(self._cmb_units)
+
+        # Epsilon (wavelength-only)
+        self._lbl_eps = QLabel("epsilon")
+        row.addWidget(self._lbl_eps)
+
+        self._ledit_eps = QLineEdit()
+        self._ledit_eps.setPlaceholderText("e.g., 1")
+        self._ledit_eps.setToolTip(
+            "If the exact wavelength is not found, use the closest value within "
+            "epsilon. If none are within epsilon, skip the calculation."
+        )
+        self._ledit_eps.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        row.addWidget(self._ledit_eps)
+
+        # # Spacer lets the row grow and prevents crowding
+        # row.addItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum))
+
+        # Validators (switched per mode)
+        self._int_validator = QIntValidator(0, 10**9, self)
+        self._float_validator_value = QDoubleValidator(0.0, 1e15, 8, self)
+        self._float_validator_value.setNotation(QDoubleValidator.StandardNotation)
+        self._float_validator_eps = QDoubleValidator(0.0, 1e15, 8, self)
+        self._float_validator_eps.setNotation(QDoubleValidator.StandardNotation)
+
+        # Initial state and signals
+        self.set_mode(self.Mode.INDEX.value)
+        self._cmb_mode.currentIndexChanged.connect(self._on_mode_changed)
+
+    # ---------------- Public API ----------------
+    def current_mode(self) -> str:
+        """Return current mode: 'index' or 'wavelength'."""
+        return self._cmb_mode.currentData()
+
+    def set_mode(self, mode: str) -> None:
+        """Programmatically set mode and update UI."""
+        idx = self._cmb_mode.findData(mode)
+        if idx >= 0:
+            self._cmb_mode.setCurrentIndex(idx)
+        self._apply_mode(mode)
+
+    def get_settings(self) -> Dict[str, Optional[object]]:
+        """
+        Return current settings. For wavelength mode, includes both the UI key
+        and the resolved astropy unit object.
+
+        Returns
+        -------
+        dict
+            {
+              "mode": "index" | "wavelength",
+              "index": str or None,
+              "wavelength": str or None,
+              "units_key": str or None,
+              "unit": astropy.units.UnitBase or None,
+              "epsilon": str or None,
+            }
+        """
+        mode = self.current_mode()
+        if mode == self.Mode.INDEX.value:
+            index_text = self._ledit_value.text().strip()
+            index = int(index_text) if index_text.isdigit() else None
+            print(f"Index: {index}")
+            return {
+                "mode": mode,
+                "index": index,
+                "wavelength": None,
+                "units_key": None,
+                "unit": None,
+                "epsilon": None,
+            }
+
+        key = self._cmb_units.currentText()
+        wvl_text = self._ledit_value.text().strip()
+        wvl = float(wvl_text) if wvl_text.replace('.', '', 1).isdigit() else None
+        epsilon_text = self._ledit_eps.text().strip()
+        epsilon = float(epsilon_text) if epsilon_text.replace('.', '', 1).isdigit() else None
+        return {
+            "mode": mode,
+            "index": None,
+            "wavelength": wvl,
+            "units_key": key,
+            "unit": self.UNIT_MAP.get(key),
+            "epsilon": epsilon,
+        }
+
+    # ---------------- Internals -----------------
+    def _on_mode_changed(self, _i: int) -> None:
+        self._apply_mode(self.current_mode())
+        self.modeChanged.emit(self.current_mode())
+
+    def _apply_mode(self, mode: str) -> None:
+        """Update placeholders, validators, and visibility for the mode."""
+        is_wavelength = (mode == self.Mode.WAVELENGTH.value)
+
+        # Configure the primary value field
+        if is_wavelength:
+            self._ledit_value.setPlaceholderText("Wavelength")
+            self._ledit_value.setValidator(self._float_validator_value)
+            if not self._ledit_eps.text():
+                self._ledit_eps.setText("5")
+            # Default to a common unit if nothing selected yet
+            if self._cmb_units.currentIndex() < 0:
+                self._cmb_units.setCurrentIndex(self._cmb_units.findText("nm"))
+        else:
+            self._ledit_value.setPlaceholderText("Band index")
+            self._ledit_value.setValidator(self._int_validator)
+
+        # Epsilon is always float-validated
+        self._ledit_eps.setValidator(self._float_validator_eps)
+
+        # Toggle wavelength-only controls
+        self._cmb_units.setVisible(is_wavelength)
+        self._lbl_eps.setVisible(is_wavelength)
+        self._ledit_eps.setVisible(is_wavelength)
+
+        # Nudge layouts to recompute
+        self.layout().invalidate()
+        self.updateGeometry()
+        if self._tbl_wdgt_parent:
+            self._tbl_wdgt_parent.resizeColumnsToContents()
+
 ''' TODO(donnie):  Coming soon...
 class VariableTypeDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -250,6 +471,125 @@ class ExpressionReturnEventFilter(QObject):
             return True
 
         return False
+
+class BandmathBatchJob:
+    '''
+    A batch job is a single unit of work that is to be performed by the batch
+    processing system.  It contains the expression to be evaluated, the variables
+    to be used, the input and output folders, and the load-into-wiser flag.
+    '''
+
+    def __init__(self, job_id: int, expression: str, expr_info: bandmath.BandMathExprInfo, 
+                 variables: Dict[str, Tuple[bandmath.VariableType, Any]], input_folder: str,
+                 output_folder: str, load_into_wiser: bool, result_prefix: str):
+        self._job_id = job_id
+        self._expression = expression
+        self._expr_info = copy.deepcopy(expr_info)
+        self._variables = copy.deepcopy(variables)
+        self._input_folder = input_folder
+        self._output_folder = output_folder
+        self._load_into_wiser = load_into_wiser
+        self._result_prefix = result_prefix
+
+    def get_job_id(self) -> int:
+        return self._job_id
+
+    def set_job_id(self, job_id: int) -> None:
+        self._job_id = job_id
+
+    def get_expression(self) -> str:
+        return self._expression
+
+    def get_expr_info(self) -> bandmath.BandMathExprInfo:
+        return self._expr_info
+
+    def get_variables(self) -> Dict[str, Tuple[bandmath.VariableType, Any]]:
+        return self._variables
+
+    def get_input_folder(self) -> str:
+        return self._input_folder
+
+    def set_input_folder(self, input_folder: str) -> None:
+        self._input_folder = input_folder
+
+    def get_output_folder(self) -> str:
+        return self._output_folder
+
+    def set_output_folder(self, output_folder: str) -> None:
+        self._output_folder = output_folder
+
+    def get_load_into_wiser(self) -> bool:
+        return self._load_into_wiser
+
+    def set_load_into_wiser(self, load_into_wiser: bool) -> None:
+        self._load_into_wiser = load_into_wiser
+
+    def get_result_prefix(self) -> str:
+        return self._result_prefix
+
+    def set_result_prefix(self, result_prefix: str) -> None:
+        self._result_prefix = result_prefix
+    
+    def __eq__(self, other):
+        if not isinstance(other, BandmathBatchJob):
+            return False
+        return (
+            self._job_id == other._job_id and
+            self._expression == other._expression and
+            self._input_folder == other._input_folder and
+            self._output_folder == other._output_folder and
+            self._load_into_wiser == other._load_into_wiser and
+            self._result_prefix == other._result_prefix
+        )
+
+
+class BatchJobInfoWidget(QWidget):
+    def __init__(self, expression: str, input_folder: str,
+                 output_folder: str, is_load_into_wiser_enabled: bool,
+                 result_name: str, width_hint=150, parent=None):
+        super().__init__(parent)
+        self._width_hint = width_hint
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(2)
+
+        # Expression
+        lbl_expr = QLabel(f"Expression: {expression}")
+        lbl_expr.setWordWrap(True)
+        layout.addWidget(lbl_expr)
+
+        # Input Folder
+        lbl_input = QLabel(f"Input Folder: {input_folder}")
+        lbl_input.setWordWrap(True)
+        layout.addWidget(lbl_input)
+
+        # Output Folder (only if exists)
+        if output_folder:
+            lbl_output = QLabel(f"Output Folder: {output_folder}")
+            lbl_output.setWordWrap(True)
+            layout.addWidget(lbl_output)
+
+        # Loading into WISER?
+        load_wiser_text = "yes" if is_load_into_wiser_enabled else "no"
+        lbl_load_wiser = QLabel(f"Loading into WISER? {load_wiser_text}")
+        lbl_load_wiser.setWordWrap(True)
+        layout.addWidget(lbl_load_wiser)
+
+        # Result Prefix
+        lbl_result = QLabel(f"Result Prefix: {result_name}")
+        lbl_result.setWordWrap(True)
+        layout.addWidget(lbl_result)
+
+        self.setLayout(layout)
+
+        # Let the view know we can grow, but prefer the given width hint
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+    def sizeHint(self):
+        # Use the layout’s computed height but our fixed-ish width hint
+        h = self.layout().sizeHint().height() if self.layout() else super().sizeHint().height()
+        return QSize(self._width_hint, h)
 
 
 class BandMathDialog(QDialog):
@@ -316,7 +656,236 @@ class BandMathDialog(QDialog):
             bandmath.VariableType.NUMBER: self.tr('Number'),
             bandmath.VariableType.BOOLEAN: self.tr('Boolean'),
             bandmath.VariableType.STRING: self.tr('String'),
+            bandmath.VariableType.IMAGE_CUBE_BATCH: self.tr('Image Batch'),
+            bandmath.VariableType.IMAGE_BAND_BATCH: self.tr('Image Band Batch')
         }
+
+        #==================================
+        # Batch processing initialization
+        
+        # There are other values important to batch processing:
+        # If batch processing is enabled, if we load results into
+        # WISER, and if there is an output path folder. These
+        # are done with getters.
+
+        self._batch_jobs: List[BandmathBatchJob] = []
+        self._init_batch_process_ui()
+
+    def _init_batch_process_ui(self):
+        # Wire up folder pickers
+        self._ui.btn_input_folder.clicked.connect(
+            lambda: self._pick_input_folder("Select input folder")
+        )
+        self._ui.btn_output_folder.clicked.connect(
+            lambda: self._pick_output_folder("Select output folder")
+        )
+        self._ui.chkbox_enable_batch.clicked.connect(self._on_enable_batch_changed)
+        self._sync_batch_process_ui()
+
+        self._ui.btn_create_batch_job.clicked.connect(self._on_create_batch_job)
+
+        tbl = self._ui.tbl_wdgt_batch_jobs
+        hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        tbl.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+        self._ui.btn_run_all.clicked.connect(self._run_all_batch_jobs)
+
+    def _run_all_batch_jobs(self):
+        for job in self._batch_jobs:
+            self._run_batch_job(job)
+        
+    def _run_batch_job(self, job: BandmathBatchJob):
+        pass
+
+    def _on_create_batch_job(self):
+        job = BandmathBatchJob(
+            job_id=self._app_state.get_next_process_pool_id(),
+            expression=self.get_expression(),
+            expr_info=self._expr_info,
+            variables=self.get_variable_bindings(),
+            input_folder=self._get_input_folder(),
+            output_folder=self._get_output_folder(),
+            load_into_wiser=self.is_load_into_wiser_enabled(),
+            result_prefix=self.get_result_name()
+        )
+
+        self._batch_jobs.append(job)
+        self._add_batch_job_to_table(job)
+        
+    def _add_batch_job_to_table(self, batch_job: BandmathBatchJob):
+        t = self._ui.tbl_wdgt_batch_jobs
+        new_row = t.rowCount()
+        t.insertRow(new_row)
+
+        # Col 0: id label
+        t.setCellWidget(new_row, 0, self._create_job_id_label(batch_job))
+
+        # Col 1: info widget + an item carrying the size hint
+        info_widget = self._create_batch_job_info_widget(batch_job)
+        info_widget.updateGeometry()  # ensure layout computed before we read sizeHint
+        t.setCellWidget(new_row, 1, info_widget)
+
+        size_item = QTableWidgetItem()
+        size_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+        size_item.setData(Qt.SizeHintRole, info_widget.sizeHint())
+        t.setItem(new_row, 1, size_item)
+
+        # Col 2: start button
+        t.setCellWidget(new_row, 2, self._create_job_start_button_widget(batch_job))
+
+        # Defer so Qt can polish the embedded widget's layout; then size to contents
+        QTimer.singleShot(0, lambda: (t.resizeColumnToContents(1),
+                                    t.resizeRowToContents(new_row)))
+
+    def _create_job_id_label(self, batch_job: BandmathBatchJob) -> QLabel:
+        return QLabel(f"{batch_job.get_job_id()}")
+
+    def _create_job_start_button_widget(self, batch_job: BandmathBatchJob) -> QWidget:
+        return QPushButton("Start")
+
+    def _create_batch_job_info_widget(self, batch_job: BandmathBatchJob) -> QWidget:
+        """
+        Creates a QWidget with job info in a vertical layout for use inside a QTableWidget.
+        Expands vertically as needed, and horizontally up to 150px.
+        """
+        info_widget = BatchJobInfoWidget(
+            batch_job.get_expression(),
+            batch_job.get_input_folder(),
+            batch_job.get_output_folder(),
+            batch_job.get_load_into_wiser(),
+            batch_job.get_result_prefix(),
+            width_hint=150
+        )
+
+        return info_widget
+
+    def _pick_output_folder(self, title: str) -> None:
+        """Open a folder chooser and write the selected path into the given QLineEdit."""
+        start_dir = self._ui.ledit_output_folder.text().strip()
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = os.path.expanduser("~")
+
+        options = QFileDialog.Options()
+        options |= QFileDialog.ShowDirsOnly
+
+        folder = QFileDialog.getExistingDirectory(
+            parent=self._ui.ledit_output_folder.window(),
+            caption=title,
+            dir=start_dir,
+            options=options
+        )
+
+        if folder:
+            folder = os.path.normpath(folder)
+            if folder == os.path.normpath(self._ui.ledit_input_folder.text().strip()):
+                QMessageBox.warning(
+                    self._ui.ledit_output_folder.window(),
+                    "Invalid Output Folder",
+                    "The output folder was not selected because it is the same as the input folder."
+                )
+                return
+            self._ui.ledit_output_folder.setText(folder)
+
+    def _pick_input_folder(self, title: str) -> None:
+        """Open a folder chooser and write the selected path into the given QLineEdit."""
+        start_dir = self._ui.ledit_input_folder.text().strip()
+        if not start_dir or not os.path.isdir(start_dir):
+            start_dir = os.path.expanduser("~")
+
+        options = QFileDialog.Options()
+        options |= QFileDialog.ShowDirsOnly
+
+        folder = QFileDialog.getExistingDirectory(
+            parent=self._ui.ledit_input_folder.window(),
+            caption=title,
+            dir=start_dir,
+            options=options
+        )
+
+        if folder:
+            folder = os.path.normpath(folder)
+            if folder == os.path.normpath(self._ui.ledit_output_folder.text().strip()):
+                QMessageBox.warning(
+                    self._ui.ledit_input_folder.window(),
+                    "Invalid Input Folder",
+                    "The input folder was not selected because it is the same as the output folder."
+                )
+                return
+            self._ui.ledit_input_folder.setText(folder)
+            self._analyze_expr()
+    
+    def _get_input_folder(self):
+        return self._ui.ledit_input_folder.text()
+
+    def _get_output_folder(self):
+        return self._ui.ledit_output_folder.text()
+
+    def is_load_into_wiser_enabled(self):
+        return self._ui.chkbox_load_into_wiser.isChecked()
+    
+    def is_batch_processing_enabled(self):
+        return self._ui.chkbox_enable_batch.isChecked()
+
+    def _init_test_bandmath_processing(self):
+
+        return 
+
+
+    def _get_batch_processing_ui_components(self) -> List[QObject]:
+        ui_components = [
+            self._ui.hlayout_input_folder,
+            self._ui.lbl_input_folder,
+            self._ui.ledit_input_folder,
+            self._ui.btn_input_folder,
+            self._ui.hlayout_output_folder,
+            self._ui.lbl_output_folder,
+            self._ui.ledit_output_folder,
+            self._ui.btn_output_folder,
+            self._ui.hlayout_load_into_wiser,
+            self._ui.chkbox_load_into_wiser,
+            self._ui.btn_create_batch_job
+        ]
+        return ui_components
+
+    def _on_enable_batch_changed(self, checked: bool):
+        self._sync_batch_process_ui()
+        self._analyze_expr()
+
+    def _apply_right_column_stretch(self, right_visible: bool, left_col: int, right_col: int):
+        g = self._ui.gridLayout                   # your QGridLayout
+        # Give left:right a 3:1 split when visible; give right 0 when hidden
+        g.setColumnStretch(left_col, 3 if right_visible else 1)
+        g.setColumnStretch(right_col, 1 if right_visible else 0)
+        # Ensure hidden column doesn't reserve width
+        g.setColumnMinimumWidth(right_col, 0)
+        g.invalidate()
+
+    def _sync_batch_process_ui(self):
+        is_enabled = self._ui.chkbox_enable_batch.isChecked()
+        batch_process_ui_elements = self._get_batch_processing_ui_components()
+        for element in batch_process_ui_elements:
+            if isinstance(element, QWidget):
+                element.setVisible(is_enabled)
+
+        dialog_size = self.size()
+        batch_job_table_size = self._ui.tbl_wdgt_batch_jobs.size()
+        self._ui.tbl_wdgt_batch_jobs.setVisible(is_enabled)
+        self._ui.btn_run_all.setVisible(is_enabled)
+        self._ui.btn_cancel_all.setVisible(is_enabled)
+        if is_enabled:
+            dialog_size.setWidth(dialog_size.height() + batch_job_table_size.height())
+        else:
+            dialog_size.setWidth(dialog_size.width() - batch_job_table_size.width())
+
+        if is_enabled:
+            self._ui.lbl_result_name.setText(self.tr('Result prefix (required):'))
+        else:
+            self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
+
+        left_most_col = 0
+        batch_proc_col = 3
+        self._apply_right_column_stretch(is_enabled, left_most_col, batch_proc_col)
 
 
     def _on_toggle_help(self, checked=False):
@@ -358,6 +927,7 @@ class BandMathDialog(QDialog):
             self._sync_binding_table_with_variables(variables)
 
             bindings = self.get_variable_bindings()
+            
             if not all_bindings_specified(bindings):
                 self._ui.lbl_result_info.setText(self.tr(
                     'Please specify values for all variables'))
@@ -370,7 +940,8 @@ class BandMathDialog(QDialog):
             expr_info = bandmath.get_bandmath_expr_info(expr, bindings, functions)
 
             if expr_info.result_type not in [bandmath.VariableType.IMAGE_CUBE,
-                bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM]:
+                bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM,
+                bandmath.VariableType.IMAGE_CUBE_BATCH, bandmath.VariableType.IMAGE_BAND_BATCH]:
                 self._ui.lbl_result_info.setText(self.tr('Enter an ' +
                     'expression that produces an image cube, band, or spectrum'))
                 self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
@@ -387,6 +958,7 @@ class BandMathDialog(QDialog):
                 bandmath.VariableType.IMAGE_BAND, bandmath.VariableType.SPECTRUM]:
                 dims_str = f' {get_dimensions(expr_info.result_type, expr_info.shape)}'
                 mem_size_str = f' ({get_memory_size(expr_info.result_size())})'
+            
 
             s = self.tr('Result: {type}{dimensions}{mem_size}')
             s = s.format(type=type_str, dimensions=dims_str, mem_size=mem_size_str)
@@ -427,7 +999,11 @@ class BandMathDialog(QDialog):
         for var in variables:
             # Look for the variable in the current table of bindings.
             index = self._find_variable_in_bindings(var)
-            if index == -1:
+            batch_proc_mismatch = (self._is_batch_var_row(index) != self.is_batch_processing_enabled())
+            if index == -1 or batch_proc_mismatch:
+                if batch_proc_mismatch and index != -1:
+                    self._ui.tbl_variables.removeRow(index)
+
                 # Couldn't find variable in the table of bindings.
                 # Add a new row for it.
                 new_row = self._ui.tbl_variables.rowCount()
@@ -443,9 +1019,12 @@ class BandMathDialog(QDialog):
                 # Second column is the type of variable.
 
                 type_widget = QComboBox()
-                type_widget.addItem(self.tr('Image'), bandmath.VariableType.IMAGE_CUBE)
-                type_widget.addItem(self.tr('Image band'), bandmath.VariableType.IMAGE_BAND)
-                type_widget.addItem(self.tr('Spectrum'), bandmath.VariableType.SPECTRUM)
+                type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_CUBE], bandmath.VariableType.IMAGE_CUBE)
+                type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_BAND], bandmath.VariableType.IMAGE_BAND)
+                type_widget.addItem(self._variable_types_text[bandmath.VariableType.SPECTRUM], bandmath.VariableType.SPECTRUM)
+                if self.is_batch_processing_enabled():
+                    type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH], bandmath.VariableType.IMAGE_CUBE_BATCH)
+                    type_widget.addItem(self._variable_types_text[bandmath.VariableType.IMAGE_BAND_BATCH], bandmath.VariableType.IMAGE_BAND_BATCH)
                 type_widget.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
                 # Guess the type of the variable based on its name, and choose
@@ -488,6 +1067,17 @@ class BandMathDialog(QDialog):
         self._ui.tbl_variables.resizeColumnsToContents()
 
 
+    def _is_batch_var_row(self, row_index: int):
+        row_cbox = self._ui.tbl_variables.cellWidget(row_index, 1)
+        if row_cbox:
+            for i in range(row_cbox.count()):
+                text = row_cbox.itemText(i)
+                if text == self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH] or \
+                    text == self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH]:
+                    return True
+        return False
+
+
     def _find_variable_in_bindings(self, variable) -> int:
         '''
         Look for the specified variable in the variable-bindings table.
@@ -521,6 +1111,10 @@ class BandMathDialog(QDialog):
             value_widget = make_spectrum_chooser(self._app_state)
             value_widget.activated.connect(self._on_variable_shape_change)
 
+        elif variable_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
+            value_widget = make_image_cube_batch_chooser(self.tr('Using Input Folder'))
+        elif variable_type == bandmath.VariableType.IMAGE_BAND_BATCH:
+            value_widget = ImageBandBatchChooserWidget(self._app_state, self._ui.tbl_variables)
         else:
             raise AssertionError(f'Unrecognized variable type {variable_type}')
 
@@ -709,7 +1303,7 @@ class BandMathDialog(QDialog):
         return self._expr_info
 
 
-    def get_variable_bindings(self) -> Dict[str, Tuple[bandmath.VariableType, Any]]:
+    def get_variable_bindings(self) -> Dict[str, Tuple[bandmath.VariableType, BANDMATH_VALUE_TYPE]]:
         '''
         Returns the variable bindings as specified by the user.  The result is
         in the form that is required by bandmath.evaluator.eval_bandmath_expr().
@@ -721,21 +1315,21 @@ class BandMathDialog(QDialog):
         variables = {}
         for row in range(self._ui.tbl_variables.rowCount()):
             var = self._ui.tbl_variables.item(row, 0).text()
-            type = self._ui.tbl_variables.cellWidget(row, 1).currentData()
+            var_type = self._ui.tbl_variables.cellWidget(row, 1).currentData()
             value = None
 
-            if type == bandmath.VariableType.IMAGE_CUBE:
+            if var_type == bandmath.VariableType.IMAGE_CUBE:
                 ds_id = self._ui.tbl_variables.cellWidget(row, 2).currentData()
                 if ds_id is not None:
                     value = self._app_state.get_dataset(ds_id)
 
-            elif type == bandmath.VariableType.IMAGE_BAND:
+            elif var_type == bandmath.VariableType.IMAGE_BAND:
                 (ds_id, band_index) = self._ui.tbl_variables.cellWidget(row, 2).get_ds_band()
                 if ds_id is not None and band_index is not None:
                     dataset = self._app_state.get_dataset(ds_id)
                     value = RasterDataBand(dataset, band_index)
 
-            elif type == bandmath.VariableType.SPECTRUM:
+            elif var_type == bandmath.VariableType.SPECTRUM:
                 spectrum_info = self._ui.tbl_variables.cellWidget(row, 2).currentData()
                 if isinstance(spectrum_info, int):
                     value = self._app_state.get_spectrum(spectrum_info)
@@ -747,12 +1341,27 @@ class BandMathDialog(QDialog):
 
                 else:
                     raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
-
+            elif var_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
+                value = self._get_input_folder()
+            elif var_type == bandmath.VariableType.IMAGE_BAND_BATCH:
+                input_folder = self._get_input_folder()
+                band_batch_chooser: ImageBandBatchChooserWidget = self._ui.tbl_variables.cellWidget(row, 2)
+                row_mode = band_batch_chooser.get_settings()['mode']
+                row_band_index = band_batch_chooser.get_settings()['index']
+                row_wavelength_value = band_batch_chooser.get_settings()['wavelength']
+                row_wavelength_units = band_batch_chooser.get_settings()['units_key']
+                row_epsilon = band_batch_chooser.get_settings()['epsilon']
+                if row_mode == ImageBandBatchChooserWidget.Mode.INDEX:  
+                    value = RasterDataBatchBand(input_folder, band_index=row_band_index)
+                elif row_mode == ImageBandBatchChooserWidget.Mode.WAVELENGTH:
+                    value = RasterDataBatchBand(input_folder, wavelength_value=row_wavelength_value, wavelength_units=row_wavelength_units, epsilon=row_epsilon)
+                else:
+                    raise AssertionError(f'Unrecognized mode: {row_mode}')
             else:
                 raise AssertionError(
-                    f'Unrecognized binding type {type} for variable {var}')
+                    f'Unrecognized binding type {var_type} for variable {var}')
 
-            variables[var] = (type, value)
+            variables[var] = (var_type, value)
 
         return variables
 

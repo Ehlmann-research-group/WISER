@@ -27,7 +27,9 @@ class OperatorTrigFunction(BandMathFunction):
         arg_info = infos[0]
 
         if arg_info.result_type not in [VariableType.IMAGE_CUBE,
+                                        VariableType.IMAGE_CUBE_BATCH,
                                         VariableType.IMAGE_BAND, 
+                                        VariableType.IMAGE_BAND_BATCH,
                                         VariableType.SPECTRUM, 
                                         VariableType.NUMBER]:
             self._report_type_error(arg_info.result_type)
