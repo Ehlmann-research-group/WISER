@@ -57,99 +57,97 @@ def bandmath_progress_callback(msg: str):
 def bandmath_error_callback(task: ParallelTaskProcess):
     print(f"Task error:\n{task.get_error()}")
 
-def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', results: List[Tuple[VariableType, SerializedForm]],
-                    expr_info: BandMathExprInfo, expression: str, result_name: str,
-                    batch_enabled: bool, load_into_wiser: bool):
+def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', results: List[Tuple[VariableType, SerializedForm, str]],
+                    expr_info: BandMathExprInfo, expression: str, batch_enabled: bool, load_into_wiser: bool):
     # If the process gets cancelled, the results will be None. So we do nothing.
     if not results:
         return
-    for result_type, result in results:
-        try:
-            if batch_enabled and not load_into_wiser:
-                return
-            for result_type, result in results:
-                logger.debug(f'Result of band-math evaluation is type ' +
-                            f'{result_type}, value:\n{result}')
-
-                # Compute a timestamp to put in the description
-                timestamp = datetime.datetime.now().isoformat()
-
-                loader = app_state.get_loader()
-                if result_type == RasterDataSet:
-                    # TODO (Joshua G-K): Fix this. This passes back a gdal dataset
-                    # that has a filepath (for when its out of memory). We need a good way 
-                    # to handle this.
-                    new_dataset = result
-
-                    new_dataset.set_name(
-                        app_state.unique_dataset_name(result_name))
-                    new_dataset.set_description(
-                        f'Computed image-cube:  {expression} ({timestamp})')
-                    if expr_info.spatial_metadata_source:
-                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                    if expr_info.spectral_metadata_source:
-                        new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                    app_state.add_dataset(new_dataset)
-
-                elif result_type == VariableType.IMAGE_CUBE:
-                    new_dataset = loader.dataset_from_numpy_array(result, app_state.get_cache())
-
-                    if not result_name:
-                        result_name = parent.tr('Computed')
-
-                    new_dataset.set_name(
-                        app_state.unique_dataset_name(result_name))
-                    new_dataset.set_description(
-                        f'Computed image-cube:  {expression} ({timestamp})')
-
-                    if expr_info.spatial_metadata_source:
-                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                    if expr_info.spectral_metadata_source:
-                        new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                    app_state.add_dataset(new_dataset)
-
-                elif result_type == VariableType.IMAGE_BAND:
-                    # Convert the image band into a 1-band image cube
-                    result = result[np.newaxis, :]
-                    new_dataset = loader.dataset_from_numpy_array(result, app_state.get_cache())
-
-                    if not result_name:
-                        result_name = parent.tr('Computed')
-
-                    new_dataset.set_name(
-                        app_state.unique_dataset_name(result_name))
-                    new_dataset.set_description(
-                        f'Computed image-band:  {expression} ({timestamp})')
-
-                    if expr_info.spatial_metadata_source:
-                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                    app_state.add_dataset(new_dataset)
-
-                elif result_type == VariableType.SPECTRUM:
-
-                    if not result_name:
-                        result_name = parent.tr('Computed:  {expression} ({timestamp})')
-                        result_name = result_name.format(expression=expression,
-                                                        timestamp=timestamp)
-
-                    new_spectrum = NumPyArraySpectrum(result, name=result_name)
-
-                    if expr_info.spectral_metadata_source:
-                        new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                    app_state.set_active_spectrum(new_spectrum)
-
-        except Exception as e:
-            logger.exception('Couldn\'t evaluate band-math expression')
-            QMessageBox.critical(parent, parent.tr('Bandmath Evaluation Error'),
-                parent.tr('Couldn\'t evaluate band-math expression') +
-                f'\n{expression}\n' + parent.tr('Reason:') + f'\n{e}')
+    try:
+        if batch_enabled and not load_into_wiser:
             return
+        for result_type, result, result_name in results:
+            logger.debug(f'Result of band-math evaluation is type ' +
+                        f'{result_type}, value:\n{result}')
+
+            # Compute a timestamp to put in the description
+            timestamp = datetime.datetime.now().isoformat()
+
+            loader = app_state.get_loader()
+            if result_type == RasterDataSet:
+                # TODO (Joshua G-K): Fix this. This passes back a gdal dataset
+                # that has a filepath (for when its out of memory). We need a good way 
+                # to handle this.
+                new_dataset = result
+
+                new_dataset.set_name(
+                    app_state.unique_dataset_name(result_name))
+                new_dataset.set_description(
+                    f'Computed image-cube:  {expression} ({timestamp})')
+                if expr_info.spatial_metadata_source:
+                    new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
+
+                if expr_info.spectral_metadata_source:
+                    new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
+
+                app_state.add_dataset(new_dataset)
+
+            elif result_type == VariableType.IMAGE_CUBE:
+                new_dataset = loader.dataset_from_numpy_array(result, app_state.get_cache())
+
+                if not result_name:
+                    result_name = parent.tr('Computed')
+
+                new_dataset.set_name(
+                    app_state.unique_dataset_name(result_name))
+                new_dataset.set_description(
+                    f'Computed image-cube:  {expression} ({timestamp})')
+
+                if expr_info.spatial_metadata_source:
+                    new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
+
+                if expr_info.spectral_metadata_source:
+                    new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
+
+                app_state.add_dataset(new_dataset)
+
+            elif result_type == VariableType.IMAGE_BAND:
+                # Convert the image band into a 1-band image cube
+                result = result[np.newaxis, :]
+                new_dataset = loader.dataset_from_numpy_array(result, app_state.get_cache())
+
+                if not result_name:
+                    result_name = parent.tr('Computed')
+
+                new_dataset.set_name(
+                    app_state.unique_dataset_name(result_name))
+                new_dataset.set_description(
+                    f'Computed image-band:  {expression} ({timestamp})')
+
+                if expr_info.spatial_metadata_source:
+                    new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
+
+                app_state.add_dataset(new_dataset)
+
+            elif result_type == VariableType.SPECTRUM:
+
+                if not result_name:
+                    result_name = parent.tr('Computed:  {expression} ({timestamp})')
+                    result_name = result_name.format(expression=expression,
+                                                    timestamp=timestamp)
+
+                new_spectrum = NumPyArraySpectrum(result, name=result_name)
+
+                if expr_info.spectral_metadata_source:
+                    new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
+
+                app_state.set_active_spectrum(new_spectrum)
+
+    except Exception as e:
+        logger.exception('Couldn\'t evaluate band-math expression')
+        QMessageBox.critical(parent, parent.tr('Bandmath Evaluation Error'),
+            parent.tr('Couldn\'t evaluate band-math expression') +
+            f'\n{expression}\n' + parent.tr('Reason:') + f'\n{e}')
+        return
 
 def get_result_dtype(dtype1: np.dtype, dtype2: np.dtype, operation: MathOperations = MathOperations.GENERAL) -> np.dtype:
     """
