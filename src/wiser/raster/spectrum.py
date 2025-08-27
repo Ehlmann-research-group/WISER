@@ -563,6 +563,14 @@ class NumPyArraySpectrum(Spectrum):
 
     def is_discardable(self):
         return self._discardable
+    
+    def __eq__(self, other: 'NumPyArraySpectrum') -> bool:
+        return (
+            self.get_spectrum() == other.get_spectrum() and
+            self.get_elem_type() == other.get_elem_type() and
+            self.get_wavelengths() == other.get_wavelengths() and
+            self.get_wavelength_units() == other.get_wavelength_units()
+        )
 
 
 #===============================================================================
@@ -699,6 +707,14 @@ class RasterDataSetSpectrum(Spectrum):
             self._calculate_spectrum()
 
         return self._spectrum
+    
+    def __eq__(self, other: 'Spectrum') -> bool:
+        return (
+            self.get_spectrum() == other.get_spectrum() and
+            self.get_elem_type() == other.get_elem_type() and
+            self.get_wavelengths() == other.get_wavelengths() and
+            self.get_wavelength_units() == other.get_wavelength_units()
+        )
 
 
 class SpectrumAtPoint(RasterDataSetSpectrum):

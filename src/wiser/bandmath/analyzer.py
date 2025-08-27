@@ -113,14 +113,14 @@ class BandMathAnalyzer(lark.visitors.Transformer):
     def variable(self, args) -> BandMathExprInfo:
         # Look up the variable's type and value.
         name = args[0]
-        (type, value) = self._variables[name]
+        (_type, value) = self._variables[name]
 
-        info = BandMathExprInfo(type)
-        if type in [VariableType.IMAGE_CUBE,
+        info = BandMathExprInfo(_type)
+        if _type in [VariableType.IMAGE_CUBE,
                     VariableType.IMAGE_BAND,
                     VariableType.SPECTRUM]:
             # These types also have a shape and an element-type.
-            bmv = BandMathValue(type, value)
+            bmv = BandMathValue(_type, value)
             info.elem_type = bmv.get_elem_type()
             info.shape = bmv.get_shape()
 
@@ -128,15 +128,13 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             # result.
             # TODO(donnie):  What about raster bands?
 
-            if type in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND]:
-                assert isinstance(bmv.value, (RasterDataSet, RasterDataBand)), \
-                    "Image cube or Image band variable type is neither RasterDataSet or RasterDataBand"
-                info.spatial_metadata_source = bmv.value.get_spatial_metadata()
+            if _type in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND]:
+                if isinstance(bmv.value, (RasterDataSet, RasterDataBand)):
+                    info.spatial_metadata_source = bmv.value.get_spatial_metadata()
 
-            if type in [VariableType.IMAGE_CUBE, VariableType.SPECTRUM]:
-                assert isinstance(bmv.value, (RasterDataSet, Spectrum)), \
-                    "Image cube or Spectrum is neither RasterDataSet or Spectrum"
-                info.spectral_metadata_source = bmv.value.get_spectral_metadata()
+            if _type in [VariableType.IMAGE_CUBE, VariableType.SPECTRUM]:
+                if isinstance(bmv.value, (RasterDataSet, Spectrum)):
+                    info.spectral_metadata_source = bmv.value.get_spectral_metadata()
 
         logger.debug(f'Variable "{name}":  {info}')
 

@@ -829,12 +829,12 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
     return variables_serialized
 
 
-def eval_bandmath_expr(app_state: 'ApplicationState', succeeded_callback: Callable, \
+def eval_bandmath_expr(succeeded_callback: Callable, \
         progress_callback: Callable, error_callback: Callable, bandmath_expr: str, \
         expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
-        functions: Dict[str, BandMathFunction] = None,
-        use_old_method = False, test_parallel_io=False) -> Tuple[Any, Any]:
+        functions: Dict[str, BandMathFunction] = None, app_state: 'ApplicationState' = None,
+        use_old_method = False, test_parallel_io=False) -> ProcessManager:
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -913,7 +913,9 @@ def eval_bandmath_expr(app_state: 'ApplicationState', succeeded_callback: Callab
     }
 
     process_manager = ProcessManager(subprocess_bandmath, kwargs)
-    app_state.add_running_process(process_manager)
+    if app_state:
+        app_state.add_running_process(process_manager)
+
     task = process_manager.get_task()
     # The error slot is passed the process_manager's task
     task.error.connect(error_callback)
@@ -940,9 +942,6 @@ def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_
     # on the return queue.
     serialized_results: List[Tuple[VariableType, SerializedForm]] = []
     for result_type, result_value in results:
-        if not isinstance(result_value, (RasterDataSet, RasterDataBand, Spectrum, \
-                                         np.ndarray, np.ma.masked_array)):
-            raise ValueError(f"Unsupported result type: {type(result_value)}")
         if isinstance(result_value, Serializable):
             serialized_results.append((result_type, result_value.get_serialized_form()))
         else:
@@ -955,12 +954,14 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
     This function is used to convert a serialized form of an object back into the original object.
     '''
     if var_type == VariableType.IMAGE_CUBE:
-        assert isinstance(var_value, SerializedForm)
-        serialize_value = var_value.get_serialize_value()
-        serialize_metadata = var_value.get_metadata()
-        obj = RasterDataSet.deserialize_into_class(serialize_value, serialize_metadata)
-        return{var_name: (var_type, obj)}
-
+        if isinstance(var_value, SerializedForm):
+            serialize_value = var_value.get_serialize_value()
+            serialize_metadata = var_value.get_metadata()
+            obj = RasterDataSet.deserialize_into_class(serialize_value, serialize_metadata)
+            return{var_name: (var_type, obj)}
+        else:
+            assert isinstance(var_value, np.ndarray), "Image Cube variables should be either a SerializedForm or a numpy array"
+            return {var_name: (var_type, var_value)}
     elif var_type == VariableType.IMAGE_CUBE_BATCH:
         assert isinstance(var_value, str), "Image Cube Batch variables should be strings"
         assert filepath is not None, "Filepath is required for Image Cube Batch variables"
@@ -968,11 +969,14 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
         return {var_name: (VariableType.IMAGE_CUBE, dataset)}
 
     elif var_type == VariableType.IMAGE_BAND:
-        assert isinstance(var_value, SerializedForm)
-        serialize_value = var_value.get_serialize_value()
-        serialize_metadata = var_value.get_metadata()
-        obj = RasterDataBand.deserialize_into_class(serialize_value, serialize_metadata)
-        return {var_name: (var_type, obj)}
+        if isinstance(var_value, SerializedForm):
+            serialize_value = var_value.get_serialize_value()
+            serialize_metadata = var_value.get_metadata()
+            obj = RasterDataBand.deserialize_into_class(serialize_value, serialize_metadata)
+            return {var_name: (var_type, obj)}
+        else:
+            assert isinstance(var_value, np.ndarray), "Image Band variables should be either a SerializedForm or a numpy array"
+            return {var_name: (var_type, var_value)}
 
     elif var_type == VariableType.IMAGE_BAND_BATCH:
         assert isinstance(var_value, SerializedForm), "Image Band Batch variables should be SerializedForm"
@@ -987,11 +991,14 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
         return {var_name: (VariableType.IMAGE_BAND, band)}
 
     elif var_type == VariableType.SPECTRUM:
-        assert isinstance(var_value, SerializedForm)
-        serialize_value = var_value.get_serialize_value()
-        serialize_metadata = var_value.get_metadata()
-        obj = Spectrum.deserialize_into_class(serialize_value, serialize_metadata)
-        return {var_name: (var_type, obj)}
+        if isinstance(var_value, SerializedForm):
+            serialize_value = var_value.get_serialize_value()
+            serialize_metadata = var_value.get_metadata()
+            obj = Spectrum.deserialize_into_class(serialize_value, serialize_metadata)
+            return {var_name: (var_type, obj)}
+        else:
+            assert isinstance(var_value, np.ndarray), "Spectrum variables should be either a SerializedForm or a numpy array"
+            return {var_name: (var_type, var_value)}
 
     elif var_type == VariableType.NUMBER:
         return {var_name: (var_type, var_value)}

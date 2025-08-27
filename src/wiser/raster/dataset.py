@@ -1,7 +1,7 @@
 import copy
 import math
 
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING, Iterable
 
 import numpy as np
 from astropy import units as u
@@ -14,7 +14,8 @@ from .dataset_impl import RasterDataImpl, SaveState, GDALRasterDataImpl, \
     NetCDF_GDALRasterDataImpl, GTiff_GDALRasterDataImpl, PDS4_GDALRasterDataImpl, \
     JP2_GDAL_PDR_RasterDataImpl
 from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
-from .utils import find_band_near_wavelength, normalize_ndarray, can_transform_between_srs, have_spatial_overlap
+from .utils import (find_band_near_wavelength, normalize_ndarray, can_transform_between_srs,
+                    have_spatial_overlap, build_band_info_from_wavelengths)
 from .data_cache import DataCache
 
 from wiser.gui.dataset_editor_dialog import DatasetEditorDialog 
@@ -118,6 +119,34 @@ class BandStats:
     def __str__(self):
         return f'BandStats[index={self._band_index}, min={self._min_value}, max={self._max_value}]'
 
+def dict_list_equal(
+    a: List[Dict[str, Any]],
+    b: List[Dict[str, Any]],
+    ignore_keys: Iterable[str] = ()
+) -> bool:
+    """
+    Compare two lists of dictionaries for equality, ignoring specific keys.
+
+    Args:
+        a, b: The two lists of dictionaries to compare.
+        ignore_keys: Iterable of string keys to ignore during comparison.
+
+    Returns:
+        True if equal (ignoring those keys), False otherwise.
+    """
+    if len(a) != len(b):
+        return False
+
+    # Ensure same order (if order matters). If not, sort by index or keys.
+    for da, db in zip(a, b):
+        # Remove ignored keys from shallow copies
+        da_filtered = {k: v for k, v in da.items() if k not in ignore_keys}
+        db_filtered = {k: v for k, v in db.items() if k not in ignore_keys}
+        if da_filtered != db_filtered:
+            return False
+
+    return True
+
 class SpatialMetadata():
 
     def __init__(self, geo_transform, wkt_spatial_reference):
@@ -131,12 +160,18 @@ class SpatialMetadata():
         srs = osr.SpatialReference()
         srs.ImportFromWkt(self._wkt_spatial_reference)
         return srs
-    
+
+    def __eq__(self, other: 'SpatialMetadata') -> bool:
+        return (
+            self._geo_transform == other._geo_transform and
+            self._wkt_spatial_reference == other._wkt_spatial_reference
+        )
+
     def get_wkt_spatial_reference(self) -> str:
         return self._wkt_spatial_reference
     
     def __str__(self):
-        return f'SpatialMetadata[geo_transform={self._geo_transform}, spatial_ref={self._spatial_ref}, wkt_spatial_reference={self._wkt_spatial_reference}]'
+        return f'SpatialMetadata[geo_transform={self._geo_transform}, spatial_ref={self._wkt_spatial_reference}, wkt_spatial_reference={self._wkt_spatial_reference}]'
     
 class SpectralMetadata():
 
@@ -178,6 +213,38 @@ class SpectralMetadata():
 
     def get_wavelength_units(self) -> u.Unit:
         return self._wavelength_units
+    
+    def __eq__(self, other: 'SpectralMetadata') -> bool:
+        print(f"!@# self._band_info:\n{self._band_info}<><>\nother._band_info:\n{other._band_info}")
+        print(f"!@# self._band_info == other._band_info: {self._band_info == other._band_info}")
+        print(f"!@# self._bad_bands: {self._bad_bands}, other._bad_bands: {other._bad_bands}")
+        print(f"!@# self._bad_bands == other._bad_bands: {self._bad_bands == other._bad_bands}")
+        print(f"!@# self._default_display_bands: {self._default_display_bands}, other._default_display_bands: {other._default_display_bands}")
+        print(f"!@# self._default_display_bands == other._default_display_bands: {self._default_display_bands == other._default_display_bands}")
+        print(f"!@# self._num_bands: {self._num_bands}, other._num_bands: {other._num_bands}")
+        print(f"!@# self._num_bands == other._num_bands: {self._num_bands == other._num_bands}")
+        print(f"!@# self._data_ignore_value: {self._data_ignore_value}, other._data_ignore_value: {other._data_ignore_value}")
+        print(f"!@# self._data_ignore_value == other._data_ignore_value: {self._data_ignore_value == other._data_ignore_value}")
+        print(f"!@# self._has_wavelengths: {self._has_wavelengths}, other._has_wavelengths: {other._has_wavelengths}")
+        print(f"!@# self._has_wavelengths == other._has_wavelengths: {self._has_wavelengths == other._has_wavelengths}")
+        print(f"!@# self._wavelengths: {self._wavelengths}, other._wavelengths: {other._wavelengths}")
+        print(f"!@# self._wavelengths == other._wavelengths: {self._wavelengths == other._wavelengths}")
+        print(f"!@# self._wavelength_units: {self._wavelength_units}, other._wavelength_units: {other._wavelength_units}")
+        print(f"!@# self._wavelength_units == other._wavelength_units: {self._wavelength_units == other._wavelength_units}")
+        if 'wavelength' in self._band_info[0]:
+            band_info_equal = dict_list_equal(self._band_info, other._band_info, ignore_keys=['wavelength_units'])
+        else:
+            band_info_equal = self._band_info == other._band_info
+        return (
+            band_info_equal and
+            self._bad_bands == other._bad_bands and
+            self._default_display_bands == other._default_display_bands and
+            self._num_bands == other._num_bands and
+            self._data_ignore_value == other._data_ignore_value and
+            self._has_wavelengths == other._has_wavelengths and
+            self._wavelengths == other._wavelengths and
+            self._wavelength_units == other._wavelength_units
+        )
     
     def __str__(self):
         return f'SpectralMetadata[band_info={self._band_info}, bad_bands={self._bad_bands}, default_display_bands={self._default_display_bands}, data_ignore_value={self._data_ignore_value}, has_wavelengths={self._has_wavelengths}]'
@@ -564,7 +631,7 @@ class RasterDataSet(Serializable):
 
     def get_band_data_normalized(self, band_index: int, band_min = None, band_max = None, filter_data_ignore_value=True) -> Union[np.ndarray, np.ma.masked_array]:
         '''
-        Returns a numpy 2D array of the specified band's data.  The first band
+        Returns a numpy 2D array of the specified band's data. The first band
         is at index 0.
 
         The numpy array is configured such that the pixel (x, y) values are at
@@ -925,6 +992,21 @@ class RasterDataSet(Serializable):
         
         return GeographicLinkState.SPATIAL
 
+    def is_metadata_same(self, other: 'RasterDataSet') -> None:
+        spatial_metadata = self.get_spatial_metadata()
+        other_spatial_metadata = other.get_spatial_metadata()
+
+        spectral_metadata = self.get_spectral_metadata()
+        other_spectral_metadata = other.get_spectral_metadata()
+
+        print(f"!@# spatial_metadata: {spatial_metadata}, other_spatial_metadata: {other_spatial_metadata}")
+        print(f"!@# spatial_metadata == other_spatial_metadata: {spatial_metadata == other_spatial_metadata}")
+        print(f"!@# spectral_metadata: {spectral_metadata},\nother_spectral_metadata: {other_spectral_metadata}")
+        print(f"!@# spectral_metadata == other_spectral_metadata: {spectral_metadata == other_spectral_metadata}")
+
+        return spatial_metadata == other_spatial_metadata \
+            and spectral_metadata == other_spectral_metadata
+
     def copy_metadata_from(self, dataset: 'RasterDataSet') -> None:
         if dataset.num_bands() != self.num_bands():
             raise ValueError(f'This dataset has {self.num_bands()} bands; ' +
@@ -974,7 +1056,8 @@ class RasterDataSet(Serializable):
     
     def get_spectral_metadata(self) -> SpectralMetadata:
         wavelengths = None
-        if self.has_wavelengths:
+        if self.has_wavelengths():
+            assert 'wavelength' in self._band_info[0], 'Band info does not contain wavelength information'
             wavelengths = []
             for band_info in self._band_info:
                 wavelengths.append(band_info['wavelength'])
@@ -1010,15 +1093,11 @@ class RasterDataSet(Serializable):
             if has_wavelengths:
                 assert wavelengths, "Even though has_wavelengths is True, wavelengths don't exist"
                 assert has_wavelengths and wavelength_units
-                self._band_info = []
-                for (band_index, wavelength) in enumerate(wavelengths):
-                    info = {'index':band_index - 1, 'description':f'Band: {band_index - 1}',
-                            'wavelength': wavelength, 'wavelength_str': str(wavelength.unit), \
-                            'wavelength_units': str(wavelength.value)}
-                    self._band_info.append(info)
+                self._band_info = build_band_info_from_wavelengths(wavelengths)
             else:
                 for (band_index, wavelength) in range(source.get_num_bands()):
-                    info = {'index':band_index - 1, 'description':f'Band: {band_index - 1}'}
+                    # We don't take of -1 here because we are going from 0 in enumerate
+                    info = {'index':band_index, 'description':f'Band: {band_index}'}
                     self._band_info.append(info)
 
             self._bad_bands = None if bad_bands is None else bad_bands
@@ -1129,6 +1208,8 @@ class RasterDataSet(Serializable):
             elif isinstance(dataset_serialize_value, np.ndarray):
                 impl = NumPyRasterDataImpl(dataset_serialize_value)
                 dataset = RasterDataSet(impl, None)
+            else:
+                raise ValueError(f"Unsupported dataset_serialize_value type: {type(dataset_serialize_value)}")
             dataset.copy_serialized_metadata_from(dataset_metadata)
             return dataset
         except Exception as e:
@@ -1149,27 +1230,22 @@ class RasterDataSet(Serializable):
         serial_geo_transform = dataset_metadata.get('geo_transform', None)
         serial_wavelengths: List[u.Quantity] = dataset_metadata.get('wavelengths', None)
         serial_wavelength_units = dataset_metadata.get('wavelength_units', None)
-        if serial_elem_type is not None:
+        if serial_elem_type:
             self._elem_type = serial_elem_type
-        if serial_data_ignore_value is not None:
+        if serial_data_ignore_value:
             self._data_ignore_value = serial_data_ignore_value
-        if serial_bad_bands is not None:
+        if serial_bad_bands:
             self._bad_bands = serial_bad_bands
-        if serial_wkt_spatial_ref is not None:
+        if serial_wkt_spatial_ref:
             self._wkt_spatial_reference = serial_wkt_spatial_ref
             spatial_ref = osr.SpatialReference()
             spatial_ref.ImportFromWkt(serial_wkt_spatial_ref)
             self._spatial_ref = spatial_ref
-        if serial_geo_transform is not None:
+        if serial_geo_transform:
             self._geo_transform = serial_geo_transform
-        if serial_wavelengths is not None:
-                self._band_info = []
-                for (band_index, wavelength) in enumerate(serial_wavelengths):
-                    info = {'index':band_index - 1, 'description':f'Band: {band_index - 1}',
-                            'wavelength': wavelength, 'wavelength_str': str(wavelength.unit), \
-                            'wavelength_units': str(wavelength.value)}
-                    self._band_info.append(info)
-        if serial_wavelength_units is not None:
+        if serial_wavelengths:
+                self._band_info = build_band_info_from_wavelengths(serial_wavelengths)
+        if serial_wavelength_units:
             self._band_unit = serial_wavelength_units
 
     def get_serialized_form(self) -> SerializedForm:
@@ -1350,6 +1426,13 @@ class RasterDataBand(RasterBand, Serializable):
         '''
         return self._dataset.get_band_stats(self._band_index)
 
+    def is_metadata_same(self, other: 'RasterDataBand') -> bool:
+        print(f"!@# self._band_index: {self._band_index}, other._band_index: {other._band_index}")
+        return (
+            self._band_index == other._band_index and
+            self._dataset.is_metadata_same(other._dataset)
+        )
+
     @staticmethod
     def deserialize_into_class(band_index: int, band_metadata: Dict) -> 'RasterDataBand':
         dataset = RasterDataSet.deserialize_into_class(band_metadata['dataset_serialize_value'], band_metadata['dataset_metadata'])
@@ -1414,6 +1497,25 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             wavelength = self._wavelength_value * self._wavelength_units
             band = find_band_near_wavelength(band_info, wavelength, self._epsilon)
             return self._dataset.get_band_stats(band)
+
+    def is_metadata_same(self, other: 'RasterDataDynamicBand') -> bool:
+        if self._band_index is not None and other._band_index is not None:
+            return (
+                self._band_index == other._band_index and
+                self._dataset.is_metadata_same(other._dataset)
+            )
+        elif self._wavelength_value is not None and other._wavelength_value is not None and \
+            self._wavelength_units is not None and other._wavelength_units is not None and \
+            self._epsilon is not None and other._epsilon is not None:
+            return (
+                self._wavelength_value == other._wavelength_value and
+                self._wavelength_units == other._wavelength_units and
+                self._epsilon == other._epsilon and
+                self._dataset.is_metadata_same(other._dataset)
+            )
+        else:
+            return False
+
 
     @staticmethod
     def deserialize_into_class(band_index: int, band_metadata: Dict) -> 'RasterDataBatchBand':

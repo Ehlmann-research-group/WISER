@@ -795,6 +795,9 @@ class DataVisualizerApp(QMainWindow):
 
                     loader = self._app_state.get_loader()
                     if result_type == RasterDataSet:
+                        # TODO (Joshua G-K): Fix this. This passes back a gdal dataset
+                        # that has a filepath (for when its out of memory). We need a good way 
+                        # to handle this.
                         new_dataset = result
 
                         new_dataset.set_name(
@@ -802,10 +805,10 @@ class DataVisualizerApp(QMainWindow):
                         new_dataset.set_description(
                             f'Computed image-cube:  {expression} ({timestamp})')
                         if expr_info.spatial_metadata_source:
-                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
 
                         if expr_info.spectral_metadata_source:
-                            new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
+                            new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
 
                         self._app_state.add_dataset(new_dataset)
 
@@ -842,7 +845,7 @@ class DataVisualizerApp(QMainWindow):
                             f'Computed image-band:  {expression} ({timestamp})')
 
                         if expr_info.spatial_metadata_source:
-                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
+                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
 
                         self._app_state.add_dataset(new_dataset)
 
@@ -856,7 +859,7 @@ class DataVisualizerApp(QMainWindow):
                         new_spectrum = NumPyArraySpectrum(result, name=result_name)
 
                         if expr_info.spectral_metadata_source:
-                            new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
+                            new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
 
                         self._app_state.set_active_spectrum(new_spectrum)
 
@@ -895,9 +898,13 @@ class DataVisualizerApp(QMainWindow):
                     result_name = self.tr('Computed')
                 success_callback = lambda results: self.bandmath_success_callback(results, expr_info, expression, \
                                                                   result_name, batch_enabled, load_into_wiser)
-                process_manager = bandmath.eval_bandmath_expr(self._app_state, success_callback, self.bandmath_progress_callback, \
-                                                              self.bandmath_error_callback, expression, expr_info, \
-                                                              result_name, self._data_cache, variables, functions)
+                process_manager = bandmath.eval_bandmath_expr(success_callback= success_callback, \
+                                                              progress_callback=self.bandmath_progress_callback, \
+                                                              error_callback=self.bandmath_error_callback, \
+                                                              bandmath_expr=expression, expr_info=expr_info, \
+                                                              app_state=self._app_state, result_name=result_name, \
+                                                              cache=self._data_cache, variables=variables, \
+                                                              functions=functions)
             except Exception as e:
                 logger.exception('Couldn\'t evaluate band-math expression')
                 QMessageBox.critical(self, self.tr('Bandmath Evaluation Error'),

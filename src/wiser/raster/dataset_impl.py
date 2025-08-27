@@ -2009,6 +2009,8 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
             band_info.append(info)
 
+        print(f"!!! impl_band info: {band_info}")
+
         return band_info
 
     def read_default_display_bands(self) -> Union[Tuple[int], Tuple[int, int, int]]:
