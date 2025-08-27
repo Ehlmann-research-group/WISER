@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union, TYPE_CHECKING, Any
+from typing import Dict, List, Optional, Union, TYPE_CHECKING
 
 from osgeo import gdal, osr
 
@@ -50,20 +50,6 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
     "ghz"           : u.GHz,
     "mhz"           : u.MHz,
 }
-
-
-def build_band_info_from_wavelengths(wavelengths: List[u.Quantity]) -> List[Dict[str, Any]]:
-    band_info = []
-    for i, wl in enumerate(wavelengths):
-        band_info.append({
-            'index': i,
-            # Match your existing format used by update_band_info (e.g., "472.02 nm")
-            'description': f'{wl.value:.2f} {wl.unit.to_string()}',
-            'wavelength': wl,
-            'wavelength_str': str(wl.value),                 # numeric value as string
-            'wavelength_units': wl.unit.to_string(),         # unit name as string
-        })
-    return band_info
 
 
 def get_netCDF_reflectance_path(file_path):

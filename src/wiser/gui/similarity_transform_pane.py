@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from .geo_reference_task_delegate import GeoReferencerTaskDelegate
 
 import numpy as np
+from PIL import Image
+import cv2
 import time
 
 logger = logging.getLogger(__name__)

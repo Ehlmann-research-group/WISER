@@ -579,7 +579,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         new_data.set_description(description)
         new_data.set_default_display_bands(default_bands)
 
-        new_data.copy_spatial_metadata(dataset.get_spatial_metadata())
-        new_data.copy_spectral_metadata(dataset.get_spectral_metadata())
+        new_data.copy_spatial_metadata(dataset)
+        new_data.copy_spectral_metadata(dataset)
         context["wiser"].add_dataset(new_data)
         return new_data

@@ -27,8 +27,6 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-import difflib
-
 from wiser.gui.subdataset_file_opener_dialog import SubdatasetFileOpenerDialog
 
 logger = logging.getLogger(__name__)
@@ -152,7 +150,7 @@ class RasterDataImpl(abc.ABC):
 class GDALRasterDataImpl(RasterDataImpl):
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['GDALRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -172,8 +170,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         self.subdataset_key = None
         self.subdataset_name = None
         self.data_ignore: Optional[Union[float, int]] = None
-        self._save_state = SaveState.UNKNOWN
         self._validate_dataset()
+        self._save_state = SaveState.UNKNOWN
 
     def _validate_dataset(self):
         '''
@@ -216,8 +214,8 @@ class GDALRasterDataImpl(RasterDataImpl):
     def get_filepaths(self):
         '''
         Returns the paths and filenames of all files associated with this raster
-        dataset. This will be an empty list (not None) if the data is in-memory
-        only. If this is a list, 0 index is the primary file path.
+        dataset.  This will be an empty list (not None) if the data is in-memory
+        only.
         '''
         # TODO(donnie):  Sort the list?  Or does the driver return the filenames
         #     in a meaningful order?
@@ -510,7 +508,7 @@ class GDALRasterDataImpl(RasterDataImpl):
 class PDRRasterDataImpl(RasterDataImpl):
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['PDRRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['JP2_PDRRasterDataImpl']:
 
         pdr_dataset = pdr.read(path)
 
@@ -708,7 +706,6 @@ class PDRRasterDataImpl(RasterDataImpl):
     def __del__(self):
         pass
 
-
 class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
     '''
     Currently this JP2 reader does not work with multithreading even 
@@ -729,7 +726,7 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
         return jpeg2000_drivers
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['JP2_GDAL_PDR_RasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['JP2_GDAL_PDR_RasterDataImpl']:
 
         if not path.endswith('.JP2'):
             raise Exception(f"Can't load file {path} as JP2")
@@ -914,13 +911,14 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
         else:
             raise ValueError(f'PDR Raster has neither 2 or 3 dimensions. Instead has {self.ndims} in get_all_bands_at_rect')
 
+    
 
 class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     def get_format(self):
         return DataFormatNames.JP2
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['JP2_PDRRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['JP2_PDRRasterDataImpl']:
 
         if not path.endswith('.JP2'):
             raise Exception(f"Can't load file {path} as JP2")
@@ -931,7 +929,6 @@ class JP2_PDRRasterDataImpl(PDRRasterDataImpl):
     
     def __init__(self, pdr_dataset):
         super().__init__(pdr_dataset)
-
 
 class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
@@ -951,7 +948,7 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
         return path
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['GTiff_GDALRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['GTiff_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -966,7 +963,6 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
-
 class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def get_load_filename(cls, path: str) -> str:
@@ -978,7 +974,7 @@ class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
         return path
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['ASC_GDALRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['ASC_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
         load_path = cls.get_load_filename(path)
@@ -992,10 +988,9 @@ class ASC_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
-
 class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['FITS_GDALRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['FITS_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -1113,10 +1108,9 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
 
         return np_array
 
-
 class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['PDS3_GDALRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['PDS3_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -1137,7 +1131,7 @@ class PDS3_GDALRasterDataImpl(GDALRasterDataImpl):
 
 class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['PDS4_GDALRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['PDS4_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -1155,188 +1149,11 @@ class PDS4_GDALRasterDataImpl(GDALRasterDataImpl):
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
 
-
 class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
-    _GEOTRANSFORM_KEYS = {"NC_GLOBAL#geotransform", "geotransform"}
-    _SRS_KEYS = {"NC_GLOBAL#spatial_ref", "spatial_ref"}
-
-    @staticmethod
-    def _parse_geotransform_string(gtr: str) -> Optional[Tuple[float, float, float, float, float, float]]:
-        cleaned = gtr.strip().lstrip("{").rstrip("}")
-        parts = [p.strip() for p in cleaned.split(",") if p.strip()]
-        if len(parts) != 6:
-            return None
-        try:
-            return tuple(float(p) for p in parts)  # type: ignore[return-value]
-        except ValueError:
-            return None
-
-    @staticmethod
-    def _nc_resolve_var(root_ds, var_path: str):
-        """Return netCDF4.Variable for 'group1/.../var' path or None."""
-        parts = var_path.strip("/").split("/")
-        cur = root_ds
-        for name in parts[:-1]:
-            cur = getattr(cur, "groups", {}).get(name)
-            if cur is None:
-                return None
-        return getattr(cur, "variables", {}).get(parts[-1]) if cur is not None else None
-
-    @staticmethod
-    def _unit_from_string(s: Optional[str]) -> Optional[u.Unit]:
-        """Robust unit parsing; returns None for unitless/unknown."""
-        if not s:
-            return None
-        t = s.strip().lower().replace("µ", "u")
-        if t in {"unitless", "dimensionless", "1"}:
-            return None
-        # Try astropy parser first
-        try:
-            return u.Unit(t)
-        except Exception:
-            pass
-        # Fallback mapping (common spellings)
-        mapping = {
-            "nm": u.nanometer, "nanometer": u.nanometer, "nanometers": u.nanometer,
-            "um": u.micrometer, "micrometer": u.micrometer, "micrometers": u.micrometer,
-            "mm": u.millimeter, "millimeter": u.millimeter, "millimeters": u.millimeter,
-            "cm": u.centimeter, "centimeter": u.centimeter, "centimeters": u.centimeter,
-            "m": u.meter, "meter": u.meter, "meters": u.meter,
-            "angstrom": u.angstrom, "å": u.angstrom,
-            "cm-1": u.cm**-1, "cm^-1": u.cm**-1, "1/cm": u.cm**-1, "wavenumber": u.cm**-1,
-            "ghz": u.GHz, "mhz": u.MHz,
-        }
-        if t in mapping:
-            return mapping[t]
-        for key, unit in mapping.items():
-            if key in t:
-                return unit
-        return None
-
-    @staticmethod
-    def _score_subdataset(var_path: str, description: str) -> int:
-        """Heuristic score for elevation-like layers."""
-        name = (var_path or "").lower()
-        desc = (description or "").lower()
-        keywords = [("reflectance", 5), ("refl", 4), ("surface_reflectance", 4), ("reflectance_img", 3), ("refl_img", 2), ("sr", 1)]
-        score = 0
-        for kw, w in keywords:
-            if kw in name:
-                score += 6 * w
-            if kw in desc:
-                score += 3 * w
-        tokens = [t for t in name.replace("/", " ").replace("_", " ").split() if t]
-        for kw, w in keywords:
-            if tokens:
-                best = max(difflib.SequenceMatcher(None, kw, t).ratio() for t in tokens)
-                if best >= 0.72:
-                    score += int(best * 10) * w
-        return score
-
     @classmethod
-    def _auto_open_elevation(cls, gdal_dataset: gdal.Dataset, netcdf_dataset: nc.Dataset) -> "NetCDF_GDALRasterDataImpl":
-        """
-        Non-interactive open:
-        - pick an elevation-like subdataset,
-        - read wavelengths + units from /sensor_band_parameters variables,
-        - read NoData from the chosen variable's attrs,
-        - pull SRS/geo-transform from GDAL metadata,
-        - construct NetCDF_GDALRasterDataImpl like the dialog path.
-        """
-        subdatasets = gdal_dataset.GetSubDatasets()
-        assert subdatasets, "Expected subdatasets"
-
-        def var_path_of(sd_name: str) -> str:
-            # NETCDF:"/path/to/file":group/var  ->  group/var
-            return sd_name.split(":")[-1]
-
-        best_name, best_desc = max(
-            subdatasets,
-            key=lambda pair: cls._score_subdataset(var_path_of(pair[0]), pair[1]),
-        )
-        subdataset_name = best_name
-        sub_var_path = var_path_of(subdataset_name)
-        subdataset: gdal.Dataset = gdal.Open(subdataset_name)
-        assert subdataset is not None, "Chosen subdataset could not be opened"
-
-        # ---- SRS & GeoTransform from GDAL metadata
-        md = gdal_dataset.GetMetadata() or {}
-        geo_string = next((md[k] for k in cls._GEOTRANSFORM_KEYS if k in md), None)
-        geotransform = cls._parse_geotransform_string(geo_string) if geo_string else None
-
-        srs = None
-        srs_string = next((md[k] for k in cls._SRS_KEYS if k in md), None)
-        if srs_string:
-            try:
-                srs = osr.SpatialReference()
-                srs.ImportFromWkt(srs_string)
-            except Exception:
-                srs = None
-
-        # ---- Wavelengths and Units from netCDF group: /sensor_band_parameters
-        wavelengths = None
-        wl_unit: Optional[u.Unit] = None
-        try:
-            sbp = netcdf_dataset.groups.get("sensor_band_parameters")
-            if sbp:
-                wl_var = sbp.variables.get("wavelengths")
-                if wl_var is not None:
-                    wavelengths = wl_var[:]  # array
-                    wl_unit = cls._unit_from_string(getattr(wl_var, "units", None))
-
-                # If wavelength units missing, try fwhm as a hint
-                if wl_unit is None:
-                    fwhm_var = sbp.variables.get("fwhm")
-                    if fwhm_var is not None:
-                        wl_unit = cls._unit_from_string(getattr(fwhm_var, "units", None))
-
-        except Exception as e:
-            wavelengths = None
-            wl_unit = None
-
-        # Validate wavelengths length
-        if wavelengths is not None and subdataset.RasterCount != len(wavelengths):
-            wavelengths = None  # mismatch; safer to drop
-
-        # Final fallback ONLY if we truly couldn't resolve units
-        if wl_unit is None:
-            wl_unit = u.nanometer  # default to nm per your requirement
-
-        # ---- NoData from the chosen variable's attrs in netCDF
-        nodata = None
-        nc_var = cls._nc_resolve_var(netcdf_dataset, sub_var_path)
-        for attr in ("_FillValue", "missing_value", "data_ignore_value", "NoDataValue", "no_data_value", "nodata"):
-            if nc_var is not None and hasattr(nc_var, attr):
-                try:
-                    nodata = float(np.asarray(getattr(nc_var, attr)).flatten()[0])
-                    break
-                except Exception:
-                    pass
-        if nodata is not None:
-            for i in range(1, subdataset.RasterCount + 1):
-                try:
-                    subdataset.GetRasterBand(i).SetNoDataValue(nodata)
-                except Exception:
-                    pass
-
-        # ---- Construct the same way as dialog.accept()
-        return cls(
-            subdataset,
-            netcdf_dataset,
-            subdataset_name,
-            srs,
-            wl_unit,
-            wavelengths,
-            geotransform,
-        )
-
-    @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['NetCDF_GDALRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['NetCDF_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
-
-        interactive = kwargs.get('interactive', True)
-
         # Open the netCDF file
         gdal_dataset = gdal.OpenEx(
             path,
@@ -1353,13 +1170,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         subdatasets = gdal_dataset.GetSubDatasets()
         instances_list = []  # List to hold instances of the class
     
-        if subdatasets and not interactive:
+        if subdatasets:
             subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
             if subdataset_chooser.exec_() == QDialog.Accepted:
                 if subdataset_chooser.netcdf_impl is not None:
                     instances_list.append(subdataset_chooser.netcdf_impl)
-        elif subdatasets:
-            instances_list.append(cls._auto_open_elevation(gdal_dataset, netcdf_dataset))
         else:
             return [GDALRasterDataImpl(gdal_dataset)]
 
@@ -1580,7 +1395,7 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
         return path
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['JP2_GDALRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['JP2_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
         load_path = cls.get_load_filename(path)
@@ -1628,7 +1443,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
 
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['GTiff_ENVIRasterDataImpl']:
+    def try_load_file(cls, path: str) -> ['GTiff_ENVIRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 

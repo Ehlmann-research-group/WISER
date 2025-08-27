@@ -1,7 +1,7 @@
 import enum
 import os
 import warnings
-from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QMessageBox
@@ -26,11 +26,8 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
 
-from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
-
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
-
 class StateChange(enum.Enum):
     ITEM_ADDED = 1
     ITEM_EDITED = 2
@@ -148,24 +145,6 @@ class ApplicationState(QObject):
         # The key is the CRS name.
         self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
-        self._process_pool_manager = MultiprocessingManager()
-
-        self._running_processes: Dict[int, ProcessManager] = {}
-
-    def add_running_process(self, process_manager: ProcessManager):
-        self._running_processes[process_manager.get_process_manager_id()] = process_manager
-
-    def remove_running_process(self, process_manager_id: int):
-        del self._running_processes[process_manager_id]
-
-    def get_running_processes(self) -> Dict[int, ProcessManager]:
-        return self._running_processes
-
-    def submit_parallel_task(self, operation: Callable, kwargs: Dict = {}):
-        return self._process_pool_manager.create_task(operation, kwargs)
-
-    def get_next_process_pool_id(self):
-        return self._process_pool_manager.get_next_process_pool_id()
 
     def _take_next_id(self) -> int:
         '''
@@ -175,7 +154,6 @@ class ApplicationState(QObject):
         id = self._next_id
         self._next_id += 1
         return id
-
 
 
     def add_plugin(self, class_name: str, plugin: Plugin):

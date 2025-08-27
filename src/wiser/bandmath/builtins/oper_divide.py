@@ -12,7 +12,7 @@ from wiser.bandmath.functions import BandMathFunction
 from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    get_lhs_rhs_values_async, get_result_dtype, MathOperations, reorder_args,
+    get_lhs_rhs_values_async, get_result_dtype, MathOperations,
 )
 
 class OperatorDivide(BandMathFunction):
@@ -39,27 +39,8 @@ class OperatorDivide(BandMathFunction):
 
         # If we got here, we are dividing more complex data types.
 
-        (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
-
-        if lhs.result_type == VariableType.IMAGE_CUBE_BATCH:
+        if lhs.result_type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
-            # Because this is a batch variable, we don't set the metadata
-            # here since we do not have it until the user runs the batch
-            # 
-            # Additionally, when we actually do the apply phase, we recalculate
-            # the expression info with IMAGE_CUBE, so this IMAGE_CUBE_BATCH
-            # conditional can be thought of as a place holder.
-            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
-            info.elem_type = np.float32
-            return info
-
-        elif lhs.result_type == VariableType.IMAGE_CUBE:
-            # Dimensions:  [band][y][x]
-
-            if rhs.result_type == VariableType.IMAGE_BAND_BATCH:
-                info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
-                info.elem_type = np.float32
-                return info
 
             # See if we can actually divide LHS with RHS.
             check_image_cube_compatible(rhs, lhs.shape)
@@ -74,12 +55,6 @@ class OperatorDivide(BandMathFunction):
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
 
-            return info
-
-        elif lhs.result_type == VariableType.IMAGE_BAND_BATCH:
-            # Dimensions:  [y][x]
-            info = BandMathExprInfo(VariableType.IMAGE_BAND_BATCH)
-            info.elem_type = np.float32
             return info
 
         elif lhs.result_type == VariableType.IMAGE_BAND:

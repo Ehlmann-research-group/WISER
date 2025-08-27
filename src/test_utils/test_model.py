@@ -177,7 +177,7 @@ class WiserTestModel:
         Raises:
             AssertionError: If the active modal widget is not a QMessageBox.
         """
-        # Grab the active modal widget (the QMessageBox)
+        # grab the active modal widget (the QMessageBox)
         mbox = QApplication.activeModalWidget()
         assert isinstance(mbox, QMessageBox)
         if yes:
@@ -334,6 +334,8 @@ class WiserTestModel:
                     ds_chooser._on_dataset_changed(act)
                     self.spectrum_plot._on_dataset_changed(act)
                     break
+        
+
 
 
     #==========================================
@@ -434,6 +436,7 @@ class WiserTestModel:
         pos = QPointF(viewport.width() / 2, viewport.height() / 2)
         global_pos = viewport.mapToGlobal(pos.toPoint())
 
+        # Create a QWheelEvent.
         # Here, angleDelta is set to a QPoint(dx, dy). In Qt, a typical "notch" of the mouse wheel is 120 units.
         wheel_event = QWheelEvent(
             pos,                   # local position (QPointF)
@@ -1413,6 +1416,7 @@ class WiserTestModel:
 
     @run_in_wiser_decorator
     def crs_creator_get_starting_crs(self) -> Optional[str]:
+        """Current 'Starting CRS' name (None if «(None)» selected)."""
         dlg  = self.main_window._crs_creator_dialog
         cbox = dlg._ui.cbox_user_crs
         text = cbox.currentText()

@@ -64,7 +64,7 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         zp_pixel = self.test_model.get_zoom_pane_selected_pixel()
 
-        self.assertTrue(pixel == zp_pixel)
+        self.assertTrue(pixel==zp_pixel)
 
     def test_mv_highlight_equal_zp_region(self):
         """Tests that the main view highlight box matches the visible region in the zoom pane after zooming."""
