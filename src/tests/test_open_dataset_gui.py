@@ -15,6 +15,10 @@ import numpy as np
 
 from test_utils.test_model import WiserTestModel
 
+from PySide2.QtCore import *
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
+
 class TestOpenDataset(unittest.TestCase):
     """
     Test suite for validating dataset loading and raster view consistency in WISER.
