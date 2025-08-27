@@ -215,22 +215,6 @@ class SpectralMetadata():
         return self._wavelength_units
     
     def __eq__(self, other: 'SpectralMetadata') -> bool:
-        print(f"!@# self._band_info:\n{self._band_info}<><>\nother._band_info:\n{other._band_info}")
-        print(f"!@# self._band_info == other._band_info: {self._band_info == other._band_info}")
-        print(f"!@# self._bad_bands: {self._bad_bands}, other._bad_bands: {other._bad_bands}")
-        print(f"!@# self._bad_bands == other._bad_bands: {self._bad_bands == other._bad_bands}")
-        print(f"!@# self._default_display_bands: {self._default_display_bands}, other._default_display_bands: {other._default_display_bands}")
-        print(f"!@# self._default_display_bands == other._default_display_bands: {self._default_display_bands == other._default_display_bands}")
-        print(f"!@# self._num_bands: {self._num_bands}, other._num_bands: {other._num_bands}")
-        print(f"!@# self._num_bands == other._num_bands: {self._num_bands == other._num_bands}")
-        print(f"!@# self._data_ignore_value: {self._data_ignore_value}, other._data_ignore_value: {other._data_ignore_value}")
-        print(f"!@# self._data_ignore_value == other._data_ignore_value: {self._data_ignore_value == other._data_ignore_value}")
-        print(f"!@# self._has_wavelengths: {self._has_wavelengths}, other._has_wavelengths: {other._has_wavelengths}")
-        print(f"!@# self._has_wavelengths == other._has_wavelengths: {self._has_wavelengths == other._has_wavelengths}")
-        print(f"!@# self._wavelengths: {self._wavelengths}, other._wavelengths: {other._wavelengths}")
-        print(f"!@# self._wavelengths == other._wavelengths: {self._wavelengths == other._wavelengths}")
-        print(f"!@# self._wavelength_units: {self._wavelength_units}, other._wavelength_units: {other._wavelength_units}")
-        print(f"!@# self._wavelength_units == other._wavelength_units: {self._wavelength_units == other._wavelength_units}")
         if 'wavelength' in self._band_info[0]:
             band_info_equal = dict_list_equal(self._band_info, other._band_info, ignore_keys=['wavelength_units'])
         else:
@@ -999,11 +983,6 @@ class RasterDataSet(Serializable):
         spectral_metadata = self.get_spectral_metadata()
         other_spectral_metadata = other.get_spectral_metadata()
 
-        print(f"!@# spatial_metadata: {spatial_metadata}, other_spatial_metadata: {other_spatial_metadata}")
-        print(f"!@# spatial_metadata == other_spatial_metadata: {spatial_metadata == other_spatial_metadata}")
-        print(f"!@# spectral_metadata: {spectral_metadata},\nother_spectral_metadata: {other_spectral_metadata}")
-        print(f"!@# spectral_metadata == other_spectral_metadata: {spectral_metadata == other_spectral_metadata}")
-
         return spatial_metadata == other_spatial_metadata \
             and spectral_metadata == other_spectral_metadata
 
@@ -1427,7 +1406,6 @@ class RasterDataBand(RasterBand, Serializable):
         return self._dataset.get_band_stats(self._band_index)
 
     def is_metadata_same(self, other: 'RasterDataBand') -> bool:
-        print(f"!@# self._band_index: {self._band_index}, other._band_index: {other._band_index}")
         return (
             self._band_index == other._band_index and
             self._dataset.is_metadata_same(other._dataset)
