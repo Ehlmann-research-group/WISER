@@ -21,9 +21,11 @@ from .rasterview import RasterView
 from wiser.raster.dataset import RasterDataBand, RasterDataSet, RasterDataBatchBand
 from wiser.raster.spectrum import Spectrum
 from wiser import bandmath
-from wiser.bandmath.utils import get_dimensions
+from wiser.bandmath.utils import get_dimensions, bandmath_success_callback, bandmath_progress_callback, bandmath_error_callback
 from wiser.bandmath.types import BANDMATH_VALUE_TYPE
 from wiser.gui.util import get_plugin_fns
+from wiser.gui.subprocessing_manager import ProcessManager
+from wiser.gui.parallel_task import ParallelTask
 
 import copy
 
@@ -477,6 +479,8 @@ class BandmathBatchJob:
     A batch job is a single unit of work that is to be performed by the batch
     processing system.  It contains the expression to be evaluated, the variables
     to be used, the input and output folders, and the load-into-wiser flag.
+
+    Once the job is started, it will contain the process manager for that job.
     '''
 
     def __init__(self, job_id: int, expression: str, expr_info: bandmath.BandMathExprInfo, 
@@ -490,6 +494,42 @@ class BandmathBatchJob:
         self._output_folder = output_folder
         self._load_into_wiser = load_into_wiser
         self._result_prefix = result_prefix
+        self._process_manager: Optional[ProcessManager] = None
+        self._btn_start: Optional[QPushButton] = None
+        self._btn_cancel: Optional[QPushButton] = None
+        self._btn_remove: Optional[QPushButton] = None
+        self._progress_bar: Optional[QProgressBar] = None
+
+
+    def get_process_manager(self) -> Optional[ProcessManager]:
+        return self._process_manager
+
+    def set_process_manager(self, process_manager: ProcessManager) -> None:
+        self._process_manager = process_manager
+
+    def get_btn_start(self) -> Optional[QPushButton]:
+        return self._btn_start
+    
+    def set_btn_start(self, btn_start: QPushButton) -> None:
+        self._btn_start = btn_start
+    
+    def get_btn_cancel(self) -> Optional[QPushButton]:
+        return self._btn_cancel
+    
+    def set_btn_cancel(self, btn_cancel: QPushButton) -> None:
+        self._btn_cancel = btn_cancel
+    
+    def get_btn_remove(self) -> Optional[QPushButton]:
+        return self._btn_remove
+
+    def set_btn_remove(self, btn_remove: QPushButton) -> None:
+        self._btn_remove = btn_remove
+    
+    def get_progress_bar(self) -> Optional[QProgressBar]:
+        return self._progress_bar
+
+    def set_progress_bar(self, progress_bar: QProgressBar) -> None:
+        self._progress_bar = progress_bar
 
     def get_job_id(self) -> int:
         return self._job_id
@@ -545,41 +585,55 @@ class BandmathBatchJob:
 
 class BatchJobInfoWidget(QWidget):
     def __init__(self, expression: str, input_folder: str,
-                 output_folder: str, is_load_into_wiser_enabled: bool,
+                 output_folder: str, load_results_into_wiser: bool,
                  result_name: str, width_hint=150, parent=None):
         super().__init__(parent)
         self._width_hint = width_hint
 
         layout = QVBoxLayout()
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(2)
+        layout.setSpacing(4)
 
-        # Expression
-        lbl_expr = QLabel(f"Expression: {expression}")
-        lbl_expr.setWordWrap(True)
-        layout.addWidget(lbl_expr)
+        # Expression (label + read-only line edit)
+        layout.addWidget(QLabel("Expression:"))
+        le_expr = QLineEdit()
+        le_expr.setReadOnly(True)
+        le_expr.setText(expression)
+        le_expr.setToolTip(expression)
+        layout.addWidget(le_expr)
 
-        # Input Folder
-        lbl_input = QLabel(f"Input Folder: {input_folder}")
-        lbl_input.setWordWrap(True)
-        layout.addWidget(lbl_input)
+        # Input Folder (label + read-only line edit)
+        layout.addWidget(QLabel("Input Folder:"))
+        le_input = QLineEdit()
+        le_input.setReadOnly(True)
+        le_input.setText(input_folder)
+        le_input.setToolTip(input_folder)
+        layout.addWidget(le_input)
 
         # Output Folder (only if exists)
         if output_folder:
-            lbl_output = QLabel(f"Output Folder: {output_folder}")
-            lbl_output.setWordWrap(True)
-            layout.addWidget(lbl_output)
+            layout.addWidget(QLabel("Output Folder:"))
+            le_output = QLineEdit()
+            le_output.setReadOnly(True)
+            le_output.setText(output_folder)
+            le_output.setToolTip(output_folder)
+            layout.addWidget(le_output)
 
-        # Loading into WISER?
-        load_wiser_text = "yes" if is_load_into_wiser_enabled else "no"
-        lbl_load_wiser = QLabel(f"Loading into WISER? {load_wiser_text}")
-        lbl_load_wiser.setWordWrap(True)
-        layout.addWidget(lbl_load_wiser)
+        # Loading into WISER? (non-editable checkbox)
+        chk_load = QCheckBox("Load into WISER")
+        chk_load.setChecked(load_results_into_wiser)
+        # The below makes the check box unclickable
+        chk_load.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # ignore clicks
+        chk_load.setFocusPolicy(Qt.NoFocus)                           # no focus outline
+        layout.addWidget(chk_load)
 
-        # Result Prefix
-        lbl_result = QLabel(f"Result Prefix: {result_name}")
-        lbl_result.setWordWrap(True)
-        layout.addWidget(lbl_result)
+        # Result Prefix (label + read-only line edit)
+        layout.addWidget(QLabel("Result Prefix:"))
+        le_result = QLineEdit()
+        le_result.setReadOnly(True)
+        le_result.setText(result_name)
+        le_result.setToolTip(result_name)
+        layout.addWidget(le_result)
 
         self.setLayout(layout)
 
@@ -686,7 +740,9 @@ class BandMathDialog(QDialog):
 
         tbl = self._ui.tbl_wdgt_batch_jobs
         hdr = tbl.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         tbl.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
         self._ui.btn_run_all.clicked.connect(self._run_all_batch_jobs)
@@ -694,11 +750,100 @@ class BandMathDialog(QDialog):
     def _run_all_batch_jobs(self):
         for job in self._batch_jobs:
             self._run_batch_job(job)
-        
+
+    def on_bandmath_job_success(self, job: BandmathBatchJob,
+                            results: List[Tuple[bandmath.VariableType, Any]]):
+        job.get_btn_start().setEnabled(True)
+        job.get_btn_cancel().setEnabled(False)
+
+        bandmath_success_callback(parent=self, app_state=self._app_state,
+                                results=results, expr_info=job.get_expr_info(), 
+                                expression=job.get_expression(), result_name=job.get_result_prefix(),
+                                batch_enabled=True, load_into_wiser=job.get_load_into_wiser())
+
+    def on_bandmath_job_started(self, job: BandmathBatchJob, task: ParallelTask):
+        print(f"Bandmath started callback")
+        try:
+            job.get_btn_start().setEnabled(False)
+            job.get_btn_cancel().setEnabled(True)
+        except RuntimeError as e:
+            # There is a point where the process is cancelled and these buttons
+            # have been deleted before this callback is called. So we just ignore
+            # this runtime error.
+            pass
+
+    def on_bandmath_job_cancelled(self, job: BandmathBatchJob, task: ParallelTask):
+        print(f"Bandmath cancelled callback")
+        try:
+            job.get_btn_start().setEnabled(True)
+            job.get_btn_cancel().setEnabled(False)
+        except RuntimeError as e:
+            # There is a point where the process is cancelled and these buttons
+            # have been deleted before this callback is called. So we just ignore
+            # this runtime error.
+            pass
+
+    def on_bandmath_job_progress(self, job: BandmathBatchJob, progress: Dict[str, str]):
+        # update the progress bar
+        # The dict progress has 3 entries. Numerator, Denominator, and Status message like so:
+        # {'Numerator': 1, 'Denominator': 2, 'Status': 'Running'}
+        # We will update the progress bar with the Numerator and Denominator and have the status
+        # be the text in the progress bar. Access the progress bar with job.get_progress_bar()
+        numerator = int(progress.get("Numerator", 0))
+        denominator = int(progress.get("Denominator", 1))  # avoid divide-by-zero
+        status = progress.get("Status", "")
+
+        progress_bar = job.get_progress_bar()
+        progress_bar.setRange(0, denominator)
+        progress_bar.setValue(numerator)
+
+        # Display the status text (instead of % completed) inside the bar
+        progress_bar.setTextVisible(True)
+        progress_bar.setFormat(f"{status} ({numerator}/{denominator})")
+
+
     def _run_batch_job(self, job: BandmathBatchJob):
-        pass
+        # Run eval bandmath expr
+        success_callback = lambda results: self.on_bandmath_job_success(job, results)
+
+        functions = get_plugin_fns(self._app_state)
+        started_callback = lambda task: self.on_bandmath_job_started(job, task)
+        cancelled_callback = lambda task: self.on_bandmath_job_cancelled(job, task)
+        progress_callback = lambda progress: self.on_bandmath_job_progress(job, progress)
+        process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback,
+                                                      progress_callback=progress_callback,
+                                                      error_callback=bandmath_error_callback,
+                                                      started_callback=started_callback,
+                                                      cancelled_callback=cancelled_callback,
+                                                      bandmath_expr=job.get_expression(), expr_info=job.get_expr_info(),
+                                                      app_state=self._app_state, result_name=job.get_result_prefix(),
+                                                      cache=self._app_state.get_cache(), variables=job.get_variables(),
+                                                      functions=functions)
+        job.set_process_manager(process_manager)
 
     def _on_create_batch_job(self):
+        missing = []
+
+        if not self._expr_info:
+            missing.append("Expression Info")
+        if not self.get_expression():
+            missing.append("Expression")
+        if not self._get_input_folder():
+            missing.append("Input Folder")
+        if not self._get_output_folder() and not self.load_results_into_wiser():
+            missing.append("Output Folder or 'Load Results into WISER' checked")
+        if not self.get_result_name():
+            missing.append("Result Prefix")
+
+        if missing:
+            QMessageBox.warning(
+                self,
+                "Missing Necessary Inputs for Batch Processing",
+                "You are missing necessary inputs for batch processing. "
+                "The inputs you are missing are:\n- " + "\n- ".join(missing)
+            )
+            return
+        
         job = BandmathBatchJob(
             job_id=self._app_state.get_next_process_pool_id(),
             expression=self.get_expression(),
@@ -706,20 +851,20 @@ class BandMathDialog(QDialog):
             variables=self.get_variable_bindings(),
             input_folder=self._get_input_folder(),
             output_folder=self._get_output_folder(),
-            load_into_wiser=self.is_load_into_wiser_enabled(),
+            load_into_wiser=self.load_results_into_wiser(),
             result_prefix=self.get_result_name()
         )
 
         self._batch_jobs.append(job)
         self._add_batch_job_to_table(job)
-        
+
     def _add_batch_job_to_table(self, batch_job: BandmathBatchJob):
         t = self._ui.tbl_wdgt_batch_jobs
         new_row = t.rowCount()
         t.insertRow(new_row)
 
-        # Col 0: id label
-        t.setCellWidget(new_row, 0, self._create_job_id_label(batch_job))
+        # Col 0: id item (centered)
+        t.setItem(new_row, 0, self._create_job_id_item(batch_job))
 
         # Col 1: info widget + an item carrying the size hint
         info_widget = self._create_batch_job_info_widget(batch_job)
@@ -731,18 +876,84 @@ class BandMathDialog(QDialog):
         size_item.setData(Qt.SizeHintRole, info_widget.sizeHint())
         t.setItem(new_row, 1, size_item)
 
-        # Col 2: start button
-        t.setCellWidget(new_row, 2, self._create_job_start_button_widget(batch_job))
+        # Col 2: run controls (start, cancel, remove, progress)
+        t.setCellWidget(new_row, 2, self._create_job_run_controls_widget(batch_job))
 
         # Defer so Qt can polish the embedded widget's layout; then size to contents
         QTimer.singleShot(0, lambda: (t.resizeColumnToContents(1),
                                     t.resizeRowToContents(new_row)))
 
-    def _create_job_id_label(self, batch_job: BandmathBatchJob) -> QLabel:
-        return QLabel(f"{batch_job.get_job_id()}")
+    def _create_job_id_item(self, batch_job: BandmathBatchJob) -> QTableWidgetItem:
+        item = QTableWidgetItem(f"{batch_job.get_job_id()}")
+        item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+        item.setTextAlignment(Qt.AlignCenter)
+        return item
 
-    def _create_job_start_button_widget(self, batch_job: BandmathBatchJob) -> QWidget:
-        return QPushButton("Start")
+    def _create_job_run_controls_widget(self, batch_job: BandmathBatchJob) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        container.setLayout(layout)
+
+        # Start button (wired up)
+        btn_start = QPushButton(self.tr("Start"))
+        btn_start.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        btn_start.setMaximumWidth(140)
+        btn_start.clicked.connect(lambda: self._run_batch_job(batch_job))
+        batch_job.set_btn_start(btn_start)
+        layout.addWidget(btn_start)
+
+        # Cancel button (no functionality yet)
+        btn_cancel = QPushButton(self.tr("Cancel"))
+        btn_cancel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        btn_cancel.setMaximumWidth(140)
+        btn_cancel.clicked.connect(lambda: self._cancel_batch_job(batch_job))
+        btn_cancel.setEnabled(False)
+        batch_job.set_btn_cancel(btn_cancel)
+        layout.addWidget(btn_cancel)
+
+        # Remove button (no functionality yet)
+        btn_remove = QPushButton(self.tr("Remove"))
+        btn_remove.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        btn_remove.setMaximumWidth(140)
+        batch_job.set_btn_remove(btn_remove)
+        btn_remove.clicked.connect(lambda: self._remove_batch_job(batch_job))
+        layout.addWidget(btn_remove)
+
+        # Progress bar (no functionality yet)
+        progress = QProgressBar()
+        progress.setRange(0, 100)
+        progress.setValue(0)
+        progress.setTextVisible(True)
+        progress.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        progress.setMaximumWidth(160)
+        batch_job.set_progress_bar(progress)
+        layout.addWidget(progress)
+
+        return container
+
+    def _cancel_batch_job(self, batch_job: BandmathBatchJob):
+        process_manager = batch_job.get_process_manager()
+        print(f"process_manager: {process_manager}")
+        if process_manager is not None:
+            print(f"TERMINATING!!")
+            process_manager.get_task().cancel()
+
+    def _remove_batch_job(self, batch_job: BandmathBatchJob):
+        if batch_job.get_process_manager() is not None:
+            batch_job.get_process_manager().get_task().cancel()
+        batch_job_row_index = self._get_batch_job_table_row_index(batch_job)
+        if batch_job_row_index != -1:
+            self._ui.tbl_wdgt_batch_jobs.removeRow(batch_job_row_index)
+        self._batch_jobs.remove(batch_job)
+
+    def _get_batch_job_table_row_index(self, batch_job: BandmathBatchJob) -> int:
+        # Iterate through the rows in self._ui.tbl_wdgt_batch_jobs
+        for i in range(self._ui.tbl_wdgt_batch_jobs.rowCount()):
+            if self._ui.tbl_wdgt_batch_jobs.item(i, 0).text() == str(batch_job.get_job_id()):
+                return i
+        return -1
 
     def _create_batch_job_info_widget(self, batch_job: BandmathBatchJob) -> QWidget:
         """
@@ -821,7 +1032,7 @@ class BandMathDialog(QDialog):
     def _get_output_folder(self):
         return self._ui.ledit_output_folder.text()
 
-    def is_load_into_wiser_enabled(self):
+    def load_results_into_wiser(self):
         return self._ui.chkbox_load_into_wiser.isChecked()
     
     def is_batch_processing_enabled(self):
@@ -852,15 +1063,6 @@ class BandMathDialog(QDialog):
         self._sync_batch_process_ui()
         self._analyze_expr()
 
-    def _apply_right_column_stretch(self, right_visible: bool, left_col: int, right_col: int):
-        g = self._ui.gridLayout                   # your QGridLayout
-        # Give left:right a 3:1 split when visible; give right 0 when hidden
-        g.setColumnStretch(left_col, 3 if right_visible else 1)
-        g.setColumnStretch(right_col, 1 if right_visible else 0)
-        # Ensure hidden column doesn't reserve width
-        g.setColumnMinimumWidth(right_col, 0)
-        g.invalidate()
-
     def _sync_batch_process_ui(self):
         is_enabled = self._ui.chkbox_enable_batch.isChecked()
         batch_process_ui_elements = self._get_batch_processing_ui_components()
@@ -882,10 +1084,6 @@ class BandMathDialog(QDialog):
             self._ui.lbl_result_name.setText(self.tr('Result prefix (required):'))
         else:
             self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
-
-        left_most_col = 0
-        batch_proc_col = 3
-        self._apply_right_column_stretch(is_enabled, left_most_col, batch_proc_col)
 
 
     def _on_toggle_help(self, checked=False):

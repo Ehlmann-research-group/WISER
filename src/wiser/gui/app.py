@@ -22,7 +22,7 @@ from wiser.raster.serializable import SerializedForm
 
 from .app_config import PixelReticleType
 
-from wiser.bandmath.utils import TEMP_FOLDER_PATH
+from wiser.bandmath.utils import TEMP_FOLDER_PATH, bandmath_success_callback, bandmath_progress_callback, bandmath_error_callback
 
 from .about_dialog import AboutDialog
 
@@ -779,103 +779,6 @@ class DataVisualizerApp(QMainWindow):
                 library = ListSpectralLibrary(spectra, path=path)
                 self._app_state.add_spectral_library(library)
 
-    def bandmath_success_callback(self, results: List[Tuple[VariableType, SerializedForm]],
-                        expr_info: BandMathExprInfo, expression: str, result_name: str,
-                        batch_enabled: bool, load_into_wiser: bool):
-        for result_type, result in results:
-            try:
-                if batch_enabled and not load_into_wiser:
-                    return
-                for result_type, result in results:
-                    logger.debug(f'Result of band-math evaluation is type ' +
-                                f'{result_type}, value:\n{result}')
-
-                    # Compute a timestamp to put in the description
-                    timestamp = datetime.datetime.now().isoformat()
-
-                    loader = self._app_state.get_loader()
-                    if result_type == RasterDataSet:
-                        # TODO (Joshua G-K): Fix this. This passes back a gdal dataset
-                        # that has a filepath (for when its out of memory). We need a good way 
-                        # to handle this.
-                        new_dataset = result
-
-                        new_dataset.set_name(
-                            self._app_state.unique_dataset_name(result_name))
-                        new_dataset.set_description(
-                            f'Computed image-cube:  {expression} ({timestamp})')
-                        if expr_info.spatial_metadata_source:
-                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                        if expr_info.spectral_metadata_source:
-                            new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                        self._app_state.add_dataset(new_dataset)
-
-                    elif result_type == bandmath.VariableType.IMAGE_CUBE:
-                        new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
-
-                        if not result_name:
-                            result_name = self.tr('Computed')
-
-                        new_dataset.set_name(
-                            self._app_state.unique_dataset_name(result_name))
-                        new_dataset.set_description(
-                            f'Computed image-cube:  {expression} ({timestamp})')
-
-                        if expr_info.spatial_metadata_source:
-                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                        if expr_info.spectral_metadata_source:
-                            new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                        self._app_state.add_dataset(new_dataset)
-
-                    elif result_type == bandmath.VariableType.IMAGE_BAND:
-                        # Convert the image band into a 1-band image cube
-                        result = result[np.newaxis, :]
-                        new_dataset = loader.dataset_from_numpy_array(result, self._data_cache)
-
-                        if not result_name:
-                            result_name = self.tr('Computed')
-
-                        new_dataset.set_name(
-                            self._app_state.unique_dataset_name(result_name))
-                        new_dataset.set_description(
-                            f'Computed image-band:  {expression} ({timestamp})')
-
-                        if expr_info.spatial_metadata_source:
-                            new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                        self._app_state.add_dataset(new_dataset)
-
-                    elif result_type == bandmath.VariableType.SPECTRUM:
-
-                        if not result_name:
-                            result_name = self.tr('Computed:  {expression} ({timestamp})')
-                            result_name = result_name.format(expression=expression,
-                                                            timestamp=timestamp)
-
-                        new_spectrum = NumPyArraySpectrum(result, name=result_name)
-
-                        if expr_info.spectral_metadata_source:
-                            new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                        self._app_state.set_active_spectrum(new_spectrum)
-
-            except Exception as e:
-                logger.exception('Couldn\'t evaluate band-math expression')
-                QMessageBox.critical(self, self.tr('Bandmath Evaluation Error'),
-                    self.tr('Couldn\'t evaluate band-math expression') +
-                    f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
-                return
-
-    def bandmath_progress_callback(self, msg):
-        print(f"Bandmath progress:\n{msg}")
-
-    def bandmath_error_callback(self, task: ParallelTaskProcess):
-        print(f"Task error:\n{task.get_error()}")
-
     def show_bandmath_dialog(self):
         dialog = BandMathDialog(self._app_state, parent=self)
         if dialog.exec() == QDialog.Accepted:
@@ -884,7 +787,7 @@ class DataVisualizerApp(QMainWindow):
             variables = dialog.get_variable_bindings()
             result_name = dialog.get_result_name()
             batch_enabled = dialog.is_batch_processing_enabled()
-            load_into_wiser = dialog.is_load_into_wiser_enabled()
+            load_into_wiser = dialog.load_results_into_wiser()
 
             logger.info(f'Evaluating band-math expression:  {expression}\n' +
                         f'Variable bindings:\n{pprint.pformat(variables)}\n' +
@@ -896,11 +799,11 @@ class DataVisualizerApp(QMainWindow):
             try:
                 if not result_name:
                     result_name = self.tr('Computed')
-                success_callback = lambda results: self.bandmath_success_callback(results, expr_info, expression, \
+                success_callback = lambda results: bandmath_success_callback(self, self._app_state, results, expr_info, expression, \
                                                                   result_name, batch_enabled, load_into_wiser)
-                process_manager = bandmath.eval_bandmath_expr(success_callback= success_callback, \
-                                                              progress_callback=self.bandmath_progress_callback, \
-                                                              error_callback=self.bandmath_error_callback, \
+                process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback, \
+                                                              progress_callback=bandmath_progress_callback, \
+                                                              error_callback=bandmath_error_callback, \
                                                               bandmath_expr=expression, expr_info=expr_info, \
                                                               app_state=self._app_state, result_name=result_name, \
                                                               cache=self._data_cache, variables=variables, \
