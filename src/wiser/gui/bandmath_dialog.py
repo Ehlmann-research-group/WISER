@@ -403,7 +403,7 @@ class ImageBandBatchChooserWidget(QWidget):
             self._ledit_value.setPlaceholderText("Wavelength")
             self._ledit_value.setValidator(self._float_validator_value)
             if not self._ledit_eps.text():
-                self._ledit_eps.setText("5")
+                self._ledit_eps.setText("20")
             # Default to a common unit if nothing selected yet
             if self._cmb_units.currentIndex() < 0:
                 self._cmb_units.setCurrentIndex(self._cmb_units.findText("nm"))

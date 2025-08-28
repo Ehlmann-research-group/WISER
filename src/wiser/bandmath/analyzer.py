@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 import lark
 import numpy as np
 
-from wiser.raster.dataset import RasterDataSet, RasterDataBand
+from wiser.raster.dataset import RasterDataSet, RasterDataBand, RasterBand
 from wiser.raster.spectrum import Spectrum
 
 from .types import VariableType, BandMathValue, BandMathEvalError, BandMathExprInfo
@@ -129,7 +129,7 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             # TODO(donnie):  What about raster bands?
 
             if _type in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND]:
-                if isinstance(bmv.value, (RasterDataSet, RasterDataBand)):
+                if isinstance(bmv.value, (RasterDataSet, RasterBand)):
                     info.spatial_metadata_source = bmv.value.get_spatial_metadata()
 
             if _type in [VariableType.IMAGE_CUBE, VariableType.SPECTRUM]:

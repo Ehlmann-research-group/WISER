@@ -13,7 +13,7 @@ from .dataset_impl import RasterDataImpl, SaveState, GDALRasterDataImpl, \
     PDRRasterDataImpl, NumPyRasterDataImpl, ENVI_GDALRasterDataImpl, \
     NetCDF_GDALRasterDataImpl, GTiff_GDALRasterDataImpl, PDS4_GDALRasterDataImpl, \
     JP2_GDAL_PDR_RasterDataImpl
-from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH
+from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH, KNOWN_SPECTRAL_UNITS
 from .utils import (find_band_near_wavelength, normalize_ndarray, can_transform_between_srs,
                     have_spatial_overlap, build_band_info_from_wavelengths)
 from .data_cache import DataCache
@@ -149,16 +149,22 @@ def dict_list_equal(
 
 class SpatialMetadata():
 
-    def __init__(self, geo_transform, wkt_spatial_reference):
+    def __init__(self, geo_transform: Tuple[float, float, float, float, float, float], wkt_spatial_reference: str):
+        assert isinstance(geo_transform, tuple) and len(geo_transform) == 6, f"geo_transform must be a tuple of length 6, got {geo_transform}"
+        assert isinstance(wkt_spatial_reference, str) or wkt_spatial_reference is None, f"wkt_spatial_reference must be a string or None, got {wkt_spatial_reference}"
         self._geo_transform = geo_transform
         self._wkt_spatial_reference = wkt_spatial_reference
         
     def get_geo_transform(self) -> Tuple:
         return self._geo_transform
     
-    def get_spatial_ref(self) -> osr.SpatialReference:
-        srs = osr.SpatialReference()
-        srs.ImportFromWkt(self._wkt_spatial_reference)
+    def get_spatial_ref(self) -> Optional[osr.SpatialReference]:
+        srs = None
+        if self._wkt_spatial_reference:
+            srs = osr.SpatialReference()
+            print(f"!@# Trying to import wkt_spatial_reference: {self._wkt_spatial_reference}")
+            print(f"!@# Type of wkt_spatial_reference: {type(self._wkt_spatial_reference)}")
+            srs.ImportFromWkt(self._wkt_spatial_reference)
         return srs
 
     def __eq__(self, other: 'SpatialMetadata') -> bool:
@@ -1350,6 +1356,7 @@ class RasterBand(ABC):
         return self._dataset
 
     def get_spatial_metadata(self) -> SpatialMetadata:
+        print(f"$&! getting rasterband spatial metadata")
         ds = self._dataset
         spatial_metadata = SpatialMetadata(ds._geo_transform,
                                            ds._wkt_spatial_reference)
@@ -1456,14 +1463,19 @@ class RasterDataDynamicBand(RasterBand, Serializable):
         self._wavelength_value = wavelength_value
         self._wavelength_units = wavelength_units
         self._epsilon = epsilon
-    
+
     def get_data(self, filter_data_ignore_value: bool = True) -> np.ndarray:
         if self._band_index is not None:
             return self._dataset.get_band_data(self._band_index, filter_data_ignore_value)
         else:
             band_info = self._dataset.get_band_info()
+            print(f"self._wavelength_value: {self._wavelength_value}")
+            print(f"self._wavelength_units: {self._wavelength_units}")
+            print(f"type of self._wavelength_value: {type(self._wavelength_value)}")
+            print(f"type of self._wavelength_units: {type(self._wavelength_units)}")
             wavelength = self._wavelength_value * self._wavelength_units
-            band = find_band_near_wavelength(band_info, wavelength, self._epsilon)
+            epsilon_quantity = self._epsilon * self._wavelength_units
+            band = find_band_near_wavelength(band_info, wavelength, epsilon_quantity)
             self._band_index = band
             return self._dataset.get_band_data(band, filter_data_ignore_value)
         
@@ -1473,7 +1485,8 @@ class RasterDataDynamicBand(RasterBand, Serializable):
         else:
             band_info = self._dataset.get_band_info()
             wavelength = self._wavelength_value * self._wavelength_units
-            band = find_band_near_wavelength(band_info, wavelength, self._epsilon)
+            epsilon_quantity = self._epsilon * self._wavelength_units
+            band = find_band_near_wavelength(band_info, wavelength, epsilon_quantity)
             return self._dataset.get_band_stats(band)
 
     def is_metadata_same(self, other: 'RasterDataDynamicBand') -> bool:
@@ -1496,11 +1509,12 @@ class RasterDataDynamicBand(RasterBand, Serializable):
 
 
     @staticmethod
-    def deserialize_into_class(band_index: int, band_metadata: Dict) -> 'RasterDataBatchBand':
+    def deserialize_into_class(band_index: int, band_metadata: Dict) -> 'RasterDataDynamicBand':
+        print(f"!@# Deserializing into RasterDataDynamicBand")
         from wiser.raster.loader import RasterDataLoader
         loader = RasterDataLoader()
         wavelength_value = float(band_metadata['wavelength_value']) if band_metadata['wavelength_value'] is not None else None
-        wavelength_units = band_metadata['wavelength_units']
+        wavelength_units = KNOWN_SPECTRAL_UNITS.get(band_metadata.get('wavelength_units', None), None)
         epsilon = float(band_metadata['epsilon']) if band_metadata['epsilon'] is not None else None
         assert band_index is not None or (wavelength_value is not None and wavelength_units is not None and epsilon is not None), \
             "Either band_index or wavelength_value, wavelength_units, and epsilon must be provided"
@@ -1514,6 +1528,12 @@ class RasterDataDynamicBand(RasterBand, Serializable):
                                                         band_metadata['dataset_metadata'])
         else:
             dataset = loader.load_from_file(band_metadata['filepath'], interactive=False)[0]
+        if 'dataset_metadata' in band_metadata:
+            print(f"!@# Copying serialized metadata from band_metadata['dataset_metadata']:\n{band_metadata['dataset_metadata']}")
+            dataset.copy_serialized_metadata_from(band_metadata['dataset_metadata'])
+        else:
+            print(f"!@# No dataset_metadata in band_metadata")
+
         return RasterDataDynamicBand(dataset, band_index, wavelength_value, wavelength_units, epsilon)
     
     def get_serialized_form(self) -> SerializedForm:
