@@ -112,7 +112,6 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
 
             elif result_type == VariableType.IMAGE_BAND:
                 # Convert the image band into a 1-band image cube
-                print(f"Return type is image band")
                 result = result[np.newaxis, :]
                 new_dataset = loader.dataset_from_numpy_array(result, app_state.get_cache())
 
@@ -124,13 +123,8 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
                 new_dataset.set_description(
                     f'Computed image-band:  {expression} ({timestamp})')
 
-                print(f"!@# expr_info.spatial_metadata_source: {expr_info.spatial_metadata_source}")
-                print(f"!@# type of expr_info.spatial_metadata_source: {type(expr_info.spatial_metadata_source)}")
                 if expr_info.spatial_metadata_source:
-                    print(f"!@# Copying spatial metadata from expr_info.spatial_metadata_source")
                     new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-                else:
-                    print(f"expr_info.spatial_metadata_source is None")
 
                 app_state.add_dataset(new_dataset)
 

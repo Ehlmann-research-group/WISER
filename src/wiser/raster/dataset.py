@@ -162,8 +162,6 @@ class SpatialMetadata():
         srs = None
         if self._wkt_spatial_reference:
             srs = osr.SpatialReference()
-            print(f"!@# Trying to import wkt_spatial_reference: {self._wkt_spatial_reference}")
-            print(f"!@# Type of wkt_spatial_reference: {type(self._wkt_spatial_reference)}")
             srs.ImportFromWkt(self._wkt_spatial_reference)
         return srs
 
@@ -1469,10 +1467,6 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             return self._dataset.get_band_data(self._band_index, filter_data_ignore_value)
         else:
             band_info = self._dataset.get_band_info()
-            print(f"self._wavelength_value: {self._wavelength_value}")
-            print(f"self._wavelength_units: {self._wavelength_units}")
-            print(f"type of self._wavelength_value: {type(self._wavelength_value)}")
-            print(f"type of self._wavelength_units: {type(self._wavelength_units)}")
             wavelength = self._wavelength_value * self._wavelength_units
             epsilon_quantity = self._epsilon * self._wavelength_units
             band = find_band_near_wavelength(band_info, wavelength, epsilon_quantity)
@@ -1510,7 +1504,6 @@ class RasterDataDynamicBand(RasterBand, Serializable):
 
     @staticmethod
     def deserialize_into_class(band_index: int, band_metadata: Dict) -> 'RasterDataDynamicBand':
-        print(f"!@# Deserializing into RasterDataDynamicBand")
         from wiser.raster.loader import RasterDataLoader
         loader = RasterDataLoader()
         wavelength_value = float(band_metadata['wavelength_value']) if band_metadata['wavelength_value'] is not None else None
@@ -1529,10 +1522,7 @@ class RasterDataDynamicBand(RasterBand, Serializable):
         else:
             dataset = loader.load_from_file(band_metadata['filepath'], interactive=False)[0]
         if 'dataset_metadata' in band_metadata:
-            print(f"!@# Copying serialized metadata from band_metadata['dataset_metadata']:\n{band_metadata['dataset_metadata']}")
             dataset.copy_serialized_metadata_from(band_metadata['dataset_metadata'])
-        else:
-            print(f"!@# No dataset_metadata in band_metadata")
 
         return RasterDataDynamicBand(dataset, band_index, wavelength_value, wavelength_units, epsilon)
     

@@ -1031,10 +1031,7 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
             ('wavelength_value' in var_value.get_metadata() and var_value.get_metadata()['wavelength_value'] is not None), \
             "Band index or wavelength value is required for Image Band Batch variables"
         serializable_class = var_value.get_serializable_class()
-        print(f"!!!serializable_class: {serializable_class}")
-        print(f"!!! type of serializable_class: {type(serializable_class)}")
         if issubclass(serializable_class, RasterDataBatchBand):
-            print(f"!@# Serializing RasterDataBatchBand")
             band_index = var_value.get_metadata().get('band_index', None)
             wavelength_value = var_value.get_metadata().get('wavelength_value', None)
             wavelength_units = var_value.get_metadata().get('wavelength_units', None)
@@ -1044,8 +1041,6 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
                                         wavelength_value=wavelength_value, \
                                         wavelength_units=wavelength_units, epsilon=epsilon)
         else:
-            print(f"!!# serializable_class: {serializable_class}")
-            print(f"!!# var_value.get_metadata(): {var_value.get_metadata()}")
             serialize_metadata = var_value.get_metadata()
             serialize_metadata.update({'filepath': filepath})
             band_index  = serialize_metadata.get('band_index', None)
