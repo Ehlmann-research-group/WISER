@@ -986,12 +986,12 @@ def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_
                             number_of_intermediates, tree, use_old_method, test_parallel_io, child_conn)
     # At this point, everything in the folder has been processed. Now we collect the results to put them
     # on the return queue.
-    serialized_results: List[Tuple[VariableType, SerializedForm, str]] = []
-    for result_type, result_value, result_name in results:
+    serialized_results: List[Tuple[VariableType, SerializedForm, str, BandMathExprInfo]] = []
+    for result_type, result_value, result_name, result_expr_info in results:
         if isinstance(result_value, Serializable):
-            serialized_results.append((result_type, result_value.get_serialized_form(), result_name))
+            serialized_results.append((result_type, result_value.get_serialized_form(), result_name, result_expr_info))
         else:
-            serialized_results.append((result_type, result_value, result_name))
+            serialized_results.append((result_type, result_value, result_name, result_expr_info))
     return_queue.put(serialized_results)
 
 def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value: Union[SerializedForm, str, bool], \
@@ -1155,16 +1155,17 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
     return prepared_variables
 
 def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names_list: List[str], cache: DataCache,
-        prepared_variables_list: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
-        lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-        use_old_method = False, test_parallel_io = False, child_conn: mp_conn.Connection = None) -> List[Tuple[RasterDataSet.__class__, RasterDataSet]]:
+            prepared_variables_list: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
+            lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+            use_old_method = False, test_parallel_io = False, child_conn: mp_conn.Connection = None \
+        ) -> List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]]:
     '''
     This function is used to evaluate one band math expression. Now this expression may or may not be 
     an expression that has batching. If it does, then we will have to do the batching logic here.
     '''
     assert len(expr_info_list) == len(prepared_variables_list), "The number of expr_info_list and prepared_variables_list must be the same"
     count = 0
-    outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet]] = []
+    outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]] = []
     for lower_variables, expr_info, result_name in zip(prepared_variables_list, expr_info_list, result_names_list):
         count += 1
         child_conn.send({"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Running"})
@@ -1238,7 +1239,7 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
                 raise e
             finally:
                 eval.stop()
-            outputs.append((RasterDataSet, out_dataset, result_name))
+            outputs.append((RasterDataSet, out_dataset, result_name, expr_info))
         else:
             try:
                 eval = BandMathEvaluator(lower_variables, lower_functions)
@@ -1249,7 +1250,7 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
                 raise e
             finally:
                 eval.stop()
-            outputs.append((result_value.type, result_value.value, result_name))
+            outputs.append((result_value.type, result_value.value, result_name, expr_info))
 
     child_conn.send({"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Finished"})
     return outputs

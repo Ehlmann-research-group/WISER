@@ -800,7 +800,7 @@ class DataVisualizerApp(QMainWindow):
                 if not result_name:
                     result_name = self.tr('Computed')
                 success_callback = lambda results: bandmath_success_callback(parent=self, app_state=self._app_state, results=results, \
-                                                                  expr_info=expr_info, expression=expression, batch_enabled=batch_enabled, \
+                                                                  expression=expression, batch_enabled=batch_enabled, \
                                                                   load_into_wiser=load_into_wiser)
                 process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback, \
                                                               progress_callback=bandmath_progress_callback, \
