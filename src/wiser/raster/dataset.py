@@ -1206,6 +1206,7 @@ class RasterDataSet(Serializable):
         object and so if we reconstruct this object just from the impl dataset, we would
         not get this changed metadata. 
         '''
+        serial_save_state = dataset_metadata.get('save_state', None)
         serial_elem_type = dataset_metadata.get('elem_type', None)
         serial_data_ignore_value = dataset_metadata.get('data_ignore_value', None)
         serial_bad_bands = dataset_metadata.get('bad_bands', None)
@@ -1213,6 +1214,8 @@ class RasterDataSet(Serializable):
         serial_geo_transform = dataset_metadata.get('geo_transform', None)
         serial_wavelengths: List[u.Quantity] = dataset_metadata.get('wavelengths', None)
         serial_wavelength_units = dataset_metadata.get('wavelength_units', None)
+        if serial_save_state:
+            self.set_save_state(serial_save_state)
         if serial_elem_type:
             self._elem_type = serial_elem_type
         if serial_data_ignore_value:
