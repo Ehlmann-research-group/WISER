@@ -1077,7 +1077,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         """Tests that a GeoTIFF `.tiff` file can be successfully opened and loaded into WISER."""
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
-        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm.hdr"))
+        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm_epsg4087.tif"))
 
         caltech_ds = self.test_model.load_dataset(target_path)
 
