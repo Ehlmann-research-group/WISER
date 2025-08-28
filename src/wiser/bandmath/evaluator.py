@@ -817,7 +817,7 @@ def eval_bandmath_expr(
         functions: Dict[str, BandMathFunction] = None, succeeded_callback: Callable = lambda _: None, \
         progress_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
         started_callback: Callable = lambda _: None, cancelled_callback: Callable = lambda _: None, \
-        app_state: 'ApplicationState' = None, use_old_method = False, test_parallel_io=True
+        app_state: 'ApplicationState' = None, use_synchronous_method = False, test_parallel_io=False
         ) -> ProcessManager:
     '''
     Evaluate a band-math expression using the specified variable and function
@@ -892,7 +892,7 @@ def eval_bandmath_expr(
         "lower_functions": lower_functions,
         "number_of_intermediates": number_of_intermediates,
         "tree": tree,
-        "use_old_method": use_old_method,
+        "use_synchronous_method": use_synchronous_method,
         "test_parallel_io": test_parallel_io
     }
 
@@ -935,7 +935,7 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
 def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
                         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-                        use_old_method: bool, test_parallel_io: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+                        use_synchronous_method: bool, test_parallel_io: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
     # First we will decide if we are doing batching or not. If we are doing batching we get the filepaths, if we are not doing
     # batching we will make the file paths = [None]
     is_batch = is_batch_job(serialized_variables)
@@ -950,7 +950,7 @@ def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_
     prepared_result_names_list = prepare_result_names(result_name, filepaths)
     # This function actually calls the lark transformer and does the heavy lifting.
     results = eval_full_bandmath_expr(prepared_expr_info_list, prepared_result_names_list, cache, prepared_variables_list, lower_functions, \
-                            number_of_intermediates, tree, use_old_method, test_parallel_io, child_conn)
+                            number_of_intermediates, tree, use_synchronous_method, test_parallel_io, child_conn)
     # At this point, everything in the folder has been processed. Now we collect the results to put them
     # on the return queue.
     serialized_results: List[Tuple[VariableType, SerializedForm, str, BandMathExprInfo]] = []
@@ -1170,7 +1170,7 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
 def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names_list: List[str], cache: DataCache,
             prepared_variables_list: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
             lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-            use_old_method = False, test_parallel_io = False, child_conn: mp_conn.Connection = None \
+            use_synchronous_method = False, test_parallel_io = False, child_conn: mp_conn.Connection = None \
         ) -> List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]]:
     '''
     This function is used to evaluate one band math expression. Now this expression may or may not be 
@@ -1194,7 +1194,7 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
 
         if test_parallel_io or \
         (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
-        and not use_old_method):
+        and not use_synchronous_method):
             print(f"!@# testing parallel io for {result_name}")
             try:
                 eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
