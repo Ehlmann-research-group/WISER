@@ -1026,8 +1026,6 @@ class RasterDataSet(Serializable):
             self._wkt_spatial_reference = source.get_wkt_spatial_reference()
             if self._spatial_ref is None:
                 self._spatial_ref = osr.SpatialReference()
-                print(f"!## wkt_spatial_reference: {self._wkt_spatial_reference}")
-                print(f"!## type of wkt_spatial_reference: {type(self._wkt_spatial_reference)}")
                 self._spatial_ref.ImportFromWkt(self._wkt_spatial_reference )
         else:
             self._wkt_spatial_reference = None

@@ -1195,7 +1195,6 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
         if test_parallel_io or \
         (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
         and not use_synchronous_method):
-            print(f"!@# testing parallel io for {result_name}")
             try:
                 eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
                 bands = 1
@@ -1257,7 +1256,6 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
                 eval.stop()
             outputs.append((RasterDataSet, out_dataset, result_name, expr_info))
         else:
-            print(f"!@# testing regular bandmath for {result_name}")
             try:
                 eval = BandMathEvaluator(lower_variables, lower_functions)
                 result_value = eval.transform(tree)
