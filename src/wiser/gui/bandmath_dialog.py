@@ -366,7 +366,6 @@ class ImageBandBatchChooserWidget(QWidget):
         if mode == self.Mode.INDEX.value:
             index_text = self._ledit_value.text().strip()
             index = int(index_text) if index_text.isdigit() else None
-            print(f"Index: {index}")
             return {
                 "mode": mode,
                 "index": index,
@@ -404,7 +403,7 @@ class ImageBandBatchChooserWidget(QWidget):
             self._ledit_value.setPlaceholderText("Wavelength")
             self._ledit_value.setValidator(self._float_validator_value)
             if not self._ledit_eps.text():
-                self._ledit_eps.setText("5")
+                self._ledit_eps.setText("20")
             # Default to a common unit if nothing selected yet
             if self._cmb_units.currentIndex() < 0:
                 self._cmb_units.setCurrentIndex(self._cmb_units.findText("nm"))
@@ -757,7 +756,7 @@ class BandMathDialog(QDialog):
         job.get_btn_cancel().setEnabled(False)
 
         bandmath_success_callback(parent=self, app_state=self._app_state,
-                                results=results, expr_info=job.get_expr_info(), 
+                                results=results,
                                 expression=job.get_expression(),
                                 batch_enabled=True, load_into_wiser=job.get_load_into_wiser())
 

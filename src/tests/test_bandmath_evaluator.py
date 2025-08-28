@@ -17,6 +17,8 @@ from wiser.raster.loader import RasterDataLoader
 from wiser.raster.data_cache import DataCache
 from wiser.raster.serializable import SerializedForm
 
+from test_utils.test_model import WiserTestModel
+
 
 def make_image(bands, width, height):
     arr = np.zeros(shape=(bands, width, height))
@@ -40,6 +42,13 @@ class TestBandmathEvaluator(unittest.TestCase):
     Exercise code in the bandmath.evaluator module.
     '''
 
+    def setUp(self):
+        self.test_model = WiserTestModel()
+
+    def tearDown(self):
+        self.test_model.close_app()
+        del self.test_model
+
     #===========================================================================
     # NUMBERS-ONLY TEST
 
@@ -56,11 +65,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='(2 * 3 + 4) / 2', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         result = process_manager.get_task().get_result()
 
-        for result_type, result_value, result_name in result:
+        for result_type, result_value, result_name, expr_info in result:
             self.assertEqual(result_type, VariableType.NUMBER)
             self.assertEqual(result_value, 5)
 
@@ -91,11 +99,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             variables={'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, _ in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -138,11 +145,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='image + 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         result = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in result:
+        for result_type, result_dataset, result_name, expr_info in result:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
         
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -185,11 +191,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             variables={'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -233,11 +238,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='b + 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'b':(VariableType.IMAGE_BAND, band)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_band, result_name in results:
+        for result_type, result_band, result_name, expr_info in results:
             self.assertEqual(result_type, VariableType.IMAGE_BAND)
 
             # Make sure output band has correct results
@@ -264,11 +268,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='S1 + 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'s1':(VariableType.SPECTRUM, spectrum)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_spectrum, result_name in results:
+        for result_type, result_spectrum, result_name, expr_info in results:
             self.assertEqual(result_type, VariableType.SPECTRUM)
 
             # Make sure output spectrum has correct results
@@ -295,11 +298,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='0.5 + image', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -335,11 +337,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='0.5 + b', expr_info=expr_info, result_name=None, cache=cache,
             variables={'b':(VariableType.IMAGE_BAND, band)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_band, result_name in results:
+        for result_type, result_band, result_name, expr_info in results:
             self.assertEqual(result_type, VariableType.IMAGE_BAND)
 
             # Make sure output band has correct results
@@ -366,11 +367,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='0.5 + S1', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'s1':(VariableType.SPECTRUM, spectrum)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_spectrum, result_name in results:
+        for result_type, result_spectrum, result_name, expr_info in results:
             self.assertEqual(result_type, VariableType.SPECTRUM)
 
             # Make sure output spectrum has correct results
@@ -408,11 +408,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             variables={'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -459,11 +458,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='image - 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -501,11 +499,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='B1 - 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'B1':(VariableType.IMAGE_BAND, band)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_band, result_name in results:
+        for result_type, result_band, result_name, expr_info in results:
             self.assertEqual(result_type, VariableType.IMAGE_BAND)
 
             # Make sure output band has correct results
@@ -532,11 +529,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='s - 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'s':(VariableType.SPECTRUM, spectrum)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_spectrum, result_name in results:
+        for result_type, result_spectrum, result_name, expr_info in results:
             self.assertEqual(result_type, VariableType.SPECTRUM)
 
             # Make sure output image has correct results
@@ -566,11 +562,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='image * 2', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -607,11 +602,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='2 * image', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -651,11 +645,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='image / 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -708,11 +701,10 @@ class TestBandmathEvaluator(unittest.TestCase):
              'c':(VariableType.IMAGE_CUBE, c),
              'd':(VariableType.SPECTRUM, d)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -771,11 +763,10 @@ class TestBandmathEvaluator(unittest.TestCase):
              'c':(VariableType.IMAGE_CUBE, c),
              'd':(VariableType.SPECTRUM, d)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -834,11 +825,10 @@ class TestBandmathEvaluator(unittest.TestCase):
              'c':(VariableType.IMAGE_CUBE, c),
              'd':(VariableType.SPECTRUM, d)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -897,11 +887,10 @@ class TestBandmathEvaluator(unittest.TestCase):
              'c':(VariableType.IMAGE_CUBE, c),
              'd':(VariableType.SPECTRUM, d)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -947,11 +936,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             bandmath_expr='-a + 1', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'a':(VariableType.IMAGE_CUBE, a)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -993,11 +981,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             variables={'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -1052,11 +1039,10 @@ class TestBandmathEvaluator(unittest.TestCase):
              'c': (VariableType.IMAGE_CUBE, c),
              'd': (VariableType.SPECTRUM, d)}, functions={})
 
-        process_manager.start_task()
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name in results:
+        for result_type, result_dataset, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
@@ -1087,6 +1073,46 @@ class TestBandmathEvaluator(unittest.TestCase):
 
             del result_dataset
 
+    def test_bandmath_metadata_copying(self):
+        """Tests that a GeoTIFF `.tiff` file can be successfully opened and loaded into WISER."""
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm.hdr"))
+
+        caltech_ds = self.test_model.load_dataset(target_path)
+
+        expr_info = get_bandmath_expr_info('a + 0', {'a': (VariableType.IMAGE_CUBE, caltech_ds)}, {})
+        result_name = 'test_result'
+        cache = DataCache()
+        process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
+            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            bandmath_expr='a + 0', expr_info=expr_info, result_name=result_name, cache=cache,
+            variables={'a': (VariableType.IMAGE_CUBE, caltech_ds)}, functions={})
+
+        process_manager.get_task().wait()
+        results = process_manager.get_task().get_result()
+
+        for result_type, result, result_name, expr_info in results:
+            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            if result_type == RasterDataSet:
+                result_arr = result.get_image_data()
+            elif result_type == VariableType.IMAGE_CUBE:
+                result_arr = result
+            else:
+                self.fail(f"Unexpected result type: {result_type}")
+            
+            assert np.allclose(result_arr, caltech_ds.get_image_data())
+
+            assert expr_info.spatial_metadata_source is not None
+            assert expr_info.spectral_metadata_source is not None
+
+            assert expr_info.spatial_metadata_source == caltech_ds.get_spatial_metadata()
+            assert expr_info.spectral_metadata_source == caltech_ds.get_spectral_metadata()
+            
+            del result
+
 if __name__ == '__main__':
     test_class = TestBandmathEvaluator()
-    test_class.test_bandmath_add_band_image()
+    test_class.setUp()
+    test_class.test_bandmath_metadata_copying()
+    test_class.tearDown()

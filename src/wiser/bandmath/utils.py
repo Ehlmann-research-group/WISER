@@ -58,14 +58,14 @@ def bandmath_error_callback(task: ParallelTaskProcess):
     print(f"Task error:\n{task.get_error()}")
 
 def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', results: List[Tuple[VariableType, SerializedForm, str]],
-                    expr_info: BandMathExprInfo, expression: str, batch_enabled: bool, load_into_wiser: bool):
+                    expression: str, batch_enabled: bool, load_into_wiser: bool):
     # If the process gets cancelled, the results will be None. So we do nothing.
     if not results:
         return
     try:
         if batch_enabled and not load_into_wiser:
             return
-        for result_type, result, result_name in results:
+        for result_type, result, result_name, expr_info in results:
             logger.debug(f'Result of band-math evaluation is type ' +
                         f'{result_type}, value:\n{result}')
 
