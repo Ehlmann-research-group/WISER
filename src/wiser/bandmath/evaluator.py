@@ -817,7 +817,7 @@ def eval_bandmath_expr(
         functions: Dict[str, BandMathFunction] = None, succeeded_callback: Callable = lambda _: None, \
         progress_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
         started_callback: Callable = lambda _: None, cancelled_callback: Callable = lambda _: None, \
-        app_state: 'ApplicationState' = None, use_old_method = False, test_parallel_io=False
+        app_state: 'ApplicationState' = None, use_old_method = False, test_parallel_io=True
         ) -> ProcessManager:
     '''
     Evaluate a band-math expression using the specified variable and function
@@ -1031,6 +1031,7 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
             ('wavelength_value' in var_value.get_metadata() and var_value.get_metadata()['wavelength_value'] is not None), \
             "Band index or wavelength value is required for Image Band Batch variables"
         serializable_class = var_value.get_serializable_class()
+        # This should never occur, but if it does we make it a RasterDataDynamicBand
         if issubclass(serializable_class, RasterDataBatchBand):
             band_index = var_value.get_metadata().get('band_index', None)
             wavelength_value = var_value.get_metadata().get('wavelength_value', None)
@@ -1194,6 +1195,7 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
         if test_parallel_io or \
         (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
         and not use_old_method):
+            print(f"!@# testing parallel io for {result_name}")
             try:
                 eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
                 bands = 1
@@ -1215,7 +1217,9 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
                 # We declare the dataset write after so if any errors occur below,
                 # the file gets destroyed (which happens in del of RasterDataSet)
                 out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
-                out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+                # We NO LONGER set the save state here. We must set it in the process that we pass
+                # this piece of data to. If we set it here to IN_DISK_NOT_SAVED, then the garbage
+                # collector will delete the underlying dataset when this process ends.
                 out_dataset.set_dirty()
                 
                 # Based on memory limits (currently set in constants,, but we could make it more adjustable)
@@ -1253,6 +1257,7 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
                 eval.stop()
             outputs.append((RasterDataSet, out_dataset, result_name, expr_info))
         else:
+            print(f"!@# testing regular bandmath for {result_name}")
             try:
                 eval = BandMathEvaluator(lower_variables, lower_functions)
                 result_value = eval.transform(tree)

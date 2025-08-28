@@ -27,7 +27,7 @@ from wiser.raster.serializable import SerializedForm
 from wiser.gui.parallel_task import ParallelTaskProcess
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, SaveState
 from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE, LHS_KEY, RHS_KEY
 
 from PySide2.QtWidgets import QMessageBox, QWidget
@@ -74,10 +74,15 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
 
             loader = app_state.get_loader()
             if result_type == RasterDataSet:
+                print(f"return bandmath result_type: {RasterDataSet}")
                 # TODO (Joshua G-K): Fix this. This passes back a gdal dataset
                 # that has a filepath (for when its out of memory). We need a good way 
                 # to handle this.
-                new_dataset = result
+                new_dataset = RasterDataSet.deserialize_into_class(result.get_serialize_value(), result.get_metadata())
+                # All of the RasterDataSet types coming from BandMath are temporary
+                new_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+
+                print(f"!%$ new_dataset save_state: {new_dataset.get_save_state()}")
 
                 new_dataset.set_name(
                     app_state.unique_dataset_name(result_name))
@@ -92,6 +97,7 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
                 app_state.add_dataset(new_dataset)
 
             elif result_type == VariableType.IMAGE_CUBE:
+                print(f"return result is image cube!!")
                 new_dataset = loader.dataset_from_numpy_array(result, app_state.get_cache())
 
                 if not result_name:

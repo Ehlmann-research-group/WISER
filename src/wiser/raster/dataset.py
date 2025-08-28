@@ -1022,11 +1022,13 @@ class RasterDataSet(Serializable):
         else:
             self._spatial_ref = None
 
-        if source.get_wkt_spatial_reference() is not None:
+        if source.get_wkt_spatial_reference():
             self._wkt_spatial_reference = source.get_wkt_spatial_reference()
             if self._spatial_ref is None:
                 self._spatial_ref = osr.SpatialReference()
-                self._spatial_ref.ImportFromWkt(source.get_wkt_spatial_reference())
+                print(f"!## wkt_spatial_reference: {self._wkt_spatial_reference}")
+                print(f"!## type of wkt_spatial_reference: {type(self._wkt_spatial_reference)}")
+                self._spatial_ref.ImportFromWkt(self._wkt_spatial_reference )
         else:
             self._wkt_spatial_reference = None
 
@@ -1354,7 +1356,6 @@ class RasterBand(ABC):
         return self._dataset
 
     def get_spatial_metadata(self) -> SpatialMetadata:
-        print(f"$&! getting rasterband spatial metadata")
         ds = self._dataset
         spatial_metadata = SpatialMetadata(ds._geo_transform,
                                            ds._wkt_spatial_reference)
