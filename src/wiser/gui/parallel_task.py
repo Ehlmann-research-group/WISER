@@ -128,13 +128,11 @@ class ParallelTaskProcess(ParallelTask):
                     try:
                         msg = self._return_queue.get_nowait()
                         self._result = msg
-                        print(f"!@# Set result to 1: {self._result}")
                     except Exception as e:
                         logger.exception("Failed to read return value: %s", e)
                         self._result = None
                         self._error = e
                         self.error.emit(self)
-                        print(f"!@# Set result to 2: {self._result}")
 
                 if self._parent_conn in ready:
                     try:
@@ -170,13 +168,11 @@ class ParallelTaskProcess(ParallelTask):
                 # return queue should be empty, but if its not, we will get the result
                 if not self._return_queue.empty():
                     self._result = self._return_queue.get()
-                    print(f"!@# Set result to 3: {self._result}")
             except Exception as e:
                 logger.exception("Failed to read return value: %s", e)
                 self._result = None
                 self._error = e
                 self.error.emit(self)
-                print(f"!@# Set result to 4: {self._result}")
         except Exception as e:
             logger.exception(f'Error starting process {self._process_id}: {e}')
             self._error = e
