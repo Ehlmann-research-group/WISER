@@ -203,6 +203,10 @@ class DataVisualizerApp(QMainWindow):
         # TESTING ITEMS
 
         self._invisible_testing_widget = TestingWidget()
+
+        #=======================================
+        # GUI PIECES WITH PERSISTENCE
+        self._bandmath_dialog: BandMathDialog = None
         self._geo_ref_dialog: GeoReferencerDialog = None
         self._crs_creator_dialog: ReferenceCreatorDialog = None
         self._similarity_transform_dialog: SimilarityTransformDialog = None
@@ -780,14 +784,15 @@ class DataVisualizerApp(QMainWindow):
                 self._app_state.add_spectral_library(library)
 
     def show_bandmath_dialog(self):
-        dialog = BandMathDialog(self._app_state, parent=self)
-        if dialog.exec() == QDialog.Accepted:
-            expression = dialog.get_expression()
-            expr_info = dialog.get_expression_info()
-            variables = dialog.get_variable_bindings()
-            result_name = dialog.get_result_name()
-            batch_enabled = dialog.is_batch_processing_enabled()
-            load_into_wiser = dialog.load_results_into_wiser()
+        if not self._bandmath_dialog:
+            self._bandmath_dialog = BandMathDialog(self._app_state, parent=self)
+        if self._bandmath_dialog.exec() == QDialog.Accepted:
+            expression = self._bandmath_dialog.get_expression()
+            expr_info = self._bandmath_dialog.get_expression_info()
+            variables = self._bandmath_dialog.get_variable_bindings()
+            result_name = self._bandmath_dialog.get_result_name()
+            batch_enabled = self._bandmath_dialog.is_batch_processing_enabled()
+            load_into_wiser = self._bandmath_dialog.load_results_into_wiser()
 
             logger.info(f'Evaluating band-math expression:  {expression}\n' +
                         f'Variable bindings:\n{pprint.pformat(variables)}\n' +

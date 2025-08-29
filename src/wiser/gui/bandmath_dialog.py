@@ -686,6 +686,14 @@ class BandMathDialog(QDialog):
         self._ui.ledit_expression.editingFinished.connect(lambda: self._analyze_expr())
         self._ui.btn_add_to_saved.clicked.connect(self._on_add_expr_to_saved)
 
+        
+        #==================================
+        # Configure the clear inputs button
+        reset_button = self._ui.buttonBox.button(QDialogButtonBox.Reset)
+        reset_button.setText('Clear Inputs')
+        reset_button.clicked.connect(self._on_clear_inputs)
+
+
         #==================================
         # Variable-bindings table
 
@@ -1022,22 +1030,35 @@ class BandMathDialog(QDialog):
             self._ui.ledit_input_folder.setText(folder)
             self._analyze_expr()
     
+    def _clear_input_folder(self):
+        '''
+        Clears the batch processing input folder line edit.
+        '''
+        self._ui.ledit_input_folder.clear()
+
     def _get_input_folder(self):
         return self._ui.ledit_input_folder.text()
 
+    def _clear_output_folder(self):
+        '''
+        Clears the batch processing output folder line edit.
+        '''
+        self._ui.ledit_output_folder.clear()
+
     def _get_output_folder(self):
         return self._ui.ledit_output_folder.text()
+
+    def _uncheck_load_into_wiser(self):
+        '''
+        Unchecks the load result into wiser check box.
+        '''
+        self._ui.chkbox_load_into_wiser.setChecked(False)
 
     def load_results_into_wiser(self):
         return self._ui.chkbox_load_into_wiser.isChecked()
     
     def is_batch_processing_enabled(self):
         return self._ui.chkbox_enable_batch.isChecked()
-
-    def _init_test_bandmath_processing(self):
-
-        return 
-
 
     def _get_batch_processing_ui_components(self) -> List[QObject]:
         ui_components = [
@@ -1108,20 +1129,26 @@ class BandMathDialog(QDialog):
         method also analyzes the expression to predict the type, shape and size
         of the expression's result, and displays this information in the UI.
         '''
+        print(f"analyzing expression")
         self._expr_info = None
         expr = self.get_expression()
         if not expr:
+            print(f"No expression")
             return
 
         # Try to identify details about the expression by parsing and analyzing
         # it.  This could fail, of course.
         try:
+            print(f"Trying to identify variables: {expr}")
             # Try to identify variables in the band-math expression.
             variables: Set[str] = bandmath.get_bandmath_variables(expr)
+            print(f"variables: {variables}")
             self._sync_binding_table_with_variables(variables)
 
             bindings = self.get_variable_bindings()
             
+            print(f"bindings: {bindings}")
+
             if not all_bindings_specified(bindings):
                 self._ui.lbl_result_info.setText(self.tr(
                     'Please specify values for all variables'))
@@ -1193,9 +1220,13 @@ class BandMathDialog(QDialog):
         for var in variables:
             # Look for the variable in the current table of bindings.
             index = self._find_variable_in_bindings(var)
+            # If there is a row for batch processing and batch processing is disabled, remove the row
+            # If there is no row for batch processing and batch processing is enabled, add a new row
             batch_proc_mismatch = (self._is_batch_var_row(index) != self.is_batch_processing_enabled())
-            if index == -1 or batch_proc_mismatch:
-                if batch_proc_mismatch and index != -1:
+            # If the current row's dataset got deleted, we need to readd the row
+            row_state_changed = not self.is_row_state_unchanged(index)
+            if index == -1 or batch_proc_mismatch or row_state_changed:
+                if (batch_proc_mismatch and index != -1) or row_state_changed:
                     self._ui.tbl_variables.removeRow(index)
 
                 # Couldn't find variable in the table of bindings.
@@ -1448,6 +1479,32 @@ class BandMathDialog(QDialog):
         self._ui.ledit_expression.setText(expr)
         self._analyze_expr()
 
+    def _on_clear_inputs(self, checked: bool):
+        '''
+        Clears all inputs. The inputs to clear are the expression, the variable bindings, the result_name,
+        the input_folder, the output folder, and the load result into wiser check box
+        '''
+        self._clear_expression()
+        self._clear_variable_bindings()
+        self._clear_result_name()
+        if self.is_batch_processing_enabled():
+            self._clear_input_folder()
+            self._clear_output_folder()
+            self._uncheck_load_into_wiser()
+        self._analyze_expr()
+
+    def _clear_variable_bindings(self) -> None:
+        """
+        Removes all rows and associated widgets from the variable-bindings table.
+        """
+        tbl = self._ui.tbl_variables
+        for row in range(tbl.rowCount()):
+            for col in range(tbl.columnCount()):
+                widget = tbl.cellWidget(row, col)
+                if widget is not None:
+                    widget.deleteLater()
+                    tbl.removeCellWidget(row, col)
+        tbl.setRowCount(0)
 
     def _check_saved_expressions(self):
         if self._ui.cbox_saved_exprs.count() > 0 and self._saved_exprs_modified:
@@ -1457,6 +1514,12 @@ class BandMathDialog(QDialog):
 
             if response == QMessageBox.Yes:
                 self._on_save_saved_exprs()
+
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # This code is run right before the QDialog is shown
+        self._analyze_expr()
 
 
     def accept(self):
@@ -1483,6 +1546,63 @@ class BandMathDialog(QDialog):
 
         super().reject()
 
+    def is_row_state_unchanged(self, row: int) -> bool:
+        """
+        Returns True if the row's currently selected resource still exists in app_state,
+        otherwise False. For batch/other types that don't bind to app_state objects,
+        returns True.
+        """
+        tbl = self._ui.tbl_variables
+        if row < 0 or row >= tbl.rowCount():
+            return True  # out of range -> treat as unchanged
+
+        # Column 1: variable type (QComboBox with data=bandmath.VariableType)
+        type_widget = tbl.cellWidget(row, 1)
+        if not isinstance(type_widget, QComboBox):
+            return True
+        var_type = type_widget.currentData()
+
+        # Column 2: value widget (chooser)
+        value_widget = tbl.cellWidget(row, 2)
+        if value_widget is None:
+            return True  # nothing bound yet
+
+        # IMAGE_CUBE -> dataset ID from a QComboBox
+        if var_type == bandmath.VariableType.IMAGE_CUBE:
+            if isinstance(value_widget, QComboBox):
+                ds_id = value_widget.currentData()
+                return ds_id is not None and self._app_state.has_dataset(ds_id)
+            return False
+
+        # IMAGE_BAND -> dataset ID from DatasetBandChooserWidget
+        if var_type == bandmath.VariableType.IMAGE_BAND:
+            if isinstance(value_widget, DatasetBandChooserWidget):
+                ds_id, _band_idx = value_widget.get_ds_band()
+                return ds_id is not None and self._app_state.has_dataset(ds_id)
+            return False
+
+        # SPECTRUM -> either spectrum ID (int) or (lib_id, spectrum_index) tuple
+        if var_type == bandmath.VariableType.SPECTRUM:
+            if isinstance(value_widget, QComboBox):
+                info = value_widget.currentData()
+                if isinstance(info, int):
+                    return self._app_state.has_spectrum(info)
+                if isinstance(info, tuple) and len(info) == 2:
+                    lib_id, spectrum_index = info
+                    if not self._app_state.has_spectral_library(lib_id):
+                        return False
+                    lib = self._app_state.get_spectral_library(lib_id)
+                    return 0 <= spectrum_index < lib.num_spectra()
+            return False
+
+        # Batch/other types don't reference app_state entities directly
+        return True
+
+    def _clear_expression(self) -> str:
+        '''
+        Clears the text in the expression editor.
+        '''
+        self._ui.ledit_expression.clear()
 
     def get_expression(self) -> str:
         '''
@@ -1506,32 +1626,36 @@ class BandMathDialog(QDialog):
         actually reflect the expression, or that there are no semantic errors
         or mismatched types in the expression.
         '''
+        print(f"Getting variable bindings")
         variables = {}
         for row in range(self._ui.tbl_variables.rowCount()):
             var = self._ui.tbl_variables.item(row, 0).text()
             var_type = self._ui.tbl_variables.cellWidget(row, 1).currentData()
             value = None
 
+            print(f"Value before: {value}")
+
             if var_type == bandmath.VariableType.IMAGE_CUBE:
                 ds_id = self._ui.tbl_variables.cellWidget(row, 2).currentData()
-                if ds_id is not None:
+                if ds_id is not None and self._app_state.has_dataset(ds_id):
                     value = self._app_state.get_dataset(ds_id)
 
             elif var_type == bandmath.VariableType.IMAGE_BAND:
                 (ds_id, band_index) = self._ui.tbl_variables.cellWidget(row, 2).get_ds_band()
-                if ds_id is not None and band_index is not None:
+                if ds_id is not None and band_index is not None and self._app_state.has_dataset(ds_id):
                     dataset = self._app_state.get_dataset(ds_id)
                     value = RasterDataBand(dataset, band_index)
 
             elif var_type == bandmath.VariableType.SPECTRUM:
                 spectrum_info = self._ui.tbl_variables.cellWidget(row, 2).currentData()
-                if isinstance(spectrum_info, int):
+                if isinstance(spectrum_info, int) and self._app_state.has_spectrum(spectrum_info):
                     value = self._app_state.get_spectrum(spectrum_info)
 
                 elif isinstance(spectrum_info, tuple):
                     (lib_id, spectrum_index) = spectrum_info
-                    lib = self._app_state.get_spectral_library(lib_id)
-                    value = lib.get_spectrum(spectrum_index)
+                    if self._app_state.has_spectral_library(lib_id):
+                        lib = self._app_state.get_spectral_library(lib_id)
+                        value = lib.get_spectrum(spectrum_index)
 
                 else:
                     raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
@@ -1555,9 +1679,18 @@ class BandMathDialog(QDialog):
                 raise AssertionError(
                     f'Unrecognized binding type {var_type} for variable {var}')
 
+            print(f"Value after: {value}")
+
             variables[var] = (var_type, value)
 
         return variables
+
+
+    def _clear_result_name(self) -> None:
+        '''
+        Clears the result name / result suffix line edit
+        '''
+        self._ui.ledit_result_name.clear()
 
 
     def get_result_name(self) -> Optional[str]:
