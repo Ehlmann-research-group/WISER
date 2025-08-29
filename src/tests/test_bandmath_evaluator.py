@@ -1,12 +1,16 @@
-import sys
+
+import tests.context
+# import context
+
+import multiprocessing as mp
+
 import os
+import sys
 
 import unittest
 import numpy as np
 from typing import List, Tuple
 
-import tests.context
-# import context
 
 from wiser import bandmath
 from wiser.bandmath import VariableType
@@ -1091,6 +1095,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
+
 
         for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE

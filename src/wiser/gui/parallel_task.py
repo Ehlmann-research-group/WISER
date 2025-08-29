@@ -132,6 +132,8 @@ class ParallelTaskProcess(ParallelTask):
                     except Exception as e:
                         logger.exception("Failed to read return value: %s", e)
                         self._result = None
+                        self._error = e
+                        self.error.emit(self)
                         print(f"!@# Set result to 2: {self._result}")
 
                 if self._parent_conn in ready:
@@ -141,6 +143,9 @@ class ParallelTaskProcess(ParallelTask):
                     except (EOFError, OSError):
                         # Child closed its end; keep waiting for sentinel
                         pass
+                    except Exception as e:
+                        self._error = e
+                        self.error.emit(self)
                 # If the process is ready, we need to flush all the messages on the parent
                 # pipe and close the process
                 if self._process.sentinel in ready:
@@ -169,6 +174,8 @@ class ParallelTaskProcess(ParallelTask):
             except Exception as e:
                 logger.exception("Failed to read return value: %s", e)
                 self._result = None
+                self._error = e
+                self.error.emit(self)
                 print(f"!@# Set result to 4: {self._result}")
         except Exception as e:
             logger.exception(f'Error starting process {self._process_id}: {e}')
