@@ -315,6 +315,12 @@ class ApplicationState(QObject):
         self.dataset_added.emit(ds_id)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
+    def has_dataset(self, ds_id: int) -> bool:
+        '''
+        Returns whether the dataset with the specified numeric ID is in the application state.
+        '''
+        return ds_id in self._datasets
+
     def get_dataset(self, ds_id: int) -> RasterDataSet:
         '''
         Return the dataset with the specified numeric ID.  If the ID is
@@ -500,6 +506,13 @@ class ApplicationState(QObject):
         self.spectral_library_added.emit(lib_id)
 
 
+    def has_spectral_library(self, lib_id: int) -> bool:
+        '''
+        Returns whether the spectral library with the specified numeric ID is in the application state.
+        '''
+        return lib_id in self._spectral_libraries
+
+
     def get_spectral_library(self, lib_id):
         '''
         Return the spectral library with the specified ID.  If the ID is
@@ -631,6 +644,13 @@ class ApplicationState(QObject):
         Returns a list of all Regions of Interest in WISER's application state.
         '''
         return self._regions_of_interest.values()
+
+    def has_spectrum(self, spectrum_id: int) -> bool:
+        '''
+        Returns whether the spectrum with the specified numeric ID is in the application state.
+        '''
+        return spectrum_id in self._all_spectra
+
 
     def get_spectrum(self, spectrum_id: int) -> Spectrum:
         '''

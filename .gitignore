@@ -19,5 +19,7 @@ Install-WISER-*.exe
 Secret.mk
 Secret.sh
 
+.vscode/
+
 src/wiser/bandmath/temp_output/
 src/wiser/profiling/output/*

@@ -127,11 +127,12 @@ class ParallelTaskProcess(ParallelTask):
                 if queue_reader in ready:
                     try:
                         msg = self._return_queue.get_nowait()
-                        assert self._return_queue.empty(), "Return queue is not empty, even though we just got a message"
                         self._result = msg
                     except Exception as e:
                         logger.exception("Failed to read return value: %s", e)
                         self._result = None
+                        self._error = e
+                        self.error.emit(self)
 
                 if self._parent_conn in ready:
                     try:
@@ -140,6 +141,9 @@ class ParallelTaskProcess(ParallelTask):
                     except (EOFError, OSError):
                         # Child closed its end; keep waiting for sentinel
                         pass
+                    except Exception as e:
+                        self._error = e
+                        self.error.emit(self)
                 # If the process is ready, we need to flush all the messages on the parent
                 # pipe and close the process
                 if self._process.sentinel in ready:
@@ -167,6 +171,8 @@ class ParallelTaskProcess(ParallelTask):
             except Exception as e:
                 logger.exception("Failed to read return value: %s", e)
                 self._result = None
+                self._error = e
+                self.error.emit(self)
         except Exception as e:
             logger.exception(f'Error starting process {self._process_id}: {e}')
             self._error = e

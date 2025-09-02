@@ -581,10 +581,33 @@ class BandmathBatchJob:
             self._result_suffix == other._result_suffix
         )
 
+def icon_text_label(text: str, icon_path: str, icon_size: int = 16) -> QWidget:
+    """Return a QWidget with an icon on the left and text on the right."""
+    w = QWidget()
+    h = QHBoxLayout(w)
+    h.setContentsMargins(0, 0, 0, 0)
+    h.setSpacing(6)
+
+    # Icon (resource path like ':/icons/wiser.ico' or ':/icons/choose-bands.svg')
+    icon_lbl = QLabel()
+    icon = QIcon(icon_path)
+    if not icon.isNull():
+        pm = icon.pixmap(QSize(icon_size, icon_size), QIcon.Normal, QIcon.Off)
+        icon_lbl.setPixmap(pm)
+    icon_lbl.setFixedSize(icon_size, icon_size)
+    h.addWidget(icon_lbl, 0, Qt.AlignVCenter)
+
+    # Text
+    text_lbl = QLabel(text)
+    text_lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+    h.addWidget(text_lbl, 0, Qt.AlignVCenter)
+
+    h.addStretch(1)
+    return w
 
 class BatchJobInfoWidget(QWidget):
-    def __init__(self, expression: str, input_folder: str,
-                 output_folder: str, load_results_into_wiser: bool,
+    def __init__(self, expression: str, variables: Dict[str, Tuple[bandmath.VariableType, Any]], 
+                 input_folder: str, output_folder: str, load_results_into_wiser: bool,
                  result_name: str, width_hint=150, parent=None):
         super().__init__(parent)
         self._width_hint = width_hint
@@ -601,11 +624,21 @@ class BatchJobInfoWidget(QWidget):
         le_expr.setToolTip(expression)
         layout.addWidget(le_expr)
 
+        layout.addWidget(QLabel("Assignments:"))
+
+        lbl_assign = QLabel()
+        lbl_assign.setWordWrap(False)  # single line
+        disp_text, tip_text = self._build_assignments_summary(variables)
+        lbl_assign.setText(disp_text)
+        lbl_assign.setToolTip(tip_text)
+        layout.addWidget(lbl_assign)
+
         # Input Folder (label + read-only line edit)
         layout.addWidget(QLabel("Input Folder:"))
         le_input = QLineEdit()
         le_input.setReadOnly(True)
         le_input.setText(input_folder)
+        le_input.setCursorPosition(0)
         le_input.setToolTip(input_folder)
         layout.addWidget(le_input)
 
@@ -615,16 +648,12 @@ class BatchJobInfoWidget(QWidget):
             le_output = QLineEdit()
             le_output.setReadOnly(True)
             le_output.setText(output_folder)
+            le_input.setCursorPosition(0)
             le_output.setToolTip(output_folder)
             layout.addWidget(le_output)
 
-        # Loading into WISER? (non-editable checkbox)
-        chk_load = QCheckBox("Load into WISER")
-        chk_load.setChecked(load_results_into_wiser)
-        # The below makes the check box unclickable
-        chk_load.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # ignore clicks
-        chk_load.setFocusPolicy(Qt.NoFocus)                           # no focus outline
-        layout.addWidget(chk_load)
+        layout.addWidget(icon_text_label("Load Into WISER",
+                                 ":/icons/wiser.ico"))
 
         # Result Prefix (label + read-only line edit)
         layout.addWidget(QLabel("Result Prefix:"))
@@ -643,7 +672,173 @@ class BatchJobInfoWidget(QWidget):
         # Use the layout’s computed height but our fixed-ish width hint
         h = self.layout().sizeHint().height() if self.layout() else super().sizeHint().height()
         return QSize(self._width_hint, h)
+    
+    def truncate_text(self, text: str, max_len: int = 15) -> str:
+        """Truncate text to max_len characters, appending '...' if needed."""
+        if len(text) <= max_len:
+            return text
+        return text[:max_len] + "..."
 
+    def _build_assignments_summary(self, variables: Dict[str, Tuple[bandmath.VariableType, Any]]) -> Tuple[str, str]:
+        """Return (display_text_one_line, tooltip_multiline) for the Assignments label."""
+        entries: List[str] = []
+        for var_name, (var_type, value) in variables.items():
+            entries.append(self._format_var_entry(var_name, var_type, value))
+
+        # One-line display: first two; show "..." if more
+        first_two = entries[:2]
+        display = "\n".join(first_two)
+        if len(entries) > 2:
+            display = display + "\n..."
+
+        # Tooltip: full list, one per line
+        tooltip = "\n".join(entries)
+        return display, tooltip
+
+    def _format_var_entry(self, var_name: str, var_type: bandmath.VariableType, value: Any) -> str:
+        """Format per your rules."""
+        try:
+            t = var_type
+        except Exception:
+            # In case a plain enum value sneaks in
+            t = bandmath.VariableType(var_type)
+
+        # --- IMAGE (cube) ---
+        if t == bandmath.VariableType.IMAGE_CUBE:
+            ds_name = self._safe_name(value)
+            return f'{var_name}: Image, {self.truncate_text(ds_name, 15)}'
+
+        # --- IMAGE BAND ---
+        if t == bandmath.VariableType.IMAGE_BAND:
+            ds = self._band_dataset(value)
+            ds_name = self._safe_name(ds) if ds else "?"
+            # Prefer wavelength if available, else index
+            wvl = self._band_wavelength(value)
+            if wvl is not None:
+                val, unit = wvl
+                return f'{var_name}: Band, {self.truncate_text(ds_name, 10)}; Wvl: {self._fmt_number(val)} {unit}'
+            idx = self._band_index(value)
+            if idx is not None:
+                return f'{var_name}: Band, {self.truncate_text(ds_name, 10)}; Index: {idx}'
+            return f'{var_name}: Band, {self.truncate_text(ds_name, 10)}'
+
+        # --- SPECTRUM ---
+        if t == bandmath.VariableType.SPECTRUM:
+            sname = self._safe_name(value)
+            sname = self._strip_spectrum_prefix(sname)
+            return f'{var_name}: Spectrum, {self.truncate_text(sname, 10)}'
+
+        # --- BATCH IMAGE ---
+        if t == bandmath.VariableType.IMAGE_CUBE_BATCH:
+            return f'{var_name}: Batch Image'
+
+        # --- BATCH BAND ---
+        if t == bandmath.VariableType.IMAGE_BAND_BATCH:
+            wvl = self._band_wavelength(value)
+            if wvl is not None:
+                val, unit = wvl
+                return f'{var_name}: Batch Band; Wvl: {self._fmt_number(val)} {unit}'
+            idx = self._band_index(value)
+            if idx is not None:
+                return f'{var_name}: Batch Band; Index: {idx}'
+            return f'{var_name}: Batch Band'
+
+        # Fallback (numbers/strings/etc.)
+        return f'{var_name}: {t.name.title()}'
+
+    def _safe_name(self, obj: Any) -> str:
+        """Try common getters to retrieve a human name; fallback to str(obj)."""
+        if obj is None:
+            return "?"
+        for attr in ("get_name", "name"):
+            if hasattr(obj, attr):
+                try:
+                    val = getattr(obj, attr)
+                    val = val() if callable(val) else val
+                    if isinstance(val, str) and val:
+                        return val
+                except Exception:
+                    pass
+        return str(obj)
+
+    def _band_dataset(self, band_obj: Any) -> Optional[Any]:
+        """Try to fetch the dataset object from a RasterDataBand-like object."""
+        for attr in ("get_dataset", "dataset"):
+            if hasattr(band_obj, attr):
+                try:
+                    val = getattr(band_obj, attr)
+                    return val() if callable(val) else val
+                except Exception:
+                    pass
+        return None
+
+    def _band_index(self, band_obj: Any) -> Optional[int]:
+        """Fetch the band index if present."""
+        for attr in ("get_band_index", "band_index", "index"):
+            if hasattr(band_obj, attr):
+                try:
+                    val = getattr(band_obj, attr)
+                    val = val() if callable(val) else val
+                    if isinstance(val, (int, np.integer)):
+                        return int(val)
+                except Exception:
+                    pass
+        return None
+
+    def _band_wavelength(self, band_obj: Any) -> Optional[Tuple[float, str]]:
+        """
+        Try to fetch (value, unit_str) for wavelength from either:
+        - Quantity attribute (e.g., .wavelength -> Quantity)
+        - Numeric+units attributes (e.g., .wavelength_value + .wavelength_units)
+        Returns None if not available.
+        """
+        # Quantity style
+        for attr in ("wavelength", "get_wavelength"):
+            if hasattr(band_obj, attr):
+                try:
+                    q = getattr(band_obj, attr)
+                    q = q() if callable(q) else q
+                    # Quantity from astropy
+                    if hasattr(q, "unit") and hasattr(q, "value"):
+                        return (float(q.value), str(q.unit))
+                except Exception:
+                    pass
+
+        # Separate value + units style (used by RasterDataBatchBand in your code)
+        val = None
+        if hasattr(band_obj, "wavelength_value"):
+            try:
+                v = getattr(band_obj, "wavelength_value")
+                val = v() if callable(v) else v
+            except Exception:
+                pass
+        unit = None
+        if hasattr(band_obj, "wavelength_units"):
+            try:
+                u_ = getattr(band_obj, "wavelength_units")
+                unit = u_() if callable(u_) else u_
+            except Exception:
+                pass
+        if val is not None and unit:
+            try:
+                return (float(val), str(unit))
+            except Exception:
+                return (val, str(unit))
+        return None
+
+    def _strip_spectrum_prefix(self, name: str) -> str:
+        n = name.strip()
+        low = n.lower()
+        for prefix in ("spectrum at ", "spectrum "):
+            if low.startswith(prefix):
+                return n[len(prefix):]
+        return n
+
+    def _fmt_number(self, x: Union[int, float]) -> str:
+        """Pretty number: ints as ints; small floats compact."""
+        if isinstance(x, (int, np.integer)) or (isinstance(x, float) and x.is_integer()):
+            return str(int(x))
+        return f"{x:.6g}"
 
 class BandMathDialog(QDialog):
 
@@ -686,6 +881,14 @@ class BandMathDialog(QDialog):
         self._ui.ledit_expression.editingFinished.connect(lambda: self._analyze_expr())
         self._ui.btn_add_to_saved.clicked.connect(self._on_add_expr_to_saved)
 
+        
+        #==================================
+        # Configure the clear inputs button
+        reset_button = self._ui.buttonBox.button(QDialogButtonBox.Reset)
+        reset_button.setText('Clear Inputs')
+        reset_button.clicked.connect(self._on_clear_inputs)
+
+
         #==================================
         # Variable-bindings table
 
@@ -709,8 +912,8 @@ class BandMathDialog(QDialog):
             bandmath.VariableType.NUMBER: self.tr('Number'),
             bandmath.VariableType.BOOLEAN: self.tr('Boolean'),
             bandmath.VariableType.STRING: self.tr('String'),
-            bandmath.VariableType.IMAGE_CUBE_BATCH: self.tr('Image Batch'),
-            bandmath.VariableType.IMAGE_BAND_BATCH: self.tr('Image Band Batch')
+            bandmath.VariableType.IMAGE_CUBE_BATCH: self.tr('Batch - Image'),
+            bandmath.VariableType.IMAGE_BAND_BATCH: self.tr('Batch - Image Band')
         }
 
         #==================================
@@ -957,11 +1160,12 @@ class BandMathDialog(QDialog):
         Expands vertically as needed, and horizontally up to 150px.
         """
         info_widget = BatchJobInfoWidget(
-            batch_job.get_expression(),
-            batch_job.get_input_folder(),
-            batch_job.get_output_folder(),
-            batch_job.get_load_into_wiser(),
-            batch_job.get_result_suffix(),
+            expression=batch_job.get_expression(),
+            variables=batch_job.get_variables(),
+            input_folder=batch_job.get_input_folder(),
+            output_folder=batch_job.get_output_folder(),
+            load_results_into_wiser=batch_job.get_load_into_wiser(),
+            result_name=batch_job.get_result_suffix(),
             width_hint=150
         )
 
@@ -1022,22 +1226,35 @@ class BandMathDialog(QDialog):
             self._ui.ledit_input_folder.setText(folder)
             self._analyze_expr()
     
+    def _clear_input_folder(self):
+        '''
+        Clears the batch processing input folder line edit.
+        '''
+        self._ui.ledit_input_folder.clear()
+
     def _get_input_folder(self):
         return self._ui.ledit_input_folder.text()
 
+    def _clear_output_folder(self):
+        '''
+        Clears the batch processing output folder line edit.
+        '''
+        self._ui.ledit_output_folder.clear()
+
     def _get_output_folder(self):
         return self._ui.ledit_output_folder.text()
+
+    def _uncheck_load_into_wiser(self):
+        '''
+        Unchecks the load result into wiser check box.
+        '''
+        self._ui.chkbox_load_into_wiser.setChecked(False)
 
     def load_results_into_wiser(self):
         return self._ui.chkbox_load_into_wiser.isChecked()
     
     def is_batch_processing_enabled(self):
         return self._ui.chkbox_enable_batch.isChecked()
-
-    def _init_test_bandmath_processing(self):
-
-        return 
-
 
     def _get_batch_processing_ui_components(self) -> List[QObject]:
         ui_components = [
@@ -1049,9 +1266,9 @@ class BandMathDialog(QDialog):
             self._ui.lbl_output_folder,
             self._ui.ledit_output_folder,
             self._ui.btn_output_folder,
-            self._ui.hlayout_load_into_wiser,
             self._ui.chkbox_load_into_wiser,
-            self._ui.btn_create_batch_job
+            self._ui.btn_create_batch_job,
+            self._ui.lbl_select_batch_output
         ]
         return ui_components
 
@@ -1121,7 +1338,7 @@ class BandMathDialog(QDialog):
             self._sync_binding_table_with_variables(variables)
 
             bindings = self.get_variable_bindings()
-            
+
             if not all_bindings_specified(bindings):
                 self._ui.lbl_result_info.setText(self.tr(
                     'Please specify values for all variables'))
@@ -1193,9 +1410,13 @@ class BandMathDialog(QDialog):
         for var in variables:
             # Look for the variable in the current table of bindings.
             index = self._find_variable_in_bindings(var)
+            # If there is a row for batch processing and batch processing is disabled, remove the row
+            # If there is no row for batch processing and batch processing is enabled, add a new row
             batch_proc_mismatch = (self._is_batch_var_row(index) != self.is_batch_processing_enabled())
-            if index == -1 or batch_proc_mismatch:
-                if batch_proc_mismatch and index != -1:
+            # If the current row's dataset got deleted, we need to readd the row
+            row_state_changed = not self.is_row_state_unchanged(index)
+            if index == -1 or batch_proc_mismatch or row_state_changed:
+                if (batch_proc_mismatch and index != -1) or row_state_changed:
                     self._ui.tbl_variables.removeRow(index)
 
                 # Couldn't find variable in the table of bindings.
@@ -1448,6 +1669,32 @@ class BandMathDialog(QDialog):
         self._ui.ledit_expression.setText(expr)
         self._analyze_expr()
 
+    def _on_clear_inputs(self, checked: bool):
+        '''
+        Clears all inputs. The inputs to clear are the expression, the variable bindings, the result_name,
+        the input_folder, the output folder, and the load result into wiser check box
+        '''
+        self._clear_expression()
+        self._clear_variable_bindings()
+        self._clear_result_name()
+        if self.is_batch_processing_enabled():
+            self._clear_input_folder()
+            self._clear_output_folder()
+            self._uncheck_load_into_wiser()
+        self._analyze_expr()
+
+    def _clear_variable_bindings(self) -> None:
+        """
+        Removes all rows and associated widgets from the variable-bindings table.
+        """
+        tbl = self._ui.tbl_variables
+        for row in range(tbl.rowCount()):
+            for col in range(tbl.columnCount()):
+                widget = tbl.cellWidget(row, col)
+                if widget is not None:
+                    widget.deleteLater()
+                    tbl.removeCellWidget(row, col)
+        tbl.setRowCount(0)
 
     def _check_saved_expressions(self):
         if self._ui.cbox_saved_exprs.count() > 0 and self._saved_exprs_modified:
@@ -1457,6 +1704,12 @@ class BandMathDialog(QDialog):
 
             if response == QMessageBox.Yes:
                 self._on_save_saved_exprs()
+
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # This code is run right before the QDialog is shown
+        self._analyze_expr()
 
 
     def accept(self):
@@ -1483,6 +1736,63 @@ class BandMathDialog(QDialog):
 
         super().reject()
 
+    def is_row_state_unchanged(self, row: int) -> bool:
+        """
+        Returns True if the row's currently selected resource still exists in app_state,
+        otherwise False. For batch/other types that don't bind to app_state objects,
+        returns True.
+        """
+        tbl = self._ui.tbl_variables
+        if row < 0 or row >= tbl.rowCount():
+            return True  # out of range -> treat as unchanged
+
+        # Column 1: variable type (QComboBox with data=bandmath.VariableType)
+        type_widget = tbl.cellWidget(row, 1)
+        if not isinstance(type_widget, QComboBox):
+            return True
+        var_type = type_widget.currentData()
+
+        # Column 2: value widget (chooser)
+        value_widget = tbl.cellWidget(row, 2)
+        if value_widget is None:
+            return True  # nothing bound yet
+
+        # IMAGE_CUBE -> dataset ID from a QComboBox
+        if var_type == bandmath.VariableType.IMAGE_CUBE:
+            if isinstance(value_widget, QComboBox):
+                ds_id = value_widget.currentData()
+                return ds_id is not None and self._app_state.has_dataset(ds_id)
+            return False
+
+        # IMAGE_BAND -> dataset ID from DatasetBandChooserWidget
+        if var_type == bandmath.VariableType.IMAGE_BAND:
+            if isinstance(value_widget, DatasetBandChooserWidget):
+                ds_id, _band_idx = value_widget.get_ds_band()
+                return ds_id is not None and self._app_state.has_dataset(ds_id)
+            return False
+
+        # SPECTRUM -> either spectrum ID (int) or (lib_id, spectrum_index) tuple
+        if var_type == bandmath.VariableType.SPECTRUM:
+            if isinstance(value_widget, QComboBox):
+                info = value_widget.currentData()
+                if isinstance(info, int):
+                    return self._app_state.has_spectrum(info)
+                if isinstance(info, tuple) and len(info) == 2:
+                    lib_id, spectrum_index = info
+                    if not self._app_state.has_spectral_library(lib_id):
+                        return False
+                    lib = self._app_state.get_spectral_library(lib_id)
+                    return 0 <= spectrum_index < lib.num_spectra()
+            return False
+
+        # Batch/other types don't reference app_state entities directly
+        return True
+
+    def _clear_expression(self) -> str:
+        '''
+        Clears the text in the expression editor.
+        '''
+        self._ui.ledit_expression.clear()
 
     def get_expression(self) -> str:
         '''
@@ -1514,24 +1824,25 @@ class BandMathDialog(QDialog):
 
             if var_type == bandmath.VariableType.IMAGE_CUBE:
                 ds_id = self._ui.tbl_variables.cellWidget(row, 2).currentData()
-                if ds_id is not None:
+                if ds_id is not None and self._app_state.has_dataset(ds_id):
                     value = self._app_state.get_dataset(ds_id)
 
             elif var_type == bandmath.VariableType.IMAGE_BAND:
                 (ds_id, band_index) = self._ui.tbl_variables.cellWidget(row, 2).get_ds_band()
-                if ds_id is not None and band_index is not None:
+                if ds_id is not None and band_index is not None and self._app_state.has_dataset(ds_id):
                     dataset = self._app_state.get_dataset(ds_id)
                     value = RasterDataBand(dataset, band_index)
 
             elif var_type == bandmath.VariableType.SPECTRUM:
                 spectrum_info = self._ui.tbl_variables.cellWidget(row, 2).currentData()
-                if isinstance(spectrum_info, int):
+                if isinstance(spectrum_info, int) and self._app_state.has_spectrum(spectrum_info):
                     value = self._app_state.get_spectrum(spectrum_info)
 
                 elif isinstance(spectrum_info, tuple):
                     (lib_id, spectrum_index) = spectrum_info
-                    lib = self._app_state.get_spectral_library(lib_id)
-                    value = lib.get_spectrum(spectrum_index)
+                    if self._app_state.has_spectral_library(lib_id):
+                        lib = self._app_state.get_spectral_library(lib_id)
+                        value = lib.get_spectrum(spectrum_index)
 
                 else:
                     raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
@@ -1558,6 +1869,13 @@ class BandMathDialog(QDialog):
             variables[var] = (var_type, value)
 
         return variables
+
+
+    def _clear_result_name(self) -> None:
+        '''
+        Clears the result name / result suffix line edit
+        '''
+        self._ui.ledit_result_name.clear()
 
 
     def get_result_name(self) -> Optional[str]:
