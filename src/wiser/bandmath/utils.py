@@ -74,9 +74,6 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
 
             loader = app_state.get_loader()
             if result_type == RasterDataSet:
-                # TODO (Joshua G-K): Fix this. This passes back a gdal dataset
-                # that has a filepath (for when its out of memory). We need a good way 
-                # to handle this.
                 metadata = result.get_metadata()
                 if 'save_state' not in metadata:
                     metadata['save_state'] = SaveState.IN_DISK_NOT_SAVED
