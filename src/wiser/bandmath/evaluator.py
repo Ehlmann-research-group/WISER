@@ -1170,14 +1170,14 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
             prepared_variables_list: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
             lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
             use_synchronous_method = False, test_parallel_io = False, child_conn: mp_conn.Connection = None \
-        ) -> List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo, Optional[Exception]]]:
+        ) -> List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]]:
     '''
     This function is used to evaluate one band math expression. Now this expression may or may not be 
     an expression that has batching. If it does, then we will have to do the batching logic here.
     '''
     assert len(expr_info_list) == len(prepared_variables_list), "The number of expr_info_list and prepared_variables_list must be the same"
     count = 0
-    outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo, Optional[Exception]]] = []
+    outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]] = []
     for lower_variables, expr_info, result_name in zip(prepared_variables_list, expr_info_list, result_names_list):
         count += 1
         child_conn.send(["progress", {"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Running"}])
@@ -1249,7 +1249,7 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
                     writing_futures.append(future)
                 concurrent.futures.wait(writing_futures)
             except BaseException as e:
-                error = e                
+                error = e
                 if eval is not None:
                     eval.stop()
             finally:

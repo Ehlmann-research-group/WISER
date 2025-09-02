@@ -65,7 +65,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='(2 * 3 + 4) / 2', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={}, functions={})
 
@@ -98,7 +98,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='image + band', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, functions={})
@@ -145,7 +145,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='image + 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
@@ -190,7 +190,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='band + image', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, functions={})
@@ -238,7 +238,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='b + 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'b':(VariableType.IMAGE_BAND, band)}, functions={})
 
@@ -268,7 +268,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='S1 + 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'s1':(VariableType.SPECTRUM, spectrum)}, functions={})
 
@@ -298,7 +298,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='0.5 + image', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
@@ -337,7 +337,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='0.5 + b', expr_info=expr_info, result_name=None, cache=cache,
             variables={'b':(VariableType.IMAGE_BAND, band)}, functions={})
 
@@ -367,7 +367,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='0.5 + S1', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'s1':(VariableType.SPECTRUM, spectrum)}, functions={})
 
@@ -407,7 +407,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='image - band', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img),
              'band':(VariableType.IMAGE_BAND, band)}, functions={})
@@ -458,7 +458,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='image - 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
@@ -499,7 +499,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='B1 - 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'B1':(VariableType.IMAGE_BAND, band)}, functions={})
 
@@ -529,7 +529,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='s - 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'s':(VariableType.SPECTRUM, spectrum)}, functions={})
 
@@ -562,7 +562,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='image * 2', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
@@ -602,7 +602,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='2 * image', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
@@ -645,7 +645,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='image / 0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'image':(VariableType.IMAGE_CUBE, img)}, functions={})
 
@@ -698,7 +698,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='(a + b) + (c + d)', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b),
@@ -760,7 +760,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='(a * b) * (c * d)', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b),
@@ -822,7 +822,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='(a / b) / (c / d)', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b),
@@ -884,7 +884,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='(a - b) - (c - d)', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b),
@@ -936,7 +936,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='-a + 1', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'a':(VariableType.IMAGE_CUBE, a)}, functions={})
 
@@ -980,7 +980,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='a**b - (a**0.5)', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'a':(VariableType.IMAGE_CUBE, a),
              'b':(VariableType.IMAGE_BAND, b)}, functions={})
@@ -1036,7 +1036,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         cache = DataCache()
 
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-            progress_callback=lambda _: None, error_callback=lambda _: None, 
+            status_callback=lambda _: None, error_callback=lambda _: None, 
             bandmath_expr='(a / b) - (c * d) + a**0.5', expr_info=expr_info, result_name=result_name, cache=cache,
             variables={'a': (VariableType.IMAGE_CUBE, a),
              'b': (VariableType.IMAGE_BAND, b),
@@ -1090,7 +1090,7 @@ class TestBandmathEvaluator(unittest.TestCase):
     #     result_name = 'test_result'
     #     cache = DataCache()
     #     process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-    #         progress_callback=lambda _: None, error_callback=lambda _: None, 
+    #         status_callback=lambda _: None, error_callback=lambda _: None, 
     #         bandmath_expr='a + 0', expr_info=expr_info, result_name=result_name, cache=cache,
     #         variables={'a': (VariableType.IMAGE_CUBE, caltech_ds)}, functions={})
 
