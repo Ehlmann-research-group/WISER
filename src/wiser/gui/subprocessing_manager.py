@@ -21,7 +21,7 @@ def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue:
     except Exception:
         tb = traceback.format_exc()
         # send both ways so you always see it
-        try: child_conn.send({ "type": "error", "traceback": tb })
+        try: child_conn.send(["process_error", { "type": "error", "traceback": tb }])
         except Exception: pass
         try: return_queue.put((SENTINEL_ERROR, tb))
         except Exception: pass
