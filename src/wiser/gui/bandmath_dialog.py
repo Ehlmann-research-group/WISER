@@ -498,6 +498,7 @@ class BandmathBatchJob:
         self._btn_cancel: Optional[QPushButton] = None
         self._btn_remove: Optional[QPushButton] = None
         self._progress_bar: Optional[QProgressBar] = None
+        self._btn_view_errors: Optional[QPushButton] = None
 
 
     def get_process_manager(self) -> Optional[ProcessManager]:
@@ -529,6 +530,12 @@ class BandmathBatchJob:
 
     def set_progress_bar(self, progress_bar: QProgressBar) -> None:
         self._progress_bar = progress_bar
+
+    def get_btn_view_errors(self) -> Optional[QPushButton]:
+        return self._btn_view_errors
+
+    def set_btn_view_errors(self, btn_view_errors: QPushButton) -> None:
+        self._btn_view_errors = btn_view_errors
 
     def get_job_id(self) -> int:
         return self._job_id
@@ -1120,6 +1127,14 @@ class BandMathDialog(QDialog):
         btn_remove.clicked.connect(lambda: self._remove_batch_job(batch_job))
         layout.addWidget(btn_remove)
 
+        # View Errors button (no functionality yet)
+        btn_view_errors = QPushButton(self.tr("View Errors"))
+        btn_view_errors.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        btn_view_errors.setMaximumWidth(140)
+        batch_job.set_btn_view_errors(btn_view_errors)
+        btn_view_errors.clicked.connect(lambda: self._view_batch_job_errors(batch_job))
+        layout.addWidget(btn_view_errors)
+
         # Progress bar (no functionality yet)
         progress = QProgressBar()
         progress.setRange(0, 100)
@@ -1132,11 +1147,17 @@ class BandMathDialog(QDialog):
 
         return container
 
+    def _view_batch_job_errors(self, batch_job: BandmathBatchJob):
+        '''
+        View the errors for the given batch job. Errors are viewed per file.
+        '''
+        process_manager = batch_job.get_process_manager()
+        if process_manager is not None:
+            process_manager.get_task().view_errors()
+
     def _cancel_batch_job(self, batch_job: BandmathBatchJob):
         process_manager = batch_job.get_process_manager()
-        print(f"process_manager: {process_manager}")
         if process_manager is not None:
-            print(f"TERMINATING!!")
             process_manager.get_task().cancel()
 
     def _remove_batch_job(self, batch_job: BandmathBatchJob):
