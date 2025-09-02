@@ -1816,14 +1816,11 @@ class BandMathDialog(QDialog):
         actually reflect the expression, or that there are no semantic errors
         or mismatched types in the expression.
         '''
-        print(f"Getting variable bindings")
         variables = {}
         for row in range(self._ui.tbl_variables.rowCount()):
             var = self._ui.tbl_variables.item(row, 0).text()
             var_type = self._ui.tbl_variables.cellWidget(row, 1).currentData()
             value = None
-
-            print(f"Value before: {value}")
 
             if var_type == bandmath.VariableType.IMAGE_CUBE:
                 ds_id = self._ui.tbl_variables.cellWidget(row, 2).currentData()

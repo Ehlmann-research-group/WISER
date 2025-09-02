@@ -17,216 +17,8 @@
    <property name="horizontalSpacing">
     <number>6</number>
    </property>
-   <item row="1" column="3" rowspan="23">
-    <widget class="QTableWidget" name="tbl_wdgt_batch_jobs">
-     <property name="minimumSize">
-      <size>
-       <width>300</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>400</width>
-       <height>16777215</height>
-      </size>
-     </property>
-     <property name="rowCount">
-      <number>0</number>
-     </property>
-     <attribute name="horizontalHeaderVisible">
-      <bool>true</bool>
-     </attribute>
-     <attribute name="horizontalHeaderCascadingSectionResizes">
-      <bool>false</bool>
-     </attribute>
-     <attribute name="horizontalHeaderHighlightSections">
-      <bool>true</bool>
-     </attribute>
-     <attribute name="verticalHeaderVisible">
-      <bool>false</bool>
-     </attribute>
-     <column>
-      <property name="text">
-       <string>ID</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Job Information</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Run</string>
-      </property>
-     </column>
-    </widget>
-   </item>
-   <item row="13" column="0" colspan="2">
-    <widget class="QWidget" name="wgt_result_name" native="true">
-     <layout class="QGridLayout" name="gridLayout_2">
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="lbl_result_name">
-        <property name="text">
-         <string>Result name (optional):</string>
-        </property>
-        <property name="buddy">
-         <cstring>ledit_result_name</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="ledit_result_name"/>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="30" column="0" colspan="2">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok|QDialogButtonBox::Reset</set>
-     </property>
-    </widget>
-   </item>
-   <item row="30" column="3">
-    <layout class="QHBoxLayout" name="hlayout_run_cancel_all">
-     <item>
-      <widget class="QPushButton" name="btn_run_all">
-       <property name="text">
-        <string>Run All</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btn_cancel_all">
-       <property name="text">
-        <string>Cancel All</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item row="17" column="1">
-    <widget class="QPushButton" name="btn_output_folder">
-     <property name="text">
-      <string>...</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0">
-    <widget class="QLineEdit" name="ledit_expression"/>
-   </item>
-   <item row="7" column="0" rowspan="2" colspan="2">
-    <widget class="QLabel" name="lbl_variables">
-     <property name="text">
-      <string>Variable bindings:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="11" column="0" rowspan="2" colspan="2">
-    <widget class="QLabel" name="lbl_result_info">
-     <property name="text">
-      <string>Result:  (unknown)</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="0">
-    <widget class="QCheckBox" name="chkbox_enable_batch">
-     <property name="toolTip">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Bandmath batch processing will perform your&lt;br/&gt;expression on each of the files in the input folder.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-     <property name="text">
-      <string>Enable Batch Processing</string>
-     </property>
-    </widget>
-   </item>
-   <item row="22" column="0">
-    <widget class="QLabel" name="lbl_saved_exprs">
-     <property name="text">
-      <string>Saved expressions:</string>
-     </property>
-     <property name="buddy">
-      <cstring>cbox_saved_exprs</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="9" column="0" colspan="2">
-    <widget class="QTableWidget" name="tbl_variables">
-     <property name="horizontalScrollBarPolicy">
-      <enum>Qt::ScrollBarAlwaysOn</enum>
-     </property>
-     <attribute name="horizontalHeaderStretchLastSection">
-      <bool>false</bool>
-     </attribute>
-     <attribute name="verticalHeaderMinimumSectionSize">
-      <number>23</number>
-     </attribute>
-     <column>
-      <property name="text">
-       <string>Variable</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Type</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
-       <string>Variable Assignments</string>
-      </property>
-      <property name="toolTip">
-       <string extracomment="What each variable is assigned to.  When batch processing is enabled, variables can still be none-batch variables."/>
-      </property>
-     </column>
-    </widget>
-   </item>
-   <item row="2" column="1">
-    <widget class="QPushButton" name="btn_add_to_saved">
-     <property name="text">
-      <string>Save expression</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QPushButton" name="btn_toggle_help">
-     <property name="text">
-      <string>Toggle Help</string>
-     </property>
-    </widget>
-   </item>
-   <item row="22" column="1">
-    <widget class="QPushButton" name="btn_load_saved_exprs">
-     <property name="text">
-      <string>Load from file...</string>
-     </property>
-    </widget>
-   </item>
-   <item row="18" column="1">
-    <widget class="QPushButton" name="btn_create_batch_job">
-     <property name="text">
-      <string>Create Batch Job</string>
-     </property>
-    </widget>
+   <item row="23" column="0">
+    <widget class="QComboBox" name="cbox_saved_exprs"/>
    </item>
    <item row="17" column="0">
     <layout class="QHBoxLayout" name="hlayout_output_folder">
@@ -245,6 +37,26 @@
       </widget>
      </item>
     </layout>
+   </item>
+   <item row="3" column="0">
+    <widget class="QCheckBox" name="chkbox_enable_batch">
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Bandmath batch processing will perform your&lt;br/&gt;expression on each of the files in the input folder.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="text">
+      <string>Enable Batch Processing</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="lbl_math_expr">
+     <property name="text">
+      <string>Expression:</string>
+     </property>
+     <property name="buddy">
+      <cstring>ledit_expression</cstring>
+     </property>
+    </widget>
    </item>
    <item row="1" column="2" rowspan="23">
     <widget class="QTextEdit" name="tedit_bandmath_help">
@@ -298,6 +110,242 @@ p, li { white-space: pre-wrap; }
      </property>
     </widget>
    </item>
+   <item row="2" column="1">
+    <widget class="QPushButton" name="btn_add_to_saved">
+     <property name="text">
+      <string>Save expression</string>
+     </property>
+    </widget>
+   </item>
+   <item row="18" column="1">
+    <widget class="QPushButton" name="btn_create_batch_job">
+     <property name="text">
+      <string>Create Batch Job</string>
+     </property>
+    </widget>
+   </item>
+   <item row="14" column="0">
+    <widget class="QLabel" name="lbl_select_batch_output">
+     <property name="text">
+      <string>Select Batch Output Destination(s):</string>
+     </property>
+    </widget>
+   </item>
+   <item row="20" column="0" colspan="2">
+    <widget class="Line" name="line">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0" colspan="2">
+    <widget class="QTableWidget" name="tbl_variables">
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOn</enum>
+     </property>
+     <attribute name="horizontalHeaderStretchLastSection">
+      <bool>false</bool>
+     </attribute>
+     <attribute name="verticalHeaderMinimumSectionSize">
+      <number>23</number>
+     </attribute>
+     <column>
+      <property name="text">
+       <string>Variable</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Type</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Variable Assignments</string>
+      </property>
+      <property name="toolTip">
+       <string extracomment="What each variable is assigned to.  When batch processing is enabled, variables can still be none-batch variables."/>
+      </property>
+     </column>
+    </widget>
+   </item>
+   <item row="13" column="0" colspan="2">
+    <widget class="QWidget" name="wgt_result_name" native="true">
+     <layout class="QGridLayout" name="gridLayout_2">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="lbl_result_name">
+        <property name="text">
+         <string>Result name (optional):</string>
+        </property>
+        <property name="buddy">
+         <cstring>ledit_result_name</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="ledit_result_name"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QPushButton" name="btn_input_folder">
+     <property name="text">
+      <string>...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0" rowspan="2" colspan="2">
+    <widget class="QLabel" name="lbl_variables">
+     <property name="text">
+      <string>Variable bindings:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="22" column="0">
+    <widget class="QLabel" name="lbl_saved_exprs">
+     <property name="text">
+      <string>Saved expressions:</string>
+     </property>
+     <property name="buddy">
+      <cstring>cbox_saved_exprs</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="17" column="1">
+    <widget class="QPushButton" name="btn_output_folder">
+     <property name="text">
+      <string>...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="0" rowspan="2" colspan="2">
+    <widget class="QLabel" name="lbl_result_info">
+     <property name="text">
+      <string>Result:  (unknown)</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="30" column="3">
+    <layout class="QHBoxLayout" name="hlayout_run_cancel_all">
+     <item>
+      <widget class="QPushButton" name="btn_run_all">
+       <property name="text">
+        <string>Run All</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_cancel_all">
+       <property name="text">
+        <string>Cancel All</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="22" column="1">
+    <widget class="QPushButton" name="btn_load_saved_exprs">
+     <property name="text">
+      <string>Load from file...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="30" column="0" colspan="2">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok|QDialogButtonBox::Reset</set>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QPushButton" name="btn_toggle_help">
+     <property name="text">
+      <string>Toggle Help</string>
+     </property>
+    </widget>
+   </item>
+   <item row="23" column="1">
+    <widget class="QPushButton" name="btn_save_saved_exprs">
+     <property name="text">
+      <string>Save to file...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="15" column="0">
+    <widget class="QCheckBox" name="chkbox_load_into_wiser">
+     <property name="text">
+      <string>Load Result Into WISER (in memory)</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="3" rowspan="23">
+    <widget class="QTableWidget" name="tbl_wdgt_batch_jobs">
+     <property name="minimumSize">
+      <size>
+       <width>300</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>400</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="rowCount">
+      <number>0</number>
+     </property>
+     <attribute name="horizontalHeaderVisible">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="horizontalHeaderCascadingSectionResizes">
+      <bool>false</bool>
+     </attribute>
+     <attribute name="horizontalHeaderHighlightSections">
+      <bool>true</bool>
+     </attribute>
+     <attribute name="verticalHeaderVisible">
+      <bool>false</bool>
+     </attribute>
+     <column>
+      <property name="text">
+       <string>Job ID</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Variable Assignments</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Actions</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLineEdit" name="ledit_expression"/>
+   </item>
    <item row="4" column="0">
     <layout class="QHBoxLayout" name="hlayout_input_folder">
      <item>
@@ -315,54 +363,6 @@ p, li { white-space: pre-wrap; }
       </widget>
      </item>
     </layout>
-   </item>
-   <item row="4" column="1">
-    <widget class="QPushButton" name="btn_input_folder">
-     <property name="text">
-      <string>...</string>
-     </property>
-    </widget>
-   </item>
-   <item row="15" column="0">
-    <widget class="QCheckBox" name="chkbox_load_into_wiser">
-     <property name="text">
-      <string>Load Result Into WISER (in memory)</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="lbl_math_expr">
-     <property name="text">
-      <string>Expression:</string>
-     </property>
-     <property name="buddy">
-      <cstring>ledit_expression</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="20" column="0" colspan="2">
-    <widget class="Line" name="line">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-    </widget>
-   </item>
-   <item row="23" column="0">
-    <widget class="QComboBox" name="cbox_saved_exprs"/>
-   </item>
-   <item row="23" column="1">
-    <widget class="QPushButton" name="btn_save_saved_exprs">
-     <property name="text">
-      <string>Save to file...</string>
-     </property>
-    </widget>
-   </item>
-   <item row="14" column="0">
-    <widget class="QLabel" name="lbl_select_batch_output">
-     <property name="text">
-      <string>Select Batch Output Destination(s):</string>
-     </property>
-    </widget>
    </item>
   </layout>
  </widget>
