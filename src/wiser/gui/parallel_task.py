@@ -26,8 +26,8 @@ class ParallelTask(QThread):
     # task object.
     started = Signal(object)
 
-    # Signal: The task's progress
-    progress = Signal(object)
+    # Signal: The task's status. This can be used for progress or error messages or anything else.
+    status = Signal(object)
 
     # Signal:  The task has finished.  The argument of the signal is this task
     # object.
@@ -105,7 +105,6 @@ class ParallelTaskProcess(ParallelTask):
         self._exit_code: int | None = None
 
     def cancel(self, **kwargs):
-        print(f"Terminating process in parallel task")
         try:
             self._process.terminate()
         except ValueError:
@@ -137,7 +136,7 @@ class ParallelTaskProcess(ParallelTask):
                 if self._parent_conn in ready:
                     try:
                         msg = self._parent_conn.recv()
-                        self.progress.emit(msg)
+                        self.status.emit(msg)
                     except (EOFError, OSError):
                         # Child closed its end; keep waiting for sentinel
                         pass
@@ -152,7 +151,7 @@ class ParallelTaskProcess(ParallelTask):
                         while self._parent_conn.poll():
                             try:
                                 msg = self._parent_conn.recv()
-                                self.progress.emit(msg)
+                                self.status.emit(msg)
                             except (EOFError, OSError):
                                 break
                     except Exception:

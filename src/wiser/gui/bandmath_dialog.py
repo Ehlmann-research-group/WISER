@@ -498,6 +498,8 @@ class BandmathBatchJob:
         self._btn_cancel: Optional[QPushButton] = None
         self._btn_remove: Optional[QPushButton] = None
         self._progress_bar: Optional[QProgressBar] = None
+        self._btn_view_errors: Optional[QPushButton] = None
+        self._errors: Optional[List[Tuple[str, str, str]]] = []
 
 
     def get_process_manager(self) -> Optional[ProcessManager]:
@@ -529,6 +531,12 @@ class BandmathBatchJob:
 
     def set_progress_bar(self, progress_bar: QProgressBar) -> None:
         self._progress_bar = progress_bar
+
+    def get_btn_view_errors(self) -> Optional[QPushButton]:
+        return self._btn_view_errors
+
+    def set_btn_view_errors(self, btn_view_errors: QPushButton) -> None:
+        self._btn_view_errors = btn_view_errors
 
     def get_job_id(self) -> int:
         return self._job_id
@@ -568,6 +576,12 @@ class BandmathBatchJob:
 
     def set_result_suffix(self, result_suffix: str) -> None:
         self._result_suffix = result_suffix
+    
+    def get_errors(self) -> Optional[List[Tuple[str, str, str]]]:
+        return self._errors
+    
+    def set_errors(self, errors: List[Tuple[str, str, str]]) -> None:
+        self._errors = errors
     
     def __eq__(self, other):
         if not isinstance(other, BandmathBatchJob):
@@ -983,22 +997,40 @@ class BandMathDialog(QDialog):
             # this runtime error.
             pass
 
-    def on_bandmath_job_progress(self, job: BandmathBatchJob, progress: Dict[str, str]):
-        # The dict progress has 3 entries. Numerator, Denominator, and Status message like so:
-        # {'Numerator': 1, 'Denominator': 2, 'Status': 'Running'}
-        # We will update the progress bar with the Numerator and Denominator and have the status
-        # be the text in the progress bar. Access the progress bar with job.get_progress_bar()
-        numerator = int(progress.get("Numerator", 0))
-        denominator = int(progress.get("Denominator", 1))  # avoid divide-by-zero
-        status = progress.get("Status", "")
+    def on_bandmath_job_status(self, job: BandmathBatchJob, progress: Tuple[str, Dict[str, str]]):
+        if progress[0] == "progress":
+            progress_dict = progress[1]
+            # The dict progress has 3 entries. Numerator, Denominator, and Status message like so:
+            # {'Numerator': 1, 'Denominator': 2, 'Status': 'Running'}
+            # We will update the progress bar with the Numerator and Denominator and have the status
+            # be the text in the progress bar. Access the progress bar with job.get_progress_bar()
+            numerator = int(progress_dict.get("Numerator", 0))
+            denominator = int(progress_dict.get("Denominator", 1))  # avoid divide-by-zero
+            status = progress_dict.get("Status", "")
 
-        progress_bar = job.get_progress_bar()
-        progress_bar.setRange(0, denominator)
-        progress_bar.setValue(numerator)
+            progress_bar = job.get_progress_bar()
+            progress_bar.setRange(0, denominator)
+            progress_bar.setValue(numerator)
 
-        # Display the status text (instead of % completed) inside the bar
-        progress_bar.setTextVisible(True)
-        progress_bar.setFormat(f"{status} ({numerator}/{denominator})")
+            # Display the status text (instead of % completed) inside the bar
+            progress_bar.setTextVisible(True)
+            progress_bar.setFormat(f"{status} ({numerator}/{denominator})")
+        elif progress[0] == "error":
+            error_dict = progress[1]
+            result_name = error_dict.get("Result Name", None)
+            error_message = error_dict.get("Message", None)
+            error_traceback = error_dict.get("Traceback", None)
+
+            if result_name and error_message and error_traceback:
+                job.set_errors(job.get_errors() + [(result_name, error_message, error_traceback)])
+            
+            if job.get_errors():
+                job.get_btn_view_errors().setEnabled(True)
+            else:
+                job.get_btn_view_errors().setEnabled(False)
+        elif progress[0] == "process_error":
+            raise RuntimeError("Process in subprocess:\n" + progress[1]["traceback"])
+
 
 
     def _run_batch_job(self, job: BandmathBatchJob):
@@ -1008,9 +1040,9 @@ class BandMathDialog(QDialog):
         functions = get_plugin_fns(self._app_state)
         started_callback = lambda task: self.on_bandmath_job_started(job, task)
         cancelled_callback = lambda task: self.on_bandmath_job_cancelled(job, task)
-        progress_callback = lambda progress: self.on_bandmath_job_progress(job, progress)
+        status_callback = lambda progress: self.on_bandmath_job_status(job, progress)
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback,
-                                                      progress_callback=progress_callback,
+                                                      status_callback=status_callback,
                                                       error_callback=bandmath_error_callback,
                                                       started_callback=started_callback,
                                                       cancelled_callback=cancelled_callback,
@@ -1120,6 +1152,15 @@ class BandMathDialog(QDialog):
         btn_remove.clicked.connect(lambda: self._remove_batch_job(batch_job))
         layout.addWidget(btn_remove)
 
+        # View Errors button (no functionality yet)
+        btn_view_errors = QPushButton(self.tr("View Errors"))
+        btn_view_errors.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        btn_view_errors.setMaximumWidth(140)
+        btn_view_errors.clicked.connect(lambda: self._view_batch_job_errors(batch_job))
+        btn_view_errors.setEnabled(False)
+        batch_job.set_btn_view_errors(btn_view_errors)
+        layout.addWidget(btn_view_errors)
+
         # Progress bar (no functionality yet)
         progress = QProgressBar()
         progress.setRange(0, 100)
@@ -1132,11 +1173,27 @@ class BandMathDialog(QDialog):
 
         return container
 
+    def _view_batch_job_errors(self, batch_job: BandmathBatchJob):
+        '''
+        View the errors for the given batch job. Errors are viewed per file.
+        '''
+        batch_job_errors = batch_job.get_errors()
+        if batch_job_errors:
+            formatted_errors = "<br><br>".join(
+                f"<b>File:</b> {error[0]}<br>&nbsp;&nbsp;<b>Error:</b> {error[1]}"
+                for error in batch_job_errors
+            )
+            QMessageBox.warning(self, "Batch Errors", formatted_errors)
+        else:
+            QMessageBox.warning(
+                self,
+                "No Batch Errors",
+                "There are no errors for this batch job. Close and reopen the dialog to see new errors."
+            )
+
     def _cancel_batch_job(self, batch_job: BandmathBatchJob):
         process_manager = batch_job.get_process_manager()
-        print(f"process_manager: {process_manager}")
         if process_manager is not None:
-            print(f"TERMINATING!!")
             process_manager.get_task().cancel()
 
     def _remove_batch_job(self, batch_job: BandmathBatchJob):

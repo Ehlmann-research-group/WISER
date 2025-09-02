@@ -2,7 +2,7 @@ import os
 import logging
 import inspect
 
-from typing import Any, Callable, Dict, Tuple, Coroutine, Union, List, TYPE_CHECKING
+from typing import Any, Callable, Dict, Tuple, Coroutine, Union, List, TYPE_CHECKING, Optional
 
 import lark
 from lark import Visitor, Tree, Token, v_args
@@ -815,7 +815,7 @@ def eval_bandmath_expr(
         bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
         functions: Dict[str, BandMathFunction] = None, succeeded_callback: Callable = lambda _: None, \
-        progress_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
+        status_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
         started_callback: Callable = lambda _: None, cancelled_callback: Callable = lambda _: None, \
         app_state: 'ApplicationState' = None, use_synchronous_method = False, test_parallel_io=False
         ) -> ProcessManager:
@@ -908,7 +908,7 @@ def eval_bandmath_expr(
     task.error.connect(error_callback)
     # The progress slot is passed the message that subprocess_bandmath
     # sends over the pipe
-    task.progress.connect(progress_callback)
+    task.status.connect(status_callback)
     task.succeeded.connect(lambda task: succeeded_callback(task.get_result()))
     process_manager.start_task()
     return process_manager
@@ -1120,7 +1120,6 @@ def prepare_result_names(result_name: str, filepaths: List[str]) -> List[str]:
         result_name_list.append(new_name)
     return result_name_list
 
-
 def prepare_expr_info(bandmath_expr: str, \
                       variables_list: List[Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]], \
                       functions: Dict[str, BandMathFunction]) -> List[BandMathExprInfo]:
@@ -1181,7 +1180,7 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
     outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]] = []
     for lower_variables, expr_info, result_name in zip(prepared_variables_list, expr_info_list, result_names_list):
         count += 1
-        child_conn.send({"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Running"})
+        child_conn.send(["progress", {"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Running"}])
         gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
         
         max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
@@ -1196,6 +1195,7 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
         (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
         and not use_synchronous_method):
             try:
+                error = None
                 eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
                 bands = 1
                 lines = 1
@@ -1249,23 +1249,36 @@ def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names
                     writing_futures.append(future)
                 concurrent.futures.wait(writing_futures)
             except BaseException as e:
+                error = e
                 if eval is not None:
                     eval.stop()
-                raise e
             finally:
                 eval.stop()
-            outputs.append((RasterDataSet, out_dataset, result_name, expr_info))
+            if error is None:
+                child_conn.send(["error", {"Result Name": result_name, "Message": None, "Traceback": None}])
+                outputs.append((RasterDataSet, out_dataset, result_name, expr_info))
+            else:
+                child_conn.send(["error", {"Result Name": result_name, "Message": str(error), "Traceback": traceback.format_exc()}])
+                outputs.append((None, None, result_name, expr_info))
         else:
+            error = None
             try:
                 eval = BandMathEvaluator(lower_variables, lower_functions)
                 result_value = eval.transform(tree)
                 res = result_value.value
             except BaseException as e:
-                eval.stop()
-                raise e
+                error = e
+                if eval:
+                    eval.stop()
             finally:
                 eval.stop()
-            outputs.append((result_value.type, result_value.value, result_name, expr_info))
+            if error is None:
+                child_conn.send(["error", {"Result Name": result_name, "Message": None, "Traceback": None}])
+                outputs.append((result_value.type, result_value.value, result_name, expr_info))
+            else:
+                child_conn.send(["error", {"Result Name": result_name, "Message": str(error), "Traceback": traceback.format_exc()}])
+                outputs.append((None, None, result_name, expr_info))
 
-    child_conn.send({"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Finished"})
+
+    child_conn.send(["progress", {"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Finished"}])
     return outputs
