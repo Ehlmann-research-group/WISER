@@ -1325,25 +1325,19 @@ class BandMathDialog(QDialog):
         method also analyzes the expression to predict the type, shape and size
         of the expression's result, and displays this information in the UI.
         '''
-        print(f"analyzing expression")
         self._expr_info = None
         expr = self.get_expression()
         if not expr:
-            print(f"No expression")
             return
 
         # Try to identify details about the expression by parsing and analyzing
         # it.  This could fail, of course.
         try:
-            print(f"Trying to identify variables: {expr}")
             # Try to identify variables in the band-math expression.
             variables: Set[str] = bandmath.get_bandmath_variables(expr)
-            print(f"variables: {variables}")
             self._sync_binding_table_with_variables(variables)
 
             bindings = self.get_variable_bindings()
-            
-            print(f"bindings: {bindings}")
 
             if not all_bindings_specified(bindings):
                 self._ui.lbl_result_info.setText(self.tr(
@@ -1874,8 +1868,6 @@ class BandMathDialog(QDialog):
             else:
                 raise AssertionError(
                     f'Unrecognized binding type {var_type} for variable {var}')
-
-            print(f"Value after: {value}")
 
             variables[var] = (var_type, value)
 
