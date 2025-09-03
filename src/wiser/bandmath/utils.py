@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple, Union, TYPE_CHECKING
+from typing import Any, List, Tuple, Union, TYPE_CHECKING, Optional
 Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
@@ -59,7 +59,7 @@ def bandmath_error_callback(task: ParallelTaskProcess):
     print(f"Task error:\n{task.get_error()}")
 
 def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataSet], result: Union[SerializedForm, np.ndarray], \
-                                    result_name: str,expression: str, expr_info: BandMathExprInfo, \
+                                    result_name: str, expression: Optional[str], expr_info: BandMathExprInfo, \
                                     loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
@@ -68,8 +68,9 @@ def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
         if 'save_state' not in metadata:
             metadata['save_state'] = SaveState.IN_DISK_NOT_SAVED
         ds = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
-        ds.set_description(
-                        f'Computed image-cube:  {expression} ({timestamp})')
+        if expression:
+            ds.set_description(
+                            f'Computed image-cube:  {expression} ({timestamp})')
         if expr_info.spatial_metadata_source:
             ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
         if expr_info.spectral_metadata_source:

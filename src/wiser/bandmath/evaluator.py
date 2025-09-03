@@ -817,7 +817,7 @@ def eval_bandmath_expr(
         functions: Dict[str, BandMathFunction] = None, succeeded_callback: Callable = lambda _: None, \
         status_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
         started_callback: Callable = lambda _: None, cancelled_callback: Callable = lambda _: None, \
-        app_state: 'ApplicationState' = None, use_synchronous_method = False
+        app_state: 'ApplicationState' = None, use_synchronous_method = True
         ) -> ProcessManager:
     '''
     Evaluate a band-math expression using the specified variable and function
@@ -1170,7 +1170,7 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
 def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names_list: List[str], cache: DataCache,
             prepared_variables_list: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
             lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-            use_synchronous_method = False, child_conn: mp_conn.Connection = None \
+            use_synchronous_method = True, child_conn: mp_conn.Connection = None \
         ) -> List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]]:
     '''
     This function is used to evaluate one band math expression. Now this expression may or may not be 
