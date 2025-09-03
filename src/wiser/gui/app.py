@@ -808,7 +808,7 @@ class DataVisualizerApp(QMainWindow):
                                                                   expression=expression, batch_enabled=batch_enabled, \
                                                                   load_into_wiser=load_into_wiser)
                 process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback, \
-                                                              progress_callback=bandmath_progress_callback, \
+                                                              status_callback=bandmath_progress_callback, \
                                                               error_callback=bandmath_error_callback, \
                                                               bandmath_expr=expression, expr_info=expr_info, \
                                                               app_state=self._app_state, result_name=result_name, \
