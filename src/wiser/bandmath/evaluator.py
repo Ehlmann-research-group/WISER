@@ -912,7 +912,6 @@ def eval_bandmath_expr(
     process_manager.start_task()
     return process_manager
 
-
 def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]) -> \
     Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]:
     '''
@@ -945,6 +944,9 @@ def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_
     # This is where we take everything out of the batch folder and make individual pairs of BandMathExprInfo and
     # variable dictionaries for each. That way we can just use the same machinery as we do for regular bandmath.
     prepared_variables_list = prepare_bandmath_variables(serialized_variables, filepaths)
+    # Because the first pass through of expr_info (which happened in bandmath_dialog.py) used
+    # either IMAGE_CUBE_BATCH or IMAGE_BAND_BATCH as a variable type (and these have no metadata)
+    # information, we have to get the expr_info again for each filepath in the folder we are batch processing
     prepared_expr_info_list = prepare_expr_info(bandmath_expr, prepared_variables_list, lower_functions)
     prepared_result_names_list = prepare_result_names(result_name, filepaths)
     # This function actually calls the lark transformer and does the heavy lifting.

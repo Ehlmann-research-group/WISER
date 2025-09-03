@@ -1292,7 +1292,9 @@ class RasterPane(QWidget):
         this is the first dataset loaded, the function shows it in all
         rasterviews.
         '''
-        self._view_dataset(ds_id)
+        # If there is only the dataset that was just loaded in, then we want to show it
+        if len(self._app_state.get_datasets()) == 1:
+            self._view_dataset(ds_id)
     
     def _view_dataset(self, ds_id):
         '''

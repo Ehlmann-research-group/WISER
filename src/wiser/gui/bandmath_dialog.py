@@ -25,7 +25,7 @@ from wiser.bandmath.utils import get_dimensions, bandmath_success_callback, band
 from wiser.bandmath.types import BANDMATH_VALUE_TYPE
 from wiser.gui.util import get_plugin_fns
 from wiser.gui.subprocessing_manager import ProcessManager
-from wiser.gui.parallel_task import ParallelTask
+from wiser.gui.parallel_task import ParallelTask, ParallelTaskState
 
 import copy
 
@@ -854,6 +854,10 @@ class BatchJobInfoWidget(QWidget):
             return str(int(x))
         return f"{x:.6g}"
 
+# To be used to make sure these rows aren't visible when
+# batch processing is disabled.
+batch_processing_rows = [4, 9, 10, 11, 12]
+
 class BandMathDialog(QDialog):
 
     def __init__(self, app_state: ApplicationState,
@@ -1031,8 +1035,6 @@ class BandMathDialog(QDialog):
         elif progress[0] == "process_error":
             raise RuntimeError("Process in subprocess:\n" + progress[1]["traceback"])
 
-
-
     def _run_batch_job(self, job: BandmathBatchJob):
         # Run eval bandmath expr
         success_callback = lambda results: self.on_bandmath_job_success(job, results)
@@ -1166,6 +1168,7 @@ class BandMathDialog(QDialog):
         progress.setRange(0, 100)
         progress.setValue(0)
         progress.setTextVisible(True)
+        progress.setFormat(f"Idle")
         progress.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         progress.setMaximumWidth(160)
         batch_job.set_progress_bar(progress)
@@ -1339,16 +1342,6 @@ class BandMathDialog(QDialog):
         for element in batch_process_ui_elements:
             if isinstance(element, QWidget):
                 element.setVisible(is_enabled)
-
-        dialog_size = self.size()
-        batch_job_table_size = self._ui.tbl_wdgt_batch_jobs.size()
-        self._ui.tbl_wdgt_batch_jobs.setVisible(is_enabled)
-        self._ui.btn_run_all.setVisible(is_enabled)
-        self._ui.btn_cancel_all.setVisible(is_enabled)
-        if is_enabled:
-            dialog_size.setWidth(dialog_size.height() + batch_job_table_size.height())
-        else:
-            dialog_size.setWidth(dialog_size.width() - batch_job_table_size.width())
 
         if is_enabled:
             self._ui.lbl_result_name.setText(self.tr('Result suffix (required):'))
@@ -1537,6 +1530,38 @@ class BandMathDialog(QDialog):
         self._ui.tbl_variables.setSortingEnabled(True)
 
         self._ui.tbl_variables.resizeColumnsToContents()
+
+
+    def validate_batch_job_actions_state(self, batch_job_id):
+        '''
+        Validates that the batch job actions are properly enabled/disabled based on the batch job's state
+        '''
+        batch_job: BandmathBatchJob = None
+        for job in self._batch_jobs:
+            if job.get_job_id() == batch_job_id:
+                batch_job = job
+                break
+        if batch_job is None:
+            raise ValueError(f"Batch job with id {batch_job_id} not found")
+
+        job_state: ParallelTaskState = batch_job.get_process_manager().get_task().get_task_state()
+        if job_state == ParallelTaskState.NOT_STARTED:
+            assert batch_job.get_btn_start().isEnabled()
+            assert not batch_job.get_btn_cancel().isEnabled()
+            assert batch_job.get_btn_remove().isEnabled()
+            assert not batch_job.get_btn_view_errors().isEnabled()
+        elif job_state == ParallelTaskState.RUNNING:
+            assert not batch_job.get_btn_start().isEnabled()
+            assert batch_job.get_btn_cancel().isEnabled()
+            assert batch_job.get_btn_remove().isEnabled()
+        elif job_state == ParallelTaskState.CANCELLED:
+            assert batch_job.get_btn_start().isEnabled()
+            assert not batch_job.get_btn_cancel().isEnabled()
+            assert batch_job.get_btn_remove().isEnabled()
+        elif job_state == ParallelTaskState.COMPLETED:
+            assert batch_job.get_btn_start().isEnabled()
+            assert not batch_job.get_btn_cancel().isEnabled()
+            assert batch_job.get_btn_remove().isEnabled()
 
 
     def _is_batch_var_row(self, row_index: int):
