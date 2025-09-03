@@ -34,6 +34,7 @@ from PySide2.QtWidgets import QMessageBox, QWidget
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
+    from wiser.raster.loader import RasterDataLoader
 
 import logging
 logger = logging.getLogger(__name__)
@@ -57,6 +58,75 @@ def bandmath_progress_callback(msg: str):
 def bandmath_error_callback(task: ParallelTaskProcess):
     print(f"Task error:\n{task.get_error()}")
 
+def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataSet], result: Union[SerializedForm, np.ndarray], \
+                                    result_name: str,expression: str, expr_info: BandMathExprInfo, \
+                                    loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
+    # Compute a timestamp to put in the description
+    timestamp = datetime.datetime.now().isoformat()
+    if result_type == RasterDataSet:
+        metadata = result.get_metadata()
+        if 'save_state' not in metadata:
+            metadata['save_state'] = SaveState.IN_DISK_NOT_SAVED
+        ds = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
+        ds.set_description(
+                        f'Computed image-cube:  {expression} ({timestamp})')
+        if expr_info.spatial_metadata_source:
+            ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
+        if expr_info.spectral_metadata_source:
+            ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        if app_state:
+            ds.set_name(app_state.unique_dataset_name(metadata.get('name', 'Computed')))
+            app_state.add_dataset(ds)
+        return ds
+    elif result_type == VariableType.IMAGE_CUBE:
+        if not loader:
+            raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
+        cache = app_state.get_cache() if app_state else None
+        name = result_name if result_name else 'Computed'
+        ds = loader.dataset_from_numpy_array(result, cache)
+        ds.set_description(
+            f'Computed image-cube:  {expression} ({timestamp})')
+
+        if expr_info.spatial_metadata_source:
+            ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
+        if expr_info.spectral_metadata_source:
+            ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        if app_state:
+            ds.set_name(app_state.unique_dataset_name(name))
+            app_state.add_dataset(ds)
+        
+        return ds
+    return None
+
+def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
+                                    result_name: str, expression: str, expr_info: BandMathExprInfo, parent: QWidget = None, \
+                                    loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
+    if not loader:
+        raise AttributeError("Must pass loader into function")
+    # Compute a timestamp to put in the description
+    timestamp = datetime.datetime.now().isoformat()
+    # Convert the image band into a 1-band image cube
+    result = result[np.newaxis, :]
+    cache = app_state.get_cache() if app_state else None
+    new_dataset = loader.dataset_from_numpy_array(result, cache)
+
+    if not result_name:
+        result_name = parent.tr('Computed') if parent else 'Computed'
+
+    if app_state:
+        new_dataset.set_name(
+            app_state.unique_dataset_name(result_name))
+    new_dataset.set_description(
+        f'Computed image-band:  {expression} ({timestamp})')
+
+    if expr_info.spatial_metadata_source:
+        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
+
+    if app_state:
+        app_state.add_dataset(new_dataset)
+    
+    return new_dataset
+
 def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', results: List[Tuple[VariableType, SerializedForm, str]],
                     expression: str, batch_enabled: bool, load_into_wiser: bool):
     # If the process gets cancelled, the results will be None. So we do nothing.
@@ -73,60 +143,11 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
             timestamp = datetime.datetime.now().isoformat()
 
             loader = app_state.get_loader()
-            if result_type == RasterDataSet:
-                metadata = result.get_metadata()
-                if 'save_state' not in metadata:
-                    metadata['save_state'] = SaveState.IN_DISK_NOT_SAVED
-                new_dataset = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
-
-                new_dataset.set_name(
-                    app_state.unique_dataset_name(result_name))
-                new_dataset.set_description(
-                    f'Computed image-cube:  {expression} ({timestamp})')
-                if expr_info.spatial_metadata_source:
-                    new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                if expr_info.spectral_metadata_source:
-                    new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                app_state.add_dataset(new_dataset)
-
-            elif result_type == VariableType.IMAGE_CUBE:
-                new_dataset = loader.dataset_from_numpy_array(result, app_state.get_cache())
-
-                if not result_name:
-                    result_name = parent.tr('Computed')
-
-                new_dataset.set_name(
-                    app_state.unique_dataset_name(result_name))
-                new_dataset.set_description(
-                    f'Computed image-cube:  {expression} ({timestamp})')
-
-                if expr_info.spatial_metadata_source:
-                    new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                if expr_info.spectral_metadata_source:
-                    new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                app_state.add_dataset(new_dataset)
+            if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                load_image_from_bandmath_result(result_type, result, result_name, expression, expr_info, loader, app_state)
 
             elif result_type == VariableType.IMAGE_BAND:
-                # Convert the image band into a 1-band image cube
-                result = result[np.newaxis, :]
-                new_dataset = loader.dataset_from_numpy_array(result, app_state.get_cache())
-
-                if not result_name:
-                    result_name = parent.tr('Computed')
-
-                new_dataset.set_name(
-                    app_state.unique_dataset_name(result_name))
-                new_dataset.set_description(
-                    f'Computed image-band:  {expression} ({timestamp})')
-
-                if expr_info.spatial_metadata_source:
-                    new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
-
-                app_state.add_dataset(new_dataset)
+                load_band_from_bandmath_result(result, result_name, expression, expr_info, parent, loader, app_state)
 
             elif result_type == VariableType.SPECTRUM:
 

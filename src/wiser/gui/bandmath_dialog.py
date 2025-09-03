@@ -1913,7 +1913,7 @@ class BandMathDialog(QDialog):
                 row_wavelength_value = band_batch_chooser.get_settings()['wavelength']
                 row_wavelength_units = band_batch_chooser.get_settings()['units_key']
                 row_epsilon = band_batch_chooser.get_settings()['epsilon']
-                if row_mode == ImageBandBatchChooserWidget.Mode.INDEX:  
+                if row_mode == ImageBandBatchChooserWidget.Mode.INDEX:
                     value = RasterDataBatchBand(input_folder, band_index=row_band_index)
                 elif row_mode == ImageBandBatchChooserWidget.Mode.WAVELENGTH:
                     value = RasterDataBatchBand(input_folder, wavelength_value=row_wavelength_value, wavelength_units=row_wavelength_units, epsilon=row_epsilon)
