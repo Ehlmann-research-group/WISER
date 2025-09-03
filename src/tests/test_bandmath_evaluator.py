@@ -1,5 +1,5 @@
-# import tests.context
-import context
+import tests.context
+# import context
 
 import multiprocessing as mp
 from astropy import units as u
@@ -1119,18 +1119,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             
             del result
 
-    def test_bandmath_band_metadata_copying(self):
-        pass
-
-    def test_bandmath_image_batch_processing(self):
-        pass
-
-    def test_bandmath_band_index_batch_processing(self):
-        pass
-
-    def test_bandmath_band_wvl_batch_processing(self):
-        pass
-
     def bandmath_preloaded_data_with_batch_helper(self, run_sync: bool):
         # Load in caltech_4_100_150nm
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1289,6 +1277,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             batch_test_folder, band_index=None, wavelength_value=700, wavelength_units=u.nm, epsilon=20)
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
 
+    # TODO (Joshua G-K): Write these tests for bandmath batch buttons.
     def test_bandmath_batch_cancel(self):
         pass
 
