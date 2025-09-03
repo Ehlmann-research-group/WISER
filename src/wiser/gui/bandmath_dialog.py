@@ -1343,6 +1343,21 @@ class BandMathDialog(QDialog):
             if isinstance(element, QWidget):
                 element.setVisible(is_enabled)
 
+        dialog_size = self.size()
+        batch_job_table_size = self._ui.tbl_wdgt_batch_jobs.size()
+        delta = batch_job_table_size.width()
+        self._ui.tbl_wdgt_batch_jobs.setVisible(is_enabled)
+        self._ui.btn_run_all.setVisible(is_enabled)
+        self._ui.btn_cancel_all.setVisible(is_enabled)
+        if is_enabled:
+            # Enabling batch processing will shrink the dialog
+            dialog_size.setWidth(dialog_size.width() + delta)
+        else:
+            # Disabling batch processing will grow the dialog
+            dialog_size.setWidth(dialog_size.width() - delta)
+
+        self.resize(dialog_size)
+    
         if is_enabled:
             self._ui.lbl_result_name.setText(self.tr('Result suffix (required):'))
         else:
