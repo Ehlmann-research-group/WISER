@@ -79,7 +79,7 @@ def all_bindings_specified(bindings: Dict[str, Tuple[bandmath.VariableType, Any]
     dictionary specify usable values, or ``False`` otherwise.  (A missing value
     is indicated by ``None``.)
     '''
-    for (name, (type, value)) in bindings.items():
+    for (name, (_type, value)) in bindings.items():
         if value is None:
             return False
 
@@ -1058,11 +1058,9 @@ class BandMathDialog(QDialog):
         missing = []
 
         if not self._expr_info:
-            missing.append("Expression Info")
+            missing.append("Expression Info (some of your're variables aren't assigned)")
         if not self.get_expression():
             missing.append("Expression")
-        if not self._get_input_folder():
-            missing.append("Input Folder")
         if not self._get_output_folder() and not self.load_results_into_wiser():
             missing.append("Output Folder or 'Load Results into WISER' checked")
         if not self.get_result_name():
@@ -1944,7 +1942,11 @@ class BandMathDialog(QDialog):
                 else:
                     raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
             elif var_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
-                value = self._get_input_folder()
+                # If value is None, then the bandmath dialog will raise the not all bindings specified error
+                # Which is good because the user will know to specify all bindings.
+                input_folder = self._get_input_folder()
+                if input_folder:
+                    value = input_folder
             elif var_type == bandmath.VariableType.IMAGE_BAND_BATCH:
                 input_folder = self._get_input_folder()
                 band_batch_chooser: ImageBandBatchChooserWidget = self._ui.tbl_variables.cellWidget(row, 2)
@@ -1954,9 +1956,11 @@ class BandMathDialog(QDialog):
                 row_wavelength_units = band_batch_chooser.get_settings()['units_key']
                 row_epsilon = band_batch_chooser.get_settings()['epsilon']
                 if row_mode == ImageBandBatchChooserWidget.Mode.INDEX:
-                    value = RasterDataBatchBand(input_folder, band_index=row_band_index)
+                    if input_folder and row_band_index:
+                        value = RasterDataBatchBand(input_folder, band_index=row_band_index)
                 elif row_mode == ImageBandBatchChooserWidget.Mode.WAVELENGTH:
-                    value = RasterDataBatchBand(input_folder, wavelength_value=row_wavelength_value, wavelength_units=row_wavelength_units, epsilon=row_epsilon)
+                    if input_folder and row_wavelength_value and row_wavelength_units and row_epsilon:
+                        value = RasterDataBatchBand(input_folder, wavelength_value=row_wavelength_value, wavelength_units=row_wavelength_units, epsilon=row_epsilon)
                 else:
                     raise AssertionError(f'Unrecognized mode: {row_mode}')
             else:
