@@ -948,7 +948,6 @@ class DataVisualizerApp(QMainWindow):
         rasterview = self._main_view.get_all_rasterviews()
 
         self._context_pane.set_viewport_highlight(visible_region, rasterview)
-        return
 
     def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point, recenter_mode=RecenterMode.NEVER):
         '''

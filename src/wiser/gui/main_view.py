@@ -1,7 +1,7 @@
 import logging
 import os
 import traceback
-from typing import Union, Dict, List, Optional
+from typing import Union, Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -17,8 +17,9 @@ from .rasterpane import RasterPane
 from .rasterview import RasterView
 from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
-from .util import add_toolbar_action
+from .util import add_toolbar_action, get_painter
 from .plugin_utils import add_plugin_context_menu_items
+from .scatter_plot_2D import ScatterPlot2DDialog
 
 from wiser import plugins
 
@@ -49,6 +50,8 @@ class MainViewWidget(RasterPane):
             self._set_link_views_button_state()
 
         self._set_dataset_tools_button_state()
+
+        self._interactive_scatter_highlight_points: List[Tuple[int, int]] = []
 
 
     def _init_toolbar(self):
@@ -161,6 +164,11 @@ class MainViewWidget(RasterPane):
         act = submenu.addAction(self.tr('Export full image extent to RGB image...'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_export_image_full(rv))
+
+        submenu = menu.addMenu(self.tr('Data Analysis'))
+        act = submenu.addAction(self.tr('2D InteractiveScatter Plot'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._on_scatter_plot_2D(rv))
 
         # Plugin context-menus
         add_plugin_context_menu_items(self._app_state,
@@ -326,6 +334,23 @@ class MainViewWidget(RasterPane):
         self._set_link_views_button_state()
 
 
+    def _on_scatter_plot_2D(self, rasterview):
+        dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
+                                     self._clear_interactive_scatter_plot_highlights,
+                                     self._app_state, parent=self)
+        dialog.band_chooser()
+
+    def _make_interactive_scatter_plot_highlights(self, selected_points):
+        # Highlight the selected points 
+        rows, cols, x_val, y_val = selected_points
+        assert len(rows) == len(cols), "Returned pixel rows do not equal returned pixel columns."
+        self._interactive_scatter_highlight_points = [(cols[i], rows[i]) for i in range(len(cols))]
+        self.update_all_rasterviews()
+
+    def _clear_interactive_scatter_plot_highlights(self):
+        self._interactive_scatter_highlight_points = []
+        self.update_all_rasterviews()
+
     def is_scrolling_linked(self):
         return self._link_view_scrolling
 
@@ -380,6 +405,26 @@ class MainViewWidget(RasterPane):
             for rv in self._rasterviews.values():
                 rv.update()
 
+    def _afterRasterPaint(self, rasterview, widget, paint_event):
+        super()._afterRasterPaint(rasterview, widget, paint_event)
+
+        self._draw_interactive_scatter_plot_highlights(rasterview, widget, paint_event)
+
+    def _draw_interactive_scatter_plot_highlights(self, rasterview, widget, paint_event):
+        if self._interactive_scatter_highlight_points:
+            with get_painter(widget) as painter:
+                painter.setPen(QPen(QColor(255, 0, 0), 2))
+                
+                # Get the current scale factor for proper coordinate transformation
+                scale = self.get_scale()
+                
+                for row, col in self._interactive_scatter_highlight_points:
+                    # Convert dataset coordinates to screen coordinates
+                    # Add 0.5 to center the point within the pixel
+                    screen_x = (col + 0.5) * scale
+                    screen_y = (row + 0.5) * scale
+                    
+                    painter.drawPoint(screen_x, screen_y)
 
     def _afterRasterScroll(self, rasterview, dx, dy, propagate_scroll):
         '''
