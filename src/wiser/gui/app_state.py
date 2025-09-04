@@ -312,7 +312,6 @@ class ApplicationState(QObject):
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
-        print(f"add_datasetview_dataset: {view_dataset}")
         self.dataset_added.emit(ds_id, view_dataset)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 

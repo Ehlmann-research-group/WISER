@@ -1293,7 +1293,6 @@ class RasterPane(QWidget):
         rasterviews.
         '''
         # If there is only the dataset that was just loaded in, then we want to show it
-        print(f"_on_dataset_added, view_dataset: {view_dataset}")
         if view_dataset or len(self._app_state.get_datasets()) == 1:
             self._view_dataset(ds_id)
     
@@ -1356,7 +1355,6 @@ class RasterPane(QWidget):
 
 
     def _on_dataset_changed(self, act):
-        print(f"_on_dataset_changed triggered from datasetchooser!!")
         (rasterview_pos, ds_id) = act.data()
         dataset = self._app_state.get_dataset(ds_id)
         self.show_dataset(dataset, rasterview_pos)

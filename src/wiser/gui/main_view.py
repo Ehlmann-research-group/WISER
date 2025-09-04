@@ -213,7 +213,6 @@ class MainViewWidget(RasterPane):
         Override the base-class implementation so we can also update the
         stretch-builder button state.
         '''
-        print(f"_on_dataset_added triggered from main_view!!, view_dataset: {view_dataset}")
         super()._on_dataset_added(ds_id, view_dataset)
         self._set_dataset_tools_button_state()
 
@@ -294,7 +293,6 @@ class MainViewWidget(RasterPane):
 
     
     def _on_dataset_changed(self, act):
-        print(f"_on_dataset_changed!!")
         super()._on_dataset_changed(act)
         self._app_state.mainview_dataset_changed.emit(self.get_rasterview().get_raster_data().get_id())
 
