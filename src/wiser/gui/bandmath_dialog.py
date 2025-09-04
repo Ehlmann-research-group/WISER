@@ -2,7 +2,7 @@ from enum import Enum
 import logging
 import os
 
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -271,10 +271,12 @@ class ImageBandBatchChooserWidget(QWidget):
         "mhz": u.MHz,
     }
 
-    def __init__(self, app_state, table_widget: QTableWidget, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, app_state, table_widget: QTableWidget, value_edited_callback: Callable = lambda: None,
+                 parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._app_state = app_state  # reserved for future use
         self._tbl_wdgt_parent = table_widget
+        self._value_edited_callback = value_edited_callback
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # --- Layout: single row, roomy and elastic
@@ -296,6 +298,7 @@ class ImageBandBatchChooserWidget(QWidget):
         self._ledit_value = QLineEdit()
         self._ledit_value.setPlaceholderText("Band index")
         self._ledit_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._ledit_value.editingFinished.connect(self._value_edited_callback)
         row.addWidget(self._ledit_value)
 
         # Units (wavelength-only)
@@ -317,6 +320,7 @@ class ImageBandBatchChooserWidget(QWidget):
             "epsilon. If none are within epsilon, skip the calculation."
         )
         self._ledit_eps.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self._ledit_eps.editingFinished.connect(self._value_edited_callback)
         row.addWidget(self._ledit_eps)
 
         # # Spacer lets the row grow and prevents crowding
@@ -393,6 +397,7 @@ class ImageBandBatchChooserWidget(QWidget):
     def _on_mode_changed(self, _i: int) -> None:
         self._apply_mode(self.current_mode())
         self.modeChanged.emit(self.current_mode())
+        self._value_edited_callback()
 
     def _apply_mode(self, mode: str) -> None:
         """Update placeholders, validators, and visibility for the mode."""
@@ -1058,7 +1063,7 @@ class BandMathDialog(QDialog):
         missing = []
 
         if not self._expr_info:
-            missing.append("Expression Info (some of your're variables aren't assigned)")
+            missing.append("Expression Info (some of you're variables aren't assigned)")
         if not self.get_expression():
             missing.append("Expression")
         if not self._get_output_folder() and not self.load_results_into_wiser():

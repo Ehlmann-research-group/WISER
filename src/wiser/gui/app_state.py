@@ -58,7 +58,7 @@ class ApplicationState(QObject):
     '''
 
     # Signal:  a data-set with the specified ID was added
-    dataset_added = Signal(int)
+    dataset_added = Signal(int, bool)
 
     # Signal:  the data-set with the specified ID was removed
     dataset_removed = Signal(int)
@@ -298,7 +298,7 @@ class ApplicationState(QObject):
             self.add_dataset(raster_data)
 
 
-    def add_dataset(self, dataset: RasterDataSet):
+    def add_dataset(self, dataset: RasterDataSet, view_dataset: bool = True):
         '''
         Add a dataset to the application state.  A unique numeric ID is assigned
         to the dataset, which is also set on the dataset itself.
@@ -312,7 +312,8 @@ class ApplicationState(QObject):
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
-        self.dataset_added.emit(ds_id)
+        print(f"add_datasetview_dataset: {view_dataset}")
+        self.dataset_added.emit(ds_id, view_dataset)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
 
     def has_dataset(self, ds_id: int) -> bool:

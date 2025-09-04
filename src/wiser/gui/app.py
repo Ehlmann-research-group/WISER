@@ -416,7 +416,7 @@ class DataVisualizerApp(QMainWindow):
     def show_status_text(self, text: str, seconds: int=0):
         self.statusBar().showMessage(text, seconds * 1000)
 
-    def _on_dataset_added(self, ds_id: int):
+    def _on_dataset_added(self, ds_id: int, view_dataset: bool = True):
         self._update_dataset_menus()
         self._image_coords.update_coords(self._app_state.get_dataset(ds_id), None)
 

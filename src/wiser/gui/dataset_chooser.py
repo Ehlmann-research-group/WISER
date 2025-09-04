@@ -137,7 +137,7 @@ class DatasetChooser(QToolButton):
             oact.setChecked(oact == act)
 
 
-    def _on_dataset_added(self, ds_id: int):
+    def _on_dataset_added(self, ds_id: int, view_dataset: bool = True):
         self._populate_dataset_menu()
 
     def _on_dataset_removed(self, ds_id: int):

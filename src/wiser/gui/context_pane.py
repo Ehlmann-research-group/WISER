@@ -161,12 +161,12 @@ class ContextPane(RasterPane):
             self.show_dataset(dataset, rasterview_pos)
 
 
-    def _on_dataset_added(self, ds_id):
+    def _on_dataset_added(self, ds_id, view_dataset: bool = True):
         '''
         Override the base-class implementation so we can also update the
         image scaling.
         '''
-        super()._on_dataset_added(ds_id)
+        super()._on_dataset_added(ds_id, view_dataset)
         self._update_image_scale()
 
 

@@ -32,7 +32,7 @@ class DatasetInfoView(QTreeWidget):
         self.header().setStretchLastSection(False)
 
 
-    def _on_dataset_added(self, ds_id):
+    def _on_dataset_added(self, ds_id: int, view_dataset: bool = True):
         '''
         When a data set is added to the application state, this method populates
         the data info view with information about the data set.

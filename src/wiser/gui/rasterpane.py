@@ -1285,7 +1285,7 @@ class RasterPane(QWidget):
         self.visibility_change.emit(False)
 
 
-    def _on_dataset_added(self, ds_id):
+    def _on_dataset_added(self, ds_id: int, view_dataset: bool = True):
         '''
         This function handles "dataset added" events from the application state.
         It records the initial display bands to use for the dataset.  Also, if
@@ -1293,7 +1293,9 @@ class RasterPane(QWidget):
         rasterviews.
         '''
         # If there is only the dataset that was just loaded in, then we want to show it
-        self._view_dataset(ds_id)
+        print(f"_on_dataset_added, view_dataset: {view_dataset}")
+        if view_dataset:
+            self._view_dataset(ds_id)
     
     def _view_dataset(self, ds_id):
         '''
@@ -1354,6 +1356,7 @@ class RasterPane(QWidget):
 
 
     def _on_dataset_changed(self, act):
+        print(f"_on_dataset_changed triggered from datasetchooser!!")
         (rasterview_pos, ds_id) = act.data()
         dataset = self._app_state.get_dataset(ds_id)
         self.show_dataset(dataset, rasterview_pos)
