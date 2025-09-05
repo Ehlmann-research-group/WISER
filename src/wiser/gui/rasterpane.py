@@ -1295,6 +1295,10 @@ class RasterPane(QWidget):
         # If there is only the dataset that was just loaded in, then we want to show it
         if view_dataset or len(self._app_state.get_datasets()) == 1:
             self._view_dataset(ds_id)
+        else:
+            # Even if we do not switch views to the new dataset, make sure all
+            # tiled view dataset choosers refresh to include the new dataset.
+            self._update_rasterview_toolbars()
     
     def _view_dataset(self, ds_id):
         '''

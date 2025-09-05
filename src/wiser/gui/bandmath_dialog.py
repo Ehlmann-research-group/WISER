@@ -230,7 +230,6 @@ class DatasetBandChooserWidget(QWidget):
         return (self.dataset_chooser.currentData(),
                 self.band_chooser.currentData())
 
-
 class ImageBandBatchChooserWidget(QWidget):
     """
     Compact widget for choosing an image band for batch processing.
@@ -1629,7 +1628,7 @@ class BandMathDialog(QDialog):
         elif variable_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
             value_widget = make_image_cube_batch_chooser(self.tr('Using Input Folder'))
         elif variable_type == bandmath.VariableType.IMAGE_BAND_BATCH:
-            value_widget = ImageBandBatchChooserWidget(self._app_state, self._ui.tbl_variables)
+            value_widget = ImageBandBatchChooserWidget(self._app_state, self._ui.tbl_variables, value_edited_callback=self._analyze_expr)
         else:
             raise AssertionError(f'Unrecognized variable type {variable_type}')
 
