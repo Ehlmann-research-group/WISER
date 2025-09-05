@@ -1806,50 +1806,29 @@ class WiserTestModel:
         act = QAction(dlg)
         act.setData((rasterview_pos, dataset.get_id()))
         dlg._translate_pane._on_dataset_changed(act)
-    # Code to open up the Similarity Transform dialog
-
-    # Code to switch between rotate and scale tab and translate coordinate system tab
-
-    # For rotate and scale tab, code to edit the rotation with both the ledit
-    # and the slider. ledit is ledit_rotate, slider is slider_rotation
-
-    # Code to change the scale with the ledit, ledit_scale
-
-    # Code to change the interpolation type in the combo box (currently lets just do this with the index) cbox_interpolation
-
-    # Code to set the save file path for rotate and scale. the ledit for this is ledit_save_path_rs
-
-    # Code to press the button that starts the rotation and scale. The button for this is btn_rotate_scale
-
-    # Code to select the dataset in the rotate scale similarity transform pane
-    # Either trigger the dataset chooser action or just called rasterpane._on_dataset_changed with an
-    # action that has this data (rasterview_pos, ds_id) = act.data()
-
-    # Code to click on a pixel in the translation similarity transform pane. 
-
-    # Code to get the original spatial coord and the new spatial coord of that pixel
-
-    # Code to translate the Lat/North by editing ledit_lat_north
-
-    # Code to translate the Lon/East by editing ledit_lon_east
-
-    # Code to get the text in the ledit ledit_lat_north_ul
-
-    # Code to get the text in the ledit lon_east_ul
-
-    # Code to set the file save path by editing ledit_save_path_translate
-
-    # Code to press the Create Translation button which is btn_create_translation
-
-    # Code to select the dataset to use in the translation similarity transform pane
-    # Either trigger the dataset chooser action or just called rasterpane._on_dataset_changed with an
-    # action that has this data (rasterview_pos, ds_id) = act.data()
 
     #==========================================
     # region Bandmath 
     #==========================================
 
-    # TODO (Joshua G-K): Write the way to interface with bandmath
+    # TODO (Joshua G-K): Write the way to interface with bandmath's batch job.
+    # I don't know if these tests will be worth while to code. Thorough documentation
+    # may be a better option.
+
+    # Code to create a bandmath batch job. We would have to give the expression,
+    # variable bindings, suffix, and an optional load results into wiser or output folder
+    # destination, one of these has to be not None. It should press the button to create
+    # the batch job and type in the expression line edit (ledit_expression) and for
+    # the suffix, type in the QLineEdit ledit_result_name and mimic clicking the check box
+    # for load results into wiser (chkbox_load_into_wiser)
+
+    # Code to start a bandmath batch job based off of the batch job's id
+
+    # Code to cancel a bandmath job based on the job's id
+
+    # Code to remove a bandmath job based on the job's id
+
+    # Code to view the progress bar of the batch job
 
     #==========================================
     # region General

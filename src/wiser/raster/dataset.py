@@ -13,7 +13,7 @@ from .dataset_impl import RasterDataImpl, SaveState, GDALRasterDataImpl, \
     PDRRasterDataImpl, NumPyRasterDataImpl, ENVI_GDALRasterDataImpl, \
     NetCDF_GDALRasterDataImpl, GTiff_GDALRasterDataImpl, PDS4_GDALRasterDataImpl, \
     JP2_GDAL_PDR_RasterDataImpl
-from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH, KNOWN_SPECTRAL_UNITS
+from .utils import RED_WAVELENGTH, GREEN_WAVELENGTH, BLUE_WAVELENGTH, KNOWN_SPECTRAL_UNITS, get_spectral_unit_from_any
 from .utils import (find_band_near_wavelength, normalize_ndarray, can_transform_between_srs,
                     have_spatial_overlap, build_band_info_from_wavelengths)
 from .data_cache import DataCache
@@ -1509,7 +1509,7 @@ class RasterDataDynamicBand(RasterBand, Serializable):
         from wiser.raster.loader import RasterDataLoader
         loader = RasterDataLoader()
         wavelength_value = float(band_metadata['wavelength_value']) if band_metadata['wavelength_value'] is not None else None
-        wavelength_units = KNOWN_SPECTRAL_UNITS.get(band_metadata.get('wavelength_units', None), None)
+        wavelength_units = get_spectral_unit_from_any(band_metadata.get('wavelength_units', None))
         epsilon = float(band_metadata['epsilon']) if band_metadata['epsilon'] is not None else None
         assert band_index is not None or (wavelength_value is not None and wavelength_units is not None and epsilon is not None), \
             "Either band_index or wavelength_value, wavelength_units, and epsilon must be provided"

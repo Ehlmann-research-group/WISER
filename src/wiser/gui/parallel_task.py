@@ -1,5 +1,6 @@
 import logging
 
+from enum import Enum
 from typing import Any, Callable, Dict, Optional, Union
 
 from PySide2.QtCore import *
@@ -11,6 +12,13 @@ import multiprocessing.connection as mp_conn
 from concurrent.futures import ProcessPoolExecutor
 
 logger = logging.getLogger(__name__)
+
+class ParallelTaskState(Enum):
+    NOT_STARTED = "not_started"
+    RUNNING = "running"
+    CANCELLED = "cancelled"
+    COMPLETED = "completed"
+    ERROR = "error"
 
 class ParallelTask(QThread):
     '''
@@ -104,6 +112,8 @@ class ParallelTaskProcess(ParallelTask):
 
         self._exit_code: int | None = None
 
+        self._cancelled: bool = False
+
     def cancel(self, **kwargs):
         try:
             self._process.terminate()
@@ -183,12 +193,27 @@ class ParallelTaskProcess(ParallelTask):
         if self._exit_code == 0:
             self.succeeded.emit(self)
         elif self._exit_code is not None and self._exit_code < 0:
+            self._cancelled = True
             self.cancelled.emit(self)
         else:
             self.error.emit(self)
     
     def get_process_id(self) -> Union[int, None]:
         return self._process_id
+    
+    def get_task_state(self) -> ParallelTaskState:
+        if self._cancelled:
+            return ParallelTaskState.CANCELLED
+        elif self._error:
+            return ParallelTaskState.ERROR
+        elif self._process_id is None:
+            return ParallelTaskState.NOT_STARTED
+        elif self._process.is_alive() and self._process.exitcode is None:
+            return ParallelTaskState.RUNNING
+        elif not self._process.is_alive() and self._process.exitcode is not None:
+            return ParallelTaskState.COMPLETED
+        else:
+            raise RuntimeError("This ParallelTask is in an incorrect state!")
 
 class ParallelTaskProcessPool(ParallelTask):
     '''

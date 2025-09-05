@@ -817,7 +817,7 @@ def eval_bandmath_expr(
         functions: Dict[str, BandMathFunction] = None, succeeded_callback: Callable = lambda _: None, \
         status_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
         started_callback: Callable = lambda _: None, cancelled_callback: Callable = lambda _: None, \
-        app_state: 'ApplicationState' = None, use_synchronous_method = False, test_parallel_io=False
+        app_state: 'ApplicationState' = None, use_synchronous_method = True
         ) -> ProcessManager:
     '''
     Evaluate a band-math expression using the specified variable and function
@@ -893,7 +893,6 @@ def eval_bandmath_expr(
         "number_of_intermediates": number_of_intermediates,
         "tree": tree,
         "use_synchronous_method": use_synchronous_method,
-        "test_parallel_io": test_parallel_io
     }
 
     process_manager = ProcessManager(subprocess_bandmath, kwargs)
@@ -912,7 +911,6 @@ def eval_bandmath_expr(
     task.succeeded.connect(lambda task: succeeded_callback(task.get_result()))
     process_manager.start_task()
     return process_manager
-
 
 def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]) -> \
     Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]:
@@ -935,7 +933,7 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
 def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
                         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-                        use_synchronous_method: bool, test_parallel_io: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
     # First we will decide if we are doing batching or not. If we are doing batching we get the filepaths, if we are not doing
     # batching we will make the file paths = [None]
     is_batch = is_batch_job(serialized_variables)
@@ -943,23 +941,11 @@ def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_
     if is_batch:
         filepaths = get_batch_filepaths(serialized_variables)
 
-    # This is where we take everything out of the batch folder and make individual pairs of BandMathExprInfo and
-    # variable dictionaries for each. That way we can just use the same machinery as we do for regular bandmath.
-    prepared_variables_list = prepare_bandmath_variables(serialized_variables, filepaths)
-    prepared_expr_info_list = prepare_expr_info(bandmath_expr, prepared_variables_list, lower_functions)
-    prepared_result_names_list = prepare_result_names(result_name, filepaths)
-    # This function actually calls the lark transformer and does the heavy lifting.
-    results = eval_full_bandmath_expr(prepared_expr_info_list, prepared_result_names_list, cache, prepared_variables_list, lower_functions, \
-                            number_of_intermediates, tree, use_synchronous_method, test_parallel_io, child_conn)
-    # At this point, everything in the folder has been processed. Now we collect the results to put them
-    # on the return queue.
-    serialized_results: List[Tuple[VariableType, SerializedForm, str, BandMathExprInfo]] = []
-    for result_type, result_value, result_name, result_expr_info in results:
-        if isinstance(result_value, Serializable):
-            serialized_results.append((result_type, result_value.get_serialized_form(), result_name, result_expr_info))
-        else:
-            serialized_results.append((result_type, result_value, result_name, result_expr_info))
-    return_queue.put(serialized_results)
+    eval_all_bandmath_expr(filepaths=filepaths, bandmath_expr=bandmath_expr, expr_info=expr_info,
+                           result_name=result_name, cache=cache, serialized_variables=serialized_variables,
+                           lower_functions=lower_functions, number_of_intermediates=number_of_intermediates,
+                           tree=tree, use_synchronous_method=use_synchronous_method, child_conn=child_conn,
+                           return_queue=return_queue)
 
 def get_batch_filepaths(serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]) -> List[str]:
     filepaths = []
@@ -1116,7 +1102,7 @@ def prepare_result_names(result_name: str, filepaths: List[str]) -> List[str]:
     for filepath in filepaths:
         base = os.path.basename(filepath)
         name, ext = os.path.splitext(base)
-        new_name = f"{name}_{result_name}"
+        new_name = f"{name}{result_name}"
         result_name_list.append(new_name)
     return result_name_list
 
@@ -1130,8 +1116,7 @@ def prepare_expr_info(bandmath_expr: str, \
     # Go through each of the variables in the list and get the expr_info for each of them
     expr_info_list = []
     for variables in variables_list:
-        expression = bandmath_expr
-        expr_info_list.append(bandmath.get_bandmath_expr_info(expression, variables, functions))
+        expr_info_list.append(bandmath.get_bandmath_expr_info(bandmath_expr, variables, functions))
     return expr_info_list
 
 def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]], \
@@ -1166,119 +1151,172 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
         prepared_variables.append(single_batch_variables)
     return prepared_variables
 
-def eval_full_bandmath_expr(expr_info_list: List[BandMathExprInfo], result_names_list: List[str], cache: DataCache,
-            prepared_variables_list: List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]],
-            lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-            use_synchronous_method = False, test_parallel_io = False, child_conn: mp_conn.Connection = None \
-        ) -> List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]]:
-    '''
-    This function is used to evaluate one band math expression. Now this expression may or may not be 
-    an expression that has batching. If it does, then we will have to do the batching logic here.
-    '''
-    assert len(expr_info_list) == len(prepared_variables_list), "The number of expr_info_list and prepared_variables_list must be the same"
-    count = 0
-    outputs: List[Tuple[RasterDataSet.__class__, RasterDataSet, str, BandMathExprInfo]] = []
-    for lower_variables, expr_info, result_name in zip(prepared_variables_list, expr_info_list, result_names_list):
-        count += 1
-        child_conn.send(["progress", {"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Running"}])
-        gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
-        
-        max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
-        logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
-
-        spectral_metadata = expr_info.spectral_metadata_source
-        data_ignore_value = DEFAULT_IGNORE_VALUE
-        if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
-            data_ignore_value = spectral_metadata.get_data_ignore_value()
-
-        if test_parallel_io or \
-        (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
-        and not use_synchronous_method):
+def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+                        serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
+                        lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+    loader = RasterDataLoader()
+    # This case is if we are doing batch processing
+    if filepaths:
+        outputs = []
+        count = 0
+        total = len(filepaths)
+        for filepath in filepaths:
+            # First we get the result name
+            base = os.path.basename(filepath)
+            name, ext = os.path.splitext(base)
+            new_result_name = f"{name}{result_name}"
             try:
-                error = None
-                eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
-                bands = 1
-                lines = 1
-                samples = 1
-                if len(expr_info.shape) == 2:
-                    lines, samples = expr_info.shape
-                elif len(expr_info.shape) == 3:
-                    bands, lines, samples = expr_info.shape
-                else:
-                    raise RuntimeError(f"expr_info shape is neither 2 or 3, its {expr_info.shape}")
-                # Gets the correct file path to make our temporary file
-                result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
-                folder_path = os.path.dirname(result_path)
-                if not os.path.exists(folder_path):
-                    os.makedirs(folder_path)
-                
-                out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal_type)
-                # We declare the dataset write after so if any errors occur below,
-                # the file gets destroyed (which happens in del of RasterDataSet)
-                out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
-                # We NO LONGER set the save state here. We must set it in the process that we pass
-                # this piece of data to. If we set it here to IN_DISK_NOT_SAVED, then the garbage
-                # collector will delete the underlying dataset when this process ends.
-                out_dataset.set_dirty()
-                
-                # Based on memory limits (currently set in constants,, but we could make it more adjustable)
-                # find the number of bands that we can access without exceeding it
-                bytes_per_element = np.dtype(expr_info.elem_type).itemsize if expr_info.elem_type is not None else SCALAR_BYTES
-                max_bytes = max_chunking_bytes/bytes_per_element
-                max_bytes_per_intermediate = max_bytes / number_of_intermediates
-                num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
-                num_bands = 1 if num_bands < 1 else num_bands
-
-                writing_futures = []
-                for band_index in range(0, bands, num_bands):
-                    band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
-                    band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
-                    # print(f"Min: {min(band_index_list_current)} | Max: {max(band_index_list_current)}")
-                    
-                    eval.index_list_current = band_index_list_current
-                    eval.index_list_next = band_index_list_next
-                    
-                    result_value = eval.transform(tree)
-                    if isinstance(result_value, (asyncio.Future, Coroutine)):
-                        result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
-                    res = result_value.value
-                    
-                    future = eval._write_thread_pool.submit(write_raster_to_dataset, \
-                                                        out_dataset_gdal, band_index_list_current, \
-                                                        res, gdal_type, default_ignore_value=data_ignore_value)
-                    writing_futures.append(future)
-                concurrent.futures.wait(writing_futures)
-            except BaseException as e:
-                error = e
-                if eval is not None:
-                    eval.stop()
-            finally:
-                eval.stop()
-            if error is None:
+                count += 1
+                child_conn.send(["progress", {"Numerator": count, "Denominator": total, "Status": "Running"}])
+                # Second we deserialize all of the variables
+                current_variables = {}
+                for var_name, var_tuple in serialized_variables.items():
+                    var_type = var_tuple[0]
+                    var_value = var_tuple[1]
+                    current_variables.update(serialized_form_to_variable(var_name, var_type, var_value, loader, filepath))
+                # Third we get the proper BandMathExprInfo
+                current_expr_info = bandmath.get_bandmath_expr_info(bandmath_expr, current_variables, lower_functions)
+                result = eval_singular_bandmath_expr(expr_info=current_expr_info, result_name=new_result_name, cache=cache,
+                                                     lower_variables=current_variables, lower_functions=lower_functions,
+                                                     number_of_intermediates=number_of_intermediates, tree=tree,
+                                                     use_synchronous_method=use_synchronous_method, child_conn=child_conn)
+                outputs.append(result)
                 child_conn.send(["error", {"Result Name": result_name, "Message": None, "Traceback": None}])
-                outputs.append((RasterDataSet, out_dataset, result_name, expr_info))
+            except Exception as e:
+                child_conn.send(["error", {"Result Name": result_name, "Message": str(e), "Traceback": traceback.format_exc()}])
+                outputs.append((None, None, new_result_name, None))
+    
+        child_conn.send(["progress", {"Numerator": count, "Denominator": total, "Status": "Finished"}])
+        serialized_results: List[Tuple[VariableType, SerializedForm, str, BandMathExprInfo]] = []
+        for result_type, result_value, result_name, result_expr_info in outputs:
+            if isinstance(result_value, Serializable):
+                serialized_results.append((result_type, result_value.get_serialized_form(), result_name, result_expr_info))
             else:
-                child_conn.send(["error", {"Result Name": result_name, "Message": str(error), "Traceback": traceback.format_exc()}])
-                outputs.append((None, None, result_name, expr_info))
+                serialized_results.append((result_type, result_value, result_name, result_expr_info))
+        return_queue.put(serialized_results)
+    else:
+        new_result_name = result_name
+        single_batch_variables = {}
+        for var_name, var_tuple in serialized_variables.items():
+            var_type = var_tuple[0]
+            var_value = var_tuple[1]
+            single_batch_variables.update(serialized_form_to_variable(var_name, var_type, var_value, loader))
+        expr_info = bandmath.get_bandmath_expr_info(bandmath_expr, single_batch_variables, lower_functions)
+        result = eval_singular_bandmath_expr(expr_info=expr_info, result_name=new_result_name, cache=cache,
+                                            lower_variables=single_batch_variables, lower_functions=lower_functions,
+                                            number_of_intermediates=number_of_intermediates, tree=tree,
+                                            use_synchronous_method=use_synchronous_method, child_conn=child_conn)
+        serialized_result = None
+        result_type, result_value, result_name, result_expr_info = result
+        if isinstance(result_value, Serializable):
+            serialized_result = (result_type, result_value.get_serialized_form(), result_name, result_expr_info)
         else:
+            serialized_result = (result_type, result_value, result_name, result_expr_info)
+
+        return_queue.put([serialized_result])
+
+
+def eval_singular_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+            lower_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
+            lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+            use_synchronous_method = True, child_conn: mp_conn.Connection = None \
+        ) -> List[Tuple[Union[VariableType, RasterDataSet.__class__],
+                        Union[np.ndarray, RasterDataSet],
+                        str,
+                        BandMathExprInfo]]:
+    '''
+    This function evaluates one singular bandmath expression
+
+    Returns:
+    - The first element in the tuple is the variable type or the RasterDataSet
+        class. The second element is the actual value, which is either the numpy array or the
+        RasterDataSet. The third element is the name of the resulting dataset. The fourth element
+        is the expr_info for that dataset.
+    '''
+    gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
+    
+    max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
+    logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
+
+    spectral_metadata = expr_info.spectral_metadata_source
+    data_ignore_value = DEFAULT_IGNORE_VALUE
+    if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
+        data_ignore_value = spectral_metadata.get_data_ignore_value()
+
+    if not use_synchronous_method or \
+    (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk):
+        try:
             error = None
-            try:
-                eval = BandMathEvaluator(lower_variables, lower_functions)
-                result_value = eval.transform(tree)
-                res = result_value.value
-            except BaseException as e:
-                error = e
-                if eval:
-                    eval.stop()
-            finally:
-                eval.stop()
-            if error is None:
-                child_conn.send(["error", {"Result Name": result_name, "Message": None, "Traceback": None}])
-                outputs.append((result_value.type, result_value.value, result_name, expr_info))
+            eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
+            bands = 1
+            lines = 1
+            samples = 1
+            if len(expr_info.shape) == 2:
+                lines, samples = expr_info.shape
+            elif len(expr_info.shape) == 3:
+                bands, lines, samples = expr_info.shape
             else:
-                child_conn.send(["error", {"Result Name": result_name, "Message": str(error), "Traceback": traceback.format_exc()}])
-                outputs.append((None, None, result_name, expr_info))
+                raise RuntimeError(f"expr_info shape is neither 2 or 3, its {expr_info.shape}")
+            # Gets the correct file path to make our temporary file
+            result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
+            folder_path = os.path.dirname(result_path)
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
+            
+            out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal_type)
+            # We declare the dataset write after so if any errors occur below,
+            # the file gets destroyed (which happens in del of RasterDataSet)
+            out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
+            # We NO LONGER set the save state here. We must set it in the process that we pass
+            # this piece of data to. If we set it here to IN_DISK_NOT_SAVED, then the garbage
+            # collector will delete the underlying dataset when this process ends.
+            out_dataset.set_dirty()
+            
+            # Based on memory limits (currently set in constants,, but we could make it more adjustable)
+            # find the number of bands that we can access without exceeding it
+            bytes_per_element = np.dtype(expr_info.elem_type).itemsize if expr_info.elem_type is not None else SCALAR_BYTES
+            max_bytes = max_chunking_bytes/bytes_per_element
+            max_bytes_per_intermediate = max_bytes / number_of_intermediates
+            num_bands = int(np.floor(max_bytes_per_intermediate / (lines*samples)))
+            num_bands = 1 if num_bands < 1 else num_bands
 
-
-    child_conn.send(["progress", {"Numerator": count, "Denominator": len(prepared_variables_list), "Status": "Finished"}])
-    return outputs
+            writing_futures = []
+            for band_index in range(0, bands, num_bands):
+                band_index_list_current = [band for band in range(band_index, band_index+num_bands) if band < bands]
+                band_index_list_next = [band for band in range(band_index+num_bands, band_index+2*num_bands) if band < bands]
+                # print(f"Min: {min(band_index_list_current)} | Max: {max(band_index_list_current)}")
+                
+                eval.index_list_current = band_index_list_current
+                eval.index_list_next = band_index_list_next
+                
+                result_value = eval.transform(tree)
+                if isinstance(result_value, (asyncio.Future, Coroutine)):
+                    result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
+                res = result_value.value
+                
+                future = eval._write_thread_pool.submit(write_raster_to_dataset, \
+                                                    out_dataset_gdal, band_index_list_current, \
+                                                    res, gdal_type, default_ignore_value=data_ignore_value)
+                writing_futures.append(future)
+            concurrent.futures.wait(writing_futures)
+        except BaseException as e:
+            if eval is not None:
+                eval.stop()
+            raise e
+        finally:
+            eval.stop()
+        return (RasterDataSet, out_dataset, result_name, expr_info)
+    else:
+        error = None
+        try:
+            eval = BandMathEvaluator(lower_variables, lower_functions)
+            result_value = eval.transform(tree)
+            res = result_value.value
+        except BaseException as e:
+            if eval:
+                eval.stop()
+            raise e
+        finally:
+            eval.stop()
+        return (result_value.type, result_value.value, result_name, expr_info)

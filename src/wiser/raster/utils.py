@@ -52,6 +52,15 @@ KNOWN_SPECTRAL_UNITS: Dict[str, u.Unit] = {
 }
 
 
+def get_spectral_unit_from_any(unit: Any) -> Optional[u.Unit]:
+    if isinstance(unit, u.Unit):
+        return unit
+    elif isinstance(unit, str):
+        return KNOWN_SPECTRAL_UNITS[unit.lower()]
+    else:
+        return None
+
+
 def build_band_info_from_wavelengths(wavelengths: List[u.Quantity]) -> List[Dict[str, Any]]:
     band_info = []
     for i, wl in enumerate(wavelengths):

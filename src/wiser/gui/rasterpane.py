@@ -1285,14 +1285,20 @@ class RasterPane(QWidget):
         self.visibility_change.emit(False)
 
 
-    def _on_dataset_added(self, ds_id):
+    def _on_dataset_added(self, ds_id: int, view_dataset: bool = True):
         '''
         This function handles "dataset added" events from the application state.
         It records the initial display bands to use for the dataset.  Also, if
         this is the first dataset loaded, the function shows it in all
         rasterviews.
         '''
-        self._view_dataset(ds_id)
+        # If there is only the dataset that was just loaded in, then we want to show it
+        if view_dataset or len(self._app_state.get_datasets()) == 1:
+            self._view_dataset(ds_id)
+        else:
+            # Even if we do not switch views to the new dataset, make sure all
+            # tiled view dataset choosers refresh to include the new dataset.
+            self._update_rasterview_toolbars()
     
     def _view_dataset(self, ds_id):
         '''

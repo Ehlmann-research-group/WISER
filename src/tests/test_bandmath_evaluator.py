@@ -1,8 +1,8 @@
-
 import tests.context
 # import context
 
 import multiprocessing as mp
+from astropy import units as u
 
 import os
 import sys
@@ -15,13 +15,16 @@ from typing import List, Tuple
 from wiser import bandmath
 from wiser.bandmath import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, RasterDataBand, RasterDataBatchBand, RasterDataDynamicBand
 from wiser.raster.loader import RasterDataLoader
+from wiser.raster.spectrum import SpectrumAtPoint
 
 from wiser.raster.data_cache import DataCache
 from wiser.raster.serializable import SerializedForm
 
 from test_utils.test_model import WiserTestModel
+
+from wiser.bandmath.utils import load_image_from_bandmath_result, load_band_from_bandmath_result
 
 
 def make_image(bands, width, height):
@@ -106,16 +109,17 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, _ in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
                 result_shape = result_dataset.get_shape()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
-                result_shape = result_dataset.shape
+                result_arr = result
+                result_shape = result.shape
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -152,14 +156,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         result = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in result:
+        for result_type, result, result_name, expr_info in result:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
         
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -198,16 +203,17 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
                 result_shape = result_dataset.get_shape()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
-                result_shape = result_dataset.shape
+                result_arr = result
+                result_shape = result.shape
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -246,7 +252,16 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result_band, result_name, expr_info in results:
-            self.assertEqual(result_type, VariableType.IMAGE_BAND)
+            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_BAND
+
+            # Check if result_type is RasterDataSet or IMAGE_BAND and handle accordingly
+            if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result_band, result_name, None, expr_info, loader, None)
+                result_band = result_dataset.get_image_data()
+            elif result_type == VariableType.IMAGE_BAND:
+                pass
+            else:
+                self.fail(f"Unexpected result type: {result_type}")
 
             # Make sure output band has correct results
             for value in np.nditer(result_band):
@@ -305,14 +320,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -323,8 +339,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             # Make sure input image didn't change
             for value in np.nditer(img):
                 self.assertEqual(value, 2.5)
-
-            del result_dataset
 
     def test_bandmath_add_number_band(self):
         ''' Test band-math involving adding a number and a band. '''
@@ -345,7 +359,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result_band, result_name, expr_info in results:
-            self.assertEqual(result_type, VariableType.IMAGE_BAND)
+            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_BAND
+            # Check if result_type is RasterDataSet or IMAGE_BAND and handle accordingly
+            if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result_band, result_name, None, expr_info, loader, None)
+                result_band = result_dataset.get_image_data()
+            elif result_type == VariableType.IMAGE_BAND:
+                pass
+            else:
+                self.fail(f"Unexpected result type: {result_type}")
 
             # Make sure output band has correct results
             for value in np.nditer(result_band):
@@ -415,16 +437,17 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
                 result_shape = result_dataset.get_shape()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
-                result_shape = result_dataset.shape
+                result_arr = result
+                result_shape = result.shape
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -443,8 +466,6 @@ class TestBandmathEvaluator(unittest.TestCase):
 
             for value in np.nditer(img[1]):
                 self.assertEqual(value, 2.0)
-            
-            del result_dataset
 
     def test_bandmath_sub_image_number(self):
         ''' Test band-math involving subtracting a number from an image. '''
@@ -465,14 +486,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -483,8 +505,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             # Make sure input image didn't change
             for value in np.nditer(img):
                 self.assertEqual(value, 2.5)
-
-            del result_dataset
                 
 
     def test_bandmath_sub_band_number(self):
@@ -569,14 +589,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -587,8 +608,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             # Make sure input image didn't change
             for value in np.nditer(img):
                 self.assertEqual(value, 2.5)
-            
-            del result_dataset
 
     def test_bandmath_mul_number_image(self):
         ''' Test band-math involving multiplying a number and an image. '''
@@ -609,14 +628,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -627,8 +647,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             # Make sure input image didn't change
             for value in np.nditer(img):
                 self.assertEqual(value, 2.5)
-            
-            del result_dataset
 
     #===========================================================================
     # SIMPLE DIVISION TESTS
@@ -652,14 +670,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -671,7 +690,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             for value in np.nditer(img):
                 self.assertEqual(value, 2.5)
 
-            del result_dataset
     
     
     #===========================================================================
@@ -708,14 +726,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -736,7 +755,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             for value in np.nditer(d):
                 self.assertEqual(value, 4.0)
 
-            del result_dataset
 
     def test_bandmath_mul_complex_expression(self):
         ''' Test band-math with a complex multiplication expression: (a * b) * (c * d) '''
@@ -770,14 +788,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -797,8 +816,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             
             for value in np.nditer(d):
                 self.assertEqual(value, 4.0)
-        
-            del result_dataset
+
 
     def test_bandmath_div_complex_expression(self):
         ''' Test band-math with a complex division expression: (a / b) / (c / d) '''
@@ -832,14 +850,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -860,7 +879,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             for value in np.nditer(d):
                 self.assertEqual(value, 2.0)
         
-            del result_dataset
 
     def test_bandmath_sub_complex_expression(self):
         ''' Test band-math with a complex subtraction expression: (a - b) - (c - d) '''
@@ -894,14 +912,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -922,7 +941,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             for value in np.nditer(d):
                 self.assertEqual(value, 1.0)
         
-            del result_dataset
 
     def test_bandmath_neg_a_plus_1(self):
         ''' Test band-math for expression -a + 1 '''
@@ -943,14 +961,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -962,7 +981,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             for value in np.nditer(a):
                 self.assertEqual(value, 10.0)
         
-            del result_dataset
 
     def test_bandmath_a_pow_b_minus_sqrt_a(self):
         ''' Test band-math for expression a**b - (a**0.5) '''
@@ -988,14 +1006,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -1009,7 +1028,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             for value in np.nditer(b):
                 self.assertEqual(value, 2.0)
         
-            del result_dataset
     
     def test_bandmath_all_operations(self):
         ''' Test band-math with a complex expression: (a / b) - (c * d) + a**0.5 '''
@@ -1046,14 +1064,15 @@ class TestBandmathEvaluator(unittest.TestCase):
         process_manager.get_task().wait()
         results = process_manager.get_task().get_result()
 
-        for result_type, result_dataset, result_name, expr_info in results:
+        for result_type, result, result_name, expr_info in results:
             assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
                 result_arr = result_dataset.get_image_data()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result_dataset
+                result_arr = result
             else:
                 self.fail(f"Unexpected result type: {result_type}")
         
@@ -1075,50 +1094,220 @@ class TestBandmathEvaluator(unittest.TestCase):
             for value in np.nditer(d):
                 self.assertEqual(value, 2.0)
 
-            del result_dataset
 
-    # # Temporarily commenting out this function as it works locally but not on github runners
-    # def test_bandmath_metadata_copying(self):
-    #     """Tests that a GeoTIFF `.tiff` file can be successfully opened and loaded into WISER."""
-    #     current_dir = os.path.dirname(os.path.abspath(__file__))
+    def test_bandmath_image_metadata_copying(self):
+        """Tests that a GeoTIFF `.tiff` file can be successfully opened and loaded into WISER."""
+        current_dir = os.path.dirname(os.path.abspath(__file__))
 
-    #     target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm_epsg4087.tif"))
+        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm_epsg4087.tif"))
 
-    #     caltech_ds = self.test_model.load_dataset(target_path)
+        caltech_ds = self.test_model.load_dataset(target_path)
 
-    #     expr_info = get_bandmath_expr_info('a + 0', {'a': (VariableType.IMAGE_CUBE, caltech_ds)}, {})
-    #     result_name = 'test_result'
-    #     cache = DataCache()
-    #     process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
-    #         status_callback=lambda _: None, error_callback=lambda _: None, 
-    #         bandmath_expr='a + 0', expr_info=expr_info, result_name=result_name, cache=cache,
-    #         variables={'a': (VariableType.IMAGE_CUBE, caltech_ds)}, functions={})
+        expr_info = get_bandmath_expr_info('a + 0', {'a': (VariableType.IMAGE_CUBE, caltech_ds)}, {})
+        result_name = 'test_result'
+        cache = DataCache()
+        process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
+            status_callback=lambda _: None, error_callback=lambda _: None, 
+            bandmath_expr='a + 0', expr_info=expr_info, result_name=result_name, cache=cache,
+            variables={'a': (VariableType.IMAGE_CUBE, caltech_ds)}, functions={})
 
-    #     process_manager.get_task().wait()
-    #     results = process_manager.get_task().get_result()
+        process_manager.get_task().wait()
+        results = process_manager.get_task().get_result()
 
-
-    #     for result_type, result, result_name, expr_info in results:
-    #         assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
-    #         if result_type == RasterDataSet:
-    #             result_arr = result.get_image_data()
-    #         elif result_type == VariableType.IMAGE_CUBE:
-    #             result_arr = result
-    #         else:
-    #             self.fail(f"Unexpected result type: {result_type}")
+        for result_type, result, result_name, expr_info in results:
+            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            if result_type == RasterDataSet:
+                result_dataset = load_image_from_bandmath_result(result_type, result, result_name, None, expr_info, loader, None)
+                result_arr = result_dataset.get_image_data()
+            elif result_type == VariableType.IMAGE_CUBE:
+                result_arr = result
+            else:
+                self.fail(f"Unexpected result type: {result_type}")
             
-    #         assert np.allclose(result_arr, caltech_ds.get_image_data())
+            assert np.allclose(result_arr, caltech_ds.get_image_data())
 
-    #         assert expr_info.spatial_metadata_source is not None
-    #         assert expr_info.spectral_metadata_source is not None
+            assert expr_info.spatial_metadata_source is not None
+            assert expr_info.spectral_metadata_source is not None
 
-    #         assert expr_info.spatial_metadata_source == caltech_ds.get_spatial_metadata()
-    #         assert expr_info.spectral_metadata_source == caltech_ds.get_spectral_metadata()
-            
-    #         del result
+            assert expr_info.spatial_metadata_source == caltech_ds.get_spatial_metadata()
+            assert expr_info.spectral_metadata_source == caltech_ds.get_spectral_metadata()
+
+    def bandmath_preloaded_data_with_batch_helper(self, run_sync: bool):
+        # Load in caltech_4_100_150nm
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"))
+
+        batch_test_folder = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+
+        caltech_ds = self.test_model.load_dataset(target_path)
+
+        band = RasterDataBand(caltech_ds, 0)
+
+        spectrum = SpectrumAtPoint(caltech_ds, (1, 1))
+
+        vars = [(VariableType.IMAGE_CUBE, caltech_ds), \
+                (VariableType.IMAGE_BAND, band), \
+                (VariableType.SPECTRUM, spectrum)]
+
+        for var in vars:
+            expr = 'a + b'
+            variables = {'a': var, 'b': (VariableType.IMAGE_CUBE_BATCH, batch_test_folder)}
+            expr_info = get_bandmath_expr_info(expr, variables, {})
+            suffix = 'test_result'
+            cache = DataCache()
+            process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
+                status_callback=lambda _: None, error_callback=lambda _: None, 
+                bandmath_expr=expr, expr_info=expr_info, result_name=suffix, cache=cache,
+                variables=variables, functions={}, use_synchronous_method=run_sync)
+            process_manager.get_task().wait()
+            results = process_manager.get_task().get_result()
+            for result_type, result, result_name, expr_info in results:
+                assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                    result_ds = load_image_from_bandmath_result(result_type, result, result_name, expr, expr_info, loader, None)
+                    result_arr = result_ds.get_image_data()
+                    original_file_name = result_name[:-(len(suffix))] if result_name.endswith(suffix) else result_name
+                    original_ds = loader.load_from_file(os.path.normpath(os.path.join(batch_test_folder, original_file_name)))[0]
+                    if var[0] == VariableType.IMAGE_CUBE:
+                        var_arr = var[1].get_image_data()
+                    elif var[0] == VariableType.IMAGE_BAND:
+                        var_arr = var[1].get_data()
+                    elif var[0] == VariableType.SPECTRUM:
+                        var_arr = var[1].get_spectrum()
+                        if var_arr.ndim == 1:
+                            var_arr = var_arr[:, np.newaxis, np.newaxis]
+                    else:
+                        self.fail(f"Unexpected variable type: {var[0]}")
+
+                    assert np.allclose(result_arr, original_ds.get_image_data() + var_arr)
+                    
+                    
+                    assert expr_info.spatial_metadata_source is not None
+                    assert expr_info.spectral_metadata_source is not None
+                    assert expr_info.spatial_metadata_source == original_ds.get_spatial_metadata()
+                    assert expr_info.spectral_metadata_source == original_ds.get_spectral_metadata()
+                    
+                    del result
+                    del original_ds
+
+    def test_bandmath_preloaded_data_with_image_batch_sync(self):
+        self.bandmath_preloaded_data_with_batch_helper(run_sync=True)
+    
+    def test_bandmath_preloaded_data_with_image_batch_async(self):
+        self.bandmath_preloaded_data_with_batch_helper(run_sync=False)
+
+    def bandmath_preloaded_data_with_band_batch_helper(self,
+                                                       raster_batch_band: RasterDataBatchBand,
+                                                       run_sync: bool):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"))
+
+        caltech_ds = self.test_model.load_dataset(target_path)
+
+        band = RasterDataBand(caltech_ds, 0)
+
+        vars = [(VariableType.IMAGE_CUBE, caltech_ds), \
+                (VariableType.IMAGE_BAND, band)]
+
+        for var in vars:
+            expr = 'a + b'
+            variables = {'a': var, 'b': (VariableType.IMAGE_BAND_BATCH, raster_batch_band)}
+            expr_info = get_bandmath_expr_info(expr, variables, {})
+            suffix = 'test_result'
+            cache = DataCache()
+            process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
+                status_callback=lambda _: None, error_callback=lambda _: None, 
+                bandmath_expr=expr, expr_info=expr_info, result_name=suffix, cache=cache,
+                variables=variables, functions={}, use_synchronous_method=run_sync)
+            process_manager.get_task().wait()
+            results = process_manager.get_task().get_result()
+            for result_type, result, result_name, expr_info in results:
+                original_file_name = result_name[:-(len(suffix))] if result_name.endswith(suffix) else result_name
+                original_ds = loader.load_from_file(os.path.normpath(os.path.join(raster_batch_band.get_folderpath(),
+                                                                                    original_file_name)))[0]
+                original_band = RasterDataDynamicBand(original_ds, raster_batch_band.get_band_index(),
+                                                      raster_batch_band.get_wavelength_value(),
+                                                      raster_batch_band.get_wavelength_units(),
+                                                      raster_batch_band.get_epsilon())
+                original_band_arr = original_band.get_data()
+                if result_type == VariableType.IMAGE_CUBE or result_type == RasterDataSet:
+                    assert isinstance(result, (np.ndarray, SerializedForm))
+                    result_ds = load_image_from_bandmath_result(result_type, result, result_name, expr, expr_info, loader, None)
+                    result_arr = result_ds.get_image_data()
+                elif result_type == VariableType.IMAGE_BAND:
+                    result_ds = load_band_from_bandmath_result(result=result, result_name=result_name,
+                                                               expression=expr, expr_info=expr_info, parent=None,
+                                                               loader=loader, app_state=None)
+                    result_arr = result_ds.get_image_data()
+                else:
+                    self.fail(f"Unexpected result type: {result_type}")
+                if var[0] == VariableType.IMAGE_CUBE:
+                    var_arr = var[1].get_image_data()
+                elif var[0] == VariableType.IMAGE_BAND:
+                    var_arr = var[1].get_data()
+                else:
+                    self.fail(f"Unexpected variable type: {var[0]}")
+
+                assert np.allclose(result_arr, original_band_arr + var_arr)
+                
+                
+                assert expr_info.spatial_metadata_source is not None
+                assert expr_info.spatial_metadata_source == original_ds.get_spatial_metadata()
+                
+                del result
+                del original_ds
+
+    def test_bandmath_preloaded_data_with_band_index_batch_sync(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        batch_test_folder = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+        raster_batch_band = RasterDataBatchBand(batch_test_folder, 0)
+        self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=True)
+
+    def test_bandmath_preloaded_data_with_band_index_batch_async(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        batch_test_folder = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+        raster_batch_band = RasterDataBatchBand(batch_test_folder, 0)
+        self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
+
+    def test_bandmath_preloaded_data_with_band_wvl_batch_sync(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        batch_test_folder = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+        raster_batch_band = RasterDataBatchBand(
+            batch_test_folder, band_index=None, wavelength_value=700, wavelength_units=u.nm, epsilon=20)
+        self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=True)
+
+    def test_bandmath_preloaded_data_with_band_wvl_batch_async(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        batch_test_folder = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+        raster_batch_band = RasterDataBatchBand(
+            batch_test_folder, band_index=None, wavelength_value=700, wavelength_units=u.nm, epsilon=20)
+        self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
+
+    # TODO (Joshua G-K): Write these tests for bandmath batch buttons.
+    def test_bandmath_batch_cancel(self):
+        pass
+
+    def test_bandmath_batch_remove(self):
+        pass
+
+    def test_bandmath_batch_run_multiple(self):
+        pass
+
+    def test_bandmath_batch_progress_bar(self):
+        pass
+
+    def test_bandmath_batch_view_errors(self):
+        pass
 
 if __name__ == '__main__':
     test_class = TestBandmathEvaluator()
     test_class.setUp()
-    test_class.test_bandmath_metadata_copying()
+    test_class.test_bandmath_preloaded_data_with_band_index_batch_sync()
     test_class.tearDown()
