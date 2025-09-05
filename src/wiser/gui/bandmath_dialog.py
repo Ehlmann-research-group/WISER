@@ -2,7 +2,7 @@ from enum import Enum
 import logging
 import os
 
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -79,7 +79,7 @@ def all_bindings_specified(bindings: Dict[str, Tuple[bandmath.VariableType, Any]
     dictionary specify usable values, or ``False`` otherwise.  (A missing value
     is indicated by ``None``.)
     '''
-    for (name, (type, value)) in bindings.items():
+    for (name, (_type, value)) in bindings.items():
         if value is None:
             return False
 
@@ -230,7 +230,6 @@ class DatasetBandChooserWidget(QWidget):
         return (self.dataset_chooser.currentData(),
                 self.band_chooser.currentData())
 
-
 class ImageBandBatchChooserWidget(QWidget):
     """
     Compact widget for choosing an image band for batch processing.
@@ -271,10 +270,12 @@ class ImageBandBatchChooserWidget(QWidget):
         "mhz": u.MHz,
     }
 
-    def __init__(self, app_state, table_widget: QTableWidget, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, app_state, table_widget: QTableWidget, value_edited_callback: Callable = lambda: None,
+                 parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._app_state = app_state  # reserved for future use
         self._tbl_wdgt_parent = table_widget
+        self._value_edited_callback = value_edited_callback
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # --- Layout: single row, roomy and elastic
@@ -296,6 +297,7 @@ class ImageBandBatchChooserWidget(QWidget):
         self._ledit_value = QLineEdit()
         self._ledit_value.setPlaceholderText("Band index")
         self._ledit_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._ledit_value.editingFinished.connect(self._value_edited_callback)
         row.addWidget(self._ledit_value)
 
         # Units (wavelength-only)
@@ -317,6 +319,7 @@ class ImageBandBatchChooserWidget(QWidget):
             "epsilon. If none are within epsilon, skip the calculation."
         )
         self._ledit_eps.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self._ledit_eps.editingFinished.connect(self._value_edited_callback)
         row.addWidget(self._ledit_eps)
 
         # # Spacer lets the row grow and prevents crowding
@@ -393,6 +396,7 @@ class ImageBandBatchChooserWidget(QWidget):
     def _on_mode_changed(self, _i: int) -> None:
         self._apply_mode(self.current_mode())
         self.modeChanged.emit(self.current_mode())
+        self._value_edited_callback()
 
     def _apply_mode(self, mode: str) -> None:
         """Update placeholders, validators, and visibility for the mode."""
@@ -1058,11 +1062,9 @@ class BandMathDialog(QDialog):
         missing = []
 
         if not self._expr_info:
-            missing.append("Expression Info")
+            missing.append("Expression Info (some of you're variables aren't assigned)")
         if not self.get_expression():
             missing.append("Expression")
-        if not self._get_input_folder():
-            missing.append("Input Folder")
         if not self._get_output_folder() and not self.load_results_into_wiser():
             missing.append("Output Folder or 'Load Results into WISER' checked")
         if not self.get_result_name():
@@ -1626,7 +1628,7 @@ class BandMathDialog(QDialog):
         elif variable_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
             value_widget = make_image_cube_batch_chooser(self.tr('Using Input Folder'))
         elif variable_type == bandmath.VariableType.IMAGE_BAND_BATCH:
-            value_widget = ImageBandBatchChooserWidget(self._app_state, self._ui.tbl_variables)
+            value_widget = ImageBandBatchChooserWidget(self._app_state, self._ui.tbl_variables, value_edited_callback=self._analyze_expr)
         else:
             raise AssertionError(f'Unrecognized variable type {variable_type}')
 
@@ -1944,7 +1946,11 @@ class BandMathDialog(QDialog):
                 else:
                     raise TypeError(f'Unrecognized type of spectrum info:  {spectrum_info}')
             elif var_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
-                value = self._get_input_folder()
+                # If value is None, then the bandmath dialog will raise the not all bindings specified error
+                # Which is good because the user will know to specify all bindings.
+                input_folder = self._get_input_folder()
+                if input_folder:
+                    value = input_folder
             elif var_type == bandmath.VariableType.IMAGE_BAND_BATCH:
                 input_folder = self._get_input_folder()
                 band_batch_chooser: ImageBandBatchChooserWidget = self._ui.tbl_variables.cellWidget(row, 2)
@@ -1954,9 +1960,11 @@ class BandMathDialog(QDialog):
                 row_wavelength_units = band_batch_chooser.get_settings()['units_key']
                 row_epsilon = band_batch_chooser.get_settings()['epsilon']
                 if row_mode == ImageBandBatchChooserWidget.Mode.INDEX:
-                    value = RasterDataBatchBand(input_folder, band_index=row_band_index)
+                    if input_folder and row_band_index:
+                        value = RasterDataBatchBand(input_folder, band_index=row_band_index)
                 elif row_mode == ImageBandBatchChooserWidget.Mode.WAVELENGTH:
-                    value = RasterDataBatchBand(input_folder, wavelength_value=row_wavelength_value, wavelength_units=row_wavelength_units, epsilon=row_epsilon)
+                    if input_folder and row_wavelength_value and row_wavelength_units and row_epsilon:
+                        value = RasterDataBatchBand(input_folder, wavelength_value=row_wavelength_value, wavelength_units=row_wavelength_units, epsilon=row_epsilon)
                 else:
                     raise AssertionError(f'Unrecognized mode: {row_mode}')
             else:

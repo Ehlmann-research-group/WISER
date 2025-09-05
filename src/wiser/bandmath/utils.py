@@ -77,7 +77,7 @@ def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
             ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
         if app_state:
             ds.set_name(app_state.unique_dataset_name(metadata.get('name', 'Computed')))
-            app_state.add_dataset(ds)
+            app_state.add_dataset(ds, view_dataset=False)
         return ds
     elif result_type == VariableType.IMAGE_CUBE:
         if not loader:
@@ -94,7 +94,7 @@ def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
             ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
         if app_state:
             ds.set_name(app_state.unique_dataset_name(name))
-            app_state.add_dataset(ds)
+            app_state.add_dataset(ds, view_dataset=False)
         
         return ds
     return None
@@ -124,7 +124,7 @@ def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
         new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
 
     if app_state:
-        app_state.add_dataset(new_dataset)
+        app_state.add_dataset(new_dataset, view_dataset=False)
     
     return new_dataset
 

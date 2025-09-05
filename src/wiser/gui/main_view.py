@@ -216,12 +216,12 @@ class MainViewWidget(RasterPane):
         self._act_stretch_builder.setEnabled(enabled)
 
 
-    def _on_dataset_added(self, ds_id):
+    def _on_dataset_added(self, ds_id, view_dataset: bool = True):
         '''
         Override the base-class implementation so we can also update the
         stretch-builder button state.
         '''
-        super()._on_dataset_added(ds_id)
+        super()._on_dataset_added(ds_id, view_dataset)
         self._set_dataset_tools_button_state()
 
 
