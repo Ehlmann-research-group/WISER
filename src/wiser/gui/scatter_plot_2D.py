@@ -741,8 +741,6 @@ class ScatterPlot2DDialog(QDialog):
         plot_widget.setLayout(layout)
 
         datasets = self._app_state.get_datasets()
-        print(f"datasets[image1].get_shape(): {datasets[image1].get_shape()}")
-        print(f"datasets[image2].get_shape(): {datasets[image2].get_shape()}")
         cols1 = datasets[image1].get_width()
         rows1 = datasets[image1].get_height()
         cols2 = datasets[image2].get_width()
