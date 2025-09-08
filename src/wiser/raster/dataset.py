@@ -202,7 +202,7 @@ class SpectralMetadata():
     
     def get_default_display_bands(self) -> DisplayBands:
         return self._default_display_bands
-    
+
     def get_num_bands(self) -> int:
         return self._num_bands
     

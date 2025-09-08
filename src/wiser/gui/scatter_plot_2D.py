@@ -743,10 +743,10 @@ class ScatterPlot2DDialog(QDialog):
         datasets = self._app_state.get_datasets()
         print(f"datasets[image1].get_shape(): {datasets[image1].get_shape()}")
         print(f"datasets[image2].get_shape(): {datasets[image2].get_shape()}")
-        rows1 = datasets[image1].get_shape()[-1]
-        cols1 = datasets[image1].get_shape()[-2]
-        rows2 = datasets[image2].get_shape()[-1]
-        cols2 = datasets[image2].get_shape()[-2]
+        cols1 = datasets[image1].get_width()
+        rows1 = datasets[image1].get_height()
+        cols2 = datasets[image2].get_width()
+        rows2 = datasets[image2].get_height()
 
         x = datasets[image1].get_band_data(band1).reshape(rows1 * cols1)
         y = datasets[image2].get_band_data(band2).reshape(rows2 * cols2)
@@ -915,7 +915,6 @@ class ScatterPlot2DDialog(QDialog):
         if self._selected_idx is None or len(self._selected_idx) == 0:
             return (np.array([], dtype=int),)*2 + (np.array([]),)*2
         rows, cols = np.unravel_index(self._selected_idx, (self._rows, self._cols))
-        print(f"selected points,\nrows: {rows}\n=============\ncols: {cols}")
         return rows, cols, self._x_flat[self._selected_idx], self._y_flat[self._selected_idx]
 
     def closeEvent(self, e):

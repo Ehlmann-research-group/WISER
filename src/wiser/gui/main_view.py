@@ -345,7 +345,6 @@ class MainViewWidget(RasterPane):
         rows, cols, x_val, y_val = selected_points
         assert len(rows) == len(cols), "Returned pixel rows do not equal returned pixel columns."
         self._interactive_scatter_highlight_points = [(rows[i], cols[i]) for i in range(len(cols))]
-        print(f"self._interactive_scatter_highlight_points:\n{self._interactive_scatter_highlight_points}")
         self.update_all_rasterviews()
 
     def _clear_interactive_scatter_plot_highlights(self):
