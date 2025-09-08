@@ -1289,6 +1289,10 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                     fwhm_var = sbp.variables.get("fwhm")
                     if fwhm_var is not None:
                         wl_unit = cls._unit_from_string(getattr(fwhm_var, "units", None))
+            else:
+                # Maybe the wavelengths are in the global group
+                wl_var = netcdf_dataset.variables["wavelengths"]
+                wavelengths = wl_var[:]
 
         except Exception as e:
             wavelengths = None
@@ -1353,7 +1357,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         subdatasets = gdal_dataset.GetSubDatasets()
         instances_list = []  # List to hold instances of the class
     
-        if subdatasets and not interactive:
+        if subdatasets and interactive:
             subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
             if subdataset_chooser.exec_() == QDialog.Accepted:
                 if subdataset_chooser.netcdf_impl is not None:
