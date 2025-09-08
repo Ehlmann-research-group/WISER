@@ -253,6 +253,10 @@ class SubdatasetFileOpenerDialog(QDialog):
             if sbp_group and "wavelengths" in sbp_group.variables:
                 wl_var = sbp_group["wavelengths"]
                 wavelengths = wl_var[:]
+            else:
+                wl_var = self._netcdf_dataset.variables["wavelengths"]
+                wavelengths = wl_var[:]
+
         except Exception:
             # Any failure means we fallback to just the indices
             wavelengths = None
