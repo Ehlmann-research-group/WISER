@@ -644,7 +644,7 @@ class ScatterPlot2DDialog(QDialog):
             Colormap for the density slice on the scatter plot. Default is WHITE_VIRDIS
         """
         new_x = [n for n in x if np.isnan(n) == False]
-        new_y = [m for m in y if np.isnan(m) == False]  # <-- bugfix: was filtering x
+        new_y = [m for m in y if np.isnan(m) == False]
 
         if self.n <= 1:
             x_min = min(new_x); x_max = max(new_x)
@@ -657,11 +657,13 @@ class ScatterPlot2DDialog(QDialog):
         ax.set_ylabel(f"band {b2}")
         ax.set_title("2D scatter plot of two bands with colormap")
         density = ax.scatter_density(x, y, cmap=colormap)
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
+        x_range = max(x_max-x_min, 0)
+        y_range = max(y_max-y_min, 0)
+        ax.set_xlim(x_min-x_range/10, x_max+x_range/10)
+        ax.set_ylim(y_min-y_range/10, y_max+y_range/10)
         fig.colorbar(density, label="Number of points per spectral value")
 
-        return ax  # <-- return the axes for the selector
+        return ax
 
     def scatter_plot(
         self,
@@ -739,6 +741,8 @@ class ScatterPlot2DDialog(QDialog):
         plot_widget.setLayout(layout)
 
         datasets = self._app_state.get_datasets()
+        print(f"datasets[image1].get_shape(): {datasets[image1].get_shape()}")
+        print(f"datasets[image2].get_shape(): {datasets[image2].get_shape()}")
         rows1 = datasets[image1].get_shape()[-1]
         cols1 = datasets[image1].get_shape()[-2]
         rows2 = datasets[image2].get_shape()[-1]
@@ -911,6 +915,7 @@ class ScatterPlot2DDialog(QDialog):
         if self._selected_idx is None or len(self._selected_idx) == 0:
             return (np.array([], dtype=int),)*2 + (np.array([]),)*2
         rows, cols = np.unravel_index(self._selected_idx, (self._rows, self._cols))
+        print(f"selected points,\nrows: {rows}\n=============\ncols: {cols}")
         return rows, cols, self._x_flat[self._selected_idx], self._y_flat[self._selected_idx]
 
     def closeEvent(self, e):
