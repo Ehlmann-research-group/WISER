@@ -106,7 +106,6 @@ class RasterDataLoader:
         # Used if a dataset contains multiple subdatasets and we want to load all of them
         outer_datasets = []
         for impl in impl_list:
-            print(f"loading impl as type: {type(impl)}")
             func = self._format_loaders[type(impl)]
             datasets = func(impl, data_cache)
             for ds in datasets:
