@@ -338,7 +338,7 @@ class MainViewWidget(RasterPane):
         dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
                                      self._clear_interactive_scatter_plot_highlights,
                                      self._app_state, parent=self)
-        dialog.band_chooser()
+        dialog.show()
 
     def _make_interactive_scatter_plot_highlights(self, selected_points):
         # Highlight the selected points 
