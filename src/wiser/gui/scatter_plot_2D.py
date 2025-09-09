@@ -227,8 +227,12 @@ class ScatterPlot2DDialog(QDialog):
             dataset = self._app_state.get_dataset(x_dataset_id)
             bands = dataset.band_list()
             descriptions = list([band["description"] for band in bands])
-            band_descriptions = list((f"Band {descriptions.index(descr)}: " + descr, descriptions.index(descr)) \
-                                        for descr in descriptions)
+            if descriptions[0]:
+                band_descriptions = list((f"Band {descriptions.index(descr)}: " + descr, descriptions.index(descr)) \
+                                            for descr in descriptions)
+            else:
+                band_descriptions = list((f"Band {i}", i) \
+                                            for i in range(len(descriptions)))
             cbox_x_band.clear()      
             for descr, index in band_descriptions:
                 cbox_x_band.addItem(self.tr(f'{descr}'), index)
@@ -241,8 +245,12 @@ class ScatterPlot2DDialog(QDialog):
             dataset = self._app_state.get_dataset(y_dataset_id)
             bands = dataset.band_list()
             descriptions = list([band["description"] for band in bands])
-            band_descriptions = list((f"Band {descriptions.index(descr)}: " + descr, descriptions.index(descr)) \
-                                        for descr in descriptions)
+            if descriptions[0]:
+                band_descriptions = list((f"Band {descriptions.index(descr)}: " + descr, descriptions.index(descr)) \
+                                            for descr in descriptions)
+            else:
+                band_descriptions = list((f"Band {i}", i) \
+                                            for i in range(len(descriptions)))
             cbox_y_band.clear()
             for descr, index in band_descriptions:
                 cbox_y_band.addItem(self.tr(f'{descr}'), index)
@@ -439,7 +447,7 @@ class ScatterPlot2DDialog(QDialog):
         ui = Ui_ScatterPlotAxes()
         ui.setupUi(dialog)
         dialog.setFixedSize(dialog.size())
-        default = ui._default_axes
+        default = ui.default_axes
         x_min = ui.x_min
         x_max = ui.x_max
         y_min = ui.y_min
@@ -525,62 +533,6 @@ class ScatterPlot2DDialog(QDialog):
                 img.setPixelColor(x, y, c)
 
         colormap_img.setPixmap(QPixmap.fromImage(img))
-
-    def _colormap_chooser(self, b1, b2, i1, i2, context):
-        """Displays GUI that allows user to choose the colormap for the density slice
-
-        Parameters
-        ----------
-        b1: int
-            Band number for user chosen band on the x-axis
-        b2: int
-            Band number for user chosen band on the y-axis
-        i1: int
-            Index of user chosen image in all images uploaded on WISER
-        i2: int
-            Index of user chosen image in all images uploaded on WISER
-        context: dict
-            Available WISER classes
-        """
-        dialog_cmap_chooser = QDialog(self)
-        ui_cmap_chooser = Ui_ScatterPlotColormap()
-        ui_cmap_chooser.setupUi(dialog_cmap_chooser)
-        dialog_cmap_chooser.setFixedSize(dialog_cmap_chooser.size())
-        img_cmap = ui_cmap_chooser.img_cmap
-        cbox_cmap = ui_cmap_chooser.cbox_cmap
-        chk_box_cmap = ui_cmap_chooser.chk_box_cmap
-
-        for cmap in plt.colormaps():
-            cbox_cmap.addItem(cmap)
-
-        self._colormap_images(cbox_cmap, img_cmap)
-        self._colormap_choice = (cbox_cmap.currentText(), cbox_cmap.currentData())
-
-        cbox_cmap.currentTextChanged.connect(
-            lambda checked=True: self.colormap_changed(
-                chk_box_cmap, cbox_cmap, img_cmap
-            )
-        )
-
-        chk_box_cmap.stateChanged.connect(
-            lambda checked=True: self.colormap_changed(
-                chk_box_cmap, cbox_cmap, img_cmap
-            )
-        )
-
-        if dialog_cmap_chooser.exec() == QDialog.Accepted:
-            self.scatter_plot(
-                b1,
-                b2,
-                i1,
-                i2,
-                context,
-                self._x_min,
-                self._x_max,
-                self._y_min,
-                self._y_max,
-                self._colormap_choice,
-            )
 
     def _image_changed(self, datasets, image, combo, spin):
         """Changes value in QComboBox to display the user chosen option
@@ -693,6 +645,7 @@ class ScatterPlot2DDialog(QDialog):
             self._y_max, self._colormap_choice
         )
         self._ax = ax
+        self._canvas.draw_idle()
 
         self._rows, self._cols = rows1, cols1
         self._x_flat = x
