@@ -52,6 +52,7 @@ class MainViewWidget(RasterPane):
         self._set_dataset_tools_button_state()
 
         self._interactive_scatter_highlight_points: List[Tuple[int, int]] = []
+        self._interactive_scatter_render_ds_id: int = -1
 
 
     def _init_toolbar(self):
@@ -338,17 +339,19 @@ class MainViewWidget(RasterPane):
         dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
                                      self._clear_interactive_scatter_plot_highlights,
                                      self._app_state, parent=self)
-        dialog.band_chooser()
+        dialog.show()
 
-    def _make_interactive_scatter_plot_highlights(self, selected_points):
+    def _make_interactive_scatter_plot_highlights(self, selected_points, render_ds_id):
         # Highlight the selected points 
         rows, cols, x_val, y_val = selected_points
         assert len(rows) == len(cols), "Returned pixel rows do not equal returned pixel columns."
         self._interactive_scatter_highlight_points = [(rows[i], cols[i]) for i in range(len(cols))]
+        self._interactive_scatter_render_ds_id = render_ds_id
         self.update_all_rasterviews()
 
     def _clear_interactive_scatter_plot_highlights(self):
         self._interactive_scatter_highlight_points = []
+        self._interactive_scatter_render_ds_id = -1
         self.update_all_rasterviews()
 
     def is_scrolling_linked(self):
@@ -410,7 +413,13 @@ class MainViewWidget(RasterPane):
 
         self._draw_interactive_scatter_plot_highlights(rasterview, widget, paint_event)
 
-    def _draw_interactive_scatter_plot_highlights(self, rasterview, widget, paint_event):
+    def _draw_interactive_scatter_plot_highlights(self, rasterview: RasterView, widget, paint_event):
+        rasterview_ds = rasterview.get_raster_data()
+        if rasterview_ds is None:
+            return
+        rasterview_ds_id = rasterview_ds.get_id()
+        if rasterview_ds_id != self._interactive_scatter_render_ds_id:
+            return
         if self._interactive_scatter_highlight_points:
             with get_painter(widget) as painter:
                 painter.setPen(QPen(QColor(255, 0, 0), 2))

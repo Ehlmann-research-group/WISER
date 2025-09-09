@@ -6,26 +6,32 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>295</width>
-    <height>125</height>
+    <width>300</width>
+    <height>120</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Colormap Chooser</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="1" column="1">
-    <widget class="QComboBox" name="colormap_box"/>
+    <widget class="QComboBox" name="cbox_cmap"/>
    </item>
    <item row="1" column="0">
-    <widget class="QLabel" name="label">
+    <widget class="QLabel" name="lbl_cmap">
      <property name="text">
       <string>Colormap</string>
      </property>
     </widget>
    </item>
    <item row="2" column="0" colspan="2">
-    <widget class="QLabel" name="colormap_img">
+    <widget class="QLabel" name="img_cmap">
      <property name="text">
       <string>TextLabel</string>
      </property>
@@ -38,13 +44,6 @@
      </property>
      <property name="standardButtons">
       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-     </property>
-    </widget>
-   </item>
-   <item row="5" column="0">
-    <widget class="QCheckBox" name="default_colormap">
-     <property name="text">
-      <string>Default</string>
      </property>
     </widget>
    </item>
