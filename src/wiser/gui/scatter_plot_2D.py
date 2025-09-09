@@ -130,10 +130,6 @@ class ScatterPlot2DDialog(QDialog):
         self._rows = 0
         self._cols = 0
 
-        # Keeps track of the previous dataset cbox data state. The
-        # first value is the x-axis, the second is the y-axis
-        self._previous_dataset_cbox_state = (-1, -1)
-
         self._init_band_dataset_choosers()
         self._init_plot()
 
@@ -149,10 +145,10 @@ class ScatterPlot2DDialog(QDialog):
         ctrl = QWidget()
         ctrl_layout = QHBoxLayout(ctrl)
         ctrl_layout.setContentsMargins(0, 0, 0, 0)
-        self._count_label = QLabel("0 pts")
-        self._btn_clear = QPushButton("Clear selection")
-        self._btn_change_cmap = QPushButton("Color Map")
-        self._btn_change_axes = QPushButton("Axes Limits")
+        self._count_label = QLabel(self.tr("0 pts"))
+        self._btn_clear = QPushButton(self.tr("Clear selection"))
+        self._btn_change_cmap = QPushButton(self.tr("Color Map"))
+        self._btn_change_axes = QPushButton(self.tr("Axes Limits"))
         ctrl_layout.addWidget(self._count_label)
         ctrl_layout.addStretch(1)
         ctrl_layout.addWidget(self._btn_clear)
@@ -188,8 +184,8 @@ class ScatterPlot2DDialog(QDialog):
         the datasets that the app currently has.
         """
         cbox_x_dataset = self._ui.cbox_x_dataset
-
         cbox_y_dataset = self._ui.cbox_y_dataset
+        cbox_render_ds = self._ui.cbox_render_ds
 
         datasets = self._app_state.get_datasets()
 
@@ -209,12 +205,11 @@ class ScatterPlot2DDialog(QDialog):
             lambda checked: self._on_cbox_dataset_changed()
         )
 
-        cbox_render_ds = self._ui.cbox_render_ds
+        cbox_render_ds.clear()
         cbox_render_ds.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
             cbox_render_ds.addItem(dataset.get_name(), dataset.get_id())
 
-        self._previous_dataset_cbox_state = (-1, -1)
         self._sync_band_choosers()
 
     def _sync_band_choosers(self):
@@ -302,80 +297,6 @@ class ScatterPlot2DDialog(QDialog):
                           f"X dataset dimensions: {x_dataset_dims}\nY dataset dimensions: {y_dataset_dims}\nRender dataset dimensions: {render_dataset_dims}")
         return errors
 
-
-    def _create_scatter_plot(self):
-        errors = self._check_dataset_compatibility()
-        if errors:
-            QMessageBox.warning(self,
-                self.tr("Error"),
-                self.tr("\n\n".join(errors))
-            )
-            return
-        x_dataset = self.get_x_dataset()
-        y_dataset = self.get_y_dataset()
-        if x_dataset is None or y_dataset is None:
-            self._clear_scatter_density_plot()
-            return
-        x_band = self.get_x_band()
-        y_band = self.get_y_band()
-        if x_band is None or y_band is None:
-            self._clear_scatter_density_plot()
-            return
-    
-        cols1 = x_dataset.get_width()
-        rows1 = x_dataset.get_height()
-        cols2 = y_dataset.get_width()
-        rows2 = y_dataset.get_height()
-
-        x = x_band.reshape(rows1 * cols1)
-        y = y_band.reshape(rows2 * cols2)
-
-        # Safe mins/maxes for axes panel defaults
-        new_x = [n for n in x if np.isnan(n) == False]
-        new_y = [m for m in y if np.isnan(m) == False]
-        default_x_min = min(new_x); default_x_max = max(new_x)
-        default_y_min = min(new_y); default_y_max = max(new_y)
-
-
-        self._btn_change_axes.clicked.disconnect()
-        self._btn_change_axes.clicked.connect(
-            lambda checked=True: self.axes_chooser(
-                default_x_min, default_x_max, default_y_min, default_y_max
-            )
-        )
-
-        x_band_idx = self._ui.cbox_x_band.currentData()
-        y_band_idx = self._ui.cbox_y_band.currentData()
-        # --- draw density plot and keep axes ---
-        # Create the display string for the x and y bands
-        x_wvl = x_dataset.get_band_info()[x_band_idx].get('description', None)
-        x_wvl_str = f': {x_wvl}' if x_wvl else ''
-        x_band_description = f'{x_dataset.get_name()}\nBand {x_band_idx}' + x_wvl_str
-
-        y_wvl = y_dataset.get_band_info()[y_band_idx].get('description', None)
-        y_wvl_str = f': {y_wvl}' if y_wvl else ''
-        y_band_description = f'{y_dataset.get_name()}\nBand {y_band_idx}' + y_wvl_str
-        ax = self.using_mpl_scatter_density(
-            self._figure, x, y, x_band_description, y_band_description,
-            self._x_min, self._x_max, self._y_min,
-            self._y_max, self._colormap_choice
-        )
-        self._ax = ax
-
-        self._rows, self._cols = rows1, cols1
-        self._x_flat = x
-        self._y_flat = y
-        self._xy = np.column_stack((self._x_flat, self._y_flat))
-        self._valid_mask = np.isfinite(self._xy).all(axis=1)
-
-        self._selector = PolygonSelector(
-            self._ax,
-            self._on_polygon_select,  # defined below
-            useblit=True,
-        )
-
-        self._btn_clear.clicked.connect(self._clear_selection_overlay)
-
     def get_x_band(self) -> Optional[np.ndarray]:
         x_dataset = self.get_x_dataset()
         if x_dataset is None:
@@ -431,7 +352,7 @@ class ScatterPlot2DDialog(QDialog):
         idx = cbox_cmap.findText(self._colormap_choice[0])
         if idx != -1:
             cbox_cmap.setCurrentIndex(idx)
-        self.colormap_images(cbox_cmap, img_cmap)
+        self._colormap_images(cbox_cmap, img_cmap)
         # In case the color was not there, we set our color map choice to whatever the
         # combo box is currently set to.
         self._colormap_choice = (cbox_cmap.currentText(), cbox_cmap.currentData())
@@ -445,16 +366,8 @@ class ScatterPlot2DDialog(QDialog):
         if dialog_cmap_chooser.exec() == QDialog.Accepted:
             self._save_colormap_choice(cbox_cmap)
             self._create_scatter_plot()
-    
-    def keyPressEvent(self, e: QKeyEvent) -> None:
-        if e.key() == Qt.Key_Escape:
-            self._clear_selection_overlay() 
-            e.accept()
-            return
-        super().keyPressEvent(e)
 
-
-    def default_axes(
+    def _default_axes(
         self,
         x_min,
         x_max,
@@ -492,7 +405,7 @@ class ScatterPlot2DDialog(QDialog):
         y_min.setValue(default_y_min)
         y_max.setValue(default_y_max)
 
-    def axes_chooser(
+    def _axes_chooser(
         self,
         default_x_min,
         default_x_max,
@@ -526,7 +439,7 @@ class ScatterPlot2DDialog(QDialog):
         ui = Ui_ScatterPlotAxes()
         ui.setupUi(dialog)
         dialog.setFixedSize(dialog.size())
-        default = ui.default_axes
+        default = ui._default_axes
         x_min = ui.x_min
         x_max = ui.x_max
         y_min = ui.y_min
@@ -543,7 +456,7 @@ class ScatterPlot2DDialog(QDialog):
         y_max.setValue(default_y_max)
 
         default.clicked.connect(
-            lambda checked=True: self.default_axes(
+            lambda checked=True: self._default_axes(
                 x_min,
                 x_max,
                 y_min,
@@ -579,7 +492,7 @@ class ScatterPlot2DDialog(QDialog):
         colormap_img: PySide2.QtWidgets.QLabel
             Label that contains an image of the chosen colormap within the QComboBox
         """
-        self.colormap_images(cmap_box, cmap_img)
+        self._colormap_images(cmap_box, cmap_img)
 
     def _save_colormap_choice(self, cmap_box: QComboBox):
         """Saves the colormap choice to the class variable _colormap_choice
@@ -591,7 +504,7 @@ class ScatterPlot2DDialog(QDialog):
         """
         self._colormap_choice = (cmap_box.currentText(), cmap_box.currentData())
 
-    def colormap_images(self, colormap_box: QComboBox, colormap_img: QLabel):
+    def _colormap_images(self, colormap_box: QComboBox, colormap_img: QLabel):
         """Code provided by Donnie Pinkston
         Changes the colormap GUI to indicate which colormap the user has chosen
 
@@ -613,7 +526,7 @@ class ScatterPlot2DDialog(QDialog):
 
         colormap_img.setPixmap(QPixmap.fromImage(img))
 
-    def colormap_chooser(self, b1, b2, i1, i2, context):
+    def _colormap_chooser(self, b1, b2, i1, i2, context):
         """Displays GUI that allows user to choose the colormap for the density slice
 
         Parameters
@@ -640,7 +553,7 @@ class ScatterPlot2DDialog(QDialog):
         for cmap in plt.colormaps():
             cbox_cmap.addItem(cmap)
 
-        self.colormap_images(cbox_cmap, img_cmap)
+        self._colormap_images(cbox_cmap, img_cmap)
         self._colormap_choice = (cbox_cmap.currentText(), cbox_cmap.currentData())
 
         cbox_cmap.currentTextChanged.connect(
@@ -669,7 +582,7 @@ class ScatterPlot2DDialog(QDialog):
                 self._colormap_choice,
             )
 
-    def image_changed(self, datasets, image, combo, spin):
+    def _image_changed(self, datasets, image, combo, spin):
         """Changes value in QComboBox to display the user chosen option
 
         Parameters
@@ -722,7 +635,80 @@ class ScatterPlot2DDialog(QDialog):
         idx = spin.value()
         combo.setCurrentIndex(idx)
 
-    def using_mpl_scatter_density(
+    def _create_scatter_plot(self):
+        errors = self._check_dataset_compatibility()
+        if errors:
+            QMessageBox.warning(self,
+                self.tr("Error"),
+                self.tr("\n\n".join(errors))
+            )
+            return
+        x_dataset = self.get_x_dataset()
+        y_dataset = self.get_y_dataset()
+        if x_dataset is None or y_dataset is None:
+            self._clear_scatter_density_plot()
+            return
+        x_band = self.get_x_band()
+        y_band = self.get_y_band()
+        if x_band is None or y_band is None:
+            self._clear_scatter_density_plot()
+            return
+    
+        cols1 = x_dataset.get_width()
+        rows1 = x_dataset.get_height()
+        cols2 = y_dataset.get_width()
+        rows2 = y_dataset.get_height()
+
+        x = x_band.reshape(rows1 * cols1)
+        y = y_band.reshape(rows2 * cols2)
+
+        # Safe mins/maxes for axes panel defaults
+        new_x = [n for n in x if np.isnan(n) == False]
+        new_y = [m for m in y if np.isnan(m) == False]
+        default_x_min = min(new_x); default_x_max = max(new_x)
+        default_y_min = min(new_y); default_y_max = max(new_y)
+
+
+        self._btn_change_axes.clicked.disconnect()
+        self._btn_change_axes.clicked.connect(
+            lambda checked=True: self._axes_chooser(
+                default_x_min, default_x_max, default_y_min, default_y_max
+            )
+        )
+
+        x_band_idx = self._ui.cbox_x_band.currentData()
+        y_band_idx = self._ui.cbox_y_band.currentData()
+        # --- draw density plot and keep axes ---
+        # Create the display string for the x and y bands
+        x_wvl = x_dataset.get_band_info()[x_band_idx].get('description', None)
+        x_wvl_str = f': {x_wvl}' if x_wvl else ''
+        x_band_description = f'{x_dataset.get_name()}\nBand {x_band_idx}' + x_wvl_str
+
+        y_wvl = y_dataset.get_band_info()[y_band_idx].get('description', None)
+        y_wvl_str = f': {y_wvl}' if y_wvl else ''
+        y_band_description = f'{y_dataset.get_name()}\nBand {y_band_idx}' + y_wvl_str
+        ax = self._using_mpl_scatter_density(
+            self._figure, x, y, x_band_description, y_band_description,
+            self._x_min, self._x_max, self._y_min,
+            self._y_max, self._colormap_choice
+        )
+        self._ax = ax
+
+        self._rows, self._cols = rows1, cols1
+        self._x_flat = x
+        self._y_flat = y
+        self._xy = np.column_stack((self._x_flat, self._y_flat))
+        self._valid_mask = np.isfinite(self._xy).all(axis=1)
+
+        self._selector = PolygonSelector(
+            self._ax,
+            self._on_polygon_select,  # defined below
+            useblit=True,
+        )
+
+        self._btn_clear.clicked.connect(self._clear_selection_overlay)
+
+    def _using_mpl_scatter_density(
         self,
         fig: Figure,
         x:np.ndarray,
@@ -759,7 +745,7 @@ class ScatterPlot2DDialog(QDialog):
         y_max: int
             Largest value of all y values
         colormap: matplotlib.colors.LinearSegmentedColormap or str
-            Colormap for the density slice on the scatter plot. Default is viridis
+            Colormap for the density slice on the scatter plot. Default is DEFAULT_COLOR
         """
         new_x = [n for n in x if np.isnan(n) == False]
         new_y = [m for m in y if np.isnan(m) == False]
@@ -913,6 +899,13 @@ class ScatterPlot2DDialog(QDialog):
             return (np.array([], dtype=int),)*2 + (np.array([]),)*2
         rows, cols = np.unravel_index(self._selected_idx, (self._rows, self._cols))
         return rows, cols, self._x_flat[self._selected_idx], self._y_flat[self._selected_idx]
+    
+    def keyPressEvent(self, e: QKeyEvent) -> None:
+        if e.key() == Qt.Key_Escape:
+            self._clear_selection_overlay() 
+            e.accept()
+            return
+        super().keyPressEvent(e)
 
     def closeEvent(self, e):
         super().closeEvent(e)
