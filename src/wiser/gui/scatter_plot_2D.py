@@ -45,6 +45,8 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 
+from wiser.gui.loading_overlay import LoadingOverlay
+
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
     from wiser.raster.dataset import RasterDataSet
