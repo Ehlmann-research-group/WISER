@@ -32,11 +32,8 @@ FILENAMES=\
 	save_dataset_advanced_details_ui.py \
 	save_dataset_basic_details_ui.py \
 	save_dataset_ui.py \
-	scatter_plot_2D_ui.py \
 	scatter_plot_axes_ui.py \
-	scatter_plot_band_chooser_ui.py \
 	scatter_plot_colormap_ui.py \
-	scatter_plot_error_ui.py \
 	similarity_transform_dialog_ui.py \
 	spectrum_info_editor_ui.py \
 	spectrum_plot_config_ui.py \

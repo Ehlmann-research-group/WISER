@@ -37,10 +37,6 @@ from matplotlib.widgets import PolygonSelector
 from matplotlib.path import Path
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from wiser import plugins, raster
-# from .generated.scatter_plot_2D_ui import Ui_ScatterPlotDialog
-from .generated.scatter_plot_band_chooser_ui import Ui_ScatterPlotBandChooser
-from .generated.scatter_plot_error_ui import Ui_ScatterPlotError
 from .generated.scatter_plot_axes_ui import Ui_ScatterPlotAxes
 from .generated.scatter_plot_colormap_ui import Ui_ScatterPlotColormap
 from .generated.interactive_scatter_plot_ui import Ui_ScatterPlotDialog
@@ -303,7 +299,7 @@ class ScatterPlot2DDialog(QDialog):
             render_dataset_dims = (render_dataset.get_width(), render_dataset.get_height())
         if not errors and x_dataset_dims != render_dataset_dims and y_dataset_dims != render_dataset_dims:
             errors.append("X dataset, Y dataset, and render dataset must have the same dimensions\n" +
-                          f"X: {x_dataset_dims}\nY: {y_dataset_dims}\nRender: {render_dataset_dims}")
+                          f"X dataset dimensions: {x_dataset_dims}\nY dataset dimensions: {y_dataset_dims}\nRender dataset dimensions: {render_dataset_dims}")
         return errors
 
 
@@ -835,7 +831,8 @@ class ScatterPlot2DDialog(QDialog):
         if self._canvas is not None:
             self._canvas.draw_idle()
 
-        self._interactive_callback(self.get_selected_points())
+        render_ds_id = self._ui.cbox_render_ds.currentData()
+        self._interactive_callback(self.get_selected_points(), render_ds_id)
 
     def _clear_selection_overlay(self):
         """Clear current selection, remove overlay, and reset polygon vertices."""
