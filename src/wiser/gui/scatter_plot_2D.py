@@ -111,10 +111,10 @@ def _create_scatter_plot_intensive_operations(x_dataset_serialized: SerializedFo
         "default_y_max": default_y_max,
         "rows": rows1,
         "cols": cols1,
-        "x_flat": new_x,
-        "y_flat": new_y,
-        "xy": np.column_stack((new_x, new_y)),
-        "valid_mask": np.isfinite(np.column_stack((new_x, new_y))).all(axis=1)
+        "x_flat": x,
+        "y_flat": y,
+        "xy": np.column_stack((x, y)),
+        "valid_mask": np.isfinite(np.column_stack((x, y))).all(axis=1)
     })
 
 class ScatterPlot2DDialog(QDialog):
@@ -473,10 +473,12 @@ class ScatterPlot2DDialog(QDialog):
             Largest value of all y values
         """
 
-        x_min.setValue(default_x_min)
-        x_max.setValue(default_x_max)
-        y_min.setValue(default_y_min)
-        y_max.setValue(default_y_max)
+        x_range = max(default_x_max - default_x_min, 0)
+        y_range = max(default_y_max - default_y_min, 0)
+        x_min.setValue(default_x_min - x_range/10)
+        x_max.setValue(default_x_max + x_range/10)
+        y_min.setValue(default_y_min - y_range/10)
+        y_max.setValue(default_y_max + y_range/10)
 
     def _axes_chooser(
         self,
@@ -730,7 +732,7 @@ class ScatterPlot2DDialog(QDialog):
         y_wvl_str = f': {y_wvl}' if y_wvl else ''
         y_band_description = f'{y_dataset.get_name()}\nBand {y_band_idx}' + y_wvl_str
         ax = self._using_mpl_scatter_density(
-            self._figure, self._x_flat, self._y_flat,
+            self._figure, self._x_flat[self._valid_mask], self._y_flat[self._valid_mask],
             x_band_description, y_band_description, self._colormap_choice
         )
         self._ax = ax
@@ -886,7 +888,11 @@ class ScatterPlot2DDialog(QDialog):
             QMessageBox.information(self, self.tr("No selection"), self.tr("No points are selected."))
             return
         rows, cols, _, _ = self.get_selected_points()
-        selection = MultiPixelSelection(zip(rows.tolist(), cols.tolist()))
+        coords = zip(rows.tolist(), cols.tolist())
+        # We switch because MultiPixelSelection expects the points to be in the
+        # format (column, row)
+        points = [QPoint(coord[1], coord[0]) for coord in coords]
+        selection = MultiPixelSelection(points)
         roi = RegionOfInterest(self._app_state.unique_roi_name('Selection'),
                                 color=get_random_matplotlib_color())
         roi.add_selection(selection)
