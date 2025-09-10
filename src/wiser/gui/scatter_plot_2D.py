@@ -52,8 +52,11 @@ from PySide2.QtCore import *
 from wiser.gui.loading_overlay import LoadingOverlay
 from wiser.gui.parallel_task import ParallelTaskProcess
 from wiser.gui.subprocessing_manager import ProcessManager
+from wiser.gui.util import get_random_matplotlib_color
 
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.selection import MultiPixelSelection
+from wiser.raster.roi import RegionOfInterest
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -96,8 +99,8 @@ def _create_scatter_plot_intensive_operations(x_dataset_serialized: SerializedFo
     y = y_band.reshape(rows2 * cols2)
 
     # Safe mins/maxes for axes panel defaults
-    new_x = [n for n in x if np.isnan(n) == False]
-    new_y = [m for m in y if np.isnan(m) == False]
+    new_x = np.array([n for n in x if np.isnan(n) == False])
+    new_y = np.array([m for m in y if np.isnan(m) == False])
     default_x_min = min(new_x); default_x_max = max(new_x)
     default_y_min = min(new_y); default_y_max = max(new_y)
 
@@ -193,11 +196,13 @@ class ScatterPlot2DDialog(QDialog):
         ctrl_layout.setContentsMargins(0, 0, 0, 0)
         self._count_label = QLabel(self.tr("0 pts"))
         self._btn_clear = QPushButton(self.tr("Clear selection"))
+        self._btn_create_roi = QPushButton(self.tr("Create ROI from Selection"))
         self._btn_change_cmap = QPushButton(self.tr("Color Map"))
         self._btn_change_axes = QPushButton(self.tr("Axes Limits"))
         ctrl_layout.addWidget(self._count_label)
         ctrl_layout.addStretch(1)
         ctrl_layout.addWidget(self._btn_clear)
+        ctrl_layout.addWidget(self._btn_create_roi)
         ctrl_layout.addWidget(self._btn_change_cmap)
         ctrl_layout.addWidget(self._btn_change_axes)
 
@@ -220,6 +225,7 @@ class ScatterPlot2DDialog(QDialog):
         self._ui.wdgt_plot.setLayout(layout)
 
         self._btn_clear.clicked.connect(self._clear_selection_overlay)
+        self._btn_create_roi.clicked.connect(self._create_roi_from_selection)
 
         self._ui.btn_create_plot.clicked.connect(
             lambda checked: self._create_scatter_plot()
@@ -817,7 +823,6 @@ class ScatterPlot2DDialog(QDialog):
             if len(idx_to_show) > show_cap:
                 idx_to_show = np.random.choice(idx_to_show, size=show_cap, replace=False)
 
-            # small hollow markers; lightweight
             self._sel_artist = self._ax.plot(
                 self._x_flat[idx_to_show],
                 self._y_flat[idx_to_show],
@@ -874,6 +879,18 @@ class ScatterPlot2DDialog(QDialog):
             self._canvas.draw_idle()
 
         self._clear_interactive_callback()
+
+    def _create_roi_from_selection(self):
+        """Creates a ROI from the selection"""
+        if self._selected_idx is None or len(self._selected_idx) == 0:
+            QMessageBox.information(self, self.tr("No selection"), self.tr("No points are selected."))
+            return
+        rows, cols, _, _ = self.get_selected_points()
+        selection = MultiPixelSelection(zip(rows.tolist(), cols.tolist()))
+        roi = RegionOfInterest(self._app_state.unique_roi_name('Selection'),
+                                color=get_random_matplotlib_color())
+        roi.add_selection(selection)
+        self._app_state.add_roi(roi)
 
     def _save_selection(self):
         """

@@ -463,10 +463,15 @@ class ApplicationState(QObject):
         return True
 
 
-    def unique_dataset_name(self, candidate):
+    def unique_dataset_name(self, candidate: str):
         ds_names = {ds.get_name() for ds in self._datasets.values()}
         ds_names = {name for name in ds_names if name}
         return make_unique_name(candidate, ds_names)
+
+    
+    def unique_roi_name(self, candidate: str):
+        roi_names = {roi.get_name() for roi in self._regions_of_interest.values()}
+        return make_unique_name(candidate, roi_names)
 
 
     def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):
