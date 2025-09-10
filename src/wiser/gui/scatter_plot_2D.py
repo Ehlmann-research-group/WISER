@@ -108,10 +108,10 @@ def _create_scatter_plot_intensive_operations(x_dataset_serialized: SerializedFo
         "default_y_max": default_y_max,
         "rows": rows1,
         "cols": cols1,
-        "x_flat": x,
-        "y_flat": y,
-        "xy": np.column_stack((x, y)),
-        "valid_mask": np.isfinite(np.column_stack((x, y))).all(axis=1)
+        "x_flat": new_x,
+        "y_flat": new_y,
+        "xy": np.column_stack((new_x, new_y)),
+        "valid_mask": np.isfinite(np.column_stack((new_x, new_y))).all(axis=1)
     })
 
 class ScatterPlot2DDialog(QDialog):
@@ -155,11 +155,11 @@ class ScatterPlot2DDialog(QDialog):
         self._interactive_callback = interactive_callback
         self._clear_interactive_callback = clear_interactive_callback
         self._colormap_choice: Tuple[str, LinearSegmentedColormap] = DEFAULT_COLOR
-        self._x_min = 0
-        self._x_max = 100
-        self._y_min = 0
-        self._y_max = 100
-        self.n = 0
+        self._x_min = None
+        self._x_max = None
+        self._y_min = None
+        self._y_max = None
+        self._n = 0
 
         # --- selection state ---
         self._ax = None
@@ -436,14 +436,14 @@ class ScatterPlot2DDialog(QDialog):
 
     def _default_axes(
         self,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
-        default_x_min,
-        default_x_max,
-        default_y_min,
-        default_y_max,
+        x_min: QSpinBox,
+        x_max: QSpinBox,
+        y_min: QSpinBox,
+        y_max: QSpinBox,
+        default_x_min: int,
+        default_x_max: int,
+        default_y_min: int,
+        default_y_max: int,
     ):
         """Sets axes limits to the largest and smallest possible values for each axis
 
@@ -517,10 +517,10 @@ class ScatterPlot2DDialog(QDialog):
         y_min.setRange(-1000000, 1000000)
         y_max.setRange(-1000000, 1000000)
 
-        x_min.setValue(default_x_min)
-        x_max.setValue(default_x_max)
-        y_min.setValue(default_y_min)
-        y_max.setValue(default_y_max)
+        x_min.setValue(self._ax.get_xlim()[0])
+        x_max.setValue(self._ax.get_xlim()[1])
+        y_min.setValue(self._ax.get_ylim()[0])
+        y_max.setValue(self._ax.get_ylim()[1])
 
         default.clicked.connect(
             lambda checked=True: self._default_axes(
@@ -536,18 +536,16 @@ class ScatterPlot2DDialog(QDialog):
         )
 
         if dialog.exec() == QDialog.Accepted:
-            if (self._x_min >= self._x_max) or (self._y_min >= self._y_max):
+            if (x_min.value() >= x_max.value()) or (y_min.value() >= y_max.value()):
                 QMessageBox.warning(self,
                     self.tr("Error"),
-                    self.tr(f"Minimum must be less than the maximum\nX min: {x_min}\tX max: {x_max}\nY min: {y_min}\tY max: {y_max}")
+                    self.tr(f"Minimum must be less than the maximum\nX min: {x_min.value()}\tX max: {x_max.value()}\nY min: {y_min.value()}\tY max: {y_max.value()}")
                 )
 
             else:
-                self._x_min = x_min.value()
-                self._x_max = x_max.value()
-                self._y_min = y_min.value()
-                self._y_max = y_max.value()
-                self._create_scatter_plot()
+                self._ax.set_xlim(x_min.value(), x_max.value())
+                self._ax.set_ylim(y_min.value(), y_max.value())
+                self._canvas.draw_idle()
 
     def _colormap_img_changed(self, cmap_box: QComboBox, cmap_img: QLabel):
         """Sets colormap_choice to the user chosen colormap
@@ -702,11 +700,21 @@ class ScatterPlot2DDialog(QDialog):
             )
         )
 
+        # Since we just created a new plot, we set the min and max to the
+        # plot's min and max. We only use these values when we first
+        # create the plot
+        self._x_min = default_x_min
+        self._x_max = default_x_max
+        self._y_min = default_y_min
+        self._y_max = default_y_max
+
         x_dataset = self.get_x_dataset()
         y_dataset = self.get_y_dataset()
         x_band_idx = self._ui.cbox_x_band.currentData()
         y_band_idx = self._ui.cbox_y_band.currentData()
+
         # --- draw density plot and keep axes ---
+
         # Create the display string for the x and y bands
         x_wvl = x_dataset.get_band_info()[x_band_idx].get('description', None)
         x_wvl_str = f': {x_wvl}' if x_wvl else ''
@@ -716,9 +724,8 @@ class ScatterPlot2DDialog(QDialog):
         y_wvl_str = f': {y_wvl}' if y_wvl else ''
         y_band_description = f'{y_dataset.get_name()}\nBand {y_band_idx}' + y_wvl_str
         ax = self._using_mpl_scatter_density(
-            self._figure, self._x_flat, self._y_flat, x_band_description, y_band_description,
-            self._x_min, self._x_max, self._y_min,
-            self._y_max, self._colormap_choice
+            self._figure, self._x_flat, self._y_flat,
+            x_band_description, y_band_description, self._colormap_choice
         )
         self._ax = ax
         self._canvas.draw_idle()
@@ -726,7 +733,7 @@ class ScatterPlot2DDialog(QDialog):
 
         self._selector = PolygonSelector(
             self._ax,
-            self._on_polygon_select,  # defined below
+            self._on_polygon_select,
             useblit=True,
         )
 
@@ -739,9 +746,6 @@ class ScatterPlot2DDialog(QDialog):
         y:np.ndarray,
         b1_description: str,
         b2_description: str,
-        x_min: int, x_max:
-        int, y_min: int,
-        y_max: int,
         colormap: Tuple[str, LinearSegmentedColormap]
     ):
         """Modified version found here https://stackoverflow.com/questions/20105364/how-can-i-make-a-scatter-plot-colored-by-density-in-matplotlib
@@ -760,36 +764,19 @@ class ScatterPlot2DDialog(QDialog):
         b2_description: str
             Band number for user chosen band on the y-axis
             Band number for user chosen band on the y-axis
-        x_min: int
-            Smallest value of all x values
-        x_max: int
-            Largest value of all x values
-        y_min: int
-            Smallest value of all y values
-        y_max: int
-            Largest value of all y values
         colormap: matplotlib.colors.LinearSegmentedColormap or str
             Colormap for the density slice on the scatter plot. Default is DEFAULT_COLOR
         """
-        new_x = [n for n in x if np.isnan(n) == False]
-        new_y = [m for m in y if np.isnan(m) == False]
-
-        if self.n <= 1:
-            x_min = min(new_x); x_max = max(new_x)
-            y_min = min(new_y); y_max = max(new_y)
-            self._x_min, self._x_max = x_min, x_max
-            self._y_min, self._y_max = y_min, y_max
-
         fig.clear()
         ax = fig.add_subplot(1, 1, 1, projection="scatter_density")
         ax.set_xlabel(b1_description)
         ax.set_ylabel(b2_description)
         ax.set_title("2D scatter plot of two bands with colormap")
         density = ax.scatter_density(x, y, cmap=colormap[1])
-        x_range = max(x_max-x_min, 0)
-        y_range = max(y_max-y_min, 0)
-        ax.set_xlim(x_min-x_range/10, x_max+x_range/10)
-        ax.set_ylim(y_min-y_range/10, y_max+y_range/10)
+        x_range = max(self._x_max-self._x_min, 0)
+        y_range = max(self._y_max-self._y_min, 0)
+        ax.set_xlim(self._x_min-x_range/10, self._x_max+x_range/10)
+        ax.set_ylim(self._y_min-y_range/10, self._y_max+y_range/10)
         fig.colorbar(density, label="Number of points per spectral value")
 
         return ax
