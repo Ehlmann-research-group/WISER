@@ -19,6 +19,8 @@ Primarily written by Amy Wang
 
 import matplotlib
 
+from wiser.raster.serializable import SerializedForm
+
 
 matplotlib.use("Qt5Agg")
 
@@ -26,6 +28,8 @@ import mpl_scatter_density  # adds projection='scatter_density'
 import numpy as np
 import logging
 import os
+import multiprocessing as mp
+import multiprocessing.connection as mp_conn
 import matplotlib.pyplot as plt
 
 from typing import Callable, TYPE_CHECKING, Optional, List, Tuple
@@ -46,10 +50,13 @@ from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 
 from wiser.gui.loading_overlay import LoadingOverlay
+from wiser.gui.parallel_task import ParallelTaskProcess
+from wiser.gui.subprocessing_manager import ProcessManager
+
+from wiser.raster.dataset import RasterDataSet
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
-    from wiser.raster.dataset import RasterDataSet
 
 BOTTOM_SUBPLOT_MARGIN = 0.2
 
@@ -72,6 +79,40 @@ WHITE_VIRDIS = LinearSegmentedColormap.from_list(
 
 DEFAULT_COLOR = ('white viridis', WHITE_VIRDIS)
 
+def _create_scatter_plot_intensive_operations(x_dataset_serialized: SerializedForm, y_dataset_serialized: SerializedForm,
+                                              x_band_idx: int, y_band_idx: int,
+                                                child_conn: mp_conn.Connection, return_queue: mp.Queue):
+    x_dataset = RasterDataSet.deserialize_into_class(x_dataset_serialized.get_serialize_value(), x_dataset_serialized.get_metadata())
+    y_dataset = RasterDataSet.deserialize_into_class(y_dataset_serialized.get_serialize_value(), y_dataset_serialized.get_metadata())
+    x_band = x_dataset.get_band_data(x_band_idx)
+    y_band = y_dataset.get_band_data(y_band_idx)
+
+    cols1 = x_dataset.get_width()
+    rows1 = x_dataset.get_height()
+    cols2 = y_dataset.get_width()
+    rows2 = y_dataset.get_height()
+
+    x = x_band.reshape(rows1 * cols1)
+    y = y_band.reshape(rows2 * cols2)
+
+    # Safe mins/maxes for axes panel defaults
+    new_x = [n for n in x if np.isnan(n) == False]
+    new_y = [m for m in y if np.isnan(m) == False]
+    default_x_min = min(new_x); default_x_max = max(new_x)
+    default_y_min = min(new_y); default_y_max = max(new_y)
+
+    return_queue.put({
+        "default_x_min": default_x_min,
+        "default_x_max": default_x_max,
+        "default_y_min": default_y_min,
+        "default_y_max": default_y_max,
+        "rows": rows1,
+        "cols": cols1,
+        "x_flat": x,
+        "y_flat": y,
+        "xy": np.column_stack((x, y)),
+        "valid_mask": np.isfinite(np.column_stack((x, y))).all(axis=1)
+    })
 
 class ScatterPlot2DDialog(QDialog):
     """
@@ -103,6 +144,9 @@ class ScatterPlot2DDialog(QDialog):
         super().__init__(parent=parent)
         self._ui = Ui_ScatterPlotDialog()
         self._ui.setupUi(self)
+
+        self._loader = LoadingOverlay(self._ui.wdgt_plot)
+        self._process_manager = None
 
         self._app_state = app_state
         self._app_state.dataset_added.connect(self._on_dataset_added)
@@ -275,6 +319,19 @@ class ScatterPlot2DDialog(QDialog):
         spin_box_y_band.valueChanged.connect(
             lambda checked: self._spin_box_changed(cbox_y_band, spin_box_y_band)
         )
+
+    def _check_bands(self) -> bool:
+        """Checks to make sure we have valid bands for the x and y axes.
+        """
+        x_dataset = self.get_x_dataset()
+        y_dataset = self.get_y_dataset()
+        if x_dataset is None or y_dataset is None:
+            return False
+        x_band_idx = self._ui.cbox_x_band.currentData()
+        y_band_idx = self._ui.cbox_y_band.currentData()
+        if x_band_idx is None or y_band_idx is None:
+            return False
+        return True
 
     def _check_dataset_compatibility(self) -> Optional[List[str]]:
         '''
@@ -597,31 +654,46 @@ class ScatterPlot2DDialog(QDialog):
                 self.tr("\n\n".join(errors))
             )
             return
+        bands_valid = self._check_bands()
+        if not bands_valid:
+            self._clear_scatter_density_plot()
+            return
+        self._loader.start()
+        # self._check_bands() above lets us get dataset and bands without worrying
         x_dataset = self.get_x_dataset()
         y_dataset = self.get_y_dataset()
-        if x_dataset is None or y_dataset is None:
-            self._clear_scatter_density_plot()
-            return
-        x_band = self.get_x_band()
-        y_band = self.get_y_band()
-        if x_band is None or y_band is None:
-            self._clear_scatter_density_plot()
-            return
-    
-        cols1 = x_dataset.get_width()
-        rows1 = x_dataset.get_height()
-        cols2 = y_dataset.get_width()
-        rows2 = y_dataset.get_height()
+        x_band_idx = self._ui.cbox_x_band.currentData()
+        y_band_idx = self._ui.cbox_y_band.currentData()
+        kwargs = {
+            "x_dataset_serialized": x_dataset.get_serialized_form(),
+            "y_dataset_serialized": y_dataset.get_serialized_form(),
+            "x_band_idx": x_band_idx,
+            "y_band_idx": y_band_idx
+        }
+        self._process_manager = ProcessManager(_create_scatter_plot_intensive_operations, kwargs)
+        task = self._process_manager.get_task()
+        task.succeeded.connect(self._create_scatter_plot_gui_updates)
+        task.error.connect(self._on_create_scatter_plot_error)
+        self._process_manager.start_task()
 
-        x = x_band.reshape(rows1 * cols1)
-        y = y_band.reshape(rows2 * cols2)
+    def _on_create_scatter_plot_error(self, task: ParallelTaskProcess):
+        QMessageBox.critical(self,
+        self.tr("Error"),
+        self.tr(f"An error occurred while creating the scatter plot.\n\nError:\n{task.get_error()}"))
 
-        # Safe mins/maxes for axes panel defaults
-        new_x = [n for n in x if np.isnan(n) == False]
-        new_y = [m for m in y if np.isnan(m) == False]
-        default_x_min = min(new_x); default_x_max = max(new_x)
-        default_y_min = min(new_y); default_y_max = max(new_y)
+    def _create_scatter_plot_gui_updates(self, task: ParallelTaskProcess):
+        result = task.get_result()
+        self._rows, self._cols = result["rows"], result["cols"]
+        self._x_flat = result["x_flat"]
+        self._y_flat = result["y_flat"]
+        self._xy = result["xy"]
+        self._valid_mask = result["valid_mask"]
 
+
+        default_x_min = result["default_x_min"]
+        default_x_max = result["default_x_max"]
+        default_y_min = result["default_y_min"]
+        default_y_max = result["default_y_max"]
 
         self._btn_change_axes.clicked.disconnect()
         self._btn_change_axes.clicked.connect(
@@ -630,6 +702,8 @@ class ScatterPlot2DDialog(QDialog):
             )
         )
 
+        x_dataset = self.get_x_dataset()
+        y_dataset = self.get_y_dataset()
         x_band_idx = self._ui.cbox_x_band.currentData()
         y_band_idx = self._ui.cbox_y_band.currentData()
         # --- draw density plot and keep axes ---
@@ -642,18 +716,13 @@ class ScatterPlot2DDialog(QDialog):
         y_wvl_str = f': {y_wvl}' if y_wvl else ''
         y_band_description = f'{y_dataset.get_name()}\nBand {y_band_idx}' + y_wvl_str
         ax = self._using_mpl_scatter_density(
-            self._figure, x, y, x_band_description, y_band_description,
+            self._figure, self._x_flat, self._y_flat, x_band_description, y_band_description,
             self._x_min, self._x_max, self._y_min,
             self._y_max, self._colormap_choice
         )
         self._ax = ax
         self._canvas.draw_idle()
-
-        self._rows, self._cols = rows1, cols1
-        self._x_flat = x
-        self._y_flat = y
-        self._xy = np.column_stack((self._x_flat, self._y_flat))
-        self._valid_mask = np.isfinite(self._xy).all(axis=1)
+        self._loader.stop()
 
         self._selector = PolygonSelector(
             self._ax,
