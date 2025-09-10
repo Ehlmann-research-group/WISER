@@ -23,13 +23,11 @@ class RegionOfInterest:
         self._selections: List[Selection] = []
         self._metadata: Dict[str, Any] = {}
 
-
     def get_id(self) -> Optional[int]:
         return self._id
 
     def set_id(self, id: int) -> None:
         self._id = id
-
 
     def __str__(self):
         return f'ROI[{self._name}, {self._selections}]'

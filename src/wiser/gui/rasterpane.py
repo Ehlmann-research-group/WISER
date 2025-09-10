@@ -1,6 +1,7 @@
 import os
 from enum import Enum
 from typing import List, Optional, Tuple, Dict, Union
+import numpy as np
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -17,6 +18,7 @@ from .plugin_utils import add_plugin_context_menu_items
 from wiser import plugins
 
 from wiser.raster import roi_export
+from wiser.raster.dataset_impl import NumPyRasterDataImpl
 from wiser.raster.dataset import RasterDataSet, reference_pixel_to_target_pixel_ds
 from wiser.raster.dataset import find_display_bands
 from wiser.raster.roi import RegionOfInterest
@@ -858,6 +860,12 @@ class RasterPane(QWidget):
 
                 roi_menu.addSeparator()
 
+                act = roi_menu.addAction(self.tr('Make ROI into mask'))
+                act.triggered.connect(
+                    lambda checked : self._on_make_roi_into_mask(roi=roi, rasterview=rasterview))
+
+                roi_menu.addSeparator()
+
                 act = roi_menu.addAction(self.tr('Export ROI...'))
                 act.triggered.connect(
                     lambda checked : self._on_export_region_of_interest(roi=roi, rasterview=rasterview))
@@ -1692,6 +1700,49 @@ class RasterPane(QWidget):
             self._app_state.show_status_text(
                 self.tr('Deleted selection {0} from Region of Interest "{1}"')
                     .format(sel_index, name), 5)
+
+
+    def _on_make_roi_into_mask(self, roi: RegionOfInterest, rasterview: RasterView):
+        '''
+        Makes the roi into a RasterDataSet object with with a numpy array of 0s and 1s
+        that can be used as a mask
+        '''
+        try:
+            src_ds: RasterDataSet = rasterview.get_raster_data()
+            if src_ds is None:
+                QMessageBox.warning(self, self.tr('No dataset'), self.tr('There is no dataset in this view.'))
+                return
+
+            width = src_ds.get_width()
+            height = src_ds.get_height()
+
+            # Create 1-band mask array shaped (1, height, width)
+            mask = np.zeros((1, height, width), dtype=np.uint8)
+
+            # Fill mask using ROI pixels (x=col, y=row)
+            pixels = roi.get_all_pixels()
+            if pixels:
+                for (x, y) in pixels:
+                    if 0 <= x < width and 0 <= y < height:
+                        mask[0, y, x] = 1
+
+            impl = NumPyRasterDataImpl(mask)
+            mask_ds = RasterDataSet(impl, None)
+
+            # Copy spatial metadata from source
+            mask_ds.copy_spatial_metadata(src_ds.get_spatial_metadata())
+
+            # Set defaults and name
+            mask_ds.set_default_display_bands((0,))
+            base_name = f"{roi.get_name()} Mask" if roi.get_name() else "ROI Mask"
+            mask_ds.set_name(self._app_state.unique_dataset_name(base_name))
+
+            # Add to app state and make visible
+            self._app_state.add_dataset(mask_ds, view_dataset=True)
+            self._app_state.show_status_text(self.tr('Created mask dataset from ROI'), 5)
+
+        except Exception as e:
+            QMessageBox.critical(self, self.tr('Error'), self.tr(f'Failed to create mask from ROI:\n{e}'))
 
 
     def _on_show_roi_avg_spectrum(self, roi: RegionOfInterest, rasterview: RasterView):
