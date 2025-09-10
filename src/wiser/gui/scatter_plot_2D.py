@@ -893,7 +893,7 @@ class ScatterPlot2DDialog(QDialog):
         # format (column, row)
         points = [QPoint(coord[1], coord[0]) for coord in coords]
         selection = MultiPixelSelection(points)
-        roi = RegionOfInterest(self._app_state.unique_roi_name('Selection'),
+        roi = RegionOfInterest(self._app_state.unique_roi_name(self.tr('Scatter Plot Selection')),
                                 color=get_random_matplotlib_color())
         roi.add_selection(selection)
         self._app_state.add_roi(roi)
