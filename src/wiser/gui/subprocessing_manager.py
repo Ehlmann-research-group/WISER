@@ -85,8 +85,10 @@ class ProcessManager(QObject):
     def get_task(self) -> ParallelTaskProcess:
         return self._task
     
-    def start_task(self):
+    def start_task(self, blocking=False):
         self._task.start()
+        if blocking:
+            self._task.wait()
 
     def get_pid(self) -> Union[int, None]:
         return self._task.get_process_id()
