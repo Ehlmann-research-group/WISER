@@ -3,6 +3,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from PySide2 import QtCore, QtWidgets, QtTest, QtGui
+
 def are_pixels_close(pixel1, pixel2) -> bool:
         '''
         Helper functions to determine if two pixels are close. Used for when scrolling

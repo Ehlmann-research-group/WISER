@@ -143,7 +143,7 @@ class ScatterPlot2DDialog(QDialog):
 
     def __init__(self, interactive_callback: Callable,
                  clear_interactive_callback: Callable,
-                 app_state: 'ApplicationState', parent=None):
+                 app_state: 'ApplicationState', testing=False, parent=None):
         super().__init__(parent=parent)
         self._ui = Ui_ScatterPlotDialog()
         self._ui.setupUi(self)
@@ -178,6 +178,9 @@ class ScatterPlot2DDialog(QDialog):
         self._selected_idx = np.array([], dtype=int)
         self._rows = 0
         self._cols = 0
+
+        # --- testing state ---
+        self._testing = testing
 
         self._init_band_dataset_choosers()
         self._init_plot()
@@ -680,7 +683,7 @@ class ScatterPlot2DDialog(QDialog):
         task = self._process_manager.get_task()
         task.succeeded.connect(self._create_scatter_plot_gui_updates)
         task.error.connect(self._on_create_scatter_plot_error)
-        self._process_manager.start_task()
+        self._process_manager.start_task(blocking=self._testing)
 
     def _on_create_scatter_plot_error(self, task: ParallelTaskProcess):
         QMessageBox.critical(self,
