@@ -30,6 +30,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from matplotlib.widgets import PolygonSelector
+
 from wiser.gui.app import DataVisualizerApp
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import TiledRasterView
@@ -38,13 +40,12 @@ from wiser.gui.stretch_builder import ChannelStretchWidget
 from wiser.gui.geo_reference_dialog import GeoReferencerDialog, COLUMN_ID, TRANSFORM_TYPES, GeneralCRS
 from wiser.gui.reference_creator_dialog import EllipsoidAxisType, LatitudeTypes, ProjectionTypes, ShapeTypes
 from wiser.gui.similarity_transform_dialog import SimilarityTransformDialog
+from wiser.gui.scatter_plot_2D import ScatterPlot2DDialog
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import ListSpectralLibrary
-
-from tests.utils import click_active_context_menu_path
 
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
@@ -1816,7 +1817,141 @@ class WiserTestModel:
     @run_in_wiser_decorator
     def open_interactive_scatter_plot_context_menu(self, rv_pos: Tuple[int, int]=(0, 0)):
         rv = self.get_main_view_rv(rv_pos)
-        self.main_view._on_scatter_plot_2D(rv)
+        self.main_view._on_scatter_plot_2D(rv, testing=True)
+
+    @run_in_wiser_decorator
+    def set_interactive_scatter_x_axis_dataset(self, ds_id: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        x_axis_cbox = dlg._ui.cbox_x_dataset
+        x_axis_cbox.setCurrentIndex(x_axis_cbox.findData(ds_id))
+        x_axis_cbox.currentIndexChanged.emit(x_axis_cbox.currentIndex())
+
+    @run_in_wiser_decorator
+    def set_interactive_scatter_y_axis_dataset(self, ds_id: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        y_axis_cbox = dlg._ui.cbox_y_dataset
+        y_axis_cbox.setCurrentIndex(y_axis_cbox.findData(ds_id))
+        y_axis_cbox.currentIndexChanged.emit(y_axis_cbox.currentIndex())
+
+    @run_in_wiser_decorator
+    def set_interactive_scatter_render_dataset(self, ds_id: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        render_cbox = dlg._ui.cbox_render_ds
+        render_cbox.setCurrentIndex(render_cbox.findData(ds_id))
+        render_cbox.currentIndexChanged.emit(render_cbox.currentIndex())
+
+    @run_in_wiser_decorator
+    def set_interactive_scatter_x_band(self, band_number: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        x_band_cbox = dlg._ui.cbox_x_band
+        x_band_cbox.setCurrentIndex(x_band_cbox.findData(band_number))
+        x_band_cbox.currentIndexChanged.emit(x_band_cbox.currentIndex())
+
+    @run_in_wiser_decorator
+    def set_interactive_scatter_y_band(self, band_number: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        y_band_cbox = dlg._ui.cbox_y_band
+        y_band_cbox.setCurrentIndex(y_band_cbox.findData(band_number))
+        y_band_cbox.currentIndexChanged.emit(y_band_cbox.currentIndex())
+
+    @run_in_wiser_decorator
+    def click_create_scatter_plot(self):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        QTest.mouseClick(dlg._ui.btn_create_plot, Qt.LeftButton)
+
+    def get_interactive_scatter_plot_xy_values(self):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        return dlg._xy
+
+    @run_in_wiser_decorator
+    def create_polygon_in_interactive_scatter_plot(self, polygon: List[Tuple[int, int]]):
+        """
+        Simulates drawing a polygon on the interactive scatter plot by clicking
+        on the Matplotlib canvas at the provided data-coordinates, then
+        finishes the polygon with a double-click on the last vertex.
+
+        The input points must be in the scatter plot's data coordinate system
+        (not screen/display pixels).
+        """
+
+        if polygon is None or len(polygon) < 3:
+            raise ValueError("Polygon must contain at least 3 points")
+
+        dlg: ScatterPlot2DDialog = getattr(self.main_view, "_interactive_scatter_plot_dialog", None)
+        if dlg is None or dlg._ax is None or dlg._canvas is None:
+            raise RuntimeError("Interactive scatter plot is not initialized. Create the plot first.")
+
+        ax = dlg._ax
+        canvas = dlg._canvas
+
+        # Ensure the canvas has focus so key/dblclick events are delivered
+        try:
+            canvas.setFocus()
+        except Exception:
+            pass
+
+        # Convert data coords → display coords, then to Qt widget coords.
+        # Matplotlib's transform gives pixel coords with origin at bottom-left of the canvas.
+        # Qt widget coords have origin at top-left, so we invert Y using the canvas height.
+        try:
+            dpr = float(canvas.devicePixelRatioF())
+        except Exception:
+            try:
+                dpr = float(canvas.devicePixelRatio())
+            except Exception:
+                dpr = 1.0
+
+        height_qt = canvas.height()
+
+        def data_to_qt_point(x_val: float, y_val: float) -> QPoint:
+            x_disp, y_disp = ax.transData.transform((float(x_val), float(y_val)))
+            x_qt = x_disp / dpr
+            y_qt = height_qt - (y_disp / dpr)
+            return QPoint(int(round(x_qt)), int(round(y_qt)))
+
+        # Click through all vertices
+        for (x, y) in polygon:
+            pos = data_to_qt_point(x, y)
+            QTest.mousePress(canvas, Qt.LeftButton, Qt.NoModifier, pos)
+            QTest.mouseRelease(canvas, Qt.LeftButton, Qt.NoModifier, pos)
+            QCoreApplication.processEvents()
+
+        # Double-click the last vertex to complete the polygon
+        last_x, last_y = polygon[-1]
+        last_pos = data_to_qt_point(last_x, last_y)
+        QTest.mouseDClick(canvas, Qt.LeftButton, Qt.NoModifier, last_pos)
+        QTest.mouseRelease(canvas, Qt.LeftButton, Qt.NoModifier, last_pos)
+        QCoreApplication.processEvents()
+
+        selector: PolygonSelector = dlg._selector
+        selector._draw_polygon()
+        # selector.complete_selection()
+        dlg._on_polygon_select(selector.verts)
+        
+
+        # # Let the event loop process the selection callback
+        # self.run()
+
+        # # Move the mouse to the center of the canvas after polygon creation
+        # center_pos = QPoint(int(canvas.width() / 2), int(canvas.height() / 2))
+        # QTest.mouseMove(canvas, center_pos)
+        # QCoreApplication.processEvents()
+
+    @run_in_wiser_decorator
+    def move_mouse_to_canvas_center(self, widget: QWidget):
+        center_pos = QPoint(int(widget.width() / 2), int(widget.height() / 2))
+        QTest.mouseMove(widget, center_pos)
+        QCoreApplication.processEvents()
+
+    @run_in_wiser_decorator
+    def simulate_left_click(self, widget: QWidget, pos: QPoint):
+        QTest.mousePress(widget, Qt.LeftButton, Qt.NoModifier, pos)
+        QTest.mouseRelease(widget, Qt.LeftButton, Qt.NoModifier, pos)
+
+    @run_in_wiser_decorator
+    def simulate_left_dclick(self, widget: QWidget, pos: QPoint):
+        QTest.mouseDClick(widget, Qt.LeftButton, Qt.NoModifier, pos)
+        QTest.mouseRelease(widget, Qt.LeftButton, Qt.NoModifier, pos)
 
     #==========================================
     # region Bandmath 
@@ -1844,42 +1979,6 @@ class WiserTestModel:
     #==========================================
     # region General
     #==========================================
-
-    def show_main_view_context_menu(self):
-        widget = self.get_main_view_rv()._image_widget
-
-        # Compute local and global center
-        local_center = widget.rect().center()
-        global_center = widget.mapToGlobal(local_center)
-
-        # Build a QContextMenuEvent
-        event = QContextMenuEvent(
-            QContextMenuEvent.Mouse,
-            local_center,
-            global_center,
-            Qt.NoModifier
-        )
-        self.main_view._onRasterContextMenu(self.get_main_view_rv(), event, testing=True)
-
-    @run_in_wiser_decorator
-    def click_active_context_menu_path(self, path, right_click_pos=None, delay_ms=80):
-        menu = self.main_view._menu
-        click_active_context_menu_path(self, menu, path, right_click_pos=right_click_pos, delay_ms=delay_ms)
-
-    @run_in_wiser_decorator
-    def popup_menu(self, menu: QMenu, pos: QPoint):
-        menu.popup(pos)
-        time.sleep(0.01)
-
-    @run_in_wiser_decorator
-    def left_click_menu(self, menu: QMenu, pos: QPoint):
-        QTest.mouseClick(menu, Qt.LeftButton, Qt.NoModifier, pos)
-        time.sleep(0.01)
-
-    @run_in_wiser_decorator
-    def move_mouse(self, widget: QWidget, pos: QPoint):
-        QTest.mouseMove(widget, pos)
-        time.sleep(0.01)
 
     @run_in_wiser_decorator
     def click_zoom_to_fit(self):

@@ -335,11 +335,11 @@ class MainViewWidget(RasterPane):
         self._set_link_views_button_state()
 
 
-    def _on_scatter_plot_2D(self, rasterview):
-        dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
+    def _on_scatter_plot_2D(self, rasterview, testing=False):
+        self._interactive_scatter_plot_dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
                                      self._clear_interactive_scatter_plot_highlights,
-                                     self._app_state, parent=self)
-        dialog.show()
+                                     self._app_state, testing=testing, parent=self)
+        self._interactive_scatter_plot_dialog.show()
 
     def _make_interactive_scatter_plot_highlights(self, selected_points, render_ds_id):
         # Highlight the selected points 

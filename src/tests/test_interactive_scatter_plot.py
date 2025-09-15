@@ -5,11 +5,10 @@ import unittest
 
 from matplotlib import use
 
-# import tests.context
-import context
+import tests.context
+# import context
 
 from test_utils.test_model import WiserTestModel
-from utils import click_active_context_menu_path
 
 import numpy as np
 
@@ -30,7 +29,7 @@ class TestInteractiveScatterPlot(unittest.TestCase):
 
     def setUp(self):
         """Initializes the WISER test model before each test."""
-        self.test_model = WiserTestModel(use_gui=True)
+        self.test_model = WiserTestModel(use_gui=False)
 
     def tearDown(self):
         """Closes the WISER application and cleans up after each test."""
@@ -39,9 +38,12 @@ class TestInteractiveScatterPlot(unittest.TestCase):
 
     def test_scatter_plot_creation(self):
         """
-        Open numpy array in WISER and create a 2D scatter plot for it
+        Open numpy array in WISER and create a 2D scatter plot for it, create a highlight region.
+
+        Ensure that all of the correct points are plotted in the scatter plot and the highlight
+        region is created correctly.
         """
-        np_impl = np.array([[[0.  , 0.  , 0.  , 1.  ],
+        np_impl = np.array([[[0.  , np.nan  , 0.  , 1.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
                                 [0.75, 0.75, 0.75, 0.75],
@@ -56,22 +58,33 @@ class TestInteractiveScatterPlot(unittest.TestCase):
                             [[0.  , 2.  , 1.  , 2.  ],
                                 [0.25, 0.25, 0.25, 0.25],
                                 [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
+                                [0.75, 0.75, np.nan, 0.75],
                                 [1.  , 1.  , 1.  , 1.  ]]])
-        
-        self.test_model.load_dataset(np_impl)
+    
+        ds = self.test_model.load_dataset(np_impl)
+        self.test_model.click_zoom_to_fit()
+        self.test_model.open_interactive_scatter_plot_context_menu()
+        self.test_model.set_interactive_scatter_x_axis_dataset(ds.get_id())
+        self.test_model.set_interactive_scatter_y_axis_dataset(ds.get_id())
+        self.test_model.set_interactive_scatter_render_dataset(ds.get_id())
+        self.test_model.set_interactive_scatter_x_band(0)
+        self.test_model.set_interactive_scatter_y_band(2)
+        self.test_model.click_create_scatter_plot()
+        xy = self.test_model.get_interactive_scatter_plot_xy_values()
+        x_truth = np_impl[0][:, :].flatten()
+        y_truth = np_impl[2][:, :].flatten()
+        xy_truth = np.column_stack([x_truth, y_truth])
+        self.assertTrue(np.array_equal(xy, xy_truth, equal_nan=True))
 
-        main_view = self.test_model.main_view
-        print(f"type of main_view: {type(main_view)}")
-        # self.test_model.click_active_context_menu_path(main_view, ['Data Analysis', 'Interactive Scatter Plot'])
+        highlighted_points_truth = [(1, 0), (1, 1), (1, 2), (1, 3)]
+        self.test_model.create_polygon_in_interactive_scatter_plot([(0.1, 0), (0.1, 0.5), (0.5, 0.5), (0.5, 0.1), (0.1, 0)])
+        points = self.test_model.main_view._interactive_scatter_highlight_points
+        self.assertTrue(highlighted_points_truth == points)
 
 if __name__ == '__main__':
-    # tester = TestInteractiveScatterPlot()
-    # tester.setUp()
-    # tester.test_scatter_plot_creation()
     test_model = WiserTestModel(use_gui=True)
 
-    np_impl = np.array([[[0.  , 0.  , 0.  , 1.  ],
+    np_impl = np.array([[[0.  , np.nan  , 0.  , 1.  ],
                             [0.25, 0.25, 0.25, 0.25],
                             [0.5 , 0.5 , 0.5 , 0.5 ],
                             [0.75, 0.75, 0.75, 0.75],
@@ -86,13 +99,24 @@ if __name__ == '__main__':
                         [[0.  , 2.  , 1.  , 2.  ],
                             [0.25, 0.25, 0.25, 0.25],
                             [0.5 , 0.5 , 0.5 , 0.5 ],
-                            [0.75, 0.75, 0.75, 0.75],
+                            [0.75, 0.75, np.nan, 0.75],
                             [1.  , 1.  , 1.  , 1.  ]]])
     
-    test_model.load_dataset(np_impl)
+    ds = test_model.load_dataset(np_impl)
     test_model.click_zoom_to_fit()
-    # rv = test_model.get_main_view_rv((0, 0))
-    # test_model.show_main_view_context_menu()
     test_model.open_interactive_scatter_plot_context_menu()
-    # test_model.click_active_context_menu_path(['Data Analysis', 'Interactive Scatter Plot'])
+    test_model.set_interactive_scatter_x_axis_dataset(ds.get_id())
+    test_model.set_interactive_scatter_y_axis_dataset(ds.get_id())
+    test_model.set_interactive_scatter_render_dataset(ds.get_id())
+    test_model.set_interactive_scatter_x_band(0)
+    test_model.set_interactive_scatter_y_band(2)
+    test_model.click_create_scatter_plot()
+    xy = test_model.get_interactive_scatter_plot_xy_values()
+    test_model.create_polygon_in_interactive_scatter_plot([(0.1, 0), (0.1, 0.5), (0.5, 0.5), (0.5, 0.1), (0.1, 0)])
+    points = test_model.main_view._interactive_scatter_highlight_points
+    highlighted_points_truth = [(1, 0), (1, 1), (1, 2), (1, 3)]
+    x_truth = np_impl[0][:, :].flatten()
+    y_truth = np_impl[2][:, :].flatten()
+    xy_truth = np.column_stack([x_truth, y_truth])
+    print(f"xy_truth == xy: {np.array_equal(xy, xy_truth, equal_nan=True)}")
     test_model.app.exec_()
