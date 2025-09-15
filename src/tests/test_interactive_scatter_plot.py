@@ -115,8 +115,9 @@ if __name__ == '__main__':
     test_model.create_polygon_in_interactive_scatter_plot([(0.1, 0), (0.1, 0.5), (0.5, 0.5), (0.5, 0.1), (0.1, 0)])
     points = test_model.main_view._interactive_scatter_highlight_points
     highlighted_points_truth = [(1, 0), (1, 1), (1, 2), (1, 3)]
+    assert highlighted_points_truth == points
     x_truth = np_impl[0][:, :].flatten()
     y_truth = np_impl[2][:, :].flatten()
     xy_truth = np.column_stack([x_truth, y_truth])
-    print(f"xy_truth == xy: {np.array_equal(xy, xy_truth, equal_nan=True)}")
+    assert np.array_equal(xy, xy_truth, equal_nan=True)
     test_model.app.exec_()
