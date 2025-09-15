@@ -44,6 +44,8 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import ListSpectralLibrary
 
+from tests.utils import click_active_context_menu_path
+
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
 
@@ -1808,6 +1810,15 @@ class WiserTestModel:
         dlg._translate_pane._on_dataset_changed(act)
 
     #==========================================
+    # region Interactive Scatter Plot 
+    #==========================================
+
+    @run_in_wiser_decorator
+    def open_interactive_scatter_plot_context_menu(self, rv_pos: Tuple[int, int]=(0, 0)):
+        rv = self.get_main_view_rv(rv_pos)
+        self.main_view._on_scatter_plot_2D(rv)
+
+    #==========================================
     # region Bandmath 
     #==========================================
 
@@ -1834,6 +1845,45 @@ class WiserTestModel:
     # region General
     #==========================================
 
+    def show_main_view_context_menu(self):
+        widget = self.get_main_view_rv()._image_widget
+
+        # Compute local and global center
+        local_center = widget.rect().center()
+        global_center = widget.mapToGlobal(local_center)
+
+        # Build a QContextMenuEvent
+        event = QContextMenuEvent(
+            QContextMenuEvent.Mouse,
+            local_center,
+            global_center,
+            Qt.NoModifier
+        )
+        self.main_view._onRasterContextMenu(self.get_main_view_rv(), event, testing=True)
+
+    @run_in_wiser_decorator
+    def click_active_context_menu_path(self, path, right_click_pos=None, delay_ms=80):
+        menu = self.main_view._menu
+        click_active_context_menu_path(self, menu, path, right_click_pos=right_click_pos, delay_ms=delay_ms)
+
+    @run_in_wiser_decorator
+    def popup_menu(self, menu: QMenu, pos: QPoint):
+        menu.popup(pos)
+        time.sleep(0.01)
+
+    @run_in_wiser_decorator
+    def left_click_menu(self, menu: QMenu, pos: QPoint):
+        QTest.mouseClick(menu, Qt.LeftButton, Qt.NoModifier, pos)
+        time.sleep(0.01)
+
+    @run_in_wiser_decorator
+    def move_mouse(self, widget: QWidget, pos: QPoint):
+        QTest.mouseMove(widget, pos)
+        time.sleep(0.01)
+
+    @run_in_wiser_decorator
+    def click_zoom_to_fit(self):
+        self.main_view._act_zoom_to_fit.trigger()
 
     def click_pane_display_toggle(self, pane_name: str):
         for act in self.main_window._main_toolbar.actions():

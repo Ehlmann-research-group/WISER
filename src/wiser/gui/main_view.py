@@ -167,7 +167,7 @@ class MainViewWidget(RasterPane):
                               self._on_export_image_full(rv))
 
         submenu = menu.addMenu(self.tr('Data Analysis'))
-        act = submenu.addAction(self.tr('2D InteractiveScatter Plot'))
+        act = submenu.addAction(self.tr('Interactive Scatter Plot'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_scatter_plot_2D(rv))
 

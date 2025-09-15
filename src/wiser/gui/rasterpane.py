@@ -308,6 +308,9 @@ class RasterPane(QWidget):
 
         self._task_delegate = None
 
+        # The context menu for the raster pane
+        self._menu = None
+
         # Initialize contents of the widget
 
         self._init_ui(select_tools=select_tools)
@@ -764,15 +767,17 @@ class RasterPane(QWidget):
             done = self._task_delegate.on_key_release(key_event)
             self._update_delegate(done)
 
-    def _onRasterContextMenu(self, rasterview, context_menu_event):
+    def _onRasterContextMenu(self, rasterview, context_menu_event, testing=False):
         # print(f'ContextMenuEvent at {context_menu_event.pos()}')
-        menu = QMenu(self)
+        self._menu = QMenu(self)
 
-        self._build_context_menu(menu, rasterview, context_menu_event)
+        self._build_context_menu(self._menu, rasterview, context_menu_event)
 
         # Only show the context menu if we have stuff to show.
-        if not menu.isEmpty():
-            menu.exec_(context_menu_event.globalPos())
+        if not self._menu.isEmpty() and not testing:
+            self._menu.exec_(context_menu_event.globalPos())
+        elif testing:
+            self._menu.popup(context_menu_event.globalPos())
 
 
     def _afterRasterScroll(self, widget, dx, dy, propagate_scroll):

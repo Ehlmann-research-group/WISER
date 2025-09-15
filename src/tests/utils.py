@@ -3,6 +3,98 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from PySide2 import QtCore, QtWidgets, QtTest, QtGui
+
+from test_utils.test_function_decorator import run_in_wiser_decorator
+
+import time
+
+def _action_center(menu: QtWidgets.QMenu, action: QtWidgets.QAction) -> QtCore.QPoint:
+    rect = menu.actionGeometry(action)
+    return rect.center()
+
+def _find_action_by(menu: QtWidgets.QMenu, *, text=None, object_name=None):
+    def norm(s): return s.replace("&", "").strip()
+    for a in menu.actions():
+        if object_name and a.objectName() == object_name:
+            return a
+        if text and norm(a.text()) == norm(text):
+            return a
+    return None
+
+@run_in_wiser_decorator
+def right_click_widget(test_model, widget: QtWidgets.QWidget, pos: QtCore.QPoint):
+    QtTest.QTest.mouseClick(widget, QtCore.Qt.RightButton, QtCore.Qt.NoModifier, pos)
+    time.sleep(0.01)
+
+def click_active_context_menu_path(test_model, menu: QtWidgets.QMenu, path, right_click_pos=None, delay_ms=80):
+    """
+    Right-click on `widget`, then left-click submenu path.
+    path: list like ["Edit", "Advanced", "Rename"] or list of dicts with {"text": "..."} / {"object_name": "..."}.
+    """
+    # if right_click_pos is None:
+    #     # default to center of the widget
+    #     right_click_pos = widget.rect().center()
+
+    # right_click_widget(test_model, widget, right_click_pos)
+    # time.sleep(1)
+    # print(f"right_click_pos: {right_click_pos}")
+    # # 1) Right click to show the menu
+    # QtTest.QTest.mouseClick(widget, QtCore.Qt.RightButton, QtCore.Qt.NoModifier, right_click_pos)
+
+    # # 2) Grab the topmost popup (the QMenu)
+    # menu = QtWidgets.QApplication.activePopupWidget()
+    print(f"type of menu: {type(menu)}")
+    if not isinstance(test_model.main_view._menu, QtWidgets.QMenu):
+        raise RuntimeError("No context menu appeared.")
+
+    # Used to keep a reference to objects so they don't get garbage collected
+    menus = []
+    current_menu = test_model.main_view._menu
+    menus.append(current_menu)
+    # 3) Walk through the path
+    for i, key in enumerate(path):
+        print(f"new key: {key}")
+        kw = key if isinstance(key, dict) else {"text": key}
+        print(f"new actions!")
+        print(f"current menu: {current_menu}")
+        print(f"type of current menu: {type(current_menu)}")
+        for a in current_menu.actions():
+            name = a.text()
+            print(f"name: {name}")
+        act = _find_action_by(current_menu, **kw)
+        print(f"act 111: {act}")
+        if not act:
+            raise RuntimeError(f"Menu item not found at level {i}: {key}")
+
+        # Hover over the action so its submenu (if any) opens
+        # center = _action_center(current_menu, act)
+        # global_pt = current_menu.mapToGlobal(center)
+        # test_model.move_mouse(current_menu, global_pt)
+
+        if i < len(path) - 1:
+            # Some styles open submenu on hover; some need a click—support both.
+            sub = act.menu()
+            print(f"type of sub: {type(sub)}")
+            if sub is None:
+                raise RuntimeError(f"Could not open submenu at level {i}: {key}")
+            else:
+                # give the hover-open time
+                time.sleep(delay_ms/1000)
+
+            if not isinstance(sub, QtWidgets.QMenu):
+                raise RuntimeError(f"Could not open submenu at level {i}: {key}")
+            print(f"changing current menu")
+            menus.append(sub)
+            current_menu = sub
+            test_model.popup_menu(sub, QPoint(0, 0))
+        else:
+            print(f"i: {i}")
+            print(f"kw: {kw}")
+            print(f"act: {act}")
+            print(f"type of act: {type(act)}")
+            act.trigger()
+
 def are_pixels_close(pixel1, pixel2) -> bool:
         '''
         Helper functions to determine if two pixels are close. Used for when scrolling
