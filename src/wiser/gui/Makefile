@@ -35,6 +35,7 @@ FILENAMES=\
 	scatter_plot_axes_ui.py \
 	scatter_plot_colormap_ui.py \
 	similarity_transform_dialog_ui.py \
+	spectral_angle_mapper_ui.py \
 	spectrum_info_editor_ui.py \
 	spectrum_plot_config_ui.py \
 	split_unsplit_pane_ui.py \
