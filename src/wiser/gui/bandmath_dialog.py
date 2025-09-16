@@ -1330,7 +1330,12 @@ class BandMathDialog(QDialog):
             self._ui.btn_output_folder,
             self._ui.chkbox_load_into_wiser,
             self._ui.btn_create_batch_job,
-            self._ui.lbl_select_batch_output
+            self._ui.lbl_select_batch_output,
+            self._ui.hlayout_load_wiser,
+            self._ui.hspace_output_folder,
+            self._ui.hspacer_load_wiser,
+            self._ui.wdgt_load_wiser,
+            self._ui.wdgt_output_folder
         ]
         return ui_components
 
