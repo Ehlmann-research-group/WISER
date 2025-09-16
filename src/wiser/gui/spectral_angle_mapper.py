@@ -75,6 +75,8 @@ class SAMTool(QDialog):
             self._purge_old_sessions()
             SAMTool._sessions_purged = True
         
+        self._ui = Ui_SpectralAngleMapper()
+        self._ui.setupUi(self)
         
         self._app_state = app_state
         self._target: NumPyArraySpectrum = None
@@ -86,12 +88,10 @@ class SAMTool(QDialog):
         self._run_history: Dict[str, List[Dict[str, Any]]] = {}
 
         self._lib_rows = []
-        self._add_default_library()
+        self._init_reference_selection()
 
         self._spec_rows = []
 
-        self._ui = Ui_SpectralAngleMapper()
-        self._ui.setupUi(self)
         self._ui.tableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._setup_connections()
         self._add_interpolation_note()
@@ -480,6 +480,13 @@ class SAMTool(QDialog):
         box.raise_()
         box.activateWindow()
         return box.exec_()
+
+
+    def _init_reference_selection(self) -> None:
+        self._add_default_library()
+        for lbl in (self._ui.hdr_lib, self._ui.hdr_thresh_lib,
+            self._ui.hdr_spec, self._ui.hdr_thresh_spec):
+            lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
 
     def _init_target_dropdowns(self) -> None:
