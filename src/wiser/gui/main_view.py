@@ -174,8 +174,6 @@ class MainViewWidget(RasterPane):
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_scatter_plot_2D(rv))
 
-        print(f"FLAGS.sam: {FLAGS.sam}") 
-        print(f"FLAGS.sff: {FLAGS.sff}") 
         if FLAGS.sam: 
             act = submenu.addAction(self.tr('Spectral Angle Mapper'))
             act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
