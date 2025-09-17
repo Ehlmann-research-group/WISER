@@ -46,7 +46,7 @@ typecheck:
 build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
 	MACOSX_DEPLOYMENT_TARGET=11.0 \
-	@set WISER_ENV=prod && pyinstaller --noconfirm WISER-macOS.spec
+	pyinstaller --noconfirm WISER-macOS.spec
 
 	./check_arch.sh
 
@@ -67,7 +67,7 @@ dist-mac : build-mac
 		--apple-id $(AD_USERNAME) --team-id $(AD_TEAM_ID) --password $(AD_PASSWORD)
 
 build-win : generated
-	@set WISER_ENV=prod && pyinstaller WISER.spec
+	pyinstaller WISER.spec
 
 dist-win : build-win
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
