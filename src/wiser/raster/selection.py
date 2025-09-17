@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Set, Tuple
+from typing import Optional, Set, Tuple, List
 
 from PySide2.QtCore import *
 
@@ -125,7 +125,15 @@ class MultiPixelSelection(Selection):
     A multi-pixel selection.
     '''
 
-    def __init__(self, pixels, dataset:Optional[RasterDataSet]=None):
+    def __init__(self, pixels: List[QPoint], dataset: Optional[RasterDataSet] = None):
+        """
+        Parameters:
+            pixels: List[QPoint]
+                A list of QPoint objects representing the pixels in the selection. The points .x()
+                should be the column index and .y() should be the row index.
+            dataset: Optional[RasterDataSet]
+                The dataset that the selection is associated with.
+        """
         super().__init__(SelectionType.MULTI_PIXEL, dataset=dataset)
         self._pixels = set(pixels)
 

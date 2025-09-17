@@ -14,4 +14,5 @@ sleep 2
 conda run -n wiser-source /bin/bash -c "
 cd /WISER
 make generated
-cd src/tests"
+cd src/tests
+pytest ."

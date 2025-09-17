@@ -14,7 +14,6 @@ from wiser.bandmath.utils import (
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
     get_lhs_rhs_values_async, get_result_dtype, MathOperations,
 )
-from wiser.raster.dataset import RasterDataSet
 
 class OperatorAdd(BandMathFunction):
     '''
@@ -52,7 +51,27 @@ class OperatorAdd(BandMathFunction):
         #     way to do this is to ask NumPy what the result element-type will
         #     be.
 
-        if lhs.result_type == VariableType.IMAGE_CUBE:
+        if lhs.result_type == VariableType.IMAGE_CUBE_BATCH:
+            # Dimensions:  [band][y][x]
+            # Because this is a batch variable, we don't set the metadata
+            # here since we do not have it until the user runs the batch
+            # 
+            # Additionally, when we actually do the apply phase, we recalculate
+            # the expression info with IMAGE_CUBE, so this IMAGE_CUBE_BATCH
+            # conditional can be thought of as a place holder.
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+            # TODO(Joshua): See if we can make elem_type dynamic
+            info.elem_type = np.float32
+            return info
+
+        elif lhs.result_type == VariableType.IMAGE_CUBE:
+
+            # Manually check if it's a batch variable
+            if rhs.result_type == VariableType.IMAGE_BAND_BATCH:
+                info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+                info.elem_type = np.float32
+                return info
+    
             check_image_cube_compatible(rhs, lhs.shape)
 
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
@@ -66,6 +85,16 @@ class OperatorAdd(BandMathFunction):
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
 
+            return info
+
+        elif lhs.result_type == VariableType.IMAGE_BAND_BATCH:
+            # Dimensions:  [y][x]
+            # 
+            # When we actually do the apply phase, we recalculate
+            # the expression info with IMAGE_BAND, so this IMAGE_BAND_BATCH
+            # conditional can be thought of as a place holder.
+            info = BandMathExprInfo(VariableType.IMAGE_BAND_BATCH)
+            info.elem_type = np.float32
             return info
 
         elif lhs.result_type == VariableType.IMAGE_BAND:

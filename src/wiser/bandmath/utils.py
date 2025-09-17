@@ -1,8 +1,9 @@
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple, Union, TYPE_CHECKING, Optional
 Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
 import re
+import datetime
 import os
 
 import numpy as np
@@ -19,9 +20,24 @@ from osgeo import gdal
 
 from enum import Enum
 
+from wiser.raster.spectrum import NumPyArraySpectrum
+
+from wiser.raster.serializable import SerializedForm
+
+from wiser.gui.parallel_task import ParallelTaskProcess
+
 from .types import VariableType, BandMathExprInfo, BandMathValue
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, SaveState
 from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE, LHS_KEY, RHS_KEY
+
+from PySide2.QtWidgets import QMessageBox, QWidget
+
+if TYPE_CHECKING:
+    from wiser.gui.app_state import ApplicationState
+    from wiser.raster.loader import RasterDataLoader
+
+import logging
+logger = logging.getLogger(__name__)
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_output')
 
@@ -35,6 +51,125 @@ class MathOperations(Enum):
     TRIG_FUNCTION = "trig_function"
     DOT_PRODUCT = "dot_product"
     GENERAL = "general"
+
+def bandmath_progress_callback(msg: str):
+    print(f"Bandmath progress:\n{msg}")
+
+def bandmath_error_callback(task: ParallelTaskProcess):
+    print(f"Task error:\n{task.get_error()}")
+
+def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataSet], result: Union[SerializedForm, np.ndarray], \
+                                    result_name: str, expression: Optional[str], expr_info: BandMathExprInfo, \
+                                    loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
+    # Compute a timestamp to put in the description
+    timestamp = datetime.datetime.now().isoformat()
+    if result_type == RasterDataSet:
+        metadata = result.get_metadata()
+        if 'save_state' not in metadata:
+            metadata['save_state'] = SaveState.IN_DISK_NOT_SAVED
+        ds = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
+        if expression:
+            ds.set_description(
+                            f'Computed image-cube:  {expression} ({timestamp})')
+        if expr_info.spatial_metadata_source:
+            ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
+        if expr_info.spectral_metadata_source:
+            ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        if app_state:
+            ds.set_name(app_state.unique_dataset_name(metadata.get('name', 'Computed')))
+            app_state.add_dataset(ds, view_dataset=False)
+        return ds
+    elif result_type == VariableType.IMAGE_CUBE:
+        if not loader:
+            raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
+        cache = app_state.get_cache() if app_state else None
+        name = result_name if result_name else 'Computed'
+        ds = loader.dataset_from_numpy_array(result, cache)
+        ds.set_description(
+            f'Computed image-cube:  {expression} ({timestamp})')
+
+        if expr_info.spatial_metadata_source:
+            ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
+        if expr_info.spectral_metadata_source:
+            ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        if app_state:
+            ds.set_name(app_state.unique_dataset_name(name))
+            app_state.add_dataset(ds, view_dataset=False)
+        
+        return ds
+    return None
+
+def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
+                                    result_name: str, expression: str, expr_info: BandMathExprInfo, parent: QWidget = None, \
+                                    loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
+    if not loader:
+        raise AttributeError("Must pass loader into function")
+    # Compute a timestamp to put in the description
+    timestamp = datetime.datetime.now().isoformat()
+    # Convert the image band into a 1-band image cube
+    result = result[np.newaxis, :]
+    cache = app_state.get_cache() if app_state else None
+    new_dataset = loader.dataset_from_numpy_array(result, cache)
+
+    if not result_name:
+        result_name = parent.tr('Computed') if parent else 'Computed'
+
+    if app_state:
+        new_dataset.set_name(
+            app_state.unique_dataset_name(result_name))
+    new_dataset.set_description(
+        f'Computed image-band:  {expression} ({timestamp})')
+
+    if expr_info.spatial_metadata_source:
+        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
+
+    if app_state:
+        app_state.add_dataset(new_dataset, view_dataset=False)
+    
+    return new_dataset
+
+def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', results: List[Tuple[VariableType, SerializedForm, str]],
+                    expression: str, batch_enabled: bool, load_into_wiser: bool):
+    # If the process gets cancelled, the results will be None. So we do nothing.
+    if not results:
+        return
+    try:
+        if batch_enabled and not load_into_wiser:
+            return
+        for result_type, result, result_name, expr_info in results:
+            logger.debug(f'Result of band-math evaluation is type ' +
+                        f'{result_type}, value:\n{result}')
+
+            # Compute a timestamp to put in the description
+            timestamp = datetime.datetime.now().isoformat()
+
+            loader = app_state.get_loader()
+            if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                load_image_from_bandmath_result(result_type, result, result_name, expression, expr_info, loader, app_state)
+
+            elif result_type == VariableType.IMAGE_BAND:
+                load_band_from_bandmath_result(result, result_name, expression, expr_info, parent, loader, app_state)
+
+            elif result_type == VariableType.SPECTRUM:
+
+                if not result_name:
+                    result_name = parent.tr('Computed:  {expression} ({timestamp})')
+                    result_name = result_name.format(expression=expression,
+                                                    timestamp=timestamp)
+
+                new_spectrum = NumPyArraySpectrum(result, name=result_name)
+
+                if expr_info.spectral_metadata_source:
+                    new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
+
+                app_state.set_active_spectrum(new_spectrum)
+
+    except Exception as e:
+        logger.exception('Couldn\'t evaluate band-math expression')
+        QMessageBox.critical(parent, parent.tr('Bandmath Evaluation Error'),
+            parent.tr('Couldn\'t evaluate band-math expression') +
+            f'\n{expression}\n' + parent.tr('Reason:') + f'\n{e}')
+        return
 
 def get_result_dtype(dtype1: np.dtype, dtype2: np.dtype, operation: MathOperations = MathOperations.GENERAL) -> np.dtype:
     """
@@ -509,9 +644,17 @@ def reorder_args(lhs_type: VariableType, rhs_type: VariableType,
     '''
     # Since logical AND is commutative, arrange the arguments to make the
     # calculation logic easier.
-    if lhs_type == VariableType.IMAGE_CUBE or rhs_type == VariableType.IMAGE_CUBE:
+    if lhs_type == VariableType.IMAGE_CUBE_BATCH or rhs_type == VariableType.IMAGE_CUBE_BATCH:
+        if lhs_type != VariableType.IMAGE_CUBE_BATCH:
+            (rhs, lhs) = (lhs, rhs)
+
+    elif lhs_type == VariableType.IMAGE_CUBE or rhs_type == VariableType.IMAGE_CUBE:
         # If there is only one image cube, make sure it is on the LHS.
         if lhs_type != VariableType.IMAGE_CUBE:
+            (rhs, lhs) = (lhs, rhs)
+
+    elif lhs_type == VariableType.IMAGE_BAND_BATCH or rhs_type == VariableType.IMAGE_BAND_BATCH:
+        if lhs_type != VariableType.IMAGE_BAND_BATCH:
             (rhs, lhs) = (lhs, rhs)
 
     elif lhs_type == VariableType.IMAGE_BAND or rhs_type == VariableType.IMAGE_BAND:
@@ -552,14 +695,16 @@ def check_image_cube_compatible(arg: BandMathExprInfo,
     assert len(cube_shape) == 3
 
     # Only certain types can be compatible with operations involving image cubes
-    if arg.result_type not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_BAND,
+    if arg.result_type not in [VariableType.IMAGE_CUBE, VariableType.IMAGE_CUBE_BATCH,
+            VariableType.IMAGE_BAND, VariableType.IMAGE_BAND_BATCH,
             VariableType.SPECTRUM, VariableType.NUMBER, VariableType.BOOLEAN]:
         raise ValueError(
             f'Cannot perform operation between IMAGE_CUBE and {arg.result_type}')
 
     # Dimensions:  [band][y][x]
-
-    if arg.result_type == VariableType.IMAGE_CUBE:
+    if arg.result_type == VariableType.IMAGE_CUBE_BATCH or arg.result_type == VariableType.IMAGE_BAND_BATCH:
+        return
+    elif arg.result_type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         if arg.shape != cube_shape:
             raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape,
