@@ -50,8 +50,6 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
 
-from wiser.config import FLAGS, set_feature_env
-
 import time
 
 
