@@ -501,9 +501,10 @@ class SAMTool(QDialog):
         
     def _add_default_library(self) -> None:
         try:
-            plugin_dir = os.path.dirname(os.path.abspath(__file__))
+            gui_dir = os.path.dirname(os.path.abspath(__file__))
             default_path = os.path.join(
-                plugin_dir,
+                gui_dir,
+                "../data/"
                 "usgs_default_ref_lib",
                 "USGS_Mineral_Spectral_Library.hdr",
             )
