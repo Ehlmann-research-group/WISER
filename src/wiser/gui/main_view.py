@@ -21,6 +21,7 @@ from .util import add_toolbar_action, get_painter
 from .plugin_utils import add_plugin_context_menu_items
 from .scatter_plot_2D import ScatterPlot2DDialog
 from .spectral_angle_mapper import SAMTool
+from .spectral_feature_fitting import SFFTool
 
 from wiser import plugins
 
@@ -175,6 +176,10 @@ class MainViewWidget(RasterPane):
         act = submenu.addAction(self.tr('Spectral Angle Mapper'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_open_spectral_angle_mapper(rv))
+
+        act = submenu.addAction(self.tr('Spectral Feature Fitting'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._open_spectral_feature_fitting(rv))
 
         # Plugin context-menus
         add_plugin_context_menu_items(self._app_state,
@@ -339,12 +344,15 @@ class MainViewWidget(RasterPane):
         self._set_dataset_tools_button_state()
         self._set_link_views_button_state()
 
-
     def _on_open_spectral_angle_mapper(self, rasterview):
         dlg = SAMTool(self._app_state, parent=self)
         dlg.setAttribute(Qt.WA_DeleteOnClose, True)
         dlg.show()
 
+    def _open_spectral_feature_fitting(self, rasterview):
+        dlg = SFFTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
 
     def _on_scatter_plot_2D(self, rasterview, testing=False):
         self._interactive_scatter_plot_dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
