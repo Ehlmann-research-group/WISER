@@ -50,7 +50,7 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
 
-from wiser.config import FLAGS, set_feature_env
+from wiser.config import FLAGS, set_feature_env 
 
 import time
 
@@ -94,7 +94,7 @@ class WiserTestModel:
     def __init__(self, use_gui=False):
         if not use_gui:
             os.environ["QT_QPA_PLATFORM"] = "offscreen"
-        set_feature_env("local")
+        set_feature_env("local") 
         self.app = QApplication.instance() or QApplication([])
         self.use_gui = use_gui
 
