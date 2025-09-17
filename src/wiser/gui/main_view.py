@@ -29,6 +29,8 @@ from wiser.raster import roi_export
 
 from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
 
+from wiser.config import FLAGS 
+
 logger = logging.getLogger(__name__)
 
 class MainViewWidget(RasterPane):
@@ -172,13 +174,15 @@ class MainViewWidget(RasterPane):
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_scatter_plot_2D(rv))
 
-        act = submenu.addAction(self.tr('Spectral Angle Mapper'))
-        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
-                            self._on_open_spectral_angle_mapper(rv))
+        if FLAGS.sam: 
+            act = submenu.addAction(self.tr('Spectral Angle Mapper'))
+            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                                self._on_open_spectral_angle_mapper(rv))
 
-        act = submenu.addAction(self.tr('Spectral Feature Fitting'))
-        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
-                            self._open_spectral_feature_fitting(rv))
+        if FLAGS.sff: 
+            act = submenu.addAction(self.tr('Spectral Feature Fitting'))
+            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._open_spectral_feature_fitting(rv))
 
         # Plugin context-menus
         add_plugin_context_menu_items(self._app_state,
