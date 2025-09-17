@@ -11,7 +11,7 @@ from wiser.bandmath.types import BandMathFunction
 from wiser.bandmath.utils import (
     check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
     make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    get_lhs_rhs_values_async,
+    get_lhs_rhs_values_async, reorder_args,
 )
 
 
@@ -57,8 +57,36 @@ class OperatorCompare(BandMathFunction):
 
         # If we got here, we are comparing more complex data types.
 
-        if lhs.result_type == VariableType.IMAGE_CUBE:
+        (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
+        
+        if lhs.result_type == VariableType.IMAGE_CUBE_BATCH:
             # Dimensions:  [band][y][x]
+            # Because this is a batch variable, we don't set the metadata
+            # here since we do not have it until the user runs the batch
+            # 
+            # Additionally, when we actually do the apply phase, we recalculate
+            # the expression info with IMAGE_CUBE, so this IMAGE_CUBE_BATCH
+            # conditional can be thought of as a place holder.
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+            info.elem_type = np.byte
+            return info
+        
+        elif rhs.result_type == VariableType.IMAGE_CUBE_BATCH:
+            # Dimensions:  [band][y][x]
+            info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+            info.elem_type = np.byte
+            return info
+    
+        elif lhs.result_type == VariableType.IMAGE_CUBE:
+            # Dimensions:  [band][y][x]
+
+            # Manually check if it's a batch variable
+            if rhs.result_type == VariableType.IMAGE_BAND_BATCH:
+                # We have the same type of image cube batch and image band batch
+                # because in eval_bandmath_expr we will differentiate
+                info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+                info.elem_type = np.byte
+                return info
 
             # See if we can actually compare LHS and RHS.
             check_image_cube_compatible(rhs, lhs.shape)
@@ -77,6 +105,13 @@ class OperatorCompare(BandMathFunction):
         elif rhs.result_type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
 
+            if lhs.result_type == VariableType.IMAGE_BAND_BATCH:
+                # We have the same type of image cube batch and image band batch
+                # because in eval_bandmath_expr we will differentiate
+                info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
+                info.elem_type = np.byte
+                return info
+
             # See if we can actually compare LHS and RHS.
             check_image_cube_compatible(lhs, rhs.shape)
 
@@ -89,6 +124,18 @@ class OperatorCompare(BandMathFunction):
             info.spatial_metadata_source = rhs.spatial_metadata_source
             info.spectral_metadata_source = rhs.spectral_metadata_source
 
+            return info
+        
+        elif lhs.result_type == VariableType.IMAGE_BAND_BATCH:
+            # Dimensions:  [y][x]
+            info = BandMathExprInfo(VariableType.IMAGE_BAND_BATCH)
+            info.elem_type = np.byte
+            return info
+
+        elif rhs.result_type == VariableType.IMAGE_BAND_BATCH:
+            # Dimensions:  [y][x]
+            info = BandMathExprInfo(VariableType.IMAGE_BAND_BATCH)
+            info.elem_type = np.byte
             return info
 
         elif lhs.result_type == VariableType.IMAGE_BAND:

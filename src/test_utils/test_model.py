@@ -30,6 +30,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from matplotlib.widgets import PolygonSelector
+
 from wiser.gui.app import DataVisualizerApp
 from wiser.gui.rasterview import RasterView
 from wiser.gui.rasterpane import TiledRasterView
@@ -38,6 +40,7 @@ from wiser.gui.stretch_builder import ChannelStretchWidget
 from wiser.gui.geo_reference_dialog import GeoReferencerDialog, COLUMN_ID, TRANSFORM_TYPES, GeneralCRS
 from wiser.gui.reference_creator_dialog import EllipsoidAxisType, LatitudeTypes, ProjectionTypes, ShapeTypes
 from wiser.gui.similarity_transform_dialog import SimilarityTransformDialog
+from wiser.gui.scatter_plot_2D import ScatterPlot2DDialog
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
@@ -46,6 +49,8 @@ from wiser.raster.spectral_library import ListSpectralLibrary
 
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
+
+from wiser.config import FLAGS, set_feature_env 
 
 import time
 
@@ -177,7 +182,7 @@ class WiserTestModel:
         Raises:
             AssertionError: If the active modal widget is not a QMessageBox.
         """
-        # grab the active modal widget (the QMessageBox)
+        # Grab the active modal widget (the QMessageBox)
         mbox = QApplication.activeModalWidget()
         assert isinstance(mbox, QMessageBox)
         if yes:
@@ -334,8 +339,6 @@ class WiserTestModel:
                     ds_chooser._on_dataset_changed(act)
                     self.spectrum_plot._on_dataset_changed(act)
                     break
-        
-
 
 
     #==========================================
@@ -436,7 +439,6 @@ class WiserTestModel:
         pos = QPointF(viewport.width() / 2, viewport.height() / 2)
         global_pos = viewport.mapToGlobal(pos.toPoint())
 
-        # Create a QWheelEvent.
         # Here, angleDelta is set to a QPoint(dx, dy). In Qt, a typical "notch" of the mouse wheel is 120 units.
         wheel_event = QWheelEvent(
             pos,                   # local position (QPointF)
@@ -1416,7 +1418,6 @@ class WiserTestModel:
 
     @run_in_wiser_decorator
     def crs_creator_get_starting_crs(self) -> Optional[str]:
-        """Current 'Starting CRS' name (None if «(None)» selected)."""
         dlg  = self.main_window._crs_creator_dialog
         cbox = dlg._ui.cbox_user_crs
         text = cbox.currentText()
@@ -1810,55 +1811,180 @@ class WiserTestModel:
         act = QAction(dlg)
         act.setData((rasterview_pos, dataset.get_id()))
         dlg._translate_pane._on_dataset_changed(act)
-    # Code to open up the Similarity Transform dialog
 
-    # Code to switch between rotate and scale tab and translate coordinate system tab
+    #==========================================
+    # region Interactive Scatter Plot 
+    #==========================================
 
-    # For rotate and scale tab, code to edit the rotation with both the ledit
-    # and the slider. ledit is ledit_rotate, slider is slider_rotation
+    @run_in_wiser_decorator
+    def open_interactive_scatter_plot_context_menu(self, rv_pos: Tuple[int, int]=(0, 0)):
+        rv = self.get_main_view_rv(rv_pos)
+        self.main_view._on_scatter_plot_2D(rv, testing=True)
 
-    # Code to change the scale with the ledit, ledit_scale
+    @run_in_wiser_decorator
+    def set_interactive_scatter_x_axis_dataset(self, ds_id: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        x_axis_cbox = dlg._ui.cbox_x_dataset
+        x_axis_cbox.setCurrentIndex(x_axis_cbox.findData(ds_id))
+        x_axis_cbox.currentIndexChanged.emit(x_axis_cbox.currentIndex())
 
-    # Code to change the interpolation type in the combo box (currently lets just do this with the index) cbox_interpolation
+    @run_in_wiser_decorator
+    def set_interactive_scatter_y_axis_dataset(self, ds_id: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        y_axis_cbox = dlg._ui.cbox_y_dataset
+        y_axis_cbox.setCurrentIndex(y_axis_cbox.findData(ds_id))
+        y_axis_cbox.currentIndexChanged.emit(y_axis_cbox.currentIndex())
 
-    # Code to set the save file path for rotate and scale. the ledit for this is ledit_save_path_rs
+    @run_in_wiser_decorator
+    def set_interactive_scatter_render_dataset(self, ds_id: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        render_cbox = dlg._ui.cbox_render_ds
+        render_cbox.setCurrentIndex(render_cbox.findData(ds_id))
+        render_cbox.currentIndexChanged.emit(render_cbox.currentIndex())
 
-    # Code to press the button that starts the rotation and scale. The button for this is btn_rotate_scale
+    @run_in_wiser_decorator
+    def set_interactive_scatter_x_band(self, band_number: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        x_band_cbox = dlg._ui.cbox_x_band
+        x_band_cbox.setCurrentIndex(x_band_cbox.findData(band_number))
+        x_band_cbox.currentIndexChanged.emit(x_band_cbox.currentIndex())
 
-    # Code to select the dataset in the rotate scale similarity transform pane
-    # Either trigger the dataset chooser action or just called rasterpane._on_dataset_changed with an
-    # action that has this data (rasterview_pos, ds_id) = act.data()
+    @run_in_wiser_decorator
+    def set_interactive_scatter_y_band(self, band_number: int):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        y_band_cbox = dlg._ui.cbox_y_band
+        y_band_cbox.setCurrentIndex(y_band_cbox.findData(band_number))
+        y_band_cbox.currentIndexChanged.emit(y_band_cbox.currentIndex())
 
-    # Code to click on a pixel in the translation similarity transform pane. 
+    @run_in_wiser_decorator
+    def click_create_scatter_plot(self):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        QTest.mouseClick(dlg._ui.btn_create_plot, Qt.LeftButton)
 
-    # Code to get the original spatial coord and the new spatial coord of that pixel
+    def get_interactive_scatter_plot_xy_values(self):
+        dlg = self.main_view._interactive_scatter_plot_dialog
+        return dlg._xy
 
-    # Code to translate the Lat/North by editing ledit_lat_north
+    @run_in_wiser_decorator
+    def create_polygon_in_interactive_scatter_plot(self, polygon: List[Tuple[int, int]]):
+        """
+        Simulates drawing a polygon on the interactive scatter plot by clicking
+        on the Matplotlib canvas at the provided data-coordinates, then
+        finishes the polygon with a double-click on the last vertex.
 
-    # Code to translate the Lon/East by editing ledit_lon_east
+        The input points must be in the scatter plot's data coordinate system
+        (not screen/display pixels).
+        """
 
-    # Code to get the text in the ledit ledit_lat_north_ul
+        if polygon is None or len(polygon) < 3:
+            raise ValueError("Polygon must contain at least 3 points")
 
-    # Code to get the text in the ledit lon_east_ul
+        dlg: ScatterPlot2DDialog = getattr(self.main_view, "_interactive_scatter_plot_dialog", None)
+        if dlg is None or dlg._ax is None or dlg._canvas is None:
+            raise RuntimeError("Interactive scatter plot is not initialized. Create the plot first.")
 
-    # Code to set the file save path by editing ledit_save_path_translate
+        ax = dlg._ax
+        canvas = dlg._canvas
 
-    # Code to press the Create Translation button which is btn_create_translation
+        # Ensure the canvas has focus so key/dblclick events are delivered
+        try:
+            canvas.setFocus()
+        except Exception:
+            pass
 
-    # Code to select the dataset to use in the translation similarity transform pane
-    # Either trigger the dataset chooser action or just called rasterpane._on_dataset_changed with an
-    # action that has this data (rasterview_pos, ds_id) = act.data()
+        # Convert data coords → display coords, then to Qt widget coords.
+        # Matplotlib's transform gives pixel coords with origin at bottom-left of the canvas.
+        # Qt widget coords have origin at top-left, so we invert Y using the canvas height.
+        try:
+            dpr = float(canvas.devicePixelRatioF())
+        except Exception:
+            try:
+                dpr = float(canvas.devicePixelRatio())
+            except Exception:
+                dpr = 1.0
+
+        height_qt = canvas.height()
+
+        def data_to_qt_point(x_val: float, y_val: float) -> QPoint:
+            x_disp, y_disp = ax.transData.transform((float(x_val), float(y_val)))
+            x_qt = x_disp / dpr
+            y_qt = height_qt - (y_disp / dpr)
+            return QPoint(int(round(x_qt)), int(round(y_qt)))
+
+        # Click through all vertices
+        for (x, y) in polygon:
+            pos = data_to_qt_point(x, y)
+            QTest.mousePress(canvas, Qt.LeftButton, Qt.NoModifier, pos)
+            QTest.mouseRelease(canvas, Qt.LeftButton, Qt.NoModifier, pos)
+            QCoreApplication.processEvents()
+
+        # Double-click the last vertex to complete the polygon
+        last_x, last_y = polygon[-1]
+        last_pos = data_to_qt_point(last_x, last_y)
+        QTest.mouseDClick(canvas, Qt.LeftButton, Qt.NoModifier, last_pos)
+        QTest.mouseRelease(canvas, Qt.LeftButton, Qt.NoModifier, last_pos)
+        QCoreApplication.processEvents()
+
+        selector: PolygonSelector = dlg._selector
+        selector._draw_polygon()
+        # selector.complete_selection()
+        dlg._on_polygon_select(selector.verts)
+        
+
+        # # Let the event loop process the selection callback
+        # self.run()
+
+        # # Move the mouse to the center of the canvas after polygon creation
+        # center_pos = QPoint(int(canvas.width() / 2), int(canvas.height() / 2))
+        # QTest.mouseMove(canvas, center_pos)
+        # QCoreApplication.processEvents()
+
+    @run_in_wiser_decorator
+    def move_mouse_to_canvas_center(self, widget: QWidget):
+        center_pos = QPoint(int(widget.width() / 2), int(widget.height() / 2))
+        QTest.mouseMove(widget, center_pos)
+        QCoreApplication.processEvents()
+
+    @run_in_wiser_decorator
+    def simulate_left_click(self, widget: QWidget, pos: QPoint):
+        QTest.mousePress(widget, Qt.LeftButton, Qt.NoModifier, pos)
+        QTest.mouseRelease(widget, Qt.LeftButton, Qt.NoModifier, pos)
+
+    @run_in_wiser_decorator
+    def simulate_left_dclick(self, widget: QWidget, pos: QPoint):
+        QTest.mouseDClick(widget, Qt.LeftButton, Qt.NoModifier, pos)
+        QTest.mouseRelease(widget, Qt.LeftButton, Qt.NoModifier, pos)
 
     #==========================================
     # region Bandmath 
     #==========================================
 
-    # TODO (Joshua G-K): Write the way to interface with bandmath
+    # TODO (Joshua G-K): Write the way to interface with bandmath's batch job.
+    # I don't know if these tests will be worth while to code. Thorough documentation
+    # may be a better option.
+
+    # Code to create a bandmath batch job. We would have to give the expression,
+    # variable bindings, suffix, and an optional load results into wiser or output folder
+    # destination, one of these has to be not None. It should press the button to create
+    # the batch job and type in the expression line edit (ledit_expression) and for
+    # the suffix, type in the QLineEdit ledit_result_name and mimic clicking the check box
+    # for load results into wiser (chkbox_load_into_wiser)
+
+    # Code to start a bandmath batch job based off of the batch job's id
+
+    # Code to cancel a bandmath job based on the job's id
+
+    # Code to remove a bandmath job based on the job's id
+
+    # Code to view the progress bar of the batch job
 
     #==========================================
     # region General
     #==========================================
 
+    @run_in_wiser_decorator
+    def click_zoom_to_fit(self):
+        self.main_view._act_zoom_to_fit.trigger()
 
     def click_pane_display_toggle(self, pane_name: str):
         for act in self.main_window._main_toolbar.actions():

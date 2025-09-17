@@ -26,12 +26,17 @@ FILENAMES=\
 	image_coords_widget_ui.py \
 	import_spectra_text_ui.py \
 	import_wavelengths_ui.py \
+	interactive_scatter_plot_ui.py \
 	reference_system_creator_ui.py \
 	roi_info_editor_ui.py \
 	save_dataset_advanced_details_ui.py \
 	save_dataset_basic_details_ui.py \
 	save_dataset_ui.py \
+	scatter_plot_axes_ui.py \
+	scatter_plot_colormap_ui.py \
 	similarity_transform_dialog_ui.py \
+	spectral_angle_mapper_ui.py \
+	spectral_feature_fitting_ui.py \
 	spectrum_info_editor_ui.py \
 	spectrum_plot_config_ui.py \
 	split_unsplit_pane_ui.py \

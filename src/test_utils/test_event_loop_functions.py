@@ -26,7 +26,7 @@ class FunctionEvent(QEvent):
 
     """
     def __init__(self, func):
-        # We use the custom event type stored on MyWidget.functionEventType.
+        # We use the custom event type stored on TestingWidget.functionEventType.
         super().__init__(TestingWidget.functionEventType)
         self._func = func
 

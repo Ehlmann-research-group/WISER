@@ -1,7 +1,7 @@
 import logging
 import os
 import traceback
-from typing import Union, Dict, List, Optional
+from typing import Union, Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -17,8 +17,11 @@ from .rasterpane import RasterPane
 from .rasterview import RasterView
 from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
-from .util import add_toolbar_action
+from .util import add_toolbar_action, get_painter
 from .plugin_utils import add_plugin_context_menu_items
+from .scatter_plot_2D import ScatterPlot2DDialog
+from .spectral_angle_mapper import SAMTool
+from .spectral_feature_fitting import SFFTool
 
 from wiser import plugins
 
@@ -26,6 +29,7 @@ from wiser.raster import roi_export
 
 from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
 
+from wiser.config import FLAGS 
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +53,9 @@ class MainViewWidget(RasterPane):
             self._set_link_views_button_state()
 
         self._set_dataset_tools_button_state()
+
+        self._interactive_scatter_highlight_points: List[Tuple[int, int]] = []
+        self._interactive_scatter_render_ds_id: int = -1
 
 
     def _init_toolbar(self):
@@ -162,6 +169,21 @@ class MainViewWidget(RasterPane):
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_export_image_full(rv))
 
+        submenu = menu.addMenu(self.tr('Data Analysis'))
+        act = submenu.addAction(self.tr('Interactive Scatter Plot'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._on_scatter_plot_2D(rv))
+
+        if FLAGS.sam: 
+            act = submenu.addAction(self.tr('Spectral Angle Mapper'))
+            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                                self._on_open_spectral_angle_mapper(rv))
+
+        if FLAGS.sff: 
+            act = submenu.addAction(self.tr('Spectral Feature Fitting'))
+            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._open_spectral_feature_fitting(rv))
+
         # Plugin context-menus
         add_plugin_context_menu_items(self._app_state,
             plugins.ContextMenuType.RASTER_VIEW, menu,
@@ -208,12 +230,12 @@ class MainViewWidget(RasterPane):
         self._act_stretch_builder.setEnabled(enabled)
 
 
-    def _on_dataset_added(self, ds_id):
+    def _on_dataset_added(self, ds_id, view_dataset: bool = True):
         '''
         Override the base-class implementation so we can also update the
         stretch-builder button state.
         '''
-        super()._on_dataset_added(ds_id)
+        super()._on_dataset_added(ds_id, view_dataset)
         self._set_dataset_tools_button_state()
 
 
@@ -325,6 +347,34 @@ class MainViewWidget(RasterPane):
         self._set_dataset_tools_button_state()
         self._set_link_views_button_state()
 
+    def _on_open_spectral_angle_mapper(self, rasterview):
+        dlg = SAMTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
+
+    def _open_spectral_feature_fitting(self, rasterview):
+        dlg = SFFTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
+
+    def _on_scatter_plot_2D(self, rasterview, testing=False):
+        self._interactive_scatter_plot_dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
+                                     self._clear_interactive_scatter_plot_highlights,
+                                     self._app_state, testing=testing, parent=self)
+        self._interactive_scatter_plot_dialog.show()
+
+    def _make_interactive_scatter_plot_highlights(self, selected_points, render_ds_id):
+        # Highlight the selected points 
+        rows, cols, x_val, y_val = selected_points
+        assert len(rows) == len(cols), "Returned pixel rows do not equal returned pixel columns."
+        self._interactive_scatter_highlight_points = [(rows[i], cols[i]) for i in range(len(cols))]
+        self._interactive_scatter_render_ds_id = render_ds_id
+        self.update_all_rasterviews()
+
+    def _clear_interactive_scatter_plot_highlights(self):
+        self._interactive_scatter_highlight_points = []
+        self._interactive_scatter_render_ds_id = -1
+        self.update_all_rasterviews()
 
     def is_scrolling_linked(self):
         return self._link_view_scrolling
@@ -380,6 +430,32 @@ class MainViewWidget(RasterPane):
             for rv in self._rasterviews.values():
                 rv.update()
 
+    def _afterRasterPaint(self, rasterview, widget, paint_event):
+        super()._afterRasterPaint(rasterview, widget, paint_event)
+
+        self._draw_interactive_scatter_plot_highlights(rasterview, widget, paint_event)
+
+    def _draw_interactive_scatter_plot_highlights(self, rasterview: RasterView, widget, paint_event):
+        rasterview_ds = rasterview.get_raster_data()
+        if rasterview_ds is None:
+            return
+        rasterview_ds_id = rasterview_ds.get_id()
+        if rasterview_ds_id != self._interactive_scatter_render_ds_id:
+            return
+        if self._interactive_scatter_highlight_points:
+            with get_painter(widget) as painter:
+                painter.setPen(QPen(QColor(255, 0, 0), 2))
+                
+                # Get the current scale factor for proper coordinate transformation
+                scale = self.get_scale()
+                
+                for row, col in self._interactive_scatter_highlight_points:
+                    # Convert dataset coordinates to screen coordinates
+                    # Add 0.5 to center the point within the pixel
+                    screen_x = (col + 0.5) * scale
+                    screen_y = (row + 0.5) * scale
+                    
+                    painter.drawPoint(screen_x, screen_y)
 
     def _afterRasterScroll(self, rasterview, dx, dy, propagate_scroll):
         '''

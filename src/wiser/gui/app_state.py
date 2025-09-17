@@ -1,7 +1,7 @@
 import enum
 import os
 import warnings
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QMessageBox
@@ -25,6 +25,8 @@ from wiser.raster.stretch import StretchBase
 from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
 from wiser.raster.data_cache import DataCache
+
+from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
@@ -56,7 +58,7 @@ class ApplicationState(QObject):
     '''
 
     # Signal:  a data-set with the specified ID was added
-    dataset_added = Signal(int)
+    dataset_added = Signal(int, bool)
 
     # Signal:  the data-set with the specified ID was removed
     dataset_removed = Signal(int)
@@ -146,6 +148,24 @@ class ApplicationState(QObject):
         # The key is the CRS name.
         self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
+        self._process_pool_manager = MultiprocessingManager()
+
+        self._running_processes: Dict[int, ProcessManager] = {}
+
+    def add_running_process(self, process_manager: ProcessManager):
+        self._running_processes[process_manager.get_process_manager_id()] = process_manager
+
+    def remove_running_process(self, process_manager_id: int):
+        del self._running_processes[process_manager_id]
+
+    def get_running_processes(self) -> Dict[int, ProcessManager]:
+        return self._running_processes
+
+    def submit_parallel_task(self, operation: Callable, kwargs: Dict = {}):
+        return self._process_pool_manager.create_task(operation, kwargs)
+
+    def get_next_process_pool_id(self):
+        return self._process_pool_manager.get_next_process_pool_id()
 
     def _take_next_id(self) -> int:
         '''
@@ -155,6 +175,7 @@ class ApplicationState(QObject):
         id = self._next_id
         self._next_id += 1
         return id
+
 
 
     def add_plugin(self, class_name: str, plugin: Plugin):
@@ -277,7 +298,7 @@ class ApplicationState(QObject):
             self.add_dataset(raster_data)
 
 
-    def add_dataset(self, dataset: RasterDataSet):
+    def add_dataset(self, dataset: RasterDataSet, view_dataset: bool = True):
         '''
         Add a dataset to the application state.  A unique numeric ID is assigned
         to the dataset, which is also set on the dataset itself.
@@ -291,8 +312,14 @@ class ApplicationState(QObject):
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
-        self.dataset_added.emit(ds_id)
+        self.dataset_added.emit(ds_id, view_dataset)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
+
+    def has_dataset(self, ds_id: int) -> bool:
+        '''
+        Returns whether the dataset with the specified numeric ID is in the application state.
+        '''
+        return ds_id in self._datasets
 
     def get_dataset(self, ds_id: int) -> RasterDataSet:
         '''
@@ -436,10 +463,15 @@ class ApplicationState(QObject):
         return True
 
 
-    def unique_dataset_name(self, candidate):
+    def unique_dataset_name(self, candidate: str):
         ds_names = {ds.get_name() for ds in self._datasets.values()}
         ds_names = {name for name in ds_names if name}
         return make_unique_name(candidate, ds_names)
+
+    
+    def unique_roi_name(self, candidate: str):
+        roi_names = {roi.get_name() for roi in self._regions_of_interest.values()}
+        return make_unique_name(candidate, roi_names)
 
 
     def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):
@@ -477,6 +509,13 @@ class ApplicationState(QObject):
         self._spectral_libraries[lib_id] = library
 
         self.spectral_library_added.emit(lib_id)
+
+
+    def has_spectral_library(self, lib_id: int) -> bool:
+        '''
+        Returns whether the spectral library with the specified numeric ID is in the application state.
+        '''
+        return lib_id in self._spectral_libraries
 
 
     def get_spectral_library(self, lib_id):
@@ -610,6 +649,13 @@ class ApplicationState(QObject):
         Returns a list of all Regions of Interest in WISER's application state.
         '''
         return self._regions_of_interest.values()
+
+    def has_spectrum(self, spectrum_id: int) -> bool:
+        '''
+        Returns whether the spectrum with the specified numeric ID is in the application state.
+        '''
+        return spectrum_id in self._all_spectra
+
 
     def get_spectrum(self, spectrum_id: int) -> Spectrum:
         '''

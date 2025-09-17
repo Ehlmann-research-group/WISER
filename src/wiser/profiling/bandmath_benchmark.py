@@ -35,7 +35,7 @@ def get_hdr_files(folder_path):
         return hdr_files
     return folder_path
 
-def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType, Any]], use_old_method = False):
+def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType, Any]], use_synchronous_method = False):
     '''
     A helper function for measuring the time it takes to call eval_bandmath_expr
     '''
@@ -46,8 +46,8 @@ def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType
     cache = DataCache()
 
     start_time = time.perf_counter()
-    (_, result_dataset) = bandmath.eval_bandmath_expr(equation, expr_info, result_name, cache,
-        variables, {}, use_old_method)
+    (_, result_dataset) = bandmath.eval_bandmath_expr(bandmath_expr=equation, expr_info=expr_info, result_name=result_name, cache=cache,
+        variables=variables, functions={}, use_synchronous_method=use_synchronous_method)
     end_time = time.perf_counter()
     return end_time-start_time, result_dataset
 
@@ -84,7 +84,7 @@ def setup_logger(output_file):
 
 def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: str,
                           large_image_cube_path: str, use_both_methods = False, \
-                            use_old_method = False, N = 1, output_file='output/bandmath_benchmark.txt'):
+                            use_synchronous_method = False, N = 1, output_file='output/bandmath_benchmark.txt'):
     '''
     Used to stress test the evaluator algorithm in 4 main scenarios that would commonly be used
     in WISER. Result mean and standard deviation of values are printed to the screen. You can
@@ -172,14 +172,14 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
                 # To somewhat account for this, increase N and get rid of the first observation
             
                 print(f"New method calculating!")
-                time_new_method, result_new_method = measure_bandmath_time(value, variables, use_old_method=False)
+                time_new_method, result_new_method = measure_bandmath_time(value, variables, use_synchronous_method=False)
                 print(f"New method done calculating!")
                 if results_new_method[key] is None:
                     results_new_method[key] = result_new_method
                 print(f"time_new_method: {time_new_method}")
                 
                 print(f"Old method calculating!")
-                time_old_method, result_old_method = measure_bandmath_time(value, variables, use_old_method=True)
+                time_old_method, result_old_method = measure_bandmath_time(value, variables, use_synchronous_method=True)
                 print(f"Old method done calculating!")
                 if results_old_method[key] is None:
                     results_old_method[key] = result_old_method
@@ -188,9 +188,9 @@ def stress_test_benchmark(large_band_dataset_path: str, normal_image_cube_path: 
                 oper_times_new_method.append(time_new_method)
                 oper_times_old_method.append(time_old_method)
                 time_outer = time_new_method
-            elif use_old_method:
+            elif use_synchronous_method:
                 print(f"Old method calculating!")
-                time, _ = measure_bandmath_time(value, variables, use_old_method=use_old_method)
+                time, _ = measure_bandmath_time(value, variables, use_synchronous_method=use_synchronous_method)
                 print(f"Old method done calculating!")
                 time_outer = time
             else:
@@ -324,12 +324,12 @@ def test_both_methods(hdr_paths, N=1):
             print(f"Operation: {key}")
             print(f"Equation: {value}")
             print(f"New method calculating")
-            _, result_new_method = measure_bandmath_time(value, variables, use_old_method=False)
+            _, result_new_method = measure_bandmath_time(value, variables, use_synchronous_method=False)
             print(f"New method done calculating")
             if results_new_method[key] is None:
                 results_new_method[key] = result_new_method
             print(f"Old method calculating!")
-            _, result_old_method = measure_bandmath_time(value, variables, use_old_method=True)
+            _, result_old_method = measure_bandmath_time(value, variables, use_synchronous_method=True)
             print(f"Old method done calculating!")
             if isinstance(result_new_method, RasterDataSet):
                 arr_new_method = result_new_method.get_image_data()

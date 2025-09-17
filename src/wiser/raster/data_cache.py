@@ -61,22 +61,28 @@ class Cache:
             self._size -= self._cache[key].nbytes
             del self._cache[key]
 
-    def add_cache_item(self, key: int, value: Union[np.ndarray, np.ma.masked_array]):
+    def add_cache_item(self, key: int, value: Union[np.ndarray, np.ma.masked_array]) -> bool:
         """
         Adds a new item to the cache. Evicts existing items if necessary to maintain capacity.
 
         Args:
             key (int): The key associated with the value.
             value (Union[np.ndarray, np.ma.masked_array]): The data to be cached.
+
+        Returns:
+            bool: True if the item was added to the cache, False if it was not.
         """
-        data_size = value.nbytes
-        if data_size > self._capacity:
-            logger.debug(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
-            return
-        if self._size + data_size > self._capacity:
-            self._evict()
-        self._cache[key] = value
-        self._size += value.nbytes
+        if key in self._cache:
+            data_size = value.nbytes
+            if data_size > self._capacity:
+                logger.debug(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
+                return False
+            if self._size + data_size > self._capacity:
+                self._evict()
+            self._cache[key] = value
+            self._size += value.nbytes
+            return True
+        return False
 
     def get_cache_key(self, *args):
         """
@@ -120,9 +126,10 @@ class Cache:
         """
         raise NotImplementedError(f'get_partial_key is not implemented for {type(self)}')
     
-    def lookup_keys(self, partial_key: int):
+    def lookup_keys(self, partial_key: int) -> List[int]:
         """
-        Retrieves all cache keys associated with a given partial key.
+        Retrieves all cache keys associated with a given partial key. If it doesn't exist,
+        an empty list is returned.
 
         Args:
             partial_key (int): The partial key to look up.
@@ -130,7 +137,7 @@ class Cache:
         Returns:
             List[int]: A list of cache keys associated with the partial key.
         """
-        return self._key_lookup_table[partial_key]
+        return self._key_lookup_table.get(partial_key, [])
     
     def clear_keys_from_partial(self, partial_key: int):
         """

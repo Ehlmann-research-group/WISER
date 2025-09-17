@@ -1,12 +1,20 @@
 import abc
 import enum
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from wiser.raster.dataset import RasterDataSet, RasterDataBand
+import copy
+
+from wiser.raster.dataset import (RasterDataSet, RasterDataBand, RasterDataDynamicBand,
+                                RasterDataBatchBand, RasterBand,  SpectralMetadata, SpatialMetadata)
 from wiser.raster.spectrum import Spectrum
+
+
+FolderPathType = str
+BANDMATH_VALUE_TYPE = Union[RasterDataSet, RasterDataBand, RasterDataBatchBand, \
+                            Spectrum, FolderPathType, bool, np.float32]
 
 
 class VariableType(enum.IntEnum):
@@ -27,6 +35,10 @@ class VariableType(enum.IntEnum):
     BOOLEAN = 6
 
     STRING = 7
+
+    IMAGE_CUBE_BATCH = 8
+
+    IMAGE_BAND_BATCH = 9
 
 
 class BandMathExprInfo:
@@ -50,11 +62,11 @@ class BandMathExprInfo:
         # If the result should have spatial metadata (e.g. geographic projection
         # info or spatial reference system) associated with it, this is the
         # source of that metadata.
-        self.spatial_metadata_source: Any = None
+        self.spatial_metadata_source: SpatialMetadata = None
 
         # If the result should have spectral metadata (e.g. band wavelengths)
         # associated with it, this is the source of that metadata.
-        self.spectral_metadata_source: Any = None
+        self.spectral_metadata_source: SpectralMetadata = None
     '''
     def __init__(self, result_type=None):
         # The result-type of the band-math expression.
@@ -67,19 +79,31 @@ class BandMathExprInfo:
         self.shape: Tuple = None
 
         # If the result should have spatial metadata (e.g. geographic projection
-        # info or spatial reference system) associated with it, this is the
-        # source of that metadata.
-        self.spatial_metadata_source: Any = None
+        # info or spatial reference system) associated with it, this is that
+        # metadata
+        self.spatial_metadata_source: SpatialMetadata = None
 
         # If the result should have spectral metadata (e.g. band wavelengths)
-        # associated with it, this is the source of that metadata.
-        self.spectral_metadata_source: Any = None
+        # associated with it, this is that metadata
+        self.spectral_metadata_source: SpectralMetadata = None
 
 
     def result_size(self):
         ''' Returns an estimate of this result's size in bytes. '''
         shape_size = np.prod(self.shape) if self.shape is not None else 1
         return np.dtype(self.elem_type).itemsize * shape_size
+    
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if isinstance(v, BandMathValue):
+                setattr(result, k, v)
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+
+        return result
 
     def __repr__(self) -> str:
         if self.result_type in [VariableType.IMAGE_CUBE,
@@ -115,7 +139,7 @@ class BandMathValue:
 
         self.name: Optional[str] = None
         self.type: VariableType = type
-        self.value: Any = value
+        self.value: BANDMATH_VALUE_TYPE = value
         self.computed: bool = computed
         self.is_intermediate = is_intermediate
 
@@ -133,7 +157,7 @@ class BandMathValue:
                 return self.value.get_shape()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_shape()
 
         elif self.type == VariableType.SPECTRUM:
@@ -154,7 +178,7 @@ class BandMathValue:
                 return self.value.get_elem_type()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_elem_type()
 
         elif self.type == VariableType.SPECTRUM:
@@ -182,7 +206,7 @@ class BandMathValue:
                 return self.value.get_image_data()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_data()
 
         elif self.type == VariableType.SPECTRUM:
@@ -228,7 +252,7 @@ class BandMathValue:
                     return self.value.get_multiple_band_data(band_list)
 
             elif self.type == VariableType.IMAGE_BAND:
-                if isinstance(self.value, RasterDataBand):
+                if isinstance(self.value, RasterBand):
                     return self.value.get_data()
 
             elif self.type == VariableType.SPECTRUM:
@@ -249,6 +273,8 @@ class BandMathFunction(abc.ABC):
     Functions must be able to report useful documentation, as well as the type
     of the result based on their input types, so that the user interface can
     provide useful feedback to users.
+
+    This class should be serializable.
     '''
 
     def get_description(self):

@@ -2,7 +2,7 @@ import os
 import logging
 import inspect
 
-from typing import Any, Callable, Dict, Tuple, Coroutine
+from typing import Any, Callable, Dict, Tuple, Coroutine, Union, List, TYPE_CHECKING, Optional
 
 import lark
 from lark import Visitor, Tree, Token, v_args
@@ -22,11 +22,26 @@ from .utils import (
     get_valid_ignore_value,
 )
 
-from wiser.raster.data_cache import DataCache
+from wiser import bandmath
+from wiser.bandmath.types import BANDMATH_VALUE_TYPE
+from wiser.raster.serializable import Serializable, SerializedForm
 
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.data_cache import DataCache
+from wiser.raster.loader import RasterDataLoader
+
+from wiser.raster.dataset import RasterDataSet, RasterDataBand, SpectralMetadata, RasterDataBatchBand, RasterDataDynamicBand
+from wiser.raster.spectrum import Spectrum
+from wiser.raster.loader import RasterDataLoader
+from wiser.raster.dataset_impl import SaveState
+
+if TYPE_CHECKING:
+    from wiser.gui.app_state import ApplicationState
+
+from wiser.gui.subprocessing_manager import ProcessManager
 
 from osgeo import gdal
+import multiprocessing as mp
+import multiprocessing.connection as mp_conn
 
 from .builtins import (
     OperatorCompare,
@@ -34,12 +49,13 @@ from .builtins import (
     OperatorUnaryNegate, OperatorPower,
     )
 
-from wiser.raster.loader import RasterDataLoader
-from wiser.raster.dataset_impl import SaveState
 
 from .builtins.constants import SCALAR_BYTES, NUM_WRITERS, DEFAULT_IGNORE_VALUE, NUM_READERS, LHS_KEY, RHS_KEY
 
+import traceback
+
 logger = logging.getLogger(__name__)
+
 
 class UniqueIDAssigner(Visitor):
     def __init__(self):
@@ -144,8 +160,7 @@ class AsyncTransformer(lark.visitors.Transformer):
         Asynchronously transform a tree node.
         This function recursively transforms the children first, and then calls the transformation method for the node.
         """
-        # task_list = [child async for child in self._transform_children(tree.children)]
-        children_tasks = [asyncio.create_task(self._transform_children(tree.children))]# for c in tree.children] #  [child async for child in self._transform_children(tree.children)]
+        children_tasks = [asyncio.create_task(self._transform_children(tree.children))]
         children = await asyncio.gather(*children_tasks)
         flattened_children = [item for sublist in children for item in sublist]
         return await self._call_userfunc(tree, flattened_children)
@@ -178,7 +193,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
     '''
-    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
+    def __init__(self, variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
                        functions: Dict[str, Callable],
                        shape: Tuple[int, int, int] = None,
                        use_parallelization = True):
@@ -471,7 +486,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
     '''
     A Lark Transformer for evaluating band-math expressions.
     '''
-    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
+    def __init__(self, variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
                        functions: Dict[str, Callable]):
         self._variables = variables
         self._functions = functions
@@ -674,7 +689,7 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
     '''
     A Lark Transformer for evaluating band-math expressions.
     '''
-    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
+    def __init__(self, variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
                        functions: Dict[str, Callable]):
         self._variables = variables
         self._functions = functions
@@ -795,10 +810,15 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
         logger.debug(' * unary_negate_expr')
         return self.find_current_interm_and_update_max(args[1], 0)
 
-def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
-        variables: Dict[str, Tuple[VariableType, Any]],
-        functions: Dict[str, BandMathFunction] = None,
-        use_old_method = False, test_parallel_io=False) -> BandMathValue:
+
+def eval_bandmath_expr(
+        bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+        variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
+        functions: Dict[str, BandMathFunction] = None, succeeded_callback: Callable = lambda _: None, \
+        status_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
+        started_callback: Callable = lambda _: None, cancelled_callback: Callable = lambda _: None, \
+        app_state: 'ApplicationState' = None, use_synchronous_method = True
+        ) -> ProcessManager:
     '''
     Evaluate a band-math expression using the specified variable and function
     definitions.
@@ -811,17 +831,22 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     *   VariableType.IMAGE_BAND:  RasterDataBand, 2D np.ndarray [y][x]
     *   VariableType.SPECTRUM:  Spectrum, 1D np.ndarray [band]
 
-    Functions are passed in a dictionary of string names that map to a callable.
-    TODO:  MORE DETAIL HERE, ONCE WE IMPLEMENT THIS.
+    Functions are passed in a dictionary of string names that map to the class
+    BandMathFunction
 
     If successful, the result of the calculation is returned as a 2-tuple of the
-    same form as the variables, although the value is always either a number or
-    a NumPy array:
+    same form as the variables or as a 2-tuple where the first variable is the 
+    class RasterDataSet and the second is an instantiation of that class.
+    This 2-tuple value is sent to the passed in callable.
 
     *   VariableType.IMAGE_CUBE:  3D np.ndarray [band][x][y]
     *   VariableType.IMAGE_BAND:  2D np.ndarray [x][y]
     *   VariableType.SPECTRUM:  1D np.ndarray [band]
     *   VariableType.NUMBER:  float
+    *   RasterDataSet:  RasterDataSet (instantiation)
+
+    The function returns the ProcessManager object that is managing the underlying
+    QThread and subprocess.
     '''
 
     # Just to be defensive against potentially bad inputs, make sure all names
@@ -829,8 +854,7 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     # TODO(donnie):  Can also make sure they are valid, trimmed of whitespace,
     #     etc.
 
-    # print(f"GDAL Python Version: {gdal.__version__}")
-    lower_variables = {}
+    lower_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]] = {}
     for name, value in variables.items():
         lower_variables[name.lower()] = value
 
@@ -855,22 +879,375 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
     number_of_intermediates += 1
     logger.debug(f'Number of intermediates: {number_of_intermediates}')
 
+    # We must serialize RasterDataSet, RasterBand, and Spectrum objects because they
+    # could have an underlying gdal or osgeo object that can't be pickled
+    serialized_variables = serialize_bandmath_variables(lower_variables)
+
+    kwargs = {
+        "bandmath_expr": bandmath_expr,
+        "expr_info": expr_info,
+        "result_name": result_name,
+        "cache": None,
+        "serialized_variables": serialized_variables,
+        "lower_functions": lower_functions,
+        "number_of_intermediates": number_of_intermediates,
+        "tree": tree,
+        "use_synchronous_method": use_synchronous_method,
+    }
+
+    process_manager = ProcessManager(subprocess_bandmath, kwargs)
+    if app_state:
+        app_state.add_running_process(process_manager)
+
+    task = process_manager.get_task()
+    task.cancelled.connect(cancelled_callback)
+    # The started slot is passed the task
+    task.started.connect(started_callback)
+    # The error slot is passed the process_manager's task
+    task.error.connect(error_callback)
+    # The progress slot is passed the message that subprocess_bandmath
+    # sends over the pipe
+    task.status.connect(status_callback)
+    task.succeeded.connect(lambda task: succeeded_callback(task.get_result()))
+    process_manager.start_task()
+    return process_manager
+
+def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]) -> \
+    Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]:
+    '''
+    This function is meant to serialize the 'variables' and 'functions' dictionaries into a format that can be
+    passed to the sub process. In the subprocess, we will deserialize the variables and functions and then pass them
+    to the eval_bandmath_expr function.
+    '''
+    variables_serialized = {}
+    for var_name, var_tuple in variables.items():
+        var_type = var_tuple[0]
+        var_value = var_tuple[1]
+        if isinstance(var_value, Serializable):
+            variables_serialized[var_name] = (var_type, var_value.get_serialized_form())
+        else:
+            # else, the variable is either a numpy array or a string which is already serializeable
+            variables_serialized[var_name] = var_tuple
+    return variables_serialized
+
+def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+                        serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
+                        lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+    # First we will decide if we are doing batching or not. If we are doing batching we get the filepaths, if we are not doing
+    # batching we will make the file paths = [None]
+    is_batch = is_batch_job(serialized_variables)
+    filepaths = []
+    if is_batch:
+        filepaths = get_batch_filepaths(serialized_variables)
+
+    eval_all_bandmath_expr(filepaths=filepaths, bandmath_expr=bandmath_expr, expr_info=expr_info,
+                           result_name=result_name, cache=cache, serialized_variables=serialized_variables,
+                           lower_functions=lower_functions, number_of_intermediates=number_of_intermediates,
+                           tree=tree, use_synchronous_method=use_synchronous_method, child_conn=child_conn,
+                           return_queue=return_queue)
+
+def get_batch_filepaths(serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]) -> List[str]:
+    filepaths = []
+    # We need to check if we are doing batching or not. If we are, then we need to 
+    # make a list of the filepaths and then we need to make a list of the variables.
+    for var_name, var_tuple in serialized_variables.items():
+        var_type = var_tuple[0]
+        var_value = var_tuple[1]
+
+        # All batch variables 
+        if var_type == VariableType.IMAGE_CUBE_BATCH:
+            assert isinstance(var_value, str), "Image Cube Batch variables should be strings"
+            folder_path = var_value
+            filepaths = get_unique_filepaths(folder_path)
+            break
+        elif var_type == VariableType.IMAGE_BAND_BATCH:
+            assert isinstance(var_value, SerializedForm), "Image Band Batch variables should be SerializedForm"
+            folder_path = var_value.get_serialize_value()
+            filepaths = get_unique_filepaths(folder_path)
+            break
+    return filepaths
+
+
+def is_batch_job(serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]) -> bool:
+    '''
+    This function is used to decide if we are doing batching or not.
+    '''
+    for var_name, var_tuple in serialized_variables.items():
+        var_type = var_tuple[0]
+        var_value = var_tuple[1]
+        if var_type == VariableType.IMAGE_CUBE_BATCH or var_type == VariableType.IMAGE_BAND_BATCH:
+            return True
+    return False
+
+def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value: Union[SerializedForm, str, bool], \
+                                loader: RasterDataLoader, filepath: str = None) -> Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]:
+    '''
+    This function is used to convert a serialized form of an object back into the original object.
+    '''
+    if var_type == VariableType.IMAGE_CUBE:
+        if isinstance(var_value, SerializedForm):
+            serialize_value = var_value.get_serialize_value()
+            serialize_metadata = var_value.get_metadata()
+            obj = RasterDataSet.deserialize_into_class(serialize_value, serialize_metadata)
+            return{var_name: (var_type, obj)}
+        else:
+            assert isinstance(var_value, np.ndarray), "Image Cube variables should be either a SerializedForm or a numpy array"
+            return {var_name: (var_type, var_value)}
+    elif var_type == VariableType.IMAGE_CUBE_BATCH:
+        assert isinstance(var_value, str), "Image Cube Batch variables should be strings"
+        assert filepath is not None, "Filepath is required for Image Cube Batch variables"
+        dataset = loader.load_from_file(filepath, interactive=False)[0]
+        return {var_name: (VariableType.IMAGE_CUBE, dataset)}
+
+    elif var_type == VariableType.IMAGE_BAND:
+        if isinstance(var_value, SerializedForm):
+            serialize_value = var_value.get_serialize_value()
+            serialize_metadata = var_value.get_metadata()
+            obj = RasterDataBand.deserialize_into_class(serialize_value, serialize_metadata)
+            return {var_name: (var_type, obj)}
+        else:
+            assert isinstance(var_value, np.ndarray), "Image Band variables should be either a SerializedForm or a numpy array"
+            return {var_name: (var_type, var_value)}
+
+    elif var_type == VariableType.IMAGE_BAND_BATCH:
+        assert isinstance(var_value, SerializedForm), "Image Band Batch variables should be SerializedForm"
+        assert filepath is not None, "Filepath is required for Image Band Batch variables"
+        assert ('band_index' in var_value.get_metadata() and var_value.get_metadata()['band_index'] is not None) or \
+            ('wavelength_value' in var_value.get_metadata() and var_value.get_metadata()['wavelength_value'] is not None), \
+            "Band index or wavelength value is required for Image Band Batch variables"
+        serializable_class = var_value.get_serializable_class()
+        # This should never occur, but if it does we make it a RasterDataDynamicBand
+        if issubclass(serializable_class, RasterDataBatchBand):
+            band_index = var_value.get_metadata().get('band_index', None)
+            wavelength_value = var_value.get_metadata().get('wavelength_value', None)
+            wavelength_units = var_value.get_metadata().get('wavelength_units', None)
+            epsilon = var_value.get_metadata().get('epsilon', None)
+            dataset = loader.load_from_file(filepath)
+            band = RasterDataDynamicBand(dataset, band_index=band_index, \
+                                        wavelength_value=wavelength_value, \
+                                        wavelength_units=wavelength_units, epsilon=epsilon)
+        else:
+            serialize_metadata = var_value.get_metadata()
+            serialize_metadata.update({'filepath': filepath})
+            band_index  = serialize_metadata.get('band_index', None)
+            if band_index is not None:
+                band_index = int(band_index)
+            band = serializable_class.deserialize_into_class(band_index, serialize_metadata)
+        return {var_name: (VariableType.IMAGE_BAND, band)}
+
+    elif var_type == VariableType.SPECTRUM:
+        if isinstance(var_value, SerializedForm):
+            serialize_value = var_value.get_serialize_value()
+            serialize_metadata = var_value.get_metadata()
+            obj = Spectrum.deserialize_into_class(serialize_value, serialize_metadata)
+            return {var_name: (var_type, obj)}
+        else:
+            assert isinstance(var_value, np.ndarray), "Spectrum variables should be either a SerializedForm or a numpy array"
+            return {var_name: (var_type, var_value)}
+
+    elif var_type == VariableType.NUMBER:
+        return {var_name: (var_type, var_value)}
+
+    elif var_type == VariableType.BOOLEAN:
+        return {var_name: (var_type, var_value)}
+
+    else:
+        raise ValueError(f"Unsupported variable type: {var_type}")
+
+def get_unique_filepaths(folder: str):
+    """
+    Get all file paths in a folder, but ignore duplicates with the same
+    base name. Prefer files with an extension over those without.
+
+    Args:
+        folder (str): Path to the folder to scan.
+
+    Returns:
+        list[str]: List of file paths.
+    """
+    files_seen = {}
+    for entry in os.listdir(folder):
+        full_path = os.path.join(folder, entry)
+        if not os.path.isfile(full_path):
+            continue
+
+        base, ext = os.path.splitext(entry)
+        has_ext = bool(ext)
+
+        # If we've never seen this base name, store it
+        if base not in files_seen:
+            files_seen[base] = (full_path, has_ext)
+        else:
+            # Prefer the version with extension
+            existing_path, existing_has_ext = files_seen[base]
+            if not existing_has_ext and has_ext:
+                files_seen[base] = (full_path, has_ext)
+            # If both have extensions or both don't, keep the first one
+
+    return [path for path, _ in files_seen.values()]
+
+def prepare_result_names(result_name: str, filepaths: List[str]) -> List[str]:
+    """
+    Prepare result names by taking the base name of each file (without extension)
+    and appending the given suffix, then re-adding the original extension.
+    Example:
+        result_name="processed", filepath="data/sample.csv"
+        -> "sample_processed.csv"
+    """
+    if not filepaths:
+        return [result_name]
+    
+    result_name_list = []
+    for filepath in filepaths:
+        base = os.path.basename(filepath)
+        name, ext = os.path.splitext(base)
+        new_name = f"{name}{result_name}"
+        result_name_list.append(new_name)
+    return result_name_list
+
+def prepare_expr_info(bandmath_expr: str, \
+                      variables_list: List[Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]], \
+                      functions: Dict[str, BandMathFunction]) -> List[BandMathExprInfo]:
+    '''
+    This function is used to expand expr_info to include expression info for each of the variable dictionaries
+    in the list 
+    '''
+    # Go through each of the variables in the list and get the expr_info for each of them
+    expr_info_list = []
+    for variables in variables_list:
+        expr_info_list.append(bandmath.get_bandmath_expr_info(bandmath_expr, variables, functions))
+    return expr_info_list
+
+def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]], \
+                               filepaths: List[str]) ->  List[Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]]:
+    '''
+    This function is used to unroll the serialized variables into the original variables and if there are batch variables
+    make all of the filepaths into the appropriate structure in wiser. The serialized variables are in the class SerializedForm.
+    We extracted the deserialized data from the SerializedForm class by first getting the class that we want to create using
+    SerializedForm.get_serializable_class(). Then we can get the serialize_value and metadata from the SerializedForm and pass
+    this into the deserialize_into_class function of the class that we got from SerializedForm.get_serializable_class().
+
+    Args:
+        serialized_variables: A dictionary of variables that have been serialized.
+        filepaths: A list of filepaths that are used to load the batch variables. If there are no filepaths, filepaths is None
+
+    Returns:
+        A list of dictionaries of variables that have been unrolled. We can pass these variables into eval_full_bandmath_expr
+        and it will evaluate the bandmath expression for each of the variables in the list.
+    '''
+    # This just lets us use serialized_form_to_variable without changing anything to this code
+    if len(filepaths) == 0:
+        filepaths = [None]
+
+    loader = RasterDataLoader()
+    prepared_variables = []
+    for filepath in filepaths:
+        single_batch_variables = {}
+        for var_name, var_tuple in serialized_variables.items():
+            var_type = var_tuple[0]
+            var_value = var_tuple[1]
+            single_batch_variables.update(serialized_form_to_variable(var_name, var_type, var_value, loader, filepath))
+        prepared_variables.append(single_batch_variables)
+    return prepared_variables
+
+def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+                        serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
+                        lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+    loader = RasterDataLoader()
+    # This case is if we are doing batch processing
+    if filepaths:
+        outputs = []
+        count = 0
+        total = len(filepaths)
+        for filepath in filepaths:
+            # First we get the result name
+            base = os.path.basename(filepath)
+            name, ext = os.path.splitext(base)
+            new_result_name = f"{name}{result_name}"
+            try:
+                count += 1
+                child_conn.send(["progress", {"Numerator": count, "Denominator": total, "Status": "Running"}])
+                # Second we deserialize all of the variables
+                current_variables = {}
+                for var_name, var_tuple in serialized_variables.items():
+                    var_type = var_tuple[0]
+                    var_value = var_tuple[1]
+                    current_variables.update(serialized_form_to_variable(var_name, var_type, var_value, loader, filepath))
+                # Third we get the proper BandMathExprInfo
+                current_expr_info = bandmath.get_bandmath_expr_info(bandmath_expr, current_variables, lower_functions)
+                result = eval_singular_bandmath_expr(expr_info=current_expr_info, result_name=new_result_name, cache=cache,
+                                                     lower_variables=current_variables, lower_functions=lower_functions,
+                                                     number_of_intermediates=number_of_intermediates, tree=tree,
+                                                     use_synchronous_method=use_synchronous_method, child_conn=child_conn)
+                outputs.append(result)
+                child_conn.send(["error", {"Result Name": result_name, "Message": None, "Traceback": None}])
+            except Exception as e:
+                child_conn.send(["error", {"Result Name": result_name, "Message": str(e), "Traceback": traceback.format_exc()}])
+                outputs.append((None, None, new_result_name, None))
+    
+        child_conn.send(["progress", {"Numerator": count, "Denominator": total, "Status": "Finished"}])
+        serialized_results: List[Tuple[VariableType, SerializedForm, str, BandMathExprInfo]] = []
+        for result_type, result_value, result_name, result_expr_info in outputs:
+            if isinstance(result_value, Serializable):
+                serialized_results.append((result_type, result_value.get_serialized_form(), result_name, result_expr_info))
+            else:
+                serialized_results.append((result_type, result_value, result_name, result_expr_info))
+        return_queue.put(serialized_results)
+    else:
+        new_result_name = result_name
+        single_batch_variables = {}
+        for var_name, var_tuple in serialized_variables.items():
+            var_type = var_tuple[0]
+            var_value = var_tuple[1]
+            single_batch_variables.update(serialized_form_to_variable(var_name, var_type, var_value, loader))
+        expr_info = bandmath.get_bandmath_expr_info(bandmath_expr, single_batch_variables, lower_functions)
+        result = eval_singular_bandmath_expr(expr_info=expr_info, result_name=new_result_name, cache=cache,
+                                            lower_variables=single_batch_variables, lower_functions=lower_functions,
+                                            number_of_intermediates=number_of_intermediates, tree=tree,
+                                            use_synchronous_method=use_synchronous_method, child_conn=child_conn)
+        serialized_result = None
+        result_type, result_value, result_name, result_expr_info = result
+        if isinstance(result_value, Serializable):
+            serialized_result = (result_type, result_value.get_serialized_form(), result_name, result_expr_info)
+        else:
+            serialized_result = (result_type, result_value, result_name, result_expr_info)
+
+        return_queue.put([serialized_result])
+
+
+def eval_singular_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
+            lower_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
+            lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+            use_synchronous_method = True, child_conn: mp_conn.Connection = None \
+        ) -> List[Tuple[Union[VariableType, RasterDataSet.__class__],
+                        Union[np.ndarray, RasterDataSet],
+                        str,
+                        BandMathExprInfo]]:
+    '''
+    This function evaluates one singular bandmath expression
+
+    Returns:
+    - The first element in the tuple is the variable type or the RasterDataSet
+        class. The second element is the actual value, which is either the numpy array or the
+        RasterDataSet. The third element is the name of the resulting dataset. The fourth element
+        is the expr_info for that dataset.
+    '''
     gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
     
     max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
 
-    source = expr_info.spectral_metadata_source
+    spectral_metadata = expr_info.spectral_metadata_source
     data_ignore_value = DEFAULT_IGNORE_VALUE
-    if source is not None and isinstance(source.value, RasterDataSet):
-        value = source.value
-        if value.get_data_ignore_value() is not None:
-            data_ignore_value = value.get_data_ignore_value()
+    if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
+        data_ignore_value = spectral_metadata.get_data_ignore_value()
 
-    if test_parallel_io or \
-    (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk
-     and not use_old_method):
+    if not use_synchronous_method or \
+    (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk):
         try:
+            error = None
             eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
             bands = 1
             lines = 1
@@ -891,7 +1268,9 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             # We declare the dataset write after so if any errors occur below,
             # the file gets destroyed (which happens in del of RasterDataSet)
             out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
-            out_dataset.set_save_state(SaveState.IN_DISK_NOT_SAVED)
+            # We NO LONGER set the save state here. We must set it in the process that we pass
+            # this piece of data to. If we set it here to IN_DISK_NOT_SAVED, then the garbage
+            # collector will delete the underlying dataset when this process ends.
             out_dataset.set_dirty()
             
             # Based on memory limits (currently set in constants,, but we could make it more adjustable)
@@ -927,15 +1306,17 @@ def eval_bandmath_expr(bandmath_expr: str, expr_info: BandMathExprInfo, result_n
             raise e
         finally:
             eval.stop()
-        return (RasterDataSet, out_dataset)
+        return (RasterDataSet, out_dataset, result_name, expr_info)
     else:
+        error = None
         try:
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)
             res = result_value.value
         except BaseException as e:
-            eval.stop()
+            if eval:
+                eval.stop()
             raise e
         finally:
             eval.stop()
-        return (result_value.type, result_value.value)
+        return (result_value.type, result_value.value, result_name, expr_info)
