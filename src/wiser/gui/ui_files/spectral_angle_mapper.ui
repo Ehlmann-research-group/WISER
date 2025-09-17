@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>677</width>
+    <width>678</width>
     <height>618</height>
    </rect>
   </property>
@@ -53,19 +53,6 @@
          </sizepolicy>
         </property>
        </widget>
-      </item>
-      <item>
-       <spacer name="targetSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
       </item>
      </layout>
     </widget>
@@ -125,8 +112,11 @@
        <layout class="QFormLayout" name="thrLayout">
         <item row="0" column="0">
          <widget class="QLabel" name="label_threshold">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;This value is used to set the threshold of any reference library or spectra that is added.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="text">
-           <string>Threshold (°):</string>
+           <string>Initial Threshold (°):</string>
           </property>
          </widget>
         </item>
@@ -156,19 +146,6 @@
          </widget>
         </item>
        </layout>
-      </item>
-      <item>
-       <spacer name="settingsSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
       </item>
      </layout>
     </widget>
@@ -207,7 +184,7 @@
              <x>0</x>
              <y>0</y>
              <width>310</width>
-             <height>128</height>
+             <height>129</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="libGrid" columnstretch="0,0">
@@ -297,8 +274,8 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>309</width>
-             <height>128</height>
+             <width>310</width>
+             <height>129</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="specGrid" rowstretch="0" columnstretch="0,0">

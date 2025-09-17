@@ -88,7 +88,6 @@ class SAMTool(QDialog):
         self._run_history: Dict[str, List[Dict[str, Any]]] = {}
 
         self._lib_rows = []
-        self._init_reference_selection()
 
         self._spec_rows = []
 
@@ -98,6 +97,7 @@ class SAMTool(QDialog):
         self._init_target_dropdowns()
         self._ui.threshSpinBox.setValue(self.THRESHOLD_DEFAULT)
         self._threshold = self.THRESHOLD_DEFAULT
+        self._init_reference_selection()
         self._load_state()
         app = QApplication.instance()
         if app is not None:
@@ -483,7 +483,6 @@ class SAMTool(QDialog):
 
 
     def _init_reference_selection(self) -> None:
-        self._add_default_library()
         for lbl in (self._ui.hdr_lib, self._ui.hdr_thresh_lib,
             self._ui.hdr_spec, self._ui.hdr_thresh_spec):
             lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -1155,7 +1154,7 @@ class SAMTool(QDialog):
     def _bind_threshold_spin(self, spin: QDoubleSpinBox) -> QDoubleSpinBox:
         """Initialize a row spin to the current global and mark as 'not overridden'.
            Use editingFinished to mark when the user takes control."""
-        spin.setRange(0.0, 180.0)        # no sentinel
+        spin.setRange(0.0, 180.0)
         spin.setDecimals(2)
         spin.setSingleStep(1.0)
         spin.setKeyboardTracking(False)
