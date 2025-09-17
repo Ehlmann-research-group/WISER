@@ -77,7 +77,7 @@ class TestInteractiveScatterPlot(unittest.TestCase):
         self.assertTrue(np.array_equal(xy, xy_truth, equal_nan=True))
 
         highlighted_points_truth = [(1, 0), (1, 1), (1, 2), (1, 3)]
-        self.test_model.create_polygon_in_interactive_scatter_plot([(0.1, 0), (0.1, 0.5), (0.5, 0.5), (0.5, 0.1), (0.1, 0)])
+        self.test_model.create_polygon_in_interactive_scatter_plot([(0.1, 0), (0.1, 0.49), (0.49, 0.49), (0.49, 0.1), (0.1, 0)])
         points = self.test_model.main_view._interactive_scatter_highlight_points
         self.assertTrue(highlighted_points_truth == points)
 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     test_model.set_interactive_scatter_y_band(2)
     test_model.click_create_scatter_plot()
     xy = test_model.get_interactive_scatter_plot_xy_values()
-    test_model.create_polygon_in_interactive_scatter_plot([(0.1, 0), (0.1, 0.5), (0.5, 0.5), (0.5, 0.1), (0.1, 0)])
+    test_model.create_polygon_in_interactive_scatter_plot([(0.1, 0), (0.1, 0.49), (0.49, 0.49), (0.49, 0.1), (0.1, 0)])
     points = test_model.main_view._interactive_scatter_highlight_points
     highlighted_points_truth = [(1, 0), (1, 1), (1, 2), (1, 3)]
     assert highlighted_points_truth == points
