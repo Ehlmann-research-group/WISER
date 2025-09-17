@@ -2,36 +2,38 @@ import os
 from typing import Dict, Optional
 
 
-ALLOWED_ENVS = ("off", "dev", "qa", "prod")
+ALLOWED_ENVS = ("off", "local", "dev", "qa", "prod")
 _ENV_ORDER: Dict[str, int] = {
     "off": 0,
-    "dev": 1,
-    "qa": 2,
-    "prod": 3,
+    "local": 1,
+    "dev": 2,
+    "qa": 3,
+    "prod": 4,
 }
 
 
 # Define feature gates as the minimum environment where the feature is enabled.
-# Edit this mapping to add your features with one of: "off", "development", "qa", "prod".
-# Example:
+# Edit this mapping to add your features with one of: "off", "local", "dev", "qa", "prod".
+# When a feature gets to prod, it should be removed from this mapping.
+# Set the environment variable WISER_ENV to the desired environment to enable the features.
 FEATURE_GATES = {
-    "sff": "dev",
-    "sam": "dev",
+    "sff": "local",
+    "sam": "local",
 }
 
 
 def _normalize_env(env_value: Optional[str]) -> str:
     if not env_value:
-        return "dev"
+        return "local"
     env = env_value.strip().lower()
-    return env if env in ALLOWED_ENVS else "dev"
+    return env if env in ALLOWED_ENVS else "local"
 
 
 class FeatureFlags:
     """Singleton-like feature flag accessor using minimum-level gates.
 
-    - Current environment is taken from WISER_ENV (normalized, default "dev").
-    - Each feature's configured value is one of: "off", "dev", "qa", "prod".
+    - Current environment is taken from WISER_ENV (normalized, default "local").
+    - Each feature's configured value is one of: "off", "local", "dev", "qa", "prod".
     - A feature is enabled if current_env >= feature_min_level according to _ENV_ORDER.
     - Unknown features resolve to False.
     - Supports attribute-style access: FLAGS.sff
