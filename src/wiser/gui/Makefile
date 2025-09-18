@@ -21,6 +21,7 @@ FILENAMES=\
 	export_spectra_dialog_ui.py \
 	fits_dataset_dialog_ui.py \
 	fits_spectra_dialog_ui.py \
+	generic_spectral_computation_ui.py \
 	geo_coords_dialog_ui.py \
 	geo_referencer_dialog_ui.py \
 	image_coords_widget_ui.py \
