@@ -7,7 +7,7 @@ from PySide2.QtWidgets import *
 
 
 from wiser.gui.generated.subdataset_chooser_dialog_ui import Ui_SubdatasetChooser
-
+from .util import populate_combo_box_with_units
 from osgeo import gdal, osr
 
 import numpy as np
@@ -269,28 +269,9 @@ class SubdatasetFileOpenerDialog(QDialog):
         cmb = self._ui.cbox_wavelength_units
         cmb.clear()
 
-        # Helpful mapping of units (some duplicates removed for clarity)
-        unit_options: list[tuple[str, Optional[u.Unit]]] = [
-            ("None", None),  # Allow the caller to opt-out of unit conversion
-            ("nm (nanometer)", u.nanometer),
-            ("µm (micrometer)", u.micrometer),
-            ("mm (millimeter)", u.millimeter),
-            ("cm (centimeter)", u.centimeter),
-            ("m (meter)", u.meter),
-            ("Å (angstrom)", u.angstrom),
-            ("cm⁻¹ (wavenumber)", u.cm ** -1),
-            ("GHz", u.GHz),
-            ("MHz", u.MHz),
-        ]
-
-        for text, unit_obj in unit_options:
-            cmb.addItem(text, userData=unit_obj)
+        populate_combo_box_with_units(cmb)
 
         cmb.activated.connect(self.on_unit_cbox_changed)
-
-        # Default to nanometers if present.
-        default_index = next((i for i, (_, uobj) in enumerate(unit_options) if uobj == u.nanometer), 0)
-        cmb.setCurrentIndex(default_index)
 
         # If we have no wavelength information we leave the combo disabled.
         if self._wavelengths is None:

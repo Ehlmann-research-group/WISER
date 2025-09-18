@@ -14,10 +14,11 @@ from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from scipy.interpolate import interp1d
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.dataset_impl import NumPyRasterDataImpl
+from wiser.raster.spectral_library import ListSpectralLibrary
 
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
-from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
+from .util import populate_combo_box_with_units
 
 from wiser.gui.generated.spectral_angle_mapper_ui import Ui_SpectralAngleMapper
 import warnings
@@ -95,6 +96,7 @@ class SAMTool(QDialog):
         self._setup_connections()
         self._add_interpolation_note()
         self._init_target_dropdowns()
+        self._init_unit_cbox()
         self._ui.threshSpinBox.setValue(self.THRESHOLD_DEFAULT)
         self._threshold = self.THRESHOLD_DEFAULT
         self._init_reference_selection()
@@ -132,6 +134,9 @@ class SAMTool(QDialog):
     
     def get_wavelength_max(self) -> Optional[u.Quantity]:
         return self._max_wavelength
+    
+    def _get_wavelength_units(self) -> u.Unit:
+        return self._ui.cbox_units.currentData()
 
     def compute_spectral_angle(self, ref: NumPyArraySpectrum) -> float:
             """
@@ -481,12 +486,13 @@ class SAMTool(QDialog):
         box.activateWindow()
         return box.exec_()
 
+    def _init_unit_cbox(self):
+        populate_combo_box_with_units(self._ui.cbox_units, use_none_unit=False)
 
     def _init_reference_selection(self) -> None:
         for lbl in (self._ui.hdr_lib, self._ui.hdr_thresh_lib,
             self._ui.hdr_spec, self._ui.hdr_thresh_spec):
             lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-
 
     def _init_target_dropdowns(self) -> None:
         ui = self._ui
@@ -525,39 +531,29 @@ class SAMTool(QDialog):
         Clip a spectrum to global min/max wavelength bounds.
 
         - Converts input wavelengths to match min/max units.
-        - Handles dimensionless → nm conversion.
+        - Handles dimensionless → current unit conversion.
         - Ensures reflectance array shape matches wavelength array.
         - Returns (reflectance_array, wavelength_array).
         """
-
-        # 1) Get wavelengths as a Quantity
         wls = spectrum.get_wavelengths()
         if not isinstance(wls, u.Quantity):
-            wls = u.Quantity(wls, u.nanometer)
+            wls = u.Quantity(wls, self._get_wavelength_units())
         elif wls.unit == u.dimensionless_unscaled:
-            wls = u.Quantity(wls.value, u.nanometer)
+            wls = u.Quantity(wls.value, self._get_wavelength_units())
 
-        # 2) Convert to the user’s units, if needed
+        # Convert to the user's units, if bounds already specify
         if self._min_wavelength is not None:
             wls = wls.to(self._min_wavelength.unit)
         if self._max_wavelength is not None:
             wls = wls.to(self._max_wavelength.unit)
 
-        # 3) Get reflectances, stripping units if necessary
         raw_r = spectrum.get_spectrum()
-        if isinstance(raw_r, u.Quantity):
-            arr = raw_r.value
-        else:
-            arr = np.asarray(raw_r)
-
-        # 4) Sanity-check shapes
+        arr = raw_r.value if isinstance(raw_r, u.Quantity) else np.asarray(raw_r)
         if arr.ndim != 1 or arr.shape[0] != wls.shape[0]:
             raise ValueError(
-                f"Shape mismatch: reflectance has shape {arr.shape}, "
-                f"wavelengths has shape {wls.shape}"
+                f"Shape mismatch: reflectance has shape {arr.shape}, wavelengths has shape {wls.shape}"
             )
 
-        # 5) Build a mask of “in‐bounds” wavelengths
         mask = np.ones(wls.shape, dtype=bool)
         if self._min_wavelength is not None:
             mask &= (wls >= self._min_wavelength)
@@ -664,12 +660,12 @@ class SAMTool(QDialog):
             max_nm = float(self._ui.lineEdit_2.text())
             global_thr = self._ui.threshSpinBox.value()
         except ValueError:
-            raise ValueError("Min, Max, and Threshold must be numbers.")
+            raise ValueError(self.tr("Min, Max, and Threshold must be numbers."))
         if min_nm >= max_nm:
-            raise ValueError("Min wavelength must be < Max wavelength.")
+            raise ValueError(self.tr("Min wavelength must be < Max wavelength."))
 
-        min_wl = u.Quantity(min_nm, "nm")
-        max_wl = u.Quantity(max_nm, "nm")
+        min_wl = u.Quantity(min_nm, self._get_wavelength_units())
+        max_wl = u.Quantity(max_nm, self._get_wavelength_units())
 
         mode   = self._ui.SelectTargetData.currentText()
         target = self._ui.SelectTargetData_2.currentData()
@@ -703,7 +699,7 @@ class SAMTool(QDialog):
         for lib_row in self._lib_rows:
             if lib_row["checkbox"].isChecked() and lib_row.get("path"):
                 envilib = ENVISpectralLibrary(lib_row["path"])
-                wls = u.Quantity([b["wavelength"] for b in envilib._band_list], u.nanometer)
+                wls = u.Quantity([b["wavelength"] for b in envilib._band_list], self._get_wavelength_units())
                 lib_filename = os.path.basename(lib_row["path"])
 
                 val = float(lib_row["threshold"].value())
@@ -840,13 +836,13 @@ class SAMTool(QDialog):
         s.beginGroup(f"session/{os.getpid()}")  # everything under this session
         return s
         
-    def _q_to_nm(self, q):
+    def _q_to_current_units(self, q):
         if q is None: return None
-        try: return float(q.to(u.nanometer).value)
+        try: return float(q.to(self._get_wavelength_units()).value)
         except Exception: return float(getattr(q, "value", q))
 
-    def _nm_to_q(self, v):
-        return u.Quantity(v, "nm") if v is not None else None
+    def _current_unit_to_q(self, v):
+        return u.Quantity(v, self._get_wavelength_units()) if v is not None else None
 
     def _clear_library_rows(self):
         grid = self._ui.libGrid
@@ -858,8 +854,8 @@ class SAMTool(QDialog):
 
     def _save_state(self) -> None:
         s = self._settings()
-        s.setValue("min_nm", self._q_to_nm(self._min_wavelength))
-        s.setValue("max_nm", self._q_to_nm(self._max_wavelength))
+        s.setValue("min_nm", self._q_to_current_units(self._min_wavelength))
+        s.setValue("max_nm", self._q_to_current_units(self._max_wavelength))
         s.setValue("threshold", self._threshold)
 
         # target
@@ -898,8 +894,8 @@ class SAMTool(QDialog):
                     "mode":         r.get("mode"),
                     "target_name":  tname,
                     "target_id":    getattr(target, "get_id", lambda: None)(),
-                    "min_nm":       self._q_to_nm(r.get("min_wavelength")),
-                    "max_nm":       self._q_to_nm(r.get("max_wavelength")),
+                    "min_nm":       self._q_to_current_units(r.get("min_wavelength")),
+                    "max_nm":       self._q_to_current_units(r.get("max_wavelength")),
                     "threshold":    float(r.get("threshold", self._threshold)),
                     "best_reference": best.get("reference_data"),
                     "best_library":   best.get("library_name"),
@@ -940,13 +936,13 @@ class SAMTool(QDialog):
         # settings
         min_nm = s.value("min_nm", type=float)
         max_nm = s.value("max_nm", type=float)
-        self._min_wavelength = self._nm_to_q(min_nm)
-        self._max_wavelength = self._nm_to_q(max_nm)
+        self._min_wavelength = self._current_unit_to_q(min_nm)
+        self._max_wavelength = self._current_unit_to_q(max_nm)
 
         if self._min_wavelength is not None:
-            self._ui.lineEdit.setText(str(self._min_wavelength.to_value(u.nanometer)))
+            self._ui.lineEdit.setText(str(self._min_wavelength.to_value(self._get_wavelength_units())))
         if self._max_wavelength is not None:
-            self._ui.lineEdit_2.setText(str(self._max_wavelength.to_value(u.nanometer)))
+            self._ui.lineEdit_2.setText(str(self._max_wavelength.to_value(self._get_wavelength_units())))
 
         thr = s.value("threshold", 5.0, type=float)
         self._threshold = float(thr)
@@ -1100,23 +1096,25 @@ class SAMTool(QDialog):
 
         # header
         thr = f"{(matches[0]['threshold_degree'] if matches else self._threshold):.3f}"
-        try: min_nm = f"{self._min_wavelength.to_value(u.nm):.1f}"
+        try: min_nm = f"{self._min_wavelength.to_value(self._get_wavelength_units()):.1f}"
         except: min_nm = str(self._min_wavelength) if self._min_wavelength is not None else "—"
-        try: max_nm = f"{self._max_wavelength.to_value(u.nm):.1f}"
+        try: max_nm = f"{self._max_wavelength.to_value(self._get_wavelength_units()):.1f}"
         except: max_nm = str(self._max_wavelength) if self._max_wavelength is not None else "—"
+
+        current_unit_str = self._get_wavelength_units().to_string()
 
         header = [
             "Spectral Angle Mapper (SAM) — WISER Plugin Export",
             f"Saved: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             f"Target: {tgt_name}",
-            f"Wavelength range [nm]: {min_nm} – {max_nm}",
+            f"Wavelength range [{current_unit_str}]: {min_nm} - {max_nm}",
             f"Threshold [deg]: {thr}",
             "Interpolation: linear",
             ""
         ]
 
         # table
-        head = " | ".join(["Rank","Reference","Library","Angle [deg]","Thresh [deg]","Min WL [nm]","Max WL [nm]","Target"])
+        head = " | ".join(["Rank","Reference","Library","Angle [deg]","Thresh [deg]",f"Min WL [{current_unit_str}]",f"Max WL [{current_unit_str}]","Target"])
         lines = [head, "-" * len(head)]
         for i, m in enumerate(matches, start=1):
             lines.append(" | ".join([

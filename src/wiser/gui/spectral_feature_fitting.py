@@ -16,12 +16,12 @@ Method:
 Key Features:
 - Threshold is a *maximum RMS* cutoff (default 0.03) instead of an angle
 - Supports per-row and global RMS thresholds (UI overrides)
-- Linear interpolation onto target’s wavelength grid
+- Linear interpolation onto target's wavelength grid
 - Works with ENVI spectral libraries or imported spectra
 - Session state persisted with QSettings (wavelengths, thresholds, run history)
 
 Notes:
-- RMS is dimensionless, typically 0–1 range
+- RMS is dimensionless, typically 0-1 range
 - No inheritance or imports from SAM plugin (standalone implementation)
 - UI integration via PySide2
 """
