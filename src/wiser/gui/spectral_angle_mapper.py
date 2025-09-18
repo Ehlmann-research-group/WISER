@@ -144,7 +144,7 @@ class SAMTool(QDialog):
             θ = arccos( (t·r) / (||t||·||r||) )
             Steps:
             1. slice both to bounds → (arr, wls)
-            2. interpolate ref onto target’s wavelength grid
+            2. interpolate ref onto target's wavelength grid
             3. mask out NaNs/infs
             4. enforce MIN_SAMPLES
             5. compute dot/norm safely
@@ -830,7 +830,7 @@ class SAMTool(QDialog):
             pass
 
 
-#save session helpers
+    #save session helpers
     def _settings(self) -> QSettings:
         s = QSettings("Wiser", "SAMPlugin")
         s.beginGroup(f"session/{os.getpid()}")  # everything under this session

@@ -266,7 +266,7 @@ class SFFTool(QDialog):
 
         Steps:
         1. Slice both spectra to global wavelength bounds
-        2. Resample reference reflectance onto target’s grid (linear, NaN outside overlap)
+        2. Resample reference reflectance onto target's grid (linear, NaN outside overlap)
         3. Continuum removal + inversion (absorption-only signal)
         4. Compute single multiplicative scale factor: scale = (r·t) / (r·r)
            - Negative scales are clamped to 0 (no negative contrast allowed)
