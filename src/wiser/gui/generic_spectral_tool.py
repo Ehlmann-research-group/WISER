@@ -22,6 +22,8 @@ from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.generated.generic_spectral_computation_ui import Ui_GenericSpectralComputation  # generated from .ui
 from .util import populate_combo_box_with_units  # same util used by SAM
 
+from wiser.config import FLAGS
+
 DEFAULT_NO_SPECTRA_TEXT = "No spectra collected"
 DEFAULT_NO_DATASETS_TEXT = "No image cubes loaded"
 
@@ -175,7 +177,10 @@ class GenericSpectralComputationTool(QDialog):
         ui = self._ui
         ui.SelectTargetData.blockSignals(True)
         ui.SelectTargetData.clear()
-        ui.SelectTargetData.addItems(["Spectrum", "Image Cube"])
+        if FLAGS.sff_sam_image_cube:
+            ui.SelectTargetData.addItems(["Spectrum", "Image Cube"])
+        else:
+            ui.SelectTargetData.addItems(["Spectrum"])
         ui.SelectTargetData.blockSignals(False)
         ui.SelectTargetData.setCurrentText("Spectrum")
         self._on_target_type_changed("Spectrum")
@@ -425,8 +430,6 @@ class GenericSpectralComputationTool(QDialog):
                 wls = u.Quantity([b["wavelength"] for b in envilib._band_list], units)
                 lib_filename = os.path.basename(lib_row["path"])
                 row_thr = float(lib_row["threshold"].value())
-                print(f"self.SPEC_THRESHOLD_ATTR: {self.SPEC_THRESHOLD_ATTR}")
-                print(f"row_thr: {row_thr}")
                 for i in range(envilib._num_spectra):
                     arr  = envilib._data[i]
                     name = envilib._spectra_names[i] if hasattr(envilib, "_spectra_names") else None
@@ -551,12 +554,46 @@ class GenericSpectralComputationTool(QDialog):
         table.setItem(row, 1, QTableWidgetItem(best.get("reference_data", "")))
         table.setItem(row, 2, QTableWidgetItem(f"{best.get('score', float('nan')):.4f}"))
 
-        btn = QPushButton("View Details", table)
         m = list(sorted_matches)
         t = target
-        btn.clicked.connect(lambda _=False, mm=m, tt=t: self._view_details_dialog(mm, tt))
-        table.setCellWidget(row, 3, btn)
+        btn_view = QPushButton("View Details", table)
+        btn_view.clicked.connect(lambda _=False, mm=m, tt=t: self._view_details_dialog(mm, tt))
+        table.setCellWidget(row, 3, btn_view)
+
+        btn_del = QPushButton("Delete", table)
+        btn_del.setProperty("run_key", key)
+        btn_del.setProperty("run_entry", run_entry)
+        btn_del.clicked.connect(lambda _=False, b=btn_del: self._on_delete_history_clicked(b))
+        table.setCellWidget(row, 4, btn_del)
         table.resizeColumnsToContents()
+
+    def _on_delete_history_clicked(self, btn_widget: QWidget) -> None:
+        table = self._ui.tableWidget
+        row_to_remove = None
+        for i in range(table.rowCount()):
+            # Prefer the Remove column (4), but also check 3 for robustness
+            if table.cellWidget(i, 4) is btn_widget or table.cellWidget(i, 3) is btn_widget:
+                row_to_remove = i
+                break
+        if row_to_remove is None:
+            return
+
+        run_key = btn_widget.property("run_key")
+        run_entry = btn_widget.property("run_entry")
+        if run_key is not None and run_entry is not None:
+            runs = self._run_history.get(run_key, [])
+            try:
+                runs.remove(run_entry)
+            except ValueError:
+                pass
+            if not runs and run_key in self._run_history:
+                self._run_history.pop(run_key, None)
+
+        table.removeRow(row_to_remove)
+        try:
+            self._save_state()
+        except Exception:
+            pass
 
     def _view_details_dialog(self, matches: List[Dict[str, Any]], target: NumPyArraySpectrum, parent=None):
         top = matches[:10]
@@ -821,9 +858,13 @@ class GenericSpectralComputationTool(QDialog):
                 "max":         s.value("max", None, type=float),
                 "threshold":   s.value("threshold", float(self._ui.method_threshold.value()), type=float),
             }
-            btn = QPushButton("View Details", table)
-            btn.clicked.connect(lambda _=False, sp=spec: self._replay_saved(sp))
-            table.setCellWidget(row_idx, 3, btn)
+            btn_view = QPushButton("View Details", table)
+            btn_view.clicked.connect(lambda _=False, sp=spec: self._replay_saved(sp))
+            table.setCellWidget(row_idx, 3, btn_view)
+
+            btn_del = QPushButton("Delete", table)
+            btn_del.clicked.connect(lambda _=False, b=btn_del: self._on_delete_history_clicked(b))
+            table.setCellWidget(row_idx, 4, btn_del)
         s.endArray()
         table.resizeColumnsToContents()
 

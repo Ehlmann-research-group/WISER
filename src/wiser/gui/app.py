@@ -70,6 +70,8 @@ from test_utils.test_event_loop_functions import TestingWidget
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 from wiser.gui.parallel_task import ParallelTaskProcess
 
+from wiser.config import FLAGS
+
 logger = logging.getLogger(__name__)
 
 
@@ -89,7 +91,6 @@ class DataVisualizerApp(QMainWindow):
         super().__init__(None)
         self.setWindowTitle(self.tr('Workbench for Imaging Spectroscopy Exploration and Research'))
         self.setWindowIcon(QIcon(':/icons/wiser.ico'))
-
         # Internal state
 
         if config_path is None:

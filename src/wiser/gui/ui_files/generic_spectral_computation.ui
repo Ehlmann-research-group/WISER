@@ -286,6 +286,11 @@
           <string>Details</string>
          </property>
         </column>
+        <column>
+         <property name="text">
+          <string>Remove</string>
+         </property>
+        </column>
        </widget>
       </item>
       <item>
