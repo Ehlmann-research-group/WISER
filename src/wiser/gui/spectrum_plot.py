@@ -2014,8 +2014,6 @@ class SpectrumPlot(SpectrumPlotGeneric):
             # The spectrum is in the collected spectra.
             index = self._treeitem_collected.indexOfChild(treeitem)
             self._app_state.remove_collected_spectrum(index)
-            # print(f"specturm plot generic _remove_collected_spectrum_at_index spectrum!!!")
-            # self._remove_collected_spectrum_at_index(index, spectrum)
             # TODO:
             '''
             self._treeitem_collected.takeChild(index)
