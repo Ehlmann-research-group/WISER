@@ -1,6 +1,7 @@
 # Child class for Spectral Feature Fitting using the generic parent
 from __future__ import annotations
 
+import os
 from typing import Dict, Any, Tuple, List
 import numpy as np
 from scipy.interpolate import interp1d
@@ -20,8 +21,8 @@ class SFFTool(GenericSpectralComputationTool):
 
     def __init__(self, app_state: ApplicationState, parent=None):
         self._max_rms: float = 0.03  # metric-specific name as requested
-        super().__init__("Spectral Feature Fitting", app_state, parent)
         self._ui.method_threshold.setValue(self._max_rms)
+        super().__init__("Spectral Feature Fitting", app_state, parent)
 
     # keep metric-specific name but wire into parent's UI
     def set_method_threshold(self, value: float | None) -> None:
@@ -34,6 +35,16 @@ class SFFTool(GenericSpectralComputationTool):
 
     def filename_stub(self) -> str:
         return "SFF"
+
+    def default_library_path(self):
+        gui_dir = os.path.dirname(os.path.abspath(__file__))
+        default_path = os.path.join(
+            gui_dir,
+            "../data/"
+            "usgs_default_ref_lib",
+            "USGS_Mineral_Spectral_Library.hdr",
+        )
+        return default_path
 
     # ---------- SFF helpers ----------
     @staticmethod

@@ -93,6 +93,7 @@ class GenericSpectralComputationTool(QDialog):
         self._purge_old_sessions_once()
 
         self._load_state()
+        self._maybe_add_default_library()
         app = QApplication.instance()
         if app is not None:
             app.aboutToQuit.connect(lambda: QSettings(self.SETTINGS_NAMESPACE).remove(f"session/{os.getpid()}"))
@@ -264,6 +265,21 @@ class GenericSpectralComputationTool(QDialog):
         spin.setProperty("overridden", False)
         spin.editingFinished.connect(lambda sb=spin: sb.setProperty("overridden", True))
         return spin
+
+    def default_library_path(self) -> str | None:
+        """Child/apps override to return a .hdr/.csv path, or None to skip."""
+        return None
+
+    def _maybe_add_default_library(self):
+        path = self.default_library_path()
+        if not path:
+            return
+        if os.path.exists(path):
+            self.addLibraryRow()
+            row = self._lib_rows[-1]
+            row["checkbox"].setText(os.path.basename(path))
+            row["checkbox"].setChecked(True)
+            row["path"] = path
 
     # ----------------- Target switching -----------------
     def _on_target_type_changed(self, text):

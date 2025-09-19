@@ -1,6 +1,7 @@
 # Child class for Spectral Angle Mapper using the generic parent
 from __future__ import annotations
 
+import os
 from typing import Dict, Any, Tuple, List
 import numpy as np
 from scipy.interpolate import interp1d
@@ -9,7 +10,6 @@ from astropy import units as u
 from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.gui.app_state import ApplicationState
 from .generic_spectral_tool import GenericSpectralComputationTool
-
 
 class SAMTool(GenericSpectralComputationTool):
     SETTINGS_NAMESPACE = "Wiser/SAMPlugin"
@@ -20,9 +20,9 @@ class SAMTool(GenericSpectralComputationTool):
 
     def __init__(self, app_state: ApplicationState, parent=None):
         self._threshold: float = 5.0  # metric-specific name as requested
-        super().__init__("Spectral Angle Mapper", app_state, parent)
         # initialize UI threshold spin to default
         self._ui.method_threshold.setValue(self._threshold)
+        super().__init__("Spectral Angle Mapper", app_state, parent)
 
     # maintain metric-specific name while using parent's storage
     def set_method_threshold(self, value: float | None) -> None:
@@ -35,6 +35,16 @@ class SAMTool(GenericSpectralComputationTool):
 
     def filename_stub(self) -> str:
         return "SAM"
+
+    def default_library_path(self):
+        gui_dir = os.path.dirname(os.path.abspath(__file__))
+        default_path = os.path.join(
+            gui_dir,
+            "../data/"
+            "usgs_default_ref_lib",
+            "USGS_Mineral_Spectral_Library.hdr",
+        )
+        return default_path
 
     # compute spectral angle between target and ref in degrees
     def compute_score(self, ref: NumPyArraySpectrum) -> Tuple[float, Dict[str, Any]]:
