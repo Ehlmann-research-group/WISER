@@ -13,7 +13,7 @@ from PySide2.QtWidgets import (
 from PySide2.QtCore import Qt, QSettings
 from astropy import units as u
 
-from wiser.gui.app_state import ApplicationState
+from wiser.gui.app_state import ApplicationState, StateChange
 from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
@@ -22,6 +22,8 @@ from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.generated.generic_spectral_computation_ui import Ui_GenericSpectralComputation  # generated from .ui
 from .util import populate_combo_box_with_units  # same util used by SAM
 
+DEFAULT_NO_SPECTRA_TEXT = "No spectra collected"
+DEFAULT_NO_DATASETS_TEXT = "No image cubes loaded"
 
 class GenericSpectralComputationTool(QDialog):
     """
@@ -93,7 +95,6 @@ class GenericSpectralComputationTool(QDialog):
         self._purge_old_sessions_once()
 
         self._load_state()
-        self._maybe_add_default_library()
         app = QApplication.instance()
         if app is not None:
             app.aboutToQuit.connect(lambda: QSettings(self.SETTINGS_NAMESPACE).remove(f"session/{os.getpid()}"))
@@ -145,6 +146,8 @@ class GenericSpectralComputationTool(QDialog):
         ui.addSpecBtn.clicked.connect(self._on_add_spectrum_clicked)
         ui.SelectTargetData.currentTextChanged.connect(self._on_target_type_changed)
         ui.clearRunsBtn.clicked.connect(self._on_clear_runs_clicked)
+
+        self._app_state.collected_spectra_changed.connect(self._on_collected_spectra_changed)
 
     def _add_interpolation_note(self) -> None:
         note = QLabel("Interpolation: linear")
@@ -288,10 +291,12 @@ class GenericSpectralComputationTool(QDialog):
         combo.clear()
         if text == "Spectrum":
             objs = self._app_state.get_collected_spectra()
-            placeholder = "No spectra loaded"
-        else:
+            placeholder = DEFAULT_NO_SPECTRA_TEXT
+        elif text == "Image Cube":
             objs = self._app_state.get_datasets()
-            placeholder = "No image cubes loaded"
+            placeholder = DEFAULT_NO_DATASETS_TEXT
+        else:
+            raise ValueError(f"Unknown text for target type. Text: {text}")
         if objs:
             for obj in objs:
                 name = obj.get_name() if hasattr(obj, "get_name") else getattr(obj, "name", str(obj))
@@ -303,6 +308,48 @@ class GenericSpectralComputationTool(QDialog):
             combo.addItem(placeholder)
             combo.setEnabled(False)
             ui.addRunBtn.setEnabled(False)
+    
+    def _on_collected_spectra_changed(self, state_change: StateChange, index: int, _id: int):
+        """
+        Before, we have spectra with their own name and id. A Spectra was either added or removed or edited.
+
+        If removed we have to see if our selected one was removed or one after or before. Basically, we have to redo
+        the list of collected spectra and if ours was removed we move it to the top and if not we move it to where it was at
+        """
+        if state_change != StateChange.ITEM_ADDED and state_change != StateChange.ITEM_REMOVED:
+            return
+        ui = self._ui
+        current_selected_spectrum = self._ui.SelectTargetData_2.currentData()
+        # This case happens at the start when there were no spectra collected
+        if current_selected_spectrum is None:
+            new_cbox_index = 0
+        new_cbox_index = None
+        if state_change == StateChange.ITEM_REMOVED:
+            if current_selected_spectrum.get_id() == _id:
+                # The spectrum we currently had selected got removed, so we just set the currentIndex to zero
+                new_cbox_index = 0
+
+        if self._ui.SelectTargetData.currentText() == "Spectrum":
+            spectra = self._app_state.get_collected_spectra()
+            cbox = self._ui.SelectTargetData_2
+            cbox.clear()
+            if len(spectra) > 0:
+                for spectrum in spectra:
+                    name = spectrum.get_name() if hasattr(spectrum, "get_name") else getattr(spectrum, "name", str(spectrum))
+                    cbox.addItem(name, spectrum)
+                cbox.setEnabled(True)
+                ui.addRunBtn.setEnabled(True)
+                # We only find the data if it wasn't deleted, else we default to the first item
+                if new_cbox_index is None:
+                    new_cbox_index = self._ui.SelectTargetData_2.findData(current_selected_spectrum)
+                    if new_cbox_index == -1:
+                        new_cbox_index = 0
+
+                cbox.setCurrentIndex(new_cbox_index)
+            else:
+                cbox.addItem(DEFAULT_NO_SPECTRA_TEXT)
+                cbox.setEnabled(False)
+                ui.addRunBtn.setEnabled(False)
 
     # ----------------- Shared input resolution -----------------
     def _slice_to_bounds(self, spectrum: NumPyArraySpectrum) -> Tuple[np.ndarray, u.Quantity]:

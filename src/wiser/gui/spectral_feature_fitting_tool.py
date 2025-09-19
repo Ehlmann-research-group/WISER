@@ -21,8 +21,9 @@ class SFFTool(GenericSpectralComputationTool):
 
     def __init__(self, app_state: ApplicationState, parent=None):
         self._max_rms: float = 0.03  # metric-specific name as requested
-        self._ui.method_threshold.setValue(self._max_rms)
         super().__init__("Spectral Feature Fitting", app_state, parent)
+        self._ui.method_threshold.setValue(self._max_rms)
+        self._maybe_add_default_library()
 
     # keep metric-specific name but wire into parent's UI
     def set_method_threshold(self, value: float | None) -> None:
