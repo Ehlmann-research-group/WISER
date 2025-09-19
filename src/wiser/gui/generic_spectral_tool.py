@@ -46,11 +46,12 @@ class GenericSpectralComputationTool(QDialog):
     SPEC_THRESHOLD_ATTR = "_method_threshold"
 
     # default thresholds: children should set self._method_threshold and configure spin
-    def __init__(self, app_state: ApplicationState, parent: QWidget = None):
+    def __init__(self, widget_name: str, app_state: ApplicationState, parent: QWidget = None):
         super().__init__(parent)
 
         self._ui = Ui_GenericSpectralComputation()
         self._ui.setupUi(self)
+        self.setWindowTitle(widget_name)
 
         # configure run button label
         self._ui.addRunBtn.setText(self.RUN_BUTTON_TEXT)
@@ -361,6 +362,8 @@ class GenericSpectralComputationTool(QDialog):
                 wls = u.Quantity([b["wavelength"] for b in envilib._band_list], units)
                 lib_filename = os.path.basename(lib_row["path"])
                 row_thr = float(lib_row["threshold"].value())
+                print(f"self.SPEC_THRESHOLD_ATTR: {self.SPEC_THRESHOLD_ATTR}")
+                print(f"row_thr: {row_thr}")
                 for i in range(envilib._num_spectra):
                     arr  = envilib._data[i]
                     name = envilib._spectra_names[i] if hasattr(envilib, "_spectra_names") else None
@@ -437,6 +440,7 @@ class GenericSpectralComputationTool(QDialog):
                 self._set_inputs()
             except Exception as e:
                 self._show_message("warning", "Invalid input", str(e))
+                raise e
                 return
 
             try:
@@ -445,6 +449,7 @@ class GenericSpectralComputationTool(QDialog):
             except Exception as e:
                 import traceback
                 self._show_message("error", "Error during run", str(e), details=traceback.format_exc())
+                raise e
                 return
 
             if sorted_matches:

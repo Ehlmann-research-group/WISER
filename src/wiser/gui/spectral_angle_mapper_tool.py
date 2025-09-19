@@ -20,7 +20,7 @@ class SAMTool(GenericSpectralComputationTool):
 
     def __init__(self, app_state: ApplicationState, parent=None):
         self._threshold: float = 5.0  # metric-specific name as requested
-        super().__init__(app_state, parent)
+        super().__init__("Spectral Angle Mapper", app_state, parent)
         # initialize UI threshold spin to default
         self._ui.method_threshold.setValue(self._threshold)
 

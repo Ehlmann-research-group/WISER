@@ -20,12 +20,13 @@ class SFFTool(GenericSpectralComputationTool):
 
     def __init__(self, app_state: ApplicationState, parent=None):
         self._max_rms: float = 0.03  # metric-specific name as requested
-        super().__init__(app_state, parent)
+        super().__init__("Spectral Feature Fitting", app_state, parent)
         self._ui.method_threshold.setValue(self._max_rms)
 
     # keep metric-specific name but wire into parent's UI
     def set_method_threshold(self, value: float | None) -> None:
         self._max_rms = float(value) if value is not None else self._max_rms
+        print(f"New max rms: {self._max_rms}")
 
     def details_columns(self) -> List[tuple]:
         # include scale column that is specific to SFF
