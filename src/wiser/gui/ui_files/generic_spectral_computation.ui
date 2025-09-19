@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GenericSpectralComputation</class>
+ <widget class="QWidget" name="GenericSpectralComputation">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>620</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Generic Spectral Computation</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QGroupBox" name="grp_target">
+     <property name="title">
+      <string>Target Data</string>
+     </property>
+     <layout class="QHBoxLayout" name="targetLayout">
+      <item>
+       <widget class="QLabel" name="lbl_target_type">
+        <property name="text">
+         <string>Select Target Type:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="SelectTargetData"/>
+      </item>
+      <item>
+       <widget class="QLabel" name="lbl_target">
+        <property name="text">
+         <string>Select Target:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="SelectTargetData_2"/>
+      </item>
+      <item>
+       <spacer name="targetSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="grp_settings">
+     <property name="title">
+      <string>Settings</string>
+     </property>
+     <layout class="QHBoxLayout" name="settingsLayout">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QLabel" name="label_min">
+          <property name="text">
+           <string>Min Wavelength:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="lineEdit"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QLabel" name="label_max">
+          <property name="text">
+           <string>Max Wavelength:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="lineEdit_2"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="hlayout_units">
+        <item>
+         <widget class="QLabel" name="lbl_units">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;body&gt;If either the target or reference lacks units, this unit will be assumed.&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Units:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cbox_units"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QLabel" name="label_threshold">
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;body&gt;Global threshold used for new rows; each row can override it.&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Method Threshold:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QDoubleSpinBox" name="method_threshold">
+          <property name="keyboardTracking">
+           <bool>false</bool>
+          </property>
+          <property name="decimals">
+           <number>4</number>
+          </property>
+          <property name="minimum">
+           <double>0.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>999999.000000000000000</double>
+          </property>
+          <property name="singleStep">
+           <double>0.001000000000000</double>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="settingsSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="midLayout">
+     <item>
+      <widget class="QGroupBox" name="grp_lib">
+       <property name="title">
+        <string>Reference Library Selection</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_lib">
+        <item>
+         <widget class="QScrollArea" name="libScroll">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="libContainer">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>365</width>
+             <height>124</height>
+            </rect>
+           </property>
+           <layout class="QGridLayout" name="libGrid">
+            <item row="0" column="0">
+             <widget class="QLabel" name="hdr_lib">
+              <property name="text">
+               <string>&lt;b&gt;Library&lt;/b&gt;</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="hdr_thresh_lib">
+              <property name="text">
+               <string>&lt;b&gt;Threshold&lt;/b&gt;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+        <item alignment="Qt::AlignRight">
+         <widget class="QPushButton" name="addLibBtn">
+          <property name="text">
+           <string>Add Library</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="grp_spec">
+       <property name="title">
+        <string>Reference Spectra Selection</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_spec">
+        <item>
+         <widget class="QScrollArea" name="specScroll">
+          <property name="widgetResizable">
+           <bool>true</bool>
+          </property>
+          <widget class="QWidget" name="specContainer">
+           <property name="geometry">
+            <rect>
+             <x>0</x>
+             <y>0</y>
+             <width>365</width>
+             <height>124</height>
+            </rect>
+           </property>
+           <layout class="QGridLayout" name="specGrid">
+            <item row="0" column="0">
+             <widget class="QLabel" name="hdr_spec">
+              <property name="text">
+               <string>&lt;b&gt;Spectrum&lt;/b&gt;</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="hdr_thresh_spec">
+              <property name="text">
+               <string>&lt;b&gt;Threshold&lt;/b&gt;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </widget>
+        </item>
+        <item alignment="Qt::AlignRight">
+         <widget class="QPushButton" name="addSpecBtn">
+          <property name="text">
+           <string>Add Spectrum</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="grp_history">
+     <property name="title">
+      <string>Run History</string>
+     </property>
+     <layout class="QVBoxLayout" name="historyLayout">
+      <item>
+       <widget class="QTableWidget" name="tableWidget">
+        <column>
+         <property name="text">
+          <string>Target Spectrum</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Best Match</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Score</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Details</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Remove</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="clearRunsLayout">
+        <item>
+         <spacer name="clearRunsSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QPushButton" name="clearRunsBtn">
+          <property name="text">
+           <string>Clear Runs</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="btnLayout">
+     <item>
+      <spacer name="btnSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="addSaveCloseBtn">
+       <property name="text">
+        <string>Save and Close</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="addCancelBtn">
+       <property name="text">
+        <string>Cancel</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="addRunBtn">
+       <property name="text">
+        <string>Run</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

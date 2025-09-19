@@ -12,8 +12,36 @@ import matplotlib
 import numpy as np
 from PIL import Image
 import cv2
+from astropy import units as u
 
 import math
+
+def populate_combo_box_with_units(cbox: QComboBox, default_unit: Optional[u.Unit] = u.nanometer, use_none_unit=True):
+    # Helpful mapping of units (some duplicates removed for clarity)
+    unit_options: list[tuple[str, Optional[u.Unit]]] = [
+        ("None", None),  # Allow the caller to opt-out of unit conversion
+        ("nm (nanometer)", u.nanometer),
+        ("µm (micrometer)", u.micrometer),
+        ("mm (millimeter)", u.millimeter),
+        ("cm (centimeter)", u.centimeter),
+        ("m (meter)", u.meter),
+        ("Å (angstrom)", u.angstrom),
+        ("cm⁻¹ (wavenumber)", u.cm ** -1),
+        ("GHz", u.GHz),
+        ("MHz", u.MHz),
+    ]
+
+    for text, unit_obj in unit_options:
+        if text == "None" and not use_none_unit:
+            continue
+        cbox.addItem(text, userData=unit_obj)
+    
+    # Default to nanometers if present.
+    default_index = next(
+        (i for i in range(cbox.count()) if cbox.itemData(i) == default_unit),
+        0
+    )
+    cbox.setCurrentIndex(default_index)
 
 def clear_widget(w: QWidget):
     # remove and delete any existing layout

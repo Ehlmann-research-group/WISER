@@ -85,7 +85,7 @@ class ApplicationState(QObject):
     active_spectrum_changed = Signal()
 
     # TODO(donnie):  collected_spectra_changed = Signal(StateChange, int)
-    collected_spectra_changed = Signal(object, int)
+    collected_spectra_changed = Signal(object, int, int)
 
     # TODO(donnie):  Signals for config changes and color changes!
 
@@ -725,7 +725,7 @@ class ApplicationState(QObject):
         index = len(self._collected_spectra)
         self._collected_spectra.append(spectrum)
         self._all_spectra[spectrum.get_id()] = spectrum
-        self.collected_spectra_changed.emit(StateChange.ITEM_ADDED, index)
+        self.collected_spectra_changed.emit(StateChange.ITEM_ADDED, index, spectrum.get_id())
 
     def collect_active_spectrum(self):
         '''
@@ -760,7 +760,7 @@ class ApplicationState(QObject):
         id = self._collected_spectra[index].get_id()
         del self._collected_spectra[index]
         del self._all_spectra[id]
-        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, index)
+        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, index, id)
 
     def remove_all_collected_spectra(self):
         '''
@@ -770,7 +770,7 @@ class ApplicationState(QObject):
             del self._all_spectra[s.get_id()]
 
         self._collected_spectra.clear()
-        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)
+        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1, -1)
 
     def get_user_created_crs(self):
         return self._user_created_crs

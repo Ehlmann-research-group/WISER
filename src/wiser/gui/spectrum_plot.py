@@ -42,8 +42,10 @@ from astropy import units as u
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from wiser.gui.app_state import ApplicationState
 
 MATPLOTLIB_LEGEND_ARGS = {
     LegendPlacement.NO_LEGEND : None,
@@ -410,7 +412,7 @@ class SpectrumPlotGeneric(QWidget):
         #=====================================================================
         # General configuration for the spectrum plot
 
-        self._app_state = app_state
+        self._app_state: ApplicationState = app_state
 
         # Are we displaying a legend?
         self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
@@ -1360,7 +1362,7 @@ class SpectrumPlotGeneric(QWidget):
         if treeitem.parent() is self._treeitem_collected:
             # The spectrum is in the collected spectra.
             index = self._treeitem_collected.indexOfChild(treeitem)
-            self._remove_collected_spectrum_at_index(index)
+            self._remove_collected_spectrum_at_index(index, spectrum)
             # TODO:
             '''
             self._treeitem_collected.takeChild(index)
@@ -1374,8 +1376,8 @@ class SpectrumPlotGeneric(QWidget):
             self._click = None
 
 
-    def _remove_collected_spectrum_at_index(self, index):
-        self._on_collected_spectra_changed(StateChange.ITEM_REMOVED, index)
+    def _remove_collected_spectrum_at_index(self, index, spectrum):
+        self._on_collected_spectra_changed(StateChange.ITEM_REMOVED, index, spectrum.get_id())
         if 0 <= index < len(self._collected_spectra) - 1:
             del self._collected_spectra[index]
 
@@ -1849,7 +1851,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
         self._active_spectrum_color = None
 
 
-    def _on_collected_spectra_changed(self, change, index):
+    def _on_collected_spectra_changed(self, change, index, _id):
         if change == StateChange.ITEM_ADDED:
             spectrum = self._app_state.get_collected_spectra()[index]
             treeitem = QTreeWidgetItem([spectrum.get_name()])
@@ -1995,7 +1997,18 @@ class SpectrumPlot(SpectrumPlotGeneric):
 
     
     def _on_discard_spectrum(self, treeitem, display_confirm = True):
-        super()._on_discard_spectrum(treeitem, display_confirm)
+        spectrum = treeitem.data(0, Qt.UserRole)
+
+        if display_confirm:
+            # Get confirmation from the user.
+            confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
+                self.tr('Are you sure you want to discard this spectrum?') +
+                '\n\n' + spectrum.get_name())
+
+            if confirm != QMessageBox.Yes:
+                # User canceled the discard operation.
+                return
+
         # If we got here, we are discarding the spectrum.
         if treeitem.parent() is self._treeitem_collected:
             # The spectrum is in the collected spectra.
@@ -2010,6 +2023,11 @@ class SpectrumPlot(SpectrumPlotGeneric):
         else:
             # The spectrum is the active spectrum.
             self._app_state.set_active_spectrum(None)
+
+        # Are we showing a point on the discarded spectrum?
+        if self._click is not None and self._click.get_spectrum() is spectrum:
+            self._click.remove_plot()
+            self._click = None
 
 
     def _on_discard_collected_spectra(self):

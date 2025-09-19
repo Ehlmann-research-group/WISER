@@ -17,8 +17,9 @@ _ENV_ORDER: Dict[str, int] = {
 # When a feature gets to prod, it should be removed from this mapping. 
 # Set the environment variable WISER_ENV to the desired environment to enable the features. 
 FEATURE_GATES = { 
-    "sff": "local", 
-    "sam": "local", 
+    "sff": "dev", 
+    "sam": "dev", 
+    "sff_sam_image_cube": "off",
 } 
  
  
@@ -60,8 +61,10 @@ class FeatureFlags:
  
     def is_enabled(self, feature_name: str) -> bool: 
         feature = feature_name.strip().lower() 
-        min_level: str = self._feature_gates.get(feature, "off") 
-        return _ENV_ORDER[self._current_env] >= _ENV_ORDER[min_level] 
+        feature_level: str = self._feature_gates.get(feature, "off") 
+        # Its only enabled if the flags level is greater than the current
+        # environment's level
+        return _ENV_ORDER[feature_level] >= _ENV_ORDER[self._current_env] 
  
     def to_dict(self) -> Dict[str, bool]: 
         # Snapshot of enabled booleans for current env 

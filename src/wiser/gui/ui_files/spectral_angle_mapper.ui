@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>678</width>
+    <width>784</width>
     <height>618</height>
    </rect>
   </property>
@@ -67,15 +67,21 @@
        <number>6</number>
       </property>
       <item>
-       <layout class="QFormLayout" name="minLayout">
-        <item row="0" column="0">
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
          <widget class="QLabel" name="label_min">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>Min Wavelength (nm):</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="1">
+        <item>
          <widget class="QLineEdit" name="lineEdit">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -88,15 +94,15 @@
        </layout>
       </item>
       <item>
-       <layout class="QFormLayout" name="maxLayout">
-        <item row="0" column="0">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
          <widget class="QLabel" name="label_max">
           <property name="text">
            <string>Max Wavelength (nm):</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="1">
+        <item>
          <widget class="QLineEdit" name="lineEdit_2">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -105,6 +111,29 @@
            </sizepolicy>
           </property>
          </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="hlayout_units">
+        <item>
+         <widget class="QLabel" name="lbl_units">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If either the target or the reference spectrum does not have a wavelength unit, we will use the value in this combo box as the unit.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="text">
+           <string>Units:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cbox_units"/>
         </item>
        </layout>
       </item>
@@ -183,7 +212,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>310</width>
+             <width>363</width>
              <height>129</height>
             </rect>
            </property>
@@ -274,7 +303,7 @@
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>310</width>
+             <width>363</width>
              <height>129</height>
             </rect>
            </property>

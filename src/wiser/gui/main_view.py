@@ -20,8 +20,10 @@ from .stretch_builder import StretchBuilderDialog
 from .util import add_toolbar_action, get_painter
 from .plugin_utils import add_plugin_context_menu_items
 from .scatter_plot_2D import ScatterPlot2DDialog
-from .spectral_angle_mapper import SAMTool
-from .spectral_feature_fitting import SFFTool
+# from .spectral_angle_mapper import SAMTool
+# from .spectral_feature_fitting import SFFTool
+from .spectral_angle_mapper_tool import SAMTool
+from .spectral_feature_fitting_tool import SFFTool
 
 from wiser import plugins
 
