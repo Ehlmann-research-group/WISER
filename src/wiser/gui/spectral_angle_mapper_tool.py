@@ -59,7 +59,7 @@ class SAMTool(GenericSpectralComputationTool):
         t_x = t_wls.value
         r_x = r_wls.value
 
-        if np.array_equal(r_x, t_x):
+        if np.allclose(r_x, t_x, rtol=0, atol=1e-9):
             r_resampled = r_arr
         else:
             interp_fn = interp1d(r_x, r_arr, bounds_error=False, fill_value=np.nan)
