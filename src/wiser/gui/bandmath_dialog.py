@@ -635,14 +635,15 @@ class BatchJobInfoWidget(QWidget):
         layout.setSpacing(4)
 
         # Expression (label + read-only line edit)
-        layout.addWidget(QLabel("Expression:"))
+        layout.addWidget(QLabel(self.tr("Expression:")))
         le_expr = QLineEdit()
         le_expr.setReadOnly(True)
+        le_expr.setEnabled(False)
         le_expr.setText(expression)
         le_expr.setToolTip(expression)
         layout.addWidget(le_expr)
 
-        layout.addWidget(QLabel("Assignments:"))
+        layout.addWidget(QLabel(self.tr("Assignments:")))
 
         lbl_assign = QLabel()
         lbl_assign.setWordWrap(False)  # single line
@@ -652,9 +653,10 @@ class BatchJobInfoWidget(QWidget):
         layout.addWidget(lbl_assign)
 
         # Input Folder (label + read-only line edit)
-        layout.addWidget(QLabel("Input Folder:"))
+        layout.addWidget(QLabel(self.tr("Input Folder:")))
         le_input = QLineEdit()
         le_input.setReadOnly(True)
+        le_input.setEnabled(False)
         le_input.setText(input_folder)
         le_input.setCursorPosition(0)
         le_input.setToolTip(input_folder)
@@ -662,11 +664,12 @@ class BatchJobInfoWidget(QWidget):
 
         # Output Folder (only if exists)
         if output_folder:
-            layout.addWidget(QLabel("Output Folder:"))
+            layout.addWidget(QLabel(self.tr("Output Folder:")))
             le_output = QLineEdit()
             le_output.setReadOnly(True)
+            le_output.setEnabled(False)
             le_output.setText(output_folder)
-            le_input.setCursorPosition(0)
+            le_output.setCursorPosition(0)
             le_output.setToolTip(output_folder)
             layout.addWidget(le_output)
 
@@ -674,9 +677,10 @@ class BatchJobInfoWidget(QWidget):
                                  ":/icons/wiser.ico"))
 
         # Result Prefix (label + read-only line edit)
-        layout.addWidget(QLabel("Result Prefix:"))
+        layout.addWidget(QLabel(self.tr("Result Prefix:")))
         le_result = QLineEdit()
         le_result.setReadOnly(True)
+        le_result.setEnabled(False)
         le_result.setText(result_name)
         le_result.setToolTip(result_name)
         layout.addWidget(le_result)
