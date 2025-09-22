@@ -504,7 +504,20 @@ class BandmathBatchJob:
         self._progress_bar: Optional[QProgressBar] = None
         self._btn_view_errors: Optional[QPushButton] = None
         self._errors: Optional[List[Tuple[str, str, str]]] = []
+        self._controls_widget: Optional[BatchJobControlsWidget] = None
+        self._information_widget: Optional[BatchJobInfoWidget] = None
 
+    def set_controls_widget(self, controls_widget: QWidget) -> None:
+        self._controls_widget = controls_widget
+
+    def get_controls_widget(self) -> Optional['BatchJobControlsWidget']:
+        return self._controls_widget
+
+    def set_information_widget(self, information_widget: QWidget) -> None:
+        self._information_widget = information_widget
+
+    def get_information_widget(self) -> Optional['BatchJobInfoWidget']:
+        return self._information_widget
 
     def get_process_manager(self) -> Optional[ProcessManager]:
         return self._process_manager
@@ -622,6 +635,68 @@ def icon_text_label(text: str, icon_path: str, icon_size: int = 16) -> QWidget:
 
     h.addStretch(1)
     return w
+
+class BatchJobControlsWidget(QWidget):
+    def __init__(self, bandmath_dialog: 'BandMathDialog', batch_job: BandmathBatchJob, parent=None):
+        super().__init__(parent)
+
+        self._bandmath_dialog = bandmath_dialog
+        self.batch_job = batch_job
+
+        self.container = QWidget()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        self.container.setLayout(layout)
+
+        # Start button
+        self.btn_start = QPushButton(self.tr("Start"))
+        self.btn_start.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_start.setMaximumWidth(140)
+        self.btn_start.clicked.connect(lambda: self._bandmath_dialog._run_batch_job(self.batch_job))
+        self.batch_job.set_btn_start(self.btn_start)
+        layout.addWidget(self.btn_start)
+
+        # Cancel button
+        self.btn_cancel = QPushButton(self.tr("Cancel"))
+        self.btn_cancel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_cancel.setMaximumWidth(140)
+        self.btn_cancel.clicked.connect(lambda: self._bandmath_dialog._cancel_batch_job(self.batch_job))
+        self.btn_cancel.setEnabled(False)
+        self.batch_job.set_btn_cancel(self.btn_cancel)
+        layout.addWidget(self.btn_cancel)
+
+        # Remove button
+        self.btn_remove = QPushButton(self.tr("Remove"))
+        self.btn_remove.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_remove.setMaximumWidth(140)
+        self.btn_remove.clicked.connect(lambda: self._bandmath_dialog._remove_batch_job(self.batch_job))
+        self.batch_job.set_btn_remove(self.btn_remove)
+        layout.addWidget(self.btn_remove)
+
+        # View Errors button
+        self.btn_view_errors = QPushButton(self.tr("View Errors"))
+        self.btn_view_errors.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_view_errors.setMaximumWidth(140)
+        self.btn_view_errors.clicked.connect(lambda: self._bandmath_dialog._view_batch_job_errors(self.batch_job))
+        self.btn_view_errors.setEnabled(False)
+        self.batch_job.set_btn_view_errors(self.btn_view_errors)
+        layout.addWidget(self.btn_view_errors)
+
+        # Progress bar
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 100)
+        self.progress.setValue(0)
+        self.progress.setTextVisible(True)
+        self.progress.setFormat("Idle")
+        self.progress.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.progress.setMaximumWidth(160)
+        self.batch_job.set_progress_bar(self.progress)
+        layout.addWidget(self.progress)
+    
+    def set_progress_bar_to_idle(self):
+        self.progress.setFormat("Idle")
+        self.progress.setValue(0)
 
 class BatchJobInfoWidget(QWidget):
     def __init__(self, expression: str, variables: Dict[str, Tuple[bandmath.VariableType, Any]], 
@@ -974,10 +1049,27 @@ class BandMathDialog(QDialog):
         tbl.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
         self._ui.btn_run_all.clicked.connect(self._run_all_batch_jobs)
+        self._ui.btn_cancel_all.clicked.connect(self._cancel_all_batch_jobs)
 
     def _run_all_batch_jobs(self):
         for job in self._batch_jobs:
-            self._run_batch_job(job)
+            process_manager = job.get_process_manager()
+            # If the job already has a process manager, then it has already been run
+            if process_manager:
+                task = process_manager.get_task()
+                if task.get_task_state() != ParallelTaskState.RUNNING:
+                    self._run_batch_job(job)
+            # If the job doesn't have a process manager then it hasn't already been run
+            else:
+                self._run_batch_job(job)
+    
+    def _cancel_all_batch_jobs(self):
+        for job in self._batch_jobs:
+            process_manager = job.get_process_manager()
+            # A job must have a process manager in order to be cancellable
+            if process_manager and process_manager.get_task():
+                self.on_bandmath_job_cancelled(job, process_manager.get_task())
+                self._cancel_batch_job(job)
 
     def on_bandmath_job_success(self, job: BandmathBatchJob,
                             results: List[Tuple[bandmath.VariableType, Any]]):
@@ -1003,6 +1095,7 @@ class BandMathDialog(QDialog):
         try:
             job.get_btn_start().setEnabled(True)
             job.get_btn_cancel().setEnabled(False)
+            job.get_controls_widget().set_progress_bar_to_idle()
         except RuntimeError as e:
             # There is a point where the process is cancelled and these buttons
             # have been deleted before this callback is called. So we just ignore
@@ -1116,7 +1209,9 @@ class BandMathDialog(QDialog):
         t.setItem(new_row, 1, size_item)
 
         # Col 2: run controls (start, cancel, remove, progress)
-        t.setCellWidget(new_row, 2, self._create_job_run_controls_widget(batch_job))
+        controls_widget = self._create_job_run_controls_widget(batch_job)
+        t.setCellWidget(new_row, 2, controls_widget.container)
+        batch_job.set_controls_widget(controls_widget)
 
         # Defer so Qt can polish the embedded widget's layout; then size to contents
         QTimer.singleShot(0, lambda: (t.resizeColumnToContents(1),
@@ -1128,59 +1223,11 @@ class BandMathDialog(QDialog):
         item.setTextAlignment(Qt.AlignCenter)
         return item
 
-    def _create_job_run_controls_widget(self, batch_job: BandmathBatchJob) -> QWidget:
-        container = QWidget()
-        layout = QVBoxLayout()
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
-        container.setLayout(layout)
+    def _create_job_run_controls_widget(self, batch_job: BandmathBatchJob) -> BatchJobControlsWidget:
 
-        # Start button (wired up)
-        btn_start = QPushButton(self.tr("Start"))
-        btn_start.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        btn_start.setMaximumWidth(140)
-        btn_start.clicked.connect(lambda: self._run_batch_job(batch_job))
-        batch_job.set_btn_start(btn_start)
-        layout.addWidget(btn_start)
+        controls_widget = BatchJobControlsWidget(self, batch_job)
 
-        # Cancel button (no functionality yet)
-        btn_cancel = QPushButton(self.tr("Cancel"))
-        btn_cancel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        btn_cancel.setMaximumWidth(140)
-        btn_cancel.clicked.connect(lambda: self._cancel_batch_job(batch_job))
-        btn_cancel.setEnabled(False)
-        batch_job.set_btn_cancel(btn_cancel)
-        layout.addWidget(btn_cancel)
-
-        # Remove button (no functionality yet)
-        btn_remove = QPushButton(self.tr("Remove"))
-        btn_remove.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        btn_remove.setMaximumWidth(140)
-        batch_job.set_btn_remove(btn_remove)
-        btn_remove.clicked.connect(lambda: self._remove_batch_job(batch_job))
-        layout.addWidget(btn_remove)
-
-        # View Errors button (no functionality yet)
-        btn_view_errors = QPushButton(self.tr("View Errors"))
-        btn_view_errors.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        btn_view_errors.setMaximumWidth(140)
-        btn_view_errors.clicked.connect(lambda: self._view_batch_job_errors(batch_job))
-        btn_view_errors.setEnabled(False)
-        batch_job.set_btn_view_errors(btn_view_errors)
-        layout.addWidget(btn_view_errors)
-
-        # Progress bar (no functionality yet)
-        progress = QProgressBar()
-        progress.setRange(0, 100)
-        progress.setValue(0)
-        progress.setTextVisible(True)
-        progress.setFormat(f"Idle")
-        progress.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        progress.setMaximumWidth(160)
-        batch_job.set_progress_bar(progress)
-        layout.addWidget(progress)
-
-        return container
+        return controls_widget
 
     def _view_batch_job_errors(self, batch_job: BandmathBatchJob):
         '''
@@ -1234,6 +1281,7 @@ class BandMathDialog(QDialog):
             result_name=batch_job.get_result_suffix(),
             width_hint=150
         )
+        batch_job.set_information_widget(info_widget)
 
         return info_widget
 
