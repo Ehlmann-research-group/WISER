@@ -52,7 +52,10 @@ class SFFTool(GenericSpectralComputationTool):
     def _resample_to(x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray) -> np.ndarray:
         if x_src.size < 2 or np.all(~np.isfinite(y_src)):
             return np.full_like(x_dst, np.nan, dtype=float)
-        f = interp1d(x_src, y_src, kind="linear", bounds_error=False, fill_value=np.nan)
+        # Slice to bounds should have already taken care of the case that something is outside
+        # of x_src's range, so this shold only happen if a value is really close to the range
+        # which will only happen from a floating point error. We want to keep these values.
+        f = interp1d(x_src, y_src, kind="linear", bounds_error=False, fill_value="extrapolate")
         return f(x_dst)
 
     @staticmethod
@@ -124,7 +127,6 @@ class SFFTool(GenericSpectralComputationTool):
 
         a_t = self._continuum_remove_and_invert(t_xv, t_reflect_v)
         a_r = self._continuum_remove_and_invert(t_xv, r_reflect_v)
-
         if not np.any(np.isfinite(a_r)) or np.allclose(a_r, 0.0, atol=1e-12):
             return (np.nan, {})
 

@@ -1955,6 +1955,12 @@ class WiserTestModel:
         QTest.mouseDClick(widget, Qt.LeftButton, Qt.NoModifier, pos)
         QTest.mouseRelease(widget, Qt.LeftButton, Qt.NoModifier, pos)
 
+
+    #==========================================
+    # region SAM & SFF 
+    #==========================================
+
+
     #==========================================
     # region Bandmath 
     #==========================================
