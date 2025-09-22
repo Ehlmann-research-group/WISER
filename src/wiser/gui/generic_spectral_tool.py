@@ -360,11 +360,9 @@ class GenericSpectralComputationTool(QDialog):
     def _slice_to_bounds(self, spectrum: NumPyArraySpectrum) -> Tuple[np.ndarray, u.Quantity]:
         wls = spectrum.get_wavelengths()
         if not isinstance(wls, u.Quantity):
-            print(f"!!!!!!!!!!")
             unit = spectrum.get_wavelength_units() if spectrum.has_wavelengths() else self._get_wavelength_units()
             wls = u.Quantity(wls, unit)
         elif wls.unit == u.dimensionless_unscaled:
-            print(f"===================")
             unit = self._get_wavelength_units()
             wls = u.Quantity(wls.value, unit)
 
