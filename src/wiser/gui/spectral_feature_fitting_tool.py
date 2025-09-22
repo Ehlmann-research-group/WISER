@@ -52,7 +52,7 @@ class SFFTool(GenericSpectralComputationTool):
     def _resample_to(x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray) -> np.ndarray:
         if x_src.size < 2 or np.all(~np.isfinite(y_src)):
             return np.full_like(x_dst, np.nan, dtype=float)
-        f = interp1d(x_src, y_src, kind="linear", bounds_error=False, fill_value=np.nan)
+        f = interp1d(x_src, y_src, kind="linear", bounds_error=False, fill_value="extrapolate")
         return f(x_dst)
 
     @staticmethod
@@ -105,33 +105,54 @@ class SFFTool(GenericSpectralComputationTool):
         MIN_SAMPLES = 3
         t_reflect, t_wls = self._slice_to_bounds(self._target)
         r_reflect, r_wls = self._slice_to_bounds(ref)
+        print(f"t_reflect: {t_reflect} after slice_to_bounds")
+        print(f"r_reflect: {r_reflect} after slice_to_bounds")
 
         t_x = t_wls.value
         r_x = r_wls.value
 
         if np.array_equal(r_x, t_x):
+            print(f"no resampling")
             r_reflect_rs = r_reflect
         else:
+            print(f"resampling")
+            print(f"r_x: {r_x}")
+            print(f"r_reflect: {r_reflect} before sampling")
+            print(f"t_x: {t_x}")
             r_reflect_rs = self._resample_to(r_x, r_reflect, t_x)
+            print(f"r_reflect_rs: {r_reflect_rs} after sampling")
 
         valid = np.isfinite(t_reflect) & np.isfinite(r_reflect_rs)
         if valid.sum() < MIN_SAMPLES:
+            print(f"#$%#$$% valid.sum() < MIN_SAMPLES")
             return (np.nan, {})
 
+        print(f"valid: {valid}")
         t_xv = t_x[valid]
         t_reflect_v = t_reflect[valid]
+        print(f"r_reflect_rs: {r_reflect_rs}")
         r_reflect_v = r_reflect_rs[valid]
+        print(f"r_reflect_v: {r_reflect_v}")
 
         a_t = self._continuum_remove_and_invert(t_xv, t_reflect_v)
+        print(f"t_xv: {t_xv}")
+        print(f"t_reflect_v: {t_reflect_v}")
+        print(f"r_reflect_v: {r_reflect_v}")
         a_r = self._continuum_remove_and_invert(t_xv, r_reflect_v)
-
+        print(f"a_r: {a_r}")
+        print(f"a_t: {a_t}")
         if not np.any(np.isfinite(a_r)) or np.allclose(a_r, 0.0, atol=1e-12):
+            print(f"#$%#$$% not np.any(np.isfinite(a_r)) or np.allclose(a_r, 0.0, atol=1e-12)")
             return (np.nan, {})
 
         num = float(np.dot(a_r, a_t))
         den = float(np.dot(a_r, a_r))
         if den <= 0:
+            print(f"#$%#$$% den <= 0")
             return (np.nan, {})
+        print(f"num: {num}")
+        print(f"den: {den}")
+        print(f"num / den: {num / den}")
         scale = max(0.0, num / den)
 
         resid = a_t - scale * a_r
