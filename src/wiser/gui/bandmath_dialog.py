@@ -656,9 +656,9 @@ class BatchJobInfoWidget(QWidget):
         layout.addWidget(QLabel(self.tr("Input Folder:")))
         le_input = QLineEdit()
         le_input.setReadOnly(True)
+        le_input.setEnabled(False)
         le_input.setText(input_folder)
         le_input.setCursorPosition(0)
-        le_input.setEnabled(False)
         le_input.setToolTip(input_folder)
         layout.addWidget(le_input)
 
@@ -667,9 +667,9 @@ class BatchJobInfoWidget(QWidget):
             layout.addWidget(QLabel(self.tr("Output Folder:")))
             le_output = QLineEdit()
             le_output.setReadOnly(True)
+            le_output.setEnabled(False)
             le_output.setText(output_folder)
             le_output.setCursorPosition(0)
-            le_output.setEnabled(False)
             le_output.setToolTip(output_folder)
             layout.addWidget(le_output)
 
