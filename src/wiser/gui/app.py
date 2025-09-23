@@ -69,6 +69,8 @@ from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 from wiser.gui.parallel_task import ParallelTaskProcess
+from wiser.gui.spectral_angle_mapper_tool import SAMTool
+from wiser.gui.spectral_feature_fitting_tool import SFFTool
 
 from wiser.config import FLAGS
 
@@ -293,6 +295,18 @@ class DataVisualizerApp(QMainWindow):
 
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
+
+        submenu = self._tools_menu.addMenu(self.tr('Data Analysis'))
+        act = submenu.addAction(self.tr('Interactive Scatter Plot'))
+        act.triggered.connect(self.show_scatter_plot_dialog)
+
+        if FLAGS.sam: 
+            act = submenu.addAction(self.tr('Spectral Angle Mapper'))
+            act.triggered.connect(self.show_spectral_angle_mapper_dialog)
+
+        if FLAGS.sff: 
+            act = submenu.addAction(self.tr('Spectral Feature Fitting'))
+            act.triggered.connect(self.show_spectral_feature_fitting_dialog)
 
         act = self._tools_menu.addAction(self.tr('Geo Reference'))
         act.triggered.connect(self.show_geo_reference_dialog)
@@ -822,6 +836,18 @@ class DataVisualizerApp(QMainWindow):
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
 
+    def show_spectral_angle_mapper_dialog(self):
+        dlg = SAMTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
+
+    def show_spectral_feature_fitting_dialog(self):
+        dlg = SFFTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
+
+    def show_scatter_plot_dialog(self):
+        self._main_view.on_scatter_plot_2D()
 
     def show_geo_reference_dialog(self, in_test_mode = False):
         if self._geo_ref_dialog is None:

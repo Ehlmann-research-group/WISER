@@ -1819,7 +1819,7 @@ class WiserTestModel:
     @run_in_wiser_decorator
     def open_interactive_scatter_plot_context_menu(self, rv_pos: Tuple[int, int]=(0, 0)):
         rv = self.get_main_view_rv(rv_pos)
-        self.main_view._on_scatter_plot_2D(rv, testing=True)
+        self.main_view.on_scatter_plot_2D(rv, testing=True)
 
     @run_in_wiser_decorator
     def set_interactive_scatter_x_axis_dataset(self, ds_id: int):
