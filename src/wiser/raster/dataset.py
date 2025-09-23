@@ -177,6 +177,76 @@ class SpatialMetadata():
     def __str__(self):
         return f'SpatialMetadata[geo_transform={self._geo_transform}, spatial_ref={self._wkt_spatial_reference}, wkt_spatial_reference={self._wkt_spatial_reference}]'
     
+    @staticmethod
+    def subset_to_window(
+        meta: 'SpatialMetadata',
+        dataset: 'RasterDataSet',
+        row_min: int,
+        row_max: int,
+        col_min: int,
+        col_max: int,
+    ) -> 'SpatialMetadata':
+        """
+        Return a new SpatialMetadata corresponding to the subwindow
+        [row_min:row_max] x [col_min:col_max] (inclusive bounds).
+        
+        The new geotransform is computed using GDAL's affine model:
+          Xgeo = GT0 + col*GT1 + row*GT2
+          Ygeo = GT3 + col*GT4 + row*GT5
+
+        For a crop starting at (row_min, col_min), only GT0 and GT3 change:
+          GT0' = GT0 + col_min*GT1 + row_min*GT2
+          GT3' = GT3 + col_min*GT4 + row_min*GT5
+        The remaining terms (GT1, GT2, GT4, GT5) are unchanged.
+
+        Args:
+            meta: Existing SpatialMetadata.
+            dataset: An object providing get_height() and get_width().
+            row_min, row_max, col_min, col_max: Integers (inclusive).
+
+        Returns:
+            SpatialMetadata for the cropped window (same spatial reference).
+
+        Raises:
+            ValueError on invalid ranges or if window is out-of-bounds.
+        """
+        # Validate inputs
+        if not isinstance(row_min, int) or not isinstance(row_max, int) \
+           or not isinstance(col_min, int) or not isinstance(col_max, int):
+            raise ValueError("row/col bounds must be integers.")
+
+        if row_min > row_max or col_min > col_max:
+            raise ValueError("min must be <= max for rows and columns.")
+
+        height = int(dataset.get_height())
+        width  = int(dataset.get_width())
+
+        if row_min < 0 or col_min < 0 or row_max >= height or col_max >= width:
+            raise ValueError(
+                f"Window out of bounds: rows [0,{height-1}], cols [0,{width-1}] "
+                f"but got rows [{row_min},{row_max}], cols [{col_min},{col_max}]."
+            )
+
+        GT0, GT1, GT2, GT3, GT4, GT5 = meta.get_geo_transform()
+
+        # Offset origin to the new upper-left pixel of the crop
+        new_GT0 = GT0 + col_min * GT1 + row_min * GT2
+        new_GT3 = GT3 + col_min * GT4 + row_min * GT5
+
+        new_geo_transform: Tuple[float, float, float, float, float, float] = (
+            float(new_GT0),  # x of UL corner
+            float(GT1),      # pixel width
+            float(GT2),      # row rotation
+            float(new_GT3),  # y of UL corner
+            float(GT4),      # column rotation
+            float(GT5),      # pixel height (neg for north-up)
+        )
+
+        return SpatialMetadata(
+            geo_transform=new_geo_transform,
+            wkt_spatial_reference=meta.get_wkt_spatial_reference(),
+        )
+
 class SpectralMetadata():
 
     def __init__(self, band_info: Dict[str, Any], bad_bands: List[int], 
@@ -236,6 +306,148 @@ class SpectralMetadata():
     
     def __str__(self):
         return f'SpectralMetadata[band_info={self._band_info}, bad_bands={self._bad_bands}, default_display_bands={self._default_display_bands}, data_ignore_value={self._data_ignore_value}, has_wavelengths={self._has_wavelengths}]'
+
+    @staticmethod
+    def subset_by_wavelength_range(
+        meta: 'SpectralMetadata',
+        wl_min: u.Quantity,
+        wl_max: u.Quantity,
+    ) -> 'SpectralMetadata':
+        """
+        Create a new SpectralMetadata limited to bands whose wavelengths fall within
+        [wl_min, wl_max], inclusive. wl_min and wl_max must exactly match existing
+        entries in `meta.get_wavelengths()` (after unit conversion to the metadata's
+        wavelength units).
+
+        Rules:
+          - wavelengths, num_bands, band_info, bad_bands are sliced to the range
+          - band_info['index'] is re-based to start at 0
+          - default_display_bands are shifted to the new index space; if any are
+            out of range, default to the first 3 bands (or fewer if <3 bands)
+
+        Raises:
+          ValueError if metadata has no wavelengths, units are incompatible, or
+          wl_min/wl_max do not exactly match existing wavelengths.
+        """
+        if not meta.get_has_wavelengths():
+            raise ValueError("Cannot subset: metadata has no wavelengths.")
+
+        wls: List[u.Quantity] = meta.get_wavelengths()
+        if wls is None or len(wls) == 0:
+            raise ValueError("Cannot subset: empty wavelength list.")
+
+        # Determine the canonical units used by this metadata
+        meta_units: Optional[u.Unit] = meta.get_wavelength_units()
+        if meta_units is None:
+            # If units aren't recorded, infer from the first wavelength quantity
+            meta_units = wls[0].unit
+
+        # Convert bounds to the metadata's units
+        try:
+            wl_min_c = wl_min.to(meta_units)
+            wl_max_c = wl_max.to(meta_units)
+        except Exception as e:
+            raise ValueError(f"Incompatible wavelength units: {e}")
+
+        # Ensure ascending order
+        if wl_min_c > wl_max_c:
+            wl_min_c, wl_max_c = wl_max_c, wl_min_c
+
+        # Build an array of magnitudes in the metadata unit for exact matching/slicing
+        wl_vals = np.array([q.to(meta_units).value for q in wls], dtype=float)
+
+        # Find exact (not fuzzy) index matches for the provided bounds
+        # "Exact" here means identical float magnitudes after unit conversion.
+        # If your stored wavelengths were parsed from strings, this should hold.
+        def find_exact_idx(target: float) -> int:
+            matches = np.nonzero(wl_vals == target)[0]
+            if matches.size == 0:
+                raise ValueError(
+                    f"Requested wavelength {target} {meta_units} not found exactly in metadata."
+                )
+            return int(matches[0])
+
+        start_idx = find_exact_idx(wl_min_c.value)
+        end_idx = find_exact_idx(wl_max_c.value)
+
+        if start_idx > end_idx:
+            start_idx, end_idx = end_idx, start_idx
+
+        # Slice indices (inclusive of end)
+        idx_slice = slice(start_idx, end_idx + 1)
+        new_wls = wls[idx_slice]
+        new_num_bands = len(new_wls)
+
+        # Slice/adjust bad_bands (list of indices, not a mask)
+        old_bad = meta.get_bad_bands() or []
+        if old_bad:
+            new_bad = old_bad[idx_slice]
+        else:
+            new_bad = [1] * new_num_bands
+        print(f"old_bad: {old_bad}")
+        print(f"new_bad: {new_bad}")
+        print(f"len old_bad: {len(old_bad)}")
+        print(f"len new_bad: {len(new_bad)}")
+        # Rebuild band_info with re-based indices and consistent wavelength fields
+        old_band_info: List[Dict[str, Any]] = meta.get_band_info()
+        new_band_info: List[Dict[str, Any]] = []
+        for new_i, old_i in enumerate(range(start_idx, end_idx + 1)):
+            ob = old_band_info[old_i].copy()
+
+            # Re-base index to new_i
+            ob["index"] = new_i
+
+            # Ensure wavelength fields match the subset quantities exactly
+            q: u.Quantity = new_wls[new_i]
+            ob["wavelength"] = q
+            ob["wavelength_units"] = str(q.unit)
+            # Preserve a stable string representation
+            ob["wavelength_str"] = f"{q.to_value(q.unit)}"
+
+            # Keep description if present; otherwise, make a simple one
+            if "description" not in ob or not ob["description"]:
+                ob["description"] = f"{q}"
+
+            new_band_info.append(ob)
+
+        # Shift/validate default display bands
+        old_display: DisplayBands = meta.get_default_display_bands()
+        def shift_display(db: DisplayBands) -> Optional[DisplayBands]:
+            if db:
+                # Shift each band by -start_idx and ensure all are within new range
+                shifted: Tuple[int, ...] = tuple(b - start_idx for b in db)
+                if all(0 <= b < new_num_bands for b in shifted):
+                    return shifted  # type: ignore
+            return None
+
+        shifted_display = shift_display(old_display)
+        print(f"!@# shifted_display: {shifted_display}")
+        if shifted_display is None:
+            # Reset to first 3 (or fewer if not enough bands)
+            if new_num_bands >= 3:
+                new_display: DisplayBands = (0, 1, 2)
+            elif new_num_bands == 2:
+                new_display = (0, 1)
+            elif new_num_bands == 1:
+                new_display = (0,)
+            else:
+                # No bands — edge case; keep as empty tuple
+                new_display = tuple()  # type: ignore
+        else:
+            new_display = shifted_display
+        print(f"!@# new_display: {new_display}")
+
+        # Construct and return the new SpectralMetadata
+        return SpectralMetadata(
+            band_info=new_band_info,
+            bad_bands=new_bad,
+            default_display_bands=new_display,
+            num_bands=new_num_bands,
+            data_ignore_value=meta.get_data_ignore_value(),
+            has_wavelengths=True,
+            wavelengths=new_wls,
+            wavelength_units=meta_units,
+        )
 
 class RasterDataSet(Serializable):
     '''
@@ -564,7 +776,7 @@ class RasterDataSet(Serializable):
                               filter_data_ignore_value=True):
         '''
         Returns a 3D numpy array of values specified starting at x, y, and band
-        and going until x+dx, y+dy, band+dband.
+        and going until x+dx, y+dy, band+dband. The d variables are exclusive.
 
         Data returned is in format arr[b][y][x]
         '''

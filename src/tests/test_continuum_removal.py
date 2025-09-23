@@ -31,7 +31,7 @@ from PySide2.QtWidgets import *
 class TestContinuumRemoval(unittest.TestCase):
     """Tests the continuum removal functionality in WISER.
 
-    This test case validates the plugin’s ability to:
+    This test case validates the plugin's ability to:
     - Apply continuum removal to hyperspectral image datasets.
     - Apply continuum removal to individual spectra.
     
