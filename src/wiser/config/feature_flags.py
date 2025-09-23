@@ -17,8 +17,8 @@ _ENV_ORDER: Dict[str, int] = {
 # When a feature gets to prod, it should be removed from this mapping. 
 # Set the environment variable WISER_ENV to the desired environment to enable the features. 
 FEATURE_GATES = { 
-    "sff": "dev", 
-    "sam": "dev", 
+    "sff": "prod", 
+    "sam": "prod", 
     "sff_sam_image_cube": "off",
 } 
  

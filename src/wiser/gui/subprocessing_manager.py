@@ -1,6 +1,5 @@
 import multiprocessing as mp
 import multiprocessing.connection as mp_conn
-_CTX = mp.get_context("spawn")  # always use a spawn context for same results on windows and linux
 
 from typing import Callable, Dict, List, Union
 
@@ -72,12 +71,12 @@ class ProcessManager(QObject):
 
     def __init__(self, operation: Callable, kwargs: Dict = {}):
         super().__init__()
-        self._parent_conn, self._child_conn = _CTX.Pipe(duplex=False)
-        self._return_q = _CTX.Queue()
+        self._parent_conn, self._child_conn = mp.Pipe(duplex=False)
+        self._return_q = mp.Queue()
         kwargs['op'] = operation
         kwargs['child_conn'] = self._child_conn
         kwargs['return_queue'] = self._return_q
-        self._process = _CTX.Process(target=child_trampoline, kwargs=kwargs)
+        self._process = mp.Process(target=child_trampoline, kwargs=kwargs)
         self._task = ParallelTaskProcess(self._process, self._parent_conn, self._child_conn, self._return_q)
         self._process_manager_id = type(self)._next_process_id
         type(self)._next_process_id += 1
