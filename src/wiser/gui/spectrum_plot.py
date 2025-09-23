@@ -195,7 +195,7 @@ class SpectrumDisplayInfo:
 
             wavelengths = raster_utils.get_band_values(
                 self._spectrum.get_wavelengths(), to_unit)
-    
+
             lines = axes.plot(wavelengths, self._values, color=color,
                 linewidth=linewidth, label=self._spectrum.get_name())
             assert(len(lines) == 1)
