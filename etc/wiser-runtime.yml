@@ -1,3 +1,8 @@
+# Use this file by creating a conda-lock file with the command:
+#   ```conda-lock lock -f wiser-runtime.yml -p win-64 -p osx-64 -p osx-arm64```
+# Then install the environment with the command:
+#   ```conda-lock install -n wiser-runtime conda-lock.yml```
+
 name: wiser-runtime
 channels:
   - conda-forge
