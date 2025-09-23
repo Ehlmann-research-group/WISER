@@ -191,26 +191,8 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     iy_hull: ndarray
         An array of points on the convex hull
     """
-    # # I do this because of typing something is promoting these
-    # # arrays to float64
-    # if reflectance.dtype != np.float32:
-    #     reflectance = reflectance.astype(np.float32)
-    # if waves.dtype != np.float32:
-    #     waves = waves.astype(np.float32)
-
-    # points = np.column_stack((waves, reflectance))
-    # hull = monotone_numba(points)
-    # coords_con_hull = hull.transpose()
-    # order = np.argsort(coords_con_hull[0])
-    # xp = coords_con_hull[0][order]
-    # fp = coords_con_hull[1][order]
-    # iy_hull_np = np.interp(waves, xp, fp)
-    # norm = np.divide(reflectance, iy_hull_np)
-    # final = np.column_stack((waves, norm)).transpose(1, 0)[1]
-    # return final, iy_hull_np
-
-    # 2) Build points in float32 (avoid upcast)
-    #    (Numba is fine with column_stack, but it can upcast; be explicit)
+    # Build points in float32 (avoid upcast)
+    # (Numba is fine with column_stack, but it can upcast; be explicit)
     points = np.empty((waves.shape[0], 2), dtype=np.float32)
     points[:, 0] = waves
     points[:, 1] = reflectance
@@ -222,12 +204,12 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     xp = coords_con_hull[0][order]  # float32[:]
     fp = coords_con_hull[1][order]  # float32[:]
 
-    # 3) np.interp commonly yields float64; Numba also prefers float64 here.
-    #    Use float64 temporaries for interpolation, then cast back to float32.
+    # np.interp commonly yields float64; Numba also prefers float64 here.
+    #  Use float64 temporaries for interpolation, then cast back to float32.
     iy_hull64 = np.interp(waves.astype(np.float64), xp.astype(np.float64), fp.astype(np.float64))
     iy_hull = iy_hull64.astype(np.float32)
 
-    # 4) Keep division in float32 and return float32 arrays
+    # Keep division in float32 and return float32 arrays
     norm = np.divide(reflectance, iy_hull)
 
     # Returning (float32[:], float32[:]) to match cr_sig
@@ -271,7 +253,6 @@ def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: in
     )  # [y][x][b] -> [b][y][x]
     return results
 
-C3 = types.Array(types.float32, 3, 'C')  # 3D C-layout
 cr_image_sig = types.float32[:, :, :](types.float32[:, :, :], types.float32[:], types.int32, types.int32, types.int32)
 @numba_njit_wrapper(non_njit_func=continuum_removal_image, signature=cr_image_sig)
 def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
@@ -316,7 +297,8 @@ def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, ro
 
 class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
     """
-    A Class to represents the continuum removal plugin
+    A Class to represents the continuum removal plugin. Can do continuum removal on a single spectrum
+    or an image.
 
     Parameters
     ----------

@@ -221,9 +221,11 @@ class SpatialMetadata():
         height = int(dataset.get_height())
         width  = int(dataset.get_width())
 
-        if row_min < 0 or col_min < 0 or row_max >= height or col_max >= width:
+        # We subtract 1 here because row_max and col_max had a 1 added to them to make their
+        # original value be retained because getting bands in the image is exclusive.
+        if row_min < 0 or col_min < 0 or row_max-1 >= height or col_max-1 >= width:
             raise ValueError(
-                f"Window out of bounds: rows [0,{height-1}], cols [0,{width-1}] "
+                f"Window out of bounds: height {height-1}, width {width-1}, "
                 f"but got rows [{row_min},{row_max}], cols [{col_min},{col_max}]."
             )
 
@@ -391,6 +393,8 @@ class SpectralMetadata():
         # Rebuild band_info with re-based indices and consistent wavelength fields
         old_band_info: List[Dict[str, Any]] = meta.get_band_info()
         new_band_info: List[Dict[str, Any]] = []
+        print(f"start_idx: {start_idx}")
+        print(f"end_idx: {end_idx}")
         for new_i, old_i in enumerate(range(start_idx, end_idx + 1)):
             ob = old_band_info[old_i].copy()
 
@@ -400,7 +404,7 @@ class SpectralMetadata():
             # Ensure wavelength fields match the subset quantities exactly
             q: u.Quantity = new_wls[new_i]
             ob["wavelength"] = q
-            ob["wavelength_units"] = str(q.unit)
+            ob["wavelength_units"] = q.unit.to_string()
             # Preserve a stable string representation
             ob["wavelength_str"] = f"{q.to_value(q.unit)}"
 
@@ -410,29 +414,33 @@ class SpectralMetadata():
 
             new_band_info.append(ob)
 
+        print(f"old_band_info: {old_band_info}")
+        print(f"new_band_info: {new_band_info}")
+
         # Shift/validate default display bands
         old_display: DisplayBands = meta.get_default_display_bands()
         def shift_display(db: DisplayBands) -> Optional[DisplayBands]:
             if db:
                 # Shift each band by -start_idx and ensure all are within new range
-                shifted: Tuple[int, ...] = tuple(b - start_idx for b in db)
+                shifted: Tuple[int, ...] = list(b - start_idx for b in db)
                 if all(0 <= b < new_num_bands for b in shifted):
                     return shifted  # type: ignore
             return None
 
         shifted_display = shift_display(old_display)
+        print(f"!@# old_display: {old_display}")
         print(f"!@# shifted_display: {shifted_display}")
         if shifted_display is None:
             # Reset to first 3 (or fewer if not enough bands)
             if new_num_bands >= 3:
-                new_display: DisplayBands = (0, 1, 2)
+                new_display: DisplayBands = list(0, 1, 2)
             elif new_num_bands == 2:
-                new_display = (0, 1)
+                new_display = list(0, 1)
             elif new_num_bands == 1:
-                new_display = (0,)
+                new_display = list(0,)
             else:
                 # No bands — edge case; keep as empty tuple
-                new_display = tuple()  # type: ignore
+                new_display = list()  # type: ignore
         else:
             new_display = shifted_display
         print(f"!@# new_display: {new_display}")

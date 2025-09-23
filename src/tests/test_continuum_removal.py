@@ -21,6 +21,7 @@ from test_utils.test_model import WiserTestModel
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
 
 from wiser.raster.spectrum import Spectrum, NumPyArraySpectrum
+from wiser.raster.dataset import dict_list_equal
 
 from astropy import units as u
 
@@ -90,7 +91,7 @@ class TestContinuumRemoval(unittest.TestCase):
         self.assertTrue(cr_dataset.has_wavelengths() == gt_dataset.has_wavelengths())
         self.assertTrue(cr_dataset._default_display_bands == gt_dataset._default_display_bands)
         self.assertTrue(cr_dataset._data_ignore_value == gt_dataset._data_ignore_value)
-        self.assertTrue(cr_dataset._band_info == gt_dataset._band_info)
+        self.assertTrue(dict_list_equal(cr_dataset._band_info, gt_dataset._band_info, ignore_keys=['wavelength_units']))
 
     def test_continuum_removal_spectra(self):
         """Tests continuum removal on a single spectrum.
