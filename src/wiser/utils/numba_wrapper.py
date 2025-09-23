@@ -72,7 +72,7 @@ try:
 except ImportError:
     NUMBA_AVAILABLE = False
 
-def numba_njit_wrapper(non_njit_func, nopython=True, cache=True, signature=None):
+def numba_njit_wrapper(non_njit_func, nopython=True, cache=True, signature=None, parallel=True):
     """
     Custom function to wrap Numba's NJIT functionality and availability.
 
@@ -85,9 +85,9 @@ def numba_njit_wrapper(non_njit_func, nopython=True, cache=True, signature=None)
     def decorator(func):
         if NUMBA_AVAILABLE:
             if signature is not None:
-                return jit(signature, nopython=nopython, cache=cache)(func)
+                return jit(signature, nopython=nopython, parallel=parallel, cache=cache)(func)
             else:
-                return jit(nopython=nopython, cache=cache)(func)
+                return jit(nopython=nopython, parallel=parallel, cache=cache)(func)
         else:
             # If Numba is not available, return the non jit function
             return non_njit_func

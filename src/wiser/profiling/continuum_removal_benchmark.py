@@ -4,7 +4,7 @@ import sys
 import statistics as stats
 import timeit
 import numpy as np
-from typing import Callable
+from typing import Callable, Dict, Any
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from wiser.raster.loader import RasterDataLoader
@@ -28,7 +28,7 @@ def profile_continuum_removal_image_numba():
     rows = np.int32(dataset.get_height())
     cols = np.int32(dataset.get_width())
     bands = np.int32(dataset.num_bands())
-    result = profile_function("output/continuum_removal_image_numba_500MB_try2.txt", continuum_removal_image_numba, image_data, x_axis, rows, cols, bands)
+    result = profile_function("output/continuum_removal_image_numba_500MB_parallel.txt", continuum_removal_image_numba, image_data, x_axis, rows, cols, bands)
     return result
 
 def profile_continuum_removal_image():
@@ -91,7 +91,7 @@ def profile_continuum_spectrum_image():
     result = continuum_removal(spectrum, x_axis)
     return result
 
-def _prepare_inputs():
+def _prepare_inputs_spectrum():
     """
     Replicates your setup exactly once (IO/data prep not included in timing).
     """
@@ -117,7 +117,24 @@ def _prepare_inputs():
     x_axis = np.array([band["wavelength"].value for band in band_info], dtype=np.float32)
     return spectrum, x_axis
 
-def time_continuum_removal(repeats: int = 50, warmups: int = 5, func: Callable = continuum_removal):
+def _prepare_inputs_image():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
+    loader = RasterDataLoader()
+    dataset = loader.load_from_file(target_path)[0]
+    image_data = dataset.get_image_data()
+    if isinstance(image_data, np.ma.MaskedArray):
+        image_data = image_data.data
+    if image_data.dtype != np.float32:
+        image_data = image_data.astype(np.float32)
+    band_info = dataset.band_list()
+    x_axis = np.array([band['wavelength'].value for band in band_info], dtype=np.float32)
+    rows = np.int32(dataset.get_height())
+    cols = np.int32(dataset.get_width())
+    bands = np.int32(dataset.num_bands())
+    return image_data, x_axis, rows, cols, bands
+
+def time_continuum_removal(repeats: int = 10, warmups: int = 3, func: Callable = continuum_removal, kwargs: Dict[str, Any] = {}):
     """
     Times only the continuum_removal(spectrum, x_axis) call.
 
@@ -132,14 +149,13 @@ def time_continuum_removal(repeats: int = 50, warmups: int = 5, func: Callable =
     -------
     dict with statistics and raw timings.
     """
-    spectrum, x_axis = _prepare_inputs()
 
     # Warm up (especially helpful if continuum_removal uses Numba or allocs)
     for _ in range(warmups):
-        _ = func(spectrum, x_axis)
+        _ = func(**kwargs)
 
     # Build timer that ONLY calls the function (data already prepared)
-    t = timeit.Timer(lambda: func(spectrum, x_axis))
+    t = timeit.Timer(lambda: func(**kwargs))
 
     # Let timeit pick a reasonable inner-loop count for ~0.2s
     number, _ = t.autorange()
@@ -174,15 +190,26 @@ def time_continuum_removal(repeats: int = 50, warmups: int = 5, func: Callable =
 
 if __name__ == "__main__":
 
-    # For timinng numba vs no numba on single spectrum
-    print(f"=======Numba Timing=======")
-    time_continuum_removal(func=continuum_removal_numba)
-    print(f"=======No Numba Timing=======")
-    time_continuum_removal(func=continuum_removal)
+    # # For timing numba vs no numba on single spectrum
+    # spectrum, x_axis = _prepare_inputs_spectrum()
+    # kwargs = {"reflectance": spectrum, "waves": x_axis}
+    # print(f"=======Numba Timing=======")
+    # time_continuum_removal(func=continuum_removal_numba, kwargs=kwargs)
+    # print(f"=======No Numba Timing=======")
+    # time_continuum_removal(func=continuum_removal, kwargs=kwargs)
 
-    # # For profiling numba
-    # numba_result = profile_continuum_removal_spectrum_numba()
-    # image_result = profile_continuum_spectrum_image()
+    # # For timing numba vs no numba on an image
+    # image_data, x_axis, rows, cols, bands = _prepare_inputs_image()
+    # kwargs = {"image_data": image_data, "x_axis": x_axis, "rows": rows, "cols": cols, "bands": bands}
+    # print(f"=======Numba Timing=======")
+    # time_continuum_removal(func=continuum_removal_image_numba, kwargs=kwargs)
+    # print(f"=======No Numba Timing=======")
+    # time_continuum_removal(func=continuum_removal_image, kwargs=kwargs)
+    
+
+    # For profiling numba
+    numba_result = profile_continuum_removal_image_numba()
+    # image_result = profile_continuum_removal_image()
     # print(f"equal? {np.allclose(numba_result, image_result)}")
-    # print(f"numba_result: {numba_result[0:10,0:10,0:10]}")
+    print(f"numba_result: {numba_result[0:10,0:10,0:10]}")
     # print(f"image_result: {image_result[0:10,0:10,0:10]}")
