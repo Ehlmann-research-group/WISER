@@ -386,15 +386,9 @@ class SpectralMetadata():
             new_bad = old_bad[idx_slice]
         else:
             new_bad = [1] * new_num_bands
-        print(f"old_bad: {old_bad}")
-        print(f"new_bad: {new_bad}")
-        print(f"len old_bad: {len(old_bad)}")
-        print(f"len new_bad: {len(new_bad)}")
         # Rebuild band_info with re-based indices and consistent wavelength fields
         old_band_info: List[Dict[str, Any]] = meta.get_band_info()
         new_band_info: List[Dict[str, Any]] = []
-        print(f"start_idx: {start_idx}")
-        print(f"end_idx: {end_idx}")
         for new_i, old_i in enumerate(range(start_idx, end_idx + 1)):
             ob = old_band_info[old_i].copy()
 
@@ -414,9 +408,6 @@ class SpectralMetadata():
 
             new_band_info.append(ob)
 
-        print(f"old_band_info: {old_band_info}")
-        print(f"new_band_info: {new_band_info}")
-
         # Shift/validate default display bands
         old_display: DisplayBands = meta.get_default_display_bands()
         def shift_display(db: DisplayBands) -> Optional[DisplayBands]:
@@ -428,8 +419,6 @@ class SpectralMetadata():
             return None
 
         shifted_display = shift_display(old_display)
-        print(f"!@# old_display: {old_display}")
-        print(f"!@# shifted_display: {shifted_display}")
         if shifted_display is None:
             # Reset to first 3 (or fewer if not enough bands)
             if new_num_bands >= 3:
@@ -443,7 +432,6 @@ class SpectralMetadata():
                 new_display = list()  # type: ignore
         else:
             new_display = shifted_display
-        print(f"!@# new_display: {new_display}")
 
         # Construct and return the new SpectralMetadata
         return SpectralMetadata(
