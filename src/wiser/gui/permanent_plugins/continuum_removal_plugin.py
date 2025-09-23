@@ -25,6 +25,7 @@ from numba import njit, types
 from numba.typed import List
 import logging
 import os
+import numba
 
 from typing import TYPE_CHECKING, Tuple
 
@@ -284,7 +285,7 @@ def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, ro
         (rows_cols, bands)
     )  # [y][x][b] -> [y*x][b]
     results = np.empty_like(image_spectra_2d, dtype=np.float32)
-    for i in range(image_spectra_2d.shape[0]):
+    for i in numba.prange(image_spectra_2d.shape[0]):
         reflectance = image_spectra_2d[i]
         # TODO (Joshua G-K) Vectorize the continuum removal function
         continuum_removed, hull = continuum_removal_numba(reflectance, x_axis)
