@@ -19,7 +19,7 @@ _ENV_ORDER: Dict[str, int] = {
 FEATURE_GATES = { 
     "sff": "prod", 
     "sam": "prod", 
-    "sff_sam_image_cube": "dev",
+    "sff_sam_image_cube": "off",
 } 
  
  
