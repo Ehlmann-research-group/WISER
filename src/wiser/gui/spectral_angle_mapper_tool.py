@@ -48,6 +48,18 @@ class SAMTool(GenericSpectralComputationTool):
         )
         return default_path
 
+    # ---------- SAM helpers ----------
+    @staticmethod
+    def _resample_to(x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray) -> np.ndarray:
+        """
+        Resample y_src defined on x_src onto x_dst using linear interpolation.
+        Returns NaNs when insufficient data or invalid inputs are detected.
+        """
+        if x_src.size < 2 or np.all(~np.isfinite(y_src)):
+            return np.full_like(x_dst, np.nan, dtype=float)
+        interp_fn = interp1d(x_src, y_src, bounds_error=False, fill_value="extrapolate")
+        return interp_fn(x_dst)
+
     # compute spectral angle between target and ref in degrees
     def compute_score(self, ref: NumPyArraySpectrum) -> Tuple[float, Dict[str, Any]]:
         if self._target is None:
@@ -60,11 +72,10 @@ class SAMTool(GenericSpectralComputationTool):
         t_x = t_wls.value
         r_x = r_wls.value
 
-        if np.allclose(r_x, t_x, rtol=0, atol=1e-9):
+        if r_x.shape == t_x.shape and np.allclose(r_x, t_x, rtol=0, atol=1e-9):
             r_resampled = r_arr
         else:
-            interp_fn = interp1d(r_x, r_arr, bounds_error=False, fill_value=np.nan)
-            r_resampled = interp_fn(t_x)
+            r_resampled = self._resample_to(r_x, r_arr, t_x)
 
         valid = np.isfinite(t_arr) & np.isfinite(r_resampled)
         t_vec = t_arr[valid]
