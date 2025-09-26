@@ -14,7 +14,7 @@ from PySide2.QtCore import Qt, QSettings
 from astropy import units as u
 
 from wiser.gui.app_state import ApplicationState, StateChange
-from wiser.raster.spectrum import NumPyArraySpectrum
+from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
@@ -294,13 +294,32 @@ class GenericSpectralComputationTool(QDialog):
             row["checkbox"].setChecked(True)
             row["path"] = path
 
+    # ----------------- Target switching helpers -----------------
+    def get_all_non_active_spectra(self) -> List[Spectrum]:
+        '''
+        Retrieves all spectra from the collected spectra and spectral libraries.
+        '''
+        collected_spectra = self._app_state.get_collected_spectra()
+        spectral_libraries = self._app_state.get_spectral_libraries()
+
+        # Extract individual spectra from libraries
+        all_spectra_in_libraries: List[Spectrum] = []
+        for library in list(spectral_libraries):
+            for spectrum_index in range(library.num_spectra()):
+                spectrum = library.get_spectrum(spectrum_index)
+                all_spectra_in_libraries.append(spectrum)
+        # Combine and return
+        all_non_active_spectra = collected_spectra + all_spectra_in_libraries
+        return all_non_active_spectra
+
+
     # ----------------- Target switching -----------------
     def _on_target_type_changed(self, text):
         ui = self._ui
         combo = ui.SelectTargetData_2
         combo.clear()
         if text == "Spectrum":
-            objs = self._app_state.get_collected_spectra()
+            objs = self.get_all_non_active_spectra()
             placeholder = DEFAULT_NO_SPECTRA_TEXT
         elif text == "Image Cube":
             objs = self._app_state.get_datasets()
@@ -340,7 +359,8 @@ class GenericSpectralComputationTool(QDialog):
                 new_cbox_index = 0
 
         if self._ui.SelectTargetData.currentText() == "Spectrum":
-            spectra = self._app_state.get_collected_spectra()
+            spectra = self.get_all_non_active_spectra()
+            
             cbox = self._ui.SelectTargetData_2
             cbox.clear()
             if len(spectra) > 0:
@@ -408,24 +428,7 @@ class GenericSpectralComputationTool(QDialog):
         if target is None:
             raise ValueError(f"No {mode.lower()} selected.")
 
-        # id bookkeeping to assign unique ids to any new spectra we construct
-        ids: List[int] = []
-        try:
-            for s in self._app_state.get_collected_spectra():
-                try: ids.append(s.get_id())
-                except Exception: pass
-        except Exception: pass
-        try:
-            for ds in self._app_state.get_datasets():
-                try:
-                    for s in ds.get_all_spectra():
-                        ids.append(s.get_id())
-                except Exception: pass
-        except Exception: pass
-        for s in self.library:
-            try: ids.append(s.get_id())
-            except Exception: pass
-        next_id = (max(ids) if ids else 0) + 1
+        next_id = self._app_state.take_next_id()
 
         self._lib_name_by_spec_id.clear()
         refs: List[NumPyArraySpectrum] = []
