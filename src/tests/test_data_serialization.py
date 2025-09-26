@@ -95,6 +95,22 @@ class TestDataSerialization(unittest.TestCase):
         
         assert np.allclose(reconstructed_spectrum.get_spectrum(), spectrum.get_spectrum()), "The reconstructed spectrum has different metadata from the original spectrum"
 
+    def test_netcdf_serialization(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "netcdf.nc"))
+
+        ds = self.test_model.load_dataset(target_path)
+
+        serializedForm = ds.get_serialized_form()
+
+        reconstructed_dataset: RasterDataSet = serializedForm.get_serializable_class().deserialize_into_class(
+            serializedForm.get_serialize_value(),
+            serializedForm.get_metadata())
+        
+        assert np.allclose(reconstructed_dataset.get_image_data(), ds.get_image_data), \
+            "The reconstructed dataset has different metadata from the original dataset"
+
+
 
 if __name__ == "__main__":
     test_data_serialization = TestDataSerialization()

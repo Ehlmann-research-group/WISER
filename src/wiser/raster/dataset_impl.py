@@ -1234,7 +1234,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         return score
 
     @classmethod
-    def _auto_open_elevation(cls, gdal_dataset: gdal.Dataset, netcdf_dataset: nc.Dataset) -> "NetCDF_GDALRasterDataImpl":
+    def _auto_open_elevation(cls, gdal_dataset: gdal.Dataset, netcdf_dataset: nc.Dataset, subdataset_name: str = None) -> "NetCDF_GDALRasterDataImpl":
         """
         Non-interactive open:
         - pick an elevation-like subdataset,
@@ -1250,11 +1250,12 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             # NETCDF:"/path/to/file":group/var  ->  group/var
             return sd_name.split(":")[-1]
 
-        best_name, best_desc = max(
-            subdatasets,
-            key=lambda pair: cls._score_subdataset(var_path_of(pair[0]), pair[1]),
-        )
-        subdataset_name = best_name
+        if not subdataset_name:
+            best_name, best_desc = max(
+                subdatasets,
+                key=lambda pair: cls._score_subdataset(var_path_of(pair[0]), pair[1]),
+            )
+            subdataset_name = best_name
         sub_var_path = var_path_of(subdataset_name)
         subdataset: gdal.Dataset = gdal.Open(subdataset_name)
         assert subdataset is not None, "Chosen subdataset could not be opened"
@@ -1335,7 +1336,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         )
 
     @classmethod
-    def try_load_file(cls, path: str, **kwargs) -> ['NetCDF_GDALRasterDataImpl']:
+    def try_load_file(cls, path: str, subdataset_name: str = None, **kwargs) -> ['NetCDF_GDALRasterDataImpl']:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -1357,7 +1358,9 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         subdatasets = gdal_dataset.GetSubDatasets()
         instances_list = []  # List to hold instances of the class
     
-        if subdatasets and interactive:
+        if subdataset_name:
+            instances_list.append(cls._auto_open_elevation(gdal_dataset, netcdf_dataset, subdataset_name=subdataset_name))
+        elif subdatasets and interactive:
             subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
             if subdataset_chooser.exec_() == QDialog.Accepted:
                 if subdataset_chooser.netcdf_impl is not None:

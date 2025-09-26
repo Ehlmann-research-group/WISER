@@ -2,6 +2,11 @@
 #   ```conda-lock lock -f wiser-runtime.yml -p win-64 -p osx-64 -p osx-arm64```
 # Then install the environment with the command:
 #   ```conda-lock install -n wiser-runtime conda-lock.yml```
+# To create a fully explicit lock file for the plugin developers do the below command
+# - NOTE:   The .yml files that the below command creates are not lock files! So they
+#           will not reliably reproduce the environment aat different times or with different versions
+#           of libraries 
+#   ```conda-lock render --kind env -p osx-64 -p osx-arm64 -p win-64 conda-lock.yml```
 
 name: wiser-runtime
 channels:
@@ -12,9 +17,15 @@ dependencies:
   - python_abi=3.9
   - astropy=6.0.1
   - conda-forge::blas[build=openblas]
-  - gdal=3.10.2
-  - hdf4=4.2.15
-  - hdf5=1.14.6
+  - gdal=3.10.*
+  - hdf4=4.2.*
+  - hdf5=1.14.*
+  - libgdal-core=3.10.*
+  - libgdal-fits=3.10.*
+  - libgdal-hdf4=3.10.*
+  - libgdal-hdf5=3.10.*
+  - libgdal-jp2openjpeg=3.10.*
+  - libgdal-netcdf=3.10.*
   - netcdf4=1.7.2
   - matplotlib=3.9.1
   - mpl-scatter-density=0.8

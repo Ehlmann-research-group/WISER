@@ -1,17 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
+'''
+This script assumes you use conda for your environment management.
+'''
 import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(SPECPATH), 'WISER', 'src', 'devtools')))
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
 
 import subprocess
 
-# Create the dependency list file
-result = subprocess.run(
-    [sys.executable, "src/devtools/write_dependencies.py"],
-    capture_output=True,
-    text=True,
-)
+from write_analysis_deps import write_deps_from_analysis
 
 block_cipher = None
 
@@ -24,10 +25,11 @@ existing_hidden_imports = [
                  'PySide2.QtXml',
              ]
 
+conda_env_prefix = os.environ.get("CONDA_PREFIX")
 existing_binaries = [
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
+        (f'{conda_env_prefix}/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
+        (f'{conda_env_prefix}/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
+        (f'{conda_env_prefix}/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
     ]  
 
 temp_a = Analysis(['src/wiser/__main__.py'],
@@ -36,7 +38,7 @@ temp_a = Analysis(['src/wiser/__main__.py'],
              datas=existing_datas,
              hiddenimports=existing_hidden_imports,
              hookspath=[],
-             runtime_hooks=[],
+             runtime_hooks=['pyinstaller_hooks/set_wiser_env_prod.py'],
              excludes=[],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
@@ -75,12 +77,15 @@ a = Analysis(['src/wiser/__main__.py'],
              datas=existing_datas,
              hiddenimports=existing_hidden_imports,
              hookspath=[],
-             runtime_hooks=[],
+             runtime_hooks=['pyinstaller_hooks/set_wiser_env_prod.py'],
              excludes=[],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
              cipher=block_cipher,
              noarchive=False)
+
+# Write dependencies resolved by PyInstaller
+write_deps_from_analysis(a, out_path="build/pyinstaller_dependencies.txt")
 
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
@@ -93,7 +98,7 @@ exe = EXE(pyz,
           bootloader_ignore_signals=False,
           strip=False,
           upx=True,
-          console=False )
+          console=False)
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,

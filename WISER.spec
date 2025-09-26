@@ -1,26 +1,32 @@
 # -*- mode: python ; coding: utf-8 -*-
+'''
+This script assumes you use conda for your environment management.
+'''
 import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(SPECPATH), 'WISER', 'src', 'devtools')))
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
 
 import subprocess
 
-# Create the dependency list file
-result = subprocess.run(
-    [sys.executable, "src/devtools/write_dependencies.py"],
-    capture_output=True,
-    text=True,
-)
+from write_analysis_deps import write_deps_from_analysis
 
-conda_env = 'wiser-strict-env'
+conda_env_prefix = os.environ.get("CONDA_PREFIX")
+
+if not conda_env_prefix:
+    raise RuntimeError("Must be in a conda environment to run WISER's pyinstaller built script!")
+
+# Whatever conda environment you use should have the below .dll's in Library\lib\gdalplugins
 datas = [('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath')]
-binaries = [(f'C:\\Users\\jgarc\\anaconda3\\envs\\{conda_env}\\Library\\plugins\\platforms', 'platforms'),
-(f'C:\\Users\\jgarc\\anaconda3\\envs\\{conda_env}\\Library\\plugins\\iconengines', 'iconengines'),
-(f'C:\\Users\\jgarc\\anaconda3\\envs\\{conda_env}\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'),
-(f'C:\\Users\\jgarc\\anaconda3\\envs\\{conda_env}\\Library\\lib\\gdalplugins\\gdal_netCDF.dll', 'gdalplugins'),
-(f'C:\\Users\\jgarc\\anaconda3\\envs\\{conda_env}\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'),
-(f'C:\\Users\\jgarc\\anaconda3\\envs\\{conda_env}\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins')]
+binaries = [(f'{conda_env_prefix}\\Library\\plugins\\platforms', 'platforms'),
+(f'{conda_env_prefix}\\Library\\plugins\\iconengines', 'iconengines'),
+(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'),
+(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_netCDF.dll', 'gdalplugins'),
+(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'),
+(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins')]
 hiddenimports = ['PySide2.QtSvg', 'PySide2.QtXml']
 tmp_ret = collect_all('osgeo')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
@@ -34,7 +40,7 @@ temp_a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['pyinstaller_hooks/set_wiser_env_prod.py'],
     excludes=['PyQt5'],
     noarchive=False,
     optimize=0,
@@ -74,11 +80,14 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['pyinstaller_hooks/set_wiser_env_prod.py'],
     excludes=['PyQt5'],
     noarchive=False,
     optimize=0,
 )
+
+# Write dependencies resolved by PyInstaller
+write_deps_from_analysis(a, out_path="build/pyinstaller_dependencies.txt")
 
 pyz = PYZ(a.pure, a.zipped_data)
 

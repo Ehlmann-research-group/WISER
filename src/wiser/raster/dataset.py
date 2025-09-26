@@ -1352,8 +1352,8 @@ class RasterDataSet(Serializable):
         return self._impl
 
     def get_subdataset_name(self) -> str:
-        if hasattr(self._impl, 'subdataset_name'):
-            return self._impl.subdataset_name
+        if hasattr(self._impl, '_subdataset_name'):
+            return self._impl._subdataset_name
         else:
             return None
 
@@ -1378,11 +1378,15 @@ class RasterDataSet(Serializable):
         Returns:
             A RasterDataSet object that represents the dataset.
         '''
+        if dataset_serialize_value.startswith("NETCDF:"):
+            dataset_serialize_value = dataset_serialize_value[7:]
         try:
             if isinstance(dataset_serialize_value, str):
                 impl = None
                 if dataset_metadata.get('impl_type') == 'NetCDF_GDALRasterDataImpl':
-                    impl = NetCDF_GDALRasterDataImpl.try_load_file(dataset_serialize_value, interactive=False)[0]
+                    subdataset_name = dataset_metadata["subdataset_name"]
+                    assert subdataset_name, "ERROR: Subdataset name for netcdf dataset is empty or none"
+                    impl = NetCDF_GDALRasterDataImpl.try_load_file(dataset_serialize_value, subdataset_name=subdataset_name, interactive=False)[0]
                 elif dataset_metadata.get('impl_type') == 'ENVI_GDALRasterDataImpl':    
                     impl = ENVI_GDALRasterDataImpl.try_load_file(dataset_serialize_value, interactive=False)[0]
                 elif dataset_metadata.get('impl_type') == 'JP2_GDAL_PDR_RasterDataImpl':
@@ -1470,7 +1474,12 @@ class RasterDataSet(Serializable):
         metadata = {
             'impl_type': impl_type_str
         }
-        if isinstance(impl, (GDALRasterDataImpl, PDRRasterDataImpl)):
+        if isinstance(impl, (NetCDF_GDALRasterDataImpl)):
+            # If we have an NetCDF dataset, the subdataset name matters, so we
+            # must recreate the dataset from the base file path then pass in the
+            # subdataset name.
+            recreation_value = impl.gdal_dataset.GetFileList()[0]
+        elif isinstance(impl, (GDALRasterDataImpl, PDRRasterDataImpl)):
             # For GDALRasterDataImpl objects we need meta data values
             # for the data ignore value, wavelengths, wavelength units,
             # bad bands, spatial reference, geo transform, and subdataset name.

@@ -174,7 +174,7 @@ class MainViewWidget(RasterPane):
         submenu = menu.addMenu(self.tr('Data Analysis'))
         act = submenu.addAction(self.tr('Interactive Scatter Plot'))
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
-                              self._on_scatter_plot_2D(rv))
+                              self.on_scatter_plot_2D(rv))
 
         if FLAGS.sam: 
             act = submenu.addAction(self.tr('Spectral Angle Mapper'))
@@ -359,7 +359,7 @@ class MainViewWidget(RasterPane):
         dlg.setAttribute(Qt.WA_DeleteOnClose, True)
         dlg.show()
 
-    def _on_scatter_plot_2D(self, rasterview, testing=False):
+    def on_scatter_plot_2D(self, rasterview=None, testing=False):
         self._interactive_scatter_plot_dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
                                      self._clear_interactive_scatter_plot_highlights,
                                      self._app_state, testing=testing, parent=self)
