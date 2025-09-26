@@ -45,7 +45,7 @@ typecheck:
 
 build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
-	MACOSX_DEPLOYMENT_TARGET=11.0 WISER_ENV=prod pyinstaller --noconfirm WISER-macOS.spec 
+	MACOSX_DEPLOYMENT_TARGET=11.0 WISER_ENV=prod pyinstaller --clean --log-level=DEBUG --noconfirm WISER-macOS.spec > debug_output.txt 2>&1
 
 	./check_arch.sh
 

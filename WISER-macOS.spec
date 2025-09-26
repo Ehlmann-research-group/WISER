@@ -25,10 +25,11 @@ existing_hidden_imports = [
                  'PySide2.QtXml',
              ]
 
+conda_env = 'wiser-runtime-intel'
 existing_binaries = [
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
-        ('/opt/homebrew/Caskroom/miniconda/base/envs/intel-wiser/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
+        (f'/opt/homebrew/Caskroom/miniconda/base/envs/{conda_env}/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
+        (f'/opt/homebrew/Caskroom/miniconda/base/envs/{conda_env}/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
+        (f'/opt/homebrew/Caskroom/miniconda/base/envs/{conda_env}/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
     ]  
 
 temp_a = Analysis(['src/wiser/__main__.py'],
@@ -97,7 +98,7 @@ exe = EXE(pyz,
           bootloader_ignore_signals=False,
           strip=False,
           upx=True,
-          console=False )
+          console=False)
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
