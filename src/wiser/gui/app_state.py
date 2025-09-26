@@ -167,7 +167,7 @@ class ApplicationState(QObject):
     def get_next_process_pool_id(self):
         return self._process_pool_manager.get_next_process_pool_id()
 
-    def _take_next_id(self) -> int:
+    def take_next_id(self) -> int:
         '''
         Returns the next ID for use with an object, and also increments the
         internal "next ID" value.
@@ -175,8 +175,6 @@ class ApplicationState(QObject):
         id = self._next_id
         self._next_id += 1
         return id
-
-
 
     def add_plugin(self, class_name: str, plugin: Plugin):
         if class_name in self._plugins:
@@ -308,7 +306,7 @@ class ApplicationState(QObject):
         if not isinstance(dataset, RasterDataSet):
             raise TypeError('dataset must be a RasterDataSet')
 
-        ds_id = self._take_next_id()
+        ds_id = self.take_next_id()
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
@@ -504,7 +502,7 @@ class ApplicationState(QObject):
         if not isinstance(library, SpectralLibrary):
             raise TypeError('library must be a SpectralLibrary')
 
-        lib_id = self._take_next_id()
+        lib_id = self.take_next_id()
         library.set_id(lib_id)
         self._spectral_libraries[lib_id] = library
 
@@ -611,7 +609,7 @@ class ApplicationState(QObject):
             color = get_random_matplotlib_color(colors_in_use)
             roi.set_color(color)
 
-        roi_id = self._take_next_id()
+        roi_id = self.take_next_id()
         roi.set_id(roi_id)
         self._regions_of_interest[roi_id] = roi
         self.roi_added.emit(roi)
@@ -692,7 +690,7 @@ class ApplicationState(QObject):
 
         # Assign an ID to this spectrum if it doesn't have one.
         if spectrum is not None and spectrum.get_id() is None:
-            id = self._take_next_id()
+            id = self.take_next_id()
             spectrum.set_id(id)
             self._all_spectra[id] = spectrum
 
@@ -719,7 +717,7 @@ class ApplicationState(QObject):
 
         # Assign an ID to this spectrum if it doesn't have one.
         if spectrum.get_id() is None:
-            spectrum.set_id(self._take_next_id())
+            spectrum.set_id(self.take_next_id())
 
         # Store it!  Then fire an event.
         index = len(self._collected_spectra)

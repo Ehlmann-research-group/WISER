@@ -255,7 +255,7 @@ def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: in
     return results
 
 cr_image_sig = types.float32[:, :, :](types.float32[:, :, :], types.float32[:], types.int32, types.int32, types.int32)
-@numba_njit_wrapper(non_njit_func=continuum_removal_image, signature=cr_image_sig)
+@numba_njit_wrapper(non_njit_func=continuum_removal_image, signature=cr_image_sig, parallel=True)
 def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
     '''
     Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum 

@@ -19,6 +19,7 @@ block_cipher = None
 existing_datas = [
                  ('./LICENSE', '.'),
                  ('./src/wiser/bandmath/bandmath.lark', 'wiser/bandmath'),
+                 ('./src/wiser/data', 'wiser/data'),
              ]
 
 existing_hidden_imports = [

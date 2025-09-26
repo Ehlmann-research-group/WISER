@@ -72,7 +72,7 @@ try:
 except ImportError:
     NUMBA_AVAILABLE = False
 
-def numba_njit_wrapper(non_njit_func, nopython=True, cache=True, signature=None, parallel=True):
+def numba_njit_wrapper(non_njit_func, nopython=True, cache=True, signature=None, parallel=False):
     """
     Custom function to wrap Numba's NJIT functionality and availability.
 

@@ -16,6 +16,7 @@ class SFFTool(GenericSpectralComputationTool):
     SETTINGS_NAMESPACE = "Wiser/SFFPlugin"
     RUN_BUTTON_TEXT = "Run SFF"
     SCORE_HEADER = "Fit RMS"
+    THRESHOLD_HEADER = "Initial RMSE"
     THRESHOLD_SPIN_CONFIG = dict(min=0.0, max=1.0, decimals=4, step=0.005)
     SPEC_THRESHOLD_ATTR = "_sff_max_rms"
 
