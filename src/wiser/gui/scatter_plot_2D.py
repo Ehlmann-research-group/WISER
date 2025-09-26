@@ -52,7 +52,7 @@ from PySide2.QtCore import *
 from wiser.gui.loading_overlay import LoadingOverlay
 from wiser.gui.parallel_task import ParallelTaskProcess
 from wiser.gui.subprocessing_manager import ProcessManager
-from wiser.gui.util import get_random_matplotlib_color
+from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.selection import MultiPixelSelection
@@ -182,6 +182,11 @@ class ScatterPlot2DDialog(QDialog):
         # --- testing state ---
         self._testing = testing
 
+        # Plot mode: start with density scatter plot
+        self._use_density_scatter = True
+        # default highlight color for polygon selections (matches MainView default)
+        self._highlight_color_str = "#ff0000"
+
         self._init_band_dataset_choosers()
         self._init_plot()
 
@@ -202,12 +207,20 @@ class ScatterPlot2DDialog(QDialog):
         self._btn_create_roi = QPushButton(self.tr("Create ROI from Selection"))
         self._btn_change_cmap = QPushButton(self.tr("Color Map"))
         self._btn_change_axes = QPushButton(self.tr("Axes Limits"))
+        self._btn_toggle_density = QPushButton(self.tr("To Scatter"))
+        self._btn_highlight_color = QPushButton()
+        self._btn_highlight_color.setToolTip(self.tr("Set highlight color"))
+        self._btn_highlight_color.setIcon(get_color_icon(self._highlight_color_str))
+        self._btn_highlight_color.setText(self.tr("Highlight"))
         ctrl_layout.addWidget(self._count_label)
         ctrl_layout.addStretch(1)
         ctrl_layout.addWidget(self._btn_clear)
         ctrl_layout.addWidget(self._btn_create_roi)
         ctrl_layout.addWidget(self._btn_change_cmap)
         ctrl_layout.addWidget(self._btn_change_axes)
+        ctrl_layout.addWidget(self._btn_toggle_density)
+        ctrl_layout.addWidget(self._btn_highlight_color)
+        ctrl.setMaximumHeight(45)
 
         self._btn_change_cmap.clicked.connect(
             lambda checked=True: self._colormap_chooser()
@@ -219,6 +232,12 @@ class ScatterPlot2DDialog(QDialog):
                 self.tr("No plot to change axes limits of")
             )
         )
+
+        # Toggle density/regular scatter
+        self._btn_toggle_density.clicked.connect(self._on_toggle_density_clicked)
+
+        # Choose highlight color for polygon selection
+        self._btn_highlight_color.clicked.connect(self._on_choose_highlight_color)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(QMargins(0, 0, 0, 0))
@@ -233,6 +252,19 @@ class ScatterPlot2DDialog(QDialog):
         self._ui.btn_create_plot.clicked.connect(
             lambda checked: self._create_scatter_plot()
         )
+
+    def _on_choose_highlight_color(self):
+        color = QColorDialog.getColor(parent=self, initial=QColor(self._highlight_color_str))
+        if color.isValid():
+            self._highlight_color_str = color.name()
+            self._btn_highlight_color.setIcon(get_color_icon(self._highlight_color_str))
+            if self._sel_artist is not None:
+                try:
+                    self._sel_artist.set_markeredgecolor(self._highlight_color_str)
+                except Exception:
+                    pass
+            if self._canvas is not None:
+                self._canvas.draw_idle()
 
     def _init_band_dataset_choosers(self):
         """Initializes the band and dataset choosers for the x and y axes to have
@@ -734,10 +766,16 @@ class ScatterPlot2DDialog(QDialog):
         y_wvl = y_dataset.get_band_info()[y_band_idx].get('description', None)
         y_wvl_str = f': {y_wvl}' if y_wvl else ''
         y_band_description = f'{y_dataset.get_name()}\nBand {y_band_idx}' + y_wvl_str
-        ax = self._using_mpl_scatter_density(
-            self._figure, self._x_flat[self._valid_mask], self._y_flat[self._valid_mask],
-            x_band_description, y_band_description, self._colormap_choice
-        )
+        if self._use_density_scatter:
+            ax = self._using_mpl_scatter_density(
+                self._figure, self._x_flat[self._valid_mask], self._y_flat[self._valid_mask],
+                x_band_description, y_band_description, self._colormap_choice
+            )
+        else:
+            ax = self._using_mpl_scatter(
+                self._figure, self._x_flat[self._valid_mask], self._y_flat[self._valid_mask],
+                x_band_description, y_band_description, self._colormap_choice
+            )
         self._ax = ax
         self._canvas.draw_idle()
         self._loader.stop()
@@ -749,6 +787,17 @@ class ScatterPlot2DDialog(QDialog):
         )
 
         self._btn_clear.clicked.connect(self._clear_selection_overlay)
+
+    def _on_toggle_density_clicked(self):
+        """Toggle between density scatter and regular scatter, then rebuild the plot."""
+        self._use_density_scatter = not self._use_density_scatter
+        # Update button label to reflect next action
+        if self._use_density_scatter:
+            self._btn_toggle_density.setText(self.tr("To Scatter"))
+        else:
+            self._btn_toggle_density.setText(self.tr("To Density"))
+        # Recreate the plot with current settings
+        self._create_scatter_plot()
 
     def _using_mpl_scatter_density(
         self,
@@ -791,6 +840,33 @@ class ScatterPlot2DDialog(QDialog):
         fig.colorbar(density, label="Number of points per spectral value")
 
         return ax
+
+    def _using_mpl_scatter(
+        self,
+        fig: Figure,
+        x:np.ndarray,
+        y:np.ndarray,
+        b1_description: str,
+        b2_description: str,
+        colormap: Tuple[str, LinearSegmentedColormap]
+    ):
+        """Create a regular Matplotlib scatter plot (no density projection).
+
+        Parameters mirror _using_mpl_scatter_density so callers can swap either.
+        """
+        fig.clear()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlabel(b1_description)
+        ax.set_ylabel(b2_description)
+        ax.set_title("2D scatter plot of two bands")
+        # Use a small marker size for large datasets; single color for simplicity
+        ax.scatter(x, y, s=1, c="#1f77b4", alpha=0.6, linewidths=0)
+        x_range = max(self._x_max-self._x_min, 0)
+        y_range = max(self._y_max-self._y_min, 0)
+        ax.set_xlim(self._x_min-x_range/10, self._x_max+x_range/10)
+        ax.set_ylim(self._y_min-y_range/10, self._y_max+y_range/10)
+
+        return ax
     
     def _clear_scatter_density_plot(self):
         fig = self._figure
@@ -828,18 +904,18 @@ class ScatterPlot2DDialog(QDialog):
             if len(idx_to_show) > show_cap:
                 idx_to_show = np.random.choice(idx_to_show, size=show_cap, replace=False)
 
-            self._sel_artist = self._ax.plot(
+        self._sel_artist = self._ax.plot(
                 self._x_flat[idx_to_show],
                 self._y_flat[idx_to_show],
                 marker='o', linestyle='None', markersize=2, alpha=0.7,
-                markerfacecolor='none', markeredgecolor='red'
+                markerfacecolor='none', markeredgecolor=self._highlight_color_str
             )[0]
 
         if self._canvas is not None:
             self._canvas.draw_idle()
 
         render_ds_id = self._ui.cbox_render_ds.currentData()
-        self._interactive_callback(self.get_selected_points(), render_ds_id)
+        self._interactive_callback(self.get_selected_points(), render_ds_id, self._highlight_color_str)
 
     def _clear_selection_overlay(self):
         """Clear current selection, remove overlay, and reset polygon vertices."""

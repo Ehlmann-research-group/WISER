@@ -58,6 +58,7 @@ class MainViewWidget(RasterPane):
 
         self._interactive_scatter_highlight_points: List[Tuple[int, int]] = []
         self._interactive_scatter_render_ds_id: int = -1
+        self._interactive_scatter_color: QColor = QColor(255, 0, 0)
 
 
     def _init_toolbar(self):
@@ -360,17 +361,32 @@ class MainViewWidget(RasterPane):
         dlg.show()
 
     def on_scatter_plot_2D(self, rasterview=None, testing=False):
+        
+        # If dialog exists and is already visible, just bring it to front
+        if (
+            hasattr(self, "_interactive_scatter_plot_dialog")
+            and self._interactive_scatter_plot_dialog is not None
+            and self._interactive_scatter_plot_dialog.isVisible()
+        ):
+            self._interactive_scatter_plot_dialog.raise_()
+            self._interactive_scatter_plot_dialog.activateWindow()
+            return
         self._interactive_scatter_plot_dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
                                      self._clear_interactive_scatter_plot_highlights,
                                      self._app_state, testing=testing, parent=self)
         self._interactive_scatter_plot_dialog.show()
 
-    def _make_interactive_scatter_plot_highlights(self, selected_points, render_ds_id):
+    def _make_interactive_scatter_plot_highlights(self, selected_points, render_ds_id, color_hex: Optional[str] = None):
         # Highlight the selected points 
         rows, cols, x_val, y_val = selected_points
         assert len(rows) == len(cols), "Returned pixel rows do not equal returned pixel columns."
         self._interactive_scatter_highlight_points = [(rows[i], cols[i]) for i in range(len(cols))]
         self._interactive_scatter_render_ds_id = render_ds_id
+        if color_hex:
+            try:
+                self._interactive_scatter_color = QColor(color_hex)
+            except Exception:
+                self._interactive_scatter_color = QColor(255, 0, 0)
         self.update_all_rasterviews()
 
     def _clear_interactive_scatter_plot_highlights(self):
@@ -446,7 +462,7 @@ class MainViewWidget(RasterPane):
             return
         if self._interactive_scatter_highlight_points:
             with get_painter(widget) as painter:
-                painter.setPen(QPen(QColor(255, 0, 0), 2))
+                painter.setPen(QPen(self._interactive_scatter_color, 2))
                 
                 # Get the current scale factor for proper coordinate transformation
                 scale = self.get_scale()
