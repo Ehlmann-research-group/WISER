@@ -1,55 +1,98 @@
-# --- collect resolved distributions from PyInstaller's Analysis ---
+
+# --- robust deps writer: works even without importlib.metadata.packages_distributions() ---
 def write_deps_from_analysis(analysis_obj, out_path="build/pyinstaller_dependencies.txt",
                              exclude_modules=("wiser",), exclude_dists=()):
     """
-    Collect top-level Python modules from the Analysis (pure + C extensions),
-    map them to installed distributions via importlib.metadata, and write
-    'dist==version' lines to a file.
+    Collect the top-level modules that PyInstaller actually analyzed (pure + C-extensions),
+    map them to installed distributions and write 'dist==version' lines.
     """
     from pathlib import Path
-    import importlib.metadata as im
+    try:
+        import importlib.metadata as im
+    except Exception:
+        import importlib_metadata as im  # backport if present
 
-    # Map importable top-level module -> distribution(s)
-    pkg_to_dists = im.packages_distributions()
+    def build_packages_distributions_fallback():
+        """Return {top_level_pkg: [dist_name, ...]} using top_level.txt or file scanning."""
+        mapping = {}
+        for dist in im.distributions():
+            dist_name = dist.metadata.get('Name', '')
+            tops = set()
 
-    # 1) Modules found by PyInstaller (pure Python)
+            # Primary: top_level.txt
+            try:
+                tl = dist.read_text('top_level.txt')
+            except Exception:
+                tl = None
+            if tl:
+                for line in tl.splitlines():
+                    s = line.strip()
+                    if s and s != '__pycache__':
+                        tops.add(s)
+
+            # Fallback: inspect files to infer top-level package names
+            if not tops:
+                files = dist.files or []
+                for f in files:
+                    parts = getattr(f, 'parts', None) or str(f).split('/')
+                    if not parts:
+                        continue
+                    top = parts[0]
+                    if top.endswith('.py'):
+                        top = top[:-3]
+                    if top and top != '__pycache__':
+                        tops.add(top)
+
+            for pkg in tops:
+                mapping.setdefault(pkg, []).append(dist_name)
+        return mapping
+
+    # Prefer stdlib API if available, else fallback
+    try:
+        pkg_to_dists = im.packages_distributions()
+    except Exception:
+        pkg_to_dists = build_packages_distributions_fallback()
+
+    # Collect top-level module names from what PyInstaller actually included
     module_tops = set()
-    for dest, _src, typ in analysis_obj.pure:
-        # 'dest' is like 'numpy.core' or 'wiser.__main__'
+
+    # Pure Python modules
+    for dest, _src, _typ in analysis_obj.pure:
         module_tops.add(dest.split('.', 1)[0])
 
-    # 2) C-extensions (.pyd/.so) listed in binaries as EXTENSION
+    # C-extensions (.pyd/.so) detected as EXTENSION; be lenient on type and filename
     for dest, _src, typ in analysis_obj.binaries:
-        if typ == 'EXTENSION':
-            # dest can be 'numpy/core/_multiarray_umath.pyd' or similar
-            normalized = dest.replace("\\", "/")
-            top = normalized.split('/', 1)[0].split('.', 1)[0]
-            module_tops.add(top)
+        norm = dest.replace("\\", "/")
+        if typ == 'EXTENSION' or norm.endswith(('.pyd', '.so')):
+            top = norm.split('/', 1)[0]
+            if top.endswith(('.pyd', '.so')):
+                top = top.rsplit('.', 1)[0]
+            if top:
+                module_tops.add(top)
 
-    # Filter out your own project or anything you don't want
+    # Exclude your own package(s) etc.
     module_tops = {
         m for m in module_tops
         if not any(m == ex or m.startswith(ex + ".") for ex in exclude_modules)
     }
 
-    # Map modules -> distributions (some modules map to multiple dists, e.g. namespaces)
+    # Map modules -> distributions, then resolve versions
     dists = set()
     for mod in module_tops:
         for dist in pkg_to_dists.get(mod, []):
-            if dist not in exclude_dists:
+            if dist and dist not in exclude_dists:
                 dists.add(dist)
 
-    # Resolve versions and write
-    rows = []
+    lines = []
     for dist in sorted(dists, key=str.lower):
         try:
             ver = im.version(dist)
         except Exception:
-            # Skip things without a distribution record
             continue
-        rows.append(f"{dist}=={ver}")
+        lines.append(f"{dist}=={ver}")
 
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(rows) + "\n", encoding="utf-8")
-    print(f"[deps] wrote {len(rows)} packages to {out}")
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"[deps] wrote {len(lines)} packages to {out}")
+

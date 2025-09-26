@@ -1,17 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
+'''
+This script assumes you use conda for your environment management.
+'''
 import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(SPECPATH), 'WISER', 'src', 'devtools')))
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
 
 import subprocess
 
-# Create the dependency list file
-result = subprocess.run(
-    [sys.executable, "src/devtools/write_dependencies.py"],
-    capture_output=True,
-    text=True,
-)
+from write_analysis_deps import write_deps_from_analysis
 
 block_cipher = None
 
@@ -81,6 +82,9 @@ a = Analysis(['src/wiser/__main__.py'],
              win_private_assemblies=False,
              cipher=block_cipher,
              noarchive=False)
+
+# Write dependencies resolved by PyInstaller
+write_deps_from_analysis(a, out_path="build/pyinstaller_dependencies.txt")
 
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
