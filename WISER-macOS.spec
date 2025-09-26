@@ -25,11 +25,11 @@ existing_hidden_imports = [
                  'PySide2.QtXml',
              ]
 
-conda_env = 'wiser-runtime-intel'
+conda_env_prefix = os.environ.get("CONDA_PREFIX")
 existing_binaries = [
-        (f'/opt/homebrew/Caskroom/miniconda/base/envs/{conda_env}/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
-        (f'/opt/homebrew/Caskroom/miniconda/base/envs/{conda_env}/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
-        (f'/opt/homebrew/Caskroom/miniconda/base/envs/{conda_env}/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
+        (f'{conda_env_prefix}/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
+        (f'{conda_env_prefix}/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
+        (f'{conda_env_prefix}/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
     ]  
 
 temp_a = Analysis(['src/wiser/__main__.py'],
