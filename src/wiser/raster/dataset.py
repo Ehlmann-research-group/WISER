@@ -1378,15 +1378,11 @@ class RasterDataSet(Serializable):
         Returns:
             A RasterDataSet object that represents the dataset.
         '''
-        print(f"dataset_serialize_value: {dataset_serialize_value}")
         if dataset_serialize_value.startswith("NETCDF:"):
-            print(f"slicing")
             dataset_serialize_value = dataset_serialize_value[7:]
-        print(f"dataset_serialize_value after: {dataset_serialize_value}")
         try:
             if isinstance(dataset_serialize_value, str):
                 impl = None
-                print(f"dataset_metadata.get('impl_type'): {dataset_metadata.get('impl_type')}")
                 if dataset_metadata.get('impl_type') == 'NetCDF_GDALRasterDataImpl':
                     subdataset_name = dataset_metadata["subdataset_name"]
                     assert subdataset_name, "ERROR: Subdataset name for netcdf dataset is empty or none"
