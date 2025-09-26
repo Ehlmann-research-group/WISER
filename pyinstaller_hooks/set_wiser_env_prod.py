@@ -2,6 +2,4 @@
 import os
 
 # Only set if not already provided by the environment
-os.environ.setdefault("WISER_ENV", "prod")
-
-
+os.environ["WISER_ENV"] = "prod"
