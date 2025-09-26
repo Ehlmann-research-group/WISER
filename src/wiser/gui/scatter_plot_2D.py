@@ -211,6 +211,7 @@ class ScatterPlot2DDialog(QDialog):
         self._btn_highlight_color = QPushButton()
         self._btn_highlight_color.setToolTip(self.tr("Set highlight color"))
         self._btn_highlight_color.setIcon(get_color_icon(self._highlight_color_str))
+        self._btn_highlight_color.setText(self.tr("Highlight"))
         ctrl_layout.addWidget(self._count_label)
         ctrl_layout.addStretch(1)
         ctrl_layout.addWidget(self._btn_clear)
