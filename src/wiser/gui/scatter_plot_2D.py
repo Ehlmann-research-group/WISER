@@ -208,6 +208,7 @@ class ScatterPlot2DDialog(QDialog):
         ctrl_layout.addWidget(self._btn_create_roi)
         ctrl_layout.addWidget(self._btn_change_cmap)
         ctrl_layout.addWidget(self._btn_change_axes)
+        ctrl.setMaximumHeight(45)
 
         self._btn_change_cmap.clicked.connect(
             lambda checked=True: self._colormap_chooser()
