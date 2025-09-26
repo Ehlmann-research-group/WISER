@@ -24,7 +24,7 @@ existing_hidden_imports = [
                  'PySide2.QtXml',
              ]
 
-conda_env = 'wiser-source'
+conda_env = 'wiser-runtime-intel'
 existing_binaries = [
         (f'/opt/homebrew/Caskroom/miniconda/base/envs/{conda_env}/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
         (f'/opt/homebrew/Caskroom/miniconda/base/envs/{conda_env}/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
@@ -94,7 +94,7 @@ exe = EXE(pyz,
           bootloader_ignore_signals=False,
           strip=False,
           upx=True,
-          console=False )
+          console=False)
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
