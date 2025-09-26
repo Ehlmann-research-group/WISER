@@ -2,6 +2,8 @@
 #   ```conda-lock lock -f wiser-runtime.yml -p win-64 -p osx-64 -p osx-arm64```
 # Then install the environment with the command:
 #   ```conda-lock install -n wiser-runtime conda-lock.yml```
+# To create a fully explicit lock file for the plugin developers do
+#   ```conda-lock render --kind env -p osx-64 -p osx-arm64 -p win-64 conda-lock.yml```
 
 name: wiser-runtime
 channels:
