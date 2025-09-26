@@ -20,7 +20,7 @@ if not conda_env_prefix:
     raise RuntimeError("Must be in a conda environment to run WISER's pyinstaller built script!")
 
 # Whatever conda environment you use should have the below .dll's in Library\lib\gdalplugins
-datas = [('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath')]
+datas = [('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath'), ('src\\wiser\\data', 'wiser\\data')]
 binaries = [(f'{conda_env_prefix}\\Library\\plugins\\platforms', 'platforms'),
 (f'{conda_env_prefix}\\Library\\plugins\\iconengines', 'iconengines'),
 (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'),

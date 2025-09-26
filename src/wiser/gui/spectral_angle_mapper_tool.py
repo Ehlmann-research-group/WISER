@@ -15,6 +15,7 @@ class SAMTool(GenericSpectralComputationTool):
     SETTINGS_NAMESPACE = "Wiser/SAMPlugin"
     RUN_BUTTON_TEXT = "Run SAM"
     SCORE_HEADER = "Angle (°)"
+    THRESHOLD_HEADER = "Initial Angle (°)"
     THRESHOLD_SPIN_CONFIG = dict(min=0.0, max=180.0, decimals=2, step=1.0)
     SPEC_THRESHOLD_ATTR = "_sam_threshold"
 

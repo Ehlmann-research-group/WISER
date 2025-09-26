@@ -46,6 +46,7 @@ class GenericSpectralComputationTool(QDialog):
     SETTINGS_NAMESPACE = "Wiser/GenericSpectral"
     RUN_BUTTON_TEXT = "Run"
     SCORE_HEADER = "Score"
+    THRESHOLD_HEADER = "Initial Threshold"
     THRESHOLD_SPIN_CONFIG = dict(min=0.0, max=1.0, decimals=2, step=0.5)
     SPEC_THRESHOLD_ATTR = "_method_threshold"
 
@@ -92,6 +93,7 @@ class GenericSpectralComputationTool(QDialog):
         self._setup_connections()
         self._init_target_dropdowns()
         self._init_reference_selection()
+        self._init_threshold_header()
 
         self._sessions_purged_flag = False
         self._purge_old_sessions_once()
@@ -167,6 +169,9 @@ class GenericSpectralComputationTool(QDialog):
                 break
         if thr_layout is not None:
             thr_layout.addRow("", note)
+
+    def _init_threshold_header(self) -> None:
+        self._ui.label_threshold.setText(self.THRESHOLD_HEADER)
 
     def _init_reference_selection(self) -> None:
         for lbl in (self._ui.hdr_lib, self._ui.hdr_thresh_lib,
