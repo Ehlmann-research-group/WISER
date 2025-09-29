@@ -158,6 +158,10 @@ class ApplicationState(QObject):
     def remove_running_process(self, process_manager_id: int):
         del self._running_processes[process_manager_id]
 
+    def cancel_all_running_processes(self):
+        for process_manager in self._running_processes.values():
+            process_manager.get_task().cancel()
+
     def get_running_processes(self) -> Dict[int, ProcessManager]:
         return self._running_processes
 

@@ -1026,7 +1026,7 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
             wavelength_value = var_value.get_metadata().get('wavelength_value', None)
             wavelength_units = var_value.get_metadata().get('wavelength_units', None)
             epsilon = var_value.get_metadata().get('epsilon', None)
-            dataset = loader.load_from_file(path=filepath)
+            dataset = loader.load_from_file(path=filepath, subdataset_name=subdataset_name)
             band = RasterDataDynamicBand(dataset, band_index=band_index, \
                                         wavelength_value=wavelength_value, \
                                         wavelength_units=wavelength_units, epsilon=epsilon)

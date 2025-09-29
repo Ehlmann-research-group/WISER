@@ -1,5 +1,5 @@
-import tests.context
-# import context
+# import tests.context
+import context
 
 import multiprocessing as mp
 from astropy import units as u
@@ -1227,7 +1227,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             for result_type, result, result_name, expr_info in results:
                 original_file_name = result_name[:-(len(suffix))] if result_name.endswith(suffix) else result_name
                 original_ds = loader.load_from_file(path=os.path.normpath(os.path.join(raster_batch_band.get_folderpath(),
-                                                                                    original_file_name)))[0]
+                                                                                    original_file_name)), interactive=False)[0]
                 original_band = RasterDataDynamicBand(original_ds, raster_batch_band.get_band_index(),
                                                       raster_batch_band.get_wavelength_value(),
                                                       raster_batch_band.get_wavelength_units(),
