@@ -1266,7 +1266,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         - pull SRS/geo-transform from GDAL metadata,
         - construct NetCDF_GDALRasterDataImpl like the dialog path.
         """
-        print(f"#$% in _auto_open_elevation")
         subdatasets = gdal_dataset.GetSubDatasets()
         assert subdatasets, "Expected subdatasets"
 
