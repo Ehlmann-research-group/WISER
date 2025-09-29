@@ -1144,7 +1144,8 @@ class BandMathDialog(QDialog):
 
             if result_name and error_message and error_traceback:
                 job.set_errors(job.get_errors() + [(result_name, error_message, error_traceback)])
-            
+                print(f"Error message:\n{error_message}")
+                print(f"Error traceback:\n{error_traceback}")
             if job.get_errors():
                 job.get_btn_view_errors().setEnabled(True)
             else:

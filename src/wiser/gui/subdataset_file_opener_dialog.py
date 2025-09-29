@@ -142,6 +142,7 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         subdatasets = self._gdal_dataset.GetSubDatasets()
         for subdataset_name, description in subdatasets:
+            print(f"subdataset_name: {subdataset_name}")
             subdataset_key = subdataset_name.split(":")[-1]
             display_text = description or subdataset_key  # Human-readable if available.
             # Store *subdataset_key* as the user data; display the friendly text.
@@ -365,6 +366,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         srs = self._get_spatial_reference()
         subdataset_choice_data = self._get_subdataset_choice()
         subdataset_name = subdataset_choice_data[1]
+        print(f"opening !@# subdataset_name: {subdataset_name}")
         subdataset: gdal.Dataset = gdal.Open(subdataset_name)
         if self._use_wavelengths:
             wavelengths = self._wavelengths

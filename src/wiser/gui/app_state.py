@@ -290,7 +290,7 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
 
-        raster_data_list = self._raster_data_loader.load_from_file(file_path, self._cache)
+        raster_data_list = self._raster_data_loader.load_from_file(path=file_path, data_cache=self._cache)
         
         for raster_data in raster_data_list:
             self.add_dataset(raster_data)

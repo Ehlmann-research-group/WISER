@@ -934,8 +934,8 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
 
 def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
-                        lower_functions: Dict[str, BandMathFunction], subdataset_name: str, number_of_intermediates: int, tree: lark.ParseTree,
-                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+                        lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue, subdataset_name: str = ''):
     # First we will decide if we are doing batching or not. If we are doing batching we get the filepaths, if we are not doing
     # batching we will make the file paths = [None]
     is_batch = is_batch_job(serialized_variables)
@@ -1000,7 +1000,7 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
     elif var_type == VariableType.IMAGE_CUBE_BATCH:
         assert isinstance(var_value, str), "Image Cube Batch variables should be strings"
         assert filepath is not None, "Filepath is required for Image Cube Batch variables"
-        dataset = loader.load_from_file(filepath, subdataset_name=subdataset_name, interactive=False)[0]
+        dataset = loader.load_from_file(path=filepath, subdataset_name=subdataset_name, interactive=False)[0]
         return {var_name: (VariableType.IMAGE_CUBE, dataset)}
 
     elif var_type == VariableType.IMAGE_BAND:
@@ -1026,7 +1026,7 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
             wavelength_value = var_value.get_metadata().get('wavelength_value', None)
             wavelength_units = var_value.get_metadata().get('wavelength_units', None)
             epsilon = var_value.get_metadata().get('epsilon', None)
-            dataset = loader.load_from_file(filepath)
+            dataset = loader.load_from_file(path=filepath)
             band = RasterDataDynamicBand(dataset, band_index=band_index, \
                                         wavelength_value=wavelength_value, \
                                         wavelength_units=wavelength_units, epsilon=epsilon)
@@ -1156,8 +1156,8 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
 
 def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
-                        lower_functions: Dict[str, BandMathFunction], subdataset_name: str, number_of_intermediates: int, tree: lark.ParseTree,
-                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+                        lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue, subdataset_name: str = ''):
     loader = RasterDataLoader()
     # This case is if we are doing batch processing
     if filepaths:
@@ -1224,8 +1224,8 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
 
 def eval_singular_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
             lower_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
-            lower_functions: Dict[str, BandMathFunction], subdataset_name: str, number_of_intermediates: int, tree: lark.ParseTree,
-            use_synchronous_method = True, child_conn: mp_conn.Connection = None \
+            lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
+            use_synchronous_method = True, child_conn: mp_conn.Connection = None, subdataset_name: str = '' \
         ) -> List[Tuple[Union[VariableType, RasterDataSet.__class__],
                         Union[np.ndarray, RasterDataSet],
                         str,
