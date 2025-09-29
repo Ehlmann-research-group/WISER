@@ -1378,7 +1378,7 @@ class RasterDataSet(Serializable):
         Returns:
             A RasterDataSet object that represents the dataset.
         '''
-        if dataset_serialize_value.startswith("NETCDF:"):
+        if isinstance(dataset_serialize_value, str) and dataset_serialize_value.startswith("NETCDF:"):
             dataset_serialize_value = dataset_serialize_value[7:]
         try:
             if isinstance(dataset_serialize_value, str):
