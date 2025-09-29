@@ -1233,6 +1233,29 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                     score += int(best * 10) * w
         return score
 
+    @staticmethod
+    def _build_full_subdataset_name(dataset: gdal.Dataset, subdataset_name: str) -> str:
+        """
+        Construct a full GDAL subdataset string for a given NetCDF dataset.
+
+        Args:
+            dataset (gdal.Dataset): The GDAL dataset object for the NetCDF file.
+            subdataset_name (str): The short name entered by the user (e.g. "radiance",
+                                "flat_field_update", "/location/glt_y").
+
+        Returns:
+            str: The full subdataset name in GDAL format, e.g.:
+                NETCDF:"/path/to/file.nc":radiance
+        """
+        if subdataset_name.startswith("NETCDF:"):
+            return subdataset_name
+        else:
+            # Get the filename from the dataset
+            file_path = dataset.GetDescription()
+            if not file_path or not os.path.isfile(file_path):
+                raise ValueError(f"Could not resolve valid file path from dataset: {file_path}")
+            return f'NETCDF:"{file_path}":{subdataset_name}'
+
     @classmethod
     def _auto_open_elevation(cls, gdal_dataset: gdal.Dataset, netcdf_dataset: nc.Dataset, subdataset_name: str = None) -> "NetCDF_GDALRasterDataImpl":
         """
@@ -1256,6 +1279,8 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 key=lambda pair: cls._score_subdataset(var_path_of(pair[0]), pair[1]),
             )
             subdataset_name = best_name
+        else:
+            subdataset_name = cls._build_full_subdataset_name(gdal_dataset, subdataset_name)
         sub_var_path = var_path_of(subdataset_name)
         subdataset: gdal.Dataset = gdal.Open(subdataset_name)
         assert subdataset is not None, "Chosen subdataset could not be opened"
@@ -1357,7 +1382,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         # Check for subdatasets
         subdatasets = gdal_dataset.GetSubDatasets()
         instances_list = []  # List to hold instances of the class
-    
         if subdataset_name:
             instances_list.append(cls._auto_open_elevation(gdal_dataset, netcdf_dataset, subdataset_name=subdataset_name))
         elif subdatasets and interactive:

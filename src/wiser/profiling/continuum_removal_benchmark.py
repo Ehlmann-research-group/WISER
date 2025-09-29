@@ -17,7 +17,7 @@ def profile_continuum_removal_image_numba():
     # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
     target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
     loader = RasterDataLoader()
-    dataset = loader.load_from_file(target_path)[0]
+    dataset = loader.load_from_file(path=target_path)[0]
     image_data = dataset.get_image_data()
     if isinstance(image_data, np.ma.MaskedArray):
         image_data = image_data.data
@@ -37,7 +37,7 @@ def profile_continuum_removal_image():
     # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
     target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
     loader = RasterDataLoader()
-    dataset = loader.load_from_file(target_path)[0]
+    dataset = loader.load_from_file(path=target_path)[0]
     image_data = dataset.get_image_data()
     if isinstance(image_data, np.ma.MaskedArray):
         image_data = image_data.data
@@ -56,7 +56,7 @@ def profile_continuum_removal_spectrum_numba():
         # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
         target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
         loader = RasterDataLoader()
-        dataset = loader.load_from_file(target_path)[0]
+        dataset = loader.load_from_file(path=target_path)[0]
         rows = np.int32(dataset.get_height())
         cols = np.int32(dataset.get_width())
         bands = np.int32(dataset.num_bands())
@@ -77,7 +77,7 @@ def profile_continuum_spectrum_image():
     # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
     target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
     loader = RasterDataLoader()
-    dataset = loader.load_from_file(target_path)[0]
+    dataset = loader.load_from_file(path=target_path)[0]
     rows = np.int32(dataset.get_height())
     cols = np.int32(dataset.get_width())
     spectrum = dataset.get_all_bands_at(rows//2, cols//2)
@@ -102,7 +102,7 @@ def _prepare_inputs_spectrum():
     )
 
     loader = RasterDataLoader()
-    dataset = loader.load_from_file(target_path)[0]
+    dataset = loader.load_from_file(path=target_path)[0]
 
     rows = np.int32(dataset.get_height())
     cols = np.int32(dataset.get_width())
@@ -121,7 +121,7 @@ def _prepare_inputs_image():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
     loader = RasterDataLoader()
-    dataset = loader.load_from_file(target_path)[0]
+    dataset = loader.load_from_file(path=target_path)[0]
     image_data = dataset.get_image_data()
     if isinstance(image_data, np.ma.MaskedArray):
         image_data = image_data.data

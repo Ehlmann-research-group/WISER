@@ -1378,7 +1378,7 @@ class RasterDataSet(Serializable):
         Returns:
             A RasterDataSet object that represents the dataset.
         '''
-        if dataset_serialize_value.startswith("NETCDF:"):
+        if isinstance(dataset_serialize_value, str) and dataset_serialize_value.startswith("NETCDF:"):
             dataset_serialize_value = dataset_serialize_value[7:]
         try:
             if isinstance(dataset_serialize_value, str):
@@ -1739,7 +1739,7 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             dataset = band_metadata['dataset_serializable_class'].deserialize_into_class(band_metadata['dataset_serialize_value'], \
                                                         band_metadata['dataset_metadata'])
         else:
-            dataset = loader.load_from_file(band_metadata['filepath'], interactive=False)[0]
+            dataset = loader.load_from_file(path=band_metadata['filepath'], interactive=False)[0]
         if 'dataset_metadata' in band_metadata:
             dataset.copy_serialized_metadata_from(band_metadata['dataset_metadata'])
 

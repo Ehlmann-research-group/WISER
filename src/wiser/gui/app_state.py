@@ -158,6 +158,10 @@ class ApplicationState(QObject):
     def remove_running_process(self, process_manager_id: int):
         del self._running_processes[process_manager_id]
 
+    def cancel_all_running_processes(self):
+        for process_manager in self._running_processes.values():
+            process_manager.get_task().cancel()
+
     def get_running_processes(self) -> Dict[int, ProcessManager]:
         return self._running_processes
 
@@ -290,7 +294,7 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
 
-        raster_data_list = self._raster_data_loader.load_from_file(file_path, self._cache)
+        raster_data_list = self._raster_data_loader.load_from_file(path=file_path, data_cache=self._cache)
         
         for raster_data in raster_data_list:
             self.add_dataset(raster_data)

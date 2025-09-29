@@ -814,7 +814,8 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
 def eval_bandmath_expr(
         bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
-        functions: Dict[str, BandMathFunction] = None, succeeded_callback: Callable = lambda _: None, \
+        functions: Dict[str, BandMathFunction] = None, subdataset_name: str = '', 
+        succeeded_callback: Callable = lambda _: None, \
         status_callback: Callable = lambda _: None, error_callback: Callable = lambda _: None, \
         started_callback: Callable = lambda _: None, cancelled_callback: Callable = lambda _: None, \
         app_state: 'ApplicationState' = None, use_synchronous_method = True
@@ -893,6 +894,7 @@ def eval_bandmath_expr(
         "number_of_intermediates": number_of_intermediates,
         "tree": tree,
         "use_synchronous_method": use_synchronous_method,
+        "subdataset_name": subdataset_name,
     }
 
     process_manager = ProcessManager(subprocess_bandmath, kwargs)
@@ -933,7 +935,7 @@ def serialize_bandmath_variables(variables: Dict[str, Tuple[VariableType, BANDMA
 def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
                         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue, subdataset_name: str = ''):
     # First we will decide if we are doing batching or not. If we are doing batching we get the filepaths, if we are not doing
     # batching we will make the file paths = [None]
     is_batch = is_batch_job(serialized_variables)
@@ -943,7 +945,7 @@ def subprocess_bandmath(bandmath_expr: str, expr_info: BandMathExprInfo, result_
 
     eval_all_bandmath_expr(filepaths=filepaths, bandmath_expr=bandmath_expr, expr_info=expr_info,
                            result_name=result_name, cache=cache, serialized_variables=serialized_variables,
-                           lower_functions=lower_functions, number_of_intermediates=number_of_intermediates,
+                           lower_functions=lower_functions, subdataset_name=subdataset_name, number_of_intermediates=number_of_intermediates,
                            tree=tree, use_synchronous_method=use_synchronous_method, child_conn=child_conn,
                            return_queue=return_queue)
 
@@ -981,7 +983,7 @@ def is_batch_job(serialized_variables: Dict[str, Tuple[VariableType, Union[Seria
     return False
 
 def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value: Union[SerializedForm, str, bool], \
-                                loader: RasterDataLoader, filepath: str = None) -> Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]:
+                                loader: RasterDataLoader, filepath: str = None, subdataset_name: str = '') -> Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]:
     '''
     This function is used to convert a serialized form of an object back into the original object.
     '''
@@ -994,10 +996,11 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
         else:
             assert isinstance(var_value, np.ndarray), "Image Cube variables should be either a SerializedForm or a numpy array"
             return {var_name: (var_type, var_value)}
+    # At this point, even though the type is image cube batch, we are loading a filepath 
     elif var_type == VariableType.IMAGE_CUBE_BATCH:
         assert isinstance(var_value, str), "Image Cube Batch variables should be strings"
         assert filepath is not None, "Filepath is required for Image Cube Batch variables"
-        dataset = loader.load_from_file(filepath, interactive=False)[0]
+        dataset = loader.load_from_file(path=filepath, subdataset_name=subdataset_name, interactive=False)[0]
         return {var_name: (VariableType.IMAGE_CUBE, dataset)}
 
     elif var_type == VariableType.IMAGE_BAND:
@@ -1023,7 +1026,7 @@ def serialized_form_to_variable(var_name: str, var_type: VariableType, var_value
             wavelength_value = var_value.get_metadata().get('wavelength_value', None)
             wavelength_units = var_value.get_metadata().get('wavelength_units', None)
             epsilon = var_value.get_metadata().get('epsilon', None)
-            dataset = loader.load_from_file(filepath)
+            dataset = loader.load_from_file(path=filepath, subdataset_name=subdataset_name)
             band = RasterDataDynamicBand(dataset, band_index=band_index, \
                                         wavelength_value=wavelength_value, \
                                         wavelength_units=wavelength_units, epsilon=epsilon)
@@ -1154,7 +1157,7 @@ def prepare_bandmath_variables(serialized_variables: Dict[str, Tuple[VariableTyp
 def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
                         serialized_variables: Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]],
                         lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue):
+                        use_synchronous_method: bool, child_conn: mp_conn.Connection, return_queue: mp.Queue, subdataset_name: str = ''):
     loader = RasterDataLoader()
     # This case is if we are doing batch processing
     if filepaths:
@@ -1174,12 +1177,14 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
                 for var_name, var_tuple in serialized_variables.items():
                     var_type = var_tuple[0]
                     var_value = var_tuple[1]
-                    current_variables.update(serialized_form_to_variable(var_name, var_type, var_value, loader, filepath))
+                    current_variables.update(serialized_form_to_variable(var_name, var_type, var_value, 
+                                                                        loader, filepath, subdataset_name=subdataset_name))
                 # Third we get the proper BandMathExprInfo
                 current_expr_info = bandmath.get_bandmath_expr_info(bandmath_expr, current_variables, lower_functions)
+                # Then we calculate the result
                 result = eval_singular_bandmath_expr(expr_info=current_expr_info, result_name=new_result_name, cache=cache,
                                                      lower_variables=current_variables, lower_functions=lower_functions,
-                                                     number_of_intermediates=number_of_intermediates, tree=tree,
+                                                     subdataset_name=subdataset_name, number_of_intermediates=number_of_intermediates, tree=tree,
                                                      use_synchronous_method=use_synchronous_method, child_conn=child_conn)
                 outputs.append(result)
                 child_conn.send(["error", {"Result Name": result_name, "Message": None, "Traceback": None}])
@@ -1220,7 +1225,7 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
 def eval_singular_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, cache: DataCache,
             lower_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
             lower_functions: Dict[str, BandMathFunction], number_of_intermediates: int, tree: lark.ParseTree,
-            use_synchronous_method = True, child_conn: mp_conn.Connection = None \
+            use_synchronous_method = True, child_conn: mp_conn.Connection = None, subdataset_name: str = '' \
         ) -> List[Tuple[Union[VariableType, RasterDataSet.__class__],
                         Union[np.ndarray, RasterDataSet],
                         str,
@@ -1239,11 +1244,16 @@ def eval_singular_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, c
     max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size()*number_of_intermediates)
     logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
 
+    if subdataset_name:
+        result_name = f"{subdataset_name}_{result_name}"
+
     spectral_metadata = expr_info.spectral_metadata_source
     data_ignore_value = DEFAULT_IGNORE_VALUE
     if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
         data_ignore_value = spectral_metadata.get_data_ignore_value()
 
+    # Either we explicitly say we don't want to use the synchronous method or we decide to chunk based
+    # on how big the image cube is.
     if not use_synchronous_method or \
     (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk):
         try:

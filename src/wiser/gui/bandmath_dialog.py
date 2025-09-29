@@ -488,7 +488,8 @@ class BandmathBatchJob:
 
     def __init__(self, job_id: int, expression: str, expr_info: bandmath.BandMathExprInfo, 
                  variables: Dict[str, Tuple[bandmath.VariableType, Any]], input_folder: str,
-                 output_folder: str, load_into_wiser: bool, result_suffix: str):
+                 output_folder: str, load_into_wiser: bool, result_suffix: str,
+                 subdataset_name: str = ''):
         self._job_id = job_id
         self._expression = expression
         self._expr_info = copy.deepcopy(expr_info)
@@ -506,6 +507,10 @@ class BandmathBatchJob:
         self._errors: Optional[List[Tuple[str, str, str]]] = []
         self._controls_widget: Optional[BatchJobControlsWidget] = None
         self._information_widget: Optional[BatchJobInfoWidget] = None
+        self._subdataset_name: str = subdataset_name
+
+    def get_subdataset_name(self) -> str:
+        return self._subdataset_name
 
     def set_controls_widget(self, controls_widget: QWidget) -> None:
         self._controls_widget = controls_widget
@@ -701,7 +706,7 @@ class BatchJobControlsWidget(QWidget):
 class BatchJobInfoWidget(QWidget):
     def __init__(self, expression: str, variables: Dict[str, Tuple[bandmath.VariableType, Any]], 
                  input_folder: str, output_folder: str, load_results_into_wiser: bool,
-                 result_name: str, width_hint=150, parent=None):
+                 result_name: str, subdataset_name: str = '', width_hint=150, parent=None):
         super().__init__(parent)
         self._width_hint = width_hint
 
@@ -736,6 +741,17 @@ class BatchJobInfoWidget(QWidget):
         le_input.setCursorPosition(0)
         le_input.setToolTip(input_folder)
         layout.addWidget(le_input)
+
+        # Only if subdataset name is not empty
+        if subdataset_name:
+            layout.addWidget(QLabel(self.tr("Subdataset Name:")))
+            le_subdataset = QLineEdit()
+            le_subdataset.setReadOnly(True)
+            le_subdataset.setEnabled(False)
+            le_subdataset.setText(subdataset_name)
+            le_subdataset.setCursorPosition(0)
+            le_subdataset.setToolTip(subdataset_name)
+            layout.addWidget(le_subdataset)
 
         # Output Folder (only if exists)
         if output_folder:
@@ -1128,7 +1144,6 @@ class BandMathDialog(QDialog):
 
             if result_name and error_message and error_traceback:
                 job.set_errors(job.get_errors() + [(result_name, error_message, error_traceback)])
-            
             if job.get_errors():
                 job.get_btn_view_errors().setEnabled(True)
             else:
@@ -1152,7 +1167,7 @@ class BandMathDialog(QDialog):
                                                       bandmath_expr=job.get_expression(), expr_info=job.get_expr_info(),
                                                       app_state=self._app_state, result_name=job.get_result_suffix(),
                                                       cache=self._app_state.get_cache(), variables=job.get_variables(),
-                                                      functions=functions)
+                                                      functions=functions, subdataset_name=job.get_subdataset_name())
         job.set_process_manager(process_manager)
 
     def _on_create_batch_job(self):
@@ -1184,7 +1199,8 @@ class BandMathDialog(QDialog):
             input_folder=self._get_input_folder(),
             output_folder=self._get_output_folder(),
             load_into_wiser=self.load_results_into_wiser(),
-            result_suffix=self.get_result_name()
+            result_suffix=self.get_result_name(),
+            subdataset_name=self._ui.ledit_subdataset_name.text()
         )
 
         self._batch_jobs.append(job)
@@ -1279,6 +1295,7 @@ class BandMathDialog(QDialog):
             output_folder=batch_job.get_output_folder(),
             load_results_into_wiser=batch_job.get_load_into_wiser(),
             result_name=batch_job.get_result_suffix(),
+            subdataset_name=batch_job.get_subdataset_name(),
             width_hint=150
         )
         batch_job.set_information_widget(info_widget)
@@ -1387,7 +1404,9 @@ class BandMathDialog(QDialog):
             self._ui.hspace_output_folder,
             self._ui.hspacer_load_wiser,
             self._ui.wdgt_load_wiser,
-            self._ui.wdgt_output_folder
+            self._ui.wdgt_output_folder,
+            self._ui.lbl_subdataset_name,
+            self._ui.ledit_subdataset_name,
         ]
         return ui_components
 

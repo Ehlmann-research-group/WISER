@@ -208,7 +208,7 @@ class WiserTestModel:
         dataset = None
         if isinstance(dataset_info, str):
             dataset_path = dataset_info
-            dataset = self.raster_data_loader.load_from_file(dataset_path, self.data_cache)[0]
+            dataset = self.raster_data_loader.load_from_file(path=dataset_path, data_cache=self.data_cache)[0]
         elif isinstance(dataset_info, (np.ndarray, np.ma.masked_array)):
             dataset_arr = dataset_info
             dataset = self.raster_data_loader.dataset_from_numpy_array(dataset_arr, self.data_cache)

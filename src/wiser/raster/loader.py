@@ -76,7 +76,7 @@ class RasterDataLoader:
         return []
 
 
-    def load_from_file(self, path, data_cache = None, interactive = True) -> List[RasterDataSet]:
+    def load_from_file(self, path, data_cache = None, interactive = True, subdataset_name = '') -> List[RasterDataSet]:
         '''
         Load a raster data-set from the specified path.  Returns a
         list of :class:`RasterDataSet` object.
@@ -87,7 +87,10 @@ class RasterDataLoader:
         impl_list = None
         for (driver_name, impl_type) in self._formats.items():
             try:
-                impl_list = impl_type.try_load_file(path, interactive=interactive)
+                if subdataset_name:
+                    impl_list = impl_type.try_load_file(path, subdataset_name=subdataset_name, interactive=interactive)
+                else:
+                    impl_list = impl_type.try_load_file(path, interactive=interactive)
             except Exception as e:
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)

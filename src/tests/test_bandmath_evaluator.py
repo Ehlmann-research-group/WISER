@@ -1169,7 +1169,7 @@ class TestBandmathEvaluator(unittest.TestCase):
                     result_ds = load_image_from_bandmath_result(result_type, result, result_name, expr, expr_info, loader, None)
                     result_arr = result_ds.get_image_data()
                     original_file_name = result_name[:-(len(suffix))] if result_name.endswith(suffix) else result_name
-                    original_ds = loader.load_from_file(os.path.normpath(os.path.join(batch_test_folder, original_file_name)))[0]
+                    original_ds = loader.load_from_file(path=os.path.normpath(os.path.join(batch_test_folder, original_file_name)))[0]
                     if var[0] == VariableType.IMAGE_CUBE:
                         var_arr = var[1].get_image_data()
                     elif var[0] == VariableType.IMAGE_BAND:
@@ -1226,8 +1226,8 @@ class TestBandmathEvaluator(unittest.TestCase):
             results = process_manager.get_task().get_result()
             for result_type, result, result_name, expr_info in results:
                 original_file_name = result_name[:-(len(suffix))] if result_name.endswith(suffix) else result_name
-                original_ds = loader.load_from_file(os.path.normpath(os.path.join(raster_batch_band.get_folderpath(),
-                                                                                    original_file_name)))[0]
+                original_ds = loader.load_from_file(path=os.path.normpath(os.path.join(raster_batch_band.get_folderpath(),
+                                                                                    original_file_name)), interactive=False)[0]
                 original_band = RasterDataDynamicBand(original_ds, raster_batch_band.get_band_index(),
                                                       raster_batch_band.get_wavelength_value(),
                                                       raster_batch_band.get_wavelength_units(),
