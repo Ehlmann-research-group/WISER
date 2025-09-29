@@ -1219,6 +1219,7 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
         else:
             serialized_result = (result_type, result_value, result_name, result_expr_info)
 
+        child_conn.send(["progress", {"Numerator": 1, "Denominator": 1, "Status": "Finished"}])
         return_queue.put([serialized_result])
 
 
