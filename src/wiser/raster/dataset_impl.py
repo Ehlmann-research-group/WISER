@@ -1279,13 +1279,11 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 subdatasets,
                 key=lambda pair: cls._score_subdataset(var_path_of(pair[0]), pair[1]),
             )
-            print(f"#$% best_name: {best_name}")
             subdataset_name = best_name
         else:
             subdataset_name = cls._build_full_subdataset_name(gdal_dataset, subdataset_name)
         sub_var_path = var_path_of(subdataset_name)
         subdataset: gdal.Dataset = gdal.Open(subdataset_name)
-        print(f"#$% opened subdataset: {subdataset}")
         assert subdataset is not None, "Chosen subdataset could not be opened"
 
         # ---- SRS & GeoTransform from GDAL metadata
@@ -1385,21 +1383,16 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         # Check for subdatasets
         subdatasets = gdal_dataset.GetSubDatasets()
         instances_list = []  # List to hold instances of the class
-        print(f"!@# subdataset_name: {subdataset_name}")
         if subdataset_name:
-            print(f"in !@# subdataset_name")
             instances_list.append(cls._auto_open_elevation(gdal_dataset, netcdf_dataset, subdataset_name=subdataset_name))
         elif subdatasets and interactive:
-            print(f"in !@# subdatasets and interactive")
             subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
             if subdataset_chooser.exec_() == QDialog.Accepted:
                 if subdataset_chooser.netcdf_impl is not None:
                     instances_list.append(subdataset_chooser.netcdf_impl)
         elif subdatasets:
-            print(f"in !@# subdatasets")
             instances_list.append(cls._auto_open_elevation(gdal_dataset, netcdf_dataset))
         else:
-            print(f"in !@# GDALRasterDataImpl")
             return [GDALRasterDataImpl(gdal_dataset)]
 
         if instances_list is []:

@@ -92,8 +92,6 @@ class RasterDataLoader:
                 else:
                     impl_list = impl_type.try_load_file(path, interactive=interactive)
             except Exception as e:
-                if driver_name == 'NetCDF':
-                    print(f"!@$% error:\ndriver name: {driver_name}\nmessage: {e}")
                 logger.debug(f'Couldn\'t load file {path} with driver ' +
                              f'{driver_name} and implementation {impl_type}.', e)
                 

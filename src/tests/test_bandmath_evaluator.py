@@ -1,5 +1,5 @@
-# import tests.context
-import context
+import tests.context
+# import context
 
 import multiprocessing as mp
 from astropy import units as u
