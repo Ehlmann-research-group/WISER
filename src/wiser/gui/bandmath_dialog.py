@@ -718,7 +718,7 @@ class BatchJobInfoWidget(QWidget):
         layout.addWidget(QLabel(self.tr("Expression:")))
         le_expr = QLineEdit()
         le_expr.setReadOnly(True)
-        le_expr.setEnabled(False)
+        self._look_disabled(le_expr)
         le_expr.setText(expression)
         le_expr.setToolTip(expression)
         layout.addWidget(le_expr)
@@ -736,7 +736,7 @@ class BatchJobInfoWidget(QWidget):
         layout.addWidget(QLabel(self.tr("Input Folder:")))
         le_input = QLineEdit()
         le_input.setReadOnly(True)
-        le_input.setEnabled(False)
+        self._look_disabled(le_input)
         le_input.setText(input_folder)
         le_input.setCursorPosition(0)
         le_input.setToolTip(input_folder)
@@ -747,7 +747,7 @@ class BatchJobInfoWidget(QWidget):
             layout.addWidget(QLabel(self.tr("Subdataset Name:")))
             le_subdataset = QLineEdit()
             le_subdataset.setReadOnly(True)
-            le_subdataset.setEnabled(False)
+            self._look_disabled(le_subdataset)
             le_subdataset.setText(subdataset_name)
             le_subdataset.setCursorPosition(0)
             le_subdataset.setToolTip(subdataset_name)
@@ -758,7 +758,7 @@ class BatchJobInfoWidget(QWidget):
             layout.addWidget(QLabel(self.tr("Output Folder:")))
             le_output = QLineEdit()
             le_output.setReadOnly(True)
-            le_output.setEnabled(False)
+            self._look_disabled(le_output)
             le_output.setText(output_folder)
             le_output.setCursorPosition(0)
             le_output.setToolTip(output_folder)
@@ -771,7 +771,7 @@ class BatchJobInfoWidget(QWidget):
         layout.addWidget(QLabel(self.tr("Result Prefix:")))
         le_result = QLineEdit()
         le_result.setReadOnly(True)
-        le_result.setEnabled(False)
+        self._look_disabled(le_result)
         le_result.setText(result_name)
         le_result.setToolTip(result_name)
         layout.addWidget(le_result)
@@ -780,6 +780,16 @@ class BatchJobInfoWidget(QWidget):
 
         # Let the view know we can grow, but prefer the given width hint
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+    def _look_disabled(self, ledit: QLineEdit):
+        ledit.setReadOnly(True)
+
+        # Adjust palette so it looks like a disabled QLineEdit
+        palette = ledit.palette()
+        disabled_color = palette.color(QPalette.Disabled, QPalette.Text)
+        palette.setColor(QPalette.Active, QPalette.Text, disabled_color)
+        palette.setColor(QPalette.Inactive, QPalette.Text, disabled_color)
+        ledit.setPalette(palette)
 
     def sizeHint(self):
         # Use the layout’s computed height but our fixed-ish width hint
