@@ -1414,8 +1414,31 @@ class BandMathDialog(QDialog):
         self._sync_batch_process_ui()
         self._analyze_expr()
 
+    def _has_batch_variables(self) -> bool:
+        '''
+        Check if any variables in the current expression have batch types.
+        
+        Returns:
+            True if any variable has type IMAGE_CUBE_BATCH or IMAGE_BAND_BATCH,
+            False otherwise.
+        '''
+        for row in range(self._ui.tbl_variables.rowCount()):
+            var_type = self._ui.tbl_variables.cellWidget(row, 1).currentData()
+            if var_type in [bandmath.VariableType.IMAGE_CUBE_BATCH, 
+                           bandmath.VariableType.IMAGE_BAND_BATCH]:
+                return True
+        return False
+
+    def _sync_result_name_label(self):
+        if self._has_batch_variables():
+            self._ui.lbl_result_name.setText(self.tr('Result suffix (required):'))
+        else:
+            self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
+
+
     def _sync_batch_process_ui(self):
         is_enabled = self._ui.chkbox_enable_batch.isChecked()
+        # Show / hide batch processing UI elements
         batch_process_ui_elements = self._get_batch_processing_ui_components()
         for element in batch_process_ui_elements:
             if isinstance(element, QWidget):
@@ -1435,11 +1458,8 @@ class BandMathDialog(QDialog):
             dialog_size.setWidth(dialog_size.width() - delta)
 
         self.resize(dialog_size)
-    
-        if is_enabled:
-            self._ui.lbl_result_name.setText(self.tr('Result suffix (required):'))
-        else:
-            self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
+
+        self._sync_result_name_label()
 
 
     def _on_toggle_help(self, checked=False):
@@ -1725,7 +1745,8 @@ class BandMathDialog(QDialog):
         self._ui.tbl_variables.setCellWidget(var_row, 2, value_widget)
 
         self._ui.tbl_variables.resizeColumnToContents(2)
-
+        # Sync the result name label with the types of the variables 
+        self._sync_result_name_label()
         # Update the expression analysis
         self._analyze_expr()
 
