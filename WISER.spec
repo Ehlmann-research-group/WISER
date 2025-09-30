@@ -25,6 +25,7 @@ binaries = [(f'{conda_env_prefix}\\Library\\plugins\\platforms', 'platforms'),
 (f'{conda_env_prefix}\\Library\\plugins\\iconengines', 'iconengines'),
 (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'),
 (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_netCDF.dll', 'gdalplugins'),
+(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_JP2OpenJPEG.dll', 'gdalplugins'),
 (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'),
 (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins')]
 hiddenimports = ['PySide2.QtSvg', 'PySide2.QtXml']
