@@ -106,7 +106,6 @@ def save_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
     save_path = os.path.join(output_folder, result_name)
-    print(f"!@#: save_path: {save_path}")
     # result_type == RasterDataSet if it was so big that it had to get chunked and saved to disk
     if result_type == RasterDataSet:
         metadata = result.get_metadata()
@@ -156,14 +155,12 @@ def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
         arr = raster_band.get_data()
         if arr.ndim == 2:
             arr = arr[np.newaxis, : ]
-            print(f"type of arr load: {type(result)}")
             cache = app_state.get_cache() if app_state else None
             new_dataset = loader.dataset_from_numpy_array(result, cache)
     elif isinstance(result, np.ndarray):
         # Convert the image band into a 1-band image cube
         result = result[np.newaxis, :]
         cache = app_state.get_cache() if app_state else None
-        print(f"type of result load: {type(result)}")
         new_dataset = loader.dataset_from_numpy_array(result, cache)
     else:
         raise RuntimeError(f"Expected result to be Serialized Form or np.ndarray but instead got: {type(result)}")
