@@ -9,7 +9,7 @@ import sys
 
 import unittest
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Callable
 
 
 from wiser import bandmath
@@ -1139,7 +1139,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"))
 
         batch_test_folder = os.path.normpath(
-            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
 
         caltech_ds = self.test_model.load_dataset(target_path)
 
@@ -1200,7 +1200,8 @@ class TestBandmathEvaluator(unittest.TestCase):
 
     def bandmath_preloaded_data_with_band_batch_helper(self,
                                                        raster_batch_band: RasterDataBatchBand,
-                                                       run_sync: bool):
+                                                       run_sync: bool,
+                                                       success_callback: Callable = lambda _: None):
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
         target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"))
@@ -1218,7 +1219,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             expr_info = get_bandmath_expr_info(expr, variables, {})
             suffix = 'test_result'
             cache = DataCache()
-            process_manager = bandmath.eval_bandmath_expr(succeeded_callback=lambda _: None,
+            process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback,
                 status_callback=lambda _: None, error_callback=lambda _: None, 
                 bandmath_expr=expr, expr_info=expr_info, result_name=suffix, cache=cache,
                 variables=variables, functions={}, use_synchronous_method=run_sync)
@@ -1260,24 +1261,25 @@ class TestBandmathEvaluator(unittest.TestCase):
                 del result
                 del original_ds
 
+
     def test_bandmath_preloaded_data_with_band_index_batch_sync(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         batch_test_folder = os.path.normpath(
-            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
         raster_batch_band = RasterDataBatchBand(batch_test_folder, 0)
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=True)
 
     def test_bandmath_preloaded_data_with_band_index_batch_async(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         batch_test_folder = os.path.normpath(
-            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
         raster_batch_band = RasterDataBatchBand(batch_test_folder, 0)
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
 
     def test_bandmath_preloaded_data_with_band_wvl_batch_sync(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         batch_test_folder = os.path.normpath(
-            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
         raster_batch_band = RasterDataBatchBand(
             batch_test_folder, band_index=None, wavelength_value=700, wavelength_units=u.nm, epsilon=20)
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=True)
@@ -1285,7 +1287,7 @@ class TestBandmathEvaluator(unittest.TestCase):
     def test_bandmath_preloaded_data_with_band_wvl_batch_async(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         batch_test_folder = os.path.normpath(
-            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_folder"))
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
         raster_batch_band = RasterDataBatchBand(
             batch_test_folder, band_index=None, wavelength_value=700, wavelength_units=u.nm, epsilon=20)
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)

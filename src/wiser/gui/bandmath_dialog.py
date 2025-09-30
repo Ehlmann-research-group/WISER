@@ -732,15 +732,16 @@ class BatchJobInfoWidget(QWidget):
         lbl_assign.setToolTip(tip_text)
         layout.addWidget(lbl_assign)
 
-        # Input Folder (label + read-only line edit)
-        layout.addWidget(QLabel(self.tr("Input Folder:")))
-        le_input = QLineEdit()
-        le_input.setReadOnly(True)
-        self._look_disabled(le_input)
-        le_input.setText(input_folder)
-        le_input.setCursorPosition(0)
-        le_input.setToolTip(input_folder)
-        layout.addWidget(le_input)
+        if input_folder:
+            # Input Folder (label + read-only line edit)
+            layout.addWidget(QLabel(self.tr("Input Folder:")))
+            le_input = QLineEdit()
+            le_input.setReadOnly(True)
+            self._look_disabled(le_input)
+            le_input.setText(input_folder)
+            le_input.setCursorPosition(0)
+            le_input.setToolTip(input_folder)
+            layout.addWidget(le_input)
 
         # Only if subdataset name is not empty
         if subdataset_name:
@@ -768,14 +769,15 @@ class BatchJobInfoWidget(QWidget):
             layout.addWidget(icon_text_label("Load Into WISER",
                                  ":/icons/wiser.ico"))
 
-        # Result Prefix (label + read-only line edit)
-        layout.addWidget(QLabel(self.tr("Result Prefix:")))
-        le_result = QLineEdit()
-        le_result.setReadOnly(True)
-        self._look_disabled(le_result)
-        le_result.setText(result_name)
-        le_result.setToolTip(result_name)
-        layout.addWidget(le_result)
+        if result_name:
+            # Result Prefix (label + read-only line edit)
+            layout.addWidget(QLabel(self.tr("Result Prefix:")))
+            le_result = QLineEdit()
+            le_result.setReadOnly(True)
+            self._look_disabled(le_result)
+            le_result.setText(result_name)
+            le_result.setToolTip(result_name)
+            layout.addWidget(le_result)
 
         self.setLayout(layout)
 
@@ -1191,7 +1193,8 @@ class BandMathDialog(QDialog):
             missing.append("Expression")
         if not self._get_output_folder() and not self.load_results_into_wiser():
             missing.append("Output Folder or 'Load Results into WISER' checked")
-        if not self.get_result_name():
+        # We need the result prefix if we have batch variables or the user specified an output folder
+        if not self.get_result_name() and (self._has_batch_variables() or self._get_output_folder()):
             missing.append("Result Prefix")
 
         if missing:
@@ -1341,6 +1344,8 @@ class BandMathDialog(QDialog):
                 return
             self._ui.ledit_output_folder.setText(folder)
 
+        self._sync_result_name_label()
+
     def _pick_input_folder(self, title: str) -> None:
         """Open a folder chooser and write the selected path into the given QLineEdit."""
         start_dir = self._ui.ledit_input_folder.text().strip()
@@ -1425,6 +1430,10 @@ class BandMathDialog(QDialog):
     def _on_enable_batch_changed(self, checked: bool):
         self._sync_batch_process_ui()
         self._analyze_expr()
+        ok_btn = self._ui.buttonBox.button(QDialogButtonBox.Ok)
+
+        ok_btn.setEnabled(not checked)
+        ok_btn.setAutoDefault(not checked)
 
     def _has_batch_variables(self) -> bool:
         '''
@@ -1442,8 +1451,12 @@ class BandMathDialog(QDialog):
         return False
 
     def _sync_result_name_label(self):
+        # If the user is doing batch processing, they must specify a suffix
         if self._has_batch_variables():
             self._ui.lbl_result_name.setText(self.tr('Result suffix (required):'))
+        # If the user is specifying an output folder w/ no batch processing, they must specify a name
+        elif self._get_output_folder():
+            self._ui.lbl_result_name.setText(self.tr('Result name (required):'))
         else:
             self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
 

@@ -1201,6 +1201,7 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
                 serialized_results.append((result_type, result_value, result_name, result_expr_info))
         return_queue.put(serialized_results)
     else:
+        child_conn.send(["progress", {"Numerator": 1, "Denominator": 1, "Status": "Running"}])
         new_result_name = result_name
         single_batch_variables = {}
         for var_name, var_tuple in serialized_variables.items():

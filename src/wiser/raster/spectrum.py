@@ -580,7 +580,7 @@ class NumPyArraySpectrum(Spectrum):
 class RasterDataSetSpectrum(Spectrum):
     def __init__(self, dataset):
         super().__init__()
-        self._dataset = dataset
+        self._dataset: RasterDataSet = dataset
         self._avg_mode = SpectrumAverageMode.MEAN
 
         self._name = None
@@ -673,17 +673,15 @@ class RasterDataSetSpectrum(Spectrum):
         Returns a list of wavelength values corresponding to each band.  The
         individual values are astropy values-with-units.
         '''
-        b0 = self._dataset.band_list()[0]
+        b0: Dict = self._dataset.band_list()[0]
         if 'wavelength' in b0:
             key = 'wavelength'
         else:
             key = 'index'
         bands =  [b[key] for b in self._dataset.band_list()]
-
         if filter_bad_bands:
             bad_bands = self._dataset.get_bad_bands()
             bands = [bands[i] for i in range(len(bands)) if bad_bands[i]]
-
         return bands
     
     def get_wavelength_units(self) -> Optional[u.Unit]:

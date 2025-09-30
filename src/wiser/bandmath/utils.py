@@ -156,12 +156,14 @@ def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
         arr = raster_band.get_data()
         if arr.ndim == 2:
             arr = arr[np.newaxis, : ]
+            print(f"type of arr load: {type(result)}")
             cache = app_state.get_cache() if app_state else None
             new_dataset = loader.dataset_from_numpy_array(result, cache)
     elif isinstance(result, np.ndarray):
         # Convert the image band into a 1-band image cube
         result = result[np.newaxis, :]
         cache = app_state.get_cache() if app_state else None
+        print(f"type of result load: {type(result)}")
         new_dataset = loader.dataset_from_numpy_array(result, cache)
     else:
         raise RuntimeError(f"Expected result to be Serialized Form or np.ndarray but instead got: {type(result)}")
@@ -181,6 +183,11 @@ def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
     if app_state:
         app_state.add_dataset(new_dataset, view_dataset=False)
     
+    if expr_info.spectral_metadata_source:
+        print(f"has spectral metadata source")
+    else:
+        print(f"no spectral metadata source !@#")
+
     return new_dataset
 
 
@@ -202,12 +209,14 @@ def save_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
         arr = raster_band.get_data()
         if arr.ndim == 2:
             arr = arr[np.newaxis, : ]
+            print(f"type of arr save: {type(result)}")
             cache = app_state.get_cache() if app_state else None
             new_dataset = loader.dataset_from_numpy_array(result, cache)
-    elif isinstance(result, np.ndarray):
+    elif isinstance(result, (np.ndarray, np.ma.MaskedArray)):
         # Convert the image band into a 1-band image cube
         result = result[np.newaxis, :]
         cache = app_state.get_cache() if app_state else None
+        print(f"type of result save: {type(result)}")
         new_dataset = loader.dataset_from_numpy_array(result, cache)
     else:
         raise RuntimeError(f"Expected result to be Serialized Form or np.ndarray but instead got: {type(result)}")
@@ -226,6 +235,11 @@ def save_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
     if expr_info.spatial_metadata_source:
         new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
 
+    if expr_info.spectral_metadata_source:
+        print(f"has spectral metadata source save")
+    else:
+        print(f"no spectral metadata source save !@#")
+
     loader.save_dataset_as(new_dataset, save_path, format='ENVI', config=None)
     
     return new_dataset
@@ -236,7 +250,9 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
     if not results:
         return
     try:
-        if load_into_wiser:
+        # This call back is called both when batch is enabled or disabled, so we must make
+        # sure we load results into WISER if batch is disabled.
+        if load_into_wiser or not batch_enabled:
             for result_type, result, result_name, expr_info in results:
                 logger.debug(f'Result of band-math evaluation is type ' +
                             f'{result_type}, value:\n{result}')

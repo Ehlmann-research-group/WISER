@@ -2174,7 +2174,36 @@ class NumPyRasterDataImpl(RasterDataImpl):
         return None
 
     def read_data_ignore_value(self) -> Optional[Number]:
-        return None
+        """
+        If self.get_image_data() is a NumPy MaskedArray, return the first underlying
+        data value whose mask is True (i.e., the first invalid/masked element).
+        Otherwise return None.
+        """
+        import numpy as np
+
+        arr = self.get_image_data()
+
+        # Must be a masked array
+        if not np.ma.isMaskedArray(arr):
+            return None
+
+        # Normalize mask to a boolean array of the same shape
+        mask = np.ma.getmaskarray(arr)
+
+        # No masked elements
+        if not mask.any():
+            return None
+
+        # First masked index in C-order
+        first_flat_idx = np.flatnonzero(mask.ravel())[0]
+
+        # Get the corresponding underlying data value (not the fill value)
+        data = np.ma.getdata(arr).ravel()[first_flat_idx]
+        # Return as a Python scalar if possible
+        try:
+            return data.item()
+        except Exception:
+            return data
 
     def read_bad_bands(self) -> List[int]:
         # We don't have a bad-band list, so just make one up with all 1s.
