@@ -2179,8 +2179,6 @@ class NumPyRasterDataImpl(RasterDataImpl):
         data value whose mask is True (i.e., the first invalid/masked element).
         Otherwise return None.
         """
-        import numpy as np
-
         arr = self.get_image_data()
 
         # Must be a masked array
