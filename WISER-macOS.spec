@@ -32,6 +32,7 @@ existing_binaries = [
         (f'{conda_env_prefix}/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
         (f'{conda_env_prefix}/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
         (f'{conda_env_prefix}/lib/gdalplugins/gdal_JP2OpenJPEG.dylib', 'gdalplugins'),
+]
 
 temp_a = Analysis(['src/wiser/__main__.py'],
              pathex=['/Users/joshuagk/Documents/WISER'],
