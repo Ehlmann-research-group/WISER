@@ -718,7 +718,7 @@ class BatchJobInfoWidget(QWidget):
         layout.addWidget(QLabel(self.tr("Expression:")))
         le_expr = QLineEdit()
         le_expr.setReadOnly(True)
-        le_expr.setEnabled(False)
+        self._look_disabled(le_expr)
         le_expr.setText(expression)
         le_expr.setToolTip(expression)
         layout.addWidget(le_expr)
@@ -732,22 +732,23 @@ class BatchJobInfoWidget(QWidget):
         lbl_assign.setToolTip(tip_text)
         layout.addWidget(lbl_assign)
 
-        # Input Folder (label + read-only line edit)
-        layout.addWidget(QLabel(self.tr("Input Folder:")))
-        le_input = QLineEdit()
-        le_input.setReadOnly(True)
-        le_input.setEnabled(False)
-        le_input.setText(input_folder)
-        le_input.setCursorPosition(0)
-        le_input.setToolTip(input_folder)
-        layout.addWidget(le_input)
+        if input_folder:
+            # Input Folder (label + read-only line edit)
+            layout.addWidget(QLabel(self.tr("Input Folder:")))
+            le_input = QLineEdit()
+            le_input.setReadOnly(True)
+            self._look_disabled(le_input)
+            le_input.setText(input_folder)
+            le_input.setCursorPosition(0)
+            le_input.setToolTip(input_folder)
+            layout.addWidget(le_input)
 
         # Only if subdataset name is not empty
         if subdataset_name:
             layout.addWidget(QLabel(self.tr("Subdataset Name:")))
             le_subdataset = QLineEdit()
             le_subdataset.setReadOnly(True)
-            le_subdataset.setEnabled(False)
+            self._look_disabled(le_subdataset)
             le_subdataset.setText(subdataset_name)
             le_subdataset.setCursorPosition(0)
             le_subdataset.setToolTip(subdataset_name)
@@ -758,28 +759,40 @@ class BatchJobInfoWidget(QWidget):
             layout.addWidget(QLabel(self.tr("Output Folder:")))
             le_output = QLineEdit()
             le_output.setReadOnly(True)
-            le_output.setEnabled(False)
+            self._look_disabled(le_output)
             le_output.setText(output_folder)
             le_output.setCursorPosition(0)
             le_output.setToolTip(output_folder)
             layout.addWidget(le_output)
 
-        layout.addWidget(icon_text_label("Load Into WISER",
+        if load_results_into_wiser:
+            layout.addWidget(icon_text_label("Load Into WISER",
                                  ":/icons/wiser.ico"))
 
-        # Result Prefix (label + read-only line edit)
-        layout.addWidget(QLabel(self.tr("Result Prefix:")))
-        le_result = QLineEdit()
-        le_result.setReadOnly(True)
-        le_result.setEnabled(False)
-        le_result.setText(result_name)
-        le_result.setToolTip(result_name)
-        layout.addWidget(le_result)
+        if result_name:
+            # Result Prefix (label + read-only line edit)
+            layout.addWidget(QLabel(self.tr("Result Prefix:")))
+            le_result = QLineEdit()
+            le_result.setReadOnly(True)
+            self._look_disabled(le_result)
+            le_result.setText(result_name)
+            le_result.setToolTip(result_name)
+            layout.addWidget(le_result)
 
         self.setLayout(layout)
 
         # Let the view know we can grow, but prefer the given width hint
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+    def _look_disabled(self, ledit: QLineEdit):
+        ledit.setReadOnly(True)
+
+        # Adjust palette so it looks like a disabled QLineEdit
+        palette = ledit.palette()
+        disabled_color = palette.color(QPalette.Disabled, QPalette.Text)
+        palette.setColor(QPalette.Active, QPalette.Text, disabled_color)
+        palette.setColor(QPalette.Inactive, QPalette.Text, disabled_color)
+        ledit.setPalette(palette)
 
     def sizeHint(self):
         # Use the layout’s computed height but our fixed-ish width hint
@@ -1095,7 +1108,8 @@ class BandMathDialog(QDialog):
         bandmath_success_callback(parent=self, app_state=self._app_state,
                                 results=results,
                                 expression=job.get_expression(),
-                                batch_enabled=True, load_into_wiser=job.get_load_into_wiser())
+                                batch_enabled=True, load_into_wiser=job.get_load_into_wiser(),
+                                output_folder=job.get_output_folder())
 
     def on_bandmath_job_started(self, job: BandmathBatchJob, task: ParallelTask):
         try:
@@ -1179,7 +1193,8 @@ class BandMathDialog(QDialog):
             missing.append("Expression")
         if not self._get_output_folder() and not self.load_results_into_wiser():
             missing.append("Output Folder or 'Load Results into WISER' checked")
-        if not self.get_result_name():
+        # We need the result prefix if we have batch variables or the user specified an output folder
+        if not self.get_result_name() and (self._has_batch_variables() or self._get_output_folder()):
             missing.append("Result Prefix")
 
         if missing:
@@ -1329,6 +1344,8 @@ class BandMathDialog(QDialog):
                 return
             self._ui.ledit_output_folder.setText(folder)
 
+        self._sync_result_name_label()
+
     def _pick_input_folder(self, title: str) -> None:
         """Open a folder chooser and write the selected path into the given QLineEdit."""
         start_dir = self._ui.ledit_input_folder.text().strip()
@@ -1413,9 +1430,40 @@ class BandMathDialog(QDialog):
     def _on_enable_batch_changed(self, checked: bool):
         self._sync_batch_process_ui()
         self._analyze_expr()
+        ok_btn = self._ui.buttonBox.button(QDialogButtonBox.Ok)
+
+        ok_btn.setEnabled(not checked)
+        ok_btn.setAutoDefault(not checked)
+
+    def _has_batch_variables(self) -> bool:
+        '''
+        Check if any variables in the current expression have batch types.
+        
+        Returns:
+            True if any variable has type IMAGE_CUBE_BATCH or IMAGE_BAND_BATCH,
+            False otherwise.
+        '''
+        for row in range(self._ui.tbl_variables.rowCount()):
+            var_type = self._ui.tbl_variables.cellWidget(row, 1).currentData()
+            if var_type in [bandmath.VariableType.IMAGE_CUBE_BATCH, 
+                           bandmath.VariableType.IMAGE_BAND_BATCH]:
+                return True
+        return False
+
+    def _sync_result_name_label(self):
+        # If the user is doing batch processing, they must specify a suffix
+        if self._has_batch_variables():
+            self._ui.lbl_result_name.setText(self.tr('Result suffix (required):'))
+        # If the user is specifying an output folder w/ no batch processing, they must specify a name
+        elif self._get_output_folder():
+            self._ui.lbl_result_name.setText(self.tr('Result name (required):'))
+        else:
+            self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
+
 
     def _sync_batch_process_ui(self):
         is_enabled = self._ui.chkbox_enable_batch.isChecked()
+        # Show / hide batch processing UI elements
         batch_process_ui_elements = self._get_batch_processing_ui_components()
         for element in batch_process_ui_elements:
             if isinstance(element, QWidget):
@@ -1435,11 +1483,8 @@ class BandMathDialog(QDialog):
             dialog_size.setWidth(dialog_size.width() - delta)
 
         self.resize(dialog_size)
-    
-        if is_enabled:
-            self._ui.lbl_result_name.setText(self.tr('Result suffix (required):'))
-        else:
-            self._ui.lbl_result_name.setText(self.tr('Result name (optional):'))
+
+        self._sync_result_name_label()
 
 
     def _on_toggle_help(self, checked=False):
@@ -1725,7 +1770,8 @@ class BandMathDialog(QDialog):
         self._ui.tbl_variables.setCellWidget(var_row, 2, value_widget)
 
         self._ui.tbl_variables.resizeColumnToContents(2)
-
+        # Sync the result name label with the types of the variables 
+        self._sync_result_name_label()
         # Update the expression analysis
         self._analyze_expr()
 
