@@ -27,7 +27,7 @@ from wiser.raster.serializable import SerializedForm
 from wiser.gui.parallel_task import ParallelTaskProcess
 
 from .types import VariableType, BandMathExprInfo, BandMathValue
-from wiser.raster.dataset import RasterDataSet, SaveState
+from wiser.raster.dataset import RasterDataBand, RasterDataSet, SaveState, RasterDataDynamicBand
 from .builtins.constants import RATIO_OF_MEM_TO_USE, MAX_RAM_BYTES, DEFAULT_IGNORE_VALUE, LHS_KEY, RHS_KEY
 
 from PySide2.QtWidgets import QMessageBox, QWidget
@@ -63,6 +63,7 @@ def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
                                     loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
+    # result_type == RasterDataSet if it was so big that it had to get chunked and saved to disk
     if result_type == RasterDataSet:
         metadata = result.get_metadata()
         if 'save_state' not in metadata:
@@ -99,6 +100,48 @@ def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
         return ds
     return None
 
+def save_image_from_bandmath_result(result_type: Union[VariableType, RasterDataSet], result: Union[SerializedForm, np.ndarray], \
+                                    result_name: str, expression: Optional[str], expr_info: BandMathExprInfo, output_folder: str, \
+                                    loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
+    # Compute a timestamp to put in the description
+    timestamp = datetime.datetime.now().isoformat()
+    save_path = os.path.join(output_folder, result_name)
+    print(f"!@#: save_path: {save_path}")
+    # result_type == RasterDataSet if it was so big that it had to get chunked and saved to disk
+    if result_type == RasterDataSet:
+        metadata = result.get_metadata()
+        if 'save_state' not in metadata:
+            metadata['save_state'] = SaveState.IN_DISK_NOT_SAVED
+        ds = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
+        if expression:
+            ds.set_description(
+                            f'Computed image-cube:  {expression} ({timestamp})')
+        if expr_info.spatial_metadata_source:
+            ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
+        if expr_info.spectral_metadata_source:
+            ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        if loader:
+            loader.save_dataset_as(ds, save_path, format='ENVI')
+    elif result_type == VariableType.IMAGE_CUBE:
+        if not loader:
+            raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
+        cache = app_state.get_cache() if app_state else None
+        name = result_name if result_name else 'Computed'
+        ds = loader.dataset_from_numpy_array(result, cache)
+        ds.set_description(
+            f'Computed image-cube:  {expression} ({timestamp})')
+
+        if expr_info.spatial_metadata_source:
+            ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
+        if expr_info.spectral_metadata_source:
+            ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
+        if loader:
+            loader.save_dataset_as(ds, save_path, format='ENVI', config=None)
+        
+        return ds
+    return None
+
+
 def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
                                     result_name: str, expression: str, expr_info: BandMathExprInfo, parent: QWidget = None, \
                                     loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
@@ -106,10 +149,22 @@ def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
         raise AttributeError("Must pass loader into function")
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
-    # Convert the image band into a 1-band image cube
-    result = result[np.newaxis, :]
-    cache = app_state.get_cache() if app_state else None
-    new_dataset = loader.dataset_from_numpy_array(result, cache)
+    if isinstance(result, SerializedForm):
+        generic_raster_band_class = result.get_serializable_class()
+        raster_band: RasterDataBand = generic_raster_band_class.deserialize_into_class(result.get_serialize_value(), result.get_metadata())
+        assert isinstance(raster_band, (RasterDataDynamicBand, RasterDataBand))
+        arr = raster_band.get_data()
+        if arr.ndim == 2:
+            arr = arr[np.newaxis, : ]
+            cache = app_state.get_cache() if app_state else None
+            new_dataset = loader.dataset_from_numpy_array(result, cache)
+    elif isinstance(result, np.ndarray):
+        # Convert the image band into a 1-band image cube
+        result = result[np.newaxis, :]
+        cache = app_state.get_cache() if app_state else None
+        new_dataset = loader.dataset_from_numpy_array(result, cache)
+    else:
+        raise RuntimeError(f"Expected result to be Serialized Form or np.ndarray but instead got: {type(result)}")
 
     if not result_name:
         result_name = parent.tr('Computed') if parent else 'Computed'
@@ -128,41 +183,131 @@ def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
     
     return new_dataset
 
+
+def save_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
+                                    result_name: str, expression: str, expr_info: BandMathExprInfo, output_folder: str, parent: QWidget = None, \
+                                    loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
+    if not loader:
+        raise AttributeError("Must pass loader into function")
+    if not app_state:
+        raise AttributeError("Must pass app_state into function")
+    save_path = os.path.join(output_folder, result_name)
+    print(f"!$% band save_path: {save_path}")
+    # Compute a timestamp to put in the description
+    timestamp = datetime.datetime.now().isoformat()
+    if isinstance(result, SerializedForm):
+        generic_raster_band_class = result.get_serializable_class()
+        raster_band: RasterDataBand = generic_raster_band_class.deserialize_into_class(result.get_serialize_value(), result.get_metadata())
+        assert isinstance(raster_band, (RasterDataDynamicBand, RasterDataBand))
+        arr = raster_band.get_data()
+        if arr.ndim == 2:
+            arr = arr[np.newaxis, : ]
+            cache = app_state.get_cache() if app_state else None
+            new_dataset = loader.dataset_from_numpy_array(result, cache)
+    elif isinstance(result, np.ndarray):
+        # Convert the image band into a 1-band image cube
+        result = result[np.newaxis, :]
+        cache = app_state.get_cache() if app_state else None
+        new_dataset = loader.dataset_from_numpy_array(result, cache)
+    else:
+        raise RuntimeError(f"Expected result to be Serialized Form or np.ndarray but instead got: {type(result)}")
+
+    if not result_name:
+        result_name = parent.tr('Computed') if parent else 'Computed'
+
+    if app_state:
+        new_dataset.set_name(
+            app_state.unique_dataset_name(result_name))
+        new_dataset.set_id(app_state.take_next_id())
+
+    new_dataset.set_description(
+        f'Computed image-band:  {expression} ({timestamp})')
+
+    if expr_info.spatial_metadata_source:
+        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source)
+
+    loader.save_dataset_as(new_dataset, save_path, format='ENVI', config=None)
+    
+    return new_dataset
+
 def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', results: List[Tuple[VariableType, SerializedForm, str]],
-                    expression: str, batch_enabled: bool, load_into_wiser: bool):
+                    expression: str, batch_enabled: bool, load_into_wiser: bool, output_folder: str = ''):
     # If the process gets cancelled, the results will be None. So we do nothing.
     if not results:
         return
     try:
-        if batch_enabled and not load_into_wiser:
-            return
-        for result_type, result, result_name, expr_info in results:
-            logger.debug(f'Result of band-math evaluation is type ' +
-                        f'{result_type}, value:\n{result}')
+        if load_into_wiser:
+            for result_type, result, result_name, expr_info in results:
+                logger.debug(f'Result of band-math evaluation is type ' +
+                            f'{result_type}, value:\n{result}')
 
-            # Compute a timestamp to put in the description
-            timestamp = datetime.datetime.now().isoformat()
+                # Compute a timestamp to put in the description
+                timestamp = datetime.datetime.now().isoformat()
 
-            loader = app_state.get_loader()
-            if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
-                load_image_from_bandmath_result(result_type, result, result_name, expression, expr_info, loader, app_state)
+                loader = app_state.get_loader()
+                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                    load_image_from_bandmath_result(
+                        result_type=result_type,
+                        result=result,
+                        result_name=result_name,
+                        expression=expression,
+                        expr_info=expr_info,
+                        loader=loader,
+                        app_state=app_state)
 
-            elif result_type == VariableType.IMAGE_BAND:
-                load_band_from_bandmath_result(result, result_name, expression, expr_info, parent, loader, app_state)
+                elif result_type == VariableType.IMAGE_BAND:
+                    load_band_from_bandmath_result(
+                        result=result,
+                        result_name=result_name,
+                        expression=expression,
+                        expr_info=expr_info,
+                        parent=parent,
+                        loader=loader,
+                        app_state=app_state)
 
-            elif result_type == VariableType.SPECTRUM:
+                elif result_type == VariableType.SPECTRUM:
 
-                if not result_name:
-                    result_name = parent.tr('Computed:  {expression} ({timestamp})')
-                    result_name = result_name.format(expression=expression,
-                                                    timestamp=timestamp)
+                    if not result_name:
+                        result_name = parent.tr('Computed:  {expression} ({timestamp})')
+                        result_name = result_name.format(expression=expression,
+                                                        timestamp=timestamp)
 
-                new_spectrum = NumPyArraySpectrum(result, name=result_name)
+                    new_spectrum = NumPyArraySpectrum(result, name=result_name)
 
-                if expr_info.spectral_metadata_source:
-                    new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
+                    if expr_info.spectral_metadata_source:
+                        new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
 
-                app_state.set_active_spectrum(new_spectrum)
+                    app_state.set_active_spectrum(new_spectrum)
+        if output_folder:
+            for result_type, result, result_name, expr_info in results:
+                logger.debug(f'Result of band-math evaluation is type ' +
+                            f'{result_type}, value:\n{result}')
+
+                # Compute a timestamp to put in the description
+                timestamp = datetime.datetime.now().isoformat()
+
+                loader = app_state.get_loader()
+                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                    save_image_from_bandmath_result(
+                        result_type=result_type,
+                        result=result,
+                        result_name=result_name,
+                        expression=expression,
+                        expr_info=expr_info,
+                        loader=loader,
+                        app_state=app_state,
+                        output_folder=output_folder)
+
+                elif result_type == VariableType.IMAGE_BAND:
+                    save_band_from_bandmath_result(
+                        result=result,
+                        result_name=result_name,
+                        expression=expression,
+                        expr_info=expr_info,
+                        loader=loader,
+                        app_state=app_state,
+                        output_folder=output_folder)
+
 
     except Exception as e:
         logger.exception('Couldn\'t evaluate band-math expression')

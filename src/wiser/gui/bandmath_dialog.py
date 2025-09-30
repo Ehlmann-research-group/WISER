@@ -764,7 +764,8 @@ class BatchJobInfoWidget(QWidget):
             le_output.setToolTip(output_folder)
             layout.addWidget(le_output)
 
-        layout.addWidget(icon_text_label("Load Into WISER",
+        if load_results_into_wiser:
+            layout.addWidget(icon_text_label("Load Into WISER",
                                  ":/icons/wiser.ico"))
 
         # Result Prefix (label + read-only line edit)
@@ -1105,7 +1106,8 @@ class BandMathDialog(QDialog):
         bandmath_success_callback(parent=self, app_state=self._app_state,
                                 results=results,
                                 expression=job.get_expression(),
-                                batch_enabled=True, load_into_wiser=job.get_load_into_wiser())
+                                batch_enabled=True, load_into_wiser=job.get_load_into_wiser(),
+                                output_folder=job.get_output_folder())
 
     def on_bandmath_job_started(self, job: BandmathBatchJob, task: ParallelTask):
         try:
