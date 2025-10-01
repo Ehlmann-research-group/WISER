@@ -1,0 +1,48 @@
+# .github/workflows/dev-tests.yml
+name: Run tests with linux-cached-dev
+
+on:
+  # Run on any push EXCEPT when the lock changed
+  push:
+    paths-ignore:
+      - 'etc/conda-lock.yml'
+  # When the lock DID change, run after the cache workflow finishes
+  workflow_run:
+    workflows: ["Cache linux-cached-dev from lock"]
+    types: [completed]
+
+  workflow_dispatch: {}
+
+jobs:
+  tests:
+    # If triggered by workflow_run, only run when upstream succeeded.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the right commit
+        uses: actions/checkout@v4
+        with:
+          # Use the upstream run's commit on workflow_run, otherwise this run's SHA
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Restore (or create on miss) linux-cached-dev
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: etc/conda-lock.yml
+          environment-name: linux-cached-dev
+          cache-environment: true
+          init-shell: bash
+
+      - name: Sanity
+        run: |
+          which python
+          python -V
+
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+        run: |
+          make generated
+          cd src/tests
+          pytest -s .
