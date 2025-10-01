@@ -8,7 +8,7 @@
 #           of libraries 
 #   ```conda-lock render --kind env -p osx-64 -p osx-arm64 -p win-64 conda-lock.yml```
 
-name: wiser-runtime
+name: wiser-prod
 channels:
   - conda-forge
 channel_priority: strict
