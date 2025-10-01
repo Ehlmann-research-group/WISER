@@ -33,7 +33,7 @@ jobs:
         with:
           environment-file: etc/dev-conda-lock.yml
           environment-name: linux-cached-dev
-          cache-environment: true
+        #   cache-environment: true
           init-shell: bash
 
       - name: Sanity
