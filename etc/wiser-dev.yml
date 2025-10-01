@@ -29,7 +29,11 @@ dependencies:
 - qt-main=5.15.15
 - scipy=1.13.1
 - setuptools=75.8.0
-- sphinx=7.4.*
+- sphinx=7.4.7
+- pyyaml=6.0.2
+- ruff=0.1.*
+- conda-lock=3.0.4
+- pytest=8.4.1
 - pip:
   - bugsnag==4.7.1
   - lark==1.2.2

@@ -9,6 +9,6 @@
 dependencies:
 sphinx=7.4.7
 pyyaml=6.0.2
-ruff=0.1.32
+ruff=0.1.*
 conda-lock=3.0.4
 pytest=8.4.1
