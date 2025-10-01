@@ -40,6 +40,7 @@ jobs:
         run: |
           which python
           python -V
+        shell: micromamba-shell {0}
 
       - name: Run tests
         env:
@@ -50,3 +51,4 @@ jobs:
           make generated
           cd src/tests
           pytest -s .
+        shell: micromamba-shell {0}
