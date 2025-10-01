@@ -47,13 +47,12 @@ jobs:
           conda list
         shell: micromamba-shell {0}
 
-      - name: Run tests
-        env:
-          QT_QPA_PLATFORM: offscreen
-          PIP_DISABLE_PIP_VERSION_CHECK: "1"
-        run: |
-          conda list
-          make generated
-          cd src/tests
-          pytest -s .
-        shell: micromamba-shell {0}
+      - name: Run tests under Xvfb
+        uses: coactions/setup-xvfb@v1
+        with:
+          run: |
+            make generated
+            cd src/tests
+            pytest -s .
+          # Ensure commands run in your micromamba env
+          shell: micromamba-shell {0}
