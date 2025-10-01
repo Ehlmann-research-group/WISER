@@ -15,7 +15,7 @@ jobs:
 
       - name: Set up micromamba with caching
         id: micromamba
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v2
         with:
             environment-file: etc/conda-lock-dev.yml
             environment-name: linux-cached-dev

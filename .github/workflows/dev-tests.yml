@@ -42,6 +42,11 @@ jobs:
           python -V
         shell: micromamba-shell {0}
 
+      - name: Conda list
+        run: |
+          conda list
+        shell: micromamba-shell {0}
+
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen
