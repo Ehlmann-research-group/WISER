@@ -5,7 +5,7 @@ on:
   # Run on any push EXCEPT when the lock changed
   push:
     paths-ignore:
-      - "etc/conda-lock-dev.yml"
+      - "etc/dev-conda-lock.yml"
   # When the lock DID change, run after the cache workflow finishes
   workflow_run:
     workflows: ["Cache linux-cached-dev from lock"]
@@ -31,7 +31,7 @@ jobs:
       - name: Restore (or create on miss) linux-cached-dev
         uses: mamba-org/setup-micromamba@v2
         with:
-          environment-file: etc/conda-lock-dev.yml
+          environment-file: etc/dev-conda-lock.yml
           environment-name: linux-cached-dev
           cache-environment: true
           init-shell: bash
