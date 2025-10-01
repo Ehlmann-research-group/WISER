@@ -1,0 +1,24 @@
+name: Cache linux-cached-dev from lock
+
+on:
+  push:
+    paths:
+      - "etc/conda-linux-64.lock.yml"   # only rebuild when the lock changes
+      - ".github/workflows/dev-env-cache.yml"
+  workflow_dispatch:
+
+jobs:
+  cache-dev-env:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up micromamba with caching
+        id: micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+            environment-file: etc/conda-linux-64.lock.yml
+            environment-name: linux-cached-dev
+            cache-environment: true
+            cache-environment-key: linux-cached-dev-${{ hashFiles('etc/conda-linux-64.lock.yml') }}
+            cache-downloads: true
