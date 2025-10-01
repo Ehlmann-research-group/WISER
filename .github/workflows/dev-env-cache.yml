@@ -3,7 +3,7 @@ name: Cache linux-cached-dev from lock
 on:
   push:
     paths:
-      - "etc/conda-linux-64.lock.yml"   # only rebuild when the lock changes
+      - "etc/conda-lock.yml"   # only rebuild when the lock changes
       - ".github/workflows/dev-env-cache.yml"
   workflow_dispatch:
 
