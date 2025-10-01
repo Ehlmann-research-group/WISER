@@ -17,8 +17,8 @@ jobs:
         id: micromamba
         uses: mamba-org/setup-micromamba@v1
         with:
-            environment-file: etc/conda-linux-64.lock.yml
+            environment-file: etc/conda-lock.yml
             environment-name: linux-cached-dev
             cache-environment: true
-            cache-environment-key: linux-cached-dev-${{ hashFiles('etc/conda-linux-64.lock.yml') }}
+            cache-environment-key: linux-cached-dev-${{ hashFiles('etc/conda-lock.yml') }}
             cache-downloads: true
