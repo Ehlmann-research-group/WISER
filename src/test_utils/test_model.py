@@ -53,7 +53,9 @@ from .test_function_decorator import run_in_wiser_decorator
 from wiser.config import FLAGS, set_feature_env 
 
 import time
+import multiprocessing as mp
 
+mp.set_start_method('spawn')
 
 class LoggingApplication(QApplication):
     def notify(self, receiver, event):
