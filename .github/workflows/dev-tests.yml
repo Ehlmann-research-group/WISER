@@ -18,6 +18,9 @@ jobs:
     # If triggered by workflow_run, only run when upstream succeeded.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    defaults:
+        run:
+            shell: bash -leo pipefail {0}
     steps:
       - name: Checkout the right commit
         uses: actions/checkout@v4
