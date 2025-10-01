@@ -43,6 +43,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           PIP_DISABLE_PIP_VERSION_CHECK: "1"
         run: |
+          conda list
           make generated
           cd src/tests
           pytest -s .
