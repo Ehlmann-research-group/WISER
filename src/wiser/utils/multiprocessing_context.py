@@ -19,4 +19,4 @@ import multiprocessing as mp
 
 # Create singleton spawn context
 CTX = mp.get_context('spawn')
-print(f"!@#$ ctx.context: {CTX.get_context()}")
+print(f"!@#$ ctx.context: {CTX.get_start_method()}")
