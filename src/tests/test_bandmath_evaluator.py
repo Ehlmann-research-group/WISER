@@ -1242,7 +1242,7 @@ class TestBandmathEvaluator(unittest.TestCase):
                                                       raster_batch_band.get_wavelength_units(),
                                                       raster_batch_band.get_epsilon())
                 original_band_arr = original_band.get_data()
-                print(f"$$#$ result instance: {type(result)}")
+                print(f"$$#$ result instance: {type(result)}", flush=True)
                 if result_type == VariableType.IMAGE_CUBE or result_type == RasterDataSet:
                     assert isinstance(result, (np.ndarray, SerializedForm))
                     result_ds = load_image_from_bandmath_result(result_type, result, result_name, expr, expr_info, loader, None)
