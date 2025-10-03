@@ -1246,6 +1246,7 @@ class TestBandmathEvaluator(unittest.TestCase):
                 if result_type == VariableType.IMAGE_CUBE or result_type == RasterDataSet:
                     assert isinstance(result, (np.ndarray, SerializedForm))
                     result_ds = load_image_from_bandmath_result(result_type, result, result_name, expr, expr_info, loader, None)
+                    print(f"About to get_image_data()!", flush=True)
                     result_arr = result_ds.get_image_data()
                 elif result_type == VariableType.IMAGE_BAND:
                     result_ds = load_band_from_bandmath_result(result=result, result_name=result_name,
