@@ -1225,6 +1225,7 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
             child_conn.send(f'Type of reuslt_value: {type(result_value)}')
             serialized_result = (result_type, result_value.get_serialized_form(), result_name, result_expr_info)
             result_value._impl.gdal_dataset.FlushCache()
+            result_value._impl.gdal_dataset.Close()
             result_value._impl.gdal_dataset = None
             del result_value
         elif isinstance(result_value, np.ndarray):
