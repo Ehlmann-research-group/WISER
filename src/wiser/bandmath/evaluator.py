@@ -1224,6 +1224,7 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
         if isinstance(result_value, Serializable):
             child_conn.send(f'Type of reuslt_value: {type(result_value)}')
             serialized_result = (result_type, result_value.get_serialized_form(), result_name, result_expr_info)
+            del result_value
         elif isinstance(result_value, np.ndarray):
             # result_value = 
             print(f"!@#! result is array, does it own itself: {result_value.flags['OWNDATA']}")
