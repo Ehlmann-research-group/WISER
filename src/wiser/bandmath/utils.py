@@ -145,6 +145,7 @@ def save_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
 def load_band_from_bandmath_result(result: Union[SerializedForm, np.ndarray], \
                                     result_name: str, expression: str, expr_info: BandMathExprInfo, parent: QWidget = None, \
                                     loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
+    print(f"load band from bandmath!!!!!!!!!!!!")
     if not loader:
         raise AttributeError("Must pass loader into function")
     # Compute a timestamp to put in the description

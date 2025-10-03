@@ -1220,14 +1220,18 @@ class TestBandmathEvaluator(unittest.TestCase):
             expr = 'a + b'
             variables = {'a': var, 'b': (VariableType.IMAGE_BAND_BATCH, raster_batch_band)}
             expr_info = get_bandmath_expr_info(expr, variables, {})
+            print(f"got bandmath expr_info")
             suffix = 'test_result'
             cache = DataCache()
             process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback,
                 status_callback=status_callback, error_callback=lambda _: None, 
                 bandmath_expr=expr, expr_info=expr_info, result_name=suffix, cache=cache,
                 variables=variables, functions={}, use_synchronous_method=run_sync)
+            print(f"about to wait for task to finish")
             process_manager.get_task().wait()
+            print(f"finished waiting for task to finish")
             results = process_manager.get_task().get_result()
+            print(f"got results!!")
             for result_type, result, result_name, expr_info in results:
                 print(f"result_type: {result_type}")
                 original_file_name = result_name[:-(len(suffix))] if result_name.endswith(suffix) else result_name

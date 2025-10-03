@@ -1222,6 +1222,7 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
         print(f"!@#! type of result_value: {type(result_value)}")
         child_conn.send(f"!@#! type of result_value: {type(result_value)}")
         if isinstance(result_value, Serializable):
+            child_conn.send(f'Type of reuslt_value: {type(result_value)}')
             serialized_result = (result_type, result_value.get_serialized_form(), result_name, result_expr_info)
         elif isinstance(result_value, np.ndarray):
             # result_value = 
