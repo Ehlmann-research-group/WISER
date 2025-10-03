@@ -67,6 +67,7 @@ def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
     # result_type == RasterDataSet if it was so big that it had to get chunked and saved to disk
     if result_type == RasterDataSet:
         print(f"result serialize value type: {type(result.get_serialize_value())}", flush=True)
+        print(f"serialize value: {result.get_serialize_value()}", flush=True)
         metadata = result.get_metadata()
         if 'save_state' not in metadata:
             metadata['save_state'] = SaveState.IN_DISK_NOT_SAVED
