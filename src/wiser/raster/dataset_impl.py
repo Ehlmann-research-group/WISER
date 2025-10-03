@@ -278,20 +278,13 @@ class GDALRasterDataImpl(RasterDataImpl):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print(f"in impl get image data about to reopen dataset", flush=True)
         new_dataset = self.reopen_dataset()
-        print(f"in impl get image data after reopen dataset", flush=True)
-        try:
-            print(f"in impl get image data about to get virtual mem array", flush=True)
-            # new_dataset.FlushCache()
-            np_array = self.gdal_dataset.GetVirtualMemArray(band_sequential=True)
-            # new_dataset.FlushCache()
-            print(f"success getting virtual mem array", flush=True)
-        except (RuntimeError, ValueError):
-            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            print(f"in impl get image data about to get read as array", flush=True)
-            np_array = new_dataset.ReadAsArray()
-            print(f"success getting read as array", flush=True)
+        
+        # Read this github issue as for why we don't use a 'GetVirtualMem...' function here
+        # https://github.com/Ehlmann-research-group/WISER/issues/227
+        # If we ever do use GetVirtualMem again, make sure band_sequential=True
+        np_array = new_dataset.ReadAsArray()
+
         return np_array
 
     def get_image_data_subset(self, x: int, y: int, band: int, 
@@ -326,12 +319,9 @@ class GDALRasterDataImpl(RasterDataImpl):
         # Note that GDAL indexes bands from 1, not 0.
         new_dataset = self.reopen_dataset()
         band = new_dataset.GetRasterBand(band_index + 1)
-        # TODO (Joshua G-K): Fix GetVirtualMemAutoArray() not working. Currently (10/03/2025),
-        # this 
-        try:
-            np_array = band.GetVirtualMemAutoArray()
-        except (RuntimeError, TypeError):
-            np_array = band.ReadAsArray()
+        # Read this github issue as for why we don't use a 'GetVirtualMem...' function here
+        # https://github.com/Ehlmann-research-group/WISER/issues/227
+        np_array = band.ReadAsArray()
 
         return np_array
     
@@ -1083,17 +1073,16 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
 
         '''
         new_dataset = self.reopen_dataset()
+        # Read this github issue as for why we don't use a 'GetVirtualMem...' function here
+        # https://github.com/Ehlmann-research-group/WISER/issues/227
+        logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
         try:
-            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-        except (AttributeError, RuntimeError, ValueError):
-            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            try:
-                hdul = fits.open(self.get_filepaths()[0])
-                np_array = hdul[0].data
-                np_array = new_dataset.ReadAsArray()
-            except AttributeError:
-                hdul = fits.open(self.get_filepaths()[0])
-                np_array = hdul[0].data
+            hdul = fits.open(self.get_filepaths()[0])
+            np_array = hdul[0].data
+            np_array = new_dataset.ReadAsArray()
+        except AttributeError:
+            hdul = fits.open(self.get_filepaths()[0])
+            np_array = hdul[0].data
 
         return np_array
 
@@ -1106,20 +1095,19 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
         will want to add a dimension to its front.
         '''
         new_dataset = self.reopen_dataset()
+        # Read this github issue as for why we don't use a 'GetVirtualMem...' function here
+        # https://github.com/Ehlmann-research-group/WISER/issues/227
+        logger.debug('Using GDAL ReadAsArray() instead of GetVirtualMemArray()')
         try:
-            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-        except (AttributeError, RuntimeError, ValueError):
-            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-            try:
-                band_list = [band+1 for band in range(band, band+dband)]
-                hdul = fits.open(self.get_filepaths()[0])
-                np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
-                np_array = new_dataset.ReadAsArray(xoff=x, xsize=dx,
-                                           yoff=y, ysize=dy,
-                                           band_list=band_list)
-            except AttributeError:
-                hdul = fits.open(self.get_filepaths()[0])
-                np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
+            band_list = [band+1 for band in range(band, band+dband)]
+            hdul = fits.open(self.get_filepaths()[0])
+            np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
+            np_array = new_dataset.ReadAsArray(xoff=x, xsize=dx,
+                                        yoff=y, ysize=dy,
+                                        band_list=band_list)
+        except AttributeError:
+            hdul = fits.open(self.get_filepaths()[0])
+            np_array = hdul[0].data[band:band+dband,y:y+dy,x:x+dx]
 
         return np_array
 

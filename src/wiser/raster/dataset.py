@@ -753,32 +753,19 @@ class RasterDataSet(Serializable):
         with the "data ignore value" will be filtered to NaN.  Note that this
         filtering will impact performance.
         '''
-        print(f"in get image data")
         arr = None
         if self._data_cache:
-            print(f"in get image data, data cache is not None", flush=True)
             cache = self._data_cache.get_computation_cache()
             key = cache.get_cache_key(self)
             arr = cache.get_cache_item(key)
-            print(f"in get image data, data cache is not None, arr is None: {arr is None}", flush=True)
         if arr is None:
-            print(f"in get image data, arr is None, getting image data from impl", flush=True)
             arr = self._impl.get_image_data()
-            print(f"after arr is gotten from impl", flush=True)
             if arr.ndim == 2:
-                print(f"in get image data, arr is 2D, newaxis'ing it", flush=True)
                 arr = arr[np.newaxis,:,:]
-            print(f'files in temp_output: {os.listdir("/home/runner/work/WISER/WISER/src/wiser/bandmath/temp_output/")}', flush=True)
-            print(f"testing lazyl oading theory: {arr[0,0,0]}", flush=True)
-            print(f"after arr is newaxis'd", flush=True)
             if filter_data_ignore_value and self._data_ignore_value is not None:
-                print(f"in get image data, filter_data_ignore_value is True and data_ignore_value is not None, masking arr", flush=True)
                 arr = np.ma.masked_values(arr, self._data_ignore_value)
-            print(f"after arr is masked", flush=True)
             if self._data_cache:
-                print(f"in get image data, data cache is not None, adding arr to cache", flush=True)
                 cache.add_cache_item(key, arr)
-        print(f"returning arr", flush=True)
         return arr
 
 
