@@ -283,9 +283,9 @@ class GDALRasterDataImpl(RasterDataImpl):
         print(f"in impl get image data after reopen dataset", flush=True)
         try:
             print(f"in impl get image data about to get virtual mem array", flush=True)
-            new_dataset.FlushCache()
-            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-            new_dataset.FlushCache()
+            # new_dataset.FlushCache()
+            np_array = self.gdal_dataset.GetVirtualMemArray(band_sequential=True)
+            # new_dataset.FlushCache()
             print(f"success getting virtual mem array", flush=True)
         except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
@@ -326,6 +326,8 @@ class GDALRasterDataImpl(RasterDataImpl):
         # Note that GDAL indexes bands from 1, not 0.
         new_dataset = self.reopen_dataset()
         band = new_dataset.GetRasterBand(band_index + 1)
+        # TODO (Joshua G-K): Fix GetVirtualMemAutoArray() not working. Currently (10/03/2025),
+        # this 
         try:
             np_array = band.GetVirtualMemAutoArray()
         except (RuntimeError, TypeError):
