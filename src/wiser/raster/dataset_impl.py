@@ -281,15 +281,16 @@ class GDALRasterDataImpl(RasterDataImpl):
         print(f"in impl get image data about to reopen dataset", flush=True)
         new_dataset = self.reopen_dataset()
         print(f"in impl get image data after reopen dataset", flush=True)
-        # try:
-        #     print(f"in impl get image data about to get virtual mem array", flush=True)
-        #     np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
-        #     print(f"success getting virtual mem array", flush=True)
-        # except (RuntimeError, ValueError):
-        logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
-        print(f"in impl get image data about to get read as array", flush=True)
-        np_array = new_dataset.ReadAsArray()
-        print(f"success getting read as array", flush=True)
+        try:
+            print(f"in impl get image data about to get virtual mem array", flush=True)
+            new_dataset.FlushCache()
+            np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+            print(f"success getting virtual mem array", flush=True)
+        except (RuntimeError, ValueError):
+            logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
+            print(f"in impl get image data about to get read as array", flush=True)
+            np_array = new_dataset.ReadAsArray()
+            print(f"success getting read as array", flush=True)
         return np_array
 
     def get_image_data_subset(self, x: int, y: int, band: int, 
