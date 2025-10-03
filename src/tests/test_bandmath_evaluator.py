@@ -1286,7 +1286,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
         raster_batch_band = RasterDataBatchBand(batch_test_folder, 0)
         print(f"calling helper")
-        self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=True)
+        self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
 
     # def test_bandmath_preloaded_data_with_band_wvl_batch_sync(self):
     #     current_dir = os.path.dirname(os.path.abspath(__file__))
