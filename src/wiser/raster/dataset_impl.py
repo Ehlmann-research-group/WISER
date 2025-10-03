@@ -285,6 +285,7 @@ class GDALRasterDataImpl(RasterDataImpl):
             print(f"in impl get image data about to get virtual mem array", flush=True)
             new_dataset.FlushCache()
             np_array = new_dataset.GetVirtualMemArray(band_sequential=True)
+            new_dataset.FlushCache()
             print(f"success getting virtual mem array", flush=True)
         except (RuntimeError, ValueError):
             logger.debug('Using GDAL ReadAsArray() isntead of GetVirtualMemArray()')
