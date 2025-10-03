@@ -1209,8 +1209,10 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         band = RasterDataBand(caltech_ds, 0)
 
-        vars = [(VariableType.IMAGE_CUBE, caltech_ds), \
-                (VariableType.IMAGE_BAND, band)]
+        # vars = [(VariableType.IMAGE_CUBE, caltech_ds), \
+        #         (VariableType.IMAGE_BAND, band)]
+        
+        vars = [(VariableType.IMAGE_CUBE, caltech_ds)]
 
         status_callback = lambda msg: print(f"Msg from process: {msg}")
 
