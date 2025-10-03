@@ -1212,6 +1212,8 @@ class TestBandmathEvaluator(unittest.TestCase):
         vars = [(VariableType.IMAGE_CUBE, caltech_ds), \
                 (VariableType.IMAGE_BAND, band)]
 
+        status_callback = lambda msg: print(f"Msg from process: {msg}")
+
         for var in vars:
             expr = 'a + b'
             variables = {'a': var, 'b': (VariableType.IMAGE_BAND_BATCH, raster_batch_band)}
@@ -1219,7 +1221,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             suffix = 'test_result'
             cache = DataCache()
             process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback,
-                status_callback=lambda _: None, error_callback=lambda _: None, 
+                status_callback=status_callback, error_callback=lambda _: None, 
                 bandmath_expr=expr, expr_info=expr_info, result_name=suffix, cache=cache,
                 variables=variables, functions={}, use_synchronous_method=run_sync)
             process_manager.get_task().wait()
@@ -1232,41 +1234,42 @@ class TestBandmathEvaluator(unittest.TestCase):
                                                       raster_batch_band.get_wavelength_value(),
                                                       raster_batch_band.get_wavelength_units(),
                                                       raster_batch_band.get_epsilon())
-                # original_band_arr = original_band.get_data()
-                # if result_type == VariableType.IMAGE_CUBE or result_type == RasterDataSet:
-                #     assert isinstance(result, (np.ndarray, SerializedForm))
-                #     result_ds = load_image_from_bandmath_result(result_type, result, result_name, expr, expr_info, loader, None)
-                #     result_arr = result_ds.get_image_data()
-                # elif result_type == VariableType.IMAGE_BAND:
-                #     result_ds = load_band_from_bandmath_result(result=result, result_name=result_name,
-                #                                                expression=expr, expr_info=expr_info, parent=None,
-                #                                                loader=loader, app_state=None)
-                #     result_arr = result_ds.get_image_data()
-                # else:
-                #     self.fail(f"Unexpected result type: {result_type}")
-                # if var[0] == VariableType.IMAGE_CUBE:
-                #     var_arr = var[1].get_image_data()
-                # elif var[0] == VariableType.IMAGE_BAND:
-                #     var_arr = var[1].get_data()
-                # else:
-                #     self.fail(f"Unexpected variable type: {var[0]}")
+                original_band_arr = original_band.get_data()
+                print(f"$$#$ result instance: {type(result)}")
+                if result_type == VariableType.IMAGE_CUBE or result_type == RasterDataSet:
+                    assert isinstance(result, (np.ndarray, SerializedForm))
+                    result_ds = load_image_from_bandmath_result(result_type, result, result_name, expr, expr_info, loader, None)
+                    result_arr = result_ds.get_image_data()
+                elif result_type == VariableType.IMAGE_BAND:
+                    result_ds = load_band_from_bandmath_result(result=result, result_name=result_name,
+                                                               expression=expr, expr_info=expr_info, parent=None,
+                                                               loader=loader, app_state=None)
+                    result_arr = result_ds.get_image_data()
+                else:
+                    self.fail(f"Unexpected result type: {result_type}")
+                if var[0] == VariableType.IMAGE_CUBE:
+                    var_arr = var[1].get_image_data()
+                elif var[0] == VariableType.IMAGE_BAND:
+                    var_arr = var[1].get_data()
+                else:
+                    self.fail(f"Unexpected variable type: {var[0]}")
 
-                # assert np.allclose(result_arr, original_band_arr + var_arr)
+                assert np.allclose(result_arr, original_band_arr + var_arr)
                 
                 
-                # assert expr_info.spatial_metadata_source is not None
-                # assert expr_info.spatial_metadata_source == original_ds.get_spatial_metadata()
+                assert expr_info.spatial_metadata_source is not None
+                assert expr_info.spatial_metadata_source == original_ds.get_spatial_metadata()
                 
-                # del result
-                # del original_ds
+                del result
+                del original_ds
 
 
-    def test_bandmath_preloaded_data_with_band_index_batch_sync(self):
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        batch_test_folder = os.path.normpath(
-            os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
-        raster_batch_band = RasterDataBatchBand(batch_test_folder, 0)
-        self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=True)
+    # def test_bandmath_preloaded_data_with_band_index_batch_sync(self):
+    #     current_dir = os.path.dirname(os.path.abspath(__file__))
+    #     batch_test_folder = os.path.normpath(
+    #         os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
+    #     raster_batch_band = RasterDataBatchBand(batch_test_folder, 0)
+    #     self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=True)
 
     def test_bandmath_preloaded_data_with_band_index_batch_async(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))

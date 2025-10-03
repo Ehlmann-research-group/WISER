@@ -61,6 +61,7 @@ def bandmath_error_callback(task: ParallelTaskProcess):
 def load_image_from_bandmath_result(result_type: Union[VariableType, RasterDataSet], result: Union[SerializedForm, np.ndarray], \
                                     result_name: str, expression: Optional[str], expr_info: BandMathExprInfo, \
                                     loader: 'RasterDataLoader' = None, app_state: 'ApplicationState' = None) -> RasterDataSet:
+    print(f"&*^% load_image_from_bandmath, result type: {type(result)}")
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
     # result_type == RasterDataSet if it was so big that it had to get chunked and saved to disk
