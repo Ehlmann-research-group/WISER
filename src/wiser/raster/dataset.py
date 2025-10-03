@@ -768,7 +768,7 @@ class RasterDataSet(Serializable):
             if arr.ndim == 2:
                 print(f"in get image data, arr is 2D, newaxis'ing it", flush=True)
                 arr = arr[np.newaxis,:,:]
-            print(os.listdir("/home/runner/work/WISER/WISER/src/wiser/bandmath/temp_output/"))
+            print(f'files in temp_output: {os.listdir("/home/runner/work/WISER/WISER/src/wiser/bandmath/temp_output/")}')
             print(f"testing lazyl oading theory: {arr[0,0,0]}", flush=True)
             print(f"after arr is newaxis'd", flush=True)
             if filter_data_ignore_value and self._data_ignore_value is not None:
