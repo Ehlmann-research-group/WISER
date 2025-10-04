@@ -35,27 +35,6 @@ jobs:
           environment-name: linux-cached-dev
           cache-environment: true
           init-shell: bash
-
-      - name: Sanity
-        run: |
-          which python
-          python -V
-        shell: micromamba-shell {0}
-
-      # - name: Conda list
-      #   run: |
-      #     conda list
-      #   shell: micromamba-shell {0}
-
-    #   - name: Run tests under Xvfb
-    #     uses: coactions/setup-xvfb@v1
-    #     with:
-    #       run: |
-    #         make generated
-    #         cd src/tests
-    #         pytest -s .
-    #       # Ensure commands run in your micromamba env
-    #       shell: micromamba-shell {0}
     
       - name: Run tests under xvfb-run
         run: |
