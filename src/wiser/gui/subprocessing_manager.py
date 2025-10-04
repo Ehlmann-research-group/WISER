@@ -8,6 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 from PySide2.QtCore import *
 
 from wiser.gui.parallel_task import ParallelTaskProcess, ParallelTaskProcessPool
+from wiser.utils.multiprocessing_context import CTX
 
 import traceback
 
@@ -71,12 +72,12 @@ class ProcessManager(QObject):
 
     def __init__(self, operation: Callable, kwargs: Dict = {}):
         super().__init__()
-        self._parent_conn, self._child_conn = mp.Pipe(duplex=False)
-        self._return_q = mp.Queue()
+        self._parent_conn, self._child_conn = CTX.Pipe(duplex=False)
+        self._return_q = CTX.Queue()
         kwargs['op'] = operation
         kwargs['child_conn'] = self._child_conn
         kwargs['return_queue'] = self._return_q
-        self._process = mp.Process(target=child_trampoline, kwargs=kwargs)
+        self._process = CTX.Process(target=child_trampoline, kwargs=kwargs)
         self._task = ParallelTaskProcess(self._process, self._parent_conn, self._child_conn, self._return_q)
         self._process_manager_id = type(self)._next_process_id
         type(self)._next_process_id += 1

@@ -1,0 +1,14 @@
+# Put all of the conda dependencies under 'dependencies' and put all of your
+# pip dependencies under 'pip'
+# Example format:
+# dependencies:
+# sphinx=7.4.*
+# pip:
+# ruff
+
+dependencies:
+sphinx=7.4.7
+pyyaml=6.0.2
+ruff=0.1.*
+conda-lock=3.0.4
+pytest=8.4.1

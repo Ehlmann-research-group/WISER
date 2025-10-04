@@ -54,7 +54,6 @@ from wiser.config import FLAGS, set_feature_env
 
 import time
 
-
 class LoggingApplication(QApplication):
     def notify(self, receiver, event):
         # print(f"Processing event {event} (type: {event.type()}) on {receiver}")
