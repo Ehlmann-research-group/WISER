@@ -1195,12 +1195,8 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
         child_conn.send(["progress", {"Numerator": count, "Denominator": total, "Status": "Finished"}])
         serialized_results: List[Tuple[VariableType, SerializedForm, str, BandMathExprInfo]] = []
         for result_type, result_value, result_name, result_expr_info in outputs:
-            child_conn.send(f"!@#! type of result_value: {type(result_value)}")
             if isinstance(result_value, Serializable):
                 serialized_results.append((result_type, result_value.get_serialized_form(), result_name, result_expr_info))
-            elif isinstance(result_value, np.ndarray):
-                child_conn.send(f"!@#! result_value is array, does it own itself: {result_value.flags['OWNDATA']}")
-                serialized_results.append((result_type, result_value, result_name, result_expr_info))
             else:
                 serialized_results.append((result_type, result_value, result_name, result_expr_info))
         return_queue.put(serialized_results)
@@ -1219,20 +1215,8 @@ def eval_all_bandmath_expr(filepaths: List[str], bandmath_expr: str, expr_info: 
                                             use_synchronous_method=use_synchronous_method, child_conn=child_conn)
         serialized_result = None
         result_type, result_value, result_name, result_expr_info = result
-        print(f"!@#! type of result_value: {type(result_value)}")
-        child_conn.send(f"!@#! type of result_value: {type(result_value)}")
         if isinstance(result_value, Serializable):
-            child_conn.send(f'Type of reuslt_value: {type(result_value)}')
             serialized_result = (result_type, result_value.get_serialized_form(), result_name, result_expr_info)
-            result_value._impl.gdal_dataset.FlushCache()
-            result_value._impl.gdal_dataset.Close()
-            result_value._impl.gdal_dataset = None
-            del result_value
-        elif isinstance(result_value, np.ndarray):
-            # result_value = 
-            print(f"!@#! result is array, does it own itself: {result_value.flags['OWNDATA']}")
-            child_conn.send(f"!@#! result is array, does it own itself: {result_value.flags['OWNDATA']}")
-            serialized_result = (result_type, result_value, result_name, result_expr_info)
         else:
             serialized_result = (result_type, result_value, result_name, result_expr_info)
 

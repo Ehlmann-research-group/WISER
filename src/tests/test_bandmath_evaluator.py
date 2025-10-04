@@ -1212,28 +1212,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         vars = [(VariableType.IMAGE_CUBE, caltech_ds), \
                 (VariableType.IMAGE_BAND, band)]
 
-        status_callback = lambda msg: print(f"Msg from process: {msg}")
+        # Useful for ensuring we receive messages from the process
+        status_callback = lambda msg: print(f"In test, message from process:\n{msg}", flush=True)
 
-        print(f"going into vars")
         for var in vars:
-            print(f"var to run on: {var}")
             expr = 'a + b'
             variables = {'a': var, 'b': (VariableType.IMAGE_BAND_BATCH, raster_batch_band)}
             expr_info = get_bandmath_expr_info(expr, variables, {})
-            print(f"got bandmath expr_info")
             suffix = 'test_result'
             cache = DataCache()
             process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback,
                 status_callback=status_callback, error_callback=lambda _: None, 
                 bandmath_expr=expr, expr_info=expr_info, result_name=suffix, cache=cache,
                 variables=variables, functions={}, use_synchronous_method=run_sync)
-            print(f"about to wait for task to finish")
             process_manager.get_task().wait()
-            print(f"finished waiting for task to finish")
             results = process_manager.get_task().get_result()
-            print(f"got results!!")
             for result_type, result, result_name, expr_info in results:
-                print(f"result_type: {result_type}")
                 original_file_name = result_name[:-(len(suffix))] if result_name.endswith(suffix) else result_name
                 original_ds = loader.load_from_file(path=os.path.normpath(os.path.join(raster_batch_band.get_folderpath(),
                                                                                     original_file_name)), interactive=False)[0]
@@ -1242,11 +1236,9 @@ class TestBandmathEvaluator(unittest.TestCase):
                                                       raster_batch_band.get_wavelength_units(),
                                                       raster_batch_band.get_epsilon())
                 original_band_arr = original_band.get_data()
-                print(f"$$#$ result instance: {type(result)}", flush=True)
                 if result_type == VariableType.IMAGE_CUBE or result_type == RasterDataSet:
                     assert isinstance(result, (np.ndarray, SerializedForm))
                     result_ds = load_image_from_bandmath_result(result_type, result, result_name, expr, expr_info, loader, None)
-                    print(f"About to get_image_data()!", flush=True)
                     result_arr = result_ds.get_image_data()
                 elif result_type == VariableType.IMAGE_BAND:
                     result_ds = load_band_from_bandmath_result(result=result, result_name=result_name,
@@ -1280,12 +1272,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=True)
 
     def test_bandmath_preloaded_data_with_band_index_batch_async(self):
-        print(f"Test is running")
         current_dir = os.path.dirname(os.path.abspath(__file__))
         batch_test_folder = os.path.normpath(
             os.path.join(current_dir, "..", "test_utils", "test_datasets", "bandmath_batch_test_input_folder"))
         raster_batch_band = RasterDataBatchBand(batch_test_folder, 0)
-        print(f"calling helper")
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
 
     def test_bandmath_preloaded_data_with_band_wvl_batch_sync(self):
