@@ -26,8 +26,6 @@ from time import perf_counter
 
 from abc import ABC
 
-import os
-
 if TYPE_CHECKING:
     from wiser.raster.spectrum import Spectrum
     from wiser.raster.loader import RasterDataLoader
