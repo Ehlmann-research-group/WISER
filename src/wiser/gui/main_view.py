@@ -1,6 +1,7 @@
 import logging
 import os
 import traceback
+from typing import Union, Dict, List, Optional, Tuple
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -16,16 +17,23 @@ from .rasterpane import RasterPane
 from .rasterview import RasterView
 from .split_pane_dialog import SplitPaneDialog
 from .stretch_builder import StretchBuilderDialog
-from .util import add_toolbar_action
+from .util import add_toolbar_action, get_painter
 from .plugin_utils import add_plugin_context_menu_items
+from .scatter_plot_2D import ScatterPlot2DDialog
+# from .spectral_angle_mapper import SAMTool
+# from .spectral_feature_fitting import SFFTool
+from .spectral_angle_mapper_tool import SAMTool
+from .spectral_feature_fitting_tool import SFFTool
 
 from wiser import plugins
 
 from wiser.raster import roi_export
 
+from wiser.raster.dataset import GeographicLinkState, reference_pixel_to_target_pixel_ds
+
+from wiser.config import FLAGS 
 
 logger = logging.getLogger(__name__)
-
 
 class MainViewWidget(RasterPane):
     '''
@@ -38,14 +46,19 @@ class MainViewWidget(RasterPane):
             max_zoom_scale=16, zoom_options=[0.25, 0.5, 0.75, 1, 2, 4, 8, 16],
             initial_zoom=1)
 
-        self._stretch_builder = StretchBuilderDialog(parent=self)
+        self._stretch_builder = StretchBuilderDialog(parent=self, app_state=app_state)
         self._export_image = ExportImageDialog(parent=self)
         self._link_view_scrolling = False
+        self._link_view_state = GeographicLinkState.NO_LINK
 
         if self._app_state.get_config('feature-flags.linked-multi-view', default=True, as_type=bool):
             self._set_link_views_button_state()
 
         self._set_dataset_tools_button_state()
+
+        self._interactive_scatter_highlight_points: List[Tuple[int, int]] = []
+        self._interactive_scatter_render_ds_id: int = -1
+        self._interactive_scatter_color: QColor = QColor(255, 0, 0)
 
 
     def _init_toolbar(self):
@@ -159,6 +172,21 @@ class MainViewWidget(RasterPane):
         act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
                               self._on_export_image_full(rv))
 
+        submenu = menu.addMenu(self.tr('Data Analysis'))
+        act = submenu.addAction(self.tr('Interactive Scatter Plot'))
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self.on_scatter_plot_2D(rv))
+
+        if FLAGS.sam: 
+            act = submenu.addAction(self.tr('Spectral Angle Mapper'))
+            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                                self._on_open_spectral_angle_mapper(rv))
+
+        if FLAGS.sff: 
+            act = submenu.addAction(self.tr('Spectral Feature Fitting'))
+            act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs :
+                              self._open_spectral_feature_fitting(rv))
+
         # Plugin context-menus
         add_plugin_context_menu_items(self._app_state,
             plugins.ContextMenuType.RASTER_VIEW, menu,
@@ -176,6 +204,9 @@ class MainViewWidget(RasterPane):
             menu.addSeparator()
 
         # act = menu.addAction('Save')
+
+        act = menu.addAction('Edit dataset...')
+        act.triggered.connect(lambda checked=False, rv=rasterview : self._on_edit_dataset(rv))
 
         act = menu.addAction('Save as...')
         act.triggered.connect(lambda checked=False, rv=rasterview : self._on_save_dataset_as(rv))
@@ -202,12 +233,12 @@ class MainViewWidget(RasterPane):
         self._act_stretch_builder.setEnabled(enabled)
 
 
-    def _on_dataset_added(self, ds_id):
+    def _on_dataset_added(self, ds_id, view_dataset: bool = True):
         '''
         Override the base-class implementation so we can also update the
         stretch-builder button state.
         '''
-        super()._on_dataset_added(ds_id)
+        super()._on_dataset_added(ds_id, view_dataset)
         self._set_dataset_tools_button_state()
 
 
@@ -256,6 +287,13 @@ class MainViewWidget(RasterPane):
         self._export_image.exec()
 
 
+    def _on_edit_dataset(self, rasterview):
+        '''
+        Edits the dataset in the rasterview. 
+        '''
+        dataset = rasterview.get_raster_data()
+        dataset.show_edit_dataset_dialog(self._app_state._app)
+
     def _on_save_dataset_as(self, rasterview):
         dataset = rasterview.get_raster_data()
         # TODO(donnie):  Don't do it this way!
@@ -278,6 +316,10 @@ class MainViewWidget(RasterPane):
         # Finally, remove the dataset.
         self._app_state.remove_dataset(dataset.get_id())
 
+    
+    def _on_dataset_changed(self, act):
+        super()._on_dataset_changed(act)
+        self._app_state.mainview_dataset_changed.emit(self.get_rasterview().get_raster_data().get_id())
 
     def get_stretch_builder(self):
         return self._stretch_builder
@@ -308,9 +350,65 @@ class MainViewWidget(RasterPane):
         self._set_dataset_tools_button_state()
         self._set_link_views_button_state()
 
+    def _on_open_spectral_angle_mapper(self, rasterview):
+        dlg = SAMTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
+
+    def _open_spectral_feature_fitting(self, rasterview):
+        dlg = SFFTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
+
+    def on_scatter_plot_2D(self, rasterview=None, testing=False):
+        
+        # If dialog exists and is already visible, just bring it to front
+        if (
+            hasattr(self, "_interactive_scatter_plot_dialog")
+            and self._interactive_scatter_plot_dialog is not None
+            and self._interactive_scatter_plot_dialog.isVisible()
+        ):
+            self._interactive_scatter_plot_dialog.raise_()
+            self._interactive_scatter_plot_dialog.activateWindow()
+            return
+        self._interactive_scatter_plot_dialog = ScatterPlot2DDialog(self._make_interactive_scatter_plot_highlights,
+                                     self._clear_interactive_scatter_plot_highlights,
+                                     self._app_state, testing=testing, parent=self)
+        self._interactive_scatter_plot_dialog.show()
+
+    def _make_interactive_scatter_plot_highlights(self, selected_points, render_ds_id, color_hex: Optional[str] = None):
+        # Highlight the selected points 
+        rows, cols, x_val, y_val = selected_points
+        assert len(rows) == len(cols), "Returned pixel rows do not equal returned pixel columns."
+        self._interactive_scatter_highlight_points = [(rows[i], cols[i]) for i in range(len(cols))]
+        self._interactive_scatter_render_ds_id = render_ds_id
+        if color_hex:
+            try:
+                self._interactive_scatter_color = QColor(color_hex)
+            except Exception:
+                self._interactive_scatter_color = QColor(255, 0, 0)
+        self.update_all_rasterviews()
+
+    def _clear_interactive_scatter_plot_highlights(self):
+        self._interactive_scatter_highlight_points = []
+        self._interactive_scatter_render_ds_id = -1
+        self.update_all_rasterviews()
 
     def is_scrolling_linked(self):
         return self._link_view_scrolling
+
+    
+    def on_rasterview_dataset_changed(self):
+        '''
+        Currently, this function is used to change the dataset link state when
+        a new dataset is showed to a raster view. If the new dataset's dimensions
+        does not match the currently displayed datasets, we stop linking.
+        '''
+        # We only do something if link_view_scroll is true, if not we do nothing
+        if self._link_view_scrolling:
+            if not self._app_state.multiple_displayed_datasets_link_compatible()[0]:
+                self._act_link_view_scroll.setChecked(False)
+                self._link_view_scrolling = False
 
 
     def _on_link_view_scroll(self, checked):
@@ -320,19 +418,24 @@ class MainViewWidget(RasterPane):
         be updated to show the same coordinates as the top left raster view.
         '''
 
-        if checked and not self._app_state.multiple_datasets_same_size():
+        linkable, link_type = self._app_state.multiple_displayed_datasets_link_compatible()
+
+        if checked and not linkable:
             # TODO(donnie):  Not sure if it's better to tell the user why the
             #     view scrolling can't be linked, or to disable it.  For now,
             #     we tell the user why it isn't possible.
             QMessageBox.information(self, self.tr('Cannot Link Views'),
                 self.tr('Cannot link views unless multiple datasets\n' +
-                        'are loaded, and are all the same dimensions.'))
+                        'are loaded, and either are all the same\n' +
+                        'dimensions or have overlapping coordinate\n' +
+                        'spatial reference systems.'))
 
             self._act_link_view_scroll.setChecked(False)
             return
 
         # If we got here, we can link or unlink view scrolling.
         self._link_view_scrolling = checked
+        self._link_view_state = link_type
         if checked:
             self._app_state.show_status_text(self.tr('Linked view scrolling is ON'), 5)
 
@@ -340,9 +443,39 @@ class MainViewWidget(RasterPane):
             self._sync_scroll_state(self.get_rasterview())
         else:
             self._app_state.show_status_text(self.tr('Linked view scrolling is OFF'), 5)
+            # We want this to updatethe main view raster view's highlight box, so the linked
+            # highlight boxes go away when we stop linking
+            for rv in self._rasterviews.values():
+                rv.update()
 
+    def _afterRasterPaint(self, rasterview, widget, paint_event):
+        super()._afterRasterPaint(rasterview, widget, paint_event)
 
-    def _afterRasterScroll(self, rasterview, dx, dy):
+        self._draw_interactive_scatter_plot_highlights(rasterview, widget, paint_event)
+
+    def _draw_interactive_scatter_plot_highlights(self, rasterview: RasterView, widget, paint_event):
+        rasterview_ds = rasterview.get_raster_data()
+        if rasterview_ds is None:
+            return
+        rasterview_ds_id = rasterview_ds.get_id()
+        if rasterview_ds_id != self._interactive_scatter_render_ds_id:
+            return
+        if self._interactive_scatter_highlight_points:
+            with get_painter(widget) as painter:
+                painter.setPen(QPen(self._interactive_scatter_color, 2))
+                
+                # Get the current scale factor for proper coordinate transformation
+                scale = self.get_scale()
+                
+                for row, col in self._interactive_scatter_highlight_points:
+                    # Convert dataset coordinates to screen coordinates
+                    # Add 0.5 to center the point within the pixel
+                    screen_x = (col + 0.5) * scale
+                    screen_y = (row + 0.5) * scale
+                    
+                    painter.drawPoint(screen_x, screen_y)
+
+    def _afterRasterScroll(self, rasterview, dx, dy, propagate_scroll):
         '''
         This function is called when the raster-view's scrollbars are moved.
 
@@ -354,8 +487,9 @@ class MainViewWidget(RasterPane):
         '''
         # Invoke the superclass version of this operation to emit the
         # viewport-changed event.
-        super()._afterRasterScroll(rasterview, dx, dy)
-        self._sync_scroll_state(rasterview)
+        super()._afterRasterScroll(rasterview, dx, dy, propagate_scroll)
+        if propagate_scroll:
+            self._sync_scroll_state(rasterview)
 
 
     def _sync_scroll_state(self, rasterview: RasterView) -> None:
@@ -365,13 +499,173 @@ class MainViewWidget(RasterPane):
         specified as the argument.
         '''
         sb_state = rasterview.get_scrollbar_state()
+        center_screen = rasterview.get_visible_region_center()
+        if sb_state is None or center_screen is None:
+            return
+        link_state = self._link_view_state
         if len(self._rasterviews) > 1 and self._link_view_scrolling:
             for rv in self._rasterviews.values():
                 # Skip the rasterview that generated the scroll event
                 if rv is rasterview:
                     continue
 
-                rv.set_scrollbar_state(sb_state)
+                # Even if we do not have to move the rv to make the point visible or scroll
+                # we will want to update the raster view so the highlight box gets updated
+                rv.update()
+                # If we are linkinging by pixel, we simply do so
+                if link_state == GeographicLinkState.PIXEL:
+                    rv.set_scrollbar_state(sb_state)
+                # Now we are linking by spatial reference system
+                elif link_state == GeographicLinkState.SPATIAL:
+                    ds = rv.get_raster_data()
+                    if ds is None:
+                        continue
+
+                    x = center_screen[0]
+                    y = center_screen[1]
+                    rv.make_point_visible(x, y, margin=0.5, reference_rasterview=rasterview)
+
+                else:
+                    raise ValueError(f"Geographic link state is incorrect: {link_state}")
+
+    def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):
+        '''
+        Sets the "viewport highlight" to be displayed in this raster-pane. This
+        is used to allow the Main View to show the Zoom Pane viewport.
+
+        This function always only takes in one viewport and one rasterview because
+        the Zoom Pane only has one viewport and rasterview.
+        '''
+        dataset = rasterview.get_raster_data()
+        if dataset is None:
+            return
+
+        self.create_viewport_highlight_dictionary(viewport, rasterview)  
+
+        # We only update all the rasterviews if we are linking them. If not then we 
+        # just update the passed in rasterview
+        if self._link_view_scrolling:
+            # If the specified viewport highlight region is not entirely within this
+            # raster-view's visible area, scroll such that the viewport highlight is
+            # in the middle of the raster-view's visible area.
+            for rv in self._rasterviews.values():
+                visible = rv.get_visible_region()
+                if visible is None or viewport is None:
+                    rv.update()
+                    continue
+
+                if not visible.contains(viewport):
+                    center = viewport.center()
+                    rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
+
+                # Repaint raster-view
+                rv.update()
+        else:
+            for rv in self._rasterviews.values():
+                rv_dataset = rv.get_raster_data()
+                visible = rv.get_visible_region()
+
+                if rv_dataset is None or visible is None:
+                    rv.update()
+                    continue
+
+                if viewport is None:
+                    # The case when the zoom pane is not displaying anything. We just want
+                    # to update the rasterview and move on
+                    rv.update()
+                    continue
+
+                # We only want to change a rasterview if it has the same underlying dataset
+                if rv_dataset == dataset:
+                    if not visible.contains(viewport):
+                        center = viewport.center()
+                        rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
+
+                # Repaint raster-view. We always repaint to account
+                # for highlight boxes that may have been switched off
+                rv.update()
+
+    def _draw_viewport_highlight(self, rasterview, widget, paint_event):
+        '''
+        This helper function draws the viewport highlight in this raster-pane.
+
+        It mainly relies on the parent class's implementation.
+        '''
+        if self._viewport_highlight is not None:
+            assert(len(list(self._viewport_highlight.values())) == 1), "self._viewport_highlight has more than 1 entry"
+        super()._draw_viewport_highlight(rasterview, widget, paint_event)
+
+    def _get_compatible_highlights(self, ds_id) -> Optional[List[Union[QRect, QRectF]]]:
+        """
+        Retrieves a list of highlight regions (QRect or QRectF) that are compatible
+        with the given dataset based on its link state with other datasets.
+
+        Args:
+            ds_id (str): The identifier of the target dataset.
+
+        Returns:
+            List[Union[QRect, QRectF]]: A list of compatible highlight regions,
+            transformed if necessary based on the link state.
+
+        Raises:
+            ValueError: If an unexpected GeographicLinkState is encountered.
+        """
+        if self._viewport_highlight is None:
+            return None
+
+        if self._link_view_scrolling:
+            target_ds = self._app_state.get_dataset(ds_id)
+            compatible_highlights = []
+            # Viewports is a list because one dataset can be in multiple rasterviews
+            # and so have multiple viewports
+            for reference_ds_id, viewports in self._viewport_highlight.items():
+                # Use app state to get the datasets for both
+                reference_ds = self._app_state.get_dataset(reference_ds_id)
+                # Check if they are link compatible
+                link_state = target_ds.determine_link_state(reference_ds)
+                for viewport in viewports:
+                    # Happens when you close out of zoom pane
+                    if viewport is None:
+                        continue
+                    if link_state == GeographicLinkState.NO_LINK:
+                        continue
+                    elif link_state == GeographicLinkState.PIXEL:
+                        compatible_highlights.append(viewport)
+                    elif link_state == GeographicLinkState.SPATIAL:
+                        transformed_viewport = self._transform_viewport_to_polygon(viewport, reference_ds, target_ds)
+                        compatible_highlights.append(transformed_viewport)
+                    else:
+                        raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
+            return compatible_highlights
+        else:
+            return super()._get_compatible_highlights(ds_id)
+
+    def _draw_pixel_highlight(self, rasterview, widget, paint_event):
+        if self._pixel_highlight is None:
+            return
+
+        dataset = self._pixel_highlight.get_dataset()
+
+        if self.is_scrolling_linked():
+            rv_dataset = rasterview.get_raster_data()
+
+            if rv_dataset is None or dataset is None:
+                return
+            reference_point = self._pixel_highlight.get_pixel()
+            reference_pixel = (reference_point.x(), reference_point.y())
+            target_pixel = reference_pixel_to_target_pixel_ds(reference_pixel, 
+                                                              dataset,
+                                                              rv_dataset,
+                                                              link_state=self._link_view_state)
+            if target_pixel is None:
+                raise ValueError(f"Target pixel is none even though main view scrolling is linked!")
+            target_point = QPoint(*target_pixel)
+        else:
+            if dataset is not None and rasterview.get_raster_data() is not dataset:
+                return
+            target_point = self._pixel_highlight.get_pixel()
+
+        self._draw_crosshair_at_coord(target_point, widget)
 
 
     def _on_zoom_to_actual(self, evt):
@@ -393,3 +687,15 @@ class MainViewWidget(RasterPane):
             self.set_scale(rasterview.get_scale())
 
         self._update_zoom_widgets()
+
+    def _on_zoom_in(self, evt):
+        ''' Zoom in the zoom-view by one level. '''
+        super()._on_zoom_in(evt)
+        self.viewport_change.emit(self._get_rasterview_position(self.get_rasterview()))
+
+
+
+    def _on_zoom_out(self, evt):
+        ''' Zoom out the zoom-view by one level. '''
+        super()._on_zoom_out(evt)
+        self.viewport_change.emit(self._get_rasterview_position(self.get_rasterview()))

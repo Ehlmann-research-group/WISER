@@ -1,7 +1,9 @@
 import abc
 import enum
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union, Dict
+
+from collections import deque
 
 from PySide2.QtCore import *
 
@@ -11,8 +13,10 @@ from astropy import units as u
 
 from wiser.gui.util import get_random_matplotlib_color, get_color_icon
 
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, SpectralMetadata
 from wiser.raster.roi import RegionOfInterest
+from wiser.raster.selection import SelectionType
+from wiser.raster.serializable import Serializable, SerializedForm
 
 
 #============================================================================
@@ -37,6 +41,184 @@ AVG_MODE_NAMES = {
     SpectrumAverageMode.MEDIAN : 'Median',
 }
 
+def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
+    rectangles = []
+    start = None
+
+    for x in range(len(row)):
+        if row[x] == 1 and start is None:
+            start = x  # Start of a new rectangle
+        elif row[x] == 0 and start is not None:
+            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
+            start = None
+
+    # If the row ends and a rectangle was still open
+    if start is not None:
+        rectangles.append(np.array([start, len(row) - 1, y, y]))
+
+    return rectangles
+
+def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
+    rectangles = []
+    start = None
+
+    for x in range(len(row)):
+        if row[x] == 1 and start is None:
+            start = x  # Start of a new rectangle
+        elif row[x] == 0 and start is not None:
+            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
+            start = None
+
+    # If the row ends and a rectangle was still open
+    if start is not None:
+        rectangles.append(np.array([start, len(row) - 1, y, y]))
+
+    return rectangles
+
+def raster_to_combined_rectangles_x_axis(raster):
+    rectangles = []
+    previous_row_rectangles = deque()
+    # prev_row_rect_to_keep = []
+
+    for y in range(raster.shape[0]):  # For each row (y-coordinate)
+        row = raster[y]
+        current_row_rectangles = find_rectangles_in_row(row, y)
+
+        # Get all of the previous rectangles (from previous row or continued on from farther back rows)
+        # Since we haven't yet added the previous row's rectangles to our final set of rectangles, if there
+        # are no matches with a current rectangle then it is safe to add it in with the final set of rects
+        for i in range(len(previous_row_rectangles)):
+            prev_rect = previous_row_rectangles.pop()
+            prev_x_start, prev_x_end, prev_y_start, prev_y_end = prev_rect
+
+            merged = False
+            # Get all of the rectangles in the current row, we will compare each previous rectangle
+            # with all the rectangles in the current row. If there is a match in x and y values 
+            # between the previous rectangle and a current row rectangle, then we update the current
+            # row rectangle's size to expand. Then when we add this rectangle to previous row rectangles
+            # it will have carried over.
+            # If there isn't a merge, we add the previous rect to rectangles.
+            for curr_rect in current_row_rectangles:
+                x_start, x_end, y_start, y_end = curr_rect
+
+
+                # If the current rectangle does match with a previous rectangle
+                if prev_x_start == x_start and prev_x_end == x_end and prev_y_end == y - 1:
+                    # Merge the current rectangle with the previous one
+                    curr_rect[-2] = prev_y_start
+                    merged = True
+                    break
+
+
+            # If the previous rectangle here does not continue from a current rows, we immediately add it to rectangles
+            # which we can do because we know it won't show up again 
+            if not merged:
+                rectangles.append(np.array(prev_rect))
+
+        # We make the previous row rectangles the be the current row to "move on" from this row
+        # The current rectangles are updated to get merged into the previous ones and nothing is doubly added
+        previous_row_rectangles = current_row_rectangles
+
+    # For the last row it is never treated as a previous row (which would let it be added to rectangles), so we just add it to rectangles 
+    rectangles += list(previous_row_rectangles)  # Accumulate merged rectangles
+
+    return np.array(rectangles)
+
+def raster_to_combined_rectangles_y_axis(raster_y: np.ndarray):
+    raster_x = raster_y.T
+    rectangles_x = raster_to_combined_rectangles_x_axis(raster_x)
+    rectangles_y = rectangles_x[:, [0, 1, 2, 3]] = rectangles_x[:, [2, 3, 0, 1]]
+    return rectangles_y
+
+def array_to_qrects(array):
+    qrects = []
+    for row in array:
+        x1, x2, y1, y2 = row
+        # QRect takes (x, y, width, height), so calculate width and height
+        width = x2 - x1 + 1
+        height = y2 - y1 + 1
+        qrects.append(QRect(x1, y1, width, height))
+    return qrects
+
+def create_raster_from_roi(roi: RegionOfInterest) -> np.ndarray:
+    bbox = roi.get_bounding_box()
+    pixels = roi.get_all_pixels()
+
+    xmin = bbox.topLeft().x()
+    ymin = bbox.topLeft().y()
+    
+    raster = np.zeros((bbox.height(), bbox.width()), dtype=np.uint8)
+    
+    for pixel in pixels:
+        pixel_x, pixel_y = pixel[0], pixel[1]
+        pixel_index_x, pixel_index_y = pixel_x - xmin, pixel_y - ymin
+        raster[pixel_index_y][pixel_index_x] = 1
+    return raster
+
+def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
+                  mode=SpectrumAverageMode.MEAN):
+    '''
+    Calculate a spectrum over a region of interest from the specified dataset.
+    The calculation mode can be specified with the mode argument.
+    '''
+    spectra = []
+
+    # We make a raster out of all of the pixels in the ROI
+    raster = create_raster_from_roi(roi)
+
+    # We do a variant of the Run Line Encoding (RLE) algorithm in the x direction
+    # and the y direction
+    rect_x_axis = raster_to_combined_rectangles_x_axis(raster)
+    rect_y_axis = raster_to_combined_rectangles_y_axis(raster)
+    bbox = roi.get_bounding_box()
+
+    rects = None
+    if len(rect_x_axis) < len(rect_y_axis):
+        rects = rect_x_axis
+    else:
+        rects = rect_y_axis
+
+    # We need to make the rectangles we got from the 'RLE' algorithm
+    # be in the image coordinate system
+    rects[:,:2] += bbox.left()
+    rects[:,2:] += bbox.top()
+
+    # Accessing by rectangular blocks is faster than accessing point by point
+    qrects = array_to_qrects(rects)
+    for qrect in qrects:
+        try:
+            s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
+        except BaseException as e:
+            # TODO (Joshua G-K): Make this cleaner. Either check in impl or don't let user create
+            # ROIs that go out of bounds.
+            arr = np.full((dataset.num_bands(),), np.nan)
+            return arr
+        ndim = s.ndim
+        if ndim == 2:
+            for i in range(s.shape[1]):
+                spectra.append(s[:,i])
+        elif ndim == 3:
+            for i in range(s.shape[1]):
+                for j in range(s.shape[2]):
+                    spectra.append(s[:,i,j])
+        else:
+            raise TypeError(f'Expected 2 or 3 dimensions in rectangular aray, but got {s.ndim}')
+
+    if len(spectra) > 1:
+        spectra = np.asarray(spectra)
+        # Need to compute mean/median/... of the collection of spectra
+        if mode == SpectrumAverageMode.MEAN:
+            spectrum = np.nanmean(spectra, axis=0)
+        elif mode == SpectrumAverageMode.MEDIAN:
+            spectrum = np.nanmedian(spectra, axis=0)
+        else:
+            raise ValueError(f'Unrecognized average type {mode}')
+
+    else:
+        # Only one spectrum, don't need to compute mean/median
+        spectrum = spectra[0]
+
+    return spectrum
 
 def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
     '''
@@ -116,14 +298,14 @@ def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=Spectr
     Calculate a spectrum over a Region of Interest from the specified dataset.
     The calculation mode can be specified with the mode argument.
     '''
-    return calc_spectrum(dataset, roi.get_all_pixels(), mode)
+    return calc_spectrum_fast(dataset, roi, mode)
 
 
 #============================================================================
 # CLASSES TO REPRESENT SPECTRA
 
 
-class Spectrum(abc.ABC):
+class Spectrum(abc.ABC, Serializable):
     '''
     The base class for representing spectra of interest to the user of the
     application.
@@ -187,6 +369,14 @@ class Spectrum(abc.ABC):
         '''
         raise NotImplementedError('Must be implemented in subclass')
 
+    
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        '''
+        Returns the astropy unit corresponding to the wavelength.
+        '''
+        raise NotImplementedError('Must be implemented in subclass')
+
     def get_spectrum(self) -> np.ndarray:
         '''
         Return the spectrum data as a 1D NumPy array.
@@ -207,7 +397,53 @@ class Spectrum(abc.ABC):
     def is_discardable(self) -> bool:
         # By default, spectra are discardable.
         return True
-
+    
+    def get_serialized_form(self) -> SerializedForm:
+        '''
+        This should return all of the information needed to recreate this object.
+        The first element is this class, so we can get the deserialize_into_class function
+        The second element is a string that represents the file path to the dataset, or a numpy array
+        that represents the data in the dataset. The third element is a dictionary that represents
+        the metadata needed to recreate this object.
+        '''
+        spectrum_arr = self.get_spectrum()
+        metadata = {
+            'name': self.get_name(),
+            'source_name': self.get_source_name(),
+            'id': self.get_id(),
+            'elem_type': self.get_elem_type(),
+            'wavelengths': self.get_wavelengths(),
+            'wavelength_units': self.get_wavelength_units(),
+            'editable': self.is_editable(),
+            'discardable': self.is_discardable()
+        }
+        return SerializedForm(self.__class__, spectrum_arr, metadata)
+    
+    def get_spectral_metadata(self) -> SpectralMetadata:
+        spectral_metadata = SpectralMetadata(band_info=None,
+                                             bad_bands=None,
+                                             default_display_bands=None,
+                                             num_bands=self.num_bands(),
+                                             data_ignore_value=None,
+                                             has_wavelengths=self.has_wavelengths(),
+                                             wavelengths=self.get_wavelengths(),
+                                             wavelength_units=self.get_wavelength_units())
+        return spectral_metadata
+        
+    @staticmethod
+    def deserialize_into_class(spectrum_arr: Union[str, np.ndarray], metadata: Dict) -> 'NumPyArraySpectrum':
+        '''
+        This should recreate the object from the serialized form that is obtained from the get_serialized_form method.
+        '''
+        name = metadata['name']
+        source_name = metadata['source_name']
+        id = metadata['id']
+        wavelengths = metadata['wavelengths']
+        editable = metadata['editable']
+        discardable = metadata['discardable']
+        spectrum = NumPyArraySpectrum(spectrum_arr, name, source_name, wavelengths, editable, discardable)
+        spectrum.set_id(id)
+        return spectrum
 
 #===============================================================================
 # NUMPY ARRAY SPECTRA
@@ -275,7 +511,9 @@ class NumPyArraySpectrum(Spectrum):
         Returns True if this spectrum has wavelength units for all bands, False
         otherwise.
         '''
-        return (self._wavelengths is not None)
+        if self._wavelengths is None:
+            return False
+        return isinstance(self._wavelengths[0], u.Quantity)
 
     def get_wavelengths(self) -> List[u.Quantity]:
         '''
@@ -303,22 +541,16 @@ class NumPyArraySpectrum(Spectrum):
             wavelengths = list(wavelengths)
 
         self._wavelengths = wavelengths
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        if self.has_wavelengths():
+            if isinstance(self._wavelengths[0], u.Quantity):
+                return self._wavelengths[0].unit
+        return None
 
-
-    def copy_spectral_metadata(self, source):
-        if isinstance(source, RasterDataSet):
-            src_wavelengths = None
-            if source.has_wavelengths():
-                src_wavelengths = [b['wavelength'] for b in source.band_list()]
-
-            self.set_wavelengths(src_wavelengths)
-
-        elif isinstance(source, Spectrum):
-            self.set_wavelengths(source.get_wavelengths())
-
-        else:
-            raise ValueError(f'Don\'t know how to get spectral metadata from type {type(source)}.')
-
+    def copy_spectral_metadata(self, source: SpectralMetadata):
+        assert source.get_wavelengths(), "SpectralMetadata has no wavelengths"
+        self.set_wavelengths(source.get_wavelengths())
 
     def get_spectrum(self) -> np.ndarray:
         '''
@@ -331,6 +563,14 @@ class NumPyArraySpectrum(Spectrum):
 
     def is_discardable(self):
         return self._discardable
+    
+    def __eq__(self, other: 'NumPyArraySpectrum') -> bool:
+        return (
+            self.get_spectrum() == other.get_spectrum() and
+            self.get_elem_type() == other.get_elem_type() and
+            self.get_wavelengths() == other.get_wavelengths() and
+            self.get_wavelength_units() == other.get_wavelength_units()
+        )
 
 
 #===============================================================================
@@ -340,7 +580,7 @@ class NumPyArraySpectrum(Spectrum):
 class RasterDataSetSpectrum(Spectrum):
     def __init__(self, dataset):
         super().__init__()
-        self._dataset = dataset
+        self._dataset: RasterDataSet = dataset
         self._avg_mode = SpectrumAverageMode.MEAN
 
         self._name = None
@@ -433,13 +673,22 @@ class RasterDataSetSpectrum(Spectrum):
         Returns a list of wavelength values corresponding to each band.  The
         individual values are astropy values-with-units.
         '''
-        bands =  [b['wavelength'] for b in self._dataset.band_list()]
-
+        b0: Dict = self._dataset.band_list()[0]
+        if 'wavelength' in b0:
+            key = 'wavelength'
+        else:
+            key = 'index'
+        bands =  [b[key] for b in self._dataset.band_list()]
         if filter_bad_bands:
             bad_bands = self._dataset.get_bad_bands()
             bands = [bands[i] for i in range(len(bands)) if bad_bands[i]]
-
         return bands
+    
+    def get_wavelength_units(self) -> Optional[u.Unit]:
+        '''
+        Gets the wavelength units.
+        '''
+        return self.get_wavelengths()[0].unit
 
     def _calculate_spectrum(self):
         '''
@@ -456,6 +705,14 @@ class RasterDataSetSpectrum(Spectrum):
             self._calculate_spectrum()
 
         return self._spectrum
+    
+    def __eq__(self, other: 'Spectrum') -> bool:
+        return (
+            self.get_spectrum() == other.get_spectrum() and
+            self.get_elem_type() == other.get_elem_type() and
+            self.get_wavelengths() == other.get_wavelengths() and
+            self.get_wavelength_units() == other.get_wavelength_units()
+        )
 
 
 class SpectrumAtPoint(RasterDataSetSpectrum):
@@ -498,15 +755,22 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
         (x, y) = self._point
 
         if self._area == (1, 1):
-            self._spectrum = self._dataset.get_all_bands_at(x, y)
+            try:
+                self._spectrum = self._dataset.get_all_bands_at(x, y)
+            except:
+                self._spectrum = np.full((self._dataset.num_bands(),), np.nan)
+
 
         else:
             (width, height) = self._area
             left = x - (width - 1) / 2
             top = y - (height - 1) / 2
             rect = QRect(left, top, width, height)
-            self._spectrum = calc_rect_spectrum(self._dataset, rect,
+            try:
+                self._spectrum = calc_rect_spectrum(self._dataset, rect,
                                                 mode=self._avg_mode)
+            except:
+                self._spectrum = np.full((width,height), np.nan)
 
     def get_point(self):
         return self._point

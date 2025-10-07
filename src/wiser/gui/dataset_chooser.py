@@ -58,9 +58,6 @@ class DatasetChooser(QToolButton):
         current list of datasets in the application state.
         '''
 
-        # Remove all existing actions
-        self._dataset_menu.clear()
-
         if self._rasterpane is not None:
             num_views = self._rasterpane.get_num_views()
         else:
@@ -84,17 +81,20 @@ class DatasetChooser(QToolButton):
             self._add_dataset_menu_items(self._dataset_menu)
 
 
-    def _add_dataset_menu_items(self, menu, rasterview_pos=(0, 0)):
+    def _add_dataset_menu_items(self, menu: QMenu, rasterview_pos=(0, 0)):
         # Find the action that is currently selected (if any)
         current_data = None
         for act in menu.actions():
             if act.isChecked():
                 current_data = act.data()
 
+        # Remove all existing actions
+        menu.clear()
+
         # Add an action for each dataset
         for dataset in self._app_state.get_datasets():
             # TODO(donnie):  Eventually, include the path if the name isn't unique.
-            act = QAction(dataset.get_name(), parent=menu)
+            act = QAction(dataset.get_name(), menu)
             act.setCheckable(True)
             act_data = (rasterview_pos, dataset.get_id())
             act.setData(act_data)
@@ -103,6 +103,28 @@ class DatasetChooser(QToolButton):
 
             menu.addAction(act)
 
+    def check_dataset(self, ds_id: int):
+        '''
+        Checks the desired dataset in the dataset chooser. This
+        function should only be called if the num views is (1, 1).
+        '''
+        if self._rasterpane.get_num_views() != (1, 1):
+            raise ValueError(f"The function check_dataset should only be called when raster " +
+                             f"pane has one view")
+
+        self._uncheck_all(self._dataset_menu)
+
+        for act in self._dataset_menu.actions():
+
+            if act.isSeparator():
+                continue
+            act_ds_id = act.data()[1]
+            if act_ds_id == ds_id:
+                act.setChecked(True)
+
+    def _uncheck_all(self, menu: QMenu):
+        for act in menu.actions():
+            act.setChecked(False)
 
     def _on_dataset_changed(self, act: QAction):
         '''
@@ -110,13 +132,12 @@ class DatasetChooser(QToolButton):
         has a check-mark by it; all other datasets will be (or become)
         deselected.
         '''
-        # print(f'Selected action:  {act}')
         for oact in self._dataset_menu.actions():
             # print(f'Action:  {oact}\t\tChecked?  {oact == act}')
             oact.setChecked(oact == act)
 
 
-    def _on_dataset_added(self, ds_id: int):
+    def _on_dataset_added(self, ds_id: int, view_dataset: bool = True):
         self._populate_dataset_menu()
 
     def _on_dataset_removed(self, ds_id: int):

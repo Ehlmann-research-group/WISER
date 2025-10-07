@@ -39,8 +39,8 @@ class ENVISpectralLibrary(SpectralLibrary):
         # If the file type doesn't properly indicate that the file is a spectral
         # library, don't go on!!!
 
-        file_type = self._metadata['file type']
-        if file_type != 'ENVI Spectral Library':
+        file_type = self._metadata.get('file type')
+        if file_type is not None and file_type != 'ENVI Spectral Library':
             raise EnviFileFormatError(f'Unrecognized spectral library file type "{file_type}"')
 
         # In ENVI spectral library files, each line (row) is a complete
@@ -192,7 +192,7 @@ class ENVISpectralLibrary(SpectralLibrary):
                 name=self.get_spectrum_name(index),
                 source_name='ENVI',  # TODO(donnie):  Source name?
                 wavelengths=self.get_wavelengths(),
-                editable=False, discardable=False)
+                editable=True, discardable=False)
 
             # The spectrum's ID is a 2-tuple containing the library's ID and
             # the spectrum's index in the library.

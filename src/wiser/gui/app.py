@@ -15,7 +15,14 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from osgeo import gdal, osr
+
+from wiser.bandmath.types import VariableType, BandMathExprInfo
+from wiser.raster.serializable import SerializedForm
+
 from .app_config import PixelReticleType
+
+from wiser.bandmath.utils import TEMP_FOLDER_PATH, bandmath_success_callback, bandmath_progress_callback, bandmath_error_callback
 
 from .about_dialog import AboutDialog
 
@@ -34,6 +41,7 @@ from .image_coords_widget import ImageCoordsWidget
 
 from .import_spectra_text import ImportSpectraTextDialog
 from .save_dataset import SaveDatasetDialog
+from .similarity_transform_dialog import SimilarityTransformDialog
 
 from .util import *
 
@@ -45,21 +53,33 @@ from . import bug_reporting
 from wiser import plugins
 
 from .bandmath_dialog import BandMathDialog
+from .fits_loading_dialog import FitsSpectraLoadingDialog
+from .geo_reference_dialog import GeoReferencerDialog
+from .reference_creator_dialog import ReferenceCreatorDialog
 from wiser import bandmath
 
 from wiser.raster.selection import SinglePixelSelection
 from wiser.raster.spectrum import (SpectrumAtPoint, SpectrumAverageMode,
     NumPyArraySpectrum)
 from wiser.raster.spectral_library import ListSpectralLibrary
-from wiser.raster import RasterDataSet, roi_export, spectra_export
+from wiser.raster import RasterDataSet, roi_export
+from wiser.raster.data_cache import DataCache
 
+from test_utils.test_event_loop_functions import TestingWidget
+
+from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
+from wiser.gui.parallel_task import ParallelTaskProcess
+from wiser.gui.spectral_angle_mapper_tool import SAMTool
+from wiser.gui.spectral_feature_fitting_tool import SFFTool
+
+from wiser.config import FLAGS
 
 logger = logging.getLogger(__name__)
 
 
 # TODO(donnie):  We also need an "offline/local" location for the manual,
 #     for when it's downloaded to the local system.
-ONLINE_WISER_MANUAL_URL = 'http://users.cms.caltech.edu/~donnie/WISER/manual/'
+ONLINE_WISER_MANUAL_URL = 'https://ehlmann-research-group.github.io/WISER-UserManual/'
 
 
 class DataVisualizerApp(QMainWindow):
@@ -73,7 +93,6 @@ class DataVisualizerApp(QMainWindow):
         super().__init__(None)
         self.setWindowTitle(self.tr('Workbench for Imaging Spectroscopy Exploration and Research'))
         self.setWindowIcon(QIcon(':/icons/wiser.ico'))
-
         # Internal state
 
         if config_path is None:
@@ -82,12 +101,14 @@ class DataVisualizerApp(QMainWindow):
         self._config_path: str = config_path
 
         self._app_state: ApplicationState = ApplicationState(self, config=config)
+        self._data_cache = DataCache()
+        self._app_state.set_data_cache(self._data_cache)
 
         # Application Toolbars
 
         self._init_menus()
 
-        self._main_toolbar = self.addToolBar(self.tr('Main'))
+        self._main_toolbar: QToolBar = self.addToolBar(self.tr('Main'))
         self._main_toolbar.setObjectName('main_toolbar') # Needed for UI persistence
         self._init_toolbars()
 
@@ -181,6 +202,17 @@ class DataVisualizerApp(QMainWindow):
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
+        #=======================================
+        # TESTING ITEMS
+
+        self._invisible_testing_widget = TestingWidget()
+
+        #=======================================
+        # GUI PIECES WITH PERSISTENCE
+        self._bandmath_dialog: BandMathDialog = None
+        self._geo_ref_dialog: GeoReferencerDialog = None
+        self._crs_creator_dialog: ReferenceCreatorDialog = None
+        self._similarity_transform_dialog: SimilarityTransformDialog = None
 
     def _init_menus(self):
 
@@ -264,6 +296,27 @@ class DataVisualizerApp(QMainWindow):
         act = self._tools_menu.addAction(self.tr('Band math...'))
         act.triggered.connect(self.show_bandmath_dialog)
 
+        submenu = self._tools_menu.addMenu(self.tr('Data Analysis'))
+        act = submenu.addAction(self.tr('Interactive Scatter Plot'))
+        act.triggered.connect(self.show_scatter_plot_dialog)
+
+        if FLAGS.sam: 
+            act = submenu.addAction(self.tr('Spectral Angle Mapper'))
+            act.triggered.connect(self.show_spectral_angle_mapper_dialog)
+
+        if FLAGS.sff: 
+            act = submenu.addAction(self.tr('Spectral Feature Fitting'))
+            act.triggered.connect(self.show_spectral_feature_fitting_dialog)
+
+        act = self._tools_menu.addAction(self.tr('Geo Reference'))
+        act.triggered.connect(self.show_geo_reference_dialog)
+
+        act = self._tools_menu.addAction(self.tr('Reference System Creator'))
+        act.triggered.connect(self.show_reference_creator_dialog)
+
+        act = self._tools_menu.addAction(self.tr('Similarity Transform'))
+        act.triggered.connect(self.show_similarity_transform_dialog)
+
         # Help menu
 
         self._help_menu = self.menuBar().addMenu(self.tr('&Help'))
@@ -316,6 +369,22 @@ class DataVisualizerApp(QMainWindow):
 
         logger.debug(f'Final PYTHON_PATH:  "{sys.path}"')
 
+        # Permanent plugins (we keep them as plugins so future users can see how 
+        # cool plugins are made)
+        permanent_plugins = [("ContinuumRemovalPlugin", ContinuumRemovalPlugin())]
+        for pc_name, plugin_class in permanent_plugins:
+            logger.debug(f'Instantiating plugin class "{pc_name}"')
+            if not plugins.utils.is_plugin(plugin_class):
+                logging.error(f'"{pc_name}" is not a recognized plugin type; skipping')
+                continue
+            
+
+            self._app_state.add_plugin(pc_name, plugin_class)
+            # Let "Tools"-menu plugins add their actions to the menu.
+            if isinstance(plugin_class, plugins.ToolsMenuPlugin):
+                plugin_class.add_tool_menu_items(self._tools_menu, self._app_state)
+
+        # User added plugins
         plugin_classes = self._app_state.get_config('plugins')
         logger.info(f'Initializing plugin classes:  {plugin_classes}')
         for pc in plugin_classes:
@@ -362,8 +431,7 @@ class DataVisualizerApp(QMainWindow):
     def show_status_text(self, text: str, seconds: int=0):
         self.statusBar().showMessage(text, seconds * 1000)
 
-
-    def _on_dataset_added(self, ds_id: int):
+    def _on_dataset_added(self, ds_id: int, view_dataset: bool = True):
         self._update_dataset_menus()
         self._image_coords.update_coords(self._app_state.get_dataset(ds_id), None)
 
@@ -383,7 +451,7 @@ class DataVisualizerApp(QMainWindow):
         for ds in self._app_state.get_datasets():
             act = menu.addAction(ds.get_name())
             act.setData(ds.get_id())
-            act.triggered.connect(lambda checked=False: handler(ds_id=ds.get_id()))
+            act.triggered.connect(lambda checked=False, ds_id=ds.get_id(): handler(ds_id=ds_id))
 
         menu.setEnabled(self._app_state.num_datasets() > 0)
 
@@ -439,7 +507,6 @@ class DataVisualizerApp(QMainWindow):
         #     we must detect unsaved state.)
 
         # TODO(donnie):  Maybe save Qt state?
-
         # Exit WISER
         QApplication.exit(0)
 
@@ -449,7 +516,8 @@ class DataVisualizerApp(QMainWindow):
         #     we must detect unsaved state.)
 
         # TODO(donnie):  Maybe save Qt state?
-
+        delete_all_files_in_folder(TEMP_FOLDER_PATH)
+        self._app_state.cancel_all_running_processes()
         super().closeEvent(event)
 
 
@@ -487,13 +555,18 @@ class DataVisualizerApp(QMainWindow):
 
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
+            self.tr('All supported files (*.img *.hdr *.tiff *.tif *.tfw *.nc *.sli *.hdr, *.JP2 *.PDS *.lbl *xml)'),
             self.tr('ENVI raster files (*.img *.hdr)'),
             self.tr('TIFF raster files (*.tiff *.tif *.tfw)'),
-            # self.tr('PDS raster files (*.PDS *.IMG)'),
+            self.tr('NetCDF raster files (*.nc)'),
+            self.tr('JP2 files (*.JP2)'),
+            self.tr('PDS raster files (*.PDS *.img *.lbl *.xml)'),
             self.tr('ENVI spectral libraries (*.sli *.hdr)'),
+            self.tr('Try luck with GDAL (*)'),
             # self.tr('WISER project files (*.wiser)'),
-            self.tr('All files (*)'),
+            # self.tr('All files (*)'),
         ]
+
 
         # Let the user select one or more files to open.
         selected = QFileDialog.getOpenFileNames(self,
@@ -514,7 +587,6 @@ class DataVisualizerApp(QMainWindow):
                 mbox.setDetailedText(traceback.format_exc())
 
                 mbox.exec()
-
 
     def show_save_project_dialog(self, evt):
         '''
@@ -642,7 +714,6 @@ class DataVisualizerApp(QMainWindow):
         #     operation on the ApplicationState class, which can fire an event
         #     to views.
         # self._app_state = ApplicationState()
-
         for ds_info in project_info['datasets']:
             # The first file in the list is usually the one that we load.
             filename = ds_info['files'][0]
@@ -728,113 +799,84 @@ class DataVisualizerApp(QMainWindow):
                 library = ListSpectralLibrary(spectra, path=path)
                 self._app_state.add_spectral_library(library)
 
-
     def show_bandmath_dialog(self):
-        dialog = BandMathDialog(self._app_state)
-        if dialog.exec() == QDialog.Accepted:
-            expression = dialog.get_expression()
-            expr_info = dialog.get_expression_info()
-            variables = dialog.get_variable_bindings()
-            result_name = dialog.get_result_name()
+        if not self._bandmath_dialog:
+            self._bandmath_dialog = BandMathDialog(self._app_state, parent=self)
+        if self._bandmath_dialog.exec() == QDialog.Accepted:
+            expression = self._bandmath_dialog.get_expression()
+            expr_info = self._bandmath_dialog.get_expression_info()
+            variables = self._bandmath_dialog.get_variable_bindings()
+            result_name = self._bandmath_dialog.get_result_name()
+            batch_enabled = self._bandmath_dialog.is_batch_processing_enabled()
+            load_into_wiser = self._bandmath_dialog.load_results_into_wiser()
 
             logger.info(f'Evaluating band-math expression:  {expression}\n' +
                         f'Variable bindings:\n{pprint.pformat(variables)}\n' +
                         f'Result name:  {result_name}')
 
-            # print(f'Spatial metadata comes from {expr_info.spatial_metadata_source}')
-            # print(f'Spectral metadata comes from {expr_info.spectral_metadata_source}')
-
             # Collect functions from all plugins.
-            functions = {}
-            for (plugin_name, plugin) in self._app_state.get_plugins().items():
-                if isinstance(plugin, plugins.BandMathPlugin):
-                    plugin_fns = plugin.get_bandmath_functions()
-
-                    # Make sure all function names are lowercase.
-                    for k in list(plugin_fns.keys()):
-                        lower_k = k.lower()
-                        if k != lower_k:
-                            plugin_fns[lower_k] = plugin_fns[k]
-                            del plugin_fns[k]
-
-                    # If any functions appear multiple times, make sure to
-                    # report a warning about it.
-                    for k in plugin_fns.keys():
-                        if k in functions:
-                            print(f'WARNING:  Function "{k}" is defined ' +
-                                  f'multiple times (last seen in plugin {name})')
-
-                    functions.update(plugin_fns)
+            functions = get_plugin_fns(self._app_state)
 
             try:
-                (result_type, result) = bandmath.eval_bandmath_expr(expression,
-                    variables, functions)
-
-                logger.debug(f'Result of band-math evaluation is type ' +
-                             f'{result_type}, value:\n{result}')
-
-                # Compute a timestamp to put in the description
-                timestamp = datetime.datetime.now().isoformat()
-
-                loader = self._app_state.get_loader()
-
-                if result_type == bandmath.VariableType.IMAGE_CUBE:
-                    new_dataset = loader.dataset_from_numpy_array(result)
-
-                    if not result_name:
-                        result_name = self.tr('Computed')
-
-                    new_dataset.set_name(
-                        self._app_state.unique_dataset_name(result_name))
-                    new_dataset.set_description(
-                        f'Computed image-cube:  {expression} ({timestamp})')
-
-                    if expr_info.spatial_metadata_source:
-                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
-
-                    if expr_info.spectral_metadata_source:
-                        new_dataset.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
-
-                    self._app_state.add_dataset(new_dataset)
-
-                elif result_type == bandmath.VariableType.IMAGE_BAND:
-                    # Convert the image band into a 1-band image cube
-                    result = result[np.newaxis, :]
-                    new_dataset = loader.dataset_from_numpy_array(result)
-
-                    if not result_name:
-                        result_name = self.tr('Computed')
-
-                    new_dataset.set_name(
-                        self._app_state.unique_dataset_name(result_name))
-                    new_dataset.set_description(
-                        f'Computed image-band:  {expression} ({timestamp})')
-
-                    if expr_info.spatial_metadata_source:
-                        new_dataset.copy_spatial_metadata(expr_info.spatial_metadata_source.value)
-
-                    self._app_state.add_dataset(new_dataset)
-
-                elif result_type == bandmath.VariableType.SPECTRUM:
-
-                    if not result_name:
-                        result_name = self.tr('Computed:  {expression} ({timestamp})')
-                        result_name = result_name.format(expression=expression,
-                                                         timestamp=timestamp)
-
-                    new_spectrum = NumPyArraySpectrum(result, name=result_name)
-
-                    if expr_info.spectral_metadata_source:
-                        new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source.value)
-
-                    self._app_state.set_active_spectrum(new_spectrum)
-
+                if not result_name:
+                    result_name = self.tr('Computed')
+                success_callback = lambda results: bandmath_success_callback(parent=self, app_state=self._app_state, results=results, \
+                                                                  expression=expression, batch_enabled=batch_enabled, \
+                                                                  load_into_wiser=load_into_wiser)
+                process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback, \
+                                                              status_callback=bandmath_progress_callback, \
+                                                              error_callback=bandmath_error_callback, \
+                                                              bandmath_expr=expression, expr_info=expr_info, \
+                                                              app_state=self._app_state, result_name=result_name, \
+                                                              cache=self._data_cache, variables=variables, \
+                                                              functions=functions)
             except Exception as e:
                 logger.exception('Couldn\'t evaluate band-math expression')
                 QMessageBox.critical(self, self.tr('Bandmath Evaluation Error'),
                     self.tr('Couldn\'t evaluate band-math expression') +
                     f'\n{expression}\n' + self.tr('Reason:') + f'\n{e}')
                 return
+
+    def show_spectral_angle_mapper_dialog(self):
+        dlg = SAMTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
+
+    def show_spectral_feature_fitting_dialog(self):
+        dlg = SFFTool(self._app_state, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+        dlg.show()
+
+    def show_scatter_plot_dialog(self):
+        self._main_view.on_scatter_plot_2D()
+
+    def show_geo_reference_dialog(self, in_test_mode = False):
+        if self._geo_ref_dialog is None:
+            self._geo_ref_dialog = GeoReferencerDialog(self._app_state, self._main_view, parent=self)
+        # Note the best solution to the inability to properly close QDialogs
+        # in our tests, but for now it gets the job done
+        if not in_test_mode:
+            self._geo_ref_dialog.exec_()
+        else:
+            self._geo_ref_dialog.show()
+
+    def show_reference_creator_dialog(self, in_test_mode = False):
+        if self._crs_creator_dialog is None:
+            self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state, parent=self)
+        if not in_test_mode:
+            if self._crs_creator_dialog.exec_() == QDialog.Accepted:
+                pass
+        else:
+            self._crs_creator_dialog.show()
+    
+    def show_similarity_transform_dialog(self, in_test_mode = False):
+        if self._similarity_transform_dialog is None:
+            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state, parent=self)
+        if not in_test_mode:
+            if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
+                pass
+        else:
+            self._similarity_transform_dialog.show()
 
 
     def show_dataset_coords(self, dataset: RasterDataSet, ds_point):
@@ -848,8 +890,23 @@ class DataVisualizerApp(QMainWindow):
             rv_pos = (0, 0)
             self._main_view.show_dataset(dataset)
 
-        self._on_mainview_raster_pixel_select(rv_pos, ds_point)
+        self._on_mainview_raster_pixel_select(rv_pos, ds_point, recenter_mode=RecenterMode.IF_NOT_VISIBLE)
 
+    def update_all_rasterpanes(self):
+        '''
+        Refreshes all the rasterviews
+        '''
+        self._context_pane.update_all_rasterviews()
+        self._main_view.update_all_rasterviews()
+        self._zoom_pane.update_all_rasterviews()
+
+    def update_all_rasterpane_displays(self):
+        '''
+        Refreshes all the rasterviews
+        '''
+        self._context_pane.update_all_rasterview_displays()
+        self._main_view.update_all_rasterview_displays()
+        self._zoom_pane.update_all_rasterview_displays()
 
     def _update_image_coords(self, dataset: Optional[RasterDataSet], ds_point):
         '''
@@ -860,6 +917,9 @@ class DataVisualizerApp(QMainWindow):
 
         pixel_coord = ds_point.toTuple()
         self._image_coords.update_coords(dataset, pixel_coord)
+
+    def get_spectrum_plot(self) -> SpectrumPlot:
+        return self._spectrum_plot
 
 
     def _on_display_bands_change(self, ds_id: int, bands: Tuple,
@@ -909,17 +969,15 @@ class DataVisualizerApp(QMainWindow):
         if rasterview_position is None:
             return
 
-        if self._main_view.is_multi_view() and not self._main_view.is_scrolling_linked():
-            # Get a list of all visible regions from all views
-            visible_region = self._main_view.get_all_visible_regions()
-        else:
-            rasterview = self._main_view.get_rasterview(rasterview_position)
-            visible_region = rasterview.get_visible_region()
+        # In the context pane we just want to show the currently selected dataset.
+        # The function _get_compatible_dataset is used to filter any view that
+        # doesn't belong to the context pane's dataset.
+        visible_region = self._main_view.get_all_regions()
+        rasterview = self._main_view.get_all_rasterviews()
 
-        self._context_pane.set_viewport_highlight(visible_region)
+        self._context_pane.set_viewport_highlight(visible_region, rasterview)
 
-
-    def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point):
+    def _on_mainview_raster_pixel_select(self, rasterview_position, ds_point, recenter_mode=RecenterMode.NEVER):
         '''
         When the user clicks in the main view, the following things happen:
         *   The pixel is shown in the center of the zoom pane, and a selection
@@ -954,9 +1012,12 @@ class DataVisualizerApp(QMainWindow):
             # Linked scrolling:  Don't change the dataset of any other panes;
             # just show the corresponding data in those panes' datasets.
 
-            sel = SinglePixelSelection(ds_point, None)
+            sel = SinglePixelSelection(ds_point, ds)
 
-            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+            self._context_pane.show_dataset(ds)
+
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, are_views_linked=True)
+        
             self._zoom_pane.set_pixel_highlight(sel)
 
             # Set the "active spectrum" based on the current config and the
@@ -971,7 +1032,7 @@ class DataVisualizerApp(QMainWindow):
 
             self._context_pane.show_dataset(ds)
 
-            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
+            self._main_view.set_pixel_highlight(sel, recenter=recenter_mode)
 
             self._zoom_pane.show_dataset(ds)
             self._zoom_pane.set_pixel_highlight(sel)
@@ -991,9 +1052,8 @@ class DataVisualizerApp(QMainWindow):
         # print(f'Contrast stretch changed to:')
         # for s in stretches:
         #     print(f' * {s}')
-
+    
         self._app_state.set_stretches(ds_id, bands, stretches)
-
 
     def _on_zoom_visibility_changed(self, visible):
         self._update_zoom_viewport_highlight()
@@ -1009,10 +1069,11 @@ class DataVisualizerApp(QMainWindow):
 
     def _update_zoom_viewport_highlight(self):
         visible_area = None
+        rv = self._zoom_pane.get_rasterview()
         if self._zoom_pane.isVisible():
             visible_area = self._zoom_pane.get_rasterview().get_visible_region()
 
-        self._main_view.set_viewport_highlight(visible_area)
+        self._main_view.set_viewport_highlight(visible_area, rv)
 
 
     def _on_zoom_raster_pixel_select(self, rasterview_position, ds_point):
@@ -1052,10 +1113,11 @@ class DataVisualizerApp(QMainWindow):
             # Linked scrolling:  Don't change the dataset of any other panes;
             # just show the corresponding data in those panes' datasets.
 
-            sel = SinglePixelSelection(ds_point, None)
+            sel = SinglePixelSelection(ds_point, ds)
 
             # Update the main and zoom windows to show the selected dataset and pixel.
-            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE, 
+                                                are_views_linked=True)
             self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 
             # Set the "active spectrum" based on the current config and the

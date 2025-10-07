@@ -1,0 +1,57 @@
+﻿name: wiser-source
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - conda-forge::blas
+  - python==3.9.21
+  - matplotlib
+  - pyinstaller
+  - dask
+  - bottleneck
+  - netcdf4
+  - xarray
+  - scipy>=1.13.1
+  - numpy>=1.26.4
+  - libgdal-netcdf
+  - libgdal-fits
+  - jax
+  - numba=0.60.0
+  - pdr
+  - gdal==3.10.1
+  - opencv
+  - openjpeg
+  - numcodecs
+  - cfitsio
+  - zlib
+  - pyside2
+  - pyproj
+  - pip:
+    - astropy==6.0.1
+    - bokeh==2.4.3
+    - bottleneck==1.4.2
+    - brotli==1.1.0
+    - bugsnag==4.7.1
+    - cffi==1.17.1
+    - distributed==2023.3.0
+    - enum-tools==0.12.0
+    - graphviz==0.20.3
+    - h2==4.2.0
+    - jaraco.collections==5.1.0
+    - lark==1.2.2
+    - lz4==4.3.3
+    - memory-profiler==0.61.0
+    - munkres==1.1.4
+    - netcdf4==1.7.2
+    - pip-chill==1.0.3
+    - pvl==1.3.2
+    - py-spy==0.3.14
+    - pyflame==0.3.2
+    - pytest==8.3.4
+    - sip==6.7.12
+    - toml==0.10.2
+    - unicodedata2==16.0.0
+    - xyzservices==2024.9.0
+    - zarr==2.18
+    - zstandard==0.23.0
+prefix: C:\Users\jgarc\anaconda3\envs\wiser-source

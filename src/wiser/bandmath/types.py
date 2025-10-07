@@ -1,12 +1,20 @@
 import abc
 import enum
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from wiser.raster.dataset import RasterDataSet, RasterDataBand
+import copy
+
+from wiser.raster.dataset import (RasterDataSet, RasterDataBand, RasterDataDynamicBand,
+                                RasterDataBatchBand, RasterBand,  SpectralMetadata, SpatialMetadata)
 from wiser.raster.spectrum import Spectrum
+
+
+FolderPathType = str
+BANDMATH_VALUE_TYPE = Union[RasterDataSet, RasterDataBand, RasterDataBatchBand, \
+                            Spectrum, FolderPathType, bool, np.float32]
 
 
 class VariableType(enum.IntEnum):
@@ -28,12 +36,20 @@ class VariableType(enum.IntEnum):
 
     STRING = 7
 
+    IMAGE_CUBE_BATCH = 8
+
+    IMAGE_BAND_BATCH = 9
+
 
 class BandMathExprInfo:
     '''
     This class holds information produced by the band-math expression analyzer.
-    '''
-    def __init__(self, result_type=None):
+
+    This is a value that is used to keep track of the meta data information for
+    BandMathValues. For example, the resulting type of a*b when a is an image
+    cube and b is a spectrum would be an image cube.
+
+    The variables for this class and their purposes are defined below:
         # The result-type of the band-math expression.
         self.result_type: Optional[VariableType] = result_type
 
@@ -46,16 +62,48 @@ class BandMathExprInfo:
         # If the result should have spatial metadata (e.g. geographic projection
         # info or spatial reference system) associated with it, this is the
         # source of that metadata.
-        self.spatial_metadata_source: Any = None
+        self.spatial_metadata_source: SpatialMetadata = None
 
         # If the result should have spectral metadata (e.g. band wavelengths)
         # associated with it, this is the source of that metadata.
-        self.spectral_metadata_source: Any = None
+        self.spectral_metadata_source: SpectralMetadata = None
+    '''
+    def __init__(self, result_type=None):
+        # The result-type of the band-math expression.
+        self.result_type: Optional[VariableType] = result_type
+
+        # If the result is an array, this is the element type.
+        self.elem_type: Optional[np.dtype] = None
+
+        # If the result is an array, this is the shape of the array.
+        self.shape: Tuple = None
+
+        # If the result should have spatial metadata (e.g. geographic projection
+        # info or spatial reference system) associated with it, this is that
+        # metadata
+        self.spatial_metadata_source: SpatialMetadata = None
+
+        # If the result should have spectral metadata (e.g. band wavelengths)
+        # associated with it, this is that metadata
+        self.spectral_metadata_source: SpectralMetadata = None
 
 
     def result_size(self):
         ''' Returns an estimate of this result's size in bytes. '''
-        return np.dtype(self.elem_type).itemsize * np.prod(self.shape)
+        shape_size = np.prod(self.shape) if self.shape is not None else 1
+        return np.dtype(self.elem_type).itemsize * shape_size
+    
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if isinstance(v, BandMathValue):
+                setattr(result, k, v)
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+
+        return result
 
     def __repr__(self) -> str:
         if self.result_type in [VariableType.IMAGE_CUBE,
@@ -84,14 +132,16 @@ class BandMathValue:
     :ivar value: The value itself.
     :ivar computed: If True, the value was computed from an expression.
     '''
-    def __init__(self, type: VariableType, value: Any, computed: bool = True):
+    def __init__(self, type: VariableType, value: Any, computed: bool = True,
+                 is_intermediate=False):
         if type not in VariableType:
             raise ValueError(f'Unrecognized variable-type {type}')
 
         self.name: Optional[str] = None
         self.type: VariableType = type
-        self.value: Any = value
+        self.value: BANDMATH_VALUE_TYPE = value
         self.computed: bool = computed
+        self.is_intermediate = is_intermediate
 
 
     def set_name(self, name: Optional[str]) -> None:
@@ -107,7 +157,7 @@ class BandMathValue:
                 return self.value.get_shape()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_shape()
 
         elif self.type == VariableType.SPECTRUM:
@@ -128,7 +178,7 @@ class BandMathValue:
                 return self.value.get_elem_type()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_elem_type()
 
         elif self.type == VariableType.SPECTRUM:
@@ -156,7 +206,7 @@ class BandMathValue:
                 return self.value.get_image_data()
 
         elif self.type == VariableType.IMAGE_BAND:
-            if isinstance(self.value, RasterDataBand):
+            if isinstance(self.value, RasterBand):
                 return self.value.get_data()
 
         elif self.type == VariableType.SPECTRUM:
@@ -168,6 +218,54 @@ class BandMathValue:
         raise TypeError(f'Don\'t know how to convert {self.type} ' +
                         f'value {self.value} into a NumPy array')
 
+    def as_numpy_array_by_bands(self, band_list: List[int]) -> np.ndarray:
+            '''
+            If a band-math value is an image cube, image band, or spectrum, this
+            function returns the value as a NumPy ``ndarray``.  If a band-math
+            value is some other type, the function raises a ``TypeError``.
+            This function should really only be called on image_cubes unless its 
+            called through make_image_cube_compatible_by_bands
+            '''
+
+            # If the value is already a NumPy array, we are done!
+            if isinstance(self.value, np.ndarray):
+                # Assumes all numpy arrays have band as the first dimension
+                min_band = min(band_list)
+                band_list_base = [band-min_band for band in band_list]
+                if self.type == VariableType.IMAGE_CUBE:
+                    if len(band_list_base) == 1:
+                        return self.value
+                    return self.value[band_list_base, : , :]
+                elif self.type == VariableType.IMAGE_BAND:
+                    return self.value
+                elif self.type == VariableType.SPECTRUM:
+                    band_start = band_list[0]
+                    band_end = band_list[-1]
+                    arr = self.value[band_start:band_end+1]
+                    return arr
+                raise TypeError(f'Type value is incorrect, should be' +
+                                f'IMAGE_CUBE, IMAGE_BAND, OR SPECTRUM' + 
+                                f'but got {type(self.value)}')
+
+            if self.type == VariableType.IMAGE_CUBE:
+                if isinstance(self.value, RasterDataSet):
+                    return self.value.get_multiple_band_data(band_list)
+
+            elif self.type == VariableType.IMAGE_BAND:
+                if isinstance(self.value, RasterBand):
+                    return self.value.get_data()
+
+            elif self.type == VariableType.SPECTRUM:
+                if isinstance(self.value, Spectrum):
+                    arr = self.value.get_spectrum()
+                    band_start = band_list[0]
+                    band_end = band_list[-1]
+                    arr=arr[band_start:band_end+1]
+                    return arr
+            # We only want this function to work for numpy arrays and RasterDataSets 
+            # because these can be very big 3D objects
+            raise TypeError(f'This function should only be called on numpy' +
+                            f'arrays and image cubes, not {self.type}')  
 
 class BandMathFunction(abc.ABC):
     '''
@@ -175,6 +273,8 @@ class BandMathFunction(abc.ABC):
     Functions must be able to report useful documentation, as well as the type
     of the result based on their input types, so that the user interface can
     provide useful feedback to users.
+
+    This class should be serializable.
     '''
 
     def get_description(self):

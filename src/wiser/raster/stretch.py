@@ -3,7 +3,7 @@
 from enum import Enum
 
 import numpy as np
-
+from wiser.utils.numba_wrapper import numba_jitclass_wrapper 
 
 # An epsilon value for checking stretch ranges.
 EPSILON = 1e-6
@@ -28,7 +28,6 @@ def hist_limits_for_pct(hist_bins, hist_edges, percent, total_samples=None):
 
     TODO(donnie):  Maybe this should just return the edge values.
     '''
-
     # This helper function traverses the histogram bins until the total samples
     # is at least the target count.
     def find_limit(target_count: int, bins, start, end, step) -> int:
@@ -111,9 +110,79 @@ class StretchBase:
         '''
         pass
 
+    def get_stretches(self):
+        return [None, None]
+
+    def get_hash_tuple(self):
+        return (self._name)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._name == other._name
+        )
+
+# Class specification in numpy, this will be transformed to a numba specification in numba_wrapper
+base_spec = [
+    ('_name', np.str_)
+]
+
+
+@numba_jitclass_wrapper(base_spec, nonjit_class=StretchBase)
+class StretchBaseUsingNumba:
+    '''
+    Base class for all stretch and conditioner types.
+
+    All stretch class types have a string name briefly describing the kind of
+    stretch object.
+
+    The primary means of applying stretch is through the apply() function,
+    which mutates the input array in-place.  The input array is expected to
+    consist of floating-point values (either numpy.float32 or numpy.float64)
+    in the range [0, 1].  This is essential, as it makes many of the operations
+    much more straightforward to implement for arbitrary data.
+    '''
+
+    def __init__(self, name='Base'):
+        self._name = name
+
+    def __str__(self):
+        return 'StretchBase'
+
+    def apply(self, input):
+        '''
+        Apply this class' stretch operation to the input numpy array, in-place.
+        '''
+        pass
+
+    def get_stretches(self):
+        return [None, None]
+
+    def get_hash_tuple(self):
+        return (self._name)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._name == other._name
+        )
+
 
 class StretchLinear(StretchBase):
-    ''' Linear stretch '''
+    '''
+    Linear stretch
+    
+    This class does not use numba. We need a class that does not use numba
+    in case the computer this runs on does not support numba.
+    '''
 
     # Constructor
     def __init__(self, lower, upper):
@@ -134,7 +203,7 @@ class StretchLinear(StretchBase):
         self.set_bounds(lower, upper)
 
     def __str__(self):
-        return (f'StretchLinear[lower={self._lower:.3f}, upper={self._upper:.3f}, ' +
+        return (f'StretchLinearUsingNumba[lower={self._lower:.3f}, upper={self._upper:.3f}, ' +
                 f'slope={self._slope:.3f}, offset={self._offset:.3f}]')
 
 
@@ -145,25 +214,9 @@ class StretchLinear(StretchBase):
         linear stretch are also required to be in the range [0, 1].
         '''
 
-        # Use 1.0 + EPSILON because sometimes the value is extreeeemly close to
-        # 1.0, but *just* over.
-
-        if lower < 0.0 or lower > 1.0 + EPSILON:
-            raise ValueError(f'Required:  0 <= lower <= 1 (got {lower})')
-
-        if upper < 0.0 or upper > 1.0 + EPSILON:
-            raise ValueError(f'Required:  0 <= upper <= 1 (got {upper})')
-
         if upper <= lower:
             raise ValueError(f'Required:  lower < upper (got {lower}, {upper})')
 
-        # Clamp values that are out of range.
-
-        if lower > 1.0:
-            lower = 1.0
-
-        if upper > 1.0:
-            upper = 1.0
 
         self._lower = lower
         self._upper = upper
@@ -188,10 +241,154 @@ class StretchLinear(StretchBase):
         a *= self._slope
         a += self._offset
         np.clip(a, 0.0, 1.0, out=a)
+    
+    def get_stretches(self):
+        return [self, None]
+
+    def get_hash_tuple(self):
+        return (self._name, self._lower, self._upper, self._slope, self._offset)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._name == other._name and
+            self._lower == other._lower and
+            self._upper == other._upper and
+            self._slope == other._slope and
+            self._offset == other._offset
+        )
+
+    def __ne__(self, other):
+        if not isinstance(other, type(self)):
+            return True
+        return (
+            self._name != other._name or
+            self._lower != other._lower or
+            self._upper != other._upper or
+            self._slope != other._slope or
+            self._offset != other._offset
+        )
+
+
+# Class specification in numpy, this will be transformed to a numba specification in numba_wrapper
+linear_spec = [
+    ('_name', np.str_),
+    ('_slope', np.float32),   # Slope of the linear stretch
+    ('_offset', np.float32),  # Offset of the linear stretch
+    ('_lower', np.float32),   # Lower bound for the stretch
+    ('_upper', np.float32),   # Upper bound for the stretch
+]
+
+
+@numba_jitclass_wrapper(linear_spec, nonjit_class=StretchLinear)
+class StretchLinearUsingNumba:
+    '''
+    Linear stretch 
+    
+    This class does use numba.
+    '''
+
+    # Constructor
+    def __init__(self, lower, upper):
+        self._name = 'Linear'
+
+        # The slope and offset of the linear stretch to apply.
+        self._slope = 1.0
+        self._offset = 0.0
+
+        # These are the starting and ending points for the linear stretch.
+        # Since stretches operate on normalized data, the lower and upper values
+        # are also in the range 0..1.
+        self._lower = 0.0
+        self._upper = 1.0
+
+        # This call will configure the above values for the specified lower and
+        # upper bounds.
+        self.set_bounds(lower, upper)
+
+    def __str__(self):
+        return 'StretchLinearUsingNumba'
+
+
+    def set_bounds(self, lower, upper):
+        '''
+        Set the bounds of the linear stretch.  Since all stretch operations are
+        applied to data in the range [0, 1], the lower and upper bounds of this
+        linear stretch are also required to be in the range [0, 1].
+        '''
+
+        assert upper > lower
+
+        self._lower = lower
+        self._upper = upper
+
+        self._slope = 1.0 / (self._upper - self._lower)
+        self._offset = -self._lower * self._slope
+
+    def lower(self):
+        return self._lower
+
+    def upper(self):
+        return self._upper
+
+    def apply(self, a):
+        '''
+        Apply a linear stretch to the specified numpy array of data.
+        '''
+        # Compute the linear stretch, then clip to the range [0, 1].
+        # The operation is implemented this way to achieve in-place modification
+        # of the array contents.
+
+        for i in range(a.shape[0]):
+            for j in range(a.shape[1]):
+                a[i, j] = self._slope * a[i, j] + self._offset
+                if a[i, j] < 0.0:
+                    a[i, j] = 0.0
+                elif a[i, j] > 1.0:
+                    a[i, j] = 1.0
+    
+    def get_stretches(self):
+        return [self, None]
+
+    def get_hash_tuple(self):
+        return (self._name, self._lower, self._upper, self._slope, self._offset)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._name == other._name and
+            self._lower == other._lower and
+            self._upper == other._upper and
+            self._slope == other._slope and
+            self._offset == other._offset
+        )
+
+    def __ne__(self, other):
+        if not isinstance(other, type(self)):
+            return True
+        return (
+            self._name != other._name or
+            self._lower != other._lower or
+            self._upper != other._upper or
+            self._slope != other._slope or
+            self._offset != other._offset
+        )
 
 
 class StretchHistEqualize(StretchBase):
-    ''' Histogram Equalization Stretches '''
+    ''' 
+    Histogram Equalization Stretches.
+
+    This class does not use numba.
+    '''
 
     # Constructor
     def __init__(self, histogram_bins, histogram_edges):
@@ -202,7 +399,7 @@ class StretchHistEqualize(StretchBase):
         self._calculate(histogram_bins, histogram_edges)
 
     def __str__(self):
-        return 'StretchHistEqualize'
+        return 'StretchHistEqualizeUsingNumba'
 
     def _calculate(self, bins: np.array, edges: np.array):
         self._histo_edges = edges
@@ -220,18 +417,134 @@ class StretchHistEqualize(StretchBase):
         out = np.interp(a, self._histo_edges[:-1], self._cdf)
         np.copyto(a, out)
 
+    def get_stretches(self):
+        return [self, None]
+
+    def get_hash_tuple(self):
+        '''
+        Make sure when you are hashing this, you only need the 
+        information that it's a histogram stretch
+        '''
+        return (self._name, *self._histo_edges, *self._cdf)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._cdf == other._cdf and
+            self._histo_edges == other._histo_edges
+        )
+
+# Define the specification
+stretch_hist_spec = [
+    ('_name', np.str_),
+    ('_cdf', np.ndarray),       # Cumulative Distribution Function (CDF)
+    ('_histo_edges', np.ndarray)  # Histogram edges
+]
+
+
+@numba_jitclass_wrapper(stretch_hist_spec, nonjit_class=StretchHistEqualize)
+class StretchHistEqualizeUsingNumba:
+    '''
+    Histogram Equalization Stretches.
+
+    This class does use numba
+    '''
+
+    def __init__(self, histogram_bins, histogram_edges):
+        self._name = 'Equalize'
+    
+        self._cdf = np.zeros(histogram_bins.size, dtype=np.float32)
+        self._histo_edges = np.zeros(histogram_edges.size, dtype=np.float32)
+
+        self._calculate(histogram_bins, histogram_edges)
+
+    def _calculate(self, bins, edges):
+        """
+        Calculate the cumulative distribution function (CDF) based on the histogram bins and edges.
+        """
+        self._histo_edges = edges.astype(np.float32)
+
+        # Calculate density probability histogram
+        db = np.diff(edges).astype(np.float32)
+        density_bins = bins / db / bins.sum()
+
+        # Calculate the cumulative distribution function and normalize it
+        self._cdf = np.cumsum(density_bins)
+        self._cdf /= self._cdf[-1]
+
+    def apply(self, a):
+        """
+        Apply histogram equalization to the input array `a` in place.
+        """
+        out = np.interp(a, self._histo_edges[:-1], self._cdf)
+
+        for i in range(out.shape[0]):
+            for j in range(out.shape[1]):
+                a[i, j] = out[i, j]
+
+    def hash_array(self, arr):
+        '''
+        Hashes an array using FNV-1a hashing. Numba does not support 
+        easy ways to hash arrays, so I decided to manually hash it. 
+        ChatGPT wrote this function.
+        '''
+        # Make sure the array is contiguous
+        arr = np.ascontiguousarray(arr)
+        
+        # For float32 arrays, view the bits as uint32.
+        # (Adjust the dtype and bit reinterpretation for other types.)
+        a_int = arr.view(np.uint32)
+        
+        # FNV-1a 32-bit parameters
+        h = np.uint32(2166136261)
+        fnv_prime = np.uint32(16777619)
+        
+        for i in range(a_int.size):
+            h = (h ^ a_int[i]) * fnv_prime
+        return h
+
+    def get_hash_tuple(self):
+        '''
+        Make sure when you are hashing this, you only need the 
+        information that it's a histogram stretch
+        '''
+        return (self._name, self.hash_array(self._histo_edges), self.hash_array(self._cdf))
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._cdf == other._cdf and
+            self._histo_edges == other._histo_edges
+        )
+    
+    def __str__(self):
+        return 'StretchHistEqualizeUsingNumba'
+
+    def get_stretches(self):
+        return [self, None]
+
 
 class StretchSquareRoot(StretchBase):
     '''
     This class implements a Square Root Conditioner Stretch.
-    In order  '''
+
+    This class does not use numba.
+    '''
 
     # Constructor
     def __init__(self):
         super().__init__('Conditioner_SquareRoot')
 
     def __str__(self):
-        return 'StretchSquareRoot'
+        return 'StretchSquareRootUsingNumba'
 
     def apply(self, a: np.array):
         np.sqrt(a, out=a)
@@ -239,12 +552,71 @@ class StretchSquareRoot(StretchBase):
     def modify_histogram(self, a: np.array) -> np.array:
         return a # for now
 
+    def get_stretches(self):
+        return [self, None]
+
+    def get_hash_tuple(self):
+        return (self._name)
+    
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        return (
+            self._name == other._name
+        )
+
+
+# Define the class specification
+stretch_sqrt_spec = [
+    ('_name', np.str_),  # String attribute
+]
+
+
+@numba_jitclass_wrapper(stretch_sqrt_spec, nonjit_class=StretchSquareRoot)
+class StretchSquareRootUsingNumba:
+    '''
+    This class implements a Square Root Conditioner Stretch. 
+     
+    This class does use numba.
+    '''
+
+    # Constructor
+    def __init__(self):
+        # Initialize the _name attribute
+        self._name = 'Conditioner_SquareRoot'
+
+    def __str__(self):
+        return 'StretchSquareRootUsingNumba'
+
+    def apply(self, a: np.array):
+        np.sqrt(a, a)
+
+    def modify_histogram(self, a: np.array) -> np.array:
+        return a # for now
+
+    def get_stretches(self):
+        return [self, None]
+
+    def get_hash_tuple(self):
+        return (self._name)
+    
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        return (
+            self._name == other._name
+        )
+
 
 class StretchLog2(StretchBase):
     '''
     This class implements a Logarithmic Conditioner Stretch.  This class
     requires an input in the range [0, 1], in order to produce a result that is
     also in the range [0, 1].  The output is computed as log2(input + 1.0).
+
+    This class does not use numba.
     '''
 
     # Constructor
@@ -252,7 +624,7 @@ class StretchLog2(StretchBase):
         super().__init__('Conditioner_Log2')
 
     def __str__(self):
-        return 'StretchLog2'
+        return 'StretchLog2UsingNumba'
 
     def apply(self, a: np.array):
         '''
@@ -266,13 +638,76 @@ class StretchLog2(StretchBase):
     def modify_histogram(self, a: np.array) -> np.array:
         return a # for now
 
+    def get_stretches(self):
+        return [self, None]
+    
+    def get_hash_tuple(self):
+        return (self._name)
 
-class StretchComposite(StretchBase):
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        return (
+            self._name == other._name
+        )
+
+
+log2_spec = [
+    ('_name', np.str_),  # String attribute
+]
+
+
+@numba_jitclass_wrapper(log2_spec, nonjit_class=StretchLog2)
+class StretchLog2UsingNumba:
+    '''
+    This class implements a Logarithmic Conditioner Stretch.  This class
+    requires an input in the range [0, 1], in order to produce a result that is
+    also in the range [0, 1].  The output is computed as log2(input + 1.0).
+
+    This class does use numba.
+    '''
+
+    # Constructor
+    def __init__(self):
+        self._name = 'Conditioner_Log2'
+
+    def __str__(self):
+        return 'StretchLog2UsingNumba'
+
+    def apply(self, a: np.array):
+        '''
+        Apply a logarithmic stretch to the input array.  This operation
+        requires an input data-set that is in the range [0, 1], and produces a
+        result also in the range [0, 1] by implementing numpy.log2(a + 1).
+        '''
+        a += 1.0
+        np.log2(a, a)
+
+    def modify_histogram(self, a: np.array) -> np.array:
+        return a # for now
+
+    def get_stretches(self):
+        return [self, None]
+    
+    def get_hash_tuple(self):
+        return (self._name)
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+    
+    def __eq__(self, other):
+        return (
+            self._name == other._name
+        )
+
+
+class StretchComposite:
     ''' This class implements a stretch composed from a pair of stretches. '''
 
     # Constructor
     def __init__(self, first, second):
-        super().__init__('Composite')
+        self._name = 'Composite'
         self._first = first
         self._second = second
 
@@ -294,3 +729,15 @@ class StretchComposite(StretchBase):
 
     def set_second(self, second):
         self._second = second
+
+    def get_stretches(self):
+        first = self._first
+        second = self._second
+        return [first, second]
+    
+    def get_hash_tuple(self):
+        return (*self._first.get_hash_tuple(), *self._second.get_hash_tuple())
+
+    def __hash__(self):
+        return hash(self.get_hash_tuple())
+

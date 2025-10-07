@@ -1,9 +1,10 @@
 import enum
 import os
 import warnings
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
 from PySide2.QtCore import *
+from PySide2.QtWidgets import QMessageBox
 
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color
@@ -17,11 +18,18 @@ from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import SpectralLibrary
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.loaders.envi import EnviFileFormatError
+from wiser.raster.utils import have_spatial_overlap, can_transform_between_srs
 
 from wiser.raster.stretch import StretchBase
 
 from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 
+from wiser.raster.data_cache import DataCache
+
+from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
+
+if TYPE_CHECKING:
+    from wiser.gui.reference_creator_dialog import CrsCreatorState
 
 class StateChange(enum.Enum):
     ITEM_ADDED = 1
@@ -50,10 +58,13 @@ class ApplicationState(QObject):
     '''
 
     # Signal:  a data-set with the specified ID was added
-    dataset_added = Signal(int)
+    dataset_added = Signal(int, bool)
 
     # Signal:  the data-set with the specified ID was removed
     dataset_removed = Signal(int)
+
+    # Signal: the mainview dataset was changed
+    mainview_dataset_changed = Signal(int)
 
     # Signal:  a spectral library with the specified ID was added
     spectral_library_added = Signal(int)
@@ -74,7 +85,7 @@ class ApplicationState(QObject):
     active_spectrum_changed = Signal()
 
     # TODO(donnie):  collected_spectra_changed = Signal(StateChange, int)
-    collected_spectra_changed = Signal(object, int)
+    collected_spectra_changed = Signal(object, int, int)
 
     # TODO(donnie):  Signals for config changes and color changes!
 
@@ -83,6 +94,8 @@ class ApplicationState(QObject):
 
         # A reference to the overall UI
         self._app = app
+
+        self._cache = None
 
         # The plugins currently loaded into WISER.
         self._plugins: Dict[str, Plugin] = {}
@@ -131,8 +144,34 @@ class ApplicationState(QObject):
 
         self._config: ApplicationConfig = config
 
+        # A dictionary holding the CRSs that the user has created.
+        # The key is the CRS name.
+        self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
-    def _take_next_id(self) -> int:
+        self._process_pool_manager = MultiprocessingManager()
+
+        self._running_processes: Dict[int, ProcessManager] = {}
+
+    def add_running_process(self, process_manager: ProcessManager):
+        self._running_processes[process_manager.get_process_manager_id()] = process_manager
+
+    def remove_running_process(self, process_manager_id: int):
+        del self._running_processes[process_manager_id]
+
+    def cancel_all_running_processes(self):
+        for process_manager in self._running_processes.values():
+            process_manager.get_task().cancel()
+
+    def get_running_processes(self) -> Dict[int, ProcessManager]:
+        return self._running_processes
+
+    def submit_parallel_task(self, operation: Callable, kwargs: Dict = {}):
+        return self._process_pool_manager.create_task(operation, kwargs)
+
+    def get_next_process_pool_id(self):
+        return self._process_pool_manager.get_next_process_pool_id()
+
+    def take_next_id(self) -> int:
         '''
         Returns the next ID for use with an object, and also increments the
         internal "next ID" value.
@@ -140,7 +179,6 @@ class ApplicationState(QObject):
         id = self._next_id
         self._next_id += 1
         return id
-
 
     def add_plugin(self, class_name: str, plugin: Plugin):
         if class_name in self._plugins:
@@ -177,6 +215,10 @@ class ApplicationState(QObject):
         the next load or save can start at the same directory.
         '''
         self._current_dir = current_dir
+
+
+    def set_data_cache(self, data_cache: DataCache):
+        self._cache = data_cache
 
 
     def update_cwd_from_path(self, path: str) -> None:
@@ -252,11 +294,13 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
 
-        raster_data = self._raster_data_loader.load_from_file(file_path)
-        self.add_dataset(raster_data)
+        raster_data_list = self._raster_data_loader.load_from_file(path=file_path, data_cache=self._cache)
+        
+        for raster_data in raster_data_list:
+            self.add_dataset(raster_data)
 
 
-    def add_dataset(self, dataset: RasterDataSet):
+    def add_dataset(self, dataset: RasterDataSet, view_dataset: bool = True):
         '''
         Add a dataset to the application state.  A unique numeric ID is assigned
         to the dataset, which is also set on the dataset itself.
@@ -266,12 +310,18 @@ class ApplicationState(QObject):
         if not isinstance(dataset, RasterDataSet):
             raise TypeError('dataset must be a RasterDataSet')
 
-        ds_id = self._take_next_id()
+        ds_id = self.take_next_id()
         dataset.set_id(ds_id)
         self._datasets[ds_id] = dataset
 
-        self.dataset_added.emit(ds_id)
+        self.dataset_added.emit(ds_id, view_dataset)
         # self.state_changed.emit(tuple(ObjectType.DATASET, ActionType.ADDED, dataset))
+
+    def has_dataset(self, ds_id: int) -> bool:
+        '''
+        Returns whether the dataset with the specified numeric ID is in the application state.
+        '''
+        return ds_id in self._datasets
 
     def get_dataset(self, ds_id: int) -> RasterDataSet:
         '''
@@ -279,6 +329,9 @@ class ApplicationState(QObject):
         unrecognized then a KeyError will be raised.
         '''
         return self._datasets[ds_id]
+
+    def get_cache(self) -> DataCache:
+        return self._cache
 
     def num_datasets(self):
         ''' Return the number of datasets in the application state. '''
@@ -295,12 +348,23 @@ class ApplicationState(QObject):
     def remove_dataset(self, ds_id: int):
         '''
         Remove the dataset with the specified numeric ID from the application
-        state.  If the ID is unrecognized then a KeyError will be raised.
+        state and the cache. If the ID is unrecognized then a KeyError will 
+        be raised.
 
         The method will fire a signal indicating that the dataset was removed.
         '''
-        del self._datasets[ds_id]
+        dataset_to_del = self._datasets[ds_id]
+        dataset_to_del.delete_underlying_dataset()
+        # First we remove it form the computation cache
+        comp_cache = self._cache.get_computation_cache()
+        comp_key = comp_cache.get_cache_key(dataset_to_del)
+        comp_cache.remove_cache_item(comp_key)
 
+        # Next we remove it from the render cache 
+        render_cache = self._cache.get_render_cache()
+        render_cache.clear_keys_from_partial(render_cache.get_partial_key(dataset_to_del))
+
+        del self._datasets[ds_id]
         # Remove all stretches that are associated with this data set
         for key in list(self._stretches.keys()):
             if key[0] == ds_id:
@@ -327,19 +391,95 @@ class ApplicationState(QObject):
                 return False
 
         return True
+    
+    def multiple_datasets_link_compatible(self):
+        
+        same_size = self.multiple_datasets_same_size()
+        if same_size:
+            return same_size, GeographicLinkState.PIXEL
+        
+        datasets = list(self._datasets.values())
+        ds0_srs = datasets[0].get_spatial_ref()
+        if ds0_srs == None:
+            return False, GeographicLinkState.NO_LINK
+        
+        for ds in datasets[1:]:
+            ds_srs = ds.get_spatial_ref()
+            if ds_srs == None or not ds0_srs.IsSame(ds_srs):
+                return False, GeographicLinkState.NO_LINK
+
+        return True, GeographicLinkState.SPATIAL
+
+    def multiple_displayed_datasets_link_compatible(self) -> Tuple[bool, GeographicLinkState]:
+        
+        displayed_datasets = self._app._main_view.get_visible_datasets()
+
+        same_size = True
+        if len(displayed_datasets) < 2:
+            return False, GeographicLinkState.NO_LINK
+
+        # Else, make sure they're all the same size 
+        ds0_dim = (displayed_datasets[0].get_width(), displayed_datasets[0].get_height())
+        for ds in displayed_datasets[1:]:
+            ds_dim = (ds.get_width(), ds.get_height())
+            if ds_dim != ds0_dim:
+                same_size = False
+
+        if same_size:
+            return same_size, GeographicLinkState.PIXEL
+
+        ds0_srs: osr.SpatialReference = displayed_datasets[0].get_spatial_ref()
+        ds0 = displayed_datasets[0]
+        if ds0_srs == None:
+            return False, GeographicLinkState.NO_LINK
+
+        for ds in displayed_datasets[1:]:
+            ds_srs = ds.get_spatial_ref()
+            can_transform = can_transform_between_srs(ds0_srs, ds_srs)
+            have_overlap = have_spatial_overlap(ds0_srs, ds0.get_geo_transform(), ds0.get_width(), \
+                                            ds0.get_height(), ds_srs, ds.get_geo_transform(), \
+                                            ds.get_width(), ds.get_height())
+            if ds_srs == None or not can_transform or not have_overlap:
+                return False, GeographicLinkState.NO_LINK
+
+        return True, GeographicLinkState.SPATIAL
+
+    def multiple_displayed_datasets_same_size(self):
+        '''
+        This function returns True if there are multiple visible datasets and
+        they are all the same size.
+        '''
+        # Get access to the displayed datasets
+        displayed_datasets = self._app._main_view.get_visible_datasets()
+
+        if len(displayed_datasets) < 2:
+            return False
+
+        # Else, make sure they're all the same size 
+        ds0_dim = (displayed_datasets[0].get_width(), displayed_datasets[0].get_height())
+        for ds in displayed_datasets[1:]:
+            ds_dim = (ds.get_width(), ds.get_height())
+            if ds_dim != ds0_dim:
+                return False
+
+        return True
 
 
-    def unique_dataset_name(self, candidate):
+    def unique_dataset_name(self, candidate: str):
         ds_names = {ds.get_name() for ds in self._datasets.values()}
         ds_names = {name for name in ds_names if name}
         return make_unique_name(candidate, ds_names)
+
+    
+    def unique_roi_name(self, candidate: str):
+        roi_names = {roi.get_name() for roi in self._regions_of_interest.values()}
+        return make_unique_name(candidate, roi_names)
 
 
     def set_stretches(self, ds_id: int, bands: Tuple, stretches: List[StretchBase]):
         if len(bands) != len(stretches):
             raise ValueError('bands and stretches must both be the same ' +
                 f'length (got {len(bands)} bands, {len(stretches)} stretches)')
-
         for i in range(len(bands)):
             key = (ds_id, bands[i])
             stretch = stretches[i]
@@ -366,11 +506,18 @@ class ApplicationState(QObject):
         if not isinstance(library, SpectralLibrary):
             raise TypeError('library must be a SpectralLibrary')
 
-        lib_id = self._take_next_id()
+        lib_id = self.take_next_id()
         library.set_id(lib_id)
         self._spectral_libraries[lib_id] = library
 
         self.spectral_library_added.emit(lib_id)
+
+
+    def has_spectral_library(self, lib_id: int) -> bool:
+        '''
+        Returns whether the spectral library with the specified numeric ID is in the application state.
+        '''
+        return lib_id in self._spectral_libraries
 
 
     def get_spectral_library(self, lib_id):
@@ -466,7 +613,7 @@ class ApplicationState(QObject):
             color = get_random_matplotlib_color(colors_in_use)
             roi.set_color(color)
 
-        roi_id = self._take_next_id()
+        roi_id = self.take_next_id()
         roi.set_id(roi_id)
         self._regions_of_interest[roi_id] = roi
         self.roi_added.emit(roi)
@@ -505,12 +652,25 @@ class ApplicationState(QObject):
         '''
         return self._regions_of_interest.values()
 
+    def has_spectrum(self, spectrum_id: int) -> bool:
+        '''
+        Returns whether the spectrum with the specified numeric ID is in the application state.
+        '''
+        return spectrum_id in self._all_spectra
+
+
     def get_spectrum(self, spectrum_id: int) -> Spectrum:
         '''
         Retrieve a spectrum from WISER's state.  A ``KeyError`` is raised if
         the ID doesn't correspond to a spectrum.
         '''
         return self._all_spectra[spectrum_id]
+
+    def get_all_spectra(self):
+        '''
+        Retrieves all spectra in thet spectrum plot.
+        '''
+        return self._all_spectra
 
     def get_active_spectrum(self):
         '''
@@ -534,7 +694,7 @@ class ApplicationState(QObject):
 
         # Assign an ID to this spectrum if it doesn't have one.
         if spectrum is not None and spectrum.get_id() is None:
-            id = self._take_next_id()
+            id = self.take_next_id()
             spectrum.set_id(id)
             self._all_spectra[id] = spectrum
 
@@ -561,13 +721,13 @@ class ApplicationState(QObject):
 
         # Assign an ID to this spectrum if it doesn't have one.
         if spectrum.get_id() is None:
-            spectrum.set_id(self._take_next_id())
+            spectrum.set_id(self.take_next_id())
 
         # Store it!  Then fire an event.
         index = len(self._collected_spectra)
         self._collected_spectra.append(spectrum)
         self._all_spectra[spectrum.get_id()] = spectrum
-        self.collected_spectra_changed.emit(StateChange.ITEM_ADDED, index)
+        self.collected_spectra_changed.emit(StateChange.ITEM_ADDED, index, spectrum.get_id())
 
     def collect_active_spectrum(self):
         '''
@@ -602,7 +762,7 @@ class ApplicationState(QObject):
         id = self._collected_spectra[index].get_id()
         del self._collected_spectra[index]
         del self._all_spectra[id]
-        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, index)
+        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, index, id)
 
     def remove_all_collected_spectra(self):
         '''
@@ -612,4 +772,20 @@ class ApplicationState(QObject):
             del self._all_spectra[s.get_id()]
 
         self._collected_spectra.clear()
-        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1)
+        self.collected_spectra_changed.emit(StateChange.ITEM_REMOVED, -1, -1)
+
+    def get_user_created_crs(self):
+        return self._user_created_crs
+    
+    def add_user_created_crs(self, name: str, crs: osr.SpatialReference, crs_creator_state: 'CrsCreatorState'):
+        if name in self._user_created_crs:
+            # Ask the user whether to overwrite the existing CRS
+            reply = QMessageBox.question(
+                None,
+                self.tr("CRS Already Exists"),
+                self.tr(f"A CRS named “{name}” already exists. Overwrite it?")
+            )
+            if reply == QMessageBox.Yes:
+                self._user_created_crs[name] = (crs, crs_creator_state)
+        else:
+            self._user_created_crs[name] = (crs, crs_creator_state)

@@ -1,5 +1,7 @@
 from typing import List, Optional, Tuple
 
+import numpy as np
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -24,9 +26,8 @@ class BandChooserDialog(QDialog):
 
     def __init__(self, app_state: ApplicationState, dataset: RasterDataSet,
                  display_bands: List[int], colormap: Optional[str] = None,
-                 parent=None):
+                 can_apply_global: bool = True, parent=None):
         super().__init__(parent=parent)
-
         if len(display_bands) not in [1, 3]:
             raise ValueError('display_bands must be either 1 element or 3 elements')
 
@@ -74,7 +75,10 @@ class BandChooserDialog(QDialog):
         self._on_grayscale_use_colormap(colormap is not None)
         self._on_grayscale_choose_colormap(-1) # The argument here is ignored
 
-        self._ui.chk_apply_globally.setChecked(True)
+        if can_apply_global:
+            self._ui.chk_apply_globally.setChecked(True)
+        else:
+            self._ui.chk_apply_globally.setEnabled(False)
 
         # Hook up event handlers
 
@@ -207,7 +211,14 @@ class BandChooserDialog(QDialog):
         for x in range(cmap.N):
             rgba = cmap(x, bytes=True)
             for y in range(img.height()):
-                img.setPixel(x, y, rgba[0] << 16 | rgba[1] << 8 | rgba[2])
+                rgb_val = np.uint32(0)
+                rgb_val |= rgba[0]
+                rgb_val = rgb_val << 8
+                rgb_val |= rgba[1]
+                rgb_val = rgb_val << 8
+                rgb_val |= rgba[2]
+                rgb_val |= 0xff000000
+                img.setPixel(x, y, rgb_val)
 
         self._ui.lbl_colormap_display.setPixmap(QPixmap.fromImage(img))
 

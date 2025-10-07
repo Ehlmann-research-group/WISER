@@ -7,6 +7,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from typing import Dict
+
 import wiser.gui.generated.resources
 
 from .app_config import LegendPlacement
@@ -40,8 +42,10 @@ from astropy import units as u
 
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from wiser.gui.app_state import ApplicationState
 
 MATPLOTLIB_LEGEND_ARGS = {
     LegendPlacement.NO_LEGEND : None,
@@ -151,6 +155,7 @@ class SpectrumDisplayInfo:
 
         self._icon: Optional[QIcon] = None
         self._line2d = None
+        self._values = None
 
     def reset(self) -> None:
         self._icon = None
@@ -163,16 +168,18 @@ class SpectrumDisplayInfo:
 
         return self._icon
 
-
     def get_spectrum(self) -> Spectrum:
         return self._spectrum
 
 
-    def generate_plot(self, axes, use_wavelengths, wavelength_units=u.nm):
+    def generate_plot(self, axes, use_wavelengths, to_unit=u.nm, should_recalculate=True):
         # If we already have a plot, remove it.
         self.remove_plot()
 
-        values = self._spectrum.get_spectrum()
+        # wavelength_units = self._spectrum.get_wavelengths()[0].unit.si
+        if should_recalculate or self._values is None:
+            self._values = self._spectrum.get_spectrum()
+
         color = self._spectrum.get_color()
         linewidth = 0.5
 
@@ -187,9 +194,9 @@ class SpectrumDisplayInfo:
             # from different datasets with different wavelengths, etc.
 
             wavelengths = raster_utils.get_band_values(
-                self._spectrum.get_wavelengths(), wavelength_units)
+                self._spectrum.get_wavelengths(), to_unit)
 
-            lines = axes.plot(wavelengths, values, color=color,
+            lines = axes.plot(wavelengths, self._values, color=color,
                 linewidth=linewidth, label=self._spectrum.get_name())
             assert(len(lines) == 1)
             self._line2d = lines[0]
@@ -199,11 +206,10 @@ class SpectrumDisplayInfo:
             # will be meaningful if there are multiple plots from different
             # datasets to display.
 
-            lines = axes.plot(values, color=color, linewidth=linewidth,
+            lines = axes.plot(self._values, color=color, linewidth=linewidth,
                 label=self._spectrum.get_name())
             assert(len(lines) == 1)
             self._line2d = lines[0]
-
 
     def remove_plot(self):
         if self._line2d is not None:
@@ -217,7 +223,7 @@ class SpectrumPointDisplayInfo:
     information for a specific point being displayed.
     '''
 
-    def __init__(self, spectrum, band_index: int, use_wavelength: bool,
+    def __init__(self, spectrum: Spectrum, band_index: int, use_wavelength: bool,
                  band_units=None, marker_type='s', crosshair=True):
         '''
         The marker_type value specifies what kind of marker to use on the plot
@@ -276,7 +282,7 @@ class SpectrumPointDisplayInfo:
             y_value_str = f'{y_value:.7f}'
         elif elem_type == np.float64:
             y_value_str = f'{y_value:.15f}'
-        elif elem_type == np.float128:
+        elif hasattr(np, "float128") and elem_type == np.float128:
             y_value_str = f'{y_value:.34f}'
         else:
             y_value_str = f'{y_value}'
@@ -287,7 +293,6 @@ class SpectrumPointDisplayInfo:
 
             if self._band_units is not None:
                 x_value = raster_utils.convert_spectral(x_value, self._band_units)
-
             label = f'{x_value} = {y_value_str}'
         else:
             x_value = self._band_index * u.dimensionless_unscaled
@@ -354,44 +359,60 @@ class SpectrumPlotDatasetChooser(DatasetChooser):
             if act.isChecked():
                 current_data = act.data()
 
-        act = menu.addAction(self.tr('Use clicked dataset'))
-        act.setCheckable(True)
-        act.setChecked(True)
-        act.setData( (None, -1) )
+        # Remove all existing actions
+        menu.clear()
+
+        actDefault: QAction = menu.addAction(self.tr('Use clicked dataset'))
+        actDefault.setCheckable(True)
+        actDefault.setChecked(True)
+        actDefault.setData( (None, -1) )
 
         menu.addSeparator()
 
         # Add an action for each dataset
         for dataset in self._app_state.get_datasets():
             # TODO(donnie):  Eventually, include the path if the name isn't unique.
-            act = QAction(dataset.get_name(), parent=menu)
+            act = QAction(dataset.get_name(), menu)
             act.setCheckable(True)
             act_data = (rasterview_pos, dataset.get_id())
             act.setData(act_data)
             if act_data == current_data:
                 act.setChecked(True)
+                actDefault.setChecked(False)
 
             menu.addAction(act)
 
 
-class SpectrumPlot(QWidget):
+UNIT_NAME_MAPPING = {
+    u.cm: "Wavelength",
+    u.m: "Wavelength",
+    u.micrometer: "Wavelength",
+    u.millimeter: "Wavelength",
+    u.micron: "Wavelength",
+    u.nanometer: "Wavelength",
+    u.centimeter: "Wavelength",
+    u.meter: "Wavelength",
+    u.millimeter: "Wavelength",
+    u.nanometer: "Wavelength",
+    u.micrometer: "Wavelength",
+    u.cm ** -1: "Wavenumber",
+    u.angstrom: "Wavelength",
+    u.GHz: "Wavelength",
+    u.MHz: "Wavelength"
+}
+
+class SpectrumPlotGeneric(QWidget):
     '''
     This widget provides a spectrum-plot window in the user interface.
     '''
 
-    def __init__(self, app, parent=None):
+    def __init__(self, app_state, parent=None):
         super().__init__(parent=parent)
-
-        # Initialize widget's internal state
-
-        self._app = app
-        self._app_state = app._app_state
 
         #=====================================================================
         # General configuration for the spectrum plot
 
-        # What dataset are we showing spectra from on new mouse-clicks?
-        self._dataset = None
+        self._app_state: ApplicationState = app_state
 
         # Are we displaying a legend?
         self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
@@ -437,63 +458,26 @@ class SpectrumPlot(QWidget):
         self._selection_marker: str = 's'
         self._selection_crosshair: bool = True
 
-        # Display state for the "active spectrum"
-        self._active_spectrum_color = None
-
         # This is the currently selected treeview item.  Initially, no item is
         # selected, so we set this to None.
         self._selected_treeview_item = None
 
+        # This class gets its collected spectra from a list while the child class SpectrumPlot gets
+        # its collected spectrum from app_state
+        self._collected_spectra: List[Spectrum] = []
+
         # Initialize UI components of the widget
-
-        self._init_ui()
-
-        # Set up event handlers
-
-        self._app_state.active_spectrum_changed.connect(self._on_active_spectrum_changed)
-        self._app_state.collected_spectra_changed.connect(self._on_collected_spectra_changed)
-
-        self._app_state.spectral_library_added.connect(self._on_spectral_library_added)
-        self._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
-
-
-    def _init_ui(self):
-
-        #==================================================
-        # TOOLBAR
 
         self._toolbar = QToolBar(self.tr('Spectrum Toolbar'), parent=self)
         self._toolbar.setIconSize(QSize(20, 20))
 
-        self._dataset_chooser = SpectrumPlotDatasetChooser(self._app_state)
-        self._toolbar.addWidget(self._dataset_chooser)
-        self._dataset_chooser.triggered.connect(self._on_dataset_changed)
+        self._init_ui()
 
-        self._toolbar.addSeparator()
 
-        self._act_collect_spectrum = add_toolbar_action(self._toolbar,
-            ':/icons/collect-spectrum.svg', self.tr('Collect spectrum'), self)
-        self._act_collect_spectrum.triggered.connect(self._on_collect_spectrum)
-
-        # Menu for importing spectra or loading SLIs
-
-        tbtn_load_spectra = QToolButton()
-        tbtn_load_spectra.setIcon(QIcon(':/icons/load-spectra.svg'))
-        tbtn_load_spectra.setToolTip(self.tr('Load or import spectra'))
-
-        # Without the parent= argument, the chooser doesn't show the menu.
-        menu = QMenu(parent=tbtn_load_spectra)
-        tbtn_load_spectra.setMenu(menu)
-        tbtn_load_spectra.setPopupMode(QToolButton.InstantPopup)
-
-        act = menu.addAction(self.tr('Load spectral library...'))
-        act.triggered.connect(self._on_load_spectral_library)
-
-        act = menu.addAction(self.tr('Import ASCII spectral data...'))
-        act.triggered.connect(self._app.import_spectra_from_textfile)
-
-        self._toolbar.addWidget(tbtn_load_spectra)
-
+    def _init_ui(self):
+    
+        #==================================================
+        # TOOLBAR
         # Plot-configuration button on the right
 
         spacer = QWidget()
@@ -595,10 +579,6 @@ class SpectrumPlot(QWidget):
     def sizeHint(self):
         ''' The default size of the spectrum-plot widget is 400x200. '''
         return QSize(400, 200)
-
-
-    def get_app_state(self):
-        return self._app_state
 
 
     def get_x_units(self) -> Optional[u.Unit]:
@@ -808,44 +788,55 @@ class SpectrumPlot(QWidget):
         self._update_spectrum_mouse_click()
 
 
-    def _on_dataset_changed(self, act):
-        (_, ds_id) = act.data()
-        # print(f'Received on-dataset-changed event:  {ds_id}')
-        if ds_id != -1:
-            self._dataset = self._app_state.get_dataset(ds_id)
-        else:
-            self._dataset = None
-
-
-    def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
-        return self._dataset
+    def get_app_state(self):
+        return self._app_state
 
 
     def _add_spectrum_to_plot(self, spectrum, treeitem):
         display_info = SpectrumDisplayInfo(spectrum)
         self._spectrum_display_info[spectrum.get_id()] = display_info
-
         # Figure out whether we should use wavelengths or not in the plot.
         use_wavelengths = False
         if spectrum.has_wavelengths():
             # TODO(donnie):  This is ugly.  Find a way to expose wavelength units
             #     on datasets and spectra.
-            self._x_units = spectrum.get_wavelengths()[0].unit
+            self._x_units = spectrum.get_wavelength_units()
 
             self._displayed_spectra_with_wavelengths += 1
             if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
                 use_wavelengths = True
 
+        self._refresh_wavelengths(use_wavelengths)
+
+        # Show the plot's color in the tree widget
+        treeitem.setIcon(0, display_info.get_icon())
+
+        return display_info
+
+
+    def _refresh_wavelengths(self, use_wavelengths: bool):
+        axes_font = get_font_properties(self._font_name, self._font_size['axes'])
+
+        if self._x_units is None:
+            self._x_units = u.nanometer
+    
         if use_wavelengths == self._plot_uses_wavelengths:
-            # Nothing has changed, so just generate a plot for the new spectrum
-            display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
+            for _, single_display_info in self._spectrum_display_info.items():
+                # Nothing has changed, so just generate a plot for the new spectrum
+                single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
+                unit_name = UNIT_NAME_MAPPING.get(self._x_units, None)
+                if unit_name is not None and use_wavelengths:
+                    self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
+                        labelpad=0, fontproperties=axes_font)
+                else:
+                    self._axes.set_xlabel('Band Index', labelpad=0, fontproperties=axes_font)
 
         else:
             # Need to regenerate all plots with the new "use wavelengths" value
 
-            axes_font = get_font_properties(self._font_name, self._font_size['axes'])
             if use_wavelengths:
-                self._axes.set_xlabel(f'Wavelength ({self._x_units})',
+                unit_name = UNIT_NAME_MAPPING.get(self._x_units, "Wavelength")
+                self._axes.set_xlabel(f'{unit_name} ({self._x_units})',
                     labelpad=0, fontproperties=axes_font)
                 self._axes.set_ylabel('Value', labelpad=0, fontproperties=axes_font)
             else:
@@ -857,11 +848,14 @@ class SpectrumPlot(QWidget):
 
             self._plot_uses_wavelengths = use_wavelengths
 
-        # Show the plot's color in the tree widget
-        treeitem.setIcon(0, display_info.get_icon())
-
-        return display_info
-
+    def recount_spectra_wavelengths(self):
+        count = 0
+        for id, spectrum_display_info in self._spectrum_display_info.items():
+            spectrum = spectrum_display_info.get_spectrum()
+            if spectrum.has_wavelengths():
+                count += 1
+        self._displayed_spectra_with_wavelengths = count
+        self._refresh_wavelengths(self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info))
 
     def _remove_spectrum_from_plot(self, spectrum, treeitem):
         id = spectrum.get_id()
@@ -886,6 +880,11 @@ class SpectrumPlot(QWidget):
             self._click.remove_plot()
             self._click = None
 
+        use_wavelengths = False
+        if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
+            use_wavelengths = True
+        self._refresh_wavelengths(use_wavelengths)
+
 
     def _on_plot_context_menu(self, event):
         '''
@@ -901,10 +900,6 @@ class SpectrumPlot(QWidget):
 
         act = menu.addAction(self.tr('Export plot to image...'))
         act.triggered.connect(self._on_export_plot_to_image)
-
-        # Add plugin menu items
-        add_plugin_context_menu_items(self._app_state,
-            plugins.ContextMenuType.SPECTRUM_PLOT, menu)
 
         if self._click is not None:
             menu.addSeparator()
@@ -1022,7 +1017,7 @@ class SpectrumPlot(QWidget):
         # Create a new "point on spectrum" display object
 
         self._click = SpectrumPointDisplayInfo(spectrum, index,
-            self._plot_uses_wavelengths, marker_type=self._selection_marker,
+            self._plot_uses_wavelengths,band_units=self._x_units, marker_type=self._selection_marker,
             crosshair=self._selection_crosshair)
 
         self._click.generate_plot(self._axes, self._font_name,
@@ -1039,7 +1034,6 @@ class SpectrumPlot(QWidget):
         exists, the function returns a (spectrum, index) pair; if no such
         spectrum exists, the function returns (None, None).
         '''
-
         # Find all spectra with X-axis ranges that correspond to the xdata value
         # from the mouse click.
 
@@ -1141,6 +1135,553 @@ class SpectrumPlot(QWidget):
         cfg_dialog = SpectrumPlotConfigDialog(self, parent=self)
         cfg_dialog.exec_()
         self._draw_spectra()
+
+
+    def _on_tree_selection_changed(self, current, previous):
+        # print(f'selection changed.  current.data = {current.data(0, Qt.UserRole)}')
+        self._selected_treeview_item = current
+        self._draw_spectra()
+
+
+    def _on_tree_context_menu(self, pos):
+        '''
+        This function handles the context-menu event when the user requests a
+        context menu on the tree widget.  Depending on the item chosen, the
+        context menu will be populated with appropriate options.
+        '''
+        # Figure out which tree item was clicked on.
+        treeitem = self._spectra_tree.itemAt(pos)
+        if treeitem is None:
+            return
+
+        menu = QMenu(self)
+
+        if treeitem is self._treeitem_active:
+
+            act = menu.addAction(self.tr('Edit...'))
+            act.triggered.connect(lambda *args, treeitem=treeitem :
+                                  self._on_edit_spectrum(treeitem))
+
+            menu.addSeparator()
+
+            act = menu.addAction(self.tr('Discard...'))
+            act.triggered.connect(lambda *args, treeitem=treeitem :
+                                  self._on_discard_spectrum(treeitem))
+
+        elif treeitem is self._treeitem_collected:
+            # This is the whole "Collected Spectra" group; these are unsaved
+            # spectra that the user has collected.
+
+            act = menu.addAction(self.tr('Show all spectra'))
+            # act.setData(treeitem)
+            act.triggered.connect(lambda *args, treeitem=treeitem :
+                                  self._on_show_all_spectra(treeitem))
+
+            act = menu.addAction(self.tr('Hide all spectra'))
+            # act.setData(treeitem)
+            act.triggered.connect(lambda *args, treeitem=treeitem :
+                                  self._on_hide_all_spectra(treeitem))
+
+            act = menu.addAction(self.tr('Save to file...'))
+            act.triggered.connect(lambda *args :
+                                  self._on_save_collected_spectra())
+
+            menu.addSeparator()
+
+            act = menu.addAction(self.tr('Discard all...'))
+            act.triggered.connect(lambda *args :
+                                  self._on_discard_collected_spectra())
+
+        elif treeitem.parent() is None:
+            # This is a spectral library
+
+            # TODO(donnie):  Add this when we support editing spectral libraries
+            # act = menu.addAction(self.tr('Save edits...'))
+
+            act = menu.addAction(self.tr('Show all spectra'))
+            act.triggered.connect(lambda *args, treeitem=treeitem :
+                                  self._on_show_all_spectra(treeitem))
+
+            act = menu.addAction(self.tr('Hide all spectra'))
+            act.triggered.connect(lambda *args, treeitem=treeitem :
+                                  self._on_hide_all_spectra(treeitem))
+
+        else:
+            # This is a specific spectrum plot (other than the active spectrum),
+            # either in the collected spectra, or in a spectral library.
+
+            spectrum = treeitem.data(0, Qt.UserRole)
+            display_info = self._spectrum_display_info.get(spectrum.get_id())
+
+            # TODO(donnie):  Show/hide option
+            act = menu.addAction(self.tr('Show spectrum'))
+            act.setCheckable(True)
+            act.setChecked(display_info is not None)
+            act.setData(spectrum)
+            act.triggered.connect(lambda *args, treeitem=treeitem :
+                                  self._on_toggle_spectrum_visible(treeitem))
+
+            if spectrum.is_editable():
+                act = menu.addAction(self.tr('Edit...'))
+                act.triggered.connect(lambda *args, treeitem=treeitem :
+                                      self._on_edit_spectrum(treeitem))
+
+            if spectrum.is_discardable():
+                menu.addSeparator()
+
+                act = menu.addAction(self.tr('Discard...'))
+                act.triggered.connect(lambda *args, treeitem=treeitem :
+                                      self._on_discard_spectrum(treeitem))
+
+        global_pos = self._spectra_tree.mapToGlobal(pos)
+        menu.exec_(global_pos)
+
+
+    def _on_toggle_spectrum_visible(self, treeitem):
+        '''
+        This function handles the context-menu option for toggling the
+        visibility of a spectrum plot.
+        '''
+        spectrum = treeitem.data(0, Qt.UserRole)
+        display_info = self._spectrum_display_info.get(spectrum.get_id())
+
+        # Toggle the visibility of the spectrum.
+        if display_info is None:
+            # Make visible
+            self._add_spectrum_to_plot(spectrum, treeitem)
+
+        else:
+            # Make invisibile
+            self._remove_spectrum_from_plot(spectrum, treeitem)
+
+        self._draw_spectra()
+
+
+    def _on_edit_spectrum(self, treeitem):
+        '''
+        This function handles the "Edit spectrum info" context-menu option.
+        This should only show up on raster data-set spectra, never on library
+        spectra, since they are not currently editable.
+        '''
+        spectrum = treeitem.data(0, Qt.UserRole)
+
+        self._spectrum_edit_dialog.configure_ui(spectrum)
+        if self._spectrum_edit_dialog.exec() != QDialog.Accepted:
+            # User canceled out of the edit.
+            return
+        
+        # If we got here, update the tree-view item with the spectrum's info.
+
+        treeitem.setText(0, spectrum.get_name())
+        
+        # Is the spectrum currently being displayed?
+        display_info = self._spectrum_display_info.get(spectrum.get_id())
+        if display_info is not None:
+            display_info.reset()
+            display_info.generate_plot(self._axes, self._plot_uses_wavelengths, should_recalculate=self._spectrum_edit_dialog.should_recalculate)
+            treeitem.setIcon(0, display_info.get_icon())
+
+        # Are we showing a point on this spectrum?
+        if self._click is not None and self._click.get_spectrum() is spectrum:
+            self._click.remove_plot()
+            self._click.generate_plot(self._axes, self._font_name, self._font_size['selection'])
+
+        self._draw_spectra()
+
+
+    def add_collected_spectrum(self, spectrum: Spectrum):
+        self._collected_spectra.append(spectrum)
+        index = len(self._collected_spectra)-1
+        self._on_collected_spectra_changed(StateChange.ITEM_ADDED, index=index)
+
+    def _on_collected_spectra_changed(self, change, index):
+        if change == StateChange.ITEM_ADDED:
+            spectrum = self._collected_spectra[index]
+            treeitem = QTreeWidgetItem([spectrum.get_name()])
+            treeitem.setData(0, Qt.UserRole, spectrum)
+
+            self._treeitem_collected.insertChild(index, treeitem)
+            self._treeitem_collected.setHidden(False)
+            self._treeitem_collected.setExpanded(True)
+
+            self._add_spectrum_to_plot(spectrum, treeitem)
+
+        elif change == StateChange.ITEM_REMOVED:
+            if index >= 0:
+                treeitem = self._treeitem_collected.takeChild(index)
+                spectrum = treeitem.data(0, Qt.UserRole)
+                self._remove_spectrum_from_plot(spectrum, treeitem)
+
+            else:
+                # All collected items are discarded.
+                while self._treeitem_collected.childCount() > 0:
+                    treeitem = self._treeitem_collected.takeChild(0)
+                    spectrum = treeitem.data(0, Qt.UserRole)
+                    self._remove_spectrum_from_plot(spectrum, treeitem)
+
+            if self._treeitem_collected.childCount() == 0:
+                self._treeitem_collected.setHidden(True)
+
+        self._draw_spectra()
+
+    def _on_save_collected_spectra(self):
+        supported_formats = [
+            self.tr('Text files (*.txt)'),
+            self.tr('All files (*)'),
+        ]
+
+        selected = QFileDialog.getSaveFileName(self,
+            self.tr('Save Collected Spectra'),
+            self._app_state.get_current_dir(),
+            ';;'.join(supported_formats))
+
+        if len(selected[0]) > 0:
+            # Make a list of spectra to be saved.
+            spectra = []
+            for i in range(self._treeitem_collected.childCount()):
+                treeitem = self._treeitem_collected.child(i)
+                spectra.append(treeitem.data(0, Qt.UserRole))
+
+            export_spectrum_list(selected[0], spectra)
+
+
+    def _on_discard_spectrum(self, treeitem, display_confirm = True):
+        spectrum = treeitem.data(0, Qt.UserRole)
+
+        if display_confirm:
+            # Get confirmation from the user.
+            confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
+                self.tr('Are you sure you want to discard this spectrum?') +
+                '\n\n' + spectrum.get_name())
+
+            if confirm != QMessageBox.Yes:
+                # User canceled the discard operation.
+                return
+
+        # If we got here, we are discarding the spectrum.
+        if treeitem.parent() is self._treeitem_collected:
+            # The spectrum is in the collected spectra.
+            index = self._treeitem_collected.indexOfChild(treeitem)
+            self._remove_collected_spectrum_at_index(index, spectrum)
+            # TODO:
+            '''
+            self._treeitem_collected.takeChild(index)
+            if len(self._collected_spectra) == 0:
+                self._treeitem_collected.setHidden(True)
+            '''
+
+        # Are we showing a point on the discarded spectrum?
+        if self._click is not None and self._click.get_spectrum() is spectrum:
+            self._click.remove_plot()
+            self._click = None
+
+
+    def _remove_collected_spectrum_at_index(self, index, spectrum):
+        self._on_collected_spectra_changed(StateChange.ITEM_REMOVED, index, spectrum.get_id())
+        if 0 <= index < len(self._collected_spectra) - 1:
+            del self._collected_spectra[index]
+
+
+    def _on_discard_collected_spectra(self):
+        '''
+        This function implements the "discard all collected spectra" context
+        menu operation.
+        '''
+        # Get confirmation from the user.
+        confirm = QMessageBox.question(self, self.tr('Discard Collected Spectra?'),
+            self.tr('Are you sure you want to discard all collected spectra?'))
+
+        if confirm != QMessageBox.Yes:
+            # User canceled the discard operation.
+            return
+
+        # If we got here, we are discarding all collected spectra.  Do the
+        # operation on the app-state; it will fire the appropriate event to
+        # cause the UI to update properly.
+        self._collected_spectra.clear()
+        self._on_collected_spectra_changed(StateChange.ITEM_REMOVED, -1)
+
+
+    def _on_show_all_spectra(self, treeitem):
+        '''
+        This function implements the "show all spectra [in the group]" context
+        menu operation.  It is available on the "collected spectra" group, and
+        the loaded spectral library groups.
+        '''
+        for i in range(treeitem.childCount()):
+            child_treeitem = treeitem.child(i)
+            spectrum = child_treeitem.data(0, Qt.UserRole)
+            display_info = self._spectrum_display_info.get(spectrum.get_id())
+
+            # Toggle the visibility of the spectrum.
+            if display_info is None:
+                # Make visible
+                self._add_spectrum_to_plot(spectrum, child_treeitem)
+
+        self._draw_spectra()
+
+
+    def _on_hide_all_spectra(self, treeitem):
+        '''
+        This function implements the "hide all spectra [in the group]" context
+        menu operation.  It is available on the "collected spectra" group, and
+        the loaded spectral library groups.
+        '''
+
+        for i in range(treeitem.childCount()):
+            child_treeitem = treeitem.child(i)
+            spectrum = child_treeitem.data(0, Qt.UserRole)
+            display_info = self._spectrum_display_info.get(spectrum.get_id())
+
+            # Toggle the visibility of the spectrum.
+            if display_info is not None:
+                # Make invisible
+                self._remove_spectrum_from_plot(spectrum, child_treeitem)
+
+        self._draw_spectra()
+
+
+    def _draw_spectra(self):
+        '''
+        This helper function refreshes the matplotlib drawing canvas to reflect
+        any changes that have been made to the plot.
+        '''
+
+        # Apply X/Y axis data limits (or auto-limit, if that is the config)
+
+        self._axes.relim(visible_only=True)
+
+        if self._x_autorange:
+            self._axes.autoscale(axis='x')
+            self._x_range = self._axes.get_xlim()
+            # print(f'X autorange on:  range is {self._x_range}')
+        else:
+            self._axes.set_xlim(left=self._x_range[0], right=self._x_range[1])
+            # print(f'X autorange off:  range is {self._x_range}')
+
+        if self._y_autorange:
+            self._axes.autoscale(axis='y')
+            self._y_range = self._axes.get_ylim()
+            # print(f'Y autorange on:  range is {self._y_range}')
+        else:
+            self._axes.set_ylim(bottom=self._y_range[0], top=self._y_range[1])
+            # print(f'Y autorange off:  range is {self._y_range}')
+
+        # Generate major and minor tick marks as needed
+
+        if self._x_autoticks:
+            # Automatically generate X-ticks
+            self._axes.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
+            self._axes.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+
+        else:
+            # Manually generate X-ticks.
+            # TODO(donnie):  Switch to using the matplotlib tick locators, to
+            #     reduce this project's complexity.  Still need to count how
+            #     many ticks are required so we can ignore the config if it is
+            #     a terrible idea.
+            ticks = []
+            if self._x_major_tick_interval is not None:
+                ticks = generate_ticks(self._x_range[0], self._x_range[1],
+                    self._x_major_tick_interval)
+            # print(f'x-major-ticks = {ticks}')
+
+            if len(ticks) > TICK_THRESHOLD:
+                msg = (f'Configured X major tick interval {self._x_major_tick_interval} ' +
+                    f'generates {len(ticks)} ticks, which exceeds the ' +
+                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
+                warnings.warn(msg)
+            else:
+                self._axes.set_xticks(ticks, minor=False)
+
+            ticks = []
+            if self._x_minor_tick_interval is not None:
+                ticks = generate_ticks(self._x_range[0], self._x_range[1],
+                    self._x_minor_tick_interval)
+            # print(f'x-minor-ticks = {ticks}')
+
+            if len(ticks) > TICK_THRESHOLD:
+                msg = (f'Configured X minor tick interval {self._x_minor_tick_interval} ' +
+                    f'generates {len(ticks)} ticks, which exceeds the ' +
+                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
+                warnings.warn(msg)
+            else:
+                self._axes.set_xticks(ticks, minor=True)
+
+        if self._y_autoticks:
+            # Automatically generate Y-ticks
+            self._axes.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
+            self._axes.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+
+        else:
+            # Manually generate Y-ticks.
+            # TODO(donnie):  Switch to using the matplotlib tick locators, to
+            #     reduce this project's complexity.  Still need to count how
+            #     many ticks are required so we can ignore the config if it is
+            #     a terrible idea.
+            ticks = []
+            if self._y_major_tick_interval is not None:
+                ticks = generate_ticks(self._y_range[0], self._y_range[1],
+                    self._y_major_tick_interval)
+            # print(f'y-major-ticks = {ticks}')
+
+            if len(ticks) > TICK_THRESHOLD:
+                msg = (f'Configured Y major tick interval {self._y_major_tick_interval} ' +
+                    f'generates {len(ticks)} ticks, which exceeds the ' +
+                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
+                warnings.warn(msg)
+            else:
+                self._axes.set_yticks(ticks, minor=False)
+
+            ticks = []
+            if self._y_minor_tick_interval is not None:
+                ticks = generate_ticks(self._y_range[0], self._y_range[1],
+                    self._y_minor_tick_interval)
+            # print(f'y-minor-ticks = {ticks}')
+
+            if len(ticks) > TICK_THRESHOLD:
+                msg = (f'Configured Y minor tick interval {self._y_minor_tick_interval} ' +
+                    f'generates {len(ticks)} ticks, which exceeds the ' +
+                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
+                warnings.warn(msg)
+            else:
+                self._axes.set_yticks(ticks, minor=True)
+
+        # Make sure the tick labels use the specified font info
+
+        ticks_font = get_font_properties(self._font_name, self._font_size['ticks'])
+
+        for tl in self._axes.get_xticklabels():
+            tl.set_fontproperties(ticks_font)
+
+        for tl in self._axes.get_yticklabels():
+            tl.set_fontproperties(ticks_font)
+
+        # Legend:
+
+        if self._legend_location == LegendPlacement.NO_LEGEND:
+            # Need to remove the legend
+            legend = self._axes.get_legend()
+            if legend is not None:
+                legend.remove()
+
+        else:
+            # Need to add a legend.  Use the user-specified location, and also
+            # the current font for the legend.
+            args = MATPLOTLIB_LEGEND_ARGS[self._legend_location]
+            legend_font = get_font_properties(self._font_name, self._font_size['legend'])
+            self._axes.legend(**args, prop=legend_font)
+
+        # All done!
+        self._figure_canvas.draw()
+
+
+class SpectrumPlot(SpectrumPlotGeneric):
+    
+    def __init__(self, app, parent=None):
+
+        # Initialize widget's internal state
+
+        self._app = app
+
+        # What dataset are we showing spectra from on new mouse-clicks?
+        self._dataset: RasterDataSet = None
+    
+        # Display state for the "active spectrum"
+        self._active_spectrum_color = None
+
+        # Set up event handlers
+
+        app._app_state.active_spectrum_changed.connect(self._on_active_spectrum_changed)
+        app._app_state.collected_spectra_changed.connect(self._on_collected_spectra_changed)
+
+        app._app_state.spectral_library_added.connect(self._on_spectral_library_added)
+        app._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
+
+        app._app_state.dataset_removed.connect(self._on_dataset_removed)
+
+        super().__init__(app._app_state, parent=parent)
+
+    def _init_ui(self):
+
+        #==================================================
+        # TOOLBAR
+
+        self._dataset_chooser = SpectrumPlotDatasetChooser(self._app_state)
+        self._toolbar.addWidget(self._dataset_chooser)
+        self._dataset_chooser.triggered.connect(self._on_dataset_changed)
+
+        self._toolbar.addSeparator()
+
+        self._act_collect_spectrum = add_toolbar_action(self._toolbar,
+            ':/icons/collect-spectrum.svg', self.tr('Collect spectrum'), self)
+        self._act_collect_spectrum.triggered.connect(self._on_collect_spectrum)
+
+        # Menu for importing spectra or loading SLIs
+
+        tbtn_load_spectra = QToolButton()
+        tbtn_load_spectra.setIcon(QIcon(':/icons/load-spectra.svg'))
+        tbtn_load_spectra.setToolTip(self.tr('Load or import spectra'))
+
+        # Without the parent= argument, the chooser doesn't show the menu.
+        menu = QMenu(parent=tbtn_load_spectra)
+        tbtn_load_spectra.setMenu(menu)
+        tbtn_load_spectra.setPopupMode(QToolButton.InstantPopup)
+
+        act = menu.addAction(self.tr('Load spectral library...'))
+        act.triggered.connect(self._on_load_spectral_library)
+
+        act = menu.addAction(self.tr('Import ASCII spectral data...'))
+        act.triggered.connect(self._app.import_spectra_from_textfile)
+
+        self._toolbar.addWidget(tbtn_load_spectra)
+
+        super()._init_ui()
+
+    def _on_dataset_changed(self, act):
+        (_, ds_id) = act.data()
+        # print(f'Received on-dataset-changed event:  {ds_id}')
+        if ds_id != -1:
+            self._dataset = self._app_state.get_dataset(ds_id)
+        else:
+            self._dataset = None
+
+    def _on_dataset_removed(self, ds_id):
+        if self._dataset:
+            current_ds_id = self._dataset.get_id()
+
+            if current_ds_id == ds_id:
+                self._dataset = None
+
+    def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
+        return self._dataset
+
+
+    def _on_plot_context_menu(self, event):
+        '''
+        This function shows a context menu on the plot window.
+        '''
+
+        menu = QMenu(self)
+
+        # TODO(donnie):  Eventually, probably expose options for picked spectra
+
+        act = menu.addAction(self.tr('Configure plot...'))
+        act.triggered.connect(self._on_configure)
+
+        act = menu.addAction(self.tr('Export plot to image...'))
+        act.triggered.connect(self._on_export_plot_to_image)
+
+        # Add plugin menu items
+        add_plugin_context_menu_items(self._app_state,
+            plugins.ContextMenuType.SPECTRUM_PLOT, menu)
+
+        if self._click is not None:
+            menu.addSeparator()
+            act = menu.addAction(self.tr('Hide selected point'))
+            act.triggered.connect(self._on_hide_spectrum_mouse_click)
+
+        menu.exec_(event.globalPos())
 
 
     def _on_load_spectral_library(self):
@@ -1310,7 +1851,7 @@ class SpectrumPlot(QWidget):
         self._active_spectrum_color = None
 
 
-    def _on_collected_spectra_changed(self, change, index):
+    def _on_collected_spectra_changed(self, change, index, _id):
         if change == StateChange.ITEM_ADDED:
             spectrum = self._app_state.get_collected_spectra()[index]
             treeitem = QTreeWidgetItem([spectrum.get_name()])
@@ -1338,12 +1879,6 @@ class SpectrumPlot(QWidget):
             if self._treeitem_collected.childCount() == 0:
                 self._treeitem_collected.setHidden(True)
 
-        self._draw_spectra()
-
-
-    def _on_tree_selection_changed(self, current, previous):
-        # print(f'selection changed.  current.data = {current.data(0, Qt.UserRole)}')
-        self._selected_treeview_item = current
         self._draw_spectra()
 
 
@@ -1460,70 +1995,19 @@ class SpectrumPlot(QWidget):
         global_pos = self._spectra_tree.mapToGlobal(pos)
         menu.exec_(global_pos)
 
-
-    def _on_toggle_spectrum_visible(self, treeitem):
-        '''
-        This function handles the context-menu option for toggling the
-        visibility of a spectrum plot.
-        '''
-        spectrum = treeitem.data(0, Qt.UserRole)
-        display_info = self._spectrum_display_info.get(spectrum.get_id())
-
-        # Toggle the visibility of the spectrum.
-        if display_info is None:
-            # Make visible
-            self._add_spectrum_to_plot(spectrum, treeitem)
-
-        else:
-            # Make invisibile
-            self._remove_spectrum_from_plot(spectrum, treeitem)
-
-        self._draw_spectra()
-
-
-    def _on_edit_spectrum(self, treeitem):
-        '''
-        This function handles the "Edit spectrum info" context-menu option.
-        This should only show up on raster data-set spectra, never on library
-        spectra, since they are not currently editable.
-        '''
+    
+    def _on_discard_spectrum(self, treeitem, display_confirm = True):
         spectrum = treeitem.data(0, Qt.UserRole)
 
-        self._spectrum_edit_dialog.configure_ui(spectrum)
-        if self._spectrum_edit_dialog.exec() != QDialog.Accepted:
-            # User canceled out of the edit.
-            return
+        if display_confirm:
+            # Get confirmation from the user.
+            confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
+                self.tr('Are you sure you want to discard this spectrum?') +
+                '\n\n' + spectrum.get_name())
 
-        # If we got here, update the tree-view item with the spectrum's info.
-
-        treeitem.setText(0, spectrum.get_name())
-
-        # Is the spectrum currently being displayed?
-        display_info = self._spectrum_display_info.get(spectrum.get_id())
-        if display_info is not None:
-            display_info.reset()
-            display_info.generate_plot(self._axes, self._plot_uses_wavelengths)
-            treeitem.setIcon(0, display_info.get_icon())
-
-        # Are we showing a point on this spectrum?
-        if self._click is not None and self._click.get_spectrum() is spectrum:
-            self._click.remove_plot()
-            self._click.generate_plot(self._axes, self._font_name, self._font_size['selection'])
-
-        self._draw_spectra()
-
-
-    def _on_discard_spectrum(self, treeitem):
-        spectrum = treeitem.data(0, Qt.UserRole)
-
-        # Get confirmation from the user.
-        confirm = QMessageBox.question(self, self.tr('Discard Spectrum?'),
-            self.tr('Are you sure you want to discard this spectrum?') +
-            '\n\n' + spectrum.get_name())
-
-        if confirm != QMessageBox.Yes:
-            # User canceled the discard operation.
-            return
+            if confirm != QMessageBox.Yes:
+                # User canceled the discard operation.
+                return
 
         # If we got here, we are discarding the spectrum.
         if treeitem.parent() is self._treeitem_collected:
@@ -1546,28 +2030,6 @@ class SpectrumPlot(QWidget):
             self._click = None
 
 
-
-    def _on_save_collected_spectra(self):
-        supported_formats = [
-            self.tr('Text files (*.txt)'),
-            self.tr('All files (*)'),
-        ]
-
-        selected = QFileDialog.getSaveFileName(self,
-            self.tr('Save Collected Spectra'),
-            self._app_state.get_current_dir(),
-            ';;'.join(supported_formats))
-
-        if len(selected[0]) > 0:
-            # Make a list of spectra to be saved.
-            spectra = []
-            for i in range(self._treeitem_collected.childCount()):
-                treeitem = self._treeitem_collected.child(i)
-                spectra.append(treeitem.data(0, Qt.UserRole))
-
-            export_spectrum_list(selected[0], spectra)
-
-
     def _on_discard_collected_spectra(self):
         '''
         This function implements the "discard all collected spectra" context
@@ -1587,45 +2049,6 @@ class SpectrumPlot(QWidget):
         self._app_state.remove_all_collected_spectra()
 
 
-    def _on_show_all_spectra(self, treeitem):
-        '''
-        This function implements the "show all spectra [in the group]" context
-        menu operation.  It is available on the "collected spectra" group, and
-        the loaded spectral library groups.
-        '''
-        for i in range(treeitem.childCount()):
-            child_treeitem = treeitem.child(i)
-            spectrum = child_treeitem.data(0, Qt.UserRole)
-            display_info = self._spectrum_display_info.get(spectrum.get_id())
-
-            # Toggle the visibility of the spectrum.
-            if display_info is None:
-                # Make visible
-                self._add_spectrum_to_plot(spectrum, child_treeitem)
-
-        self._draw_spectra()
-
-
-    def _on_hide_all_spectra(self, treeitem):
-        '''
-        This function implements the "hide all spectra [in the group]" context
-        menu operation.  It is available on the "collected spectra" group, and
-        the loaded spectral library groups.
-        '''
-
-        for i in range(treeitem.childCount()):
-            child_treeitem = treeitem.child(i)
-            spectrum = child_treeitem.data(0, Qt.UserRole)
-            display_info = self._spectrum_display_info.get(spectrum.get_id())
-
-            # Toggle the visibility of the spectrum.
-            if display_info is not None:
-                # Make invisible
-                self._remove_spectrum_from_plot(spectrum, child_treeitem)
-
-        self._draw_spectra()
-
-
     def _on_unload_library(self, treeitem):
         '''
         This function implements the "unload spectral library" functionality.
@@ -1637,137 +2060,3 @@ class SpectrumPlot(QWidget):
         lib_id = treeitem.data(0, Qt.UserRole)
         self._app_state.remove_spectral_library(lib_id)
 
-
-    def _draw_spectra(self):
-        '''
-        This helper function refreshes the matplotlib drawing canvas to reflect
-        any changes that have been made to the plot.
-        '''
-
-        # Apply X/Y axis data limits (or auto-limit, if that is the config)
-
-        self._axes.relim(visible_only=True)
-
-        if self._x_autorange:
-            self._axes.autoscale(axis='x')
-            self._x_range = self._axes.get_xlim()
-            # print(f'X autorange on:  range is {self._x_range}')
-        else:
-            self._axes.set_xlim(left=self._x_range[0], right=self._x_range[1])
-            # print(f'X autorange off:  range is {self._x_range}')
-
-        if self._y_autorange:
-            self._axes.autoscale(axis='y')
-            self._y_range = self._axes.get_ylim()
-            # print(f'Y autorange on:  range is {self._y_range}')
-        else:
-            self._axes.set_ylim(bottom=self._y_range[0], top=self._y_range[1])
-            # print(f'Y autorange off:  range is {self._y_range}')
-
-        # Generate major and minor tick marks as needed
-
-        if self._x_autoticks:
-            # Automatically generate X-ticks
-            self._axes.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
-            self._axes.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-
-        else:
-            # Manually generate X-ticks.
-            # TODO(donnie):  Switch to using the matplotlib tick locators, to
-            #     reduce this project's complexity.  Still need to count how
-            #     many ticks are required so we can ignore the config if it is
-            #     a terrible idea.
-            ticks = []
-            if self._x_major_tick_interval is not None:
-                ticks = generate_ticks(self._x_range[0], self._x_range[1],
-                    self._x_major_tick_interval)
-            # print(f'x-major-ticks = {ticks}')
-
-            if len(ticks) > TICK_THRESHOLD:
-                msg = (f'Configured X major tick interval {self._x_major_tick_interval} ' +
-                    f'generates {len(ticks)} ticks, which exceeds the ' +
-                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
-                warnings.warn(msg)
-            else:
-                self._axes.set_xticks(ticks, minor=False)
-
-            ticks = []
-            if self._x_minor_tick_interval is not None:
-                ticks = generate_ticks(self._x_range[0], self._x_range[1],
-                    self._x_minor_tick_interval)
-            # print(f'x-minor-ticks = {ticks}')
-
-            if len(ticks) > TICK_THRESHOLD:
-                msg = (f'Configured X minor tick interval {self._x_minor_tick_interval} ' +
-                    f'generates {len(ticks)} ticks, which exceeds the ' +
-                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
-                warnings.warn(msg)
-            else:
-                self._axes.set_xticks(ticks, minor=True)
-
-        if self._y_autoticks:
-            # Automatically generate Y-ticks
-            self._axes.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator())
-            self._axes.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-
-        else:
-            # Manually generate Y-ticks.
-            # TODO(donnie):  Switch to using the matplotlib tick locators, to
-            #     reduce this project's complexity.  Still need to count how
-            #     many ticks are required so we can ignore the config if it is
-            #     a terrible idea.
-            ticks = []
-            if self._y_major_tick_interval is not None:
-                ticks = generate_ticks(self._y_range[0], self._y_range[1],
-                    self._y_major_tick_interval)
-            # print(f'y-major-ticks = {ticks}')
-
-            if len(ticks) > TICK_THRESHOLD:
-                msg = (f'Configured Y major tick interval {self._y_major_tick_interval} ' +
-                    f'generates {len(ticks)} ticks, which exceeds the ' +
-                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
-                warnings.warn(msg)
-            else:
-                self._axes.set_yticks(ticks, minor=False)
-
-            ticks = []
-            if self._y_minor_tick_interval is not None:
-                ticks = generate_ticks(self._y_range[0], self._y_range[1],
-                    self._y_minor_tick_interval)
-            # print(f'y-minor-ticks = {ticks}')
-
-            if len(ticks) > TICK_THRESHOLD:
-                msg = (f'Configured Y minor tick interval {self._y_minor_tick_interval} ' +
-                    f'generates {len(ticks)} ticks, which exceeds the ' +
-                    f'TICK_THRESHOLD of {TICK_THRESHOLD}.  Not drawing ticks.')
-                warnings.warn(msg)
-            else:
-                self._axes.set_yticks(ticks, minor=True)
-
-        # Make sure the tick labels use the specified font info
-
-        ticks_font = get_font_properties(self._font_name, self._font_size['ticks'])
-
-        for tl in self._axes.get_xticklabels():
-            tl.set_fontproperties(ticks_font)
-
-        for tl in self._axes.get_yticklabels():
-            tl.set_fontproperties(ticks_font)
-
-        # Legend:
-
-        if self._legend_location == LegendPlacement.NO_LEGEND:
-            # Need to remove the legend
-            legend = self._axes.get_legend()
-            if legend is not None:
-                legend.remove()
-
-        else:
-            # Need to add a legend.  Use the user-specified location, and also
-            # the current font for the legend.
-            args = MATPLOTLIB_LEGEND_ARGS[self._legend_location]
-            legend_font = get_font_properties(self._font_name, self._font_size['legend'])
-            self._axes.legend(**args, prop=legend_font)
-
-        # All done!
-        self._figure_canvas.draw()

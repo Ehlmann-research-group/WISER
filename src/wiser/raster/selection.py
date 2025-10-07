@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Set, Tuple
+from typing import Optional, Set, Tuple, List
 
 from PySide2.QtCore import *
 
@@ -8,6 +8,7 @@ from .polygon import rasterize_polygon
 
 from wiser.gui.geom import get_rectangle, manhattan_distance
 
+from wiser.raster.polygon import RasterizedPolygon
 
 class SelectionType(Enum):
     # A selection that is a single pixel
@@ -124,7 +125,15 @@ class MultiPixelSelection(Selection):
     A multi-pixel selection.
     '''
 
-    def __init__(self, pixels, dataset:Optional[RasterDataSet]=None):
+    def __init__(self, pixels: List[QPoint], dataset: Optional[RasterDataSet] = None):
+        """
+        Parameters:
+            pixels: List[QPoint]
+                A list of QPoint objects representing the pixels in the selection. The points .x()
+                should be the column index and .y() should be the row index.
+            dataset: Optional[RasterDataSet]
+                The dataset that the selection is associated with.
+        """
         super().__init__(SelectionType.MULTI_PIXEL, dataset=dataset)
         self._pixels = set(pixels)
 
@@ -221,6 +230,7 @@ class PolygonSelection(Selection):
             raise ValueError('points list must contain at least 3 points')
 
         self._points = list(points)
+        self._rasterized_poly = None
 
     def num_points(self):
         return len(self._points)
@@ -242,10 +252,16 @@ class PolygonSelection(Selection):
     def is_picked_by(self, coord):
         # TODO(donnie):  Implement proper polygon picking
         return self.get_bounding_box().contains(coord)
-
+    
+    def get_rasterized_polygon(self) -> RasterizedPolygon:
+        if self._rasterized_poly == None:
+            self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
+        return self._rasterized_poly
+    
     def get_all_pixels(self) -> Set[Tuple[int, int]]:
-        rasterized = rasterize_polygon([p.toTuple() for p in self._points])
-        return rasterized.get_set()
+        if self._rasterized_poly == None:
+            self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
+        return self._rasterized_poly.get_set()
 
     def __str__(self):
         return f'PolygonSelection[points={self._points}]'

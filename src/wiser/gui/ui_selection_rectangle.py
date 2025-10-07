@@ -9,6 +9,8 @@ from .geom import get_rectangle, scale_rectangle, manhattan_distance
 
 from .ui_selection import CONTROL_POINT_SIZE
 
+from .util import scale_qpoint_by_float
+
 def is_rect_sel_picked(rect_sel, p):
     '''
     Returns True if the specified point (in dataset coordinates) falls within
@@ -74,9 +76,8 @@ class RectangleSelectionCreator(TaskDelegate):
             return
 
         scale = self._rasterview.get_scale()
-        p1_scaled = self._point1 * scale
-        p2_scaled = self._point2 * scale
-
+        p1_scaled = scale_qpoint_by_float(self._point1, scale)
+        p2_scaled = scale_qpoint_by_float(self._point2, scale)
         # Draw a box between the two points, using a dotted rectangle.
 
         color = self._app_state.get_config('raster.selection.edit_outline')
@@ -223,8 +224,8 @@ class RectangleSelectionEditor(TaskDelegate):
 
     def draw_state(self, painter):
         scale = self._rasterview.get_scale()
-        p1_scaled = self._control_points[0] * scale
-        p2_scaled = self._control_points[1] * scale
+        p1_scaled = scale_qpoint_by_float(self._control_points[0], scale)
+        p2_scaled = scale_qpoint_by_float(self._control_points[1], scale)
 
         # Draw a box between the two points, using a dotted rectangle.
 
@@ -239,7 +240,7 @@ class RectangleSelectionEditor(TaskDelegate):
         color = self._app_state.get_config('raster.selection.edit_points')
         painter.setPen(QPen(color))
         for cp in self._control_points:
-            cp_scaled = cp * scale
+            cp_scaled = scale_qpoint_by_float(cp, scale)
             painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
                              cp_scaled.y() - CONTROL_POINT_SIZE / 2,
                              CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)

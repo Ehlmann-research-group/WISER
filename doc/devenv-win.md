@@ -50,7 +50,7 @@ to work though, and simply requires a bit more setup.
     conda install gdal
 
     # This verison of matplotlib is required due to a pyinstaller incompatibility
-    conda install matplotlib=3.2.2
+    conda install matplotlib
 
     conda install astropy
     conda install pyinstaller
@@ -68,9 +68,16 @@ to work though, and simply requires a bit more setup.
     pip install pillow
     pip install bugsnag
     pip install lark
+    pip install pdr
+    pip install netCDF4
+    pip install opencv-python==4.5.3.56
+    pip install psutil
+    pip install pyproj
+    pip install numba
+    pip install scipy
     ```
 
-6.  The `make` utility is used to generate supporting files for Qt 5.
+6.  The `make` utility is used to generate supporting files for Qt 6.
 
     TODO:  GNU Make for Windows
 
@@ -128,7 +135,7 @@ needs to be downloaded and installed so that the `SignTool` utility is available
     This should result in the creation of an NSIS installer in the local
     directory.
 
-**NOTE:**  On Python 3.9 and Pyside2 5.13.2, there is an issue with a Python
+**NOTE:**  On Python 3.9 and PySide2 5.13.2, there is an issue with a Python
 file that is part of `pyside2-uic`.  Specifically, the `uiparser.py` file (at
 path `C:\ProgramData\Miniconda3\Lib\site-packages\pyside2uic\uiparser.py`)
 has a call to `elem.getiterator()` on line 797 that needs to be changed to

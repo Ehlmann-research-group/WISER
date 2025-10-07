@@ -45,14 +45,14 @@ typecheck:
 
 build-mac : generated
 	@echo Building WISER version $(APP_VERSION)
-	pyinstaller --noconfirm WISER-macOS.spec
+	MACOSX_DEPLOYMENT_TARGET=11.0 WISER_ENV=prod pyinstaller --clean --log-level=DEBUG --noconfirm WISER-macOS.spec > debug_output.txt 2>&1
+
+	./check_arch.sh
 
 
 dist-mac : build-mac
 	# Codesign the built application
-	codesign -s $(AD_CODESIGN_KEY_NAME) --deep --force \
-		--entitlements install-mac/entitlements.plist \
-		-o runtime dist/$(APP_NAME).app
+	bash install-mac/sign_wiser.sh
 
 	# Generate a .dmg file containing the Mac application.
 	hdiutil create dist/tmp.dmg -ov -volname "$(APP_NAME)" -fs HFS+ \
@@ -62,32 +62,14 @@ dist-mac : build-mac
 	rm dist/tmp.dmg
 
 	# Submit the disk image to Apple for notarization
-	xcrun altool --notarize -f dist/$(APP_NAME)-$(APP_VERSION).dmg \
-		--primary-bundle-id $(OSX_BUNDLE_ID) \
-		-u $(AD_USERNAME) -p $(AD_PASSWORD)
+	xcrun notarytool submit dist/$(APP_NAME)-$(APP_VERSION).dmg \
+		--apple-id $(AD_USERNAME) --team-id $(AD_TEAM_ID) --password $(AD_PASSWORD)
 
+build-win : generated
+	@set WISER_ENV=prod && pyinstaller WISER.spec
 
-# To debug PyInstaller issues:
-#   - drop the "--windowed" option
-#   - add a "--debug [bootloader|imports|noarchive|all]" option
-# TODO(donnie):  CAN'T GET --windowed TO WORK - FROZEN APP DOESN'T START :-(
-# Extra "--add-binary" arguments because PyInstaller won't properly
-# include all the necessary Qt DLLs.  The worst one is the SVG icon
-# resources, which require a few steps just to get the icons to even
-# show up in the frozen UI.
-dist-win : generated
-	pyinstaller --name $(APP_NAME) --noconfirm \
-	    --icon icons\wiser.ico \
-		--add-binary C:\ProgramData\Miniconda3\Library\plugins\platforms;platforms \
-		--add-binary C:\ProgramData\Miniconda3\Library\plugins\iconengines;iconengines \
-		--add-data C:\ProgramData\Miniconda3\Library\bin\libiomp5md.dll;. \
-		--add-data src\wiser\bandmath\bandmath.lark;wiser\bandmath \
-		--hidden-import PySide2.QtSvg --hidden-import PySide2.QtXml \
-		--collect-all osgeo \
-		--exclude-module PyQt5 \
-		src\wiser\__main__.py
-
-	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" install-win\win-install.nsi
+dist-win : build-win
+	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 
 clean:
 	$(MAKE) -C src clean

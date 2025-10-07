@@ -1,0 +1,30 @@
+name: Run tests
+
+on: [push]
+
+env:
+  WISER_IMAGE: jgarciak/wiser-env:0.1.17
+
+jobs:
+    run-tests:
+        name: Run WISER Tests
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest]
+        steps:            
+            - name: Checkout codebase
+              uses: actions/checkout@v4
+            
+            - name: Check github workspace
+              run: echo ${{ github.workspace }}
+
+            - name: Pull docker image
+              run: docker pull ${{ env.WISER_IMAGE }}
+
+            - name: Run tests in the container
+              run: |
+                docker run --rm \
+                --mount type=bind,src=${{ github.workspace }},dst=/WISER \
+                ${{ env.WISER_IMAGE }}
+                

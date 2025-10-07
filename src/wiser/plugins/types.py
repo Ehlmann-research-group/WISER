@@ -100,7 +100,7 @@ class ContextMenuPlugin(Plugin):
         specific key/value pairs relevant to the context, that the plugin may
         need for its operation.  The details are specified below.  Besides these
         values, the ``context`` dictionary will also always contain a ``wiser``
-        key that references a :class:`wiser.gui.ApplicationState` object for
+        key that references a :class:`wiser.gui.app_state.ApplicationState` object for
         accessing and manipulating WISER's internal state in specific ways.
 
         ``RASTER_VIEW``

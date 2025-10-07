@@ -170,12 +170,11 @@ class ImageCoordsWidget(QDialog):
         has_ds_and_point = (self._dataset is not None and
             self._pixel_coords is not None)
 
-        dataset_has_geo_srs = (self._dataset is not None and
-            self._dataset.get_spatial_ref() is not None)
+        has_dataset = self._dataset is not None
 
         # Update UI elements based on the current state.
+        self._ui.tbtn_geo_goto.setEnabled(has_dataset)
 
-        self._ui.tbtn_geo_goto.setEnabled(dataset_has_geo_srs)
         self._set_all_visible(has_ds_and_point)
         if not has_ds_and_point:
             return
@@ -196,8 +195,22 @@ class ImageCoordsWidget(QDialog):
         if self._dataset is None:
             return
 
+        visible_datasets: List[RasterDataSet] = self._app._main_view.get_visible_datasets()
+        possible_default_rv = self._app._main_view.get_rasterview_with_data()
+        # This is the case where our dataset is not visible, but there are still
+        # datasets visible. In this case, we want to use go to pixel on one of the
+        # visible datases.
+        if self._dataset not in visible_datasets and possible_default_rv is not None:
+            default_dataset = possible_default_rv.get_raster_data()
+            self.update_coords(default_dataset, None)
+
         config = self._get_config_for_dataset(self._dataset)
         dialog = GeoCoordsDialog(self._dataset, config, parent=self)
+        dataset_has_geo_srs = (self._dataset is not None and
+            self._dataset.get_spatial_ref() is not None)
+        if not dataset_has_geo_srs:
+            dialog._ui.tabWidget.setTabVisible(0, False)
+            dialog._ui.tabWidget.setTabVisible(1, False)
         dialog.config_changed.connect(self._on_display_config_changed)
         dialog.goto_coord.connect(self._on_goto_coordinate)
 

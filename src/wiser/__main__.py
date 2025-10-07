@@ -6,6 +6,17 @@ import logging.config
 import os
 import sys
 
+import multiprocessing
+
+#============================================================================
+# Load gdal plugins into path and set gdal environment variables
+# 
+if getattr(sys, 'frozen', False):
+    # If PyInstaller has placed gdal_netCDF.dll, etc. into a "gdalplugins" folder
+    # relative to sys._MEIPASS:
+    plugin_path = os.path.join(sys._MEIPASS, "gdalplugins")
+    os.environ["GDAL_DRIVER_PATH"] = plugin_path
+
 #============================================================================
 # ESSENTIAL DEBUG CONFIGURATION
 #
@@ -227,4 +238,10 @@ def main():
 
 
 if __name__ == '__main__':
+    try:
+        multiprocessing.set_start_method('spawn')
+    except RuntimeError:
+        # Context already set (e.g., Windows default 'spawn'); safe to ignore
+        assert multiprocessing.get_start_method() == 'spawn'
+    multiprocessing.freeze_support()
     main()
