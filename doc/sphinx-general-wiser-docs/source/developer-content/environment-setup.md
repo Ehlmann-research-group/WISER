@@ -48,7 +48,7 @@ If you are on MAC, to fully ensure your conda environment is the right platform,
 
 You can also do the command `make install-dev-env` on windows to install the dev conda environment into conda. Do `make install-prod-env` to install the prod conda environment. If you are on MAC and you want to explicitly build for arm or intel you should do `make install-dev-env ENV=intel` to install for intel and `make install-dev-env ENV=arm` to install for arm. If the previous steps of creating the dev .yml and create the lockfiles have not been done, these install commands will do the previous steps first.
 
-### Listing out depenencies from lockfile
+### Listing out dependencies from lockfile
 
 You may need to create a .yml file to show end users what dependencies WISER has in production. To do so do the following command `conda-lock render --kind env -p osx-64 -p osx-arm64 -p win-64 prod-conda-lock.yml`. This will print out the depenencies that wiser has for the specified platforms. Excluding all `-p <OS-version>` arguments will automatically create the .yml files for all the operaitng systems that _prod-conda-lock.yml_ supports.
 
