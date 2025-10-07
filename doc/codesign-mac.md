@@ -80,7 +80,7 @@ a Python application, or building your application's binaries), but _before_
 it has been packaged into a Disk Image (.dmg) file, it must be code-signed
 using the Identified Developer key generated earlier.
 
-This example is from the WISER `Makefile`:
+This is an example of how you could codesign:
 
 ```
 codesign -s $(AD_CODESIGN_KEY_NAME) --deep --force \
@@ -88,7 +88,16 @@ codesign -s $(AD_CODESIGN_KEY_NAME) --deep --force \
         -o runtime dist/$(APP_NAME).app
 ```
 
-Here are descriptions of the relevant arguments:
+However, the use of --deep is highly discouraged and has led to problems in
+WISER development so we instead use a script to recursively search through
+the WISER.app folder to sign files.
+
+In the WISER Makefile, we simply run this script
+```
+bash install-mac/sign_wiser.sh
+```
+
+Here are descriptions of the relevant arguments `codesign`:
 
 *   The `AD_CODESIGN_KEY_NAME` is the name of the Identified Developer
     key.  This is typically the name of the Apple ID account owner.
@@ -171,18 +180,19 @@ volume name `WISER`.
 
 This is possibly the most exciting and mysterious step of the entire process.
 Once the Disk Image is generated from the previous step, it must be uploaded
-to Apple for notarization.  This operations requires a command like this:
+to Apple for notarization. This operation requires a command like this:
 
 ```
-xcrun altool --notarize -f dist/$(APP_NAME)-$(APP_VERSION).dmg \
-        --primary-bundle-id $(OSX_BUNDLE_ID) \
-        -u $(AD_USERNAME) -p $(AD_PASSWORD)
+xcrun notarytool submit dist/$(APP_NAME)-$(APP_VERSION).dmg \
+    --apple-id $(AD_USERNAME) \
+    --team-id $(AD_TEAM_ID) \
+    --password $(AD_PASSWORD)
 ```
 
 Here are descriptions of the relevant arguments:
 
-*   The `--notarize` argument specifies that you are requesting notarization
-    of your application and its distributable disk-image file.
+*   The `--submit` argument specifies the distributable disk-image file that
+    you are requesting notarization for.
 
     **Note that the disk image file will be uploaded to Apple for this
     notarization process to be completed.**  After that, it must be scanned
@@ -190,18 +200,21 @@ Here are descriptions of the relevant arguments:
     upload, and a successful upload does _NOT_ mean that the app has been
     successfully notarized.
 
+    Note that the bundle-id is automatically retrieved from the disk image
+    we upload so we don't need to specify it.
+
 *   The `AD_USERNAME` is the Apple ID of the account owner.  In the WISER
     build process, this configuration is specified in the secret config file.
+
+*   The `AD_TEAM_ID` is the 10-character Developer Team ID. It is required      
+    when authenticating with Apple ID credentials.
 
 *   The `AD_PASSWORD` is the app-specific password you generated in an earlier
     step.  In the WISER build process, this is also specified in the secret
     config file.
 
-*   The `--primary-bundle-id` argument specifies an identifier for the
-    application.  Read Apple Developer documentation on how to choose a
-    bundle ID.  In general, the bundle ID will follow the "reverse domain
-    name" notation; for example, the WISER bundle ID is
-    `edu.caltech.gps.WISER`.
+Previously, `xcrun atool --notarize` was used, but Apple deprecated `atool`
+for notarization.
 
 ## Output of Notarization
 
@@ -209,54 +222,57 @@ When the notarization command completes, it will output some information that
 can be used to monitor the notarization process.  Here is some example output:
 
 ```
-xcrun altool --notarize -f dist/WISER-1.0a4-dev0.dmg \
-		--primary-bundle-id edu.caltech.gps.WISER \
-		-u <secret> -p <secret>
-No errors uploading 'dist/WISER-1.0a4-dev0.dmg'.
-RequestUUID = a7551d20-6e83-4e83-a0a3-8d3d85fc6711
+xcrun notarytool submit dist/WISER-1.3b1.dmg \
+                --apple-id <secret> \
+                --team-id <secret>
+                --password <secret>
+
+Conducting pre-submission checks for WISER-1.3b1.dmg and initiating connection to the Apple notary service...
+Submission ID received
+  id: 21602dbf-e391-4609-96e2-efc4fec25633
+Upload progress: 100.00% (250 MB of 250 MB)    
+Successfully uploaded file
+  id: 21602dbf-e391-4609-96e2-efc4fec25633
+  path: /Users/joshuagk/Documents/WISER/dist/WISER-1.3b1.dmg
 ```
 
-The most important detail is the UUID of the request, which can be used to
-monitor the status of the notarization process.  The `altool` program has a
-second command `--notarization-info` which can be used to fetch the status
+The most important detail is the _id_ of the request, which can be used to
+monitor the status of the notarization process.  The `notarytool` program has a
+second command `info` which can be used to fetch the status
 of the notarization operation from the Apple servers.
 
 You can run a command like this to fetch the notarization status (substitute
-in the `RequestUUID` value above, and specify your Apple ID and app-specific
-password):
+in the `RequestUUID` value above, and specify your Apple ID, team-id, and app-specific password):
 
 ```
-xcrun altool --notarization-info <request-uuid> -u <secret> -p <secret>
+xcrun notarytool info <request-id> --apple-id <secret> --team-id <secret> --password <secret>
 ```
 
 I like to run this in a loop so I don't have to manually check on the
 process:
 
 ```
-while true ; do clear ; xcrun altool --notarization-info <request-uuid> -u <secret> -p <secret> ; sleep 10 ; done
+while true ; do clear ; xcrun notarytool info <request-id> --apple-id <secret> --team-id <secret> --password <secret> ; sleep 10 ; done
 ```
 
 If everything is correct, you will eventually see something like this:
 
 ```
-No errors getting notarization info.
-
-          Date: 2020-09-17 03:22:31 +0000
-          Hash: f2b38220eccb028c5d47eea2e5ea0d60354f31e42760c9076703c47865faee16
-    LogFileURL: https://osxapps-ssl.itunes.apple.com/itunes-assets/Enigma124/v4/a8/76/25/a87625e8-1e88-a2f5-8820-9ca408fbc1d6/developer_log.json?accessKey=1600507600_594507652229742226_qeGk9W6ZxC0YZchUvJiKcVqe1dcQBFobxIIddqbnqo4t1SPh6%2Bfm82Fy%2FtwaK4sQz6tsYlOPg1pLN2FIfkpFtvfHyW1kx46WwbKYWc9HPSsH4GhW24vgGoGFY28gh0%2Fivs1KplC67gyOIX%2BdEXcmCR0MIIczw1mZEmjUTP0xyy0%3D
-   RequestUUID: a7551d20-6e83-4e83-a0a3-8d3d85fc6711
-        Status: success
-   Status Code: 0
-Status Message: Package Approved
+Successfully received submission info
+  createdDate: 2025-09-30T20:01:36.033Z
+  id: 21602dbf-e391-4609-96e2-efc4fec25633
+  name: WISER-1.3b1.dmg
+  status: Accepted
 ```
 
-(Note that you will likely see the `Status Message` value change before
-you see the `Status` value change, as there is clearly some post-processing
-that occurs at the end of the notarization process.)
-
 Regardless of whether it succeeds or fails, once the notarization check is
-finished, you should be able to navigate to the indicated `LogFileURL` to
+finished, you should be able to navigate to the run the below command to
 get detailed information about what happened during notarization.
+
+```
+xcrun notarytool log <request-id>
+ --apple-id=<secret> --team-id=<secret> --password=<secret>
+```
 
 # Final Steps??
 
