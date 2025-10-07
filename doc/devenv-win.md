@@ -1,89 +1,16 @@
 # Developing and Building WISER on Windows 10
 
-WISER was developed primarily on MacOS X, so the Windows 10 instructions are
-not nearly as well developed.  Currently, Windows 10 is used mainly for
-packaging up the application and building an installer for Windows users.
-**If anyone wants to refine these instructions for those who wish to develop
-on Windows, this would be greatly appreciated.**
+You will need conda and python installed. You will need to do `pip install conda-lock`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`. 
 
-## Python Environment - Miniconda 3
+## How to Install Conda
 
 [Anaconda](https://www.anaconda.com/) is a widely used Python package
-and library manager for Windows and scientific computing.  Unfortunately, the
-full Anaconda3 installation doesn't seem to work with the required tools and
-libraries, probably because of library/DLL versioning issues.  (As of
-2020-06-04, Donnie has not spent the time to track down the causes of these
-issues.)
+and library manager for Windows and scientific computing.  In previous versions of WISER, the full Anaconda3 installation didn't seem to work with the required tools and
+libraries, probably because of library/DLL versioning issues. However, between WISER versions 1.1b1 and 1.4b1 it has worked, so I assume it will work for you. If anaconda does not work for you, you can use the [Miniconda installer](https://docs.conda.io/en/latest/miniconda.html).
 
-However, the [Miniconda installer](https://docs.conda.io/en/latest/miniconda.html) seems
-to work though, and simply requires a bit more setup.
+## IDE
 
-1.  [Install 64-bit Miniconda3](https://docs.conda.io/en/latest/miniconda.html) for
-    all users.  The lastest Python 3 version is fine.
-
-2.  Start an Anaconda Prompt in admin mode, to install packages.  From the
-    Windows Start menu in the bottom corner:
-
-    Start -> "Anaconda3 (64-bit)" -> "Anaconda Prompt (Miniconda3)" [Right-Click] ->
-    More -> "Run as administrator"
-
-    Click "Yes" on the UAC dialog.
-
-3.  Just in case the `conda-forge` channel is not already included in the
-    Miniconda config, you should do this:
-
-    `conda config --add channels conda-forge`
-
-    Usually this just outputs a message like this:
-
-        Warning: 'conda-forge' already in 'channels' list, moving to the top
-
-4.  The following dependencies need to be installed via `conda`:
-
-    ```
-    # Install NumPy first, making sure OpenBLAS is available so that the HUGE
-    # MKL libraries are not present (they cause the binary to be HUGE.)
-    conda install conda-forge::blas=*=openblas
-    conda install -c conda-forge numpy
-
-    conda install pyside2
-    conda install gdal
-
-    # This verison of matplotlib is required due to a pyinstaller incompatibility
-    conda install matplotlib
-
-    conda install astropy
-    conda install pyinstaller
-    ```
-
-    >   NOTE:  PyInstaller 4.0 has a bug in its support of matplotlib 3.3.0.  This
-    >   is why we must install matplotlib 3.2.2 for the time being.  The bug
-    >   manifests as an inability to start the packaged Windows distributable.
-
-5.  The following dependencies need to be installed via `pip`:
-
-    >   NOTE:  `pillow` dependency may already be satisfied by earlier step.
-
-    ```
-    pip install pillow
-    pip install bugsnag
-    pip install lark
-    pip install pdr
-    pip install netCDF4
-    pip install opencv-python==4.5.3.56
-    pip install psutil
-    pip install pyproj
-    pip install numba
-    pip install scipy
-    ```
-
-6.  The `make` utility is used to generate supporting files for Qt 6.
-
-    TODO:  GNU Make for Windows
-
-## Python IDE - PyCharm
-
-TODO - WRITE.
+The ID that WISER is currently (10/7/2025) developed on is Visual Studio Code. Although, I don't see why other IDEs would not work.
 
 ## Installer - NSIS
 
@@ -108,9 +35,9 @@ needs to be downloaded and installed so that the `SignTool` utility is available
 
     ```c:\Program Files (x86)\GnuWin32\bin\make.exe```
 
-3.  Go to the PyCharm project directory for WISER.
+3.  Go to the project directory for WISER.
 
-    On my computer this is:  `C:\Users\donnie\PycharmProjects\WISER`
+    On my computer this is:  `C:\Users\jgarc\OneDrive\Documents\Schmidt-Code\WISER`
 
 4.  Clean up any existing build artifacts.
 
@@ -141,7 +68,15 @@ path `C:\ProgramData\Miniconda3\Lib\site-packages\pyside2uic\uiparser.py`)
 has a call to `elem.getiterator()` on line 797 that needs to be changed to
 `elem.iter()` instead.  Because of where this file lives, it needs to be
 edited with Administrator permissions, or else the edits cannot be saved.
+WISER currently does not use PySide2 5.13.2, but if for some reason you're
+environment has this, be warned.
 
-## Code Signing
+## Code Signing Revisited
 
-"c:\Program Files (x86)\Windows Kits\10\App Certification Kit\signtool.exe" sign /v /debug /f C:\Users\donnie\Downloads\WISER-Codesign-cs /tr http://timestamp.sectigo.com Install-WISER-1.0a4-dev0.exe
+Code signing currently occurs in the file _/install-win/win-install.nsi_. We codesign both WISER's installer and uninstaller. Here is the codesign command we use in that script:
+
+```
+'"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool" sign /sha1 "${SHA1_THUMBPRINT}" /fd SHA256 /t http://timestamp.sectigo.com "%1"'
+```
+
+Where %1 is replaced by `Install-WISER-1.4b1.exe` in the install script.
