@@ -38,7 +38,7 @@ This command will generate the file wiser-dev.yml which will combine the package
 
 To regenerate the dev lockfile you can do the command `conda-lock lock -f wiser-dev.yml` and then rename the lock file to _dev-conda-lock.yml_. To regenerate the prod lockfile you can do the command `conda-lock lock -f wiser-prod.yml` and rename the lockfile to _prod-conda-lock.yml_. 
 
-You can also go into the folder _etc/_ and do `make create-lockfiles` to create both the dev and the prod lockfiles. To create just the dev do `make dev-lockfile` and to create just the prod do `make prod-lockfile`.
+You can also go into the folder _etc/_ and do `make create-lockfiles` to create both the dev and the prod lockfiles. To create just the dev do `make dev-lockfile` and to create just the prod do `make prod-lockfile`. If you do `make dev-lockfile` or `make create-lockfiles` and the dev .yml file hasn't been created, these commands will create it.
 
 ### Installing environment from lockfile
 
@@ -46,7 +46,7 @@ Then once you have regenerated the lock files, you can do `conda-lock install -n
 
 If you are on MAC, to fully ensure your conda environment is the right platform, you may have to enter the command `conda config --env --set subdir osx-64` when you are in the conda enviroment you made. This specific command will ensure the environment is set to intel mac. To set to arm mac, you can do `conda config --env --set subdir osx-arm64`. You need only do these commands once.
 
-You can also do the command `make install-dev-env` on windows to install the dev conda environment into conda. Do `make install-prod-env` to install the prod conda environment. If you are on MAC and you want to explicitly build for arm or intel you should do `make install-dev-env ENV=intel` to install for intel and `make install-dev-env ENV=arm` to install for arm.
+You can also do the command `make install-dev-env` on windows to install the dev conda environment into conda. Do `make install-prod-env` to install the prod conda environment. If you are on MAC and you want to explicitly build for arm or intel you should do `make install-dev-env ENV=intel` to install for intel and `make install-dev-env ENV=arm` to install for arm. If the previous steps of creating the dev .yml and create the lockfiles have not been done, these install commands will do the previous steps first.
 
 ### Listing out depenencies from lockfile
 
