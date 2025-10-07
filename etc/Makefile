@@ -15,18 +15,24 @@ DEV_LOCK       := dev-conda-lock.yml
         install-dev-env install-prod-env
 
 ## Build wiser-dev.yml from prod + additions
-dev-yaml:
+$(DEV_YML): $(PROD_YML) $(DEV_ADDITIONS)
 	$(PY) ../src/devtools/make_dev_env.py "$(PROD_YML)" "$(DEV_ADDITIONS)" "$(DEV_YML)"
 
+dev-yaml: $(DEV_YML)
+
 ## Create prod lockfile -> prod-conda-lock.yml
-prod-lockfile: $(PROD_YML)
+$(PROD_LOCK): $(PROD_YML)
 	conda-lock lock -f "$(PROD_YML)"
 	$(PY) -c "import shutil; shutil.move('conda-lock.yml','$(PROD_LOCK)')"
 
+prod-lockfile: $(PROD_LOCK)
+
 ## Create dev lockfile -> dev-conda-lock.yml
-dev-lockfile: $(DEV_YML)
+$(DEV_LOCK): $(DEV_YML)
 	conda-lock lock -f "$(DEV_YML)"
 	$(PY) -c "import shutil; shutil.move('conda-lock.yml','$(DEV_LOCK)')"
+
+dev-lockfile: $(DEV_LOCK)
 
 ## Run: dev-yaml -> prod-lockfile -> dev-lockfile
 create-lockfiles: dev-yaml prod-lockfile dev-lockfile
