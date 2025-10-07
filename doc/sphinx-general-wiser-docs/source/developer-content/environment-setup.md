@@ -53,8 +53,3 @@ You can also do the command `make install-dev-env` on windows to install the dev
 You may need to create a .yml file to show end users what dependencies WISER has in production. To do so do the following command `conda-lock render --kind env -p osx-64 -p osx-arm64 -p win-64 prod-conda-lock.yml`. This will print out the depenencies that wiser has for the specified platforms. Excluding all `-p <OS-version>` arguments will automatically create the .yml files for all the operaitng systems that _prod-conda-lock.yml_ supports.
 
 **NOTE that the .yml file that `conda-lock render...` creates CAN NOT be substituted for the conda-lock.yml files!! Installing a conda environment based on the .yml files from the render command is not always reproducible. 
-
-- Talk about the lock environment-setup and what users will need to set them up
-- Talk about the commands people can run to activate the lock environments 
-- Talk about the script (and make the script) that people can run to refresh the lockfiles
-    and refresh their environment (maybe make a make file that calls the scripts)
