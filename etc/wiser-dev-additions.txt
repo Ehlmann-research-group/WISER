@@ -5,7 +5,7 @@
 # dependencies:
 # sphinx=7.4.*
 # pip:
-# ruff
+# ruff=0.1.*
 
 dependencies:
 sphinx=7.4.7
