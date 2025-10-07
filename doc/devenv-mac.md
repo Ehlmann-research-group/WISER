@@ -1,84 +1,8 @@
 # Developing and Building WISER on MacOS X
 
-WISER was developed primarily on MacOS X, so it is pretty straightforward to set
-up a development environment on a Mac.  **Currently these instructions require
-the use of [MacPorts](https://www.macports.org).  If anyone wants to figure out
-how to set up a development environment under [Homebrew](https://brew.sh) and
-write up instructions, this would be greatly appreciated.**
+In order to have reproducible environments across all users and developers, WISER has lockfiles for creating conda environments. Most of this information is detailed in _WISER/doc/sphinx-general-wiser-docs/source/developer-content/environment-setup.md_, but I will go over it quickly here.
 
-WISER requires the Qt5 and GDAL libraries to be installed on the system.  Under
-MacPorts this is straightforward:
-
-```
-sudo port install qt5
-sudo port install gdal
-```
-
-Once these operations are completed, one can set up a Python environment to
-develop and run the application.  
-
-```
-# NOTE:  Python 3.7 is recommended for WISER development, to avoid
-#        compatibility issues with Qt5 and PySide2.
-sudo port install python37
-
-# Install your favorite version of virtualenv, at least Python 3.7, but
-# Python 3.8+ will also work.
-# EXAMPLE:  sudo port install py37-virtualenv
-
-# Set up a virtual environment that uses the Python 3.7 interpreter.
-virtualenv --python=/opt/local/bin/python3.7 venv
-
-# Activate the new Python 3.7 virtual environment.
-source venv/bin/activate
-```
-
-At this point, you can install all the requirements:
-
-```
-pip install -r requirements.txt
-```
-
-If you are feeling more ambitious, you can install the minimal set of
-requirements manually, so that you get the most recent versions of everything.
-
-```
-pip install numpy
-pip install astropy
-pip install matplotlib
-pip install GDAL==3.3.1
-pip install PySide2
-pip install pillow
-pip install lark
-pip install bugsnag
-```
-
->   NOTE 1:  PyInstaller 4.0 has a bug in its support of matplotlib 3.3.0.  This
->   is why we must install matplotlib 3.2.2 for the time being.  The bug
->   manifests as an inability to start the packaged Mac distributable.
-
->   NOTE 2:  The GDAL Python bindings must currently be fixed to version 3.3.1,
->   as the most recent GDAL Python bindings refer to #defines that aren't in
->   the GDAL headers installed by MacPorts.
-
->   NOTE 3:  If you get an error like "no module \_gdal_array" after setting up
->   WISER, a common cause is that the GDAL Python library was installed _before_
->   NumPy was installed.  To further complicate the matter, `pip` may have
->   cached the GDAL library without the `_gdal_array` module.  Thus, to fix the
->   issue, you can do this:
->
->       pip uninstall GDAL
->       pip install numpy                  (if not already installed)
->       pip install --no-cache-dir GDAL
-
-For full support of all build steps, including packaging a Mac distributable,
-you also need to install these tools:
-
-```
-pip install pylint
-pip install mypy
-pip install pyinstaller
-```
+You will need conda and python installed. You will need to do `pip install conda-lock`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`. If you are on an ARM mac and you want your dev environment to be for Intel macs, do `make install-dev-env ENV=intel`. And that's it!
 
 ## Important Build Targets
 
