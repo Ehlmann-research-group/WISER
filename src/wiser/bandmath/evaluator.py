@@ -1275,7 +1275,6 @@ def eval_singular_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, c
             folder_path = os.path.dirname(result_path)
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
-            
             out_dataset_gdal = gdal.GetDriverByName('ENVI').Create(result_path, samples, lines, bands, gdal_type)
             # We declare the dataset write after so if any errors occur below,
             # the file gets destroyed (which happens in del of RasterDataSet)

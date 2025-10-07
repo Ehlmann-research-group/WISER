@@ -1,7 +1,6 @@
 import tests.context
 # import context
 
-import multiprocessing as mp
 from astropy import units as u
 
 import os
@@ -1213,6 +1212,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         vars = [(VariableType.IMAGE_CUBE, caltech_ds), \
                 (VariableType.IMAGE_BAND, band)]
 
+        # Useful for ensuring we receive messages from the process
+        status_callback = lambda msg: print(f"In test, message from process:\n{msg}", flush=True)
+
         for var in vars:
             expr = 'a + b'
             variables = {'a': var, 'b': (VariableType.IMAGE_BAND_BATCH, raster_batch_band)}
@@ -1220,7 +1222,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             suffix = 'test_result'
             cache = DataCache()
             process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback,
-                status_callback=lambda _: None, error_callback=lambda _: None, 
+                status_callback=status_callback, error_callback=lambda _: None, 
                 bandmath_expr=expr, expr_info=expr_info, result_name=suffix, cache=cache,
                 variables=variables, functions={}, use_synchronous_method=run_sync)
             process_manager.get_task().wait()
@@ -1291,22 +1293,6 @@ class TestBandmathEvaluator(unittest.TestCase):
         raster_batch_band = RasterDataBatchBand(
             batch_test_folder, band_index=None, wavelength_value=700, wavelength_units=u.nm, epsilon=20)
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
-
-    # TODO (Joshua G-K): Write these tests for bandmath batch buttons.
-    def test_bandmath_batch_cancel(self):
-        pass
-
-    def test_bandmath_batch_remove(self):
-        pass
-
-    def test_bandmath_batch_run_multiple(self):
-        pass
-
-    def test_bandmath_batch_progress_bar(self):
-        pass
-
-    def test_bandmath_batch_view_errors(self):
-        pass
 
 if __name__ == '__main__':
     test_class = TestBandmathEvaluator()
