@@ -1,6 +1,6 @@
 # Developing and Building WISER on Windows 10
 
-You will need conda and python installed. You will need to do `pip install conda-lock`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`. 
+You will need conda and python installed. You will need to do `pip install conda-lock`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`.
 
 ## How to Install Conda
 
@@ -23,7 +23,7 @@ To code-sign the WISER installer, the
 [Windows 10 SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk/)
 needs to be downloaded and installed so that the `SignTool` utility is available.
 
-# Building the Project
+## Building the Project
 
 1.  Open an Anaconda terminal window.
 

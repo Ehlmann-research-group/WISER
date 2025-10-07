@@ -11,7 +11,7 @@ by Apple.  This is a daunting hurdle to overcome, but it is surmountable.
 This document describes how to code-sign and notarize an application for
 MacOSX, using the WISER application as an example.
 
-# Code-signing by Identified Developers
+## Code-signing by Identified Developers
 
 In order to code-sign an application, one must have an Identified Developer
 key from Apple.  This requires signing up for the Apple Developer program,
@@ -56,7 +56,7 @@ page to see your certificates.
     open the key in the Keychain Access tool that comes with macOS (in the
     Applications/Utilities folder).  Go ahead and import it.
 
-# Preparing to Notarize from the Command Line
+## Preparing to Notarize from the Command Line
 
 To notarize a Mac application, it must be uploaded to Apple servers using
 your Apple ID login credentials.  Apple suggests that you create an
@@ -73,7 +73,7 @@ will only be shown to you once, so don't forget it!**
 >   automate your build, code-sign and notarization process without
 >   sharing your app-specific password or other information with others.
 
-# Code-Signing Your Application
+## Code-Signing Your Application
 
 After your program has been built into a distributable form (e.g. by freezing
 a Python application, or building your application's binaries), but _before_
@@ -154,7 +154,7 @@ Here are descriptions of the relevant arguments `codesign`:
     In particular, see the bug-report linked from the `entitlements.plist`
     file above.
 
-# Building a Disk Image (.dmg) File
+## Building a Disk Image (.dmg) File
 
 It is of value to build a distributable `.dmg` file from the application,
 so that it's simple to share with others.  The WISER build process uses
@@ -176,7 +176,7 @@ suitable for distribution.  The WISER build process generates a filename of
 `WISER-<versioninfo>.dmg` (e.g. `WISER-1.0a4-dev0.dmg`), mounted with the
 volume name `WISER`.
 
-# Notarizing the Disk Image
+## Notarizing the Disk Image
 
 This is possibly the most exciting and mysterious step of the entire process.
 Once the Disk Image is generated from the previous step, it must be uploaded
@@ -216,7 +216,7 @@ Here are descriptions of the relevant arguments:
 Previously, `xcrun atool --notarize` was used, but Apple deprecated `atool`
 for notarization.
 
-## Output of Notarization
+### Output of Notarization
 
 When the notarization command completes, it will output some information that
 can be used to monitor the notarization process.  Here is some example output:
@@ -274,7 +274,7 @@ xcrun notarytool log <request-id>
  --apple-id=<secret> --team-id=<secret> --password=<secret>
 ```
 
-# Final Steps??
+## Final Steps??
 
 Guess what?  If you you got to this point, you're done!
 
@@ -291,7 +291,7 @@ recorded during notarization.
 Thus, you are now ready to distribute your code-signed `.dmg` file to your
 users!
 
-## Testing
+### Testing
 
 If you want to test your code-signed and notarized application, you will
 need to upload it to some remote server, then download it to your computer
