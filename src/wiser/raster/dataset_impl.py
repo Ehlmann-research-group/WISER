@@ -11,8 +11,6 @@ import math
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from contextlib import contextmanager
 
-Number = Union[int, float]
-
 from .utils import make_spectral_value, convert_spectral, get_spectral_unit, get_netCDF_reflectance_path
 from .loaders import envi
 
@@ -32,6 +30,8 @@ import difflib
 from wiser.gui.subdataset_file_opener_dialog import SubdatasetFileOpenerDialog
 
 logger = logging.getLogger(__name__)
+
+Number = Union[int, float]
 
 CHUNK_WRITE_SIZE = 250000000
 
@@ -515,9 +515,6 @@ class PDRRasterDataImpl(RasterDataImpl):
         pdr_dataset = pdr.read(path)
 
         return [cls(pdr_dataset)]
-    
-    def __init__(self, pdr_dataset):
-        super().__init__(pdr_dataset)
 
     def __init__(self, pdr_dataset: pdr.Data):
         self.pdr_dataset = pdr_dataset

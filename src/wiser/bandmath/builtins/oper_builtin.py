@@ -3,7 +3,7 @@ from typing import List
 
 import numpy as np
 
-from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
+from wiser.bandmath import BandMathExprInfo
 from wiser.bandmath.utils import (
     reorder_args, make_image_cube_compatible,
     check_image_cube_compatible, check_spectrum_compatible,

@@ -975,9 +975,8 @@ def is_batch_job(serialized_variables: Dict[str, Tuple[VariableType, Union[Seria
     '''
     This function is used to decide if we are doing batching or not.
     '''
-    for var_name, var_tuple in serialized_variables.items():
+    for _, var_tuple in serialized_variables.items():
         var_type = var_tuple[0]
-        var_value = var_tuple[1]
         if var_type == VariableType.IMAGE_CUBE_BATCH or var_type == VariableType.IMAGE_BAND_BATCH:
             return True
     return False
@@ -1319,7 +1318,6 @@ def eval_singular_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, c
             eval.stop()
         return (RasterDataSet, out_dataset, result_name, expr_info)
     else:
-        error = None
         try:
             eval = BandMathEvaluator(lower_variables, lower_functions)
             result_value = eval.transform(tree)

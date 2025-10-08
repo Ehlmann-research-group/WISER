@@ -1124,7 +1124,7 @@ class StretchBuilderDialog(QDialog):
         # Make sure to unlink sliders, becasue they will all likely end up in
         # different positions after this operation.
         self._cb_link_sliders.setChecked(False)
-        assert self._link_sliders == False
+        assert not self._link_sliders
 
         # Go through all channels and set the histogram bounds
         # based on the requested percentage.

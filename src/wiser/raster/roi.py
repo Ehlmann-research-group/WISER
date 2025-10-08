@@ -6,6 +6,7 @@ from .selection import (
     )
 
 from PySide2.QtCore import QRect
+from PySide2.QtGui import QColor
 
 class RegionOfInterest:
     '''

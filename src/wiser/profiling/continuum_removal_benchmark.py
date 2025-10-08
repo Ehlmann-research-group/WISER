@@ -12,7 +12,7 @@ from wiser.gui.permanent_plugins.continuum_removal_plugin import continuum_remov
 from wiser.profiling.benchmarks import profile_function
 
 def profile_continuum_removal_image_numba():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
     target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
@@ -32,7 +32,7 @@ def profile_continuum_removal_image_numba():
     return result
 
 def profile_continuum_removal_image():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
     target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
@@ -51,7 +51,7 @@ def profile_continuum_removal_image():
 
 
 def profile_continuum_removal_spectrum_numba():
-        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # current_dir = os.path.dirname(os.path.abspath(__file__))
 
         # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
         target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
@@ -72,7 +72,7 @@ def profile_continuum_removal_spectrum_numba():
         return result
 
 def profile_continuum_spectrum_image():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
     target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
@@ -95,7 +95,7 @@ def _prepare_inputs_spectrum():
     """
     Replicates your setup exactly once (IO/data prep not included in timing).
     """
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
     # target_path = os.path.normpath(os.path.join(current_dir, "..", "..","test_utils", "test_datasets", "caltech_4_100_150_nm"))
     target_path = os.path.normpath(
         os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr")
@@ -118,7 +118,7 @@ def _prepare_inputs_spectrum():
     return spectrum, x_axis
 
 def _prepare_inputs_image():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
     target_path = os.path.normpath(os.path.join("C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"))
     loader = RasterDataLoader()
     dataset = loader.load_from_file(path=target_path)[0]

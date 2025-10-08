@@ -96,7 +96,7 @@ class SubdatasetFileOpenerDialog(QDialog):
 
     def set_srs_checkbox_enabled_state(self, checked: bool):
         self._set_checkbox_enabled_state(self._ui.chk_box_srs, checked)
-        if checked == False:
+        if not checked:
             self._set_checkbox_enabled_state(self._ui.chk_box_geo_transform, checked)
             self._ui.chk_box_geo_transform.setCheckState(Qt.Unchecked)
 
