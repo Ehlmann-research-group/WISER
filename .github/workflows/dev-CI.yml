@@ -30,6 +30,7 @@ on:
 
 jobs:
   pre:
+    name: Skip Duplicate Actions Check
     runs-on: ubuntu-latest
     outputs:
       should_skip: ${{ steps.skip.outputs.should_skip }}
