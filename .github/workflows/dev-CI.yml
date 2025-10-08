@@ -6,7 +6,15 @@ on:
   push:
     paths-ignore:
       - "etc/dev-conda-lock.yml"
-  pull_request: {}
+    branches:
+      - main
+      - 'rel/**'
+      - 'feat/*'
+  pull_request:
+    branches:
+      - main
+      - 'rel/**'
+      - 'feat/*'
   # The idea here is that if someone made a change to just the lockfiles
   # we want to both refresh the cache and make sure our tests still run
   # so we ignore changes to dev lockfile changes here and let the
@@ -18,8 +26,18 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  pre:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip.outputs.should_skip }}
+    steps:
+      - id: skip
+        uses: fkirc/skip-duplicate-actions@v5
+
   lint:
     name: Ruff lint & format check
+    needs: [pre]
+    if: ${{ needs.pre.outputs.should_skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
