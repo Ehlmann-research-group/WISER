@@ -6,7 +6,11 @@ on:
   push:
     paths-ignore:
       - "etc/dev-conda-lock.yml"
-  # When the lock DID change, run after the cache workflow finishes
+  pull_request: {}
+  # The idea here is that if someone made a change to just the lockfiles
+  # we want to both refresh the cache and make sure our tests still run
+  # so we ignore changes to dev lockfile changes here and let the
+  # environment cache update workflow trigger this
   workflow_run:
     workflows: ["Cache linux-cached-dev from lock"]
     types: [completed]
@@ -14,10 +18,31 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  lint:
+    name: Ruff lint & format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install Ruff
+        run: pip install -U ruff==0.1.15
+
+      - name: Ruff format (check only)
+        run: ruff format --check .
+
+      - name: Ruff lint
+        run: ruff check .
+
   tests:
     # If triggered by workflow_run, only run when upstream succeeded.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    needs: [lint]
     defaults:
         run:
             shell: bash -leo pipefail {0}
@@ -34,6 +59,8 @@ jobs:
           environment-file: etc/dev-conda-lock.yml
           environment-name: linux-cached-dev
           cache-environment: true
+          cache-environment-key: linux-cached-dev-${{ hashFiles('etc/dev-conda-lock.yml') }}
+          cache-downloads: true
           init-shell: bash
     
       - name: Run tests under xvfb-run
