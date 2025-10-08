@@ -1,0 +1,10 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Pin to a Ruff release tag
+    rev: v0.14.0
+    hooks:
+      # Linter
+      - id: ruff-check
+      # Formatter (check only; no writes)
+      - id: ruff-format
+        args: [--check]
