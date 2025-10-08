@@ -12,8 +12,7 @@ The integration points for WISER extension are as follows:
 
 *   Plugins may be exposed in a "Tools" drop-down menu in the global application
     toolbar.  This is the most general way to extend WISER.  Such tool plugins
-    may be written as Python modules, or may be separate programs invoked as
-    child processes by WISER.
+    may be written as Python modules.
 
 *   Plugins may be exposed as pop-up context menu entries, when the user e.g.
     right-clicks on a dataset, ROI, spectrum, or other such object in the GUI.
@@ -61,7 +60,11 @@ long-running tasks, infinite loops, and buggy/crashing behavior?**
 It would seem desirable to do this.  Because of this, we should consider running
 plugins (or giving users the option of running plugins) in separate processes.
 Perhaps an option can be provided to turn this on or off, so that
-lightweight/reliable plugins can be kept within the WISER process.
+lightweight/reliable plugins can be kept within the WISER process. It should be
+noted that supporting running plugins in separate processes will require us to
+rethink how the user can create plugins that interact with the GUI. As of
+10/08/2025, users just have to create their PySide2 widget and show it, but a
+separate process can't easily do this.
 
 WISER needs to provide a long-running-task abstraction for plugins to leverage,
 or for WISER to leverage when invoking plugins, to keep them from killing UI
@@ -74,7 +77,8 @@ be a high priority to build early on, for the sake of usability.
 dependencies of WISER?**  WISER has a set of Python dependencies.  Plugins may
 have additional dependencies outside of WISER's dependencies.  Also, plugins
 may have dependencies that are incompatible with WISER's dependencies.  We need
-to consider how to support plugins in these scenarios.
+to consider how to support plugins in these scenarios. As of 10/08/2025, WISER
+does not support plugins that have incompatible dependencies.
 
 This suggests that WISER should support plugins of two main "flavors":  plugins
 that work within the WISER dependencies, and plugins that run out-of-process,
@@ -90,3 +94,10 @@ dependencies).  In the frozen-app situation, WISER's dependencies cannot be
 extended.  (Or, at least, Donnie doesn't know how to do this.)  But, in that
 case, WISER can spawn a separate Python process with its own environment and
 dependencies.
+
+Before WISER release 1.3b1, WISER could not load a plugin dependency if that
+dependency was a submodule that pyinstaller pruned out of WISER. This means
+if WISER used scipy, but didn't use scipy.io and a user's plugin uses scipy.io,
+there would be no way to get WISER to recognize scipy.io. We have fixed this
+issue by loading in all of the submodules manually during pyinstallers build
+process.
