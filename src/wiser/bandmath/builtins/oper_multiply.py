@@ -11,31 +11,35 @@ from wiser.bandmath.functions import BandMathFunction
 
 from wiser.bandmath.utils import (
     reorder_args,
-    check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
-    make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    get_lhs_rhs_values_async, get_result_dtype, MathOperations,
+    check_image_cube_compatible,
+    check_image_band_compatible,
+    check_spectrum_compatible,
+    make_image_cube_compatible,
+    make_image_band_compatible,
+    make_spectrum_compatible,
+    get_lhs_rhs_values_async,
+    get_result_dtype,
+    MathOperations,
 )
 
+
 class OperatorMultiply(BandMathFunction):
-    '''
+    """
     Binary multiplication operator.
-    '''
+    """
 
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible for *')
-
+        raise TypeError(f"Operands {lhs_type} and {rhs_type} not compatible for *")
 
     def analyze(self, infos: List[BandMathExprInfo]):
-
         if len(infos) != 2:
-            raise ValueError('Binary multiplication requires exactly two arguments')
+            raise ValueError("Binary multiplication requires exactly two arguments")
 
         lhs = infos[0]
         rhs = infos[1]
 
         # Take care of the simple case first.
-        if (lhs.result_type == VariableType.NUMBER and
-            rhs.result_type == VariableType.NUMBER):
+        if lhs.result_type == VariableType.NUMBER and rhs.result_type == VariableType.NUMBER:
             return BandMathExprInfo(VariableType.NUMBER)
 
         # If we got here, we are comparing more complex data types.
@@ -55,7 +59,7 @@ class OperatorMultiply(BandMathFunction):
             # Dimensions:  [band][y][x]
             # Because this is a batch variable, we don't set the metadata
             # here since we do not have it until the user runs the batch
-            # 
+            #
             # Additionally, when we actually do the apply phase, we recalculate
             # the expression info with IMAGE_CUBE, so this IMAGE_CUBE_BATCH
             # conditional can be thought of as a place holder.
@@ -72,8 +76,7 @@ class OperatorMultiply(BandMathFunction):
 
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
-            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, \
-                                              MathOperations.MULTIPLY)
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, MathOperations.MULTIPLY)
 
             # TODO(donnie):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
@@ -116,16 +119,21 @@ class OperatorMultiply(BandMathFunction):
 
         self._report_type_error(lhs.result_type, rhs.result_type)
 
-
-    async def apply(self, args: List[BandMathValue], index_list_current: List[int] = None, \
-              index_list_next: List[int] = None, read_task_queue: queue.Queue = None, \
-              read_thread_pool: ThreadPoolExecutor = None, \
-                event_loop: asyncio.AbstractEventLoop = None, node_id: int = None):
-        '''
+    async def apply(
+        self,
+        args: List[BandMathValue],
+        index_list_current: List[int] = None,
+        index_list_next: List[int] = None,
+        read_task_queue: queue.Queue = None,
+        read_thread_pool: ThreadPoolExecutor = None,
+        event_loop: asyncio.AbstractEventLoop = None,
+        node_id: int = None,
+    ):
+        """
         Multiply the LHS and RHS and return the result.
-        '''
+        """
         if len(args) != 2:
-            raise Exception('* requires exactly two arguments')
+            raise Exception("* requires exactly two arguments")
 
         lhs = args[0]
         rhs = args[1]
@@ -148,10 +156,16 @@ class OperatorMultiply(BandMathFunction):
                     index_list_current = [index_list_current]
                 if isinstance(index_list_next, int):
                     index_list_next = [index_list_next]
-                
-                lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
-                                                            index_list_next, read_task_queue, \
-                                                                read_thread_pool, event_loop)
+
+                lhs_value, rhs_value = await get_lhs_rhs_values_async(
+                    lhs,
+                    rhs,
+                    index_list_current,
+                    index_list_next,
+                    read_task_queue,
+                    read_thread_pool,
+                    event_loop,
+                )
 
                 result_arr = lhs_value * rhs_value
 

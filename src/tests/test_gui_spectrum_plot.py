@@ -2,15 +2,15 @@ import unittest
 from PySide2.QtCore import *
 
 import tests.context
-from wiser.gui.spectrum_plot import (generate_ticks)
+from wiser.gui.spectrum_plot import generate_ticks
 
 
 class TestGuiSpectrumPlot(unittest.TestCase):
-    '''
+    """
     Exercise code in the gui.spectrum_plot module.
-    '''
+    """
 
-    #======================================================
+    # ======================================================
     # gui.spectrum_plot.generate_ticks()
 
     def test_generate_ticks_with_endpoints(self):

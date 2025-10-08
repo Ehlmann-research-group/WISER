@@ -14,8 +14,12 @@ from .functions import BandMathFunction, get_builtin_functions
 
 from .builtins import (
     OperatorCompare,
-    OperatorAdd, OperatorSubtract, OperatorMultiply, OperatorDivide,
-    OperatorUnaryNegate, OperatorPower,
+    OperatorAdd,
+    OperatorSubtract,
+    OperatorMultiply,
+    OperatorDivide,
+    OperatorUnaryNegate,
+    OperatorPower,
 )
 
 
@@ -23,19 +27,22 @@ logger = logging.getLogger(__name__)
 
 
 class BandMathAnalyzer(lark.visitors.Transformer):
-    '''
+    """
     A Lark Transformer for analyzing band-math expressions.  Analysis involves
     identifying any errors in the band-math expression, and if no errors are
     found, reporting the overall result-type of the expression.
-    '''
-    def __init__(self, variables: Dict[str, Tuple[VariableType, Any]],
-                       functions: Dict[str, BandMathFunction]):
+    """
+
+    def __init__(
+        self,
+        variables: Dict[str, Tuple[VariableType, Any]],
+        functions: Dict[str, BandMathFunction],
+    ):
         self._variables = variables
         self._functions = functions
 
         self._errors = []
         self._result_type = None
-
 
     def comparison(self, args) -> BandMathExprInfo:
         lhs: BandMathExprInfo = args[0]
@@ -46,57 +53,52 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         # operator.
         return OperatorCompare(oper).analyze([lhs, rhs])
 
-
     def add_expr(self, values):
-        '''
+        """
         Implementation of addition and subtraction operations in the
         transformer.
-        '''
+        """
         lhs = values[0]
         oper = values[1]
         rhs = values[2]
 
-        if oper == '+':
+        if oper == "+":
             return OperatorAdd().analyze([lhs, rhs])
 
-        elif oper == '-':
+        elif oper == "-":
             return OperatorSubtract().analyze([lhs, rhs])
 
-        raise RuntimeError(f'Unexpected operator {oper}')
-
+        raise RuntimeError(f"Unexpected operator {oper}")
 
     def mul_expr(self, args):
-        '''
+        """
         Implementation of multiplication and division operations in the
         transformer.
-        '''
+        """
         lhs = args[0]
         oper = args[1]
         rhs = args[2]
 
-        if oper == '*':
+        if oper == "*":
             return OperatorMultiply().analyze([lhs, rhs])
 
-        elif oper == '/':
+        elif oper == "/":
             return OperatorDivide().analyze([lhs, rhs])
 
-        raise RuntimeError(f'Unexpected operator {oper}')
-
+        raise RuntimeError(f"Unexpected operator {oper}")
 
     def power_expr(self, args):
-        '''
+        """
         Implementation of power operation in the transformer.
-        '''
+        """
         return OperatorPower().analyze([args[0], args[1]])
 
-
     def unary_negate_expr(self, args):
-        '''
+        """
         Implementation of unary operations in the transformer.
-        '''
+        """
         # args[0] is the '-' character
         return OperatorUnaryNegate().analyze([args[1]])
-
 
     def true(self, args) -> BandMathExprInfo:
         return BandMathExprInfo(VariableType.BOOLEAN)
@@ -116,9 +118,11 @@ class BandMathAnalyzer(lark.visitors.Transformer):
         (_type, value) = self._variables[name]
 
         info = BandMathExprInfo(_type)
-        if _type in [VariableType.IMAGE_CUBE,
-                    VariableType.IMAGE_BAND,
-                    VariableType.SPECTRUM]:
+        if _type in [
+            VariableType.IMAGE_CUBE,
+            VariableType.IMAGE_BAND,
+            VariableType.SPECTRUM,
+        ]:
             # These types also have a shape and an element-type.
             bmv = BandMathValue(_type, value)
             info.elem_type = bmv.get_elem_type()
@@ -158,14 +162,16 @@ class BandMathAnalyzer(lark.visitors.Transformer):
             raise RuntimeError(f'Function "{func_name}" analysis error', e)
 
     def NAME(self, token):
-        ''' Parse a token as a string variable name. '''
+        """Parse a token as a string variable name."""
         return str(token).lower()
 
 
-def get_bandmath_expr_info(bandmath_expr: str,
-        variables: Dict[str, Tuple[VariableType, Any]],
-        functions: Dict[str, BandMathFunction] = None) -> BandMathExprInfo:
-    '''
+def get_bandmath_expr_info(
+    bandmath_expr: str,
+    variables: Dict[str, Tuple[VariableType, Any]],
+    functions: Dict[str, BandMathFunction] = None,
+) -> BandMathExprInfo:
+    """
     Analyze a band-math expression using the specified variable and function
     definitions, and generate an information object containing the analysis.
 
@@ -188,7 +194,7 @@ def get_bandmath_expr_info(bandmath_expr: str,
     *   VariableType.IMAGE_BAND:  2D np.ndarray [x][y]
     *   VariableType.SPECTRUM:  1D np.ndarray [band]
     *   VariableType.NUMBER:  float
-    '''
+    """
 
     # Just to be defensive against potentially bad inputs, make sure all names
     # of variables and functions are lowercase.
@@ -204,7 +210,7 @@ def get_bandmath_expr_info(bandmath_expr: str,
         for name, function in functions.items():
             lower_functions[name.lower()] = function
 
-    parser = lark.Lark.open('bandmath.lark', rel_to=__file__, start='expression')
+    parser = lark.Lark.open("bandmath.lark", rel_to=__file__, start="expression")
     tree = parser.parse(bandmath_expr)
     analyzer = BandMathAnalyzer(lower_variables, lower_functions)
     return analyzer.transform(tree)

@@ -14,8 +14,12 @@ from wiser.raster.dataset_impl import GDALRasterDataImpl
 
 from .generated.similarity_transform_dialog_ui import Ui_SimilarityTransform
 
-from .util import (pillow_rotate_scale_expand, cv2_rotate_scale_expand, rotate_scale_geotransform, 
-        make_into_help_button)
+from .util import (
+    pillow_rotate_scale_expand,
+    cv2_rotate_scale_expand,
+    rotate_scale_geotransform,
+    make_into_help_button,
+)
 
 from osgeo import gdal, gdal_array
 
@@ -33,17 +37,17 @@ import cv2
 # class InterpolationOptions(Enum):
 
 INTERPOLATION_TYPES = {
-    "Nearest":           cv2.INTER_NEAREST,
-    "Nearest Exact":     cv2.INTER_NEAREST_EXACT,
-    "Linear":            cv2.INTER_LINEAR,
-    "Linear Exact":      cv2.INTER_LINEAR_EXACT,
+    "Nearest": cv2.INTER_NEAREST,
+    "Nearest Exact": cv2.INTER_NEAREST_EXACT,
+    "Linear": cv2.INTER_LINEAR,
+    "Linear Exact": cv2.INTER_LINEAR_EXACT,
     # "Cubic":             cv2.INTER_CUBIC,
-    "Area":              cv2.INTER_AREA,
+    "Area": cv2.INTER_AREA,
     # "Lanczos4":          cv2.INTER_LANCZOS4,
 }
 
-class SimilarityTransformDialog(QDialog):
 
+class SimilarityTransformDialog(QDialog):
     def __init__(self, app_state: ApplicationState, parent=None):
         super().__init__(parent=parent)
 
@@ -62,7 +66,7 @@ class SimilarityTransformDialog(QDialog):
 
         # --- Internal state ----------------------------------------------------
         self._image_rotation: float = 0.0  # degrees CCW
-        self._image_scale: float = 1.0     # isotropic scale factor
+        self._image_scale: float = 1.0  # isotropic scale factor
         self._lat_north_translate: float = 0.0
         self._lon_east_translate: float = 0.0
 
@@ -108,10 +112,11 @@ class SimilarityTransformDialog(QDialog):
 
         self._init_interpolation_cbox()
 
-        make_into_help_button(self._ui.tbtn_help,
-                              'https://ehlmann-research-group.github.io/WISER-UserManual/Similarity_Transform/#translating-coordinate-system',
-                              'Get help on translating coordinate systems')
-
+        make_into_help_button(
+            self._ui.tbtn_help,
+            "https://ehlmann-research-group.github.io/WISER-UserManual/Similarity_Transform/#translating-coordinate-system",
+            "Get help on translating coordinate systems",
+        )
 
     # -------------------------------------------------------------------------
     # Initializers
@@ -163,7 +168,7 @@ class SimilarityTransformDialog(QDialog):
             abs_path = os.path.abspath(path)
             return abs_path
         return None
-    
+
     def _get_interpolation_type(self) -> int:
         return self._ui.cbox_interpolation.currentData()
 
@@ -236,7 +241,6 @@ class SimilarityTransformDialog(QDialog):
             pass
         self._update_prev_and_new_coords()
 
-
     @Slot()
     def _on_lon_east_changed(self) -> None:
         text = self._ui.ledit_lon_east.text()
@@ -246,7 +250,6 @@ class SimilarityTransformDialog(QDialog):
         except ValueError:
             pass
         self._update_prev_and_new_coords()
-        
 
     def _make_point_to_text(self, point):
         return f"({point[0]}, {point[1]})"
@@ -256,7 +259,7 @@ class SimilarityTransformDialog(QDialog):
         # We want to do many things here. But for now we just set the CRS
         self._rotate_scale_dataset = self._app_state.get_dataset(ds_id)
         self._check_rotate_scale_save_path()
-    
+
     def _check_rotate_scale_save_path(self):
         if self._rotate_scale_dataset is None:
             return
@@ -284,19 +287,28 @@ class SimilarityTransformDialog(QDialog):
         self.set_crs_text(name)
         self._update_upper_left_coord_labels()
         self._check_translation_save_path()
-    
+
     def _update_upper_left_coord_labels(self):
-        origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = self._translation_dataset.get_geo_transform()
+        (
+            origin_lon_east,
+            pixel_w,
+            rot_x,
+            origin_lat_north,
+            rot_y,
+            pixel_h,
+        ) = self._translation_dataset.get_geo_transform()
         self.set_lon_east_ul_text(str(origin_lon_east + self._lon_east_translate))
         self.set_lat_north_ul_text(str(origin_lat_north + self._lat_north_translate))
 
     @Slot()
     def _on_translation_pixel_selected(self, dataset: RasterDataSet, point: QPoint) -> None:
-        assert dataset == self._translation_dataset, ("Dataset clicked is not equal to Translation dataset."
-                                                    f"Clicked: {dataset.get_name()} | Translation Dataset: {self._translation_dataset.get_name()} ")
+        assert dataset == self._translation_dataset, (
+            "Dataset clicked is not equal to Translation dataset."
+            f"Clicked: {dataset.get_name()} | Translation Dataset: {self._translation_dataset.get_name()} "
+        )
         self._selected_point = (point.x(), point.y())
         self._update_prev_and_new_coords()
-    
+
     def _update_prev_and_new_coords(self):
         if self._selected_point is None:
             return
@@ -304,8 +316,15 @@ class SimilarityTransformDialog(QDialog):
         # Get current point's dataset
         orig_geo_coords = self._translation_dataset.to_geographic_coords(self._selected_point)
         if orig_geo_coords is None:
-            raise RuntimeError(f"Translation dataset has no geo transform!")
-        origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = self._translation_dataset.get_geo_transform()
+            raise RuntimeError("Translation dataset has no geo transform!")
+        (
+            origin_lon_east,
+            pixel_w,
+            rot_x,
+            origin_lat_north,
+            rot_y,
+            pixel_h,
+        ) = self._translation_dataset.get_geo_transform()
         new_lon_east = origin_lon_east + self._lon_east_translate
         new_lat_north = origin_lat_north + self._lat_north_translate
 
@@ -314,7 +333,6 @@ class SimilarityTransformDialog(QDialog):
 
         self.set_orig_coord_text(self._make_point_to_text(orig_geo_coords))
         self.set_new_coord_text(self._make_point_to_text(new_geo_coord))
-
 
     # -------------------------------------------------------------------------
     # Button handlers
@@ -332,8 +350,7 @@ class SimilarityTransformDialog(QDialog):
 
     def _on_choose_save_filename_rs(self, checked=False):
         # TODO (Joshua G-K): Allow this to also save as an .hdr
-        file_dialog = QFileDialog(parent=self,
-            caption=self.tr('Save raster dataset'))
+        file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         # Restrict selection to only .tif files.
         file_dialog.setNameFilter("TIFF files (*.tif)")
@@ -356,18 +373,21 @@ class SimilarityTransformDialog(QDialog):
             if selected_ds is not None:
                 selected_ds_filepaths = selected_ds.get_filepaths()
                 if filename in selected_ds_filepaths:
-                    QMessageBox.information(self, self.tr("Wrong Save Path"), \
-                                            self.tr("The save path you chose matches either the target\n" + 
-                                                    "or reference dataset's save path. Please change.\n\n"
-                                                    f"Chosen save path:\n{filename}"))
+                    QMessageBox.information(
+                        self,
+                        self.tr("Wrong Save Path"),
+                        self.tr(
+                            "The save path you chose matches either the target\n"
+                            + "or reference dataset's save path. Please change.\n\n"
+                            f"Chosen save path:\n{filename}"
+                        ),
+                    )
                     return
             self._ui.ledit_save_path_rs.setText(filename)
-    
-    
+
     def _on_choose_save_filename_translate(self, checked=False):
         # TODO (Joshua G-K): Allow this to also save as an .hdr
-        file_dialog = QFileDialog(parent=self,
-            caption=self.tr('Save raster dataset'))
+        file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         # Restrict selection to only .tif files.
         file_dialog.setNameFilter("TIFF files (*.tif)")
@@ -390,13 +410,17 @@ class SimilarityTransformDialog(QDialog):
             if selected_ds is not None:
                 selected_ds_filepaths = selected_ds.get_filepaths()
                 if filename in selected_ds_filepaths:
-                    QMessageBox.information(self, self.tr("Wrong Save Path"), \
-                                            self.tr("The save path you chose matches either the target\n" + 
-                                                    "or reference dataset's save path. Please change.\n\n"
-                                                    f"Chosen save path:\n{filename}"))
+                    QMessageBox.information(
+                        self,
+                        self.tr("Wrong Save Path"),
+                        self.tr(
+                            "The save path you chose matches either the target\n"
+                            + "or reference dataset's save path. Please change.\n\n"
+                            f"Chosen save path:\n{filename}"
+                        ),
+                    )
                     return
             self._ui.ledit_save_path_translate.setText(filename)
-
 
     # -------------------------------------------------------------------------
     # Public helper methods for external callers
@@ -424,7 +448,6 @@ class SimilarityTransformDialog(QDialog):
 
     # region Convenience getters
 
-
     def image_rotation(self) -> float:
         return self._image_rotation
 
@@ -432,14 +455,21 @@ class SimilarityTransformDialog(QDialog):
         return self._image_scale
 
     def _get_translated_geotransform(self) -> tuple[float, float]:
-        origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = self._translation_dataset.get_geo_transform()
+        (
+            origin_lon_east,
+            pixel_w,
+            rot_x,
+            origin_lat_north,
+            rot_y,
+            pixel_h,
+        ) = self._translation_dataset.get_geo_transform()
         new_lon_east = origin_lon_east + self._lon_east_translate
         new_lat_north = origin_lat_north + self._lat_north_translate
 
         assert new_lon_east == float(self._ui.ledit_lon_east_ul.text())
         assert new_lat_north == float(self._ui.ledit_lat_north_ul.text())
         return (new_lon_east, pixel_w, rot_x, new_lat_north, rot_y, pixel_h)
-    
+
     def _get_rotated_scaled_dataset_spatial_center(self) -> Tuple[int, int]:
         gt = self._rotate_scale_dataset.get_geo_transform()
         half_width = self._rotate_scale_dataset.get_width() / 2
@@ -458,25 +488,33 @@ class SimilarityTransformDialog(QDialog):
 
     def _on_create_rotated_scaled_dataset(self):
         if self._rotate_scale_dataset is None:
-            QMessageBox.warning(self,
-                                self.tr("Rotate/Scale Dataset Not Selected"),
-                                self.tr("You have no rotate/scale dataset selected.\n" \
-                                        "Please select a rotate/scale dataset."))
+            QMessageBox.warning(
+                self,
+                self.tr("Rotate/Scale Dataset Not Selected"),
+                self.tr(
+                    "You have no rotate/scale dataset selected.\n" "Please select a rotate/scale dataset."
+                ),
+            )
             return
-        driver: gdal.Driver = gdal.GetDriverByName('GTiff')
+        driver: gdal.Driver = gdal.GetDriverByName("GTiff")
         save_path = self._get_save_file_path_rs()
         if save_path is None:
-            QMessageBox.warning(self,
-                                self.tr("Save Path Is Empty"),
-                                self.tr("The save path is empty. Please enter a save path.")
-                                )
+            QMessageBox.warning(
+                self,
+                self.tr("Save Path Is Empty"),
+                self.tr("The save path is empty. Please enter a save path."),
+            )
             return
         if save_path in self._rotate_scale_dataset.get_filepaths():
-            QMessageBox.warning(self,
-                                self.tr("Save Path Equals Dataset Path"),
-                                self.tr("The save path and the dataset path are the same, so\n" \
-                                        "rotating/scaling can not occur. Please fix this and\n" \
-                                        "try again."))
+            QMessageBox.warning(
+                self,
+                self.tr("Save Path Equals Dataset Path"),
+                self.tr(
+                    "The save path and the dataset path are the same, so\n"
+                    "rotating/scaling can not occur. Please fix this and\n"
+                    "try again."
+                ),
+            )
             return
 
         try:
@@ -486,10 +524,12 @@ class SimilarityTransformDialog(QDialog):
             pixmap_width = pixmap.width()
             num_bands = self._rotate_scale_dataset.num_bands()
             np_dtype = self._rotate_scale_dataset.get_elem_type()  # Returns a numpy dtype
-            gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype)  # Convert numpy dtype to GDAL type
+            gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(
+                np_dtype
+            )  # Convert numpy dtype to GDAL type
 
             output_bytes = pixmap_width * pixmap_height * num_bands * np_dtype.itemsize
-            
+
             if output_bytes > MAX_RAM_BYTES:
                 ratio = MAX_RAM_BYTES / output_bytes  # Proportion of bands to use for each iteration
             else:
@@ -503,28 +543,44 @@ class SimilarityTransformDialog(QDialog):
             ds_data_ignore = self._rotate_scale_dataset.get_data_ignore_value()
             data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
             for band_index in range(0, num_bands, num_bands_per):
-                band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < num_bands]
+                band_list_index = [
+                    band for band in range(band_index, band_index + num_bands_per) if band < num_bands
+                ]
                 band_arr = self._rotate_scale_dataset.get_multiple_band_data(band_list_index)
                 # We have to transpose because opencv expects the columns in a certain order
                 if len(band_arr.shape) == 2:
                     np_corrected_band_arr = band_arr
                 elif len(band_arr.shape) == 3:
-                    np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0)) # b, y ,x -> y, x, b
+                    np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0))  # b, y ,x -> y, x, b
                 else:
-                    raise RuntimeError(f"Band Array does not have dimensions 2 or 3, it has dimensions {len(band_arr.shape)}")
-                rotated_scaled_band_arr = cv2_rotate_scale_expand(np_corrected_band_arr, self._image_rotation, self._image_scale,
-                                                                interp=self._get_interpolation_type(),
-                                                                mask_fill_value=0)
+                    raise RuntimeError(
+                        f"Band Array does not have dimensions 2 or 3, it has dimensions {len(band_arr.shape)}"
+                    )
+                rotated_scaled_band_arr = cv2_rotate_scale_expand(
+                    np_corrected_band_arr,
+                    self._image_rotation,
+                    self._image_scale,
+                    interp=self._get_interpolation_type(),
+                    mask_fill_value=0,
+                )
                 if len(rotated_scaled_band_arr.shape) == 2:
                     rotated_scaled_band_arr = rotated_scaled_band_arr
                 elif len(rotated_scaled_band_arr.shape) == 3:
                     rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
                 else:
-                    raise RuntimeError(f"The rotated and scaled array dimension is neither 2 or 3, its {len(rotated_scaled_band_arr.shape)}")
+                    raise RuntimeError(
+                        f"The rotated and scaled array dimension is neither 2 or 3, "
+                        f"its {len(rotated_scaled_band_arr.shape)}"
+                    )
                 # If its a masked array, we fill it with the data ignore value so the new dataset ignores it
                 if isinstance(rotated_scaled_band_arr, np.ma.masked_array):
                     rotated_scaled_band_arr = rotated_scaled_band_arr.filled(data_ignore)
-                write_raster_to_dataset(new_dataset, band_list_index, rotated_scaled_band_arr, gdal_data_type)
+                write_raster_to_dataset(
+                    new_dataset,
+                    band_list_index,
+                    rotated_scaled_band_arr,
+                    gdal_data_type,
+                )
             copy_metadata_to_gdal_dataset(new_dataset, self._rotate_scale_dataset)
             new_dataset.FlushCache()
             if self._rotate_scale_dataset.has_geographic_info():
@@ -534,41 +590,54 @@ class SimilarityTransformDialog(QDialog):
                 width = self._rotate_scale_dataset.get_width()
                 height = self._rotate_scale_dataset.get_height()
                 # The scale is baked into rotated_scaled_band_arr
-                rotated_scaled_gt = rotate_scale_geotransform(gt, -rotation,
-                                                            width, height,
-                                                            rotated_scaled_band_arr.shape[2], rotated_scaled_band_arr.shape[1])
+                rotated_scaled_gt = rotate_scale_geotransform(
+                    gt,
+                    -rotation,
+                    width,
+                    height,
+                    rotated_scaled_band_arr.shape[2],
+                    rotated_scaled_band_arr.shape[1],
+                )
                 new_dataset.SetGeoTransform(rotated_scaled_gt)
             new_dataset = None
             self.set_rotate_scale_message_text("Finished Rotate and Scale.")
         except BaseException as e:
-            QMessageBox.critical(self,
-                                 self.tr("Error While Rotating & Scaling Dataset"),
-                                 self.tr(f"Error:\n\n{e}"))
+            QMessageBox.critical(
+                self,
+                self.tr("Error While Rotating & Scaling Dataset"),
+                self.tr(f"Error:\n\n{e}"),
+            )
             return
         finally:
             new_dataset = None
 
     def _on_create_translated_dataset(self):
         if self._translation_dataset is None:
-            QMessageBox.warning(self,
-                                self.tr("Translation Dataset Not Selected"),
-                                self.tr("You have no translation dataset selected.\n" \
-                                        "Please select a translation dataset."))
+            QMessageBox.warning(
+                self,
+                self.tr("Translation Dataset Not Selected"),
+                self.tr("You have no translation dataset selected.\n" "Please select a translation dataset."),
+            )
             return
-        driver: gdal.Driver = gdal.GetDriverByName('GTiff')
+        driver: gdal.Driver = gdal.GetDriverByName("GTiff")
         new_geo_transform = self._get_translated_geotransform()
         save_path = self._get_save_file_path_translate()
         if save_path is None:
-            QMessageBox.warning(self,
-                                self.tr("Save Path Is Empty"),
-                                self.tr("The save path is empty. Please enter a save path.")
-                                )
+            QMessageBox.warning(
+                self,
+                self.tr("Save Path Is Empty"),
+                self.tr("The save path is empty. Please enter a save path."),
+            )
             return
         if save_path in self._translation_dataset.get_filepaths():
-            QMessageBox.warning(self,
-                                self.tr("Save Path Equals Dataset Path"),
-                                self.tr("The save path and the dataset path are the same, so\n" \
-                                        "translating can not occur. Please fix this and try again."))
+            QMessageBox.warning(
+                self,
+                self.tr("Save Path Equals Dataset Path"),
+                self.tr(
+                    "The save path and the dataset path are the same, so\n"
+                    "translating can not occur. Please fix this and try again."
+                ),
+            )
             return
 
         try:
@@ -588,7 +657,9 @@ class SimilarityTransformDialog(QDialog):
                 width = self._translation_dataset.get_width()
                 num_bands = self._translation_dataset.num_bands()
                 np_dtype = self._translation_dataset.get_elem_type()  # Returns a numpy dtype
-                gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype)  # Convert numpy dtype to GDAL type
+                gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(
+                    np_dtype
+                )  # Convert numpy dtype to GDAL type
 
                 output_bytes = width * height * num_bands * np_dtype.itemsize
                 ratio = MAX_RAM_BYTES / output_bytes
@@ -599,7 +670,9 @@ class SimilarityTransformDialog(QDialog):
                     raise RuntimeError("Failed to create the output dataset")
                 num_bands_per = int(ratio * num_bands)
                 for band_index in range(0, num_bands, num_bands_per):
-                    band_list_index = [band for band in range(band_index, band_index+num_bands_per) if band < num_bands]
+                    band_list_index = [
+                        band for band in range(band_index, band_index + num_bands_per) if band < num_bands
+                    ]
                     band_arr = self._translation_dataset.get_multiple_band_data(band_list_index)
                     write_raster_to_dataset(new_dataset, band_list_index, band_arr, gdal_data_type)
                 copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
@@ -609,9 +682,11 @@ class SimilarityTransformDialog(QDialog):
                 new_dataset = None
             self.set_translate_message_text("Finished Translation.")
         except BaseException as e:
-            QMessageBox.critical(self,
-                                 self.tr("Error While Translating Dataset"),
-                                 self.tr(f"Error:\n\n{e}"))
+            QMessageBox.critical(
+                self,
+                self.tr("Error While Translating Dataset"),
+                self.tr(f"Error:\n\n{e}"),
+            )
             return
         finally:
             new_dataset = None

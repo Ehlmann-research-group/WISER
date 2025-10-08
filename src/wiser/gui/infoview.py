@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 from enum import Enum
 from typing import Optional, Tuple
 
@@ -20,10 +21,10 @@ class DatasetInfoView(QTreeWidget):
         self._model.dataset_removed.connect(self._on_dataset_removed)
 
         self.setColumnCount(1)
-        self.setHeaderLabels([self.tr('Description')])
+        self.setHeaderLabels([self.tr("Description")])
 
         top = QTreeWidgetItem(self)
-        top.setText(0, self.tr('No datasets loaded'))
+        top.setText(0, self.tr("No datasets loaded"))
         self.addTopLevelItem(top)
 
         # Update the header info so that columns will resize based on their
@@ -31,12 +32,11 @@ class DatasetInfoView(QTreeWidget):
         self.header().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.header().setStretchLastSection(False)
 
-
     def _on_dataset_added(self, ds_id: int, view_dataset: bool = True):
-        '''
+        """
         When a data set is added to the application state, this method populates
         the data info view with information about the data set.
-        '''
+        """
 
         if self._model.num_datasets() == 1:
             self.clear()
@@ -44,7 +44,7 @@ class DatasetInfoView(QTreeWidget):
         dataset = self._model.get_dataset(ds_id)
 
         top = QTreeWidgetItem(self)
-        top.setText(0, self.tr(f'Dataset {ds_id}'))
+        top.setText(0, self.tr(f"Dataset {ds_id}"))
         top.setData(0, Qt.UserRole, ds_id)
 
         # General info subsection
@@ -53,13 +53,13 @@ class DatasetInfoView(QTreeWidget):
         # info.setText(0, self.tr('General'))
 
         item = QTreeWidgetItem(top)
-        item.setText(0, f'Description:  {dataset.get_description()}')
+        item.setText(0, f"Description:  {dataset.get_description()}")
 
         item = QTreeWidgetItem(top)
-        item.setText(0, f'Format:  {dataset.get_format()}')
+        item.setText(0, f"Format:  {dataset.get_format()}")
 
         item = QTreeWidgetItem(top)
-        item.setText(0, f'Size:  {dataset.get_width()}x{dataset.get_height()}')
+        item.setText(0, f"Size:  {dataset.get_width()}x{dataset.get_height()}")
 
         # TODO(donnie):  Number of bands is specified in the "bands" group item,
         #     so we probably don't need this.
@@ -69,9 +69,9 @@ class DatasetInfoView(QTreeWidget):
         data_ignore = dataset.get_data_ignore_value()
         item = QTreeWidgetItem(top)
         if data_ignore is not None:
-            item.setText(0, f'Data-ignore value:  {data_ignore}')
+            item.setText(0, f"Data-ignore value:  {data_ignore}")
         else:
-            item.setText(0, 'No data-ignore value specified')
+            item.setText(0, "No data-ignore value specified")
 
         # Files subsection
 
@@ -79,7 +79,7 @@ class DatasetInfoView(QTreeWidget):
         filepaths.sort()
 
         files = QTreeWidgetItem(top)
-        files.setText(0, self.tr(f'Files ({len(filepaths)})'))
+        files.setText(0, self.tr(f"Files ({len(filepaths)})"))
 
         for fp in filepaths:
             file_item = QTreeWidgetItem(files)
@@ -89,7 +89,7 @@ class DatasetInfoView(QTreeWidget):
         # Bands section
 
         bands = QTreeWidgetItem(top)
-        bands.setText(0, f'Bands ({dataset.num_bands()})')
+        bands.setText(0, f"Bands ({dataset.num_bands()})")
 
         band_list = dataset.band_list()
         bad_bands = dataset.get_bad_bands()
@@ -106,40 +106,39 @@ class DatasetInfoView(QTreeWidget):
 
             s = []
 
-            s.append(band_info.get('description', '(no description)'))
+            s.append(band_info.get("description", "(no description)"))
 
             if bad == 0:
-                s.append('(bad)')
+                s.append("(bad)")
 
             if i in default_bands:
                 if len(default_bands) == 1:
-                    s.append(self.tr('(default - grayscale)'))
+                    s.append(self.tr("(default - grayscale)"))
                 else:
                     if len(default_bands) != 3:
-                        raise ValueError(f'Expected 3 default bands, got {default_bands}')
+                        raise ValueError(f"Expected 3 default bands, got {default_bands}")
 
                     if default_bands[0] == i:
-                        s.append(self.tr('(default - red)'))
+                        s.append(self.tr("(default - red)"))
                     elif default_bands[1] == i:
-                        s.append(self.tr('(default - green)'))
+                        s.append(self.tr("(default - green)"))
                     elif default_bands[2] == i:
-                        s.append(self.tr('(default - blue)'))
+                        s.append(self.tr("(default - blue)"))
 
-            band_item.setText(0, ' '.join(s))
+            band_item.setText(0, " ".join(s))
 
         # All done!
         self.addTopLevelItem(top)
 
-
     def _find_dataset_entry(self, ds_id: int) -> Optional[Tuple[int, QTreeWidgetItem]]:
-        '''
+        """
         This helper function finds the tree entry for the dataset with the
         specified ID.  If found, the function returns the tuple
         (index, QTreeWidgetItem) indicating both the top-level tree entry that
         represents the dataset, as well as the index of the entry in the tree.
 
         If it can't be found, the function returns None.
-        '''
+        """
 
         for i in range(self.topLevelItemCount()):
             entry = self.topLevelItem(i)
@@ -148,12 +147,10 @@ class DatasetInfoView(QTreeWidget):
 
         return None
 
-
     def _on_dataset_removed(self, ds_id: int):
-
         result = self._find_dataset_entry(ds_id)
         if result is None:
-            print(f'WARNING:  Info-view encountered unrecognized dataset {ds_id}')
+            print(f"WARNING:  Info-view encountered unrecognized dataset {ds_id}")
             return
 
         # Unpack the result.
@@ -164,5 +161,5 @@ class DatasetInfoView(QTreeWidget):
 
         if self.topLevelItemCount() == 0:
             top = QTreeWidgetItem(self)
-            top.setText(0, self.tr('No datasets loaded'))
+            top.setText(0, self.tr("No datasets loaded"))
             self.addTopLevelItem(top)

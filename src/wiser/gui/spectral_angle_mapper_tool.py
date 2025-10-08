@@ -11,6 +11,7 @@ from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.gui.app_state import ApplicationState
 from .generic_spectral_tool import GenericSpectralComputationTool
 
+
 class SAMTool(GenericSpectralComputationTool):
     SETTINGS_NAMESPACE = "Wiser/SAMPlugin"
     RUN_BUTTON_TEXT = "Run SAM"
@@ -42,8 +43,7 @@ class SAMTool(GenericSpectralComputationTool):
         gui_dir = os.path.dirname(os.path.abspath(__file__))
         default_path = os.path.join(
             gui_dir,
-            "../data/"
-            "usgs_default_ref_lib",
+            "../data/" "usgs_default_ref_lib",
             "USGS_Mineral_Spectral_Library.hdr",
         )
         return default_path
