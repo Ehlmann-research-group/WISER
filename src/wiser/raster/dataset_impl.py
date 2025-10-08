@@ -1523,14 +1523,6 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
         return [self._subdataset_name]
 
-    def read_geo_transform(self):
-        return self._geotransform
-
-    def get_wkt_spatial_reference(self):
-        if self._spatial_ref:
-            return self._spatial_ref.ExportToWkt()
-        return None
-
     def read_spatial_ref(self):
         return self._spatial_ref
     
@@ -1582,10 +1574,14 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     
     def read_geo_transform(self) -> Tuple:
         with self._quiet_gdal_warnings():
+            if self._geotransform:
+                return self._geotransform
             return super().read_geo_transform()
     
     def get_wkt_spatial_reference(self) -> Optional[str]:
         with self._quiet_gdal_warnings():
+            if self._spatial_ref:
+                return self._spatial_ref.ExportToWkt()
             return super().get_wkt_spatial_reference()
     
 

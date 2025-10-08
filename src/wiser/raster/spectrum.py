@@ -58,23 +58,6 @@ def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
 
     return rectangles
 
-def find_rectangles_in_row(row: np.ndarray, y: int) -> List[np.ndarray]:
-    rectangles = []
-    start = None
-
-    for x in range(len(row)):
-        if row[x] == 1 and start is None:
-            start = x  # Start of a new rectangle
-        elif row[x] == 0 and start is not None:
-            rectangles.append(np.array([start, x - 1, y, y]))  # End of rectangle
-            start = None
-
-    # If the row ends and a rectangle was still open
-    if start is not None:
-        rectangles.append(np.array([start, len(row) - 1, y, y]))
-
-    return rectangles
-
 def raster_to_combined_rectangles_x_axis(raster):
     rectangles = []
     previous_row_rectangles = deque()

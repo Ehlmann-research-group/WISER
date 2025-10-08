@@ -312,14 +312,14 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
 
     return norm_data
 
-def set_data_ignore_of_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
+def set_data_ignore_of_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataSet'):
     nodata = source_dataset.get_data_ignore_value()
     if nodata is not None:
         # set the same nodata on every band
         for i in range(1, gdal_dataset.RasterCount + 1):
             gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
 
-def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataset'):
+def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 'RasterDataSet'):
     # 1. Propagate wavelength names (band descriptions)
     band_info = source_dataset.band_list()  # returns dict of lists keyed by metadata names
     wle_names = band_info[0].get("wavelength_name")
@@ -383,7 +383,8 @@ def get_bbox(gt, width, height):
     for px, py in ((0, 0), (width, 0), (0, height), (width, height)):
         x = gt[0] + px*gt[1] + py*gt[2]
         y = gt[3] + px*gt[4] + py*gt[5]
-        xs.append(x); ys.append(y)
+        xs.append(x)
+        ys.append(y)
     return min(xs), min(ys), max(xs), max(ys)
 
 def reproject_bbox(bbox, src_srs, dst_srs):
@@ -409,7 +410,7 @@ def bboxes_intersect(b1, b2):
 
 def can_transform_between_srs(srs1: osr.SpatialReference, srs2: osr.SpatialReference):
     try:
-        ct = osr.CoordinateTransformation(srs1, srs2)
+        ct = osr.CoordinateTransformation(srs1, srs2)   # noqa: F841
         return True
     except BaseException:
         return False

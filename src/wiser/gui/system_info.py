@@ -1,4 +1,6 @@
-import platform, pkg_resources, sys
+import platform
+import pkg_resources
+import sys
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *

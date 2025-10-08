@@ -125,7 +125,6 @@ class SubdatasetFileOpenerDialog(QDialog):
         the widget itself (the user can still re-enable it).
         """
         pal: QPalette = chk.palette()
-        role = QPalette.WindowText if chk.isEnabled() else QPalette.Disabled
         default_colour = chk.style().standardPalette().color(QPalette.WindowText)
         dim_colour = chk.style().standardPalette().color(QPalette.Disabled, QPalette.Text)
         pal.setColor(QPalette.WindowText, default_colour if enabled else dim_colour)

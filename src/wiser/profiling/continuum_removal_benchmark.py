@@ -1,11 +1,12 @@
+#ruff: noqa: E402
 import os
 import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 import statistics as stats
 import timeit
 import numpy as np
 from typing import Callable, Dict, Any
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from wiser.raster.loader import RasterDataLoader
 from wiser.gui.permanent_plugins.continuum_removal_plugin import continuum_removal_image_numba, continuum_removal_image, continuum_removal, continuum_removal_numba
@@ -59,7 +60,6 @@ def profile_continuum_removal_spectrum_numba():
         dataset = loader.load_from_file(path=target_path)[0]
         rows = np.int32(dataset.get_height())
         cols = np.int32(dataset.get_width())
-        bands = np.int32(dataset.num_bands())
         spectrum = dataset.get_all_bands_at(rows//2, cols//2)
         if isinstance(spectrum, np.ma.MaskedArray):
             spectrum = spectrum.data

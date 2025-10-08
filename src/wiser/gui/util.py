@@ -341,14 +341,6 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     Returns:
     Transformed array with dtype matching input.
     """
-    _INTERPOLATIONS = {
-        'nearest':  cv2.INTER_NEAREST,
-        'linear':   cv2.INTER_LINEAR,
-        'cubic':    cv2.INTER_CUBIC,
-        'lanczos':  cv2.INTER_LANCZOS4,
-    }
-    # choose interpolation flag
-    interp_flag = interp
     orig_mask = None
     if isinstance(img, np.ma.masked_array):
         orig_mask = img.mask
@@ -362,7 +354,8 @@ def cv2_rotate_scale_expand(img: np.ndarray,
     M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
 
     # 4. Compute new canvas size so nothing is clipped
-    abs_cos = abs(M[0,0]); abs_sin = abs(M[0,1])
+    abs_cos = abs(M[0,0])
+    abs_sin = abs(M[0,1])
     new_w = int(h * abs_sin + w * abs_cos)
     new_h = int(h * abs_cos + w * abs_sin)
     # shift origin to centre result
@@ -421,7 +414,6 @@ def cv2_rotate_scale_expand_3D(img: np.ndarray,
         'lanczos':  cv2.INTER_LANCZOS4,
     }
     # choose interpolation flag
-    flag = _INTERPOLATIONS.get(interp, cv2.INTER_LINEAR)
     orig_mask = None
     if isinstance(img, np.ma.MaskedArray):
         orig_mask = img.mask
@@ -433,7 +425,8 @@ def cv2_rotate_scale_expand_3D(img: np.ndarray,
     M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
 
     # 4. Compute new canvas size so nothing is clipped
-    abs_cos = abs(M[0,0]); abs_sin = abs(M[0,1])
+    abs_cos = abs(M[0,0])
+    abs_sin = abs(M[0,1])
     new_w = int(h * abs_sin + w * abs_cos)
     new_h = int(h * abs_cos + w * abs_sin)
     # shift origin to centre result

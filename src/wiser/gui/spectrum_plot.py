@@ -1040,8 +1040,6 @@ class SpectrumPlotGeneric(QWidget):
         closest_spectrum = None
         closest_index = None
 
-        closest_x_value = None
-        closest_y_value = None
         closest_distance = None
 
         if self._plot_uses_wavelengths:
@@ -1079,8 +1077,6 @@ class SpectrumPlotGeneric(QWidget):
                 if closest_distance is None or distance < closest_distance:
                     closest_spectrum = spectrum
                     closest_index = index
-                    closest_x_value = x_value
-                    closest_y_value = y_value
                     closest_distance = distance
 
         else:
@@ -1108,8 +1104,6 @@ class SpectrumPlotGeneric(QWidget):
                 if closest_distance is None or distance < closest_distance:
                     closest_spectrum = spectrum
                     closest_index = index
-                    closest_x_value = x_value
-                    closest_y_value = y_value
                     closest_distance = distance
 
         return (closest_spectrum, closest_index)
@@ -1826,7 +1820,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
                 spectrum_color = self._active_spectrum_color
                 spectrum.set_color(spectrum_color)
 
-            display_info = self._add_spectrum_to_plot(spectrum, self._treeitem_active)
+            self._add_spectrum_to_plot(spectrum, self._treeitem_active)
 
             # Update the tree-item for the active spectrum
             self._treeitem_active.setText(0, spectrum.get_name())
