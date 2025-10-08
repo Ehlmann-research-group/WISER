@@ -2,11 +2,22 @@
 name: Run tests and linting with linux-cached-dev
 
 on:
-  # Run on any push EXCEPT when the lock changed
+  # Below code (on: push:) says whenever the main branch or a rel/** branch
+  # is pushed to, we run these jobs 
   push:
     paths-ignore:
       - "etc/dev-conda-lock.yml"
-  pull_request: {}
+    branches:
+      - main
+      - 'rel/**'
+  # Below code (on: pull_request:) says whenever the main branch or a rel/**
+  # has a PR opened for it, then whenever a push happens to that PR, we run
+  # these jobs. Duplicates job runs can occur if we have a rel/** branch
+  # PR that targets another rel/** branch or main 
+  pull_request:
+    branches:
+      - main
+      - 'rel/**'
   # The idea here is that if someone made a change to just the lockfiles
   # we want to both refresh the cache and make sure our tests still run
   # so we ignore changes to dev lockfile changes here and let the
@@ -18,8 +29,19 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  pre:
+    name: Skip Duplicate Actions Check
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip.outputs.should_skip }}
+    steps:
+      - id: skip
+        uses: fkirc/skip-duplicate-actions@v5
+
   lint:
     name: Ruff lint & format check
+    needs: [pre]
+    if: ${{ needs.pre.outputs.should_skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
