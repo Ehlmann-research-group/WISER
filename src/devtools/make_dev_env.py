@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-import sys, re, io
+import sys
+import re
+import io
 from pathlib import Path
 
 try:
@@ -42,9 +44,11 @@ def parse_additions(txt: str):
             continue
         lower = line.lower()
         if lower.startswith("dependencies"):
-            mode = "conda"; continue
+            mode = "conda"
+            continue
         if lower.startswith("pip"):
-            mode = "pip"; continue
+            mode = "pip"
+            continue
         # normalize possible "- " prefix
         line = line[2:].strip() if line.startswith("- ") else line
         if mode == "conda":

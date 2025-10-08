@@ -12,6 +12,7 @@ It includes:
 
 This module is intended to be used for integration and GUI-level testing.
 """
+# ruff: noqa: E402
 import sys
 import os
 
