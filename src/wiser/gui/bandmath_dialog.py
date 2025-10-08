@@ -1167,12 +1167,18 @@ class BandMathDialog(QDialog):
 
     def _run_batch_job(self, job: BandmathBatchJob):
         # Run eval bandmath expr
-        success_callback = lambda results: self.on_bandmath_job_success(job, results)
+        def success_callback(results):
+            self.on_bandmath_job_success(job, results)
 
         functions = get_plugin_fns(self._app_state)
-        started_callback = lambda task: self.on_bandmath_job_started(job, task)
-        cancelled_callback = lambda task: self.on_bandmath_job_cancelled(job, task)
-        status_callback = lambda progress: self.on_bandmath_job_status(job, progress)
+
+        def started_callback(task):
+            self.on_bandmath_job_started(job, task)
+        def cancelled_callback(task):
+            self.on_bandmath_job_cancelled(job, task)
+        def status_callback(progress):
+            self.on_bandmath_job_status(job, progress)
+    
         process_manager = bandmath.eval_bandmath_expr(succeeded_callback=success_callback,
                                                       status_callback=status_callback,
                                                       error_callback=bandmath_error_callback,
