@@ -60,7 +60,10 @@ quote-style = "double"
 indent-style = "space"
 
 # Like Black, respect magic trailing commas.
-skip-magic-trailing-comma = true
+skip-magic-trailing-comma = false
 
 # Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"
+
+# Exclude our generated _ui.py files
+exclude = ["generated/*_ui.py"]
