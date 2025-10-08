@@ -1,5 +1,5 @@
 # .github/workflows/dev-tests.yml
-name: Run tests with linux-cached-dev
+name: Run tests and linting with linux-cached-dev
 
 on:
   # Run on any push EXCEPT when the lock changed
