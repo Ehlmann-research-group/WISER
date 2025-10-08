@@ -752,8 +752,6 @@ class RasterPane(QWidget):
                 r_coord = rasterview.image_coord_to_raster_coord(mouse_event.localPos())
                 if rasterview.is_raster_coord_in_bounds(r_coord):
                     rasterview_pos = self._get_rasterview_position(rasterview)
-                    ds = rasterview.get_raster_data()
-                    spatial_coord = ds.to_geographic_coords((r_coord.x(), r_coord.y()))
                     self.click_pixel.emit(rasterview_pos, r_coord)
 
 
@@ -977,7 +975,7 @@ class RasterPane(QWidget):
         '''
         # Get out the raster-view first, since the delegate may be finished and
         # about to go away.
-        td_rasterview = self._task_delegate.get_rasterview()
+        td_rasterview = self._task_delegate.get_rasterview() # noqa: F841
 
         if done:
             # selection = self._creator.get_selection()
@@ -1688,7 +1686,6 @@ class RasterPane(QWidget):
 
     def _on_delete_roi_selection_geometry(self, roi, sel_index) -> None:
         name = roi.get_name()
-        sel = roi.get_selections()[sel_index]
 
         result = QMessageBox.question(self,
             self.tr('Delete selection {0} from ROI "{1}"').format(sel_index, name),

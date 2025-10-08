@@ -514,7 +514,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
             if band_units is not None:
                 band_name = self._ui.tbl_bands.item(i, 2).text()
                 try:
-                    wl = float(band_name)
+                    wl = float(band_name)   #noqa: F841
                 except ValueError:
                     self._ui.tabWidget.setCurrentWidget(self._ui.tab_bands)
                     self._ui.tbl_bands.showRow(i)

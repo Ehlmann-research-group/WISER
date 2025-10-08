@@ -510,8 +510,6 @@ class ImageScrollArea(QScrollArea):
         self.propagate_scroll = True
 
     def wheelEvent(self, event: QWheelEvent):
-        # Get the mouse position in widget coordinates
-        mouse_pos = event.pos()
         # If Ctrl is pressed, intercept the wheel event to perform zooming
         if event.modifiers() & Qt.ControlModifier:
             delta = event.angleDelta().y()

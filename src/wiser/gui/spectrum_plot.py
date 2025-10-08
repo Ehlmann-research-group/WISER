@@ -1067,7 +1067,6 @@ class SpectrumPlotGeneric(QWidget):
                 # Compute the spectrum's y-distance from the y-coordinate of
                 # the mouse-click.
 
-                x_value = wavelengths[index].value
                 y_value = spectrum.get_spectrum()[index]
                 if np.isnan(y_value):
                     continue
@@ -1094,7 +1093,6 @@ class SpectrumPlotGeneric(QWidget):
                 # Compute the spectrum's y-distance from the y-coordinate of
                 # the mouse-click.
 
-                x_value = float(index)
                 y_value = spectrum.get_spectrum()[index]
                 if np.isnan(y_value):
                     continue
