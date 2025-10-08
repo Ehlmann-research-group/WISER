@@ -586,7 +586,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         ds1 = self.test_model.load_dataset(np_impl)
         ds2 = self.test_model.load_dataset(np_impl2)
-        ds3 = self.test_model.load_dataset(np_impl3)
+        self.test_model.load_dataset(np_impl3)
 
         func()
 

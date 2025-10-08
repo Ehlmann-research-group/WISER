@@ -1213,7 +1213,8 @@ class TestBandmathEvaluator(unittest.TestCase):
                 (VariableType.IMAGE_BAND, band)]
 
         # Useful for ensuring we receive messages from the process
-        status_callback = lambda msg: print(f"In test, message from process:\n{msg}", flush=True)
+        def status_callback(msg):
+            print(f"In test, message from process:\n{msg}", flush=True)
 
         for var in vars:
             expr = 'a + b'

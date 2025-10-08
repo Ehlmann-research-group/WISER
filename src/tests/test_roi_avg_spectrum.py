@@ -14,14 +14,13 @@ import numpy as np
 from wiser.raster.spectrum import raster_to_combined_rectangles_x_axis, create_raster_from_roi
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.selection import RectangleSelection, PolygonSelection, MultiPixelSelection
+from wiser.raster.loader import RasterDataLoader
+from wiser.raster.spectrum import ROIAverageSpectrum
+
 from PySide2.QtCore import QPoint
 
 from wiser.gui.app import DataVisualizerApp
 
-from wiser.raster.loader import RasterDataLoader
-from wiser.raster.roi import RegionOfInterest
-
-from wiser.raster.spectrum import ROIAverageSpectrum
 
 import logging
 import traceback

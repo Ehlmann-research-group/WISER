@@ -263,7 +263,7 @@ class WiserTestModel:
     def get_collected_spectra(self) -> List[Spectrum]:
         return self.app_state.get_collected_spectra()
     
-    def get_spectrum_plot_x_units(self) -> u.Unit:
+    def get_spectrum_plot_x_units(self) -> Optional[u.Unit]:
         return self.spectrum_plot.get_x_units()
     
     def get_clicked_spectrum_plot_display_info(self) -> Optional[SpectrumPointDisplayInfo]:
@@ -274,9 +274,6 @@ class WiserTestModel:
         y_value = click._spectrum.get_spectrum()[click._band_index]
         x_value = click._spectrum.get_wavelengths()[click._band_index]
         return (x_value, y_value)
-
-    def get_spectrum_plot_x_units(self) -> Optional[u.Unit]:
-        return self.spectrum_plot._x_units
 
     def get_spectrum_plot_use_wavelengths(self) -> Optional[bool]: 
         return self.spectrum_plot._plot_uses_wavelengths
@@ -399,8 +396,6 @@ class WiserTestModel:
 
     # region State setting
     def set_zoom_pane_dataset(self, ds_id):
-        rv = self.get_zoom_pane_rasterview()
-
         dataset_menu = self.zoom_pane._dataset_chooser._dataset_menu
         QTest.mouseClick(dataset_menu, Qt.LeftButton)
 
@@ -1427,10 +1422,6 @@ class WiserTestModel:
     def crs_creator_get_projection_type(self) -> ProjectionTypes:
         dlg  = self.main_window._crs_creator_dialog
         cbox = dlg._ui.cbox_proj_type
-        all_items = [
-            (cbox.itemText(i), cbox.itemData(i))
-            for i in range(cbox.count())
-        ]
         return cbox.currentData()
 
 
@@ -1617,16 +1608,6 @@ class WiserTestModel:
         """
         dlg = self.main_window._crs_creator_dialog
         button = dlg._ui.btn_reset_fields
-        QTest.mouseClick(button, Qt.LeftButton)
-
-    @run_in_wiser_decorator
-    def crs_creator_press_okay(self) -> None:
-        """
-        ok=True  → press the OK/Save button
-        ok=False → press Cancel
-        """
-        dlg = self.main_window._crs_creator_dialog
-        button = dlg._ui.btn_create_crs
         QTest.mouseClick(button, Qt.LeftButton)
 
     @run_in_wiser_decorator
