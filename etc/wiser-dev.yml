@@ -46,4 +46,4 @@ dependencies:
   - opencv-python==4.5.3.56
   - psutil==7.0.0
   - pyinstaller==6.16.*
-  - pre-commit=4.3.*
+  - pre-commit==4.3.*
