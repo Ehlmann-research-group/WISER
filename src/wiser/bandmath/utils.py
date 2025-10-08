@@ -130,7 +130,7 @@ def save_image_from_bandmath_result(result_type: Union[VariableType, RasterDataS
         ds = loader.dataset_from_numpy_array(result, cache)
         ds.set_description(
             f'Computed image-cube:  {expression} ({timestamp})')
-
+        ds.set_name(name)
         if expr_info.spatial_metadata_source:
             ds.copy_spatial_metadata(expr_info.spatial_metadata_source)
         if expr_info.spectral_metadata_source:

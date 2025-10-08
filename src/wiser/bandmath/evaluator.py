@@ -24,11 +24,9 @@ from .utils import (
 
 from wiser import bandmath
 from wiser.bandmath.types import BANDMATH_VALUE_TYPE
+
 from wiser.raster.serializable import Serializable, SerializedForm
-
 from wiser.raster.data_cache import DataCache
-from wiser.raster.loader import RasterDataLoader
-
 from wiser.raster.dataset import RasterDataSet, RasterDataBand, SpectralMetadata, RasterDataBatchBand, RasterDataDynamicBand
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.loader import RasterDataLoader
@@ -762,7 +760,7 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
     def comparison(self, args):
         logger.debug(' * comparison')
         lhs = args[0]
-        oper = args[1]
+        # oper = args[1]
         rhs = args[2]
         return self.find_current_interm_and_update_max(lhs, rhs)
 
@@ -1258,7 +1256,6 @@ def eval_singular_bandmath_expr(expr_info: BandMathExprInfo, result_name: str, c
     if not use_synchronous_method or \
     (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk):
         try:
-            error = None
             eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
             bands = 1
             lines = 1

@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import argparse
 import faulthandler
 import importlib

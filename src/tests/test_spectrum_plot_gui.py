@@ -183,7 +183,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         # Ensure the plot uses wavelengths
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(True == plot_use_wavelengths)
+        self.assertTrue(plot_use_wavelengths)
 
         # Collect the spectrum
         self.test_model.collect_active_spectrum()
@@ -194,7 +194,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         # Ensure the plot no longer uses wavelengths 
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(False == plot_use_wavelengths)
+        self.assertTrue(not plot_use_wavelengths)
     
     def test_use_wavelengths(self):
         """Tests spectrum plot update when switching between datasets with and without wavelengths.
@@ -233,7 +233,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         # Ensure the plot uses wavelengths
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(True == plot_use_wavelengths)
+        self.assertTrue(plot_use_wavelengths)
 
         # Collect the spectrum
         self.test_model.collect_active_spectrum()
@@ -244,14 +244,14 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         # Ensure the plot no longer uses wavelengths 
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(False == plot_use_wavelengths)
+        self.assertTrue(not plot_use_wavelengths)
 
         # Get rid of the active spectra which has no wavelengths
         self.test_model.remove_active_spectrum()
 
         # Ensure we have wavelengths again
         plot_use_wavelengths = self.test_model.get_spectrum_plot_use_wavelengths()
-        self.assertTrue(True == plot_use_wavelengths)
+        self.assertTrue(plot_use_wavelengths)
 
     def test_switch_clicked_dataset(self):
         """Tests that the spectrum plot correctly switches active dataset.

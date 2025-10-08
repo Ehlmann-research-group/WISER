@@ -31,7 +31,7 @@ def bandmath_parses(bandmath_expr: str) -> bool:
     parse.
     '''
     try:
-        tree = parse_bandmath(bandmath_expr)
+        tree = parse_bandmath(bandmath_expr)  # noqa: F841
         return True
 
     except:
