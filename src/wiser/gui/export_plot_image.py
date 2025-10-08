@@ -96,7 +96,6 @@ class ExportPlotImageDialog(QDialog):
         If the image-format combobox changes, this function updates the filename
         to match the new image format.
         '''
-        idx = self._ui.cbox_image_format.currentIndex()
         self._update_filename_from_image_format()
 
 
