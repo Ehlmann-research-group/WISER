@@ -1,12 +1,16 @@
-
 # --- robust deps writer: works even without importlib.metadata.packages_distributions() ---
-def write_deps_from_analysis(analysis_obj, out_path="build/pyinstaller_dependencies.txt",
-                             exclude_modules=("wiser",), exclude_dists=()):
+def write_deps_from_analysis(
+    analysis_obj,
+    out_path="build/pyinstaller_dependencies.txt",
+    exclude_modules=("wiser",),
+    exclude_dists=(),
+):
     """
     Collect the top-level modules that PyInstaller actually analyzed (pure + C-extensions),
     map them to installed distributions and write 'dist==version' lines.
     """
     from pathlib import Path
+
     try:
         import importlib.metadata as im
     except Exception:
@@ -16,31 +20,31 @@ def write_deps_from_analysis(analysis_obj, out_path="build/pyinstaller_dependenc
         """Return {top_level_pkg: [dist_name, ...]} using top_level.txt or file scanning."""
         mapping = {}
         for dist in im.distributions():
-            dist_name = dist.metadata.get('Name', '')
+            dist_name = dist.metadata.get("Name", "")
             tops = set()
 
             # Primary: top_level.txt
             try:
-                tl = dist.read_text('top_level.txt')
+                tl = dist.read_text("top_level.txt")
             except Exception:
                 tl = None
             if tl:
                 for line in tl.splitlines():
                     s = line.strip()
-                    if s and s != '__pycache__':
+                    if s and s != "__pycache__":
                         tops.add(s)
 
             # Fallback: inspect files to infer top-level package names
             if not tops:
                 files = dist.files or []
                 for f in files:
-                    parts = getattr(f, 'parts', None) or str(f).split('/')
+                    parts = getattr(f, "parts", None) or str(f).split("/")
                     if not parts:
                         continue
                     top = parts[0]
-                    if top.endswith('.py'):
+                    if top.endswith(".py"):
                         top = top[:-3]
-                    if top and top != '__pycache__':
+                    if top and top != "__pycache__":
                         tops.add(top)
 
             for pkg in tops:
@@ -58,22 +62,21 @@ def write_deps_from_analysis(analysis_obj, out_path="build/pyinstaller_dependenc
 
     # Pure Python modules
     for dest, _src, _typ in analysis_obj.pure:
-        module_tops.add(dest.split('.', 1)[0])
+        module_tops.add(dest.split(".", 1)[0])
 
     # C-extensions (.pyd/.so) detected as EXTENSION; be lenient on type and filename
     for dest, _src, typ in analysis_obj.binaries:
         norm = dest.replace("\\", "/")
-        if typ == 'EXTENSION' or norm.endswith(('.pyd', '.so')):
-            top = norm.split('/', 1)[0]
-            if top.endswith(('.pyd', '.so')):
-                top = top.rsplit('.', 1)[0]
+        if typ == "EXTENSION" or norm.endswith((".pyd", ".so")):
+            top = norm.split("/", 1)[0]
+            if top.endswith((".pyd", ".so")):
+                top = top.rsplit(".", 1)[0]
             if top:
                 module_tops.add(top)
 
     # Exclude your own package(s) etc.
     module_tops = {
-        m for m in module_tops
-        if not any(m == ex or m.startswith(ex + ".") for ex in exclude_modules)
+        m for m in module_tops if not any(m == ex or m.startswith(ex + ".") for ex in exclude_modules)
     }
 
     # Map modules -> distributions, then resolve versions
@@ -95,4 +98,3 @@ def write_deps_from_analysis(analysis_obj, out_path="build/pyinstaller_dependenc
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"[deps] wrote {len(lines)} packages to {out}")
-

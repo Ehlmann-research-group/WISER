@@ -11,11 +11,12 @@ from .ui_selection import CONTROL_POINT_SIZE
 
 from .util import scale_qpoint_by_float
 
+
 def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
-    '''
+    """
     Draw a polygon selection, with various options such as whether it is
     active (user-selected), etc.
-    '''
+    """
 
     scale = rasterview.get_scale()
 
@@ -31,17 +32,20 @@ def draw_polygon_selection(rasterview, painter, poly_sel, color, active=False):
 
     if active:
         # Draw boxes on all control-points.
-        color = self._app_state.get_config('raster.selection.edit_points')
+        color = self._app_state.get_config("raster.selection.edit_points")
         painter.setPen(QPen(color))
         for cp in points_scaled:
             cp_scaled = cp * scale
-            painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
-                             cp_scaled.y() - CONTROL_POINT_SIZE / 2,
-                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
+            painter.fillRect(
+                cp_scaled.x() - CONTROL_POINT_SIZE / 2,
+                cp_scaled.y() - CONTROL_POINT_SIZE / 2,
+                CONTROL_POINT_SIZE,
+                CONTROL_POINT_SIZE,
+                color,
+            )
 
 
 class PolygonSelectionCreator(TaskDelegate):
-
     # This variable tunes the sensitivity of closing the polygon.  Lower values
     # require the start and end points to be closer together to close a polygon.
     SENSITIVITY = 10
@@ -55,19 +59,20 @@ class PolygonSelectionCreator(TaskDelegate):
         self._done = False
 
         self._app_state.show_status_text(
-            'Left-click to add points to polygon.  Esc key discards last ' +
-            'point added.  Close polygon to finish entry.')
+            "Left-click to add points to polygon.  Esc key discards last "
+            + "point added.  Close polygon to finish entry."
+        )
 
     def _close_enough(self, p1, p2):
-        '''
+        """
         Returns True when two points in raster coordinates are "close enough" to
         consider the polygon to be closed.  The measure depends on the scale of
         the display, since it's easy to be accurate when zoomed in, but very
         difficult to be accurate when zoomed out.
-        '''
+        """
         scale = self._rasterview.get_scale()
         d = distance(p1, p2)
-        return (d < PolygonSelectionCreator.SENSITIVITY / scale)
+        return d < PolygonSelectionCreator.SENSITIVITY / scale
 
     def on_mouse_press(self, mouse_event):
         return self._done
@@ -100,11 +105,11 @@ class PolygonSelectionCreator(TaskDelegate):
         return False
 
     def on_key_release(self, key_event):
-        '''
+        """
         In the rectangle selection creator, the Esc key allows the user to
         cancel the points that have been entered, in the order they were
         entered.
-        '''
+        """
         if key_event.key() != Qt.Key_Escape:
             return False
 
@@ -112,7 +117,6 @@ class PolygonSelectionCreator(TaskDelegate):
             del self._points[-1]
 
         return False
-
 
     def draw_state(self, painter):
         if len(self._points) == 0:
@@ -122,8 +126,7 @@ class PolygonSelectionCreator(TaskDelegate):
 
         bad_point = False
         closed_loop = False
-        points_scaled = [scale_qpoint_by_float(p, scale) \
-                         for p in self._points]
+        points_scaled = [scale_qpoint_by_float(p, scale) for p in self._points]
         if self._cursor_position is not None:
             cp_scaled = scale_qpoint_by_float(self._cursor_position, scale)
 
@@ -141,7 +144,7 @@ class PolygonSelectionCreator(TaskDelegate):
 
         # print(f'PS:  bad_point = {bad_point}\tclosed_loop = {closed_loop}')
 
-        color = self._app_state.get_config('raster.selection.edit_outline')
+        color = self._app_state.get_config("raster.selection.edit_outline")
         pen = QPen(color)
 
         if not closed_loop:
@@ -160,14 +163,17 @@ class PolygonSelectionCreator(TaskDelegate):
 
         # Draw boxes on the points themselves.
 
-        color = self._app_state.get_config('raster.selection.edit_points')
+        color = self._app_state.get_config("raster.selection.edit_points")
         painter.setPen(QPen(color))
 
         for p_scaled in points_scaled:
-            painter.fillRect(p_scaled.x() - CONTROL_POINT_SIZE / 2,
-                             p_scaled.y() - CONTROL_POINT_SIZE / 2,
-                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
-
+            painter.fillRect(
+                p_scaled.x() - CONTROL_POINT_SIZE / 2,
+                p_scaled.y() - CONTROL_POINT_SIZE / 2,
+                CONTROL_POINT_SIZE,
+                CONTROL_POINT_SIZE,
+                color,
+            )
 
     def finish(self):
         sel = PolygonSelection(self._points)
@@ -178,7 +184,6 @@ class PolygonSelectionCreator(TaskDelegate):
         self._rasterpane.roi_selection_changed.emit(roi, sel)
 
         self._app_state.clear_status_text()
-
 
 
 class PolygonSelectionEditor(TaskDelegate):
@@ -193,9 +198,8 @@ class PolygonSelectionEditor(TaskDelegate):
 
         # Give the user some directions.
         self._app_state.show_status_text(
-            'Left-click and drag control points to adjust the polygon.' +
-            '  Press Esc key to finish edits.')
-
+            "Left-click and drag control points to adjust the polygon." + "  Press Esc key to finish edits."
+        )
 
     def _pick_control_point(self, p):
         for idx, cp in enumerate(self._control_points):
@@ -232,15 +236,14 @@ class PolygonSelectionEditor(TaskDelegate):
         p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._adjust_control_points(p)
 
-
     def _adjust_control_points(self, p):
-        '''
+        """
         This helper adjusts all affected control points based on the input point
         p, which should be in the data-set coordinate system.
 
         Note that this function assumes that self._editing_cp_index is set to
         the index of the control-point that is being manipulated!
-        '''
+        """
         assert self._editing_cp_index is not None
 
         # Local variables for these values, since these names are long!
@@ -252,11 +255,10 @@ class PolygonSelectionEditor(TaskDelegate):
         edit_cp.setX(p.x())
         edit_cp.setY(p.y())
 
-
     def on_key_release(self, key_event):
-        '''
+        """
         In the rectangle selection editor, the Esc key ends the edit operation.
-        '''
+        """
         return key_event.key() == Qt.Key_Escape
 
     def draw_state(self, painter):
@@ -265,7 +267,7 @@ class PolygonSelectionEditor(TaskDelegate):
 
         # Draw the polygon specified by all the points, using a dotted line.
 
-        color = self._app_state.get_config('raster.selection.edit_outline')
+        color = self._app_state.get_config("raster.selection.edit_outline")
         pen = QPen(color)
         pen.setStyle(Qt.DashLine)
         painter.setPen(pen)
@@ -274,12 +276,16 @@ class PolygonSelectionEditor(TaskDelegate):
             painter.drawLine(points_scaled[i - 1], points_scaled[i])
 
         # Draw boxes on all control-points.
-        color = self._app_state.get_config('raster.selection.edit_points')
+        color = self._app_state.get_config("raster.selection.edit_points")
         painter.setPen(QPen(color))
         for cp in points_scaled:
-            painter.fillRect(cp.x() - CONTROL_POINT_SIZE / 2,
-                             cp.y() - CONTROL_POINT_SIZE / 2,
-                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
+            painter.fillRect(
+                cp.x() - CONTROL_POINT_SIZE / 2,
+                cp.y() - CONTROL_POINT_SIZE / 2,
+                CONTROL_POINT_SIZE,
+                CONTROL_POINT_SIZE,
+                color,
+            )
 
     def finish(self):
         # Signal that the ROI changed, so that everyone can be notified.

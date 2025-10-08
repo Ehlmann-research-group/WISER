@@ -22,8 +22,7 @@ if TYPE_CHECKING:
 
 
 class DatasetEditorDialog(QDialog):
-
-    def __init__(self, dataset: 'RasterDataSet', app: 'DataVisualizerApp', parent = None):
+    def __init__(self, dataset: "RasterDataSet", app: "DataVisualizerApp", parent=None):
         super().__init__(parent=parent)
 
         self._ui = Ui_DatasetEditor()
@@ -52,9 +51,13 @@ class DatasetEditorDialog(QDialog):
     def _on_import_wvl_clicked(self, checked: bool = False) -> None:
         # We have to import it in here or else we get a cyclic import error
         from wiser.gui.import_dataset_wavelengths import ImportDatasetWavelengthsDialog
-        selected = QFileDialog.getOpenFileName(self,
+
+        selected = QFileDialog.getOpenFileName(
+            self,
             self.tr("Open Wavelengths File"),
-            self._app._app_state.get_current_dir(), ' All Files (*) ;; Text files (*.txt) ;; Tab files (*.tab)')
+            self._app._app_state.get_current_dir(),
+            " All Files (*) ;; Text files (*.txt) ;; Tab files (*.tab)",
+        )
         if selected[0]:
             filepath = selected[0]
             dialog = ImportDatasetWavelengthsDialog(filepath, self._raster_dataset, self._app, parent=self)

@@ -8,8 +8,12 @@ from .ui_selection_rectangle import draw_rectangle_selection
 from .ui_selection_polygon import draw_polygon_selection
 from .ui_selection_multi_pixel import draw_multi_pixel_selection
 
-from wiser.raster.selection import (Selection, RectangleSelection,
-    PolygonSelection, MultiPixelSelection)
+from wiser.raster.selection import (
+    Selection,
+    RectangleSelection,
+    PolygonSelection,
+    MultiPixelSelection,
+)
 
 
 def draw_roi(rasterview, painter, roi, active=False) -> None:
@@ -34,7 +38,7 @@ def draw_roi(rasterview, painter, roi, active=False) -> None:
 
 def get_picked_roi_selections(roi, coord) -> List[int]:
     picked = []
-    for (index, sel) in enumerate(roi.get_selections()):
+    for index, sel in enumerate(roi.get_selections()):
         if sel.is_picked_by(coord):
             picked.append(index)
 

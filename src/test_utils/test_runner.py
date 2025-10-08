@@ -16,7 +16,8 @@ from typing import List, Any, Optional
 import itertools
 from functools import partial
 
-class TestRunner():
+
+class TestRunner:
     """
     A runner for executing groups of test commands in different orders.
 
@@ -35,6 +36,7 @@ class TestRunner():
         test_model: An object that provides test context (not used directly).
         test_groups (List[List[partial]]): A list of function groups to be tested.
     """
+
     def __init__(self, test_model):
         self.test_model = test_model
         self.test_groups = []
@@ -50,7 +52,7 @@ class TestRunner():
             func_list (List[partial]): A list of partially applied functions or lambdas.
         """
         self.test_groups.append(func_list)
-    
+
     def _unroll_test_groups(self) -> Optional[List[List[partial]]]:
         """
         Generates all permutations of function groups and combines them into full test paths.
@@ -64,13 +66,12 @@ class TestRunner():
         unrolled_groups = []
 
         for group in self.test_groups:
-
             if len(group) > 1:
                 perm_tuples = list(itertools.permutations(group))
                 permutations = [list(p) for p in perm_tuples]
             else:
                 permutations = [group]
-            
+
             if len(unrolled_groups) == 0:
                 unrolled_groups = permutations
             else:
@@ -80,7 +81,7 @@ class TestRunner():
                         new_unrolled_groups.append(exisiting_group + perm)
 
                 unrolled_groups = new_unrolled_groups
-        
+
         return unrolled_groups
 
     def _verify_test_groups(self) -> bool:
@@ -153,8 +154,10 @@ class TestRunner():
         """
         verified = self._verify_test_groups()
         if not verified:
-            raise ValueError(f"The length of the last item in your test group must be 1. " +
-                             f"The current length of the item is {len(self.test_groups[-1])}")
+            raise ValueError(
+                "The length of the last item in your test group must be 1. "
+                + f"The current length of the item is {len(self.test_groups[-1])}"
+            )
         unrolled_test_groups = self._unroll_test_groups()
 
         previous_test_group = None
@@ -162,26 +165,31 @@ class TestRunner():
         for test_group in unrolled_test_groups:
             current_result = self.run_once(test_group)
             if current_result != previous_group_result and previous_group_result is not None:
-                raise ValueError(f"Previous result does not equal current result!"+
-                                 f"Previous result call trace: {self._func_group_to_string(previous_test_group)}" +
-                                 f"Current result call trace: {self._func_group_to_string(test_group)}")
-            
+                raise ValueError(
+                    "Previous result does not equal current result!"
+                    + f"Previous result call trace: {self._func_group_to_string(previous_test_group)}"
+                    + f"Current result call trace: {self._func_group_to_string(test_group)}"
+                )
+
             previous_group_result = current_result
             previous_test_group = test_group
-        
+
         return previous_group_result
+
 
 """
 This tests out the functionality of the test_runner class. Feel free to play
 with it to get an understanding of how it works.
 """
 
+
 def test1(x, y, change=False):
     if not change:
         x = x + y
         return x
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     x = 0
     test_runner = TestRunner(None)
 

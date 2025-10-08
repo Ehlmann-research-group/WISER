@@ -33,7 +33,11 @@ class SFFTool(GenericSpectralComputationTool):
 
     def details_columns(self) -> List[tuple]:
         # include scale column that is specific to SFF
-        return [(self.SCORE_HEADER, "score"), ("Max RMS", "threshold"), ("Scale", "scale")]
+        return [
+            (self.SCORE_HEADER, "score"),
+            ("Max RMS", "threshold"),
+            ("Scale", "scale"),
+        ]
 
     def filename_stub(self) -> str:
         return "SFF"
@@ -42,8 +46,7 @@ class SFFTool(GenericSpectralComputationTool):
         gui_dir = os.path.dirname(os.path.abspath(__file__))
         default_path = os.path.join(
             gui_dir,
-            "../data/"
-            "usgs_default_ref_lib",
+            "../data/" "usgs_default_ref_lib",
             "USGS_Mineral_Spectral_Library.hdr",
         )
         return default_path
@@ -138,5 +141,5 @@ class SFFTool(GenericSpectralComputationTool):
         scale = max(0.0, num / den)
 
         resid = a_t - scale * a_r
-        rms = float(np.sqrt(np.nanmean(resid ** 2)))
+        rms = float(np.sqrt(np.nanmean(resid**2)))
         return rms, {"scale": float(scale)}

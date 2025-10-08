@@ -7,6 +7,7 @@ from .system_info import SystemInfoDialog
 
 from wiser.version import VERSION
 
+
 class AboutDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -15,10 +16,9 @@ class AboutDialog(QDialog):
         self._ui = Ui_AboutDialog()
         self._ui.setupUi(self)
 
-        self._ui.label_version.setText(self.tr('Version:  {0}').format(VERSION))
+        self._ui.label_version.setText(self.tr("Version:  {0}").format(VERSION))
 
         self._ui.btn_system_info.clicked.connect(self._on_system_info)
-
 
     def _on_system_info(self, checked):
         dialog = SystemInfoDialog(self)

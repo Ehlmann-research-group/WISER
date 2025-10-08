@@ -9,21 +9,23 @@ from PySide2.QtWidgets import QMenu, QMessageBox
 
 
 class HelloContextPlugin(ContextMenuPlugin):
-    '''
+    """
     A simple "Hello world!" example of a context-menu plugin.
-    '''
+    """
 
     def __init__(self):
         super().__init__()
 
-    def add_context_menu_items(self,
-                               context_type: ContextMenuType,
-                               context_menu: QMenu,
-                               context: Dict[str, Any]) -> None:
-        '''
+    def add_context_menu_items(
+        self,
+        context_type: ContextMenuType,
+        context_menu: QMenu,
+        context: Dict[str, Any],
+    ) -> None:
+        """
         Use QMenu.addAction() to add individual actions, or QMenu.addMenu() to
         add sub-menus to the Tools menu.
-        '''
+        """
         if context_type == ContextMenuType.RASTER_VIEW:
             # Context-menu display in a raster-view, which probably is showing a
             # dataset.  The current dataset is passed to the plugin.
@@ -50,19 +52,20 @@ class HelloContextPlugin(ContextMenuPlugin):
             pass
 
         else:
-            raise ValueError(f'Unrecognized context_type value {context_type}')
+            raise ValueError(f"Unrecognized context_type value {context_type}")
 
-        act = context_menu.addAction(f'Say hello {context_type}...')
-        act.triggered.connect(lambda checked=False :
-                              self.say_hello(context_type, context))
-
+        act = context_menu.addAction(f"Say hello {context_type}...")
+        act.triggered.connect(lambda checked=False: self.say_hello(context_type, context))
 
     def say_hello(self, context_type: ContextMenuType, context: Dict[str, Any]):
         context_str = pprint.pformat(context)
 
-        print('HelloContextPlugin.say_hello() was called!')
-        print(f' * context_type = {context_type}')
+        print("HelloContextPlugin.say_hello() was called!")
+        print(f" * context_type = {context_type}")
         print(f' * context =\n{textwrap.indent(context_str, " " * 8)}')
 
-        QMessageBox.information(None, 'Hello-Context Plugin',
-            f'Hello from a {context_type} context menu!\n\n{context_str}')
+        QMessageBox.information(
+            None,
+            "Hello-Context Plugin",
+            f"Hello from a {context_type} context menu!\n\n{context_str}",
+        )
