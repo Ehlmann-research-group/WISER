@@ -41,17 +41,12 @@ class LongRunningTask(QThread):
 
     def run(self):
         self.started.emit(self)
-        print('Thread started')
-
-        success = False
         try:
             self._result = self._operation(**self._args)
-            success = True
         except Exception as e:
             self._error = e
 
         self.finished.emit(self)
-        print('Thread finished')
 
     def has_error(self):
         return (self._error is not None)

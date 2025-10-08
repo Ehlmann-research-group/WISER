@@ -222,7 +222,8 @@ class GenericSpectralComputationTool(QDialog):
         row["specs"].extend(specs)
 
     def _on_add_library_clicked(self):
-        self.raise_(); self.activateWindow()
+        self.raise_()
+        self.activateWindow()
         dlg = QFileDialog(self, "Select Library File")
         dlg.setFileMode(QFileDialog.ExistingFile)
         dlg.setNameFilters(["Spectral Library (*.hdr *.csv)", "All Files (*)"])
@@ -623,7 +624,8 @@ class GenericSpectralComputationTool(QDialog):
         lay.addWidget(btn_box)
 
         d.resize(1050, 800)
-        d.show(); d.activateWindow()
+        d.show()
+        d.activateWindow()
 
     def _build_details_layout(self, d: QDialog, rows: List[Dict[str, Any]], target: NumPyArraySpectrum):
         from PySide2.QtWidgets import QVBoxLayout, QTableWidget
@@ -679,12 +681,15 @@ class GenericSpectralComputationTool(QDialog):
         box.setIcon(icon_map.get(kind, QMessageBox.Information))
         box.setWindowTitle(title)
         box.setText(text)
-        if informative: box.setInformativeText(informative)
-        if details: box.setDetailedText(details)
+        if informative:
+            box.setInformativeText(informative)
+        if details:
+            box.setDetailedText(details)
         box.setStandardButtons(buttons)
         box.setDefaultButton(default)
         box.setWindowModality(Qt.WindowModal)
-        box.raise_(); box.activateWindow()
+        box.raise_()
+        box.activateWindow()
         return box.exec_()
 
     # ----------------- Clear / Save State -----------------
@@ -714,9 +719,12 @@ class GenericSpectralComputationTool(QDialog):
         return s
 
     def _q_to_units(self, q):
-        if q is None: return None
-        try: return float(q.to(self._get_wavelength_units()).value)
-        except Exception: return float(getattr(q, "value", q))
+        if q is None:
+            return None
+        try:
+            return float(q.to(self._get_wavelength_units()).value)
+        except Exception:
+            return float(getattr(q, "value", q))
 
     def _units_to_q(self, v):
         return u.Quantity(v, self._get_wavelength_units()) if v is not None else None
@@ -725,8 +733,10 @@ class GenericSpectralComputationTool(QDialog):
         grid = self._ui.libGrid
         for row in self._lib_rows:
             cb, le = row["checkbox"], row["threshold"]
-            grid.removeWidget(cb); cb.deleteLater()
-            grid.removeWidget(le); le.deleteLater()
+            grid.removeWidget(cb)
+            cb.deleteLater()
+            grid.removeWidget(le)
+            le.deleteLater()
         self._lib_rows.clear()
 
     def _save_state(self) -> None:
@@ -789,11 +799,13 @@ class GenericSpectralComputationTool(QDialog):
             for idx in range(combo.count()):
                 obj = combo.itemData(idx)
                 if sid is not None and getattr(obj, "get_id", lambda: None)() == sid:
-                    combo.setCurrentIndex(idx); return
+                    combo.setCurrentIndex(idx)
+                    return
             if name:
                 for idx in range(combo.count()):
                     if getattr(combo.itemData(idx), "get_name", lambda: None)() == name:
-                        combo.setCurrentIndex(idx); return
+                        combo.setCurrentIndex(idx)
+                        return
 
     def _load_state(self) -> None:
         s = self._settings()
@@ -918,7 +930,9 @@ class GenericSpectralComputationTool(QDialog):
         dlg.setWindowModality(Qt.WindowModal)
         dlg.selectFile(os.path.basename(default_path))
         dlg.setDirectory(os.path.dirname(default_path))
-        dlg.show(); dlg.raise_(); dlg.activateWindow()
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
         if dlg.exec_() != QDialog.Accepted:
             return
         path = dlg.selectedFiles()[0]

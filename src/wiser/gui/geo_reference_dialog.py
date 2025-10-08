@@ -1364,7 +1364,7 @@ class GeoReferencerDialog(QDialog):
                 assert index_removed == table_entry.get_id(), \
                         "The index that table entry was removed does not match its ID"
                 break
-        assert index_removed != None, "The table entry was not found in the list of entries"
+        assert index_removed is not None, "The table entry was not found in the list of entries"
         table_widget.removeRow(index_removed)
 
         # We must update the entry id's after we remove the rows so that

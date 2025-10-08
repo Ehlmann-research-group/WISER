@@ -86,7 +86,7 @@ class ImportSpectraTextDialog(QDialog):
     def guess_delimiter(self):
         avg_tabs = avg_occurrences_per_line(self._spectra_text, '\t')
         avg_commas = avg_occurrences_per_line(self._spectra_text, ',')
-        avg_spaces = avg_occurrences_per_line(self._spectra_text, ' ')
+        # avg_spaces = avg_occurrences_per_line(self._spectra_text, ' ')
 
         # We prioritize the delimiters since commas are definitely not numbers,
         # and the others are whitespace so they can be stripped.  But, if there

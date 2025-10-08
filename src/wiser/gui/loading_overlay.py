@@ -60,7 +60,8 @@ class LoadingOverlay(QWidget):
         spinnerRect.moveCenter(center - QPoint(0, 12))
         # track
         pen = QPen(QColor(0,0,0,60), 4)
-        p.setPen(pen); p.drawEllipse(spinnerRect)
+        p.setPen(pen)
+        p.drawEllipse(spinnerRect)
         # arc
         pen = QPen(QColor(0,0,0), 4)
         p.setPen(pen)

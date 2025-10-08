@@ -51,7 +51,7 @@ def scale_rectangle(rect: QRect, scale):
                  rect.width() * scale, rect.height() * scale)
 
 
-def lines_cross(p1a, p1b, p2a, p2b):
+def lines_from_points_cross(p1a, p1b, p2a, p2b):
     '''
     Given four QPoints specifying the endpoints of two lines, this function
     returns True if the lines cross, or False if they do not cross.

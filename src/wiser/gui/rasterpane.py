@@ -658,11 +658,6 @@ class RasterPane(QWidget):
         return regions
 
 
-
-    def get_app_state(self):
-        return self._app_state
-
-
     def get_visible_datasets(self) -> List[RasterDataSet]:
         '''
         Returns all of the datasets that are displayed in all of the 
