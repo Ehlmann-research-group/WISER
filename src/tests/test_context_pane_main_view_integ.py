@@ -400,7 +400,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         # Make sure the shown dataset in context pane was switched
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane did not switch to showing the checked dataset")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane did not switch to showing the checked dataset")
 
         # Click somewhere in ds2'S raster view
         self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 1), raster_coord=(10, 10))
@@ -409,7 +409,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
         self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane dataset changed when clicking in main view")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane dataset changed when clicking in main view")
 
         ds2_id = ds2.get_id()
         # Set context pane to show dataset 2
@@ -419,7 +419,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
         self.assertTrue(checked_id == ds2_id, f"Context pane dataset chooser not set to {ds2_id}")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane did not switch to showing the checked dataset")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane did not switch to showing the checked dataset")
 
         # Click somewhere in dataset 1's rasterview
         self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 0), raster_coord=(10, 10))
@@ -427,7 +427,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
         self.assertTrue(checked_id == ds2_id, "Context Pane dataset chooser changed when clicking in main view")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane dataset changed when clicking in main view")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane dataset changed when clicking in main view")
 
     def test_cp_use_specific_ds_while_linked(self):
         """Verifies that selecting a specific dataset in the context pane persists when main views are linked."""
@@ -471,7 +471,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         # Make sure the shown dataset in context pane was switched
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane did not switch to showing the checked dataset")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane did not switch to showing the checked dataset")
 
         # Click somewhere in ds2'S raster view
         self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 1), raster_coord=(10, 10))
@@ -480,7 +480,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
         self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane dataset changed when clicking in main view")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane dataset changed when clicking in main view")
 
         ds2_id = ds2.get_id()
         # Set context pane to show dataset 2
@@ -490,7 +490,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
         self.assertTrue(checked_id == ds2_id, f"Context pane dataset chooser not set to {ds2_id}")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane did not switch to showing the checked dataset")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane did not switch to showing the checked dataset")
 
         # Click somewhere in dataset 1's rasterview
         self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 0), raster_coord=(10, 10))
@@ -498,7 +498,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
         self.assertTrue(checked_id == ds2_id, "Context Pane dataset chooser changed when clicking in main view")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane dataset changed when clicking in main view")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane dataset changed when clicking in main view")
 
     def test_cp_remove_chosen_dataset(self, func = lambda : None):
         """
@@ -543,12 +543,12 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         # Make sure the shown dataset in context pane was switched
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane did not switch to showing the checked dataset")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane did not switch to showing the checked dataset")
 
         self.test_model.close_dataset(ds1_id)
         
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(checked_id == -1, f"Context pane did not switch 'Use Clicked Dataset' when open dataset was closed")
+        self.assertTrue(checked_id == -1, "Context pane did not switch 'Use Clicked Dataset' when open dataset was closed")
 
 
     def test_cp_remove_chosen_dataset_while_linked(self):
@@ -599,12 +599,12 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         # Make sure the shown dataset in context pane was switched
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
-        self.assertTrue(cp_ds_id == checked_id, f"Context pane did not switch to showing the checked dataset")
+        self.assertTrue(cp_ds_id == checked_id, "Context pane did not switch to showing the checked dataset")
 
         self.test_model.close_dataset(ds2_id)
         
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(checked_id == ds1_id, f"Context pane changed datasets on removing a dataset")
+        self.assertTrue(checked_id == ds1_id, "Context pane changed datasets on removing a dataset")
 
     def test_cp_remove_not_chosen_dataset_while_linked(self):
         """Variant of `test_cp_remove_not_chosen_dataset` for linked views."""

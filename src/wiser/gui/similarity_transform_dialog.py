@@ -304,7 +304,7 @@ class SimilarityTransformDialog(QDialog):
         # Get current point's dataset
         orig_geo_coords = self._translation_dataset.to_geographic_coords(self._selected_point)
         if orig_geo_coords is None:
-            raise RuntimeError(f"Translation dataset has no geo transform!")
+            raise RuntimeError("Translation dataset has no geo transform!")
         origin_lon_east, pixel_w, rot_x, origin_lat_north, rot_y, pixel_h = self._translation_dataset.get_geo_transform()
         new_lon_east = origin_lon_east + self._lon_east_translate
         new_lat_north = origin_lat_north + self._lat_north_translate

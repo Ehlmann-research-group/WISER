@@ -658,7 +658,7 @@ class MainViewWidget(RasterPane):
                                                               rv_dataset,
                                                               link_state=self._link_view_state)
             if target_pixel is None:
-                raise ValueError(f"Target pixel is none even though main view scrolling is linked!")
+                raise ValueError("Target pixel is none even though main view scrolling is linked!")
             target_point = QPoint(*target_pixel)
         else:
             if dataset is not None and rasterview.get_raster_data() is not dataset:

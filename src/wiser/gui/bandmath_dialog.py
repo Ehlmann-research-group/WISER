@@ -1115,7 +1115,7 @@ class BandMathDialog(QDialog):
         try:
             job.get_btn_start().setEnabled(False)
             job.get_btn_cancel().setEnabled(True)
-        except RuntimeError as e:
+        except RuntimeError:
             # There is a point where the process is cancelled and these buttons
             # have been deleted before this callback is called. So we just ignore
             # this runtime error.
@@ -1126,7 +1126,7 @@ class BandMathDialog(QDialog):
             job.get_btn_start().setEnabled(True)
             job.get_btn_cancel().setEnabled(False)
             job.get_controls_widget().set_progress_bar_to_idle()
-        except RuntimeError as e:
+        except RuntimeError:
             # There is a point where the process is cancelled and these buttons
             # have been deleted before this callback is called. So we just ignore
             # this runtime error.
@@ -1570,7 +1570,7 @@ class BandMathDialog(QDialog):
             self._ui.lbl_result_info.setText(self.tr('Error:  {0}').format(e.orig_exc))
             self._ui.lbl_result_info.setStyleSheet('QLabel { color: red; }')
 
-        except lark.exceptions.LarkError as e:
+        except lark.exceptions.LarkError:
             # This would be an exception raised by the parsing code.
             logger.exception(f'Bandmath UI:  Parse error on expression "{expr}"')
             self._ui.lbl_result_info.setText(self.tr('Parse error!'))

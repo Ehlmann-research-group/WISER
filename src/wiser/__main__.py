@@ -35,7 +35,7 @@ from wiser.gui.app_config import (get_wiser_config_dir,
 # occurs, make sure to give the user a chance to find out.
 try:
     check_create_wiser_config_dir()
-except Exception as e:
+except Exception:
     print(f'Couldn\'t create WISER config directory:  {get_wiser_config_dir()}')
     input('Press Enter to terminate the program.')
     sys.exit(1)

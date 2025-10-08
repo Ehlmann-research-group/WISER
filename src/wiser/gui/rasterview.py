@@ -125,7 +125,7 @@ def make_rgb_image_python(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> 
         raise ValueError(f'All channels must be of type uint8, uint16, or uint32; got {ch3.dtype}')
 
     if ch1.shape != ch2.shape or ch1.shape != ch3.shape or ch2.shape != ch3.shape:
-        raise ValueError(f'All channels must have the same dimensions')
+        raise ValueError('All channels must have the same dimensions')
 
     # Expensive sanity checks:
     if __debug__:

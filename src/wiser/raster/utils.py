@@ -95,7 +95,7 @@ def get_netCDF_reflectance_path(file_path):
         elif "mask" in subdataset:
             return subdataset
 
-    raise Exception(f'netCDF file type is not supported!')
+    raise Exception('netCDF file type is not supported!')
 
 def get_spectral_unit(unit_str: str) -> u.Unit:
     '''
@@ -411,7 +411,7 @@ def can_transform_between_srs(srs1: osr.SpatialReference, srs2: osr.SpatialRefer
     try:
         ct = osr.CoordinateTransformation(srs1, srs2)
         return True
-    except BaseException as e:
+    except BaseException:
         return False
 
 def have_spatial_overlap(srs1: osr.SpatialReference, gt1: List[float],

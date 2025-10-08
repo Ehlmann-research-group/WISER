@@ -153,7 +153,7 @@ class TestRunner():
         """
         verified = self._verify_test_groups()
         if not verified:
-            raise ValueError(f"The length of the last item in your test group must be 1. " +
+            raise ValueError("The length of the last item in your test group must be 1. " +
                              f"The current length of the item is {len(self.test_groups[-1])}")
         unrolled_test_groups = self._unroll_test_groups()
 
@@ -162,7 +162,7 @@ class TestRunner():
         for test_group in unrolled_test_groups:
             current_result = self.run_once(test_group)
             if current_result != previous_group_result and previous_group_result is not None:
-                raise ValueError(f"Previous result does not equal current result!"+
+                raise ValueError("Previous result does not equal current result!"+
                                  f"Previous result call trace: {self._func_group_to_string(previous_test_group)}" +
                                  f"Current result call trace: {self._func_group_to_string(test_group)}")
             

@@ -498,7 +498,7 @@ class GDALRasterDataImpl(RasterDataImpl):
                     self.gdal_dataset = None
                     driver.Delete(filepath)
                 else:
-                    print(f"Dataset variable is None. Either the dataset " +
+                    print("Dataset variable is None. Either the dataset " +
                           "file was deleted or just the variable was deleted.")
             except Exception as e:
                 print(f"Couldn't delete dataset. Error: \n {e}")
@@ -665,7 +665,7 @@ class PDRRasterDataImpl(RasterDataImpl):
             return self.pdr_dataset['IMAGE'][band_list_orig,:,:]
         else:
             raise ValueError(f"The number of dimensions this raster has is {self.ndims} " +
-                             f"so it doesn't make sense to get multiple bands")
+                             "so it doesn't make sense to get multiple bands")
 
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
         if self.ndims == 2:
@@ -903,7 +903,7 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
             return reopened_dataset['IMAGE'][band_list_orig,:,:]
         else:
             raise ValueError(f"The number of dimensions this raster has is {self.ndims} " +
-                             f"so it doesn't make sense to get multiple bands")
+                             "so it doesn't make sense to get multiple bands")
 
     def get_all_bands_at_rect(self, x: int, y: int, dx: int, dy: int):
         reopened_dataset = self.reopen_dataset()
@@ -1039,7 +1039,7 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
             height = gdal_dataset.RasterYSize
             bands = gdal_dataset.RasterCount
 
-            print(f"Number of dimensions:")
+            print("Number of dimensions:")
             print(f"Width (X-axis): {width}")
             print(f"Height (Y-axis): {height}")
             print(f"Bands (Z-axis): {bands}")
@@ -1318,7 +1318,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 wl_var = netcdf_dataset.variables["wavelengths"]
                 wavelengths = wl_var[:]
 
-        except Exception as e:
+        except Exception:
             wavelengths = None
             wl_unit = None
 

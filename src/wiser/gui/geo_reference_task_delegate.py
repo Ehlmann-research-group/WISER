@@ -149,7 +149,7 @@ class GroundControlPointPair:
         elif selector_type == PointSelectorType.REFERENCE_POINT_SELECTOR:
             self._ref_gcp = gcp
         else:
-            raise ValueError(f"The GCP passed into GroundControlPointPair " +
+            raise ValueError("The GCP passed into GroundControlPointPair " +
                              f"does not have a selector type. It's type is {selector_type}")
 
     def get_gcp(self, selector_type: PointSelectorType):
@@ -161,8 +161,8 @@ class GroundControlPointPair:
         elif selector_type == PointSelectorType.REFERENCE_POINT_SELECTOR:
             return self._ref_gcp
         else:
-            raise ValueError(f"This GroundControlPointPair does not have a GCP" +
-                             f"with a matching rasterpane")
+            raise ValueError("This GroundControlPointPair does not have a GCP" +
+                             "with a matching rasterpane")
 
     def remove_gcp(self, selector_type: PointSelectorType):
         '''
@@ -173,8 +173,8 @@ class GroundControlPointPair:
         elif selector_type == PointSelectorType.REFERENCE_POINT_SELECTOR:
             self._ref_gcp = None
         else:
-            raise ValueError(f"This GroundControlPointPair does not have a GCP" +
-                             f"with a matching rasterpane")
+            raise ValueError("This GroundControlPointPair does not have a GCP" +
+                             "with a matching rasterpane")
 
     def has_only_one_gcp(self):
         return (self._target_gcp is not None and self._ref_gcp is None) or \
@@ -299,7 +299,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             # We should never reach this point because the state SECOND_POINT_ENTERED should
             # immediately go back to the NOTHING_SELECTED state
             raise ValueError(f"The state {self._state} was arrived at in on_key_release" + 
-                                f"for the enter key")
+                                "for the enter key")
 
     def on_mouse_release(self, mouse_event: QMouseEvent, rasterpane: 'GeoReferencerPane'):
         '''
@@ -411,7 +411,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             # We should never reach this point because the state SECOND_POINT_ENTERED should
             # immediately go back to the NOTHING_SELECTED state
             raise ValueError(f"The state {self._state} was arrived at in on_key_release" + 
-                                f"for the escape key")
+                                "for the escape key")
 
     def handle_enter_key_release(self):
         # We have two options here:
@@ -442,7 +442,7 @@ class GeoReferencerTaskDelegate(TaskDelegate):
             # We should never reach this point because the state SECOND_POINT_ENTERED should
             # immediately go back to the NOTHING_SELECTED state
             raise ValueError(f"The state {self._state} was arrived at in on_key_release" + 
-                                f"for the enter key")
+                                "for the enter key")
 
     def create_gcp_pair(self, gcp_0 = None, gcp_1 = None) -> GroundControlPointPair:
         return GroundControlPointPair(gcp_0=gcp_0, gcp_1=gcp_1)

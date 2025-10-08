@@ -1002,13 +1002,13 @@ class RasterDataSet(Serializable):
                 for j in range(arr.shape[2]):
                     try:
                         arr[:,i,j][mask] = np.nan
-                    except BaseException as e:
+                    except BaseException:
                         arr[:,i,j][mask] = DEFAULT_MASK_VALUE
             if self._data_ignore_value is not None:
                 mask_ignore_val = np.isclose(arr, self._data_ignore_value)
                 try:
                     arr[mask_ignore_val] = np.nan
-                except BaseException as e:
+                except BaseException:
                     arr[mask_ignore_val] = DEFAULT_MASK_VALUE
         return arr
 

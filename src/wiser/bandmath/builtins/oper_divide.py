@@ -27,7 +27,7 @@ class OperatorDivide(BandMathFunction):
     def analyze(self, infos: List[BandMathExprInfo]):
 
         if len(infos) != 2:
-            raise Exception(f'Binary division requires exactly two arguments')
+            raise Exception('Binary division requires exactly two arguments')
 
         lhs = infos[0]
         rhs = infos[1]

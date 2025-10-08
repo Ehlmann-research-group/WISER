@@ -243,8 +243,8 @@ class BandMathValue:
                     band_end = band_list[-1]
                     arr = self.value[band_start:band_end+1]
                     return arr
-                raise TypeError(f'Type value is incorrect, should be' +
-                                f'IMAGE_CUBE, IMAGE_BAND, OR SPECTRUM' + 
+                raise TypeError('Type value is incorrect, should be' +
+                                'IMAGE_CUBE, IMAGE_BAND, OR SPECTRUM' + 
                                 f'but got {type(self.value)}')
 
             if self.type == VariableType.IMAGE_CUBE:
@@ -264,7 +264,7 @@ class BandMathValue:
                     return arr
             # We only want this function to work for numpy arrays and RasterDataSets 
             # because these can be very big 3D objects
-            raise TypeError(f'This function should only be called on numpy' +
+            raise TypeError('This function should only be called on numpy' +
                             f'arrays and image cubes, not {self.type}')  
 
 class BandMathFunction(abc.ABC):

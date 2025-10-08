@@ -238,7 +238,7 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
         # sure we load results into WISER if batch is disabled.
         if load_into_wiser or not batch_enabled:
             for result_type, result, result_name, expr_info in results:
-                logger.debug(f'Result of band-math evaluation is type ' +
+                logger.debug('Result of band-math evaluation is type ' +
                             f'{result_type}, value:\n{result}')
 
                 # Compute a timestamp to put in the description
@@ -280,7 +280,7 @@ def bandmath_success_callback(parent: QWidget, app_state: 'ApplicationState', re
                     app_state.set_active_spectrum(new_spectrum)
         if output_folder:
             for result_type, result, result_name, expr_info in results:
-                logger.debug(f'Result of band-math evaluation is type ' +
+                logger.debug('Result of band-math evaluation is type ' +
                             f'{result_type}, value:\n{result}')
 
                 # Compute a timestamp to put in the description

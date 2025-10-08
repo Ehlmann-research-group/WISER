@@ -109,8 +109,8 @@ class DatasetChooser(QToolButton):
         function should only be called if the num views is (1, 1).
         '''
         if self._rasterpane.get_num_views() != (1, 1):
-            raise ValueError(f"The function check_dataset should only be called when raster " +
-                             f"pane has one view")
+            raise ValueError("The function check_dataset should only be called when raster " +
+                             "pane has one view")
 
         self._uncheck_all(self._dataset_menu)
 

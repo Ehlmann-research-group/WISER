@@ -635,7 +635,7 @@ class ChannelStretchWidget(QWidget):
     def validate_stretch_low_string(self, stretch_low_text):
         try:
             stretch_low_value = float(stretch_low_text)
-        except BaseException as e:
+        except BaseException:
             self._ui.lineedit_stretch_low.clearFocus()
             QMessageBox.critical(self, 
                                  "Invalid Input",
@@ -678,7 +678,7 @@ class ChannelStretchWidget(QWidget):
     def validate_stretch_high_string(self, stretch_high_text):
         try:
             stretch_high_value = float(stretch_high_text)
-        except BaseException as e:
+        except BaseException:
             self._ui.lineedit_stretch_high.clearFocus()
             QMessageBox.critical(self, 
                                 "Invalid Input",

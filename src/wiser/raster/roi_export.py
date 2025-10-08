@@ -277,7 +277,7 @@ def ogr_feature_to_roi(feature: ogr.Feature) -> RegionOfInterest:
             roi.add_selection(sel)
 
         else:
-            raise ValueError(f'Feature contains a geometry of type ' +
+            raise ValueError('Feature contains a geometry of type ' +
                 f'{geom_type}, but WISER doesn\'t know how to import this.')
 
     return roi

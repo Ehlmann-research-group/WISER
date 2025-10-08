@@ -212,7 +212,7 @@ class TiledRasterView(RasterView):
 
         if raster_data is None:
             index = self._cbox_dataset_chooser.findData(-1)
-            assert index != -1, f'Missing the (no data) option!'
+            assert index != -1, 'Missing the (no data) option!'
 
         else:
             ds_id = raster_data.get_id()
@@ -1127,7 +1127,7 @@ class RasterPane(QWidget):
 
             
         assert len(rasterviews) == len(viewports), \
-            f"Number of rasterviews and viewports passed in are not the same!" + \
+            "Number of rasterviews and viewports passed in are not the same!" + \
             f"Number of rasterviews: {len(rasterviews)}. Number of viewports: {len(viewports)}"
     
         # We reset the viewport highlight variable because we don't want past 
@@ -1171,7 +1171,7 @@ class RasterPane(QWidget):
 
             
         assert len(rasterviews) == len(viewports), \
-            f"Number of rasterviews and viewports passed in are not the same!" + \
+            "Number of rasterviews and viewports passed in are not the same!" + \
             f"Number of rasterviews: {len(rasterviews)}. Number of viewports: {len(viewports)}"
     
         # We reset the viewport highlight variable because

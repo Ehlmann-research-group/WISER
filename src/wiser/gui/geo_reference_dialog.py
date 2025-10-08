@@ -456,7 +456,7 @@ class GeoReferencerDialog(QDialog):
                 else:
                     srs_cbox.addItem(reference_srs_name, AuthorityCodeCRS(ref_ds.get_spatial_ref().GetAuthorityName(None), \
                                      int(reference_srs_code)))
-            except BaseException as e:
+            except BaseException:
                 pass
 
         for name, srs in COMMON_SRS.items():
@@ -1006,7 +1006,7 @@ class GeoReferencerDialog(QDialog):
         # ────────────────────────────────────────────────────────────────
         if skipped_gcps:
             info_lines = []
-            info_lines.append(f"Skipped GCPs")
+            info_lines.append("Skipped GCPs")
             info_lines.append("")
             for tpl, reason in skipped_gcps:
                 info_lines.append(f"GCP: {tpl}")

@@ -392,7 +392,7 @@ class DataVisualizerApp(QMainWindow):
             try:
                 plugin = plugins.utils.instantiate(pc)
 
-            except Exception as e:
+            except Exception:
                 logging.exception(f'Couldn\'t instantiate plugin class "{pc}"!')
                 continue
 

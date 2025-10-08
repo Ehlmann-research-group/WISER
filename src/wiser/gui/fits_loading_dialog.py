@@ -62,7 +62,7 @@ class FitsDatasetLoadingDialog(QDialog):
                     self._axis_lengths.append(fits_gdal_dataset_impl.num_bands())
                     self._axis_lengths.append(fits_gdal_dataset_impl.get_height())
                     self._axis_lengths.append(fits_gdal_dataset_impl.get_width())
-        except BaseException as e:
+        except BaseException:
             raise TypeError(f'Could not open {filepath} as fits file.')
         
         # Set the naxis information
@@ -99,7 +99,7 @@ class FitsDatasetLoadingDialog(QDialog):
             self._possible_datatypes.append(DataType.MANY_IMAGE_BAND)
             self._possible_datatypes.append(DataType.IMAGE_CUBE)
         else:
-            raise Exception(f"WISER does not support naxis number other than 2 or 3 for datasets. " +
+            raise Exception("WISER does not support naxis number other than 2 or 3 for datasets. " +
                             f"Yours is {self._naxis}. If your naxis number is 1, then load it in as a spectra.")
 
         # Set the combo box information
@@ -173,7 +173,7 @@ class FitsDatasetLoadingDialog(QDialog):
                     numpy_impl = NumPyRasterDataImpl(arr)
                     numpy_raster_impl_list.append(numpy_impl)
             else:
-                raise Exception(f'Data varying axis is somehow 3. Should be between 0 and 2')
+                raise Exception('Data varying axis is somehow 3. Should be between 0 and 2')
             
             for i in range(len(numpy_raster_impl_list)):
                 numpy_impl = numpy_raster_impl_list[i]
@@ -216,7 +216,7 @@ class FitsSpectraLoadingDialog(QDialog):
                             unit_value = u.Unit(unit_str)
                             print(f"Type of unit value on startup: {type(unit_value)}")
                             print(f"Unit_value: {unit_value}")
-                        except BaseException as e:
+                        except BaseException:
                             continue
                         self._units.append(unit_value)
     

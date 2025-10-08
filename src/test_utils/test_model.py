@@ -213,7 +213,7 @@ class WiserTestModel:
             dataset = self.raster_data_loader.dataset_from_numpy_array(dataset_arr, self.data_cache)
             dataset.set_name(f"NumpyArray{self.app_state._next_id}")
         else:
-            raise ValueError(f"Dataset_info should either be a numpy array or string, " +
+            raise ValueError("Dataset_info should either be a numpy array or string, " +
                              f"not {type(dataset)}!")
         
         self.app_state.add_dataset(dataset)
@@ -474,7 +474,7 @@ class WiserTestModel:
             self.app.postEvent(self.testing_widget, function_event)
             self.run()
         else:
-            raise ValueError(f"QPoint must be in zoom pane region." + 
+            raise ValueError("QPoint must be in zoom pane region." + 
                              f"QPoint: {raster_point}, Zoom Region: {zoom_pane_region}")
 
 

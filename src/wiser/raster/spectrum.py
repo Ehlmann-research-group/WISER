@@ -188,7 +188,7 @@ def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest,
     for qrect in qrects:
         try:
             s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
-        except BaseException as e:
+        except BaseException:
             # TODO (Joshua G-K): Make this cleaner. Either check in impl or don't let user create
             # ROIs that go out of bounds.
             arr = np.full((dataset.num_bands(),), np.nan)
