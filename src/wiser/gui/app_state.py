@@ -400,12 +400,12 @@ class ApplicationState(QObject):
         
         datasets = list(self._datasets.values())
         ds0_srs = datasets[0].get_spatial_ref()
-        if ds0_srs == None:
+        if ds0_srs is None:
             return False, GeographicLinkState.NO_LINK
         
         for ds in datasets[1:]:
             ds_srs = ds.get_spatial_ref()
-            if ds_srs == None or not ds0_srs.IsSame(ds_srs):
+            if ds_srs is None or not ds0_srs.IsSame(ds_srs):
                 return False, GeographicLinkState.NO_LINK
 
         return True, GeographicLinkState.SPATIAL
@@ -430,7 +430,7 @@ class ApplicationState(QObject):
 
         ds0_srs: osr.SpatialReference = displayed_datasets[0].get_spatial_ref()
         ds0 = displayed_datasets[0]
-        if ds0_srs == None:
+        if ds0_srs is None:
             return False, GeographicLinkState.NO_LINK
 
         for ds in displayed_datasets[1:]:
@@ -439,7 +439,7 @@ class ApplicationState(QObject):
             have_overlap = have_spatial_overlap(ds0_srs, ds0.get_geo_transform(), ds0.get_width(), \
                                             ds0.get_height(), ds_srs, ds.get_geo_transform(), \
                                             ds.get_width(), ds.get_height())
-            if ds_srs == None or not can_transform or not have_overlap:
+            if ds_srs is None or not can_transform or not have_overlap:
                 return False, GeographicLinkState.NO_LINK
 
         return True, GeographicLinkState.SPATIAL

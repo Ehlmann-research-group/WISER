@@ -301,8 +301,8 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         zp_region = self.test_model.get_zoom_pane_visible_region()
 
         self.assertTrue(are_qrects_close(zp_region, rv_00_region))
-        self.assertTrue(rv_01_region == None)
-        self.assertTrue(rv_10_region == None)
+        self.assertTrue(rv_01_region is None)
+        self.assertTrue(rv_10_region is None)
 
     def test_linked_highlight_box(self):
         """Tests that highlight boxes appear in all linked raster views that are compatible with the dataset."""

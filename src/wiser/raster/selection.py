@@ -254,12 +254,12 @@ class PolygonSelection(Selection):
         return self.get_bounding_box().contains(coord)
     
     def get_rasterized_polygon(self) -> RasterizedPolygon:
-        if self._rasterized_poly == None:
+        if self._rasterized_poly is None:
             self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
         return self._rasterized_poly
     
     def get_all_pixels(self) -> Set[Tuple[int, int]]:
-        if self._rasterized_poly == None:
+        if self._rasterized_poly is None:
             self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
         return self._rasterized_poly.get_set()
 

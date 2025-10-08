@@ -369,7 +369,7 @@ class WiserTestModel:
         pixel_selection = self.zoom_pane._pixel_highlight
         if pixel_selection is None:
             return
-        if pixel_selection.get_dataset() == None:
+        if pixel_selection.get_dataset() is None:
             pixel = pixel_selection.get_pixel()
             return (pixel.x(), pixel.y())
         # Use rv_pos to get the ds_id for the rv
@@ -669,7 +669,7 @@ class WiserTestModel:
         pixel_selection = self.main_view._pixel_highlight
         if pixel_selection is None:
             return
-        if pixel_selection.get_dataset() == None:
+        if pixel_selection.get_dataset() is None:
             pixel = pixel_selection.get_pixel()
             return (pixel.x(), pixel.y())
         # Use rv_pos to get the ds_id for the rv
@@ -885,7 +885,7 @@ class WiserTestModel:
                 if cbox_ds_id == ds_id:
                     index = i
                     break
-            if index == None:
+            if index is None:
                 raise ValueError(f"Dataset belonging to id {ds_id} is not in dataset chooser")
             
             # Now we switch the rv to the correct dataset

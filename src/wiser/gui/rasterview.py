@@ -558,7 +558,7 @@ class RasterView(QWidget):
         '''
         super().__init__(parent=parent)
 
-        if forward == None:
+        if forward is None:
             forward = {}
 
         self._app_state = app_state
