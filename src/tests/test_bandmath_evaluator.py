@@ -1770,5 +1770,5 @@ class TestBandmathEvaluator(unittest.TestCase):
 if __name__ == "__main__":
     test_class = TestBandmathEvaluator()
     test_class.setUp()
-    test_class.test_bandmath_preloaded_data_with_band_index_batch_sync()
+    test_class.test_bandmath_preloaded_data_with_band_index_batch_async()
     test_class.tearDown()
