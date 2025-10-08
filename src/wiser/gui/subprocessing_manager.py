@@ -13,16 +13,19 @@ from wiser.utils.multiprocessing_context import CTX
 import traceback
 
 SENTINEL_RESULT = "__RESULT__"
-SENTINEL_ERROR  = "__ERROR__"
+SENTINEL_ERROR = "__ERROR__"
 
-def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue: mp.Queue, **kwargs):
+
+def child_trampoline(
+    op: Callable, child_conn: mp_conn.Connection, return_queue: mp.Queue, **kwargs
+):
     try:
         op(child_conn=child_conn, return_queue=return_queue, **kwargs)
     except Exception:
         tb = traceback.format_exc()
         # send both ways so you always see it
         try:
-            child_conn.send(["process_error", { "type": "error", "traceback": tb }])
+            child_conn.send(["process_error", {"type": "error", "traceback": tb}])
         except Exception:
             pass
         try:
@@ -36,11 +39,12 @@ def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue:
             child_conn.close()
         except Exception:
             pass
-    
+
+
 class ProcessManager(QObject):
-    '''
+    """
     This class is used to manage a single process. It is used to run a function in a separate process.
-    and get the process ID for that process but also set up the communication between the parent and 
+    and get the process ID for that process but also set up the communication between the parent and
     child processes. The function passed into this class should use this inter-process communication.
     Specifically, the function should use the child_conn to send data to the parent process and use the
     return_queue to get the return value from the child process. We use this class instead of
@@ -72,7 +76,7 @@ class ProcessManager(QObject):
         print(child_comms)
     result = process_manager.get_task().get_result()
     ```
-    '''
+    """
 
     _next_process_id = 0
 
@@ -80,17 +84,19 @@ class ProcessManager(QObject):
         super().__init__()
         self._parent_conn, self._child_conn = CTX.Pipe(duplex=False)
         self._return_q = CTX.Queue()
-        kwargs['op'] = operation
-        kwargs['child_conn'] = self._child_conn
-        kwargs['return_queue'] = self._return_q
+        kwargs["op"] = operation
+        kwargs["child_conn"] = self._child_conn
+        kwargs["return_queue"] = self._return_q
         self._process = CTX.Process(target=child_trampoline, kwargs=kwargs)
-        self._task = ParallelTaskProcess(self._process, self._parent_conn, self._child_conn, self._return_q)
+        self._task = ParallelTaskProcess(
+            self._process, self._parent_conn, self._child_conn, self._return_q
+        )
         self._process_manager_id = type(self)._next_process_id
         type(self)._next_process_id += 1
 
     def get_task(self) -> ParallelTaskProcess:
         return self._task
-    
+
     def start_task(self, blocking=False):
         self._task.start()
         if blocking:
@@ -98,24 +104,25 @@ class ProcessManager(QObject):
 
     def get_pid(self) -> Union[int, None]:
         return self._task.get_process_id()
-    
+
     def get_process(self) -> mp.Process:
         return self._process
-    
+
     def get_process_manager_id(self) -> int:
         return self._process_manager_id
 
+
 class MultiprocessingManager(QObject):
-    '''
+    """
     Requirements:
     - Takes in a function to run asychronously, prepares that function to be run
-    - Lets user set up callback function, error, cancelled, started, finished signals. 
+    - Lets user set up callback function, error, cancelled, started, finished signals.
 
     - Multiprocmanager can make parallel running tasks, users should use a class called
     - multiprocfunction that has a pipe and this is passed into create task. When a task
-    - is started, multiproc function gets the process id of the task and 
-    '''
-    
+    - is started, multiproc function gets the process id of the task and
+    """
+
     def __init__(self):
         super().__init__()
         self._process_pool_executor = ProcessPoolExecutor()

@@ -26,12 +26,13 @@ from PySide2.QtWidgets import *
 
 from .utils import are_pixels_close, are_qrects_close
 
+
 class TestMainViewZoomPaneIntegration(unittest.TestCase):
     """
     Tests the integration between the main view and zoom pane in WISER.
 
-    These tests ensure that pixel selection, zooming, and panning behavior are 
-    consistent and synchronized between views, and that highlighting behaves as expected 
+    These tests ensure that pixel selection, zooming, and panning behavior are
+    consistent and synchronized between views, and that highlighting behaves as expected
     when views are linked or unlinked.
 
     Attributes:
@@ -113,7 +114,7 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
 
         pixel = (49, 49)
 
-        # Zoom into both Zoom Pane and Main View so its possible to 
+        # Zoom into both Zoom Pane and Main View so its possible to
         # move each view around
         self.test_model.set_zoom_pane_zoom_level(4)
         self.test_model.click_main_view_zoom_in()
@@ -149,14 +150,14 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.click_raster_coord_zoom_pane(pixel)
 
         mv_pixel = self.test_model.get_main_view_rv_clicked_raster_coord((0, 0))
-    
+
         self.assertTrue(pixel == mv_pixel)
 
     def test_click_zp_move_mv(self):
         """Tests that clicking in the zoom pane causes the main view to pan to the same region and highlight the same pixel.
 
         Note:
-            Due to rounding issues in test simulation, the clicked pixel might be off-by-one, 
+            Due to rounding issues in test simulation, the clicked pixel might be off-by-one,
             but the issue is not present in the actual GUI application.
         """
 
@@ -186,10 +187,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.click_main_view_zoom_in()
 
         # Make mainview scroll to top left
-        self.test_model.scroll_main_view_rv_dx((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dx((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dy((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dy((0,0), 1000)
+        self.test_model.scroll_main_view_rv_dx((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dx((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dy((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dy((0, 0), 1000)
 
         pixel = self.test_model.get_zoom_pane_center_raster_point()
         pixel = (pixel.x(), pixel.y())
@@ -197,7 +198,7 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.click_raster_coord_zoom_pane(pixel)
 
         mv_pixel = self.test_model.get_main_view_rv_clicked_raster_coord((0, 0))
-    
+
         # Ensure the pixels are the same
         self.assertTrue(pixel == mv_pixel)
 
@@ -241,10 +242,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.test_model.click_main_view_zoom_in()
 
         # Make mainview scroll to top left
-        self.test_model.scroll_main_view_rv_dx((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dx((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dy((0,0), 1000)
-        self.test_model.scroll_main_view_rv_dy((0,0), 1000)
+        self.test_model.scroll_main_view_rv_dx((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dx((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dy((0, 0), 1000)
+        self.test_model.scroll_main_view_rv_dy((0, 0), 1000)
 
         self.test_model.scroll_zoom_pane_dx(-1000)
 
@@ -271,7 +272,9 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        row_values = np.concatenate(
+            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
+        ).reshape(rows, 1)
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -316,7 +319,9 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+        row_values = np.concatenate(
+            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
+        ).reshape(rows, 1)
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -352,11 +357,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(rv_00_region == rv_10_region)
 
 
-
 """
 Code to make sure tests work as desired
 """
-if __name__ == '__main__':
+if __name__ == "__main__":
     tester = TestMainViewZoomPaneIntegration()
     test_model = WiserTestModel(use_gui=True)
 
@@ -370,7 +374,9 @@ if __name__ == '__main__':
 
     # Create second array
     # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-    row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+    row_values = np.concatenate(
+        (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
+    ).reshape(rows, 1)
     impl2 = np.tile(row_values, (1, cols))
     np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 

@@ -11,19 +11,20 @@ from .ui_selection import CONTROL_POINT_SIZE
 
 from .util import scale_qpoint_by_float
 
+
 def is_rect_sel_picked(rect_sel, p):
-    '''
+    """
     Returns True if the specified point (in dataset coordinates) falls within
     the rectangle selection.
-    '''
+    """
     return rect_sel.get_rect().contains(p)
 
 
 def draw_rectangle_selection(rasterview, painter, rect_sel, color, active=False):
-    '''
+    """
     Draw a rectangle selection, with various options such as whether it is
     active (user-selected), etc.
-    '''
+    """
     scale = rasterview.get_scale()
 
     pen = QPen(color)
@@ -37,13 +38,17 @@ def draw_rectangle_selection(rasterview, painter, rect_sel, color, active=False)
 
     if active:
         # Draw boxes on all control-points.
-        color = self._app_state.get_config('raster.selection.edit_points')
+        color = self._app_state.get_config("raster.selection.edit_points")
         painter.setPen(QPen(color))
         for cp in self._control_points:
             cp_scaled = cp * scale
-            painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
-                             cp_scaled.y() - CONTROL_POINT_SIZE / 2,
-                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
+            painter.fillRect(
+                cp_scaled.x() - CONTROL_POINT_SIZE / 2,
+                cp_scaled.y() - CONTROL_POINT_SIZE / 2,
+                CONTROL_POINT_SIZE,
+                CONTROL_POINT_SIZE,
+                color,
+            )
 
 
 class RectangleSelectionCreator(TaskDelegate):
@@ -53,7 +58,8 @@ class RectangleSelectionCreator(TaskDelegate):
         self._point2 = None
 
         self._app_state.show_status_text(
-            'Left-click and drag to create a rectangle selection.')
+            "Left-click and drag to create a rectangle selection."
+        )
 
     def on_mouse_press(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
@@ -80,7 +86,7 @@ class RectangleSelectionCreator(TaskDelegate):
         p2_scaled = scale_qpoint_by_float(self._point2, scale)
         # Draw a box between the two points, using a dotted rectangle.
 
-        color = self._app_state.get_config('raster.selection.edit_outline')
+        color = self._app_state.get_config("raster.selection.edit_outline")
         pen = QPen(color)
         pen.setStyle(Qt.DashLine)
         painter.setPen(pen)
@@ -89,14 +95,22 @@ class RectangleSelectionCreator(TaskDelegate):
 
         # Draw boxes on the two points themselves.
 
-        color = self._app_state.get_config('raster.selection.edit_points')
+        color = self._app_state.get_config("raster.selection.edit_points")
         painter.setPen(QPen(color))
-        painter.fillRect(p1_scaled.x() - CONTROL_POINT_SIZE / 2,
-                         p1_scaled.y() - CONTROL_POINT_SIZE / 2,
-                         CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
-        painter.fillRect(p2_scaled.x() - CONTROL_POINT_SIZE / 2,
-                         p2_scaled.y() - CONTROL_POINT_SIZE / 2,
-                         CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
+        painter.fillRect(
+            p1_scaled.x() - CONTROL_POINT_SIZE / 2,
+            p1_scaled.y() - CONTROL_POINT_SIZE / 2,
+            CONTROL_POINT_SIZE,
+            CONTROL_POINT_SIZE,
+            color,
+        )
+        painter.fillRect(
+            p2_scaled.x() - CONTROL_POINT_SIZE / 2,
+            p2_scaled.y() - CONTROL_POINT_SIZE / 2,
+            CONTROL_POINT_SIZE,
+            CONTROL_POINT_SIZE,
+            color,
+        )
 
     def finish(self):
         if self._point1 is None or self._point2 is None:
@@ -123,10 +137,10 @@ class RectangleSelectionEditor(TaskDelegate):
         self._init_control_points()
 
     def _init_control_points(self):
-        '''
+        """
         Initialize the control-points for adjusting the rectangle selection.
-        '''
-        top_left     = self._rect_sel.get_top_left()
+        """
+        top_left = self._rect_sel.get_top_left()
         bottom_right = self._rect_sel.get_bottom_right()
 
         self._control_points.append(top_left)
@@ -147,9 +161,9 @@ class RectangleSelectionEditor(TaskDelegate):
 
         # Give the user some directions.
         self._app_state.show_status_text(
-            'Left-click and drag control points to adjust the rectangle.' +
-            '  Press Esc key to finish edits.')
-
+            "Left-click and drag control points to adjust the rectangle."
+            + "  Press Esc key to finish edits."
+        )
 
     def _pick_control_point(self, p):
         for idx, cp in enumerate(self._control_points):
@@ -168,17 +182,14 @@ class RectangleSelectionEditor(TaskDelegate):
         self._editing_cp_index = self._pick_control_point(p)
         return False
 
-
     def on_mouse_move(self, mouse_event):
         self._handle_mouse_update(mouse_event)
         return False
-
 
     def on_mouse_release(self, mouse_event):
         self._handle_mouse_update(mouse_event)
         self._editing_cp_index = None
         return False
-
 
     def _handle_mouse_update(self, mouse_event):
         if self._editing_cp_index is None:
@@ -189,15 +200,14 @@ class RectangleSelectionEditor(TaskDelegate):
         p = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
         self._adjust_control_points(p)
 
-
     def _adjust_control_points(self, p):
-        '''
+        """
         This helper adjusts all affected control points based on the input point
         p, which should be in the data-set coordinate system.
 
         Note that this function assumes that self._editing_cp_index is set to
         the index of the control-point that is being manipulated!
-        '''
+        """
         assert self._editing_cp_index is not None
 
         # Local variables for these values, since these names are long!
@@ -215,11 +225,10 @@ class RectangleSelectionEditor(TaskDelegate):
         self._control_points[self._cp_affects_x[i]].setX(p.x())
         self._control_points[self._cp_affects_y[i]].setY(p.y())
 
-
     def on_key_release(self, key_event):
-        '''
+        """
         In the rectangle selection editor, the Esc key ends the edit operation.
-        '''
+        """
         return key_event.key() == Qt.Key_Escape
 
     def draw_state(self, painter):
@@ -229,7 +238,7 @@ class RectangleSelectionEditor(TaskDelegate):
 
         # Draw a box between the two points, using a dotted rectangle.
 
-        color = self._app_state.get_config('raster.selection.edit_outline')
+        color = self._app_state.get_config("raster.selection.edit_outline")
         pen = QPen(color)
         pen.setStyle(Qt.DashLine)
         painter.setPen(pen)
@@ -237,13 +246,17 @@ class RectangleSelectionEditor(TaskDelegate):
         painter.drawRect(rect)
 
         # Draw boxes on all control-points.
-        color = self._app_state.get_config('raster.selection.edit_points')
+        color = self._app_state.get_config("raster.selection.edit_points")
         painter.setPen(QPen(color))
         for cp in self._control_points:
             cp_scaled = scale_qpoint_by_float(cp, scale)
-            painter.fillRect(cp_scaled.x() - CONTROL_POINT_SIZE / 2,
-                             cp_scaled.y() - CONTROL_POINT_SIZE / 2,
-                             CONTROL_POINT_SIZE, CONTROL_POINT_SIZE, color)
+            painter.fillRect(
+                cp_scaled.x() - CONTROL_POINT_SIZE / 2,
+                cp_scaled.y() - CONTROL_POINT_SIZE / 2,
+                CONTROL_POINT_SIZE,
+                CONTROL_POINT_SIZE,
+                color,
+            )
 
     def finish(self):
         # Signal that the ROI changed, so that everyone can be notified.

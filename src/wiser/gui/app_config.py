@@ -14,12 +14,11 @@ from wiser import version
 from wiser.raster.spectrum import SpectrumAverageMode
 
 
-
 class PixelReticleType(enum.Enum):
-    '''
+    """
     This enumeration specifies the different options for how a selected pixel
     is highlighted in the user interface.
-    '''
+    """
 
     # Draw a "small cross" - the horizontal and vertical lines will only have
     # a relatively small extent.
@@ -36,10 +35,11 @@ class PixelReticleType(enum.Enum):
 
 
 class LegendPlacement(enum.Enum):
-    '''
+    """
     An enumeration of the placement options that the spectral plot window
     recognizes.  These are mapped to matplotlib arguments in the component.
-    '''
+    """
+
     NO_LEGEND = 0
 
     UPPER_LEFT = 1
@@ -58,7 +58,7 @@ class LegendPlacement(enum.Enum):
 
 
 def get_wiser_config_dir() -> str:
-    '''
+    """
     Determine the WISER config directory based on the platform/OS.  The config
     directory is as follows:
 
@@ -66,35 +66,36 @@ def get_wiser_config_dir() -> str:
     *   On macOS, the user's `~/Library/WISER` directory is used.
     *   All other platforms are assumed to be Linux/*NIX, and `~/.wiser` is
         used.  Note that a warning is output if the platform is not Linux.
-    '''
+    """
     sys_name = platform.system()
-    if sys_name == 'Windows':
+    if sys_name == "Windows":
         # Put WISER config in the user's local application data directory
-        wiser_dir = os.path.expandvars(r'%LOCALAPPDATA%\WISER')
+        wiser_dir = os.path.expandvars(r"%LOCALAPPDATA%\WISER")
 
-    elif sys_name == 'Darwin':
+    elif sys_name == "Darwin":
         # Put WISER config in the user's Library directory
-        wiser_dir = os.path.expanduser('~/Library/WISER')
+        wiser_dir = os.path.expanduser("~/Library/WISER")
 
     else:
         # Use the standard UNIX/Linux approach of a dot-filename in the user's
         # home directory.
-        if sys_name != 'Linux':
+        if sys_name != "Linux":
             warnings.warn(f'Unrecognized platform name "{sys_name}"')
 
-        wiser_dir = os.path.expanduser('~/.wiser')
+        wiser_dir = os.path.expanduser("~/.wiser")
 
     return wiser_dir
 
 
 def check_create_wiser_config_dir():
-    '''
+    """
     This helper function creates the WISER config directory if it doesn't
     already exist.
-    '''
+    """
     path = get_wiser_config_dir()
     if not os.path.isdir(path):
         os.makedirs(path)
+
 
 """
 def get_path_to_wiser_conf(*subpaths: List[str]):
@@ -113,65 +114,57 @@ def get_path_to_wiser_conf(*subpaths: List[str]):
     return os.path.join(get_wiser_config_dir(), subpaths)
 """
 
-class ApplicationConfig:
 
+class ApplicationConfig:
     DEFAULTS = {
         # General properties - these are all scalars
-
-        'general.version'              : (str, version.VERSION),
-        'general.online_bug_reporting' : (bool, False),
-        'general.red_wavelength_nm'    : (int, 700),
-        'general.green_wavelength_nm'  : (int, 530),
-        'general.blue_wavelength_nm'   : (int, 470),
-
-        'raster.pixel_cursor_type'        : (str, 'SMALL_CROSS'), # PixelReticleType
-        'raster.pixel_cursor_color'       : (str, 'red'),
-        'raster.viewport_highlight_color' : (str, 'yellow'),
-
-        'raster.selection.edit_outline'   : (str, 'white'),
-        'raster.selection.edit_points'    : (str, 'yellow'),
-
-        'spectra.default_area_avg_x'    : (int, 1),
-        'spectra.default_area_avg_y'    : (int, 1),
-        'spectra.default_area_avg_mode' : (str, 'MEAN'), # SpectrumAverageMode
-
+        "general.version": (str, version.VERSION),
+        "general.online_bug_reporting": (bool, False),
+        "general.red_wavelength_nm": (int, 700),
+        "general.green_wavelength_nm": (int, 530),
+        "general.blue_wavelength_nm": (int, 470),
+        "raster.pixel_cursor_type": (str, "SMALL_CROSS"),  # PixelReticleType
+        "raster.pixel_cursor_color": (str, "red"),
+        "raster.viewport_highlight_color": (str, "yellow"),
+        "raster.selection.edit_outline": (str, "white"),
+        "raster.selection.edit_points": (str, "yellow"),
+        "spectra.default_area_avg_x": (int, 1),
+        "spectra.default_area_avg_y": (int, 1),
+        "spectra.default_area_avg_mode": (str, "MEAN"),  # SpectrumAverageMode
         # Plugin configuration - by default this is all empty
-
-        'plugin_paths' : (list, []),
-        'plugins' : (list, []),
+        "plugin_paths": (list, []),
+        "plugins": (list, []),
     }
 
-    FEATURE_FLAGS = 'feature_flags.'
+    FEATURE_FLAGS = "feature_flags."
 
     def __init__(self):
-        '''
+        """
         Initialize a new ApplicationConfig object with default settings.
-        '''
+        """
         self._config: Dict = {}
         self._load_defaults()
 
-
     def _load_defaults(self):
-        '''
+        """
         This helper function generates and returns a default WISER configuration.
         Any user-specific configuration is loaded on top of this, so that all
         key options are always specified, even if user configuration is
         incomplete.
-        '''
+        """
 
         self._config = {}
-        for (name, (value_type, default_value)) in self.DEFAULTS.items():
+        for name, (value_type, default_value) in self.DEFAULTS.items():
             self.set(name, default_value)
 
-
     def get(self, option, default=None, as_type=None) -> Any:
-        '''
+        """
         Returns the value of the specified config option.  An optional default
         value may be specified.
 
         Options are specified as a sequence of names separated by dots '.',
         just like a series of object-member accesses on an object hierarchy.
-        '''
+        """
         option = option.strip().lower()
 
         value = self._config.get(option)
@@ -193,11 +186,10 @@ class ApplicationConfig:
 
         return value
 
-
     def set(self, option, value):
-        '''
+        """
         Sets the value of the specified config option.
-        '''
+        """
         option = option.strip().lower()
 
         # If we know about this option, or if it is a feature-flag, convert it
@@ -210,16 +202,15 @@ class ApplicationConfig:
 
         self._config[option] = value
 
-
     def load(self, config_path: str) -> None:
-        '''
+        """
         Load configuration from the specified file path into this object.  If
         an exception is raised, it will propagate out of this function, and the
         current contents of this object will remain unchanged.  If the load
         completes successfully, this object will contain the configuaration from
         the data file, with any missing values provided by the default
         configuration settings.
-        '''
+        """
 
         # Load the file!  If an exception occurs, let it propagate out.
         with open(config_path) as f:
@@ -229,11 +220,11 @@ class ApplicationConfig:
         # pairs.
 
         if not isinstance(file_conf, dict):
-            raise ValueError('Loaded configuration must be a Python dict')
+            raise ValueError("Loaded configuration must be a Python dict")
 
         for key, value in file_conf.items():
             if not isinstance(key, str):
-                raise ValueError('Loaded configuration must have string keys')
+                raise ValueError("Loaded configuration must have string keys")
 
             # TODO(donnie):  The plugin config is lists.
             # if isinstance(value, dict) or isinstance(value, list):
@@ -244,21 +235,19 @@ class ApplicationConfig:
         for key, value in file_conf.items():
             self.set(key, value)
 
-
     def save(self, config_path: str) -> None:
-        '''
+        """
         Save the configuration in this object to the specified file path.  If
         an exception is raised, it will propagate out of this function.
-        '''
+        """
         # Make sure the target directory exists first.
         folder_path = os.path.dirname(config_path)
         if folder_path:
             os.makedirs(folder_path, exist_ok=True)
 
         # Save the file.  Let exceptions propagate out.
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             json.dump(self._config, f, sort_keys=True, indent=4)
-
 
     def to_string(self) -> str:
         return json.dumps(self._config, sort_keys=True, indent=4)

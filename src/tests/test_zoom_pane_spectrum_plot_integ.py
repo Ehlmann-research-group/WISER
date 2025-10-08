@@ -27,6 +27,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+
 class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
     """
     Unit tests for verifying integration between the Zoom Pane and Spectrum Plot in WISER.
@@ -51,23 +52,31 @@ class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
         Asserts:
             The spectrum from the clicked pixel matches the expected spectrum array.
         """
-        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
         pixel_to_click = (0, 0)
 
@@ -93,23 +102,31 @@ class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
             The collected spectrum matches the pixel at the first click.
             The active spectrum matches the pixel at the second click.
         """
-        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
         pixel_to_click = (0, 0)
 
@@ -130,7 +147,9 @@ class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
 
         self.assertTrue(np.array_equal(expected_array, spectrum_array))
 
-        collected_spectrum_array = self.test_model.get_collected_spectra()[0].get_spectrum()
+        collected_spectrum_array = self.test_model.get_collected_spectra()[
+            0
+        ].get_spectrum()
 
         expected_array = np.array([0.0, 0.0, 0.0])
 

@@ -33,7 +33,11 @@ class SFFTool(GenericSpectralComputationTool):
 
     def details_columns(self) -> List[tuple]:
         # include scale column that is specific to SFF
-        return [(self.SCORE_HEADER, "score"), ("Max RMS", "threshold"), ("Scale", "scale")]
+        return [
+            (self.SCORE_HEADER, "score"),
+            ("Max RMS", "threshold"),
+            ("Scale", "scale"),
+        ]
 
     def filename_stub(self) -> str:
         return "SFF"
@@ -42,21 +46,24 @@ class SFFTool(GenericSpectralComputationTool):
         gui_dir = os.path.dirname(os.path.abspath(__file__))
         default_path = os.path.join(
             gui_dir,
-            "../data/"
-            "usgs_default_ref_lib",
+            "../data/" "usgs_default_ref_lib",
             "USGS_Mineral_Spectral_Library.hdr",
         )
         return default_path
 
     # ---------- SFF helpers ----------
     @staticmethod
-    def _resample_to(x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray) -> np.ndarray:
+    def _resample_to(
+        x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray
+    ) -> np.ndarray:
         if x_src.size < 2 or np.all(~np.isfinite(y_src)):
             return np.full_like(x_dst, np.nan, dtype=float)
         # Slice to bounds should have already taken care of the case that something is outside
         # of x_src's range, so this shold only happen if a value is really close to the range
         # which will only happen from a floating point error. We want to keep these values.
-        f = interp1d(x_src, y_src, kind="linear", bounds_error=False, fill_value="extrapolate")
+        f = interp1d(
+            x_src, y_src, kind="linear", bounds_error=False, fill_value="extrapolate"
+        )
         return f(x_dst)
 
     @staticmethod
@@ -91,7 +98,9 @@ class SFFTool(GenericSpectralComputationTool):
                 keep.append(i)
             keep.append(idx[-1])
             idx = np.array(keep, dtype=int)
-        f = interp1d(x[idx], y[idx], kind="linear", bounds_error=False, fill_value="extrapolate")
+        f = interp1d(
+            x[idx], y[idx], kind="linear", bounds_error=False, fill_value="extrapolate"
+        )
         cont = f(x)
         return np.maximum(cont, 1e-12)
 
@@ -138,5 +147,5 @@ class SFFTool(GenericSpectralComputationTool):
         scale = max(0.0, num / den)
 
         resid = a_t - scale * a_r
-        rms = float(np.sqrt(np.nanmean(resid ** 2)))
+        rms = float(np.sqrt(np.nanmean(resid**2)))
         return rms, {"scale": float(scale)}

@@ -7,6 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class Cache:
     """
     A generic cache implementation using an ordered dictionary to store key-value pairs with size management.
@@ -14,18 +15,20 @@ class Cache:
     Attributes:
         _capacity (int): The maximum allowed size of the cache in bytes.
         _size (int): The current size of the cache in bytes.
-        _cache (OrderedDictType[int, Union[np.ndarray, np.ma.masked_array]]): 
+        _cache (OrderedDictType[int, Union[np.ndarray, np.ma.masked_array]]):
             An ordered dictionary storing cached items with their keys.
-        _key_lookup_table (Dict[int, List[int]]): 
+        _key_lookup_table (Dict[int, List[int]]):
             A dictionary mapping partial keys to lists of cache keys for efficient lookup and eviction.
     """
 
     def __init__(self, capacity: int = 3000000000):
         self._capacity = capacity
         self._size = 0
-        self._cache: OrderedDictType[int: Union[np.ndarray, np.ma.masked_array]] = OrderedDict()
-        self._key_lookup_table: Dict[int: List[int]] = {}
-    
+        self._cache: OrderedDictType[
+            int : Union[np.ndarray, np.ma.masked_array]
+        ] = OrderedDict()
+        self._key_lookup_table: Dict[int : List[int]] = {}
+
     def _evict(self):
         """
         Evicts items from the cache until the current size is within the capacity.
@@ -48,7 +51,7 @@ class Cache:
         for key in self._cache:
             self._size -= self._cache[key].nbytes
             del self._cache[key]
-        assert np.isclose(self._size, 0.0) 
+        assert np.isclose(self._size, 0.0)
 
     def remove_cache_item(self, key: int):
         """
@@ -61,7 +64,9 @@ class Cache:
             self._size -= self._cache[key].nbytes
             del self._cache[key]
 
-    def add_cache_item(self, key: int, value: Union[np.ndarray, np.ma.masked_array]) -> bool:
+    def add_cache_item(
+        self, key: int, value: Union[np.ndarray, np.ma.masked_array]
+    ) -> bool:
         """
         Adds a new item to the cache. Evicts existing items if necessary to maintain capacity.
 
@@ -75,7 +80,9 @@ class Cache:
         if key in self._cache:
             data_size = value.nbytes
             if data_size > self._capacity:
-                logger.debug(f'Size of data exceeds cache size: {data_size} > {self._capacity}')
+                logger.debug(
+                    f"Size of data exceeds cache size: {data_size} > {self._capacity}"
+                )
                 return False
             if self._size + data_size > self._capacity:
                 self._evict()
@@ -93,8 +100,8 @@ class Cache:
         Raises:
             NotImplementedError: Always raised to indicate that the method needs to be overridden.
         """
-        raise NotImplementedError(f'get_cache_key is not implemented for {type(self)}')
-    
+        raise NotImplementedError(f"get_cache_key is not implemented for {type(self)}")
+
     def get_cache_item(self, key: int):
         """
         Retrieves an item from the cache by its key.
@@ -108,10 +115,10 @@ class Cache:
         if key in self._cache:
             return self._cache[key]
         return None
-    
+
     def in_cache(self, key: int):
         return key in self._cache
-    
+
     def get_partial_key(self, dataset):
         """
         Generates a partial key based on the dataset.
@@ -124,8 +131,10 @@ class Cache:
         Raises:
             NotImplementedError: Always raised to indicate that the method needs to be overridden.
         """
-        raise NotImplementedError(f'get_partial_key is not implemented for {type(self)}')
-    
+        raise NotImplementedError(
+            f"get_partial_key is not implemented for {type(self)}"
+        )
+
     def lookup_keys(self, partial_key: int) -> List[int]:
         """
         Retrieves all cache keys associated with a given partial key. If it doesn't exist,
@@ -138,7 +147,7 @@ class Cache:
             List[int]: A list of cache keys associated with the partial key.
         """
         return self._key_lookup_table.get(partial_key, [])
-    
+
     def clear_keys_from_partial(self, partial_key: int):
         """
         Removes all cache items associated with a specific partial key.
@@ -150,6 +159,7 @@ class Cache:
         for key in keys:
             self.remove_cache_item(key)
 
+
 class RenderCache(Cache):
     """
     A cache specialized for rendering data, extending the generic Cache class.
@@ -157,16 +167,16 @@ class RenderCache(Cache):
     This cache manages rendered datasets, allowing efficient storage and retrieval based on dataset,
     band tuples, and stretches.
     """
-    
+
     def __init__(self, capacity: int = 3000000000):
         super().__init__(capacity)
-        self._key_lookup_table: Dict[int: List[int]] = {}
+        self._key_lookup_table: Dict[int : List[int]] = {}
 
-    def get_cache_key(self, dataset, band_tuple: Tuple[int], stretches, colormap = None):
+    def get_cache_key(self, dataset, band_tuple: Tuple[int], stretches, colormap=None):
         """
         Creates and returns a unique cache key based on the dataset, band tuple, and stretches.
 
-        It also stores the cache key with the partial key generated from the dataset in order to 
+        It also stores the cache key with the partial key generated from the dataset in order to
         facilitate efficient lookup and eviction when the dataset is deleted.
 
         Args:
@@ -183,7 +193,7 @@ class RenderCache(Cache):
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)
         return cache_key
-    
+
     def get_partial_key(self, dataset):
         return hash((dataset))
 
@@ -216,9 +226,10 @@ class ComputationCache(Cache):
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)
         return cache_key
-    
+
     def get_partial_key(self, dataset):
         return hash((dataset))
+
 
 class HistogramCache(Cache):
     """
@@ -229,10 +240,11 @@ class HistogramCache(Cache):
 
     This cache can be much smaller than the other cache's because histogram data is small.
     """
+
     def __init__(self, capacity: int = 100000000):
-        '''
+        """
         Initialize with capacity of 100 MB
-        '''
+        """
         super().__init__(capacity)
 
     def _evict(self):
@@ -249,7 +261,7 @@ class HistogramCache(Cache):
             for value in values:
                 self._size -= value.nbytes
             del self._cache[key]
-        assert np.isclose(self._size, 0.0) 
+        assert np.isclose(self._size, 0.0)
 
     def remove_cache_item(self, key: int):
         if key in self._cache:
@@ -258,45 +270,62 @@ class HistogramCache(Cache):
                 self._size -= value.nbytes
             del self._cache[key]
 
-    def add_cache_item(self, key: int, values: Tuple[Union[np.ndarray, np.ma.masked_array]]):
-        '''
+    def add_cache_item(
+        self, key: int, values: Tuple[Union[np.ndarray, np.ma.masked_array]]
+    ):
+        """
         The first value in values should be the histogram bins and the second should be
         the histogram edges
-        '''
+        """
         data_size = 0
         for value in values:
             data_size += value.nbytes
         if data_size > self._capacity:
-            print(f'Size of data exceeds histogram cache size: {data_size} > {self._capacity}')
+            print(
+                f"Size of data exceeds histogram cache size: {data_size} > {self._capacity}"
+            )
             return
         if self._size + data_size > self._capacity:
             self._evict()
         self._cache[key] = values
         for value in values:
             self._size += value.nbytes
-    
-    def get_cache_key(self, dataset,band_index: int, stretch_type, conditioner_type, \
-                      min_bound, max_bound):
+
+    def get_cache_key(
+        self,
+        dataset,
+        band_index: int,
+        stretch_type,
+        conditioner_type,
+        min_bound,
+        max_bound,
+    ):
         partial_key = self.get_partial_key(dataset)
-        cache_key = hash((dataset, band_index, stretch_type, conditioner_type, min_bound, max_bound))
+        cache_key = hash(
+            (dataset, band_index, stretch_type, conditioner_type, min_bound, max_bound)
+        )
         if partial_key not in self._key_lookup_table:
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)
         return cache_key
-    
+
     def get_partial_key(self, dataset):
         return hash((dataset))
 
-class DataCache():
 
-    def __init__(self, render_capacity:int = 10000000000, computation_capacity: int=10000000000):
+class DataCache:
+    def __init__(
+        self,
+        render_capacity: int = 10000000000,
+        computation_capacity: int = 10000000000,
+    ):
         self._render_cache = RenderCache(render_capacity)
         self._computation_cache = ComputationCache(computation_capacity)
         self._histogram_cache = HistogramCache()
-    
+
     def get_render_cache(self):
         return self._render_cache
-    
+
     def get_computation_cache(self):
         return self._computation_cache
 

@@ -64,8 +64,11 @@ def crossProduct(o, a, b):
 
     return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
 
+
 _point_t = types.UniTuple(types.float32, 2)
 cross_sig = types.float32(_point_t, _point_t, _point_t)
+
+
 @numba_njit_wrapper(non_njit_func=crossProduct, signature=cross_sig)
 def cross_product_numba(o, a, b):
     """Code provided by Sahil Azad
@@ -86,6 +89,7 @@ def cross_product_numba(o, a, b):
     """
 
     return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
 
 def monotone(points):
     """Code provided by Sahil Azad
@@ -112,8 +116,11 @@ def monotone(points):
         l_len += 1
     return upper
 
+
 _point_t = types.UniTuple(types.float32, 2)
 mono_sig = types.float32[:, :](types.float32[:, :])
+
+
 @numba_njit_wrapper(non_njit_func=monotone, signature=mono_sig)
 def monotone_numba(points):
     """Code provided by Sahil Azad
@@ -133,8 +140,7 @@ def monotone_numba(points):
 
     for k in range(points.shape[0]):
         p = (points[k, 0], points[k, 1])
-        while len(upper) >= 2 and cross_product_numba(
-                upper[-2], upper[-1], p) <= 0:
+        while len(upper) >= 2 and cross_product_numba(upper[-2], upper[-1], p) <= 0:
             upper.pop()
         upper.append(p)
 
@@ -143,6 +149,7 @@ def monotone_numba(points):
     for i in range(m):
         hull_arr[i, 0], hull_arr[i, 1] = upper[i]
     return hull_arr
+
 
 def continuum_removal(reflectance, waves):
     """Calculates the continuum removed spectrum
@@ -173,7 +180,12 @@ def continuum_removal(reflectance, waves):
     final = np.column_stack((waves, norm)).transpose(1, 0)[1]
     return final, iy_hull_np
 
-cr_sig = types.Tuple((types.float32[:], types.float32[:]))(types.float32[:], types.float32[:])
+
+cr_sig = types.Tuple((types.float32[:], types.float32[:]))(
+    types.float32[:], types.float32[:]
+)
+
+
 @numba_njit_wrapper(non_njit_func=continuum_removal, signature=cr_sig)
 def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     """Calculates the continuum removed spectrum for a single spectrum using numba
@@ -207,7 +219,9 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
 
     # np.interp commonly yields float64; Numba also prefers float64 here.
     #  Use float64 temporaries for interpolation, then cast back to float32.
-    iy_hull64 = np.interp(waves.astype(np.float64), xp.astype(np.float64), fp.astype(np.float64))
+    iy_hull64 = np.interp(
+        waves.astype(np.float64), xp.astype(np.float64), fp.astype(np.float64)
+    )
     iy_hull = iy_hull64.astype(np.float32)
 
     # Keep division in float32 and return float32 arrays
@@ -216,9 +230,12 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     # Returning (float32[:], float32[:]) to match cr_sig
     return norm, iy_hull
 
-def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
-    '''
-    Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum 
+
+def continuum_removal_image(
+    image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int
+):
+    """
+    Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum
     removed spectrum for each pixel in the image.
 
     Parameters
@@ -238,10 +255,8 @@ def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: in
     ----------
     results: np.ndarray
         A 3D numpy array of continuum removed image data
-    '''
-    image_spectra_2d = image_data.reshape(
-        (rows * cols, bands)
-    )  # [y][x][b] -> [y*x][b]
+    """
+    image_spectra_2d = image_data.reshape((rows * cols, bands))  # [y][x][b] -> [y*x][b]
     results = np.empty_like(image_spectra_2d, dtype=np.float32)
     for i in range(image_spectra_2d.shape[0]):
         reflectance = image_spectra_2d[i]
@@ -249,16 +264,23 @@ def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: in
         continuum_removed, hull = continuum_removal(reflectance, x_axis)
         results[i] = continuum_removed
     results = results.reshape((rows, cols, bands))
-    results = results.copy().transpose(
-        2, 0, 1
-    )  # [y][x][b] -> [b][y][x]
+    results = results.copy().transpose(2, 0, 1)  # [y][x][b] -> [b][y][x]
     return results
 
-cr_image_sig = types.float32[:, :, :](types.float32[:, :, :], types.float32[:], types.int32, types.int32, types.int32)
-@numba_njit_wrapper(non_njit_func=continuum_removal_image, signature=cr_image_sig, parallel=True)
-def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
-    '''
-    Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum 
+
+cr_image_sig = types.float32[:, :, :](
+    types.float32[:, :, :], types.float32[:], types.int32, types.int32, types.int32
+)
+
+
+@numba_njit_wrapper(
+    non_njit_func=continuum_removal_image, signature=cr_image_sig, parallel=True
+)
+def continuum_removal_image_numba(
+    image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int
+):
+    """
+    Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum
     removed spectrum for each pixel in the image using numba.
 
     Parameters
@@ -278,12 +300,10 @@ def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, ro
     ----------
     results: np.ndarray
         A 3D numpy array of continuum removed image data
-    '''
+    """
     image_data = np.ascontiguousarray(image_data)
     rows_cols = np.int32(rows * cols)
-    image_spectra_2d = image_data.reshape(
-        (rows_cols, bands)
-    )  # [y][x][b] -> [y*x][b]
+    image_spectra_2d = image_data.reshape((rows_cols, bands))  # [y][x][b] -> [y*x][b]
     results = np.empty_like(image_spectra_2d, dtype=np.float32)
     for i in numba.prange(image_spectra_2d.shape[0]):
         reflectance = image_spectra_2d[i]
@@ -291,10 +311,9 @@ def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, ro
         continuum_removed, hull = continuum_removal_numba(reflectance, x_axis)
         results[i] = continuum_removed
     results = results.reshape((rows, cols, bands))
-    results = results.copy().transpose(
-        2, 0, 1
-    )  # [y][x][b] -> [b][y][x]
+    results = results.copy().transpose(2, 0, 1)  # [y][x][b] -> [b][y][x]
     return results
+
 
 class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
     """
@@ -524,9 +543,11 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
                 maximum += 1
                 self.image(
                     min_cols, min_rows, max_cols, max_rows, minimum, maximum, context
-                ) 
+                )
 
-    def plot_continuum_removal(self, spec_object: Spectrum, context: dict) -> Tuple[raster.spectrum.NumPyArraySpectrum, raster.spectrum.NumPyArraySpectrum]:
+    def plot_continuum_removal(
+        self, spec_object: Spectrum, context: dict
+    ) -> Tuple[raster.spectrum.NumPyArraySpectrum, raster.spectrum.NumPyArraySpectrum]:
         """Plots the continuum removed spectrum and the convex hull
 
         Parameters
@@ -610,16 +631,19 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         dband = max_band - min_band
         dcols = max_cols - min_cols
         drows = max_rows - min_rows
-        image_data = dataset.get_image_data_subset(min_cols, min_rows, min_band,
-                                                   dcols, drows, dband)
-         # A numpy array such that the pixel (x, y) values (spectrum value) of band b are at element array[b][y][x]
+        image_data = dataset.get_image_data_subset(
+            min_cols, min_rows, min_band, dcols, drows, dband
+        )
+        # A numpy array such that the pixel (x, y) values (spectrum value) of band b are at element array[b][y][x]
         filename = dataset.get_name()
         description = dataset.get_description()
         band_description = dataset.band_list()
         if "wavelength_str" in band_description[0]:
             x_axis = np.array([float(i["wavelength_str"]) for i in band_description])
         else:
-            assert "index" in band_description[0], "No key named index in return value of dataset.band_list()"
+            assert (
+                "index" in band_description[0]
+            ), "No key named index in return value of dataset.band_list()"
             x_axis = np.array([float(i["index"]) for i in band_description])
         x_axis = x_axis[min_band:max_band]
         default_bands = dataset.default_display_bands()
@@ -636,7 +660,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         min_band_wvl = dataset.band_list()[min_band]["wavelength"]
         # We have to do -1 here because calling this function, max_band was
         # increased by 1 to include the max band (since getting band data is exclusive)
-        max_band_wvl = dataset.band_list()[max_band-1]["wavelength"]
+        max_band_wvl = dataset.band_list()[max_band - 1]["wavelength"]
 
         cols = np.int32(max_cols - min_cols)
         rows = np.int32(max_rows - min_rows)
@@ -649,20 +673,28 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             image_data = image_data.data
         if image_data.dtype != np.float32:
             image_data = image_data.astype(np.float32)
-        new_image_data = continuum_removal_image_numba(image_data, x_axis, rows, cols, bands)
+        new_image_data = continuum_removal_image_numba(
+            image_data, x_axis, rows, cols, bands
+        )
 
         raster_data = raster.RasterDataLoader()
-        new_data = raster_data.dataset_from_numpy_array(new_image_data, app_state.get_cache())
+        new_data = raster_data.dataset_from_numpy_array(
+            new_image_data, app_state.get_cache()
+        )
         new_data.set_name(f"Continuum Removal on {filename}")
         new_data.set_description(description)
         new_data.set_default_display_bands(default_bands)
 
         spatial_metadata = dataset.get_spatial_metadata()
-        new_spatial_metadata = SpatialMetadata.subset_to_window(spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols)
+        new_spatial_metadata = SpatialMetadata.subset_to_window(
+            spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols
+        )
         new_data.copy_spatial_metadata(new_spatial_metadata)
 
         source_spectral_metadata = dataset.get_spectral_metadata()
-        new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(source_spectral_metadata, min_band_wvl, max_band_wvl)
+        new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(
+            source_spectral_metadata, min_band_wvl, max_band_wvl
+        )
         new_data.copy_spectral_metadata(new_spectral_metadata)
         context["wiser"].add_dataset(new_data)
         return new_data

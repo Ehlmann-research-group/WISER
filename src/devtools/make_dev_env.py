@@ -7,13 +7,17 @@ from pathlib import Path
 try:
     import yaml
 except ImportError:
-    print("This script needs PyYAML. In CI we install it with `pip install pyyaml`.", file=sys.stderr)
+    print(
+        "This script needs PyYAML. In CI we install it with `pip install pyyaml`.",
+        file=sys.stderr,
+    )
     sys.exit(1)
+
 
 def canonical_conda_name(s: str) -> str:
     """Normalize a conda dep string to just the base package name:
-       - drop comments, list bullets, channel prefix, build selectors
-       - strip version/comparison parts
+    - drop comments, list bullets, channel prefix, build selectors
+    - strip version/comparison parts
     """
     s = s.strip()
     if s.startswith("- "):
@@ -28,12 +32,14 @@ def canonical_conda_name(s: str) -> str:
     s = re.split(r"[<>=! ]", s, maxsplit=1)[0]
     return s.lower()
 
+
 def canonical_pip_name(s: str) -> str:
     s = s.strip()
     if s.startswith("- "):
         s = s[2:].strip()
     s = s.split("#", 1)[0].strip()
     return re.split(r"[=<>!~ ]", s, maxsplit=1)[0].lower()
+
 
 def parse_additions(txt: str):
     conda_deps, pip_deps = [], []
@@ -57,6 +63,7 @@ def parse_additions(txt: str):
             pip_deps.append(line)
     return conda_deps, pip_deps
 
+
 def split_deps_keep_order(deps_list):
     """Return (conda_items:list[str|dict_except_pip], pip_block:list|None, had_pip_string:bool)"""
     conda_items = []
@@ -72,6 +79,7 @@ def split_deps_keep_order(deps_list):
             conda_items.append(d)
     return conda_items, pip_block, had_pip_string
 
+
 def main(prod_yml, additions_txt, out_yml):
     prod = yaml.safe_load(Path(prod_yml).read_text(encoding="utf-8")) or {}
     deps = prod.get("dependencies") or []
@@ -79,10 +87,14 @@ def main(prod_yml, additions_txt, out_yml):
     # Separate conda items and existing pip block/string, preserving order
     conda_items, pip_block, had_pip_string = split_deps_keep_order(deps)
 
-    add_conda, add_pip = parse_additions(Path(additions_txt).read_text(encoding="utf-8"))
+    add_conda, add_pip = parse_additions(
+        Path(additions_txt).read_text(encoding="utf-8")
+    )
 
     # Merge conda deps (skip duplicates by canonical name)
-    existing_names = {canonical_conda_name(d) for d in conda_items if isinstance(d, str)}
+    existing_names = {
+        canonical_conda_name(d) for d in conda_items if isinstance(d, str)
+    }
     for dep in add_conda:
         if canonical_conda_name(dep) not in existing_names:
             conda_items.append(dep)
@@ -114,8 +126,12 @@ def main(prod_yml, additions_txt, out_yml):
     Path(out_yml).write_text(yaml.safe_dump(prod, sort_keys=False), encoding="utf-8")
     print(f"Wrote {out_yml}")
 
+
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage: make_dev_env.py <wiser-prod.yml> <wiser-dev-additions.txt> <wiser-dev.yml>", file=sys.stderr)
+        print(
+            "Usage: make_dev_env.py <wiser-prod.yml> <wiser-dev-additions.txt> <wiser-dev.yml>",
+            file=sys.stderr,
+        )
         sys.exit(2)
     main(*sys.argv[1:])

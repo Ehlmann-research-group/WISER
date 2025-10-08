@@ -2,6 +2,7 @@ from PySide2.QtCore import Qt, QTimer, QRect, QPoint
 from PySide2.QtGui import QColor, QPainter, QPen
 from PySide2.QtWidgets import QWidget, QVBoxLayout, QLabel
 
+
 class LoadingOverlay(QWidget):
     def __init__(self, target: QWidget, text: str = "Loading…"):
         super().__init__(target)
@@ -44,28 +45,33 @@ class LoadingOverlay(QWidget):
         self.update()
 
     # block interactions underneath
-    def mousePressEvent(self, e):  e.accept()
-    def mouseReleaseEvent(self, e): e.accept()
-    def mouseMoveEvent(self, e):    e.accept()
+    def mousePressEvent(self, e):
+        e.accept()
+
+    def mouseReleaseEvent(self, e):
+        e.accept()
+
+    def mouseMoveEvent(self, e):
+        e.accept()
 
     # draw spinner + text
     def paintEvent(self, ev):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        p.fillRect(self.rect(), QColor(0, 0, 0, 120)) 
+        p.fillRect(self.rect(), QColor(0, 0, 0, 120))
         # centered spinner
         r = 28
         center = self.rect().center()
-        spinnerRect = QRect(0, 0, r*2, r*2)
+        spinnerRect = QRect(0, 0, r * 2, r * 2)
         spinnerRect.moveCenter(center - QPoint(0, 12))
         # track
-        pen = QPen(QColor(0,0,0,60), 4)
+        pen = QPen(QColor(0, 0, 0, 60), 4)
         p.setPen(pen)
         p.drawEllipse(spinnerRect)
         # arc
-        pen = QPen(QColor(0,0,0), 4)
+        pen = QPen(QColor(0, 0, 0), 4)
         p.setPen(pen)
-        p.drawArc(spinnerRect, int(-self._angle*16), 120*16)
+        p.drawArc(spinnerRect, int(-self._angle * 16), 120 * 16)
         # text
         self._text.adjustSize()
-        self._text.move(center.x() - self._text.width()//2, spinnerRect.bottom() + 8)
+        self._text.move(center.x() - self._text.width() // 2, spinnerRect.bottom() + 8)

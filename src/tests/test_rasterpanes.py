@@ -9,6 +9,7 @@ through WISER's GUI interface using the `WiserTestModel` abstraction.
 import unittest
 
 import tests.context
+
 # import context
 from wiser.raster import utils
 
@@ -28,12 +29,13 @@ from wiser.raster.loader import RasterDataLoader
 from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
 
+
 class TestRasterPanes(unittest.TestCase):
     """
     Test suite for validating image rendering in raster panes.
 
-    This class contains tests to ensure the image data shown in the Main View 
-    and Context Pane raster views is correct and matches expected values when 
+    This class contains tests to ensure the image data shown in the Main View
+    and Context Pane raster views is correct and matches expected values when
     a dataset is loaded.
 
     Attributes:
@@ -51,33 +53,45 @@ class TestRasterPanes(unittest.TestCase):
         """
         Tests that the main view's raster view renders the correct pixel values.
 
-        Loads a synthetic dataset and compares the raster view image data against 
+        Loads a synthetic dataset and compares the raster view image data against
         an expected 2D color-mapped representation.
         """
-        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
+        expected = np.array(
+            [
+                [4278190080, 4278190080, 4278190080, 4278190080],
+                [4282335039, 4282335039, 4282335039, 4282335039],
+                [4286545791, 4286545791, 4286545791, 4286545791],
+                [4290756543, 4290756543, 4290756543, 4290756543],
+                [4294967295, 4294967295, 4294967295, 4294967295],
+            ]
+        )
 
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
-
-        expected = np.array([[4278190080, 4278190080, 4278190080, 4278190080],
-                            [4282335039, 4282335039, 4282335039, 4282335039],
-                            [4286545791, 4286545791, 4286545791, 4286545791],
-                            [4290756543, 4290756543, 4290756543, 4290756543],
-                            [4294967295, 4294967295, 4294967295, 4294967295]])
-        
         self.test_model.load_dataset(np_impl)
 
         rv_data = self.test_model.get_main_view_rv_image_data((0, 0))
@@ -87,38 +101,50 @@ class TestRasterPanes(unittest.TestCase):
         self.assertTrue(equal)
 
         self.test_model.close_app()
-        
+
     def test_open_context_pane(self):
         """
         Tests that the context pane's raster view renders the correct pixel values.
 
-        Loads a synthetic dataset and compares the context pane image data against 
+        Loads a synthetic dataset and compares the context pane image data against
         an expected 2D color-mapped representation.
         """
-        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
+        expected = np.array(
+            [
+                [4278190080, 4278190080, 4278190080, 4278190080],
+                [4282335039, 4282335039, 4282335039, 4282335039],
+                [4286545791, 4286545791, 4286545791, 4286545791],
+                [4290756543, 4290756543, 4290756543, 4290756543],
+                [4294967295, 4294967295, 4294967295, 4294967295],
+            ]
+        )
 
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
-
-        expected = np.array([[4278190080, 4278190080, 4278190080, 4278190080],
-                            [4282335039, 4282335039, 4282335039, 4282335039],
-                            [4286545791, 4286545791, 4286545791, 4286545791],
-                            [4290756543, 4290756543, 4290756543, 4290756543],
-                            [4294967295, 4294967295, 4294967295, 4294967295]])
-        
         self.test_model.load_dataset(np_impl)
 
         rv_data = self.test_model.get_context_pane_image_data()
@@ -129,12 +155,13 @@ class TestRasterPanes(unittest.TestCase):
 
         self.test_model.close_app()
 
+
 """
 Code to make sure tests work as desired. Feel free to change to your needs.
 """
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_model = WiserTestModel(use_gui=True)
-    
+
     # Create first array
     rows, cols, channels = 50, 50, 3
     # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -147,7 +174,9 @@ if __name__ == '__main__':
     # Create second array
     rows, cols, channels = 50, 50, 3
     # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-    row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
+    row_values = np.concatenate(
+        (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
+    ).reshape(rows, 1)
     impl2 = np.tile(row_values, (1, cols))
     np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -187,7 +216,7 @@ if __name__ == '__main__':
 
     # print(f"test_model.get_zoom_pane_center_raster_point(): {test_model.get_zoom_pane_center_raster_point()}")
 
-    test_model.click_raster_coord_zoom_pane((ds2.get_width()/2, ds2.get_height()/2))
+    test_model.click_raster_coord_zoom_pane((ds2.get_width() / 2, ds2.get_height() / 2))
 
     # print(f"test_model.get_zoom_pane_selected_pixel(): {test_model.get_zoom_pane_selected_pixel()}")
 
@@ -201,29 +230,30 @@ if __name__ == '__main__':
     # print(f"test_model.get_zoom_pane_dataset(): {test_model.get_zoom_pane_dataset().get_id()}")
 
     test_model.import_spectral_library(
-        "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\SpectralLibraries\\usgs_resampHeadwallSWIR.hdr")
+        "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\SpectralLibraries\\usgs_resampHeadwallSWIR.hdr"
+    )
     test_model.import_spectra([spectrum])
     print(f"active spectrum: {test_model.get_active_spectrum().get_spectrum()}")
 
     displayed_spectra = test_model.get_displayed_spectra()
     for spectrum in displayed_spectra:
         print(f"displayed spectrum: {spectrum.get_spectrum()}")
-    
+
     test_model.collect_active_spectrum()
 
-    test_model.click_raster_coord_zoom_pane((ds2.get_width()/3, ds2.get_height()/3))
+    test_model.click_raster_coord_zoom_pane((ds2.get_width() / 3, ds2.get_height() / 3))
 
     test_model.collect_active_spectrum()
 
     test_model.remove_collected_spectrum(0)
 
-    test_model.click_raster_coord_zoom_pane((ds2.get_width()/4, ds2.get_height()/4))
-    
+    test_model.click_raster_coord_zoom_pane((ds2.get_width() / 4, ds2.get_height() / 4))
+
     test_model.collect_active_spectrum()
 
     test_model.remove_all_collected_spectra()
 
-    spectrum = SpectrumAtPoint(ds2, (ds2.get_width()//5, ds2.get_height()//5))
+    spectrum = SpectrumAtPoint(ds2, (ds2.get_width() // 5, ds2.get_height() // 5))
 
     test_model.set_active_spectrum(spectrum)
 

@@ -17,9 +17,9 @@ import matplotlib.backends.backend_ps
 
 
 class ExportPlotImageDialog(QDialog):
-    '''
+    """
     This class implements the functionality of the export plot-image dialog.
-    '''
+    """
 
     def __init__(self, figure, parent=None):
         super().__init__(parent=parent)
@@ -35,7 +35,7 @@ class ExportPlotImageDialog(QDialog):
         # and we don't show anything that matplotlib can't do.  If we end up
         # having no supported formats, raise an exception.
 
-        check_formats = ['eps', 'pdf', 'png', 'svg']
+        check_formats = ["eps", "pdf", "png", "svg"]
         self._supported_formats = []
         canvas_formats = self._figure.canvas.get_supported_filetypes()
         for name in check_formats:
@@ -48,12 +48,13 @@ class ExportPlotImageDialog(QDialog):
 
         if len(self._supported_formats) == 0:
             raise ValueError(
-                'matplotlib does not recognize any of these formats:  ' +
-                ' '.join(check_formats))
+                "matplotlib does not recognize any of these formats:  "
+                + " ".join(check_formats)
+            )
 
         # DPI combobox
 
-        self._ui.cbox_image_dpi.addItems(['72', '100', '300'])
+        self._ui.cbox_image_dpi.addItems(["72", "100", "300"])
         self._ui.cbox_image_dpi.setCurrentIndex(1)
         self._ui.cbox_image_dpi.lineEdit().setValidator(QIntValidator(1, 1000))
 
@@ -63,19 +64,20 @@ class ExportPlotImageDialog(QDialog):
         self._ui.btn_filename.clicked.connect(self._on_btn_filename_clicked)
         self._ui.cbox_image_format.activated.connect(self._on_cbox_image_format_changed)
 
-
     def _on_ledit_filename_edited(self):
         self._set_image_format_from_filename()
 
-
     def _on_btn_filename_clicked(self, checked):
-        '''
+        """
         This helper function shows the file-chooser dialog when the user clicks
         the corresponding button in the UI.
-        '''
-        extensions = ' '.join([f'*.{fmt}' for fmt in self._supported_formats])
-        file_dialog = QFileDialog(parent=self, caption=self.tr('Image Filename'),
-            filter=self.tr('Image files ({extensions})').format(extensions=extensions))
+        """
+        extensions = " ".join([f"*.{fmt}" for fmt in self._supported_formats])
+        file_dialog = QFileDialog(
+            parent=self,
+            caption=self.tr("Image Filename"),
+            filter=self.tr("Image files ({extensions})").format(extensions=extensions),
+        )
         file_dialog.setFileMode(QFileDialog.AnyFile)
         file_dialog.setAcceptMode(QFileDialog.AcceptSave)
 
@@ -90,21 +92,19 @@ class ExportPlotImageDialog(QDialog):
             self._ui.ledit_filename.setText(filename)
             self._set_image_format_from_filename()
 
-
     def _on_cbox_image_format_changed(self, index):
-        '''
+        """
         If the image-format combobox changes, this function updates the filename
         to match the new image format.
-        '''
+        """
         self._update_filename_from_image_format()
 
-
     def _set_image_format_from_filename(self) -> None:
-        '''
+        """
         This helper function tries to update the image-format attributes pane
         to reflect the image format indicated by the file extension.  If the
         extension is unrecognized or unspecified, the UI state is not changed.
-        '''
+        """
 
         filename = self._ui.ledit_filename.text().strip()
         ext = os.path.splitext(filename)[1].lower()
@@ -123,16 +123,15 @@ class ExportPlotImageDialog(QDialog):
             # in the UI.
             pass
 
-
     def _update_filename_from_image_format(self) -> None:
-        '''
+        """
         This helper function tries to update the filename extension to reflect
         the currently chosen image format.  If the filename's current extension
         is a recognized image format that is also different from the selected
         format then the filename's extension will be updated.  If the filename's
         current extension is not a recognized image format then it will not be
         modified.
-        '''
+        """
 
         filename = self._ui.ledit_filename.text().strip()
         (base, ext) = os.path.splitext(filename)
@@ -148,19 +147,19 @@ class ExportPlotImageDialog(QDialog):
             new_idx = self._ui.cbox_image_format.currentIndex()
             if idx != new_idx:
                 # Filename's extension and selected image format don't match.
-                filename = f'{base}.{self._supported_formats[new_idx]}'
+                filename = f"{base}.{self._supported_formats[new_idx]}"
                 self._ui.ledit_filename.setText(filename)
 
         except ValueError:
             # Unrecognized image file extension.  Don't update anything.
             pass
 
-
     def accept(self):
         filename = self._ui.ledit_filename.text().strip()
         if len(filename) == 0:
-            QMessage.critical(self, self.tr('Invalid filename'),
-                self.tr('Filename must be specified'))
+            QMessage.critical(
+                self, self.tr("Invalid filename"), self.tr("Filename must be specified")
+            )
             return
 
         format = self._ui.cbox_image_format.currentData()
@@ -171,10 +170,13 @@ class ExportPlotImageDialog(QDialog):
             self._figure.savefig(filename, format=format, dpi=dpi)
 
         except Exception as e:
-            mbox = QMessageBox(QMessageBox.Critical,
-                self.tr('Could not export plot image'),
-                self.tr('Could not export plot image to file\n{0}').format(filename),
-                QMessageBox.Ok, parent=self)
+            mbox = QMessageBox(
+                QMessageBox.Critical,
+                self.tr("Could not export plot image"),
+                self.tr("Could not export plot image to file\n{0}").format(filename),
+                QMessageBox.Ok,
+                parent=self,
+            )
 
             mbox.setInformativeText(str(e))
             mbox.setDetailedText(traceback.format_exc())

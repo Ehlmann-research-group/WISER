@@ -9,26 +9,31 @@ import asyncio
 from wiser.bandmath import VariableType, BandMathValue, BandMathExprInfo
 from wiser.bandmath.types import BandMathFunction
 from wiser.bandmath.utils import (
-    check_image_cube_compatible, check_image_band_compatible, check_spectrum_compatible,
-    make_image_cube_compatible, make_image_band_compatible, make_spectrum_compatible,
-    get_lhs_rhs_values_async, reorder_args,
+    check_image_cube_compatible,
+    check_image_band_compatible,
+    check_spectrum_compatible,
+    make_image_cube_compatible,
+    make_image_band_compatible,
+    make_spectrum_compatible,
+    get_lhs_rhs_values_async,
+    reorder_args,
 )
 
 
 COMPARE_OPERATORS = {
-    '==': np.equal,
-    '!=': np.not_equal,
-    '>' : np.greater,
-    '<' : np.less,
-    '>=': np.greater_equal,
-    '<=': np.less_equal
+    "==": np.equal,
+    "!=": np.not_equal,
+    ">": np.greater,
+    "<": np.less,
+    ">=": np.greater_equal,
+    "<=": np.less_equal,
 }
 
 
 class OperatorCompare(BandMathFunction):
-    '''
+    """
     Binary comparison operator.
-    '''
+    """
 
     def __init__(self, operator):
         if operator not in COMPARE_OPERATORS:
@@ -36,47 +41,48 @@ class OperatorCompare(BandMathFunction):
 
         self.operator = operator
 
-
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(f'Operands {lhs_type} and {rhs_type} not compatible ' +
-                        f'for {self.operator}')
-
+        raise TypeError(
+            f"Operands {lhs_type} and {rhs_type} not compatible "
+            + f"for {self.operator}"
+        )
 
     def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
-
         if len(infos) != 2:
-            raise Exception(f'{self.operator} requires exactly two arguments')
+            raise Exception(f"{self.operator} requires exactly two arguments")
 
         lhs = infos[0]
         rhs = infos[1]
 
         # Take care of the simple case first, where it's just two numbers.
-        if (lhs.result_type == VariableType.NUMBER and
-            rhs.result_type == VariableType.NUMBER):
+        if (
+            lhs.result_type == VariableType.NUMBER
+            and rhs.result_type == VariableType.NUMBER
+        ):
             return BandMathExprInfo(VariableType.NUMBER)
 
         # If we got here, we are comparing more complex data types.
 
         (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
-        
+
         if lhs.result_type == VariableType.IMAGE_CUBE_BATCH:
             # Dimensions:  [band][y][x]
             # Because this is a batch variable, we don't set the metadata
             # here since we do not have it until the user runs the batch
-            # 
+            #
             # Additionally, when we actually do the apply phase, we recalculate
             # the expression info with IMAGE_CUBE, so this IMAGE_CUBE_BATCH
             # conditional can be thought of as a place holder.
             info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
             info.elem_type = np.byte
             return info
-        
+
         elif rhs.result_type == VariableType.IMAGE_CUBE_BATCH:
             # Dimensions:  [band][y][x]
             info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
             info.elem_type = np.byte
             return info
-    
+
         elif lhs.result_type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
 
@@ -125,7 +131,7 @@ class OperatorCompare(BandMathFunction):
             info.spectral_metadata_source = rhs.spectral_metadata_source
 
             return info
-        
+
         elif lhs.result_type == VariableType.IMAGE_BAND_BATCH:
             # Dimensions:  [y][x]
             info = BandMathExprInfo(VariableType.IMAGE_BAND_BATCH)
@@ -205,16 +211,21 @@ class OperatorCompare(BandMathFunction):
         # If we get here, we don't know how to multiply the two types.
         self._report_type_error(lhs.result_type, rhs.result_type)
 
-
-    async def apply(self, args: List[BandMathValue], index_list_current: List[int] = None, \
-              index_list_next: List[int] = None, read_task_queue: queue.Queue = None, \
-              read_thread_pool: ThreadPoolExecutor = None, \
-                event_loop: asyncio.AbstractEventLoop = None, node_id: int = None):
-        '''
+    async def apply(
+        self,
+        args: List[BandMathValue],
+        index_list_current: List[int] = None,
+        index_list_next: List[int] = None,
+        read_task_queue: queue.Queue = None,
+        read_thread_pool: ThreadPoolExecutor = None,
+        event_loop: asyncio.AbstractEventLoop = None,
+        node_id: int = None,
+    ):
+        """
         Perform a comparison between the LHS and RHS, and return the result.
-        '''
+        """
         if len(args) != 2:
-            raise Exception(f'{self.operator} requires exactly two arguments')
+            raise Exception(f"{self.operator} requires exactly two arguments")
 
         lhs = args[0]
         rhs = args[1]
@@ -222,7 +233,7 @@ class OperatorCompare(BandMathFunction):
         # Take care of the simple case first, where it's just two numbers.
         # Use the eval() built-in function to evaluate the comparison.
         if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
-            flag = eval(f'{lhs.value} {self.operator} {rhs.value}')
+            flag = eval(f"{lhs.value} {self.operator} {rhs.value}")
             if flag:
                 result = 1
             else:
@@ -245,18 +256,28 @@ class OperatorCompare(BandMathFunction):
                 if isinstance(index_list_next, int):
                     index_list_next = [index_list_next]
 
-                lhs_value, rhs_value = await get_lhs_rhs_values_async(lhs, rhs, index_list_current, \
-                                                            index_list_next, read_task_queue, \
-                                                                read_thread_pool, event_loop)
+                lhs_value, rhs_value = await get_lhs_rhs_values_async(
+                    lhs,
+                    rhs,
+                    index_list_current,
+                    index_list_next,
+                    read_task_queue,
+                    read_thread_pool,
+                    event_loop,
+                )
 
                 if isinstance(lhs_value, np.ma.masked_array):
                     result_arr = compare_fn(lhs_value, rhs_value, where=~lhs_value.mask)
                 else:
                     result_arr = compare_fn(lhs_value, rhs_value)
-    
+
                 result_arr = result_arr.astype(np.byte)
-                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
-                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
+                assert lhs_value.ndim == 3 or (
+                    lhs_value.ndim == 2 and len(index_list_current) == 1
+                )
+                assert result_arr.ndim == 3 or (
+                    result_arr.ndim == 2 and len(index_list_current) == 1
+                )
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
                 # # Lets us handle when the band index list just has one band
@@ -282,7 +303,7 @@ class OperatorCompare(BandMathFunction):
                 result_arr = compare_fn(lhs_value, rhs_value)
                 result_arr = result_arr.astype(np.byte)
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
-                
+
         elif rhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]
             if index_list_current is not None:
@@ -294,19 +315,28 @@ class OperatorCompare(BandMathFunction):
                 if isinstance(index_list_next, int):
                     index_list_next = [index_list_next]
 
-                rhs_value, lhs_value = await get_lhs_rhs_values_async(rhs, lhs, index_list_current, \
-                                                            index_list_next, read_task_queue, \
-                                                                read_thread_pool, event_loop)
+                rhs_value, lhs_value = await get_lhs_rhs_values_async(
+                    rhs,
+                    lhs,
+                    index_list_current,
+                    index_list_next,
+                    read_task_queue,
+                    read_thread_pool,
+                    event_loop,
+                )
 
-                
                 if isinstance(lhs_value, np.ma.masked_array):
                     result_arr = compare_fn(lhs_value, rhs_value, where=~lhs_value.mask)
                 else:
                     result_arr = compare_fn(lhs_value, rhs_value)
                 # result_arr = compare_fn(lhs_value, rhs_value)
                 result_arr = result_arr.astype(np.byte)
-                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
-                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
+                assert lhs_value.ndim == 3 or (
+                    lhs_value.ndim == 2 and len(index_list_current) == 1
+                )
+                assert result_arr.ndim == 3 or (
+                    result_arr.ndim == 2 and len(index_list_current) == 1
+                )
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             else:
@@ -315,7 +345,6 @@ class OperatorCompare(BandMathFunction):
                 result_arr = compare_fn(lhs_value, rhs_value)
                 result_arr = result_arr.astype(np.byte)
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
-
 
         elif lhs.type == VariableType.IMAGE_BAND:
             # Dimensions:  [y][x]

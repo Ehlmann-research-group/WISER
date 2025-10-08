@@ -4,14 +4,11 @@ from .roi import RegionOfInterest
 from .spectrum import Spectrum, NumPyArraySpectrum
 
 __all__ = [
-    'RasterDataSet',
-    'RasterDataBand',
-    'BandStats',
-
-    'RegionOfInterest',
-
-    'Spectrum',
-    'NumPyArraySpectrum',
-
-    'RasterDataLoader',
+    "RasterDataSet",
+    "RasterDataBand",
+    "BandStats",
+    "RegionOfInterest",
+    "Spectrum",
+    "NumPyArraySpectrum",
+    "RasterDataLoader",
 ]
