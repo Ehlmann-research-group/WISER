@@ -2,19 +2,22 @@
 name: Run tests and linting with linux-cached-dev
 
 on:
-  # Run on any push EXCEPT when the lock changed
+  # Below code (on: push:) says whenever the main branch or a rel/** branch
+  # is pushed to, we run these jobs 
   push:
     paths-ignore:
       - "etc/dev-conda-lock.yml"
     branches:
       - main
       - 'rel/**'
-      - 'feat/*'
+  # Below code (on: pull_request:) says whenever the main branch or a rel/**
+  # has a PR opened for it, then whenever a push happens to that PR, we run
+  # these jobs. Duplicates job runs can occur if we have a rel/** branch
+  # PR that targets another rel/** branch or main 
   pull_request:
     branches:
       - main
       - 'rel/**'
-      - 'feat/*'
   # The idea here is that if someone made a change to just the lockfiles
   # we want to both refresh the cache and make sure our tests still run
   # so we ignore changes to dev lockfile changes here and let the
