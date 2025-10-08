@@ -39,9 +39,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
         test_target_wls = [100 * u.nm, 200 * u.nm, 300 * u.nm, 400 * u.nm, 500 * u.nm]
         test_ref_arr = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sam_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )
@@ -56,9 +54,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
         test_target_wls = [100 * u.nm, 200 * u.nm, 300 * u.nm, 400 * u.nm, 500 * u.nm]
         test_ref_arr = np.array([0.2, 0.4, 0.6, 0.8, 1.0])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sam_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )
@@ -73,9 +69,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
         test_target_wls = [100 * u.nm, 200 * u.nm, 300 * u.nm, 400 * u.nm, 500 * u.nm]
         test_ref_arr = np.array([0.2, 0.4, 1, 0.8, 1])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sam_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )
@@ -107,9 +101,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             0.5 * u.um,
             0.6 * u.um,
         ]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sam_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )
@@ -148,9 +140,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             0.5 * u.um,
             0.6 * u.um,
         ]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
 
         # Set min and max wavelengths
         sam_tool._min_wavelength = 100 * u.nm

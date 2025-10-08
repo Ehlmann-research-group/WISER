@@ -120,9 +120,7 @@ def check_channel_using_numba(c):
     ), "Channel may only contain values in range 0..255, and no NaNs"
 
 
-def make_rgb_image_python(
-    ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray
-) -> np.ndarray:
+def make_rgb_image_python(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np.ndarray:
     """
     Given a list of 3 color channels of the same dimensions, this function
     combines them together into an RGB image.  The first, second and third
@@ -140,19 +138,13 @@ def make_rgb_image_python(
     """
 
     if ch1.dtype not in [np.uint8, np.uint16, np.uint32]:
-        raise ValueError(
-            f"All channels must be of type uint8, uint16, or uint32; got {ch1.dtype}"
-        )
+        raise ValueError(f"All channels must be of type uint8, uint16, or uint32; got {ch1.dtype}")
 
     if ch2.dtype not in [np.uint8, np.uint16, np.uint32]:
-        raise ValueError(
-            f"All channels must be of type uint8, uint16, or uint32; got {ch2.dtype}"
-        )
+        raise ValueError(f"All channels must be of type uint8, uint16, or uint32; got {ch2.dtype}")
 
     if ch3.dtype not in [np.uint8, np.uint16, np.uint32]:
-        raise ValueError(
-            f"All channels must be of type uint8, uint16, or uint32; got {ch3.dtype}"
-        )
+        raise ValueError(f"All channels must be of type uint8, uint16, or uint32; got {ch3.dtype}")
 
     if ch1.shape != ch2.shape or ch1.shape != ch3.shape or ch2.shape != ch3.shape:
         raise ValueError("All channels must have the same dimensions")
@@ -182,9 +174,7 @@ def make_rgb_image_python(
 
 
 @numba_njit_wrapper(non_njit_func=make_rgb_image_python)
-def make_rgb_image_numba(
-    ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray
-) -> np.ndarray:
+def make_rgb_image_numba(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray) -> np.ndarray:
     """
     Given three color channels of the same dimensions, this function
     combines them together into an RGB image. The first, second, and third
@@ -199,9 +189,7 @@ def make_rgb_image_numba(
     """
 
     # Ensure all channels have the same dimensions
-    assert (
-        ch1.shape == ch2.shape and ch1.shape == ch3.shape
-    ), "All channels must have the same dimensions"
+    assert ch1.shape == ch2.shape and ch1.shape == ch3.shape, "All channels must have the same dimensions"
 
     # Expensive sanity checks
     check_channel_using_numba(ch1)
@@ -245,9 +233,7 @@ def make_rgb_image(ch1: np.ndarray, ch2: np.ndarray, ch3: np.ndarray):
         return make_rgb_image_numba(ch1, ch2, ch3)
 
 
-def make_grayscale_image(
-    channel: np.ndarray, colormap: Optional[str] = None
-) -> np.ndarray:
+def make_grayscale_image(channel: np.ndarray, colormap: Optional[str] = None) -> np.ndarray:
     """
     Given a single image channel, this function generates a grayscale image, or,
     if a colormap name is specified, a color-mapped image from the single
@@ -279,9 +265,7 @@ def make_grayscale_image(
 
     # Make sure that the color channel has unsigned integer data
     if channel.dtype not in [np.uint8, np.uint16, np.uint32]:
-        raise ValueError(
-            f"All channels must be of type uint8, uint16, or uint32; got {channel.dtype}"
-        )
+        raise ValueError(f"All channels must be of type uint8, uint16, or uint32; got {channel.dtype}")
 
     # Expensive sanity checks:
     if __debug__:
@@ -338,9 +322,7 @@ def reference_pixel_to_target_pixel_rasterview(
         if target_dataset is None:
             return
 
-    return reference_pixel_to_target_pixel_ds(
-        reference_pixel, reference_dataset, target_dataset
-    )
+    return reference_pixel_to_target_pixel_ds(reference_pixel, reference_dataset, target_dataset)
 
 
 class ImageColors(enum.IntFlag):
@@ -542,9 +524,7 @@ class ImageScrollArea(QScrollArea):
         self._rasterview: "RasterView" = rasterview
         self._forward = forward
         self._rasterpane = rasterpane
-        self.propagate_scroll = (
-            True  # External objects control whether signals should be propagated or not
-        )
+        self.propagate_scroll = True  # External objects control whether signals should be propagated or not
 
     def ensureVisible(self, x: int, y: int, xmargin: int, ymargin: int):
         # We don't want to propagate scroll, because if this ensureVisible call is based
@@ -598,9 +578,7 @@ class ImageScrollArea(QScrollArea):
         super().scrollContentsBy(dx, dy)
 
         if "scrollContentsBy" in self._forward:
-            self._forward["scrollContentsBy"](
-                self._rasterview, dx, dy, self.propagate_scroll
-            )
+            self._forward["scrollContentsBy"](self._rasterview, dx, dy, self.propagate_scroll)
 
 
 class RasterView(QWidget):
@@ -809,9 +787,7 @@ class RasterView(QWidget):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Compute the contents of this color channel.
 
-                    arr = self._raster_data.get_band_data_normalized(
-                        self._display_bands[i]
-                    )
+                    arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
 
                     band_data = arr
                     band_mask = None
@@ -945,12 +921,8 @@ class RasterView(QWidget):
         """
         return self._img_data
 
-    def _update_scaled_image(
-        self, old_scale_factor=None, propagate_scroll=False, update_by_dataset=True
-    ):
-        self._image_widget.set_image_display_info_by_pixmap(
-            self._image_pixmap, self._scale_factor
-        )
+    def _update_scaled_image(self, old_scale_factor=None, propagate_scroll=False, update_by_dataset=True):
+        self._image_widget.set_image_display_info_by_pixmap(self._image_pixmap, self._scale_factor)
 
         # Need to process queued events now, since the image-widget has changed
         # size, and it needs to report a resize-event before the scrollbars will
@@ -1010,9 +982,7 @@ class RasterView(QWidget):
                 propagate_scroll=propagate_scroll,
             )
 
-    def _update_scrollbar(
-        self, scrollbar, view_size, scale_change, propagate_scroll=False
-    ):
+    def _update_scrollbar(self, scrollbar, view_size, scale_change, propagate_scroll=False):
         # The scrollbar's value will be scaled by the scale_change value.  For
         # example, if the original scale was 100% and the new scale is 200%,
         # the scale_change value will be 200%/100%, or 2.  To keep the same area
@@ -1041,9 +1011,7 @@ class RasterView(QWidget):
         center_diff = ratio_size * (view_size / 2) * scale_change
         new_center = point_pos_new - center_diff
         scrollbar_value = scrollbar.value() * scale_change + view_diff / 2
-        scrollbar_value = (
-            scrollbar.value() * scale_change + view_diff / 2 + point_diff * ratio_size
-        )
+        scrollbar_value = scrollbar.value() * scale_change + view_diff / 2 + point_diff * ratio_size
         scrollbar_value = new_center
         self._scroll_area.propagate_scroll = propagate_scroll
         self._scroll_area._update_scrollbar_no_propagation(scrollbar, scrollbar_value)
@@ -1070,13 +1038,9 @@ class RasterView(QWidget):
         if factor != self._scale_factor:
             old_factor = self._scale_factor
             self._scale_factor = factor
-            self._update_scaled_image(
-                old_scale_factor=old_factor, propagate_scroll=propagate_scale
-            )
+            self._update_scaled_image(old_scale_factor=old_factor, propagate_scroll=propagate_scale)
 
-    def scale_image_around_point(
-        self, factor: float, point: Tuple[int, int], propagate_scale=False
-    ):
+    def scale_image_around_point(self, factor: float, point: Tuple[int, int], propagate_scale=False):
         """
         Scales the raster image by the specified factor.  Note that this is an
         absolute operation, not an incremental operation; repeatedly calling
@@ -1175,9 +1139,7 @@ class RasterView(QWidget):
         elif mode == ScaleToFitMode.FIT_BOTH_DIMENSIONS:
             # The image will fit in both dimensions, so both scrollbars will be
             # hidden after scaling.
-            new_factor = min(
-                area_size.width() / raster_width, area_size.height() / raster_height
-            )
+            new_factor = min(area_size.width() / raster_width, area_size.height() / raster_height)
 
         else:
             raise ValueError(f"Unrecognized mode value {mode}")
@@ -1218,12 +1180,8 @@ class RasterView(QWidget):
         value to be propagated to other rasterviews.
         """
         self._scroll_area.propagate_scroll = False
-        self._scroll_area._update_scrollbar_no_propagation(
-            self._scroll_area.horizontalScrollBar(), state[0]
-        )
-        self._scroll_area._update_scrollbar_no_propagation(
-            self._scroll_area.verticalScrollBar(), state[1]
-        )
+        self._scroll_area._update_scrollbar_no_propagation(self._scroll_area.horizontalScrollBar(), state[0])
+        self._scroll_area._update_scrollbar_no_propagation(self._scroll_area.verticalScrollBar(), state[1])
 
     def get_visible_region(self) -> Optional[QRect]:
         """
@@ -1236,12 +1194,8 @@ class RasterView(QWidget):
         if self._raster_data is None:
             return None
 
-        h_start = int(
-            self._scroll_area.horizontalScrollBar().value() / self._scale_factor
-        )
-        v_start = int(
-            self._scroll_area.verticalScrollBar().value() / self._scale_factor
-        )
+        h_start = int(self._scroll_area.horizontalScrollBar().value() / self._scale_factor)
+        v_start = int(self._scroll_area.verticalScrollBar().value() / self._scale_factor)
 
         h_size = int(self._scroll_area.viewport().width() / self._scale_factor)
         v_size = int(self._scroll_area.viewport().height() / self._scale_factor)
@@ -1279,17 +1233,12 @@ class RasterView(QWidget):
         visible_y_start = visible_region.y()
         visible_y_end = visible_region.y() + visible_region.height()
 
-        if (
-            visible_x_start <= x < visible_x_end
-            and visible_y_start <= y <= visible_y_end
-        ):
+        if visible_x_start <= x < visible_x_end and visible_y_start <= y <= visible_y_end:
             return True
 
         return False
 
-    def make_point_visible(
-        self, x, y, margin=0.5, reference_rasterview: "RasterView" = None
-    ):
+    def make_point_visible(self, x, y, margin=0.5, reference_rasterview: "RasterView" = None):
         """
         Make the specified (x, y) coordinate of the raster dataset visible in
         the view.
@@ -1314,9 +1263,7 @@ class RasterView(QWidget):
             raise ValueError(f"margin must be in the range [0, 0.5], got {margin}")
 
         if reference_rasterview is not None:
-            target_pixel = reference_pixel_to_target_pixel_rasterview(
-                (x, y), reference_rasterview, self
-            )
+            target_pixel = reference_pixel_to_target_pixel_rasterview((x, y), reference_rasterview, self)
             if target_pixel is None:
                 return
             x, y = target_pixel
@@ -1365,9 +1312,7 @@ class RasterView(QWidget):
             print(f"WARNING:  Unrecognized color # {color}")
         self.update_display_image(colors=color)
 
-    def image_coord_to_raster_coord(
-        self, position: Union[QPoint, QPointF], round_nearest=False
-    ) -> QPointF:
+    def image_coord_to_raster_coord(self, position: Union[QPoint, QPointF], round_nearest=False) -> QPointF:
         """
         Takes a position in screen space as a QPointF object, and translates it
         into a 2-tuple containing the (X, Y) coordinates of the position within
@@ -1376,10 +1321,7 @@ class RasterView(QWidget):
         if isinstance(position, QPoint):
             position = QPointF(position)
         elif not isinstance(position, QPointF):
-            raise TypeError(
-                "This function requires a QPoint or QPointF "
-                + f"argument; got {type(position)}"
-            )
+            raise TypeError("This function requires a QPoint or QPointF " + f"argument; got {type(position)}")
 
         # Scale the screen position into the dataset's coordinate system.
         scaled = position / self._scale_factor
@@ -1391,9 +1333,7 @@ class RasterView(QWidget):
             # it rounds to the nearest point, and we just want truncation/floor.
             return QPoint(int(scaled.x()), int(scaled.y()))
 
-    def image_coord_to_raster_coord_precise(
-        self, position: Union[QPoint, QPointF]
-    ) -> QPointF:
+    def image_coord_to_raster_coord_precise(self, position: Union[QPoint, QPointF]) -> QPointF:
         """
         Takes a position in screen space as a QPointF object, and translates it
         into a 2-tuple containing the (X, Y) coordinates of the position within
@@ -1402,10 +1342,7 @@ class RasterView(QWidget):
         if isinstance(position, QPoint):
             position = QPointF(position)
         elif not isinstance(position, QPointF):
-            raise TypeError(
-                "This function requires a QPoint or QPointF "
-                + f"argument; got {type(position)}"
-            )
+            raise TypeError("This function requires a QPoint or QPointF " + f"argument; got {type(position)}")
 
         # Scale the screen position into the dataset's coordinate system.
         scaled = position / self._scale_factor
@@ -1424,8 +1361,7 @@ class RasterView(QWidget):
             raster_coord = QPointF(raster_coord)
         elif not isinstance(raster_coord, QPointF):
             raise TypeError(
-                "This function requires a QPoint or QPointF "
-                + f"argument; got {type(raster_coord)}"
+                "This function requires a QPoint or QPointF " + f"argument; got {type(raster_coord)}"
             )
 
         scaled = raster_coord * self._scale_factor
@@ -1448,8 +1384,7 @@ class RasterView(QWidget):
             raster_coord = QPointF(raster_coord)
         elif not isinstance(raster_coord, QPointF):
             raise TypeError(
-                "This function requires a QPoint or QPointF "
-                + f"argument; got {type(raster_coord)}"
+                "This function requires a QPoint or QPointF " + f"argument; got {type(raster_coord)}"
             )
 
         scaled = raster_coord * self._scale_factor

@@ -115,9 +115,7 @@ class GeoReferencerPane(RasterPane, PointSelector):
         self._task_delegate.on_key_release(key_event)
         self.update_all_rasterviews()
 
-    def _has_delegate_for_rasterview(
-        self, rasterview: RasterView, user_input: bool = True
-    ) -> bool:
+    def _has_delegate_for_rasterview(self, rasterview: RasterView, user_input: bool = True) -> bool:
         """
         We do not want to call this function in the parent class
         """

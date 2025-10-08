@@ -181,9 +181,7 @@ def continuum_removal(reflectance, waves):
     return final, iy_hull_np
 
 
-cr_sig = types.Tuple((types.float32[:], types.float32[:]))(
-    types.float32[:], types.float32[:]
-)
+cr_sig = types.Tuple((types.float32[:], types.float32[:]))(types.float32[:], types.float32[:])
 
 
 @numba_njit_wrapper(non_njit_func=continuum_removal, signature=cr_sig)
@@ -219,9 +217,7 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
 
     # np.interp commonly yields float64; Numba also prefers float64 here.
     #  Use float64 temporaries for interpolation, then cast back to float32.
-    iy_hull64 = np.interp(
-        waves.astype(np.float64), xp.astype(np.float64), fp.astype(np.float64)
-    )
+    iy_hull64 = np.interp(waves.astype(np.float64), xp.astype(np.float64), fp.astype(np.float64))
     iy_hull = iy_hull64.astype(np.float32)
 
     # Keep division in float32 and return float32 arrays
@@ -231,9 +227,7 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     return norm, iy_hull
 
 
-def continuum_removal_image(
-    image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int
-):
+def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
     """
     Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum
     removed spectrum for each pixel in the image.
@@ -273,9 +267,7 @@ cr_image_sig = types.float32[:, :, :](
 )
 
 
-@numba_njit_wrapper(
-    non_njit_func=continuum_removal_image, signature=cr_image_sig, parallel=True
-)
+@numba_njit_wrapper(non_njit_func=continuum_removal_image, signature=cr_image_sig, parallel=True)
 def continuum_removal_image_numba(
     image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int
 ):
@@ -332,9 +324,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
     def __init__(self):
         logging.info("Continuum Removal")
 
-    def add_context_menu_items(
-        self, context_type: plugins.types.ContextMenuType, context_menu, context
-    ):
+    def add_context_menu_items(self, context_type: plugins.types.ContextMenuType, context_menu, context):
         """Adds plugin to WISER as a context menu type plugin
 
         Parameters
@@ -348,25 +338,15 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         """
 
         if context_type == plugins.ContextMenuType.SPECTRUM_PICK:
-            act1 = context_menu.addAction(
-                context_menu.tr("Continuum Removal: Single Spectrum")
-            )
-            act1.triggered.connect(
-                lambda checked=False: self.single_spectrum(context=context)
-            )
+            act1 = context_menu.addAction(context_menu.tr("Continuum Removal: Single Spectrum"))
+            act1.triggered.connect(lambda checked=False: self.single_spectrum(context=context))
 
-            act2 = context_menu.addAction(
-                context_menu.tr("Continuum Removal: Collected Spectra")
-            )
-            act2.triggered.connect(
-                lambda checked=False: self.collected_spectra(context=context)
-            )
+            act2 = context_menu.addAction(context_menu.tr("Continuum Removal: Collected Spectra"))
+            act2.triggered.connect(lambda checked=False: self.collected_spectra(context=context))
 
         if context_type == plugins.ContextMenuType.RASTER_VIEW:
             act3 = context_menu.addAction(context_menu.tr("Continuum Removal: Image"))
-            act3.triggered.connect(
-                lambda checked=False: self.dimension(context=context)
-            )
+            act3.triggered.connect(lambda checked=False: self.dimension(context=context))
 
     def error_box(self, message, context):
         """Displays desired error message and goes back to dimensions GUI when finished
@@ -488,9 +468,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         max_rows.setValue(total_rows - 1)
 
         entire_image.clicked.connect(
-            lambda checked=True: self.set_entire_image(
-                dialog, total_cols - 1, total_rows - 1
-            )
+            lambda checked=True: self.set_entire_image(dialog, total_cols - 1, total_rows - 1)
         )
 
         all_bands = dialog.findChild(QPushButton, "all_bands")
@@ -514,18 +492,10 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         min_spin.setValue(0)
         max_spin.setValue(last)
 
-        minimum.currentIndexChanged.connect(
-            lambda checked=True: self.combo_box_changed(minimum, min_spin)
-        )
-        min_spin.valueChanged.connect(
-            lambda checked=True: self.spin_box_changed(minimum, min_spin)
-        )
-        maximum.currentIndexChanged.connect(
-            lambda checked=True: self.combo_box_changed(maximum, max_spin)
-        )
-        max_spin.valueChanged.connect(
-            lambda checked=True: self.spin_box_changed(maximum, max_spin)
-        )
+        minimum.currentIndexChanged.connect(lambda checked=True: self.combo_box_changed(minimum, min_spin))
+        min_spin.valueChanged.connect(lambda checked=True: self.spin_box_changed(minimum, min_spin))
+        maximum.currentIndexChanged.connect(lambda checked=True: self.combo_box_changed(maximum, max_spin))
+        max_spin.valueChanged.connect(lambda checked=True: self.spin_box_changed(maximum, max_spin))
 
         if dialog.exec() == QDialog.Accepted:
             min_cols = min_cols.value()
@@ -541,9 +511,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
                 max_cols += 1
                 max_rows += 1
                 maximum += 1
-                self.image(
-                    min_cols, min_rows, max_cols, max_rows, minimum, maximum, context
-                )
+                self.image(min_cols, min_rows, max_cols, max_rows, minimum, maximum, context)
 
     def plot_continuum_removal(
         self, spec_object: Spectrum, context: dict
@@ -603,9 +571,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         for spectrum in collectedSpectra:
             collected_cr.append(self.plot_continuum_removal(spectrum, context))
 
-    def image(
-        self, min_cols, min_rows, max_cols, max_rows, min_band, max_band, context
-    ):
+    def image(self, min_cols, min_rows, max_cols, max_rows, min_band, max_band, context):
         """Displays on WISER the continuum removed spectra of an image or a subset of the image
 
         Parameters
@@ -631,19 +597,16 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         dband = max_band - min_band
         dcols = max_cols - min_cols
         drows = max_rows - min_rows
-        image_data = dataset.get_image_data_subset(
-            min_cols, min_rows, min_band, dcols, drows, dband
-        )
-        # A numpy array such that the pixel (x, y) values (spectrum value) of band b are at element array[b][y][x]
+        image_data = dataset.get_image_data_subset(min_cols, min_rows, min_band, dcols, drows, dband)
+        # A numpy array such that the pixel (x, y) values (spectrum value) of
+        # band b are at element array[b][y][x]
         filename = dataset.get_name()
         description = dataset.get_description()
         band_description = dataset.band_list()
         if "wavelength_str" in band_description[0]:
             x_axis = np.array([float(i["wavelength_str"]) for i in band_description])
         else:
-            assert (
-                "index" in band_description[0]
-            ), "No key named index in return value of dataset.band_list()"
+            assert "index" in band_description[0], "No key named index in return value of dataset.band_list()"
             x_axis = np.array([float(i["index"]) for i in band_description])
         x_axis = x_axis[min_band:max_band]
         default_bands = dataset.default_display_bands()
@@ -673,14 +636,10 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             image_data = image_data.data
         if image_data.dtype != np.float32:
             image_data = image_data.astype(np.float32)
-        new_image_data = continuum_removal_image_numba(
-            image_data, x_axis, rows, cols, bands
-        )
+        new_image_data = continuum_removal_image_numba(image_data, x_axis, rows, cols, bands)
 
         raster_data = raster.RasterDataLoader()
-        new_data = raster_data.dataset_from_numpy_array(
-            new_image_data, app_state.get_cache()
-        )
+        new_data = raster_data.dataset_from_numpy_array(new_image_data, app_state.get_cache())
         new_data.set_name(f"Continuum Removal on {filename}")
         new_data.set_description(description)
         new_data.set_default_display_bands(default_bands)

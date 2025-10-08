@@ -59,15 +59,9 @@ class SimilarityTransformDialog(QDialog):
         # --- Image renderings ----------------------------------------------------
         self._rotate_scale_pane = SimilarityTransformPane(app_state)
         self._translate_pane = SimilarityTransformPane(app_state, translation=True)
-        self._translate_pane.pixel_selected_for_translation.connect(
-            self._on_translation_pixel_selected
-        )
-        self._translate_pane.dataset_changed.connect(
-            self._on_translation_dataset_changed
-        )
-        self._rotate_scale_pane.dataset_changed.connect(
-            self._on_rotate_scale_dataset_changed
-        )
+        self._translate_pane.pixel_selected_for_translation.connect(self._on_translation_pixel_selected)
+        self._translate_pane.dataset_changed.connect(self._on_translation_dataset_changed)
+        self._rotate_scale_pane.dataset_changed.connect(self._on_rotate_scale_dataset_changed)
         self._init_rasterpanes()
 
         # --- Internal state ----------------------------------------------------
@@ -141,14 +135,10 @@ class SimilarityTransformDialog(QDialog):
             cbox.setCurrentIndex(idx)
 
     def _init_rotate_scale_button(self):
-        self._ui.btn_rotate_scale.clicked.connect(
-            self._on_create_rotated_scaled_dataset
-        )
+        self._ui.btn_rotate_scale.clicked.connect(self._on_create_rotated_scaled_dataset)
 
     def _init_translation_button(self):
-        self._ui.btn_create_translation.clicked.connect(
-            self._on_create_translated_dataset
-        )
+        self._ui.btn_create_translation.clicked.connect(self._on_create_translated_dataset)
 
     def _init_rasterpanes(self):
         rotate_scale_layout = QVBoxLayout(self._ui.widget_rotate_scale)
@@ -163,9 +153,7 @@ class SimilarityTransformDialog(QDialog):
         self._ui.btn_save_path_rs.clicked.connect(self._on_choose_save_filename_rs)
 
     def _init_file_saver_translate(self):
-        self._ui.btn_save_path_translate.clicked.connect(
-            self._on_choose_save_filename_translate
-        )
+        self._ui.btn_save_path_translate.clicked.connect(self._on_choose_save_filename_translate)
 
     def _get_save_file_path_rs(self) -> str:
         path = self._ui.ledit_save_path_rs.text()
@@ -206,9 +194,7 @@ class SimilarityTransformDialog(QDialog):
         self._ui.slider_rotation.blockSignals(True)
         self._ui.slider_rotation.setValue(int(round(value)))
         self._ui.slider_rotation.blockSignals(False)
-        self._rotate_scale_pane.rotate_and_scale_rasterview(
-            self._image_rotation, self._image_scale
-        )
+        self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
     @Slot(int)
     def _on_slider_rotation_changed(self, value: int) -> None:
@@ -220,9 +206,7 @@ class SimilarityTransformDialog(QDialog):
 
         self._image_rotation = float(value)
 
-        self._rotate_scale_pane.rotate_and_scale_rasterview(
-            self._image_rotation, self._image_scale
-        )
+        self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
     # -------------------------------------------------------------------------
     # Scale handlers
@@ -241,9 +225,7 @@ class SimilarityTransformDialog(QDialog):
         # Clamp to [0, 100]
         value = max(0.0, min(100.0, value))
         self._image_scale = value
-        self._rotate_scale_pane.rotate_and_scale_rasterview(
-            self._image_rotation, self._image_scale
-        )
+        self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
     # -------------------------------------------------------------------------
     # Translation handlers
@@ -319,9 +301,7 @@ class SimilarityTransformDialog(QDialog):
         self.set_lat_north_ul_text(str(origin_lat_north + self._lat_north_translate))
 
     @Slot()
-    def _on_translation_pixel_selected(
-        self, dataset: RasterDataSet, point: QPoint
-    ) -> None:
+    def _on_translation_pixel_selected(self, dataset: RasterDataSet, point: QPoint) -> None:
         assert dataset == self._translation_dataset, (
             "Dataset clicked is not equal to Translation dataset."
             f"Clicked: {dataset.get_name()} | Translation Dataset: {self._translation_dataset.get_name()} "
@@ -334,9 +314,7 @@ class SimilarityTransformDialog(QDialog):
             return
 
         # Get current point's dataset
-        orig_geo_coords = self._translation_dataset.to_geographic_coords(
-            self._selected_point
-        )
+        orig_geo_coords = self._translation_dataset.to_geographic_coords(self._selected_point)
         if orig_geo_coords is None:
             raise RuntimeError("Translation dataset has no geo transform!")
         (
@@ -514,8 +492,7 @@ class SimilarityTransformDialog(QDialog):
                 self,
                 self.tr("Rotate/Scale Dataset Not Selected"),
                 self.tr(
-                    "You have no rotate/scale dataset selected.\n"
-                    "Please select a rotate/scale dataset."
+                    "You have no rotate/scale dataset selected.\n" "Please select a rotate/scale dataset."
                 ),
             )
             return
@@ -546,9 +523,7 @@ class SimilarityTransformDialog(QDialog):
             pixmap_height = pixmap.height()
             pixmap_width = pixmap.width()
             num_bands = self._rotate_scale_dataset.num_bands()
-            np_dtype = (
-                self._rotate_scale_dataset.get_elem_type()
-            )  # Returns a numpy dtype
+            np_dtype = self._rotate_scale_dataset.get_elem_type()  # Returns a numpy dtype
             gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(
                 np_dtype
             )  # Convert numpy dtype to GDAL type
@@ -556,14 +531,10 @@ class SimilarityTransformDialog(QDialog):
             output_bytes = pixmap_width * pixmap_height * num_bands * np_dtype.itemsize
 
             if output_bytes > MAX_RAM_BYTES:
-                ratio = (
-                    MAX_RAM_BYTES / output_bytes
-                )  # Proportion of bands to use for each iteration
+                ratio = MAX_RAM_BYTES / output_bytes  # Proportion of bands to use for each iteration
             else:
                 ratio = 1
-            new_dataset = driver.Create(
-                save_path, pixmap_width, pixmap_height, num_bands, gdal_data_type
-            )
+            new_dataset = driver.Create(save_path, pixmap_width, pixmap_height, num_bands, gdal_data_type)
             if new_dataset is None:
                 raise RuntimeError("Failed to create the output dataset")
             num_bands_per = int(ratio * num_bands)
@@ -573,20 +544,14 @@ class SimilarityTransformDialog(QDialog):
             data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
             for band_index in range(0, num_bands, num_bands_per):
                 band_list_index = [
-                    band
-                    for band in range(band_index, band_index + num_bands_per)
-                    if band < num_bands
+                    band for band in range(band_index, band_index + num_bands_per) if band < num_bands
                 ]
-                band_arr = self._rotate_scale_dataset.get_multiple_band_data(
-                    band_list_index
-                )
+                band_arr = self._rotate_scale_dataset.get_multiple_band_data(band_list_index)
                 # We have to transpose because opencv expects the columns in a certain order
                 if len(band_arr.shape) == 2:
                     np_corrected_band_arr = band_arr
                 elif len(band_arr.shape) == 3:
-                    np_corrected_band_arr = np.transpose(
-                        band_arr, (1, 2, 0)
-                    )  # b, y ,x -> y, x, b
+                    np_corrected_band_arr = np.transpose(band_arr, (1, 2, 0))  # b, y ,x -> y, x, b
                 else:
                     raise RuntimeError(
                         f"Band Array does not have dimensions 2 or 3, it has dimensions {len(band_arr.shape)}"
@@ -601,18 +566,15 @@ class SimilarityTransformDialog(QDialog):
                 if len(rotated_scaled_band_arr.shape) == 2:
                     rotated_scaled_band_arr = rotated_scaled_band_arr
                 elif len(rotated_scaled_band_arr.shape) == 3:
-                    rotated_scaled_band_arr = np.transpose(
-                        rotated_scaled_band_arr, (2, 0, 1)
-                    )
+                    rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
                 else:
                     raise RuntimeError(
-                        f"The rotated and scaled array dimension is neither 2 or 3, its {len(rotated_scaled_band_arr.shape)}"
+                        f"The rotated and scaled array dimension is neither 2 or 3, "
+                        f"its {len(rotated_scaled_band_arr.shape)}"
                     )
                 # If its a masked array, we fill it with the data ignore value so the new dataset ignores it
                 if isinstance(rotated_scaled_band_arr, np.ma.masked_array):
-                    rotated_scaled_band_arr = rotated_scaled_band_arr.filled(
-                        data_ignore
-                    )
+                    rotated_scaled_band_arr = rotated_scaled_band_arr.filled(data_ignore)
                 write_raster_to_dataset(
                     new_dataset,
                     band_list_index,
@@ -654,10 +616,7 @@ class SimilarityTransformDialog(QDialog):
             QMessageBox.warning(
                 self,
                 self.tr("Translation Dataset Not Selected"),
-                self.tr(
-                    "You have no translation dataset selected.\n"
-                    "Please select a translation dataset."
-                ),
+                self.tr("You have no translation dataset selected.\n" "Please select a translation dataset."),
             )
             return
         driver: gdal.Driver = gdal.GetDriverByName("GTiff")
@@ -688,9 +647,7 @@ class SimilarityTransformDialog(QDialog):
                 translation_gdal_dataset = impl.gdal_dataset
                 if driver is None:
                     raise RuntimeError("GDAL driver not available")
-                new_dataset: gdal.Dataset = driver.CreateCopy(
-                    save_path, translation_gdal_dataset, 0
-                )
+                new_dataset: gdal.Dataset = driver.CreateCopy(save_path, translation_gdal_dataset, 0)
                 new_dataset.SetGeoTransform(new_geo_transform)
                 copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
                 new_dataset.FlushCache()
@@ -699,9 +656,7 @@ class SimilarityTransformDialog(QDialog):
                 height = self._translation_dataset.get_height()
                 width = self._translation_dataset.get_width()
                 num_bands = self._translation_dataset.num_bands()
-                np_dtype = (
-                    self._translation_dataset.get_elem_type()
-                )  # Returns a numpy dtype
+                np_dtype = self._translation_dataset.get_elem_type()  # Returns a numpy dtype
                 gdal_data_type = gdal_array.NumericTypeCodeToGDALTypeCode(
                     np_dtype
                 )  # Convert numpy dtype to GDAL type
@@ -710,24 +665,16 @@ class SimilarityTransformDialog(QDialog):
                 ratio = MAX_RAM_BYTES / output_bytes
 
                 # Create the GDAL dataset
-                new_dataset = driver.Create(
-                    save_path, width, height, num_bands, gdal_data_type
-                )
+                new_dataset = driver.Create(save_path, width, height, num_bands, gdal_data_type)
                 if new_dataset is None:
                     raise RuntimeError("Failed to create the output dataset")
                 num_bands_per = int(ratio * num_bands)
                 for band_index in range(0, num_bands, num_bands_per):
                     band_list_index = [
-                        band
-                        for band in range(band_index, band_index + num_bands_per)
-                        if band < num_bands
+                        band for band in range(band_index, band_index + num_bands_per) if band < num_bands
                     ]
-                    band_arr = self._translation_dataset.get_multiple_band_data(
-                        band_list_index
-                    )
-                    write_raster_to_dataset(
-                        new_dataset, band_list_index, band_arr, gdal_data_type
-                    )
+                    band_arr = self._translation_dataset.get_multiple_band_data(band_list_index)
+                    write_raster_to_dataset(new_dataset, band_list_index, band_arr, gdal_data_type)
                 copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
                 new_dataset.FlushCache()
                 new_dataset.SetSpatialRef(self._translation_dataset.get_spatial_ref())

@@ -36,9 +36,7 @@ class Selection:
     what data the selection draws from.
     """
 
-    def __init__(
-        self, selection_type: SelectionType, dataset: Optional[RasterDataSet] = None
-    ):
+    def __init__(self, selection_type: SelectionType, dataset: Optional[RasterDataSet] = None):
         if selection_type not in SelectionType:
             raise ValueError("selection_type must be a valid SelectionType")
 
@@ -88,9 +86,7 @@ class SinglePixelSelection(Selection):
     A single-pixel selection.
     """
 
-    def __init__(
-        self, pixel: Optional[QPoint] = None, dataset: Optional[RasterDataSet] = None
-    ):
+    def __init__(self, pixel: Optional[QPoint] = None, dataset: Optional[RasterDataSet] = None):
         super().__init__(SelectionType.SINGLE_PIXEL, dataset=dataset)
         self._pixel = pixel
 
@@ -267,16 +263,12 @@ class PolygonSelection(Selection):
 
     def get_rasterized_polygon(self) -> RasterizedPolygon:
         if self._rasterized_poly is None:
-            self._rasterized_poly = rasterize_polygon(
-                [p.toTuple() for p in self._points]
-            )
+            self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
         return self._rasterized_poly
 
     def get_all_pixels(self) -> Set[Tuple[int, int]]:
         if self._rasterized_poly is None:
-            self._rasterized_poly = rasterize_polygon(
-                [p.toTuple() for p in self._points]
-            )
+            self._rasterized_poly = rasterize_polygon([p.toTuple() for p in self._points])
         return self._rasterized_poly.get_set()
 
     def __str__(self):

@@ -19,9 +19,7 @@ from .selection import (
 logger = logging.getLogger(__name__)
 
 
-def export_roi_list_to_geojson_file(
-    roi_list: List[RegionOfInterest], filename, pretty=False
-):
+def export_roi_list_to_geojson_file(roi_list: List[RegionOfInterest], filename, pretty=False):
     """
     This function exports a list of Regions of Interest into a GeoJSON file.
     """
@@ -269,8 +267,7 @@ def ogr_feature_to_roi(feature: ogr.Feature) -> RegionOfInterest:
 
             if geom.GetGeometryCount() > 1:
                 raise ValueError(
-                    "WISER doesn't know how to handle polygons "
-                    + "with multiple sub-geometries."
+                    "WISER doesn't know how to handle polygons " + "with multiple sub-geometries."
                 )
 
             geom = geom.GetGeometryRef(0)

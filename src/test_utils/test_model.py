@@ -210,9 +210,7 @@ class WiserTestModel:
     # ==========================================
     # Loading datasets and spectra
 
-    def load_dataset(
-        self, dataset_info: Union[str, np.ndarray, np.ma.masked_array]
-    ) -> RasterDataSet:
+    def load_dataset(self, dataset_info: Union[str, np.ndarray, np.ma.masked_array]) -> RasterDataSet:
         """
         Loads in a dataset, adds it to app state, returns the dataset
 
@@ -222,19 +220,14 @@ class WiserTestModel:
         dataset = None
         if isinstance(dataset_info, str):
             dataset_path = dataset_info
-            dataset = self.raster_data_loader.load_from_file(
-                path=dataset_path, data_cache=self.data_cache
-            )[0]
+            dataset = self.raster_data_loader.load_from_file(path=dataset_path, data_cache=self.data_cache)[0]
         elif isinstance(dataset_info, (np.ndarray, np.ma.masked_array)):
             dataset_arr = dataset_info
-            dataset = self.raster_data_loader.dataset_from_numpy_array(
-                dataset_arr, self.data_cache
-            )
+            dataset = self.raster_data_loader.dataset_from_numpy_array(dataset_arr, self.data_cache)
             dataset.set_name(f"NumpyArray{self.app_state._next_id}")
         else:
             raise ValueError(
-                "Dataset_info should either be a numpy array or string, "
-                + f"not {type(dataset)}!"
+                "Dataset_info should either be a numpy array or string, " + f"not {type(dataset)}!"
             )
 
         self.app_state.add_dataset(dataset)
@@ -327,9 +320,7 @@ class WiserTestModel:
         - x_value, a number
         - y_value, a number
         """
-        self.spectrum_plot._update_spectrum_mouse_click(
-            pick_location=(x_value, y_value)
-        )
+        self.spectrum_plot._update_spectrum_mouse_click(pick_location=(x_value, y_value))
 
     def remove_active_spectrum(self):
         tree_item = QTreeWidgetItem()
@@ -405,9 +396,7 @@ class WiserTestModel:
         Returns the center raster coordinate of the zoom pane's visible region
         """
         qrect = self.get_zoom_pane_visible_region()
-        center = (
-            qrect.center()
-        )  # QPointF(qrect.topLeft()) + QPointF(qrect.width(), qrect.height())/2
+        center = qrect.center()  # QPointF(qrect.topLeft()) + QPointF(qrect.width(), qrect.height())/2
         return center
 
     def get_zoom_pane_image_size(self) -> Tuple[int, int]:
@@ -427,15 +416,11 @@ class WiserTestModel:
         if ds_id not in self.app_state._datasets:
             raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
 
-        action = next(
-            (act for act in dataset_menu.actions() if act.data()[1] == ds_id), None
-        )
+        action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
         if action:
             self.zoom_pane._on_dataset_changed(action)
         else:
-            raise ValueError(
-                f"Could not find an action in dataset chooser for dataset id: {ds_id}"
-            )
+            raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
 
     def scroll_zoom_pane_dx(self, dx):
         self._scroll_zoom_pane(dx, 0)
@@ -462,14 +447,13 @@ class WiserTestModel:
         pos = QPointF(viewport.width() / 2, viewport.height() / 2)
         global_pos = viewport.mapToGlobal(pos.toPoint())
 
-        # Here, angleDelta is set to a QPoint(dx, dy). In Qt, a typical "notch" of the mouse wheel is 120 units.
+        # Here, angleDelta is set to a QPoint(dx, dy). In Qt, a typical "notch" of the
+        # mouse wheel is 120 units.
         wheel_event = QWheelEvent(
             pos,  # local position (QPointF)
             global_pos,  # global position (QPointF)
             QPoint(0, 0),  # pixelDelta (unused here)
-            QPoint(
-                dx, dy
-            ),  # angleDelta: values such as 120 typically indicate one notch
+            QPoint(dx, dy),  # angleDelta: values such as 120 typically indicate one notch
             Qt.NoButton,  # buttons (wheel events usually have no button pressed)
             Qt.NoModifier,  # keyboard modifiers
             Qt.ScrollUpdate,  # scroll phase: ScrollUpdate indicates the wheel is in motion
@@ -581,9 +565,7 @@ class WiserTestModel:
                 continue
             if act.isChecked():
                 if checked_id is not None:
-                    raise ValueError(
-                        "Multiple checked actions in context pane's dataset chooser!"
-                    )
+                    raise ValueError("Multiple checked actions in context pane's dataset chooser!")
                 checked_id = act.data()[1]
 
         if checked_id is None:
@@ -601,19 +583,13 @@ class WiserTestModel:
             raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
 
         action = next(
-            (
-                act
-                for act in dataset_menu.actions()
-                if not act.isSeparator() and act.data()[1] == ds_id
-            ),
+            (act for act in dataset_menu.actions() if not act.isSeparator() and act.data()[1] == ds_id),
             None,
         )
         if action:
             self.context_pane._on_dataset_changed(action)
         else:
-            raise ValueError(
-                f"Could not find an action in dataset chooser for dataset id: {ds_id}"
-            )
+            raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
 
     def click_raster_coord_context_pane(self, pixel: Tuple[int, int]):
         x = pixel[0]
@@ -621,9 +597,7 @@ class WiserTestModel:
 
         context_rv = self.get_context_pane_rasterview()
 
-        display_point = context_rv.raster_coord_to_image_coord(
-            QPointF(x, y), round_nearest=True
-        )
+        display_point = context_rv.raster_coord_to_image_coord(QPointF(x, y), round_nearest=True)
 
         mouse_event = QMouseEvent(
             QEvent.MouseButtonRelease,  # event type
@@ -636,9 +610,7 @@ class WiserTestModel:
         self.app.postEvent(context_rv._image_widget, mouse_event)
         self.run()
 
-    def click_display_coord_context_pane(
-        self, pixel: Tuple[int, int]
-    ) -> Tuple[int, int]:
+    def click_display_coord_context_pane(self, pixel: Tuple[int, int]) -> Tuple[int, int]:
         """
         Given a pixel in display coordinates, selects the corresponding
         raster pixel. This function outputs the raster pixel coordinate
@@ -703,9 +675,7 @@ class WiserTestModel:
     def get_main_view_rv(self, rv_pos: Tuple[int, int] = (0, 0)):
         return self.main_view.get_rasterview(rv_pos)
 
-    def get_main_view_rv_clicked_raster_coord(
-        self, rv_pos: Tuple[int, int]
-    ) -> Optional[Tuple[int, int]]:
+    def get_main_view_rv_clicked_raster_coord(self, rv_pos: Tuple[int, int]) -> Optional[Tuple[int, int]]:
         pixel_selection = self.main_view._pixel_highlight
         if pixel_selection is None:
             return
@@ -756,15 +726,11 @@ class WiserTestModel:
         scroll_state = rv.get_scrollbar_state()
         raise scroll_state
 
-    def get_main_view_rv_image_data(
-        self, rv_pos: Tuple[int, int] = (0, 0)
-    ) -> np.ndarray:
+    def get_main_view_rv_image_data(self, rv_pos: Tuple[int, int] = (0, 0)) -> np.ndarray:
         rv = self.get_main_view_rv(rv_pos)
         return rv._img_data
 
-    def get_main_view_rv_visible_region(
-        self, rv_pos: Tuple[int, int]
-    ) -> Union[QRect, None]:
+    def get_main_view_rv_visible_region(self, rv_pos: Tuple[int, int]) -> Union[QRect, None]:
         rv = self.main_view.get_rasterview(rv_pos)
         visible_region = rv.get_visible_region()
         return visible_region
@@ -817,12 +783,8 @@ class WiserTestModel:
         def scroll():
             rv = self.get_main_view_rv(rv_pos)
             scroll_area = rv._scroll_area
-            scroll_area.verticalScrollBar().setValue(
-                scroll_area.verticalScrollBar().value() + dy
-            )
-            scroll_area.horizontalScrollBar().setValue(
-                scroll_area.horizontalScrollBar().value() + dx
-            )
+            scroll_area.verticalScrollBar().setValue(scroll_area.verticalScrollBar().value() + dy)
+            scroll_area.horizontalScrollBar().setValue(scroll_area.horizontalScrollBar().value() + dx)
 
         func_event = FunctionEvent(scroll)
 
@@ -857,14 +819,13 @@ class WiserTestModel:
         global_pos = viewport.mapToGlobal(pos.toPoint())
 
         # Create a QWheelEvent.
-        # Here, angleDelta is set to a QPoint(dx, dy). In Qt, a typical "notch" of the mouse wheel is 120 units.
+        # Here, angleDelta is set to a QPoint(dx, dy). In Qt, a typical "notch" of the
+        # mouse wheel is 120 units.
         wheel_event = QWheelEvent(
             pos,  # local position (QPointF)
             global_pos,  # global position (QPointF)
             QPoint(0, 0),  # pixelDelta (unused here)
-            QPoint(
-                dx, dy
-            ),  # angleDelta: values such as 120 typically indicate one notch
+            QPoint(dx, dy),  # angleDelta: values such as 120 typically indicate one notch
             Qt.NoButton,  # buttons (wheel events usually have no button pressed)
             Qt.NoModifier,  # keyboard modifiers
             Qt.ScrollUpdate,  # scroll phase: ScrollUpdate indicates the wheel is in motion
@@ -875,9 +836,7 @@ class WiserTestModel:
         self.app.postEvent(viewport, wheel_event)
         self.run()
 
-    def click_display_coord_main_view_rv(
-        self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]
-    ):
+    def click_display_coord_main_view_rv(self, rv_pos: Tuple[int, int], pixel: Tuple[int, int]):
         """
         Clicks on the rasterview at rv_pos. The location clicked is in display coordinates
         with the rasterview's image widget as the coordinate system. Display coordinates is
@@ -904,9 +863,7 @@ class WiserTestModel:
 
         return (raster_coord.x(), raster_coord.y())
 
-    def click_raster_coord_main_view_rv(
-        self, rv_pos: Tuple[int, int], raster_coord: Tuple[int, int]
-    ):
+    def click_raster_coord_main_view_rv(self, rv_pos: Tuple[int, int], raster_coord: Tuple[int, int]):
         """
         Clicks on the rasterview at rv_pos. The pixel clicked is in raster coords. This function
         ignores delegates that are on the rasterview
@@ -935,9 +892,7 @@ class WiserTestModel:
                     index = i
                     break
             if index is None:
-                raise ValueError(
-                    f"Dataset belonging to id {ds_id} is not in dataset chooser"
-                )
+                raise ValueError(f"Dataset belonging to id {ds_id} is not in dataset chooser")
 
             # Now we switch the rv to the correct dataset
             rv._on_switch_to_dataset(index)
@@ -948,15 +903,11 @@ class WiserTestModel:
             if ds_id not in self.app_state._datasets:
                 raise ValueError(f"Dataset ID [{ds_id}] is not in app state")
 
-            action = next(
-                (act for act in dataset_menu.actions() if act.data()[1] == ds_id), None
-            )
+            action = next((act for act in dataset_menu.actions() if act.data()[1] == ds_id), None)
             if action:
                 self.main_view._on_dataset_changed(action)
             else:
-                raise ValueError(
-                    f"Could not find an action in dataset chooser for dataset id: {ds_id}"
-                )
+                raise ValueError(f"Could not find an action in dataset chooser for dataset id: {ds_id}")
         else:
             raise ValueError(f"The rasterview at {rv_pos} is not a rasterview")
 
@@ -988,35 +939,25 @@ class WiserTestModel:
     def get_stretch_config(self, rv_pos: Tuple[int, int] = (0, 0)):
         return self.get_stretch_builder(rv_pos)._stretch_config
 
-    def get_channel_stretch(
-        self, index: int, rv_pos: Tuple[int, int] = (0, 0)
-    ) -> ChannelStretchWidget:
+    def get_channel_stretch(self, index: int, rv_pos: Tuple[int, int] = (0, 0)) -> ChannelStretchWidget:
         """
         Gets the channel stretch at the specified index
         """
         return self.get_stretch_builder(rv_pos)._channel_widgets[index]
 
-    def get_channel_stretch_raw_hist_info(
-        self, index: int, rv_pos: Tuple[int, int] = (0, 0)
-    ):
+    def get_channel_stretch_raw_hist_info(self, index: int, rv_pos: Tuple[int, int] = (0, 0)):
         channel_widget = self.get_channel_stretch(index, rv_pos)
         return (channel_widget._histogram_bins_raw, channel_widget._histogram_edges_raw)
 
-    def get_channel_stretch_norm_data(
-        self, i: int, rv_pos: Tuple[int, int] = (0, 0)
-    ) -> np.ndarray:
+    def get_channel_stretch_norm_data(self, i: int, rv_pos: Tuple[int, int] = (0, 0)) -> np.ndarray:
         channel_stretch = self.get_channel_stretch(index=i, rv_pos=rv_pos)
         return channel_stretch._norm_band_data
 
-    def get_stretch_builder_slider_link_state(
-        self, rv_pos: Tuple[int, int] = (0, 0)
-    ) -> bool:
+    def get_stretch_builder_slider_link_state(self, rv_pos: Tuple[int, int] = (0, 0)) -> bool:
         stretch_builder = self.get_stretch_builder(rv_pos)
         return stretch_builder._cb_link_sliders.isChecked()
 
-    def get_stretch_builder_min_max_link_state(
-        self, rv_pos: Tuple[int, int] = (0, 0)
-    ) -> bool:
+    def get_stretch_builder_min_max_link_state(self, rv_pos: Tuple[int, int] = (0, 0)) -> bool:
         stretch_builder = self.get_stretch_builder(rv_pos)
         return stretch_builder._cb_link_min_max.isChecked()
 
@@ -1078,9 +1019,7 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-    def set_stretch_builder_slider_link_state(
-        self, link_state: bool, rv_pos: Tuple[int, int] = (0, 0)
-    ):
+    def set_stretch_builder_slider_link_state(self, link_state: bool, rv_pos: Tuple[int, int] = (0, 0)):
         def func():
             stretch_builder = self.get_stretch_builder(rv_pos)
             stretch_builder._cb_link_sliders.setChecked(link_state)
@@ -1090,9 +1029,7 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-    def set_stretch_builder_min_max_link_state(
-        self, link_state: bool, rv_pos: Tuple[int, int] = (0, 0)
-    ):
+    def set_stretch_builder_min_max_link_state(self, link_state: bool, rv_pos: Tuple[int, int] = (0, 0)):
         def func():
             stretch_builder = self.get_stretch_builder(rv_pos)
             stretch_builder._cb_link_min_max.setChecked(link_state)
@@ -1119,9 +1056,7 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-    def set_stretch_low_ledit(
-        self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0, 0)
-    ):
+    def set_stretch_low_ledit(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0, 0)):
         """
         Set the stretch low of the specified channel. Make sure to set the channel to linear
         stretch first
@@ -1139,9 +1074,7 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-    def set_stretch_high_ledit(
-        self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0, 0)
-    ):
+    def set_stretch_high_ledit(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0, 0)):
         """
         Set the stretch high of the specified channel. Make sure to set the channel to linear
         stretch first
@@ -1159,9 +1092,7 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-    def set_stretch_low_slider(
-        self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0, 0)
-    ):
+    def set_stretch_low_slider(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0, 0)):
         """
         Set the stretch low slider value. This slider only has value range [0, 1], so it is in normalized form
         """
@@ -1178,9 +1109,7 @@ class WiserTestModel:
         self.app.postEvent(self.testing_widget, function_event)
         self.run()
 
-    def set_stretch_high_slider(
-        self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0, 0)
-    ):
+    def set_stretch_high_slider(self, channel_index: int, value: float, rv_pos: Tuple[int, int] = (0, 0)):
         """
         Set the stretch high slider value. Slider value should be in the range between 0 and 1.
         """
@@ -1227,9 +1156,7 @@ class WiserTestModel:
         """
         cbox = self.main_window._geo_ref_dialog._target_cbox
         # find matching ID or fallback to -1
-        idx = next(
-            (i for i in range(cbox.count()) if cbox.itemData(i) == dataset_id), None
-        )
+        idx = next((i for i in range(cbox.count()) if cbox.itemData(i) == dataset_id), None)
         if idx is None:
             idx = next(i for i in range(cbox.count()) if cbox.itemData(i) == -1)
         cbox.setCurrentIndex(idx)
@@ -1244,9 +1171,7 @@ class WiserTestModel:
         if dataset_id is None:
             idx = next(i for i in range(cbox.count()) if cbox.itemData(i) == -1)
         else:
-            idx = next(
-                (i for i in range(cbox.count()) if cbox.itemData(i) == dataset_id), None
-            )
+            idx = next((i for i in range(cbox.count()) if cbox.itemData(i) == dataset_id), None)
             if idx is None:
                 raise ValueError(f"No reference dataset with ID {dataset_id}")
         cbox.setCurrentIndex(idx)
@@ -1444,9 +1369,7 @@ class WiserTestModel:
 
     @run_in_wiser_decorator
     def press_enter_lat_north_geo_ref(self) -> None:
-        QTest.keyClick(
-            self.main_window._geo_ref_dialog._ui.ledit_lat_north, Qt.Key_Return
-        )
+        QTest.keyClick(self.main_window._geo_ref_dialog._ui.ledit_lat_north, Qt.Key_Return)
 
     @run_in_wiser_decorator
     def enter_lon_east_geo_ref(self, value: float) -> None:
@@ -1457,9 +1380,7 @@ class WiserTestModel:
 
     @run_in_wiser_decorator
     def press_enter_lon_east_geo_ref(self) -> None:
-        QTest.keyClick(
-            self.main_window._geo_ref_dialog._ui.ledit_lon_east, Qt.Key_Return
-        )
+        QTest.keyClick(self.main_window._geo_ref_dialog._ui.ledit_lon_east, Qt.Key_Return)
 
     # ---------- table-editing utilities ----------
 
@@ -1468,9 +1389,7 @@ class WiserTestModel:
         return self.main_window._geo_ref_dialog._ui.table_gcps.item(row, col)
 
     @run_in_wiser_decorator
-    def change_geo_red_table_value(
-        self, row: int, new_val: float, col_id: COLUMN_ID
-    ) -> None:
+    def change_geo_red_table_value(self, row: int, new_val: float, col_id: COLUMN_ID) -> None:
         self.get_geo_ref_table_item(row, col_id).setText(str(new_val))
 
     @run_in_wiser_decorator
@@ -1482,9 +1401,7 @@ class WiserTestModel:
         # use QStyle to get the rectangle of the actual indicator sub-control
         opt = QStyleOptionButton()
         opt.initFrom(chk)
-        indicator_rect = chk.style().subElementRect(
-            QStyle.SE_CheckBoxIndicator, opt, chk
-        )
+        indicator_rect = chk.style().subElementRect(QStyle.SE_CheckBoxIndicator, opt, chk)
 
         click_point = indicator_rect.center()
         QTest.mouseClick(chk, Qt.LeftButton, Qt.NoModifier, click_point)
@@ -1787,9 +1704,7 @@ class WiserTestModel:
         dlg = self.main_window._similarity_transform_dialog
         QTest.mouseClick(dlg._ui.btn_rotate_scale, Qt.LeftButton)
 
-    def select_dataset_rs(
-        self, dataset: RasterDataSet, rasterview_pos: tuple[int, int] = (0, 0)
-    ) -> None:
+    def select_dataset_rs(self, dataset: RasterDataSet, rasterview_pos: tuple[int, int] = (0, 0)) -> None:
         """Load *dataset* into the rotate/scale pane (simulating the combo box)."""
         dlg = self.main_window._similarity_transform_dialog
         act = QAction(dlg)
@@ -1858,9 +1773,7 @@ class WiserTestModel:
     # ==========================================
 
     @run_in_wiser_decorator
-    def open_interactive_scatter_plot_context_menu(
-        self, rv_pos: Tuple[int, int] = (0, 0)
-    ):
+    def open_interactive_scatter_plot_context_menu(self, rv_pos: Tuple[int, int] = (0, 0)):
         rv = self.get_main_view_rv(rv_pos)
         self.main_view.on_scatter_plot_2D(rv, testing=True)
 
@@ -1909,9 +1822,7 @@ class WiserTestModel:
         return dlg._xy
 
     @run_in_wiser_decorator
-    def create_polygon_in_interactive_scatter_plot(
-        self, polygon: List[Tuple[int, int]]
-    ):
+    def create_polygon_in_interactive_scatter_plot(self, polygon: List[Tuple[int, int]]):
         """
         Simulates drawing a polygon on the interactive scatter plot by clicking
         on the Matplotlib canvas at the provided data-coordinates, then
@@ -1924,13 +1835,9 @@ class WiserTestModel:
         if polygon is None or len(polygon) < 3:
             raise ValueError("Polygon must contain at least 3 points")
 
-        dlg: ScatterPlot2DDialog = getattr(
-            self.main_view, "_interactive_scatter_plot_dialog", None
-        )
+        dlg: ScatterPlot2DDialog = getattr(self.main_view, "_interactive_scatter_plot_dialog", None)
         if dlg is None or dlg._ax is None or dlg._canvas is None:
-            raise RuntimeError(
-                "Interactive scatter plot is not initialized. Create the plot first."
-            )
+            raise RuntimeError("Interactive scatter plot is not initialized. Create the plot first.")
 
         ax = dlg._ax
         canvas = dlg._canvas

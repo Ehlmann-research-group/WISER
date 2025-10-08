@@ -135,9 +135,7 @@ def convert_spectral(value: u.Quantity, to_unit: u.Unit) -> u.Quantity:
     return value.to(to_unit, equivalencies=u.spectral())
 
 
-def get_band_values(
-    input_bands: List[u.Quantity], to_unit: Optional[u.Unit] = None
-) -> List[float]:
+def get_band_values(input_bands: List[u.Quantity], to_unit: Optional[u.Unit] = None) -> List[float]:
     """
     Given a list of band values represented as astropy.units.Quantity (values
     with units), this function will convert all quantities to a single unit, and
@@ -242,9 +240,7 @@ def find_closest_value(
 # COMMON BAND-MATH OPERATIONS
 
 
-def normalize_ndarray_python(
-    array: np.ndarray, minval=None, maxval=None
-) -> Union[None, np.ndarray]:
+def normalize_ndarray_python(array: np.ndarray, minval=None, maxval=None) -> Union[None, np.ndarray]:
     """
     Normalize the specified array, generating a new array to return to the
     caller.  The minimum and maximum values can be specified if already known,
@@ -264,9 +260,7 @@ def normalize_ndarray_python(
 
 
 @numba_njit_wrapper(non_njit_func=normalize_ndarray_python)
-def normalize_ndarray_numba(
-    data: np.ndarray, minval: float, maxval: float
-) -> np.ndarray:
+def normalize_ndarray_numba(data: np.ndarray, minval: float, maxval: float) -> np.ndarray:
     """
     Normalize an array to the range [0, 1].
     """
@@ -289,9 +283,7 @@ def normalize_ndarray_numba(
     return normalized
 
 
-def normalize_ndarray(
-    arr: np.ndarray, minval=None, maxval=None
-) -> Union[None, np.ndarray]:
+def normalize_ndarray(arr: np.ndarray, minval=None, maxval=None) -> Union[None, np.ndarray]:
     if arr.nbytes < ARRAY_NUMBA_THRESHOLD:
         return normalize_ndarray_python(array=arr, minval=minval, maxval=maxval)
     else:
@@ -337,9 +329,7 @@ def get_normalized_band_using_stats(band_data: np.ndarray, stats):
     return norm_data
 
 
-def set_data_ignore_of_gdal_dataset(
-    gdal_dataset: gdal.Dataset, source_dataset: "RasterDataSet"
-):
+def set_data_ignore_of_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: "RasterDataSet"):
     nodata = source_dataset.get_data_ignore_value()
     if nodata is not None:
         # set the same nodata on every band
@@ -347,13 +337,9 @@ def set_data_ignore_of_gdal_dataset(
             gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
 
 
-def copy_metadata_to_gdal_dataset(
-    gdal_dataset: gdal.Dataset, source_dataset: "RasterDataSet"
-):
+def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: "RasterDataSet"):
     # 1. Propagate wavelength names (band descriptions)
-    band_info = (
-        source_dataset.band_list()
-    )  # returns dict of lists keyed by metadata names
+    band_info = source_dataset.band_list()  # returns dict of lists keyed by metadata names
     wle_names = band_info[0].get("wavelength_name")
     if wle_names:
         for i, band_info in enumerate(band_info):
@@ -373,9 +359,7 @@ def copy_metadata_to_gdal_dataset(
     defaults = source_dataset.default_display_bands()
     if defaults:
         # store as comma‑separated string in metadata
-        gdal_dataset.SetMetadataItem(
-            "DEFAULT_BANDS", ",".join(str(b) for b in defaults)
-        )
+        gdal_dataset.SetMetadataItem("DEFAULT_BANDS", ",".join(str(b) for b in defaults))
 
     # 4. Propagate bad bands
     bad = source_dataset.get_bad_bands()  # list of ints
@@ -393,9 +377,7 @@ def copy_metadata_to_gdal_dataset(
     if wl_units is not None:
         for i, q in enumerate(band_info):
             wl_units = band_info[i].get("wavelength_units")
-            gdal_dataset.GetRasterBand(i + 1).SetMetadataItem(
-                "wavelength_units", str(wl_units)
-            )
+            gdal_dataset.GetRasterBand(i + 1).SetMetadataItem("wavelength_units", str(wl_units))
 
     # Don't forget to flush/close when done:
     gdal_dataset.FlushCache()

@@ -40,9 +40,7 @@ def populate_combo_box_with_units(
         cbox.addItem(text, userData=unit_obj)
 
     # Default to nanometers if present.
-    default_index = next(
-        (i for i in range(cbox.count()) if cbox.itemData(i) == default_unit), 0
-    )
+    default_index = next((i for i in range(cbox.count()) if cbox.itemData(i) == default_unit), 0)
     cbox.setCurrentIndex(default_index)
 
 
@@ -148,9 +146,7 @@ def add_toolbar_action(toolbar, icon_path, text, parent, shortcut=None, before=N
     return act
 
 
-def make_dockable(
-    widget: QWidget, title: str, parent: Optional[QWidget]
-) -> QDockWidget:
+def make_dockable(widget: QWidget, title: str, parent: Optional[QWidget]) -> QDockWidget:
     dockable = QDockWidget(title, parent=parent)
     dockable.setWidget(widget)
     return dockable
@@ -219,11 +215,7 @@ def make_filename(s: str) -> str:
     # punctuation and spaces.
     result = ""
     for ch in s:
-        if (
-            ch in string.ascii_letters
-            or ch in string.digits
-            or ch in ["_", "-", ".", " "]
-        ):
+        if ch in string.ascii_letters or ch in string.digits or ch in ["_", "-", ".", " "]:
             result += ch
 
     return result
@@ -578,9 +570,7 @@ def ulurll_to_gt(
     return gt
 
 
-def rotate_scale_geotransform(
-    gt, theta, width_orig, height_orig, width_rot, height_rot
-):
+def rotate_scale_geotransform(gt, theta, width_orig, height_orig, width_rot, height_rot):
     """
     Rotates and scales the geo transform. Does so by using three corner points.
     """
@@ -633,16 +623,12 @@ def rotate_scale_geotransform(
     new_ur_spatial = pixel_coord_to_geo_coord(new_ur_pix, gt)
     new_bl_spatial = pixel_coord_to_geo_coord(new_bl_pix, gt)
 
-    new_gt = ulurll_to_gt(
-        new_ul_spatial, new_ur_spatial, new_bl_spatial, width_rot, height_rot
-    )
+    new_gt = ulurll_to_gt(new_ul_spatial, new_ur_spatial, new_bl_spatial, width_rot, height_rot)
 
     return new_gt
 
 
-def make_into_help_button(
-    help_btn: QToolButton, link: str, tooltip_message: str = None
-):
+def make_into_help_button(help_btn: QToolButton, link: str, tooltip_message: str = None):
     app = QApplication.instance()
     if app is None:
         raise RuntimeError("App instance is not running!")

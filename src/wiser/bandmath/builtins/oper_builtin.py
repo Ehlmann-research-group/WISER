@@ -46,9 +46,7 @@ class OperatorTrigFunction(BandMathFunction):
         # Output type will be the same as the input type
         info = BandMathExprInfo(arg_info.result_type)
         info.shape = arg_info.shape
-        info.elem_type = get_result_dtype(
-            arg_info.elem_type, None, MathOperations.TRIG_FUNCTION
-        )
+        info.elem_type = get_result_dtype(arg_info.elem_type, None, MathOperations.TRIG_FUNCTION)
 
         # Propagate metadata
         info.spatial_metadata_source = arg_info.spatial_metadata_source
@@ -57,9 +55,7 @@ class OperatorTrigFunction(BandMathFunction):
 
     def apply(self, args: List[BandMathValue]) -> BandMathValue:
         if len(args) != 1:
-            raise BandMathEvalError(
-                f"{self._func.__name__} requires exactly one argument."
-            )
+            raise BandMathEvalError(f"{self._func.__name__} requires exactly one argument.")
 
         arg = args[0]
 
@@ -78,9 +74,7 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
         self._func = func
 
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(
-            f"Operands {lhs_type} and {rhs_type} not compatible for two argument trig operation"
-        )
+        raise TypeError(f"Operands {lhs_type} and {rhs_type} not compatible for two argument trig operation")
 
     def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
         # ArcTangent should only take one argument
@@ -97,9 +91,7 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
             # Output type will be the same as the input type
             info = BandMathExprInfo(lhs.result_type)
             info.shape = lhs.shape
-            info.elem_type = get_result_dtype(
-                lhs.elem_type, None, MathOperations.TRIG_FUNCTION
-            )
+            info.elem_type = get_result_dtype(lhs.elem_type, None, MathOperations.TRIG_FUNCTION)
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
             return info
@@ -108,9 +100,7 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
 
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
-            info.elem_type = get_result_dtype(
-                lhs.elem_type, rhs.elem_type, MathOperations.TRIG_FUNCTION
-            )
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, MathOperations.TRIG_FUNCTION)
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
             return info
@@ -121,9 +111,7 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
             # it will be compatible with
             info = BandMathExprInfo(lhs.result_type)
             info.shape = lhs.shape
-            info.elem_type = get_result_dtype(
-                lhs.elem_type, rhs.elem_type, MathOperations.TRIG_FUNCTION
-            )
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, MathOperations.TRIG_FUNCTION)
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
             return info
@@ -132,9 +120,7 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
 
     def apply(self, args: List[BandMathValue]) -> BandMathValue:
         if len(args) != 2:
-            raise BandMathEvalError(
-                f"{self._func.__name__} requires exactly two arguments."
-            )
+            raise BandMathEvalError(f"{self._func.__name__} requires exactly two arguments.")
 
         lhs = args[0]
         rhs = args[1]
@@ -160,9 +146,7 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
 
 class OperatorDotProduct(BandMathFunction):
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(
-            f"Operands {lhs_type} and {rhs_type} not compatible for dotproduct"
-        )
+        raise TypeError(f"Operands {lhs_type} and {rhs_type} not compatible for dotproduct")
 
     def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
         if len(infos) != 2:
@@ -173,27 +157,19 @@ class OperatorDotProduct(BandMathFunction):
 
         (lhs, rhs) = reorder_args(lhs.result_type, rhs.result_type, lhs, rhs)
 
-        if (
-            lhs.result_type == VariableType.IMAGE_CUBE
-            and rhs.result_type == VariableType.SPECTRUM
-        ):
+        if lhs.result_type == VariableType.IMAGE_CUBE and rhs.result_type == VariableType.SPECTRUM:
             check_image_cube_compatible(rhs, lhs.shape)
 
             info = BandMathExprInfo(VariableType.IMAGE_BAND)
             info.shape = (lhs.shape[1], lhs.shape[2])
-            info.elem_type = get_result_dtype(
-                lhs.elem_type, rhs.elem_type, MathOperations.DOT_PRODUCT
-            )
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, MathOperations.DOT_PRODUCT)
 
             # TODO(Joshua):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
             info.spatial_metadata_source = lhs.spatial_metadata_source
             info.spectral_metadata_source = lhs.spectral_metadata_source
             return info
-        elif (
-            lhs.result_type == VariableType.SPECTRUM
-            and rhs.result_type == VariableType.SPECTRUM
-        ):
+        elif lhs.result_type == VariableType.SPECTRUM and rhs.result_type == VariableType.SPECTRUM:
             check_spectrum_compatible(rhs, lhs.shape)
 
             return BandMathExprInfo(VariableType.NUMBER)

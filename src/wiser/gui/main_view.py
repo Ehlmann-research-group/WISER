@@ -57,9 +57,7 @@ class MainViewWidget(RasterPane):
         self._link_view_scrolling = False
         self._link_view_state = GeographicLinkState.NO_LINK
 
-        if self._app_state.get_config(
-            "feature-flags.linked-multi-view", default=True, as_type=bool
-        ):
+        if self._app_state.get_config("feature-flags.linked-multi-view", default=True, as_type=bool):
             self._set_link_views_button_state()
 
         self._set_dataset_tools_button_state()
@@ -75,9 +73,7 @@ class MainViewWidget(RasterPane):
         """
         self._init_dataset_tools()
 
-        if self._app_state.get_config(
-            "feature-flags.linked-multi-view", default=True, as_type=bool
-        ):
+        if self._app_state.get_config("feature-flags.linked-multi-view", default=True, as_type=bool):
             self._toolbar.addSeparator()
             self._init_view_tools()
 
@@ -118,9 +114,7 @@ class MainViewWidget(RasterPane):
             (self.tr("2 rows x 2 columns"), (2, 2)),
             (self.tr("Other layout..."), (-1, -1)),
         ]
-        self._view_chooser = ToolbarMenu(
-            icon=QIcon(":/icons/split-view.svg"), items=chooser_items
-        )
+        self._view_chooser = ToolbarMenu(icon=QIcon(":/icons/split-view.svg"), items=chooser_items)
         self._view_chooser.setToolTip(self.tr("Split/unsplit the main view"))
         self._toolbar.addWidget(self._view_chooser)
         self._view_chooser.triggered.connect(self._on_split_views)
@@ -174,16 +168,12 @@ class MainViewWidget(RasterPane):
 
         act = menu.addAction(self.tr("Import ROIs..."))
         act.triggered.connect(
-            lambda checked=False,
-            rv=rasterview,
-            **kwargs: self._on_import_regions_of_interest(rv)
+            lambda checked=False, rv=rasterview, **kwargs: self._on_import_regions_of_interest(rv)
         )
 
         act = menu.addAction(self.tr("Export all ROIs..."))
         act.triggered.connect(
-            lambda checked=False,
-            rv=rasterview,
-            **kwargs: self._on_export_regions_of_interest(rv)
+            lambda checked=False, rv=rasterview, **kwargs: self._on_export_regions_of_interest(rv)
         )
 
         menu.addSeparator()
@@ -194,38 +184,26 @@ class MainViewWidget(RasterPane):
 
         act = submenu.addAction(self.tr("Export visible image area to RGB image..."))
         act.triggered.connect(
-            lambda checked=False,
-            rv=rasterview,
-            **kwargs: self._on_export_image_visible_area(rv)
+            lambda checked=False, rv=rasterview, **kwargs: self._on_export_image_visible_area(rv)
         )
 
         act = submenu.addAction(self.tr("Export full image extent to RGB image..."))
-        act.triggered.connect(
-            lambda checked=False, rv=rasterview, **kwargs: self._on_export_image_full(
-                rv
-            )
-        )
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self._on_export_image_full(rv))
 
         submenu = menu.addMenu(self.tr("Data Analysis"))
         act = submenu.addAction(self.tr("Interactive Scatter Plot"))
-        act.triggered.connect(
-            lambda checked=False, rv=rasterview, **kwargs: self.on_scatter_plot_2D(rv)
-        )
+        act.triggered.connect(lambda checked=False, rv=rasterview, **kwargs: self.on_scatter_plot_2D(rv))
 
         if FLAGS.sam:
             act = submenu.addAction(self.tr("Spectral Angle Mapper"))
             act.triggered.connect(
-                lambda checked=False,
-                rv=rasterview,
-                **kwargs: self._on_open_spectral_angle_mapper(rv)
+                lambda checked=False, rv=rasterview, **kwargs: self._on_open_spectral_angle_mapper(rv)
             )
 
         if FLAGS.sff:
             act = submenu.addAction(self.tr("Spectral Feature Fitting"))
             act.triggered.connect(
-                lambda checked=False,
-                rv=rasterview,
-                **kwargs: self._open_spectral_feature_fitting(rv)
+                lambda checked=False, rv=rasterview, **kwargs: self._open_spectral_feature_fitting(rv)
             )
 
         # Plugin context-menus
@@ -249,19 +227,13 @@ class MainViewWidget(RasterPane):
         # act = menu.addAction('Save')
 
         act = menu.addAction("Edit dataset...")
-        act.triggered.connect(
-            lambda checked=False, rv=rasterview: self._on_edit_dataset(rv)
-        )
+        act.triggered.connect(lambda checked=False, rv=rasterview: self._on_edit_dataset(rv))
 
         act = menu.addAction("Save as...")
-        act.triggered.connect(
-            lambda checked=False, rv=rasterview: self._on_save_dataset_as(rv)
-        )
+        act.triggered.connect(lambda checked=False, rv=rasterview: self._on_save_dataset_as(rv))
 
         act = menu.addAction("Close dataset")
-        act.triggered.connect(
-            lambda checked=False, rv=rasterview: self._on_close_dataset(rv)
-        )
+        act.triggered.connect(lambda checked=False, rv=rasterview: self._on_close_dataset(rv))
 
     def _set_link_views_button_state(self):
         """
@@ -334,9 +306,7 @@ class MainViewWidget(RasterPane):
 
     def _on_export_image_full(self, rasterview):
         dataset = rasterview.get_raster_data()
-        self._export_image.configure(
-            rasterview, 0, 0, dataset.get_width(), dataset.get_height(), 1.0
-        )
+        self._export_image.configure(rasterview, 0, 0, dataset.get_width(), dataset.get_height(), 1.0)
 
         self._export_image.exec()
 
@@ -372,9 +342,7 @@ class MainViewWidget(RasterPane):
 
     def _on_dataset_changed(self, act):
         super()._on_dataset_changed(act)
-        self._app_state.mainview_dataset_changed.emit(
-            self.get_rasterview().get_raster_data().get_id()
-        )
+        self._app_state.mainview_dataset_changed.emit(self.get_rasterview().get_raster_data().get_id())
 
     def get_stretch_builder(self):
         return self._stretch_builder
@@ -438,12 +406,8 @@ class MainViewWidget(RasterPane):
     ):
         # Highlight the selected points
         rows, cols, x_val, y_val = selected_points
-        assert len(rows) == len(
-            cols
-        ), "Returned pixel rows do not equal returned pixel columns."
-        self._interactive_scatter_highlight_points = [
-            (rows[i], cols[i]) for i in range(len(cols))
-        ]
+        assert len(rows) == len(cols), "Returned pixel rows do not equal returned pixel columns."
+        self._interactive_scatter_highlight_points = [(rows[i], cols[i]) for i in range(len(cols))]
         self._interactive_scatter_render_ds_id = render_ds_id
         if color_hex:
             try:
@@ -522,9 +486,7 @@ class MainViewWidget(RasterPane):
 
         self._draw_interactive_scatter_plot_highlights(rasterview, widget, paint_event)
 
-    def _draw_interactive_scatter_plot_highlights(
-        self, rasterview: RasterView, widget, paint_event
-    ):
+    def _draw_interactive_scatter_plot_highlights(self, rasterview: RasterView, widget, paint_event):
         rasterview_ds = rasterview.get_raster_data()
         if rasterview_ds is None:
             return
@@ -593,18 +555,12 @@ class MainViewWidget(RasterPane):
 
                     x = center_screen[0]
                     y = center_screen[1]
-                    rv.make_point_visible(
-                        x, y, margin=0.5, reference_rasterview=rasterview
-                    )
+                    rv.make_point_visible(x, y, margin=0.5, reference_rasterview=rasterview)
 
                 else:
-                    raise ValueError(
-                        f"Geographic link state is incorrect: {link_state}"
-                    )
+                    raise ValueError(f"Geographic link state is incorrect: {link_state}")
 
-    def set_viewport_highlight(
-        self, viewport: Union[QRect, QRectF], rasterview: RasterView
-    ):
+    def set_viewport_highlight(self, viewport: Union[QRect, QRectF], rasterview: RasterView):
         """
         Sets the "viewport highlight" to be displayed in this raster-pane. This
         is used to allow the Main View to show the Zoom Pane viewport.
@@ -632,9 +588,7 @@ class MainViewWidget(RasterPane):
 
                 if not visible.contains(viewport):
                     center = viewport.center()
-                    rv.make_point_visible(
-                        center.x(), center.y(), reference_rasterview=rasterview
-                    )
+                    rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
                 # Repaint raster-view
                 rv.update()
@@ -657,9 +611,7 @@ class MainViewWidget(RasterPane):
                 if rv_dataset == dataset:
                     if not visible.contains(viewport):
                         center = viewport.center()
-                        rv.make_point_visible(
-                            center.x(), center.y(), reference_rasterview=rasterview
-                        )
+                        rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterview)
 
                 # Repaint raster-view. We always repaint to account
                 # for highlight boxes that may have been switched off
@@ -719,9 +671,7 @@ class MainViewWidget(RasterPane):
                         )
                         compatible_highlights.append(transformed_viewport)
                     else:
-                        raise ValueError(
-                            f"Got the wrong GeographicLinkState. Got {link_state}!"
-                        )
+                        raise ValueError(f"Got the wrong GeographicLinkState. Got {link_state}!")
             return compatible_highlights
         else:
             return super()._get_compatible_highlights(ds_id)
@@ -743,9 +693,7 @@ class MainViewWidget(RasterPane):
                 reference_pixel, dataset, rv_dataset, link_state=self._link_view_state
             )
             if target_pixel is None:
-                raise ValueError(
-                    "Target pixel is none even though main view scrolling is linked!"
-                )
+                raise ValueError("Target pixel is none even though main view scrolling is linked!")
             target_point = QPoint(*target_pixel)
         else:
             if dataset is not None and rasterview.get_raster_data() is not dataset:

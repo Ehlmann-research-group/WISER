@@ -198,8 +198,7 @@ class PolygonSelectionEditor(TaskDelegate):
 
         # Give the user some directions.
         self._app_state.show_status_text(
-            "Left-click and drag control points to adjust the polygon."
-            + "  Press Esc key to finish edits."
+            "Left-click and drag control points to adjust the polygon." + "  Press Esc key to finish edits."
         )
 
     def _pick_control_point(self, p):

@@ -165,9 +165,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -199,9 +199,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.click_main_view_zoom_in()
         self.test_model.click_main_view_zoom_in()
 
-        cp_highlight = self.test_model.get_context_pane_compatible_highlights(
-            ds1.get_id()
-        )[0]
+        cp_highlight = self.test_model.get_context_pane_compatible_highlights(ds1.get_id())[0]
 
         mv_region = self.test_model.get_main_view_rv_visible_region((0, 0))
 
@@ -209,9 +207,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         self.test_model.scroll_main_view_rv_dx((0, 1), -100)
 
-        cp_highlight = self.test_model.get_context_pane_compatible_highlights(
-            ds1.get_id()
-        )[0]
+        cp_highlight = self.test_model.get_context_pane_compatible_highlights(ds1.get_id())[0]
 
         mv_region = self.test_model.get_main_view_rv_visible_region((0, 0))
 
@@ -219,9 +215,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         self.test_model.scroll_main_view_rv_dy((1, 0), -100)
 
-        cp_highlight = self.test_model.get_context_pane_compatible_highlights(
-            ds1.get_id()
-        )[0]
+        cp_highlight = self.test_model.get_context_pane_compatible_highlights(ds1.get_id())[0]
 
         mv_region = self.test_model.get_main_view_rv_visible_region((0, 0))
 
@@ -238,9 +232,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -265,19 +259,18 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.set_context_pane_dataset(ds1.get_id())
 
         visible_region_00 = self.test_model.get_main_view_rv_visible_region((0, 0))
-        highlight_region = self.test_model.context_pane._get_compatible_highlights(
-            ds1.get_id()
-        )[0]
+        highlight_region = self.test_model.context_pane._get_compatible_highlights(ds1.get_id())[0]
 
         # For an unknown reason, when I run this test inside of pytest and outside,
         # I get two different results. Outside of pytests the below regions are the same, but
         # in pytest, one of the values is off by 6, hence epsilon=6
-        self.assertTrue(
-            are_qrects_close(highlight_region, visible_region_00, epsilon=6)
-        )
+        self.assertTrue(are_qrects_close(highlight_region, visible_region_00, epsilon=6))
 
     def test_cp_use_clicked(self):
-        """Ensures that the context pane tracks the dataset clicked in the main view when using 'Use Clicked Dataset'."""
+        """
+        Ensures that the context pane tracks the dataset clicked in the
+        main view when using 'Use Clicked Dataset'.
+        """
         rows, cols, channels = 75, 75, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
         row_values = np.linspace(0, 1, rows).reshape(rows, 1)
@@ -287,9 +280,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -309,13 +302,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.load_dataset(np_impl3)
 
         clicked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            clicked_id == -1, "Starting dataset option is not 'Use Clicked Dataset'"
-        )
+        self.assertTrue(clicked_id == -1, "Starting dataset option is not 'Use Clicked Dataset'")
 
-        self.test_model.click_raster_coord_main_view_rv(
-            rv_pos=(0, 0), raster_coord=(10, 10)
-        )
+        self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 0), raster_coord=(10, 10))
         ds_00 = self.test_model.get_main_view_rv((0, 0)).get_raster_data()
         cp_ds = self.test_model.get_context_pane_dataset()
         self.assertTrue(
@@ -329,9 +318,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
             "Context Pane dataset chooser changed when clicking in main view",
         )
 
-        self.test_model.click_raster_coord_main_view_rv(
-            rv_pos=(0, 1), raster_coord=(10, 10)
-        )
+        self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 1), raster_coord=(10, 10))
         ds_01 = self.test_model.get_main_view_rv((0, 1)).get_raster_data()
         cp_ds = self.test_model.get_context_pane_dataset()
         self.assertTrue(
@@ -356,9 +343,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -380,13 +367,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.click_link_button()
 
         clicked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            clicked_id == -1, "Starting dataset option is not 'Use Clicked Dataset'"
-        )
+        self.assertTrue(clicked_id == -1, "Starting dataset option is not 'Use Clicked Dataset'")
 
-        self.test_model.click_raster_coord_main_view_rv(
-            rv_pos=(0, 0), raster_coord=(10, 10)
-        )
+        self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 0), raster_coord=(10, 10))
         ds_00 = self.test_model.get_main_view_rv((0, 0)).get_raster_data()
         cp_ds = self.test_model.get_context_pane_dataset()
         self.assertTrue(
@@ -400,9 +383,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
             "Context Pane dataset chooser changed when clicking in main view",
         )
 
-        self.test_model.click_raster_coord_main_view_rv(
-            rv_pos=(0, 1), raster_coord=(10, 10)
-        )
+        self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 1), raster_coord=(10, 10))
         ds_01 = self.test_model.get_main_view_rv((0, 1)).get_raster_data()
         cp_ds = self.test_model.get_context_pane_dataset()
         self.assertTrue(
@@ -417,7 +398,10 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         )
 
     def test_cp_use_specific_ds(self):
-        """Checks that the context pane uses a specifically chosen dataset and does not change on main view clicks."""
+        """
+        Checks that the context pane uses a specifically chosen dataset and does not
+        change on main view clicks.
+        """
         rows, cols, channels = 75, 75, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
         row_values = np.linspace(0, 1, rows).reshape(rows, 1)
@@ -427,9 +411,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -448,18 +432,14 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         # Ensure the checked id is set to 'Use Clicked Dataset'
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == -1, "Starting dataset option is not 'Use Clicked Dataset'"
-        )
+        self.assertTrue(checked_id == -1, "Starting dataset option is not 'Use Clicked Dataset'")
 
         ds1_id = ds1.get_id()
         # Set the context pane to use dataset 1
         self.test_model.set_context_pane_dataset_chooser_id(ds1_id)
         # Make sure context pane dataset chooser was actually switched
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}"
-        )
+        self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         # Make sure the shown dataset in context pane was switched
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
         self.assertTrue(
@@ -468,15 +448,11 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         )
 
         # Click somewhere in ds2'S raster view
-        self.test_model.click_raster_coord_main_view_rv(
-            rv_pos=(0, 1), raster_coord=(10, 10)
-        )
+        self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 1), raster_coord=(10, 10))
 
         # Make sure the context pane is still showing dataset 1
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}"
-        )
+        self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
         self.assertTrue(
             cp_ds_id == checked_id,
@@ -489,9 +465,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         # Ensure context pane has dataset 2 checked and shown
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds2_id, f"Context pane dataset chooser not set to {ds2_id}"
-        )
+        self.assertTrue(checked_id == ds2_id, f"Context pane dataset chooser not set to {ds2_id}")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
         self.assertTrue(
             cp_ds_id == checked_id,
@@ -499,9 +473,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         )
 
         # Click somewhere in dataset 1's rasterview
-        self.test_model.click_raster_coord_main_view_rv(
-            rv_pos=(0, 0), raster_coord=(10, 10)
-        )
+        self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 0), raster_coord=(10, 10))
 
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
         self.assertTrue(
@@ -515,7 +487,10 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         )
 
     def test_cp_use_specific_ds_while_linked(self):
-        """Verifies that selecting a specific dataset in the context pane persists when main views are linked."""
+        """
+        Verifies that selecting a specific dataset in the context pane persists
+        when main views are linked.
+        """
         rows, cols, channels = 75, 75, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
         row_values = np.linspace(0, 1, rows).reshape(rows, 1)
@@ -525,9 +500,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -548,18 +523,14 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         # Ensure the checked id is set to 'Use Clicked Dataset'
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == -1, "Starting dataset option is not 'Use Clicked Dataset'"
-        )
+        self.assertTrue(checked_id == -1, "Starting dataset option is not 'Use Clicked Dataset'")
 
         ds1_id = ds1.get_id()
         # Set the context pane to use dataset 1
         self.test_model.set_context_pane_dataset_chooser_id(ds1_id)
         # Make sure context pane dataset chooser was actually switched
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}"
-        )
+        self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         # Make sure the shown dataset in context pane was switched
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
         self.assertTrue(
@@ -568,15 +539,11 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         )
 
         # Click somewhere in ds2'S raster view
-        self.test_model.click_raster_coord_main_view_rv(
-            rv_pos=(0, 1), raster_coord=(10, 10)
-        )
+        self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 1), raster_coord=(10, 10))
 
         # Make sure the context pane is still showing dataset 1
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}"
-        )
+        self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
         self.assertTrue(
             cp_ds_id == checked_id,
@@ -589,9 +556,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         # Ensure context pane has dataset 2 checked and shown
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds2_id, f"Context pane dataset chooser not set to {ds2_id}"
-        )
+        self.assertTrue(checked_id == ds2_id, f"Context pane dataset chooser not set to {ds2_id}")
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
         self.assertTrue(
             cp_ds_id == checked_id,
@@ -599,9 +564,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         )
 
         # Click somewhere in dataset 1's rasterview
-        self.test_model.click_raster_coord_main_view_rv(
-            rv_pos=(0, 0), raster_coord=(10, 10)
-        )
+        self.test_model.click_raster_coord_main_view_rv(rv_pos=(0, 0), raster_coord=(10, 10))
 
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
         self.assertTrue(
@@ -630,9 +593,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -656,9 +619,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.set_context_pane_dataset_chooser_id(ds1_id)
         # Make sure context pane dataset chooser was actually switched
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}"
-        )
+        self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         # Make sure the shown dataset in context pane was switched
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
         self.assertTrue(
@@ -691,9 +652,9 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
 
         # Create second array
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -720,9 +681,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.set_context_pane_dataset_chooser_id(ds1_id)
         # Make sure context pane dataset chooser was actually switched
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}"
-        )
+        self.assertTrue(checked_id == ds1_id, f"Context pane dataset chooser not set to {ds1_id}")
         # Make sure the shown dataset in context pane was switched
         cp_ds_id = self.test_model.get_context_pane_dataset().get_id()
         self.assertTrue(
@@ -733,9 +692,7 @@ class TestContextPaneMainViewIntegration(unittest.TestCase):
         self.test_model.close_dataset(ds2_id)
 
         checked_id = self.test_model.get_cp_dataset_chooser_checked_id()
-        self.assertTrue(
-            checked_id == ds1_id, "Context pane changed datasets on removing a dataset"
-        )
+        self.assertTrue(checked_id == ds1_id, "Context pane changed datasets on removing a dataset")
 
     def test_cp_remove_not_chosen_dataset_while_linked(self):
         """Variant of `test_cp_remove_not_chosen_dataset` for linked views."""
@@ -759,9 +716,7 @@ if __name__ == "__main__":
 
     # Create second array
     # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-    row_values = np.concatenate(
-        (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-    ).reshape(rows, 1)
+    row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
     impl2 = np.tile(row_values, (1, cols))
     np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 

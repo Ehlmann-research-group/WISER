@@ -113,9 +113,7 @@ def load_envi_header(f):
 
         parts = line.split("=", maxsplit=1)
         if len(parts) != 2:
-            raise EnviFileFormatError(
-                f'Line {line_no}:  not of the form "name = value"'
-            )
+            raise EnviFileFormatError(f'Line {line_no}:  not of the form "name = value"')
 
         name = normalize_name(parts[0])
 
@@ -191,9 +189,7 @@ def load_envi_data(filename, header_filename=None, mmap=True):
         metadata = load_envi_header(f)
 
     # Figure out the numpy element type from the ENVI header
-    numpy_type = map_envi_type_to_numpy_type(
-        metadata["data type"], metadata["byte order"]
-    )
+    numpy_type = map_envi_type_to_numpy_type(metadata["data type"], metadata["byte order"])
 
     # Load the binary data itself.
     header_offset = metadata["header offset"]

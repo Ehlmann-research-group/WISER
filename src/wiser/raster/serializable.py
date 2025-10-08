@@ -23,11 +23,10 @@ class Serializable:
 
     @staticmethod
     @abstractmethod
-    def deserialize_into_class(
-        dataset_serialize_value: Union[str, np.ndarray], dataset_metadata: Dict
-    ):
+    def deserialize_into_class(dataset_serialize_value: Union[str, np.ndarray], dataset_metadata: Dict):
         """
-        This should recreate the object from the serialized form that is obtained from the get_serialized_form method.
+        This should recreate the object from the serialized form that is
+        obtained from the get_serialized_form method.
         """
         raise NotImplementedError("This method must be implemented by the subclass")
 
@@ -47,8 +46,10 @@ class SerializedForm:
     ):
         """
         Args:
-            - serializable_class: The class of the object that is being serialized. This will have the deserialize_into_class method.
-            - serialize_value: The value that is being serialized. This can be a string that represents the file path to the dataset, or a numpy array
+            - serializable_class: The class of the object that is being serialized. This will have
+            the deserialize_into_class method.
+            - serialize_value: The value that is being serialized. This can be a string that
+            represents the file path to the dataset, or a numpy array
             that represents the data in the dataset.
             - metadata: A dictionary that represents the metadata needed to recreate this object.
         """

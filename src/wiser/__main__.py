@@ -145,9 +145,7 @@ def main():
         nargs="*",
         help="An optional list of data files to open in WISER",
     )
-    parser.add_argument(
-        "--config_path", help="The path to read WISER configuration from"
-    )
+    parser.add_argument("--config_path", help="The path to read WISER configuration from")
     # TODO(donnie):  Provide a way to specify Qt arguments
 
     args = parser.parse_args()
@@ -228,10 +226,7 @@ def main():
     # If the WISER config file was created for the first time, ask the user if
     # they would like to opt in to online bug reporting.
     if not loaded_config:
-        logger.debug(
-            "WISER config not loaded.  Asking user to opt-in for "
-            + "online bug reporting."
-        )
+        logger.debug("WISER config not loaded.  Asking user to opt-in for " + "online bug reporting.")
         dialog = bug_reporting.BugReportingDialog()
         dialog.exec()
 

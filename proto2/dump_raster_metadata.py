@@ -2,6 +2,8 @@ import sys
 
 from osgeo import gdal, gdalconst, gdal_array, osr
 
+# ruff: noqa: E501
+
 
 def pixel_coord_to_geo_coord(pixel_coord, geo_transform):
     (pixel_x, pixel_y) = pixel_coord
@@ -32,9 +34,7 @@ def dump_coords(pixel_coord, geo_transform, spatial_ref):
 def dump_raster_metadata(path):
     print(f"Opening {path}...")
     gdal.UseExceptions()
-    ds = gdal.OpenEx(
-        path, nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR
-    )
+    ds = gdal.OpenEx(path, nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR)
 
     print()
     print(f"File list:  {ds.GetFileList()}")

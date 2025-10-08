@@ -69,9 +69,7 @@ def parse_deg_min_sec_str(s) -> float:
 
     ch = s[-1]
     if ch not in "+-0123456789." and ch not in "NSEW":
-        raise ValueError(
-            f'Cannot parse "{s}":  unrecognized direction character "{ch}" at end'
-        )
+        raise ValueError(f'Cannot parse "{s}":  unrecognized direction character "{ch}" at end')
 
     if s[-1] in "SW":
         value = -value
@@ -98,9 +96,7 @@ def parse_northing_easting_str(s) -> float:
     # It's possible this is a unit, but we will ignore that for now.
     ch = s[-1]
     if ch not in "+-0123456789." and ch not in "NSEW":
-        raise ValueError(
-            f'Cannot parse "{s}":  unrecognized direction character "{ch}" at end'
-        )
+        raise ValueError(f'Cannot parse "{s}":  unrecognized direction character "{ch}" at end')
 
     # Unlikely for Northing/Easting.
     if s[-1] in "SW":
@@ -210,9 +206,7 @@ class GeoCoordsDialog(QDialog):
         config = self._get_current_config()
         self.config_changed.emit(self._dataset.get_id(), self._get_current_config())
 
-        is_geo_crs = (
-            config.spatial_ref is not None and config.spatial_ref.IsGeographic()
-        )
+        is_geo_crs = config.spatial_ref is not None and config.spatial_ref.IsGeographic()
 
         for w in [self._ui.ckbox_deg_min_sec, self._ui.ckbox_neg_degrees]:
             w.setEnabled(is_geo_crs)
@@ -233,9 +227,7 @@ class GeoCoordsDialog(QDialog):
         ds_spatial_ref = self._dataset.get_spatial_ref()
         coords_ref = self._ui.cbox_goto_coords.currentData()
 
-        logger.debug(
-            f'Inputs = "{self._ui.ledit_axis_1.text()}", "{self._ui.ledit_axis_2.text()}"'
-        )
+        logger.debug(f'Inputs = "{self._ui.ledit_axis_1.text()}", "{self._ui.ledit_axis_2.text()}"')
         try:
             if coords_ref.IsGeographic():
                 geo_x = parse_deg_min_sec_str(self._ui.ledit_axis_1.text())

@@ -74,17 +74,13 @@ class TiledRasterView(RasterView):
         parent=None,
         forward=None,
     ):
-        super().__init__(
-            parent=parent, forward=forward, app_state=app_state, rasterpane=rasterpane
-        )
+        super().__init__(parent=parent, forward=forward, app_state=app_state, rasterpane=rasterpane)
 
         self._rasterpane = rasterpane
         self._position = position
 
         self._toolbar = QToolBar(
-            self.tr("RasterView [{row}, {col}] Toolbar").format(
-                row=position[0], col=position[1]
-            ),
+            self.tr("RasterView [{row}, {col}] Toolbar").format(row=position[0], col=position[1]),
             parent=self,
         )
         self._layout.setMenuBar(self._toolbar)
@@ -113,9 +109,7 @@ class TiledRasterView(RasterView):
             self._toolbar, ":/icons/choose-bands.svg", self.tr("Band chooser"), self
         )
         self._act_band_chooser.triggered.connect(
-            lambda checked=False: self._rasterpane._on_band_chooser(
-                checked, rasterview_pos=self._position
-            )
+            lambda checked=False: self._rasterpane._on_band_chooser(checked, rasterview_pos=self._position)
         )
 
         # ====================
@@ -128,9 +122,7 @@ class TiledRasterView(RasterView):
             self,
         )
         self._act_stretch_builder.triggered.connect(
-            lambda checked=False: self._rasterpane._on_stretch_builder(
-                checked, rasterview_pos=self._position
-            )
+            lambda checked=False: self._rasterpane._on_stretch_builder(checked, rasterview_pos=self._position)
         )
 
         self.update_toolbar_state()
@@ -168,7 +160,11 @@ class TiledRasterView(RasterView):
             current_index = 0
             current_ds_id = -1
 
-        # print(f'update_toolbar_state(position={self._position}):  current_index = {current_index}, current_ds_id = {current_ds_id}')
+        # print(
+        #     f"update_toolbar_state(position={self._position}):  "
+        #     f"current_index = {current_index}, "
+        #     f"current_ds_id = {current_ds_id}"
+        # )
 
         new_index = None
         self._cbox_dataset_chooser.clear()
@@ -521,9 +517,7 @@ class RasterPane(QWidget):
         """
 
         if num_views[0] < 1 or num_views[1] < 1:
-            raise ValueError(
-                f"Minimum number of raster-view rows/cols is 1, got {num_views}"
-            )
+            raise ValueError(f"Minimum number of raster-view rows/cols is 1, got {num_views}")
 
         # If the current raster-view layout is the same as the requested
         # raster-view layout, ignore.
@@ -569,9 +563,7 @@ class RasterPane(QWidget):
 
                 rasterview = self._rasterviews.get(position)
                 if rasterview is None:
-                    rasterview = rasterview_class(
-                        self, position, self._app_state, forward=forward
-                    )
+                    rasterview = rasterview_class(self, position, self._app_state, forward=forward)
                     rasterview.setContextMenuPolicy(Qt.DefaultContextMenu)
 
                     self._rasterviews[position] = rasterview
@@ -880,34 +872,26 @@ class RasterPane(QWidget):
 
                 act = roi_menu.addAction(self.tr("Show ROI average spectrum"))
                 act.triggered.connect(
-                    lambda checked: self._on_show_roi_avg_spectrum(
-                        roi=roi, rasterview=rasterview
-                    )
+                    lambda checked: self._on_show_roi_avg_spectrum(roi=roi, rasterview=rasterview)
                 )
 
                 roi_menu.addSeparator()
 
                 act = roi_menu.addAction(self.tr("Make ROI into mask"))
                 act.triggered.connect(
-                    lambda checked: self._on_make_roi_into_mask(
-                        roi=roi, rasterview=rasterview
-                    )
+                    lambda checked: self._on_make_roi_into_mask(roi=roi, rasterview=rasterview)
                 )
 
                 roi_menu.addSeparator()
 
                 act = roi_menu.addAction(self.tr("Export ROI..."))
                 act.triggered.connect(
-                    lambda checked: self._on_export_region_of_interest(
-                        roi=roi, rasterview=rasterview
-                    )
+                    lambda checked: self._on_export_region_of_interest(roi=roi, rasterview=rasterview)
                 )
 
                 act = roi_menu.addAction(self.tr("Export all spectra in ROI..."))
                 act.triggered.connect(
-                    lambda checked: self._on_export_roi_pixel_spectra(
-                        roi=roi, rasterview=rasterview
-                    )
+                    lambda checked: self._on_export_roi_pixel_spectra(roi=roi, rasterview=rasterview)
                 )
 
                 # Add plugin menu items
@@ -923,22 +907,16 @@ class RasterPane(QWidget):
 
                 for sel_index in picked_sels:
                     roi_menu.addSeparator()
-                    act = roi_menu.addAction(
-                        self.tr(f"Edit selection {sel_index} geometry")
-                    )
+                    act = roi_menu.addAction(self.tr(f"Edit selection {sel_index} geometry"))
                     act.triggered.connect(
                         lambda checked: self._on_edit_roi_selection_geometry(
                             roi=roi, sel_index=sel_index, rasterview=rasterview
                         )
                     )
 
-                    act = roi_menu.addAction(
-                        self.tr(f"Delete selection {sel_index} from ROI...")
-                    )
+                    act = roi_menu.addAction(self.tr(f"Delete selection {sel_index} from ROI..."))
                     act.triggered.connect(
-                        lambda checked: self._on_delete_roi_selection_geometry(
-                            roi=roi, sel_index=sel_index
-                        )
+                        lambda checked: self._on_delete_roi_selection_geometry(roi=roi, sel_index=sel_index)
                     )
 
                 roi_menu.addSeparator()
@@ -968,9 +946,7 @@ class RasterPane(QWidget):
         """
         self._emit_viewport_change(self._get_rasterview_position(rasterview))
 
-    def _has_delegate_for_rasterview(
-        self, rasterview: RasterView, user_input: bool = True
-    ) -> bool:
+    def _has_delegate_for_rasterview(self, rasterview: RasterView, user_input: bool = True) -> bool:
         """
         This helper function encapsulates the logic for checking whether a
         raster-view's events can be handled by the current task delegate (if a
@@ -1077,11 +1053,7 @@ class RasterPane(QWidget):
             stretches = self._app_state.get_stretches(ds_id, bands)
 
         rasterview.set_raster_data(dataset, bands, stretches)
-        if (
-            dataset is not None
-            and self._num_views == (1, 1)
-            and self._dataset_chooser is not None
-        ):
+        if dataset is not None and self._num_views == (1, 1) and self._dataset_chooser is not None:
             self._dataset_chooser.check_dataset(dataset.get_id())
 
         # This is a check to see if this rasterpane is MainView
@@ -1113,9 +1085,7 @@ class RasterPane(QWidget):
 
         return None
 
-    def set_display_bands(
-        self, ds_id: int, bands: Tuple, colormap: Optional[str] = None
-    ):
+    def set_display_bands(self, ds_id: int, bands: Tuple, colormap: Optional[str] = None):
         # TODO(donnie):  Verify the dataset ID?
 
         if len(bands) not in [1, 3]:
@@ -1272,12 +1242,7 @@ class RasterPane(QWidget):
             rv_dataset = rasterview.get_raster_data()
             visible = rasterview.get_visible_region()
 
-            if (
-                rv_dataset is None
-                or visible is None
-                or pixel_sel is None
-                or dataset is None
-            ):
+            if rv_dataset is None or visible is None or pixel_sel is None or dataset is None:
                 # Don't worry about recentering things, or displaying things -
                 # we are missing something that is necessary to display a pixel
                 # selection anyway.  Just update the rasterview to remove any
@@ -1313,9 +1278,7 @@ class RasterPane(QWidget):
                 target_dataset=rv_dataset,
             )
             if target_pixel is None:
-                raise ValueError(
-                    "Could not project pixel selections between coordinates!"
-                )
+                raise ValueError("Could not project pixel selections between coordinates!")
             target_coord = QPoint(*target_pixel)
             do_recenter = False
             if recenter == RecenterMode.ALWAYS:
@@ -1384,9 +1347,7 @@ class RasterPane(QWidget):
 
         display_pos = (0, 0)
 
-        positions = [
-            (r, c) for r in range(self._num_views[0]) for c in range(self._num_views[1])
-        ]
+        positions = [(r, c) for r in range(self._num_views[0]) for c in range(self._num_views[1])]
         for pos in positions:
             if self._rasterviews[pos].get_raster_data() is None:
                 display_pos = pos
@@ -1434,9 +1395,7 @@ class RasterPane(QWidget):
         dataset = rasterview.get_raster_data()
         display_bands = rasterview.get_display_bands()
         colormap = rasterview.get_colormap()
-        dialog = BandChooserDialog(
-            self._app_state, dataset, display_bands, colormap=colormap, parent=self
-        )
+        dialog = BandChooserDialog(self._app_state, dataset, display_bands, colormap=colormap, parent=self)
         dialog.setModal(True)
 
         if dialog.exec_() == QDialog.Accepted:
@@ -1457,9 +1416,7 @@ class RasterPane(QWidget):
         # print(f'on_stretch_builder invoked for position {rasterview_pos}')
 
         if self._stretch_builder is None:
-            self._stretch_builder = StretchBuilderDialog(
-                parent=self, app_state=self._app_state
-            )
+            self._stretch_builder = StretchBuilderDialog(parent=self, app_state=self._app_state)
 
         rasterview = self.get_rasterview(rasterview_pos)
         self._stretch_builder.show(
@@ -1576,9 +1533,7 @@ class RasterPane(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Invalid Zoom Value"),
-                self.tr(
-                    f"The zoom percentage must be at least {int(self._min_zoom_scale * 100)}."
-                ),
+                self.tr(f"The zoom percentage must be at least {int(self._min_zoom_scale * 100)}."),
             )
 
             self._update_zoom_widgets()
@@ -1589,9 +1544,7 @@ class RasterPane(QWidget):
             QMessageBox.warning(
                 self,
                 self.tr("Invalid Zoom Value"),
-                self.tr(
-                    f"The zoom percentage must be at most {int(self._max_zoom_scale * 100)}."
-                ),
+                self.tr(f"The zoom percentage must be at most {int(self._max_zoom_scale * 100)}."),
             )
 
             self._update_zoom_widgets()
@@ -1606,12 +1559,8 @@ class RasterPane(QWidget):
         scale = self.get_scale()
 
         # Enable / disable zoom buttons based on scale
-        self._act_zoom_out.setEnabled(
-            self._min_zoom_scale is None or scale >= self._min_zoom_scale
-        )
-        self._act_zoom_in.setEnabled(
-            self._max_zoom_scale is None or scale <= self._max_zoom_scale
-        )
+        self._act_zoom_out.setEnabled(self._min_zoom_scale is None or scale >= self._min_zoom_scale)
+        self._act_zoom_in.setEnabled(self._max_zoom_scale is None or scale <= self._max_zoom_scale)
 
         # Set the zoom-level value
         if scale in self._zoom_options:
@@ -1768,9 +1717,7 @@ class RasterPane(QWidget):
 
             # Report to the user that the ROI was deleted.
             self._app_state.show_status_text(
-                self.tr('Deleted selection {0} from Region of Interest "{1}"').format(
-                    sel_index, name
-                ),
+                self.tr('Deleted selection {0} from Region of Interest "{1}"').format(sel_index, name),
                 5,
             )
 
@@ -1815,23 +1762,17 @@ class RasterPane(QWidget):
 
             # Add to app state and make visible
             self._app_state.add_dataset(mask_ds, view_dataset=True)
-            self._app_state.show_status_text(
-                self.tr("Created mask dataset from ROI"), 5
-            )
+            self._app_state.show_status_text(self.tr("Created mask dataset from ROI"), 5)
 
         except Exception as e:
-            QMessageBox.critical(
-                self, self.tr("Error"), self.tr(f"Failed to create mask from ROI:\n{e}")
-            )
+            QMessageBox.critical(self, self.tr("Error"), self.tr(f"Failed to create mask from ROI:\n{e}"))
 
     def _on_show_roi_avg_spectrum(self, roi: RegionOfInterest, rasterview: RasterView):
         # TODO(donnie):  Need to get the default average mode from somewhere
         spectrum = ROIAverageSpectrum(rasterview.get_raster_data(), roi)
         self._app_state.set_active_spectrum(spectrum)
 
-    def _on_export_region_of_interest(
-        self, roi: RegionOfInterest, rasterview: RasterView
-    ) -> None:
+    def _on_export_region_of_interest(self, roi: RegionOfInterest, rasterview: RasterView) -> None:
         selected = QFileDialog.getSaveFileName(
             self,
             self.tr("Export Region of Interest:  {0}").format(roi.get_name()),
@@ -1842,9 +1783,7 @@ class RasterPane(QWidget):
         if selected[0]:
             roi_export.export_roi_to_geojson_file(roi, selected[0])
 
-    def _on_export_roi_pixel_spectra(
-        self, roi: RegionOfInterest, rasterview: RasterView
-    ) -> None:
+    def _on_export_roi_pixel_spectra(self, roi: RegionOfInterest, rasterview: RasterView) -> None:
         # If the ROI has a lot of pixels, confirm with the user.
         pixels = roi.get_all_pixels()
         if len(pixels) > 200:
@@ -1887,19 +1826,16 @@ class RasterPane(QWidget):
         result = QMessageBox.question(
             self,
             self.tr('Delete ROI "{0}"').format(name),
-            self.tr(
-                "Are you sure you wish to delete the ROI "
-                + '"{0}"?  This cannot be undone.'
-            ).format(name),
+            self.tr("Are you sure you wish to delete the ROI " + '"{0}"?  This cannot be undone.').format(
+                name
+            ),
         )
 
         if result == QMessageBox.Yes:
             self._app_state.remove_roi(roi.get_id())
 
             # Report to the user that the ROI was deleted.
-            self._app_state.show_status_text(
-                self.tr('Deleted Region of Interest "{0}"').format(name), 5
-            )
+            self._app_state.show_status_text(self.tr('Deleted Region of Interest "{0}"').format(name), 5)
 
     # TODO(donnie):  Make this function take a QPainter argument???
     # TODO(donnie):  Only pass in the bounding rectangle from the paint event???
@@ -2034,9 +1970,7 @@ class RasterPane(QWidget):
                 scaled_points = []
                 for i in range(highlight.count()):
                     pt = highlight.value(i)
-                    scaled_points.append(
-                        QPoint(int(pt.x() * scale), int(pt.y() * scale))
-                    )
+                    scaled_points.append(QPoint(int(pt.x() * scale), int(pt.y() * scale)))
                 scaled_polygon = QPolygon(scaled_points)
                 painter.drawPolygon(scaled_polygon)
 
@@ -2044,9 +1978,7 @@ class RasterPane(QWidget):
                 # If the highlight is not one of the expected types, we skip it.
                 continue
 
-    def _get_compatible_highlights(
-        self, ds_id: int
-    ) -> Optional[List[Union[QRect, QRectF, QPolygon]]]:
+    def _get_compatible_highlights(self, ds_id: int) -> Optional[List[Union[QRect, QRectF, QPolygon]]]:
         """
         Retrieves a list of highlight regions (QRect or QRectF) that are compatible
         with the given dataset. Compatibility here is just if the datasets are the

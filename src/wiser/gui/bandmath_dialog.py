@@ -400,9 +400,7 @@ class ImageBandBatchChooserWidget(QWidget):
         wvl_text = self._ledit_value.text().strip()
         wvl = float(wvl_text) if wvl_text.replace(".", "", 1).isdigit() else None
         epsilon_text = self._ledit_eps.text().strip()
-        epsilon = (
-            float(epsilon_text) if epsilon_text.replace(".", "", 1).isdigit() else None
-        )
+        epsilon = float(epsilon_text) if epsilon_text.replace(".", "", 1).isdigit() else None
         return {
             "mode": mode,
             "index": None,
@@ -694,9 +692,7 @@ class BatchJobControlsWidget(QWidget):
         self.btn_start = QPushButton(self.tr("Start"))
         self.btn_start.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.btn_start.setMaximumWidth(140)
-        self.btn_start.clicked.connect(
-            lambda: self._bandmath_dialog._run_batch_job(self.batch_job)
-        )
+        self.btn_start.clicked.connect(lambda: self._bandmath_dialog._run_batch_job(self.batch_job))
         self.batch_job.set_btn_start(self.btn_start)
         layout.addWidget(self.btn_start)
 
@@ -704,9 +700,7 @@ class BatchJobControlsWidget(QWidget):
         self.btn_cancel = QPushButton(self.tr("Cancel"))
         self.btn_cancel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.btn_cancel.setMaximumWidth(140)
-        self.btn_cancel.clicked.connect(
-            lambda: self._bandmath_dialog._cancel_batch_job(self.batch_job)
-        )
+        self.btn_cancel.clicked.connect(lambda: self._bandmath_dialog._cancel_batch_job(self.batch_job))
         self.btn_cancel.setEnabled(False)
         self.batch_job.set_btn_cancel(self.btn_cancel)
         layout.addWidget(self.btn_cancel)
@@ -715,9 +709,7 @@ class BatchJobControlsWidget(QWidget):
         self.btn_remove = QPushButton(self.tr("Remove"))
         self.btn_remove.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.btn_remove.setMaximumWidth(140)
-        self.btn_remove.clicked.connect(
-            lambda: self._bandmath_dialog._remove_batch_job(self.batch_job)
-        )
+        self.btn_remove.clicked.connect(lambda: self._bandmath_dialog._remove_batch_job(self.batch_job))
         self.batch_job.set_btn_remove(self.btn_remove)
         layout.addWidget(self.btn_remove)
 
@@ -849,11 +841,7 @@ class BatchJobInfoWidget(QWidget):
 
     def sizeHint(self):
         # Use the layout’s computed height but our fixed-ish width hint
-        h = (
-            self.layout().sizeHint().height()
-            if self.layout()
-            else super().sizeHint().height()
-        )
+        h = self.layout().sizeHint().height() if self.layout() else super().sizeHint().height()
         return QSize(self._width_hint, h)
 
     def truncate_text(self, text: str, max_len: int = 15) -> str:
@@ -880,9 +868,7 @@ class BatchJobInfoWidget(QWidget):
         tooltip = "\n".join(entries)
         return display, tooltip
 
-    def _format_var_entry(
-        self, var_name: str, var_type: bandmath.VariableType, value: Any
-    ) -> str:
+    def _format_var_entry(self, var_name: str, var_type: bandmath.VariableType, value: Any) -> str:
         """Format per your rules."""
         try:
             t = var_type
@@ -903,12 +889,13 @@ class BatchJobInfoWidget(QWidget):
             wvl = self._band_wavelength(value)
             if wvl is not None:
                 val, unit = wvl
-                return f"{var_name}: Band, {self.truncate_text(ds_name, 10)}; Wvl: {self._fmt_number(val)} {unit}"
+                return (
+                    f"{var_name}: Band, {self.truncate_text(ds_name, 10)}; "
+                    f"Wvl: {self._fmt_number(val)} {unit}"
+                )
             idx = self._band_index(value)
             if idx is not None:
-                return (
-                    f"{var_name}: Band, {self.truncate_text(ds_name, 10)}; Index: {idx}"
-                )
+                return f"{var_name}: Band, {self.truncate_text(ds_name, 10)}; Index: {idx}"
             return f"{var_name}: Band, {self.truncate_text(ds_name, 10)}"
 
         # --- SPECTRUM ---
@@ -1025,9 +1012,7 @@ class BatchJobInfoWidget(QWidget):
 
     def _fmt_number(self, x: Union[int, float]) -> str:
         """Pretty number: ints as ints; small floats compact."""
-        if isinstance(x, (int, np.integer)) or (
-            isinstance(x, float) and x.is_integer()
-        ):
+        if isinstance(x, (int, np.integer)) or (isinstance(x, float) and x.is_integer()):
             return str(int(x))
         return f"{x:.6g}"
 
@@ -1127,12 +1112,8 @@ class BandMathDialog(QDialog):
 
     def _init_batch_process_ui(self):
         # Wire up folder pickers
-        self._ui.btn_input_folder.clicked.connect(
-            lambda: self._pick_input_folder("Select input folder")
-        )
-        self._ui.btn_output_folder.clicked.connect(
-            lambda: self._pick_output_folder("Select output folder")
-        )
+        self._ui.btn_input_folder.clicked.connect(lambda: self._pick_input_folder("Select input folder"))
+        self._ui.btn_output_folder.clicked.connect(lambda: self._pick_output_folder("Select output folder"))
         self._ui.chkbox_enable_batch.clicked.connect(self._on_enable_batch_changed)
         self._sync_batch_process_ui()
 
@@ -1205,9 +1186,7 @@ class BandMathDialog(QDialog):
             # this runtime error.
             pass
 
-    def on_bandmath_job_status(
-        self, job: BandmathBatchJob, progress: Tuple[str, Dict[str, str]]
-    ):
+    def on_bandmath_job_status(self, job: BandmathBatchJob, progress: Tuple[str, Dict[str, str]]):
         if progress[0] == "progress":
             progress_dict = progress[1]
             # The dict progress has 3 entries. Numerator, Denominator, and Status message like so:
@@ -1215,9 +1194,7 @@ class BandMathDialog(QDialog):
             # We will update the progress bar with the Numerator and Denominator and have the status
             # be the text in the progress bar. Access the progress bar with job.get_progress_bar()
             numerator = int(progress_dict.get("Numerator", 0))
-            denominator = int(
-                progress_dict.get("Denominator", 1)
-            )  # avoid divide-by-zero
+            denominator = int(progress_dict.get("Denominator", 1))  # avoid divide-by-zero
             status = progress_dict.get("Status", "")
 
             progress_bar = job.get_progress_bar()
@@ -1234,9 +1211,7 @@ class BandMathDialog(QDialog):
             error_traceback = error_dict.get("Traceback", None)
 
             if result_name and error_message and error_traceback:
-                job.set_errors(
-                    job.get_errors() + [(result_name, error_message, error_traceback)]
-                )
+                job.set_errors(job.get_errors() + [(result_name, error_message, error_traceback)])
             if job.get_errors():
                 job.get_btn_view_errors().setEnabled(True)
             else:
@@ -1287,9 +1262,7 @@ class BandMathDialog(QDialog):
         if not self._get_output_folder() and not self.load_results_into_wiser():
             missing.append("Output Folder or 'Load Results into WISER' checked")
         # We need the result prefix if we have batch variables or the user specified an output folder
-        if not self.get_result_name() and (
-            self._has_batch_variables() or self._get_output_folder()
-        ):
+        if not self.get_result_name() and (self._has_batch_variables() or self._get_output_folder()):
             missing.append("Result Prefix")
 
         if missing:
@@ -1340,9 +1313,7 @@ class BandMathDialog(QDialog):
         batch_job.set_controls_widget(controls_widget)
 
         # Defer so Qt can polish the embedded widget's layout; then size to contents
-        QTimer.singleShot(
-            0, lambda: (t.resizeColumnToContents(1), t.resizeRowToContents(new_row))
-        )
+        QTimer.singleShot(0, lambda: (t.resizeColumnToContents(1), t.resizeRowToContents(new_row)))
 
     def _create_job_id_item(self, batch_job: BandmathBatchJob) -> QTableWidgetItem:
         item = QTableWidgetItem(f"{batch_job.get_job_id()}")
@@ -1350,9 +1321,7 @@ class BandMathDialog(QDialog):
         item.setTextAlignment(Qt.AlignCenter)
         return item
 
-    def _create_job_run_controls_widget(
-        self, batch_job: BandmathBatchJob
-    ) -> BatchJobControlsWidget:
+    def _create_job_run_controls_widget(self, batch_job: BandmathBatchJob) -> BatchJobControlsWidget:
         controls_widget = BatchJobControlsWidget(self, batch_job)
 
         return controls_widget
@@ -1391,9 +1360,7 @@ class BandMathDialog(QDialog):
     def _get_batch_job_table_row_index(self, batch_job: BandmathBatchJob) -> int:
         # Iterate through the rows in self._ui.tbl_wdgt_batch_jobs
         for i in range(self._ui.tbl_wdgt_batch_jobs.rowCount()):
-            if self._ui.tbl_wdgt_batch_jobs.item(i, 0).text() == str(
-                batch_job.get_job_id()
-            ):
+            if self._ui.tbl_wdgt_batch_jobs.item(i, 0).text() == str(batch_job.get_job_id()):
                 return i
         return -1
 
@@ -1626,9 +1593,7 @@ class BandMathDialog(QDialog):
             bindings = self.get_variable_bindings()
 
             if not all_bindings_specified(bindings):
-                self._ui.lbl_result_info.setText(
-                    self.tr("Please specify values for all variables")
-                )
+                self._ui.lbl_result_info.setText(self.tr("Please specify values for all variables"))
                 return
 
             # Analyze the expression and share info about the result.
@@ -1645,19 +1610,14 @@ class BandMathDialog(QDialog):
                 bandmath.VariableType.IMAGE_BAND_BATCH,
             ]:
                 self._ui.lbl_result_info.setText(
-                    self.tr(
-                        "Enter an "
-                        + "expression that produces an image cube, band, or spectrum"
-                    )
+                    self.tr("Enter an " + "expression that produces an image cube, band, or spectrum")
                 )
                 self._ui.lbl_result_info.setStyleSheet("QLabel { color: red; }")
                 return
 
             self._expr_info = expr_info
 
-            type_str = self._variable_types_text.get(
-                expr_info.result_type, self.tr("Unrecognized type")
-            )
+            type_str = self._variable_types_text.get(expr_info.result_type, self.tr("Unrecognized type"))
             dims_str = ""
             mem_size_str = ""
 
@@ -1709,9 +1669,7 @@ class BandMathDialog(QDialog):
             index = self._find_variable_in_bindings(var)
             # If there is a row for batch processing and batch processing is disabled, remove the row
             # If there is no row for batch processing and batch processing is enabled, add a new row
-            batch_proc_mismatch = (
-                self._is_batch_var_row(index) != self.is_batch_processing_enabled()
-            )
+            batch_proc_mismatch = self._is_batch_var_row(index) != self.is_batch_processing_enabled()
             # If the current row's dataset got deleted, we need to readd the row
             row_state_changed = not self.is_row_state_unchanged(index)
             if index == -1 or batch_proc_mismatch or row_state_changed:
@@ -1747,15 +1705,11 @@ class BandMathDialog(QDialog):
                 )
                 if self.is_batch_processing_enabled():
                     type_widget.addItem(
-                        self._variable_types_text[
-                            bandmath.VariableType.IMAGE_CUBE_BATCH
-                        ],
+                        self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH],
                         bandmath.VariableType.IMAGE_CUBE_BATCH,
                     )
                     type_widget.addItem(
-                        self._variable_types_text[
-                            bandmath.VariableType.IMAGE_BAND_BATCH
-                        ],
+                        self._variable_types_text[bandmath.VariableType.IMAGE_BAND_BATCH],
                         bandmath.VariableType.IMAGE_BAND_BATCH,
                     )
                 type_widget.setSizeAdjustPolicy(QComboBox.AdjustToContents)
@@ -1766,9 +1720,7 @@ class BandMathDialog(QDialog):
                 type_widget.setCurrentIndex(type_widget.findData(type_guess))
 
                 type_widget.activated.connect(
-                    lambda index, var_name=var: self._on_variable_type_change(
-                        index, var_name
-                    )
+                    lambda index, var_name=var: self._on_variable_type_change(index, var_name)
                 )
 
                 # item = QTableWidgetItem('Image band')
@@ -1812,9 +1764,7 @@ class BandMathDialog(QDialog):
         if batch_job is None:
             raise ValueError(f"Batch job with id {batch_job_id} not found")
 
-        job_state: ParallelTaskState = (
-            batch_job.get_process_manager().get_task().get_task_state()
-        )
+        job_state: ParallelTaskState = batch_job.get_process_manager().get_task().get_task_state()
         if job_state == ParallelTaskState.NOT_STARTED:
             assert batch_job.get_btn_start().isEnabled()
             assert not batch_job.get_btn_cancel().isEnabled()
@@ -1839,10 +1789,8 @@ class BandMathDialog(QDialog):
             for i in range(row_cbox.count()):
                 text = row_cbox.itemText(i)
                 if (
-                    text
-                    == self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH]
-                    or text
-                    == self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH]
+                    text == self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH]
+                    or text == self._variable_types_text[bandmath.VariableType.IMAGE_CUBE_BATCH]
                 ):
                     return True
         return False
@@ -1873,9 +1821,7 @@ class BandMathDialog(QDialog):
 
         elif variable_type == bandmath.VariableType.IMAGE_BAND:
             value_widget = DatasetBandChooserWidget(self._app_state)
-            value_widget.dataset_chooser.activated.connect(
-                self._on_variable_shape_change
-            )
+            value_widget.dataset_chooser.activated.connect(self._on_variable_shape_change)
 
         elif variable_type == bandmath.VariableType.SPECTRUM:
             value_widget = make_spectrum_chooser(self._app_state)
@@ -1946,8 +1892,7 @@ class BandMathDialog(QDialog):
                     self,
                     self.tr("Expression already saved"),
                     self.tr(
-                        "The current band-math expression is already\n"
-                        + "in the saved-expressions list."
+                        "The current band-math expression is already\n" + "in the saved-expressions list."
                     ),
                 )
                 return
@@ -2079,10 +2024,7 @@ class BandMathDialog(QDialog):
             response = QMessageBox.question(
                 self,
                 self.tr("Un-saved Expressions"),
-                self.tr(
-                    "Do you want to save your changes\n"
-                    + "to the saved-expressions list?"
-                ),
+                self.tr("Do you want to save your changes\n" + "to the saved-expressions list?"),
             )
 
             if response == QMessageBox.Yes:
@@ -2211,22 +2153,14 @@ class BandMathDialog(QDialog):
                     value = self._app_state.get_dataset(ds_id)
 
             elif var_type == bandmath.VariableType.IMAGE_BAND:
-                (ds_id, band_index) = self._ui.tbl_variables.cellWidget(
-                    row, 2
-                ).get_ds_band()
-                if (
-                    ds_id is not None
-                    and band_index is not None
-                    and self._app_state.has_dataset(ds_id)
-                ):
+                (ds_id, band_index) = self._ui.tbl_variables.cellWidget(row, 2).get_ds_band()
+                if ds_id is not None and band_index is not None and self._app_state.has_dataset(ds_id):
                     dataset = self._app_state.get_dataset(ds_id)
                     value = RasterDataBand(dataset, band_index)
 
             elif var_type == bandmath.VariableType.SPECTRUM:
                 spectrum_info = self._ui.tbl_variables.cellWidget(row, 2).currentData()
-                if isinstance(spectrum_info, int) and self._app_state.has_spectrum(
-                    spectrum_info
-                ):
+                if isinstance(spectrum_info, int) and self._app_state.has_spectrum(spectrum_info):
                     value = self._app_state.get_spectrum(spectrum_info)
 
                 elif isinstance(spectrum_info, tuple):
@@ -2236,9 +2170,7 @@ class BandMathDialog(QDialog):
                         value = lib.get_spectrum(spectrum_index)
 
                 else:
-                    raise TypeError(
-                        f"Unrecognized type of spectrum info:  {spectrum_info}"
-                    )
+                    raise TypeError(f"Unrecognized type of spectrum info:  {spectrum_info}")
             elif var_type == bandmath.VariableType.IMAGE_CUBE_BATCH:
                 # If value is None, then the bandmath dialog will raise the not all bindings specified error
                 # Which is good because the user will know to specify all bindings.
@@ -2247,9 +2179,7 @@ class BandMathDialog(QDialog):
                     value = input_folder
             elif var_type == bandmath.VariableType.IMAGE_BAND_BATCH:
                 input_folder = self._get_input_folder()
-                band_batch_chooser: ImageBandBatchChooserWidget = (
-                    self._ui.tbl_variables.cellWidget(row, 2)
-                )
+                band_batch_chooser: ImageBandBatchChooserWidget = self._ui.tbl_variables.cellWidget(row, 2)
                 row_mode = band_batch_chooser.get_settings()["mode"]
                 row_band_index = band_batch_chooser.get_settings()["index"]
                 row_wavelength_value = band_batch_chooser.get_settings()["wavelength"]
@@ -2257,16 +2187,9 @@ class BandMathDialog(QDialog):
                 row_epsilon = band_batch_chooser.get_settings()["epsilon"]
                 if row_mode == ImageBandBatchChooserWidget.Mode.INDEX:
                     if input_folder and row_band_index:
-                        value = RasterDataBatchBand(
-                            input_folder, band_index=row_band_index
-                        )
+                        value = RasterDataBatchBand(input_folder, band_index=row_band_index)
                 elif row_mode == ImageBandBatchChooserWidget.Mode.WAVELENGTH:
-                    if (
-                        input_folder
-                        and row_wavelength_value
-                        and row_wavelength_units
-                        and row_epsilon
-                    ):
+                    if input_folder and row_wavelength_value and row_wavelength_units and row_epsilon:
                         value = RasterDataBatchBand(
                             input_folder,
                             wavelength_value=row_wavelength_value,
@@ -2276,9 +2199,7 @@ class BandMathDialog(QDialog):
                 else:
                     raise AssertionError(f"Unrecognized mode: {row_mode}")
             else:
-                raise AssertionError(
-                    f"Unrecognized binding type {var_type} for variable {var}"
-                )
+                raise AssertionError(f"Unrecognized binding type {var_type} for variable {var}")
 
             variables[var] = (var_type, value)
 

@@ -16,9 +16,7 @@ SENTINEL_RESULT = "__RESULT__"
 SENTINEL_ERROR = "__ERROR__"
 
 
-def child_trampoline(
-    op: Callable, child_conn: mp_conn.Connection, return_queue: mp.Queue, **kwargs
-):
+def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue: mp.Queue, **kwargs):
     try:
         op(child_conn=child_conn, return_queue=return_queue, **kwargs)
     except Exception:
@@ -88,9 +86,7 @@ class ProcessManager(QObject):
         kwargs["child_conn"] = self._child_conn
         kwargs["return_queue"] = self._return_q
         self._process = CTX.Process(target=child_trampoline, kwargs=kwargs)
-        self._task = ParallelTaskProcess(
-            self._process, self._parent_conn, self._child_conn, self._return_q
-        )
+        self._task = ParallelTaskProcess(self._process, self._parent_conn, self._child_conn, self._return_q)
         self._process_manager_id = type(self)._next_process_id
         type(self)._next_process_id += 1
 

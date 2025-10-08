@@ -52,9 +52,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
             The transformed array matches the ground truth array.
             The geotransform metadata is identical to the ground truth.
         """
-        load_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         ground_truth_path = os.path.join(
             "..",
             "test_utils",
@@ -119,9 +117,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         Asserts:
             The translated geotransform matches the expected values.
         """
-        load_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         temp_save_path = os.path.join(
             "..",
             "test_utils",
@@ -203,7 +199,7 @@ if __name__ == "__main__":
 
     # test_model.set_translate_lon(100)
 
-    # save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "test_sim_transform_translate.tif")
+    # save_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "test_sim_transform_translate.tif")  # noqa: E501
     # test_model.set_save_path_translate(save_path)
 
     # print(f"new spatial_coords: {test_model.ge_spatial_coords_translate_pane()}")

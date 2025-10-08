@@ -10,6 +10,7 @@ Classes:
 Note:
     The module requires access to specific test datasets located in `test_utils/test_datasets`.
 """
+
 import os
 
 import unittest
@@ -104,9 +105,7 @@ class TestCRSCreator(unittest.TestCase):
 
         self.test_model.crs_creator_set_semi_major(semi_major_val)
 
-        self.test_model.crs_creator_set_axis_ingestion(
-            axis_ingestion_type, axis_ingestion_value
-        )
+        self.test_model.crs_creator_set_axis_ingestion(axis_ingestion_type, axis_ingestion_value)
 
         self.test_model.crs_creator_set_prime_meridian(prime_meridian)
 
@@ -120,9 +119,7 @@ class TestCRSCreator(unittest.TestCase):
 
         self.test_model.crs_creator_press_okay()
 
-        user_created_crs_wkt: str = self.test_model.get_user_created_crs()[name][
-            0
-        ].ExportToWkt()
+        user_created_crs_wkt: str = self.test_model.get_user_created_crs()[name][0].ExportToWkt()
         user_created_crs_wkt = "".join(user_created_crs_wkt.split())
 
         return user_created_crs_wkt
@@ -135,13 +132,11 @@ class TestCRSCreator(unittest.TestCase):
         """
         user_created_crs_wkt = self.full_run_through()
 
-        correct_wkt = 'PROJCS["unknown",GEOGCS["unknown",DATUM["UnknownbasedonWGS84ellipsoid",SPHEROID["WGS84",6378137,298.257223563]],PRIMEM["unknown",10],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]]],PROJECTION["Stereographic"],PARAMETER["latitude_of_origin",20],PARAMETER["central_meridian",15],PARAMETER["scale_factor",1],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
+        correct_wkt = 'PROJCS["unknown",GEOGCS["unknown",DATUM["UnknownbasedonWGS84ellipsoid",SPHEROID["WGS84",6378137,298.257223563]],PRIMEM["unknown",10],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]]],PROJECTION["Stereographic"],PARAMETER["latitude_of_origin",20],PARAMETER["central_meridian",15],PARAMETER["scale_factor",1],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'  # noqa: E501
 
         correct_wkt = "".join(correct_wkt.split())
 
-        self.assertEqual(
-            user_created_crs_wkt, correct_wkt, "Projection strings aren't equal"
-        )
+        self.assertEqual(user_created_crs_wkt, correct_wkt, "Projection strings aren't equal")
 
     def test_saving_crs(self):
         """
@@ -186,9 +181,7 @@ class TestCRSCreator(unittest.TestCase):
         loaded_projection_type = self.test_model.crs_creator_get_projection_type()
         loaded_shape_type = self.test_model.crs_creator_get_shape_type()
         loaded_semi_major_val = self.test_model.crs_creator_get_semi_major()
-        loaded_axis_ingestion_type = (
-            self.test_model.crs_creator_get_axis_ingestion_type()
-        )
+        loaded_axis_ingestion_type = self.test_model.crs_creator_get_axis_ingestion_type()
         loaded_axis_ingestion_value = self.test_model.crs_creator_get_axis_value()
         loaded_prime_meridian = self.test_model.crs_creator_get_prime_meridian()
         loaded_center_longitude = self.test_model.crs_creator_get_center_longitude()
@@ -234,9 +227,7 @@ class TestCRSCreator(unittest.TestCase):
 
         added_crs = self.test_model.app_state.get_user_created_crs()[name][0]
 
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         ds = self.test_model.load_dataset(rel_path)
 
         self.test_model.set_geo_ref_target_dataset(ds.get_id())
@@ -244,9 +235,7 @@ class TestCRSCreator(unittest.TestCase):
 
         self.test_model.set_geo_ref_output_crs(UserGeneratedCRS(name, added_crs))
         self.test_model.set_geo_ref_polynomial_order("2")
-        save_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif"
-        )
+        save_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif")
         self.test_model.set_geo_ref_file_save_path(save_path)
 
         gcp_list = [
@@ -295,9 +284,7 @@ if __name__ == "__main__":
 
     test_model.crs_creator_set_semi_major(6378137)
 
-    test_model.crs_creator_set_axis_ingestion(
-        EllipsoidAxisType.INVERSE_FLATTENING, 298.257223563
-    )
+    test_model.crs_creator_set_axis_ingestion(EllipsoidAxisType.INVERSE_FLATTENING, 298.257223563)
 
     test_model.crs_creator_set_prime_meridian(0)
 
@@ -345,21 +332,15 @@ if __name__ == "__main__":
         test_model.press_enter_reference_image()
 
     test_model.set_geo_ref_polynomial_order("2")
-    save_path = os.path.join(
-        "..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif"
-    )
+    save_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif")
     test_model.set_geo_ref_file_save_path(save_path)
 
     test_model.set_geo_ref_output_crs(UserGeneratedCRS(name, added_crs))
 
-    rel_path = os.path.join(
-        "..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif"
-    )
+    rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif")
     ds = test_model.load_dataset(rel_path)
 
-    rel_path = os.path.join(
-        "..", "test_utils", "test_datasets", "caltech_4_100_150_nm_epsg4087.tif"
-    )
+    rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_epsg4087.tif")
     ds = test_model.load_dataset(rel_path)
 
     test_model.app.exec_()

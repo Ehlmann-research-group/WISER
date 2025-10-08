@@ -48,9 +48,4 @@ def are_qrects_close(qrect1: QRect, qrect2: QRect, epsilon=3) -> bool:
 
     diff_similar = abs(width_diff - height_diff) <= epsilon
 
-    return (
-        top_left_1 == top_left_2
-        and diff_similar
-        and width_diff <= epsilon
-        and height_diff <= epsilon
-    )
+    return top_left_1 == top_left_2 and diff_similar and width_diff <= epsilon and height_diff <= epsilon

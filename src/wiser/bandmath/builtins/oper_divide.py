@@ -39,10 +39,7 @@ class OperatorDivide(BandMathFunction):
         rhs = infos[1]
 
         # Take care of the simple case first, where it's just two numbers.
-        if (
-            lhs.result_type == VariableType.NUMBER
-            and rhs.result_type == VariableType.NUMBER
-        ):
+        if lhs.result_type == VariableType.NUMBER and rhs.result_type == VariableType.NUMBER:
             return BandMathExprInfo(VariableType.NUMBER)
 
         # If we got here, we are dividing more complex data types.
@@ -74,9 +71,7 @@ class OperatorDivide(BandMathFunction):
 
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
-            info.elem_type = get_result_dtype(
-                lhs.elem_type, rhs.elem_type, MathOperations.DIVIDE
-            )
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, MathOperations.DIVIDE)
 
             # TODO(donnie):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
@@ -180,12 +175,8 @@ class OperatorDivide(BandMathFunction):
 
                 # The result array should have the same dimensions as the LHS input
                 # array.
-                assert lhs_value.ndim == 3 or (
-                    lhs_value.ndim == 2 and len(index_list_current) == 1
-                )
-                assert result_arr.ndim == 3 or (
-                    result_arr.ndim == 2 and len(index_list_current) == 1
-                )
+                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
+                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             else:

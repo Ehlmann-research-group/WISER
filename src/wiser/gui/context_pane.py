@@ -193,18 +193,12 @@ class ContextPane(RasterPane):
         # Handle window-scaling changes
         if self._act_fit_to_window.isChecked():
             # The entire image needs to fit in the summary view.
-            self.get_rasterview().scale_image_to_fit(
-                mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS
-            )
+            self.get_rasterview().scale_image_to_fit(mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS)
         else:
             # Just zoom such that one of the dimensions fits.
-            self.get_rasterview().scale_image_to_fit(
-                mode=ScaleToFitMode.FIT_ONE_DIMENSION
-            )
+            self.get_rasterview().scale_image_to_fit(mode=ScaleToFitMode.FIT_ONE_DIMENSION)
 
-    def set_viewport_highlight(
-        self, viewports: List[Union[QRect, QRectF]], rasterviews: List[RasterView]
-    ):
+    def set_viewport_highlight(self, viewports: List[Union[QRect, QRectF]], rasterviews: List[RasterView]):
         """
         Sets the "viewport highlight" to be displayed in this raster-pane.  This
         is used to allow the Context Pane to show the Main View viewport. This
@@ -242,9 +236,7 @@ class ContextPane(RasterPane):
             if not visible.contains(viewports[0]):
                 center = viewports[0].center()
                 # TODO (Joshua G-K): Make this compatible with geographic linking
-                rv.make_point_visible(
-                    center.x(), center.y(), reference_rasterview=rasterviews[0]
-                )
+                rv.make_point_visible(center.x(), center.y(), reference_rasterview=rasterviews[0])
 
             # Repaint raster-view
             rv.update()

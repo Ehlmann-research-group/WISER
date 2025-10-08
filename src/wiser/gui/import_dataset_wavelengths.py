@@ -86,13 +86,9 @@ class ImportDatasetWavelengthsDialog(QDialog):
         # Hook up event-handlers
 
         self._ui.cbox_delimiter.activated.connect(lambda s: self.update_results())
-        self._ui.ckbox_header_row.clicked.connect(
-            lambda checked=False: self.update_results()
-        )
+        self._ui.ckbox_header_row.clicked.connect(lambda checked=False: self.update_results())
 
-        self._ui.cbox_wavelength_units.activated.connect(
-            lambda s: self.update_results()
-        )
+        self._ui.cbox_wavelength_units.activated.connect(lambda s: self.update_results())
         # Make some initial guesses
 
         self.guess_delimiter()
@@ -191,9 +187,7 @@ class ImportDatasetWavelengthsDialog(QDialog):
 
             self._wavelength_arr = wvl_arr
             self._wavelength_units = wvl_units
-            self._wavelengths = [
-                u.Quantity(w, self._wavelength_units) for w in self._wavelength_arr
-            ]
+            self._wavelengths = [u.Quantity(w, self._wavelength_units) for w in self._wavelength_arr]
             self._parse_error = False
 
         except Exception as e:
@@ -226,8 +220,7 @@ class ImportDatasetWavelengthsDialog(QDialog):
                 self,
                 self.tr("Override Band Units?"),
                 self.tr(
-                    "The dataset already has band unit information.\n"
-                    "Are you sure you want to override it?"
+                    "The dataset already has band unit information.\n" "Are you sure you want to override it?"
                 ),
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,

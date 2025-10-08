@@ -48,8 +48,7 @@ class ExportPlotImageDialog(QDialog):
 
         if len(self._supported_formats) == 0:
             raise ValueError(
-                "matplotlib does not recognize any of these formats:  "
-                + " ".join(check_formats)
+                "matplotlib does not recognize any of these formats:  " + " ".join(check_formats)
             )
 
         # DPI combobox
@@ -157,9 +156,7 @@ class ExportPlotImageDialog(QDialog):
     def accept(self):
         filename = self._ui.ledit_filename.text().strip()
         if len(filename) == 0:
-            QMessage.critical(
-                self, self.tr("Invalid filename"), self.tr("Filename must be specified")
-            )
+            QMessage.critical(self, self.tr("Invalid filename"), self.tr("Filename must be specified"))
             return
 
         format = self._ui.cbox_image_format.currentData()

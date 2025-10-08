@@ -74,9 +74,7 @@ TICK_THRESHOLD = 100
 SHOW_LIBRARY_SPECTRA_THRESHOLD = 20
 
 
-def generate_ticks(
-    min_value: float, max_value: float, tick_interval: float
-) -> List[float]:
+def generate_ticks(min_value: float, max_value: float, tick_interval: float) -> List[float]:
     """
     Given the specified range and tick interval, this function returns a list of
     values within that range where tick marks are to appear.  If no tick marks
@@ -111,9 +109,7 @@ def generate_ticks(
     return ticks
 
 
-def get_font_properties(
-    font_name: str, font_size: float
-) -> matplotlib.font_manager.FontProperties:
+def get_font_properties(font_name: str, font_size: float) -> matplotlib.font_manager.FontProperties:
     # FontProperties(family=None, style=None, variant=None, weight=None,
     #                stretch=None, size=None, fname=None)
     return matplotlib.font_manager.FontProperties(family=font_name, size=font_size)
@@ -179,9 +175,7 @@ class SpectrumDisplayInfo:
     def get_spectrum(self) -> Spectrum:
         return self._spectrum
 
-    def generate_plot(
-        self, axes, use_wavelengths, to_unit=u.nm, should_recalculate=True
-    ):
+    def generate_plot(self, axes, use_wavelengths, to_unit=u.nm, should_recalculate=True):
         # If we already have a plot, remove it.
         self.remove_plot()
 
@@ -202,9 +196,7 @@ class SpectrumDisplayInfo:
             # the graphs to look correct, even in the face of bad bands, plots
             # from different datasets with different wavelengths, etc.
 
-            wavelengths = raster_utils.get_band_values(
-                self._spectrum.get_wavelengths(), to_unit
-            )
+            wavelengths = raster_utils.get_band_values(self._spectrum.get_wavelengths(), to_unit)
 
             lines = axes.plot(
                 wavelengths,
@@ -583,9 +575,7 @@ class SpectrumPlotGeneric(QWidget):
 
         self._spectra_tree.currentItemChanged.connect(self._on_tree_selection_changed)
         self._spectra_tree.setContextMenuPolicy(Qt.CustomContextMenu)
-        self._spectra_tree.customContextMenuRequested.connect(
-            self._on_tree_context_menu
-        )
+        self._spectra_tree.customContextMenuRequested.connect(self._on_tree_context_menu)
 
         # ==================================================
         # Spectrum-Edit Dialog
@@ -622,15 +612,9 @@ class SpectrumPlotGeneric(QWidget):
         self._figure_canvas.setContextMenuPolicy(Qt.DefaultContextMenu)
         self._figure_canvas.set_context_menu_fn(self._on_plot_context_menu)
 
-        self._figure_canvas.mpl_connect(
-            "button_press_event", self._on_mpl_button_press_event
-        )
-        self._figure_canvas.mpl_connect(
-            "motion_notify_event", self._on_mpl_mouse_move_event
-        )
-        self._figure_canvas.mpl_connect(
-            "button_release_event", self._on_mpl_button_release_event
-        )
+        self._figure_canvas.mpl_connect("button_press_event", self._on_mpl_button_press_event)
+        self._figure_canvas.mpl_connect("motion_notify_event", self._on_mpl_mouse_move_event)
+        self._figure_canvas.mpl_connect("button_release_event", self._on_mpl_button_release_event)
 
     def sizeHint(self):
         """The default size of the spectrum-plot widget is 400x200."""
@@ -839,9 +823,7 @@ class SpectrumPlotGeneric(QWidget):
             self._x_units = spectrum.get_wavelength_units()
 
             self._displayed_spectra_with_wavelengths += 1
-            if self._displayed_spectra_with_wavelengths == len(
-                self._spectrum_display_info
-            ):
+            if self._displayed_spectra_with_wavelengths == len(self._spectrum_display_info):
                 use_wavelengths = True
 
         self._refresh_wavelengths(use_wavelengths)
@@ -860,9 +842,7 @@ class SpectrumPlotGeneric(QWidget):
         if use_wavelengths == self._plot_uses_wavelengths:
             for _, single_display_info in self._spectrum_display_info.items():
                 # Nothing has changed, so just generate a plot for the new spectrum
-                single_display_info.generate_plot(
-                    self._axes, use_wavelengths, self._x_units
-                )
+                single_display_info.generate_plot(self._axes, use_wavelengths, self._x_units)
                 unit_name = UNIT_NAME_MAPPING.get(self._x_units, None)
                 if unit_name is not None and use_wavelengths:
                     self._axes.set_xlabel(
@@ -871,9 +851,7 @@ class SpectrumPlotGeneric(QWidget):
                         fontproperties=axes_font,
                     )
                 else:
-                    self._axes.set_xlabel(
-                        "Band Index", labelpad=0, fontproperties=axes_font
-                    )
+                    self._axes.set_xlabel("Band Index", labelpad=0, fontproperties=axes_font)
 
         else:
             # Need to regenerate all plots with the new "use wavelengths" value
@@ -887,9 +865,7 @@ class SpectrumPlotGeneric(QWidget):
                 )
                 self._axes.set_ylabel("Value", labelpad=0, fontproperties=axes_font)
             else:
-                self._axes.set_xlabel(
-                    "Band Index", labelpad=0, fontproperties=axes_font
-                )
+                self._axes.set_xlabel("Band Index", labelpad=0, fontproperties=axes_font)
                 self._axes.set_ylabel("Value", labelpad=0, fontproperties=axes_font)
 
             for other_info in self._spectrum_display_info.values():
@@ -1029,9 +1005,7 @@ class SpectrumPlotGeneric(QWidget):
 
         self._update_spectrum_mouse_click(pick_location=(event.xdata, event.ydata))
 
-    def _update_spectrum_mouse_click(
-        self, pick_location: Optional[Tuple[float, float]] = None
-    ):
+    def _update_spectrum_mouse_click(self, pick_location: Optional[Tuple[float, float]] = None):
         # If we have an existing "point on spectrum" selection, pull out the
         # spectrum and index.  Also, erase the existing graphics for the
         # selection, since we "update" by removing and then re-adding the
@@ -1070,15 +1044,11 @@ class SpectrumPlotGeneric(QWidget):
             crosshair=self._selection_crosshair,
         )
 
-        self._click.generate_plot(
-            self._axes, self._font_name, self._font_size["selection"]
-        )
+        self._click.generate_plot(self._axes, self._font_name, self._font_size["selection"])
 
         self._draw_spectra()
 
-    def _find_spectrum_point_nearest_selection(
-        self, click_x: float, click_y: float
-    ) -> Tuple:
+    def _find_spectrum_point_nearest_selection(self, click_x: float, click_y: float) -> Tuple:
         """
         Given a (click_x, click_y) coordinate in data space, this function finds
         the spectrum with an X-value "near" click_x, and a Y-value closer to
@@ -1197,16 +1167,12 @@ class SpectrumPlotGeneric(QWidget):
 
         if treeitem is self._treeitem_active:
             act = menu.addAction(self.tr("Edit..."))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
             menu.addSeparator()
 
             act = menu.addAction(self.tr("Discard..."))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_discard_spectrum(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_discard_spectrum(treeitem))
 
         elif treeitem is self._treeitem_collected:
             # This is the whole "Collected Spectra" group; these are unsaved
@@ -1214,15 +1180,11 @@ class SpectrumPlotGeneric(QWidget):
 
             act = menu.addAction(self.tr("Show all spectra"))
             # act.setData(treeitem)
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_show_all_spectra(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_show_all_spectra(treeitem))
 
             act = menu.addAction(self.tr("Hide all spectra"))
             # act.setData(treeitem)
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_hide_all_spectra(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_hide_all_spectra(treeitem))
 
             act = menu.addAction(self.tr("Save to file..."))
             act.triggered.connect(lambda *args: self._on_save_collected_spectra())
@@ -1239,14 +1201,10 @@ class SpectrumPlotGeneric(QWidget):
             # act = menu.addAction(self.tr('Save edits...'))
 
             act = menu.addAction(self.tr("Show all spectra"))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_show_all_spectra(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_show_all_spectra(treeitem))
 
             act = menu.addAction(self.tr("Hide all spectra"))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_hide_all_spectra(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_hide_all_spectra(treeitem))
 
         else:
             # This is a specific spectrum plot (other than the active spectrum),
@@ -1260,25 +1218,17 @@ class SpectrumPlotGeneric(QWidget):
             act.setCheckable(True)
             act.setChecked(display_info is not None)
             act.setData(spectrum)
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_toggle_spectrum_visible(
-                    treeitem
-                )
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_toggle_spectrum_visible(treeitem))
 
             if spectrum.is_editable():
                 act = menu.addAction(self.tr("Edit..."))
-                act.triggered.connect(
-                    lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem)
-                )
+                act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
             if spectrum.is_discardable():
                 menu.addSeparator()
 
                 act = menu.addAction(self.tr("Discard..."))
-                act.triggered.connect(
-                    lambda *args, treeitem=treeitem: self._on_discard_spectrum(treeitem)
-                )
+                act.triggered.connect(lambda *args, treeitem=treeitem: self._on_discard_spectrum(treeitem))
 
         global_pos = self._spectra_tree.mapToGlobal(pos)
         menu.exec_(global_pos)
@@ -1333,9 +1283,7 @@ class SpectrumPlotGeneric(QWidget):
         # Are we showing a point on this spectrum?
         if self._click is not None and self._click.get_spectrum() is spectrum:
             self._click.remove_plot()
-            self._click.generate_plot(
-                self._axes, self._font_name, self._font_size["selection"]
-            )
+            self._click.generate_plot(self._axes, self._font_name, self._font_size["selection"])
 
         self._draw_spectra()
 
@@ -1404,9 +1352,7 @@ class SpectrumPlotGeneric(QWidget):
             confirm = QMessageBox.question(
                 self,
                 self.tr("Discard Spectrum?"),
-                self.tr("Are you sure you want to discard this spectrum?")
-                + "\n\n"
-                + spectrum.get_name(),
+                self.tr("Are you sure you want to discard this spectrum?") + "\n\n" + spectrum.get_name(),
             )
 
             if confirm != QMessageBox.Yes:
@@ -1431,9 +1377,7 @@ class SpectrumPlotGeneric(QWidget):
             self._click = None
 
     def _remove_collected_spectrum_at_index(self, index, spectrum):
-        self._on_collected_spectra_changed(
-            StateChange.ITEM_REMOVED, index, spectrum.get_id()
-        )
+        self._on_collected_spectra_changed(StateChange.ITEM_REMOVED, index, spectrum.get_id())
         if 0 <= index < len(self._collected_spectra) - 1:
             del self._collected_spectra[index]
 
@@ -1537,9 +1481,7 @@ class SpectrumPlotGeneric(QWidget):
             #     a terrible idea.
             ticks = []
             if self._x_major_tick_interval is not None:
-                ticks = generate_ticks(
-                    self._x_range[0], self._x_range[1], self._x_major_tick_interval
-                )
+                ticks = generate_ticks(self._x_range[0], self._x_range[1], self._x_major_tick_interval)
             # print(f'x-major-ticks = {ticks}')
 
             if len(ticks) > TICK_THRESHOLD:
@@ -1554,9 +1496,7 @@ class SpectrumPlotGeneric(QWidget):
 
             ticks = []
             if self._x_minor_tick_interval is not None:
-                ticks = generate_ticks(
-                    self._x_range[0], self._x_range[1], self._x_minor_tick_interval
-                )
+                ticks = generate_ticks(self._x_range[0], self._x_range[1], self._x_minor_tick_interval)
             # print(f'x-minor-ticks = {ticks}')
 
             if len(ticks) > TICK_THRESHOLD:
@@ -1582,9 +1522,7 @@ class SpectrumPlotGeneric(QWidget):
             #     a terrible idea.
             ticks = []
             if self._y_major_tick_interval is not None:
-                ticks = generate_ticks(
-                    self._y_range[0], self._y_range[1], self._y_major_tick_interval
-                )
+                ticks = generate_ticks(self._y_range[0], self._y_range[1], self._y_major_tick_interval)
             # print(f'y-major-ticks = {ticks}')
 
             if len(ticks) > TICK_THRESHOLD:
@@ -1599,9 +1537,7 @@ class SpectrumPlotGeneric(QWidget):
 
             ticks = []
             if self._y_minor_tick_interval is not None:
-                ticks = generate_ticks(
-                    self._y_range[0], self._y_range[1], self._y_minor_tick_interval
-                )
+                ticks = generate_ticks(self._y_range[0], self._y_range[1], self._y_minor_tick_interval)
             # print(f'y-minor-ticks = {ticks}')
 
             if len(ticks) > TICK_THRESHOLD:
@@ -1636,9 +1572,7 @@ class SpectrumPlotGeneric(QWidget):
             # Need to add a legend.  Use the user-specified location, and also
             # the current font for the legend.
             args = MATPLOTLIB_LEGEND_ARGS[self._legend_location]
-            legend_font = get_font_properties(
-                self._font_name, self._font_size["legend"]
-            )
+            legend_font = get_font_properties(self._font_name, self._font_size["legend"])
             self._axes.legend(**args, prop=legend_font)
 
         # All done!
@@ -1660,14 +1594,10 @@ class SpectrumPlot(SpectrumPlotGeneric):
         # Set up event handlers
 
         app._app_state.active_spectrum_changed.connect(self._on_active_spectrum_changed)
-        app._app_state.collected_spectra_changed.connect(
-            self._on_collected_spectra_changed
-        )
+        app._app_state.collected_spectra_changed.connect(self._on_collected_spectra_changed)
 
         app._app_state.spectral_library_added.connect(self._on_spectral_library_added)
-        app._app_state.spectral_library_removed.connect(
-            self._on_spectral_library_removed
-        )
+        app._app_state.spectral_library_removed.connect(self._on_spectral_library_removed)
 
         app._app_state.dataset_removed.connect(self._on_dataset_removed)
 
@@ -1746,9 +1676,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
         act.triggered.connect(self._on_export_plot_to_image)
 
         # Add plugin menu items
-        add_plugin_context_menu_items(
-            self._app_state, plugins.ContextMenuType.SPECTRUM_PLOT, menu
-        )
+        add_plugin_context_menu_items(self._app_state, plugins.ContextMenuType.SPECTRUM_PLOT, menu)
 
         if self._click is not None:
             menu.addSeparator()
@@ -1917,9 +1845,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
         if self._app_state.get_active_spectrum() is None:
             # The "collect spectrum" button shouldn't be enabled if there is no
             # active spectrum!
-            warnings.warn(
-                "Shouldn't be able to collect spectrum when no active spectrum!"
-            )
+            warnings.warn("Shouldn't be able to collect spectrum when no active spectrum!")
             return
 
         # This will cause the app-state to emit both an "active spectrum
@@ -1977,9 +1903,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
             act.triggered.connect(lambda *args: self._on_collect_spectrum())
 
             act = menu.addAction(self.tr("Edit..."))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
             # Add plugin menu items
             add_plugin_context_menu_items(
@@ -1992,9 +1916,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
             menu.addSeparator()
 
             act = menu.addAction(self.tr("Discard..."))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_discard_spectrum(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_discard_spectrum(treeitem))
 
         elif treeitem is self._treeitem_collected:
             # This is the whole "Collected Spectra" group; these are unsaved
@@ -2002,15 +1924,11 @@ class SpectrumPlot(SpectrumPlotGeneric):
 
             act = menu.addAction(self.tr("Show all spectra"))
             # act.setData(treeitem)
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_show_all_spectra(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_show_all_spectra(treeitem))
 
             act = menu.addAction(self.tr("Hide all spectra"))
             # act.setData(treeitem)
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_hide_all_spectra(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_hide_all_spectra(treeitem))
 
             act = menu.addAction(self.tr("Save to file..."))
             act.triggered.connect(lambda *args: self._on_save_collected_spectra())
@@ -2027,21 +1945,15 @@ class SpectrumPlot(SpectrumPlotGeneric):
             # act = menu.addAction(self.tr('Save edits...'))
 
             act = menu.addAction(self.tr("Show all spectra"))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_show_all_spectra(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_show_all_spectra(treeitem))
 
             act = menu.addAction(self.tr("Hide all spectra"))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_hide_all_spectra(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_hide_all_spectra(treeitem))
 
             menu.addSeparator()
 
             act = menu.addAction(self.tr("Unload library"))
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_unload_library(treeitem)
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_unload_library(treeitem))
 
         else:
             # This is a specific spectrum plot (other than the active spectrum),
@@ -2055,17 +1967,11 @@ class SpectrumPlot(SpectrumPlotGeneric):
             act.setCheckable(True)
             act.setChecked(display_info is not None)
             act.setData(spectrum)
-            act.triggered.connect(
-                lambda *args, treeitem=treeitem: self._on_toggle_spectrum_visible(
-                    treeitem
-                )
-            )
+            act.triggered.connect(lambda *args, treeitem=treeitem: self._on_toggle_spectrum_visible(treeitem))
 
             if spectrum.is_editable():
                 act = menu.addAction(self.tr("Edit..."))
-                act.triggered.connect(
-                    lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem)
-                )
+                act.triggered.connect(lambda *args, treeitem=treeitem: self._on_edit_spectrum(treeitem))
 
             # Add plugin menu items
             add_plugin_context_menu_items(
@@ -2079,9 +1985,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
                 menu.addSeparator()
 
                 act = menu.addAction(self.tr("Discard..."))
-                act.triggered.connect(
-                    lambda *args, treeitem=treeitem: self._on_discard_spectrum(treeitem)
-                )
+                act.triggered.connect(lambda *args, treeitem=treeitem: self._on_discard_spectrum(treeitem))
 
         global_pos = self._spectra_tree.mapToGlobal(pos)
         menu.exec_(global_pos)
@@ -2094,9 +1998,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
             confirm = QMessageBox.question(
                 self,
                 self.tr("Discard Spectrum?"),
-                self.tr("Are you sure you want to discard this spectrum?")
-                + "\n\n"
-                + spectrum.get_name(),
+                self.tr("Are you sure you want to discard this spectrum?") + "\n\n" + spectrum.get_name(),
             )
 
             if confirm != QMessageBox.Yes:

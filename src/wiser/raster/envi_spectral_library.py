@@ -42,26 +42,20 @@ class ENVISpectralLibrary(SpectralLibrary):
 
         file_type = self._metadata.get("file type")
         if file_type is not None and file_type != "ENVI Spectral Library":
-            raise EnviFileFormatError(
-                f'Unrecognized spectral library file type "{file_type}"'
-            )
+            raise EnviFileFormatError(f'Unrecognized spectral library file type "{file_type}"')
 
         # In ENVI spectral library files, each line (row) is a complete
         # spectrum, and there is only one band.
         if self._metadata["bands"] != 1:
             raise EnviFileFormatError(
-                "ENVI spectral library files expected "
-                + f'to have 1 band; got {self._metadata["bands"]}'
+                "ENVI spectral library files expected " + f'to have 1 band; got {self._metadata["bands"]}'
             )
 
         # We don't expect spectral libraries to be large files, so if one ends
         # up being large, log a warning about it.
         datafile_size = os.path.getsize(data_filename)
         if datafile_size > WARN_LARGE_SLI:
-            warnings.warn(
-                f"ENVI spectral library {data_filename} is large "
-                + f"({datafile_size} bytes)"
-            )
+            warnings.warn(f"ENVI spectral library {data_filename} is large " + f"({datafile_size} bytes)")
 
         # Load the ENVI data file.  It generally shouldn't be necessary to
         # memory-map spectral libraries, as they tend to be small.
@@ -77,8 +71,7 @@ class ENVISpectralLibrary(SpectralLibrary):
         self._num_spectra = self._metadata["lines"]
 
         logger.info(
-            "Loaded ENVI spectral library:  "
-            + f"{self._num_spectra} spectra, {self._num_bands} bands"
+            "Loaded ENVI spectral library:  " + f"{self._num_spectra} spectra, {self._num_bands} bands"
         )
 
         # Update:  [samples, lines, bands] -> [lines, samples, bands]

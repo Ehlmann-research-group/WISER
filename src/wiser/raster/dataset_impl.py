@@ -131,9 +131,7 @@ class RasterDataImpl(abc.ABC):
     def get_image_data(self) -> np.ndarray:
         pass
 
-    def get_image_data_subset(
-        self, x: int, y: int, band: int, dx: int, dy: int, dband: int
-    ) -> np.ndarray:
+    def get_image_data_subset(self, x: int, y: int, band: int, dx: int, dy: int, dband: int) -> np.ndarray:
         pass
 
     def get_band_data(self, band_index) -> np.ndarray:
@@ -194,9 +192,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
-        gdal_dataset = gdal.OpenEx(
-            path, nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR
-        )
+        gdal_dataset = gdal.OpenEx(path, nOpenFlags=gdalconst.OF_READONLY | gdalconst.OF_VERBOSE_ERROR)
 
         if gdal_dataset is None:
             raise ValueError(f"Unable to open PDS4 file: {path}")
@@ -233,11 +229,7 @@ class GDALRasterDataImpl(RasterDataImpl):
                 self.gdal_data_type = band.DataType
             else:
                 # Subsequent bands:  should match the first band!
-                if (
-                    x_size != band.XSize
-                    or y_size != band.YSize
-                    or self.gdal_data_type != band.DataType
-                ):
+                if x_size != band.XSize or y_size != band.YSize or self.gdal_data_type != band.DataType:
                     raise ValueError(
                         "Cannot handle raster data with bands "
                         + "of different dimensions or types!  Band-1 values:  "
@@ -294,9 +286,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         )
 
         if new_dataset is None:
-            raise ValueError(
-                f"Unable to open dataset from {file_path} with driver {driver}"
-            )
+            raise ValueError(f"Unable to open dataset from {file_path} with driver {driver}")
 
         return new_dataset
 
@@ -354,9 +344,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         """
         new_dataset: gdal.Dataset = self.reopen_dataset()
         band_list = [band + 1 for band in range(band, band + dband)]
-        np_array = new_dataset.ReadAsArray(
-            xoff=x, xsize=dx, yoff=y, ysize=dy, band_list=band_list
-        )
+        np_array = new_dataset.ReadAsArray(xoff=x, xsize=dx, yoff=y, ysize=dy, band_list=band_list)
         return np_array
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
@@ -460,9 +448,7 @@ class GDALRasterDataImpl(RasterDataImpl):
         # np_array = self.gdal_dataset.GetVirtualMemArray(xoff=x, yoff=y,
         #     xsize=1, ysize=1)
         new_dataset = self.reopen_dataset()
-        np_array: np.ndarray = new_dataset.ReadAsArray(
-            xoff=x, yoff=y, xsize=dx, ysize=dy
-        )
+        np_array: np.ndarray = new_dataset.ReadAsArray(xoff=x, yoff=y, xsize=dx, ysize=dy)
 
         # If the dataset is 1D, then the dimension of this wlil be 2D. We want to make it 3D
         if np_array.ndim == 2:
@@ -794,11 +780,10 @@ class JP2_GDAL_PDR_RasterDataImpl(GDALRasterDataImpl):
 
     @classmethod
     def get_jpeg2000_drivers(cls):
-        driver_names = [
-            gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())
-        ]
+        driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
         jpeg2000_drivers = []
-        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not.
+        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the
+        # conda-forge build of gdal but they are not.
         for drv in ["JP2OpenJPEG", "JP2ECW", "JP2KAK", "JPEG2000"]:
             if drv in driver_names:
                 jpeg2000_drivers.append(drv)
@@ -1040,9 +1025,7 @@ class GTiff_GDALRasterDataImpl(GDALRasterDataImpl):
             if os.path.isfile(s):
                 path = s
             else:
-                raise ValueError(
-                    "Can't find raster file corresponding " + f"to .tfw file {path}"
-                )
+                raise ValueError("Can't find raster file corresponding " + f"to .tfw file {path}")
 
         return path
 
@@ -1148,12 +1131,11 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
             if naxis:
                 print(f"Number of dimensions (NAXIS): {naxis}")
                 for i in range(1, int(naxis) + 1):
-                    print(
-                        f"NAXIS{i} (size of dimension {i}): {metadata.get(f'NAXIS{i}', 'Unknown')}"
-                    )
+                    print(f"NAXIS{i} (size of dimension {i}): {metadata.get(f'NAXIS{i}', 'Unknown')}")
             else:
                 print(
-                    "NAXIS information not found in metadata; interpreting dimensions via GDAL's band structure."
+                    "NAXIS information not found in metadata; interpreting dimensions via "
+                    "GDAL's band structure."
                 )
 
         dataset = cls(gdal_dataset)
@@ -1210,9 +1192,7 @@ class FITS_GDALRasterDataImpl(GDALRasterDataImpl):
             band_list = [band + 1 for band in range(band, band + dband)]
             hdul = fits.open(self.get_filepaths()[0])
             np_array = hdul[0].data[band : band + dband, y : y + dy, x : x + dx]
-            np_array = new_dataset.ReadAsArray(
-                xoff=x, xsize=dx, yoff=y, ysize=dy, band_list=band_list
-            )
+            np_array = new_dataset.ReadAsArray(xoff=x, xsize=dx, yoff=y, ysize=dy, band_list=band_list)
         except AttributeError:
             hdul = fits.open(self.get_filepaths()[0])
             np_array = hdul[0].data[band : band + dband, y : y + dy, x : x + dx]
@@ -1383,9 +1363,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             # Get the filename from the dataset
             file_path = dataset.GetDescription()
             if not file_path or not os.path.isfile(file_path):
-                raise ValueError(
-                    f"Could not resolve valid file path from dataset: {file_path}"
-                )
+                raise ValueError(f"Could not resolve valid file path from dataset: {file_path}")
             return f'NETCDF:"{file_path}":{subdataset_name}'
 
     @classmethod
@@ -1417,9 +1395,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
             )
             subdataset_name = best_name
         else:
-            subdataset_name = cls._build_full_subdataset_name(
-                gdal_dataset, subdataset_name
-            )
+            subdataset_name = cls._build_full_subdataset_name(gdal_dataset, subdataset_name)
         sub_var_path = var_path_of(subdataset_name)
         subdataset: gdal.Dataset = gdal.Open(subdataset_name)
         assert subdataset is not None, "Chosen subdataset could not be opened"
@@ -1427,9 +1403,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         # ---- SRS & GeoTransform from GDAL metadata
         md = gdal_dataset.GetMetadata() or {}
         geo_string = next((md[k] for k in cls._GEOTRANSFORM_KEYS if k in md), None)
-        geotransform = (
-            cls._parse_geotransform_string(geo_string) if geo_string else None
-        )
+        geotransform = cls._parse_geotransform_string(geo_string) if geo_string else None
 
         srs = None
         srs_string = next((md[k] for k in cls._SRS_KEYS if k in md), None)
@@ -1455,9 +1429,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
                 if wl_unit is None:
                     fwhm_var = sbp.variables.get("fwhm")
                     if fwhm_var is not None:
-                        wl_unit = cls._unit_from_string(
-                            getattr(fwhm_var, "units", None)
-                        )
+                        wl_unit = cls._unit_from_string(getattr(fwhm_var, "units", None))
             else:
                 # Maybe the wavelengths are in the global group
                 wl_var = netcdf_dataset.variables["wavelengths"]
@@ -1511,9 +1483,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         )
 
     @classmethod
-    def try_load_file(
-        cls, path: str, subdataset_name: str = None, **kwargs
-    ) -> ["NetCDF_GDALRasterDataImpl"]:
+    def try_load_file(cls, path: str, subdataset_name: str = None, **kwargs) -> ["NetCDF_GDALRasterDataImpl"]:
         # Turn on exceptions when calling into GDAL
         gdal.UseExceptions()
 
@@ -1536,21 +1506,15 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         instances_list = []  # List to hold instances of the class
         if subdataset_name:
             instances_list.append(
-                cls._auto_open_elevation(
-                    gdal_dataset, netcdf_dataset, subdataset_name=subdataset_name
-                )
+                cls._auto_open_elevation(gdal_dataset, netcdf_dataset, subdataset_name=subdataset_name)
             )
         elif subdatasets and interactive:
-            subdataset_chooser = SubdatasetFileOpenerDialog(
-                gdal_dataset, netcdf_dataset
-            )
+            subdataset_chooser = SubdatasetFileOpenerDialog(gdal_dataset, netcdf_dataset)
             if subdataset_chooser.exec_() == QDialog.Accepted:
                 if subdataset_chooser.netcdf_impl is not None:
                     instances_list.append(subdataset_chooser.netcdf_impl)
         elif subdatasets:
-            instances_list.append(
-                cls._auto_open_elevation(gdal_dataset, netcdf_dataset)
-            )
+            instances_list.append(cls._auto_open_elevation(gdal_dataset, netcdf_dataset))
         else:
             return [GDALRasterDataImpl(gdal_dataset)]
 
@@ -1581,9 +1545,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
     @contextmanager
     def _quiet_gdal_warnings(self):
         # Install a thread-local handler that drops all errors and warnings
-        gdal.PushErrorHandler(
-            "CPLQuietErrorHandler"
-        )  # :contentReference[oaicite:0]{index=0}
+        gdal.PushErrorHandler("CPLQuietErrorHandler")  # :contentReference[oaicite:0]{index=0}
         try:
             yield
         finally:
@@ -1622,9 +1584,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
         are extraneous
         """
         with self._quiet_gdal_warnings():
-            arr = super().get_image_data_subset(
-                x, y, band, dx, dy, dband, filter_data_ignore_value
-            )
+            arr = super().get_image_data_subset(x, y, band, dx, dy, dband, filter_data_ignore_value)
         return arr
 
     def get_band_data(self, band_index, filter_data_ignore_value=True):
@@ -1716,9 +1676,7 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 
         has_band_names = False
         if "sensor_band_parameters" in self._netcdf_dataset.groups:
-            md = list(
-                self._netcdf_dataset.groups["sensor_band_parameters"].variables.keys()
-            )
+            md = list(self._netcdf_dataset.groups["sensor_band_parameters"].variables.keys())
             has_band_names = "observation_bands" in md
 
         for band_index in range(1, self.gdal_dataset.RasterCount + 1):
@@ -1774,11 +1732,10 @@ class NetCDF_GDALRasterDataImpl(GDALRasterDataImpl):
 class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
     @classmethod
     def get_jpeg2000_drivers(cls):
-        driver_names = [
-            gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())
-        ]
+        driver_names = [gdal.GetDriver(i).ShortName for i in range(gdal.GetDriverCount())]
         jpeg2000_drivers = []
-        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build of gdal but they are not.
+        # JP2OpenJPEG and JPEG2000 are apparently suppose to be included on the conda-forge build
+        # of gdal but they are not.
         for drv in ["JP2OpenJPEG", "JP2ECW", "JP2KAK", "JPEG2000"]:
             if drv in driver_names:
                 jpeg2000_drivers.append(drv)
@@ -1812,9 +1769,7 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
                 logger.warning(f"Failed to open {load_path} with driver {driver}: {e}")
                 continue
 
-        raise ValueError(
-            f"Unable to open {load_path} as a JPEG2000 file using drivers {allowed_drivers}"
-        )
+        raise ValueError(f"Unable to open {load_path} as a JPEG2000 file using drivers {allowed_drivers}")
 
     def __init__(self, gdal_dataset):
         super().__init__(gdal_dataset)
@@ -1832,10 +1787,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
                 if os.path.isfile(s):
                     path = s
                 else:
-                    raise ValueError(
-                        "Can't find raster file corresponding "
-                        + f"to ENVI header file {path}"
-                    )
+                    raise ValueError("Can't find raster file corresponding " + f"to ENVI header file {path}")
 
         return path
 
@@ -1924,9 +1876,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         # Make sure the "width" and "left" values make sense
 
         if src_offset_x < 0 or src_offset_x >= src_width:
-            raise ValueError(
-                f'"left" value {src_offset_x} is outside source image width {src_width}'
-            )
+            raise ValueError(f'"left" value {src_offset_x} is outside source image width {src_width}')
 
         if dst_width < 0:
             raise ValueError(f'"width" value {dst_width} cannot be negative')
@@ -1941,9 +1891,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         # Make sure the "height" and "top" values make sense
 
         if src_offset_y < 0 or src_offset_y >= src_height:
-            raise ValueError(
-                f'"top" value {src_offset_y} is outside source image height {src_height}'
-            )
+            raise ValueError(f'"top" value {src_offset_y} is outside source image height {src_height}')
 
         if dst_height < 0:
             raise ValueError(f'"height" value {dst_height} cannot be negative')
@@ -1971,9 +1919,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         # source image's bands, not the destination image's bands, as some bands
         # may be excluded from the destination image.  We will resolve that next.
 
-        dst_default_display_bands = options.get(
-            "default_display_bands", src_default_display_bands
-        )
+        dst_default_display_bands = options.get("default_display_bands", src_default_display_bands)
 
         if dst_default_display_bands is not None and dst_bands != src_bands:
             # Some bands are excluded from the destination image.  Recompute the
@@ -2028,14 +1974,10 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
             src_geotransform = src_dataset.get_geo_transform()
             # Adjust geotransform for the subset
             subset_geotransform = (
-                src_geotransform[0]
-                + src_offset_x * src_geotransform[1]
-                + src_offset_y * src_geotransform[2],
+                src_geotransform[0] + src_offset_x * src_geotransform[1] + src_offset_y * src_geotransform[2],
                 src_geotransform[1],
                 src_geotransform[2],
-                src_geotransform[3]
-                + src_offset_x * src_geotransform[4]
-                + src_offset_y * src_geotransform[5],
+                src_geotransform[3] + src_offset_x * src_geotransform[4] + src_offset_y * src_geotransform[5],
                 src_geotransform[4],
                 src_geotransform[5],
             )
@@ -2141,16 +2083,12 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         if src_dataset.has_geographic_info():
             map_info = gdal_metadata["map info"]
             dst_metadata["map info"] = map_info
-            dst_metadata["coordinate system string"] = (
-                "{" + src_dataset.get_spatial_ref().ExportToWkt() + "}"
-            )
+            dst_metadata["coordinate system string"] = "{" + src_dataset.get_spatial_ref().ExportToWkt() + "}"
 
         # If we have wavelengths, store the wavelength metadata
         if len(dst_wavelengths) == dst_bands:
             dst_metadata["wavelength"] = dst_wavelengths
-            dst_metadata["wavelength units"] = envi.wiser_unitstr_to_envi_str(
-                dst_wavelength_units
-            )
+            dst_metadata["wavelength units"] = envi.wiser_unitstr_to_envi_str(dst_wavelength_units)
 
         else:
             print(
@@ -2270,9 +2208,7 @@ class ENVI_GDALRasterDataImpl(GDALRasterDataImpl):
         if "default_bands" in md:
             s = md["default_bands"].strip()
             if s[0] != "{" or s[-1] != "}":
-                raise ValueError(
-                    "ENVI file has unrecognized format for " f"default bands:  {s}"
-                )
+                raise ValueError("ENVI file has unrecognized format for " f"default bands:  {s}")
 
             # Convert all numbers in the band-list to integers, and return it.
             b = [int(v) for v in s[1:-1].split(",")]
@@ -2350,9 +2286,7 @@ class NumPyRasterDataImpl(RasterDataImpl):
     def get_image_data(self) -> np.ndarray:
         return self._arr
 
-    def get_image_data_subset(
-        self, x: int, y: int, band: int, dx: int, dy: int, dband: int
-    ) -> np.ndarray:
+    def get_image_data_subset(self, x: int, y: int, band: int, dx: int, dy: int, dband: int) -> np.ndarray:
         return self._arr[band : band + dband, y : y + dy, x : x + dx]
 
     def get_band_data(self, band_index) -> np.ndarray:

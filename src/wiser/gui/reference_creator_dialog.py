@@ -137,9 +137,7 @@ class ReferenceCreatorDialog(QDialog):
         # Init variables
         self._lon_meridian: Optional[float] = None
         self._proj_type: Optional[ProjectionTypes]
-        self._axis_ingest_type: Optional[
-            EllipsoidAxisType
-        ] = EllipsoidAxisType.SEMI_MINOR
+        self._axis_ingest_type: Optional[EllipsoidAxisType] = EllipsoidAxisType.SEMI_MINOR
         self._axis_ingestion_value: Optional[float] = None
         self._semi_major_value: Optional[float] = None
         self._latitude_choice: Optional[LatitudeTypes] = None
@@ -185,9 +183,7 @@ class ReferenceCreatorDialog(QDialog):
         validator.setNotation(QDoubleValidator.StandardNotation)
         validator.setRange(0, MAX_SCALE_FACTOR, ALLOWED_DECIMALS)
         self._ui.ledit_pstereo_scale_factor.setValidator(validator)
-        self._ui.ledit_pstereo_scale_factor.textChanged.connect(
-            self._on_stereo_scale_factor_changed
-        )
+        self._ui.ledit_pstereo_scale_factor.textChanged.connect(self._on_stereo_scale_factor_changed)
         self._on_stereo_scale_factor_changed(self._ui.ledit_pstereo_scale_factor.text())
 
     def _on_stereo_scale_factor_changed(self, text: str):
@@ -208,9 +204,7 @@ class ReferenceCreatorDialog(QDialog):
                 self._ui.wdgt_ts_central_lat.show()
                 self._ui.wdgt_scale_factor.hide()
             else:
-                raise ValueError(
-                    f"Latitude choice is incorrect. It is: {self._latitude_choice}"
-                )
+                raise ValueError(f"Latitude choice is incorrect. It is: {self._latitude_choice}")
         else:
             self._ui.wdgt_ts_central_lat.hide()
             self._ui.wdgt_scale_factor.hide()
@@ -275,9 +269,7 @@ class ReferenceCreatorDialog(QDialog):
         """
         cbox = self._ui.cbox_user_crs
         self._update_user_created_crs_cbox()
-        cbox.activated.connect(
-            lambda idx: self._on_starting_crs_changed(cbox.itemText(idx))
-        )
+        cbox.activated.connect(lambda idx: self._on_starting_crs_changed(cbox.itemText(idx)))
 
     def _switch_user_crs_cbox_selection(self, name: str):
         cbox = self._ui.cbox_user_crs
@@ -308,9 +300,7 @@ class ReferenceCreatorDialog(QDialog):
         cbox.clear()
 
         if num_crs > 0:
-            for index, name in enumerate(
-                sorted(list(app_state.get_user_created_crs().keys()))
-            ):
+            for index, name in enumerate(sorted(list(app_state.get_user_created_crs().keys()))):
                 crs = self._app_state.get_user_created_crs()[name][0]
                 cbox.addItem(name, crs)
 
@@ -344,9 +334,7 @@ class ReferenceCreatorDialog(QDialog):
             return
 
         srs: osr.SpatialReference = self._app_state.get_user_created_crs().get(name)[0]
-        creator_state: CrsCreatorState = self._app_state.get_user_created_crs().get(
-            name
-        )[1]
+        creator_state: CrsCreatorState = self._app_state.get_user_created_crs().get(name)[1]
         if srs is None:  # shouldn’t happen
             return
 
@@ -355,8 +343,7 @@ class ReferenceCreatorDialog(QDialog):
             QMessageBox.question(
                 self,
                 "Replace current parameters?",
-                "Loading “{0}” will overwrite all fields you have entered so far.\n"
-                "Continue?".format(name),
+                "Loading “{0}” will overwrite all fields you have entered so far.\n" "Continue?".format(name),
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,
             )
@@ -451,9 +438,7 @@ class ReferenceCreatorDialog(QDialog):
             latitude_value = creator_state.latitude
             latitude_choice = creator_state.latitude_choice
 
-            self._ui.ledit_center_lon.setText(
-                "" if self._center_lon is None else str(self._center_lon)
-            )
+            self._ui.ledit_center_lon.setText("" if self._center_lon is None else str(self._center_lon))
 
             # Save the choice
             self._latitude_choice = latitude_choice
@@ -466,9 +451,7 @@ class ReferenceCreatorDialog(QDialog):
                 cbox.setCurrentIndex(idx)
                 cbox.blockSignals(False)
 
-            self._ui.ledit_lat_value.setText(
-                "" if latitude_value is None else str(latitude_value)
-            )
+            self._ui.ledit_lat_value.setText("" if latitude_value is None else str(latitude_value))
 
             self._ui.lbl_center_lon.setEnabled(True)
             self._ui.ledit_center_lon.setEnabled(True)
@@ -508,15 +491,15 @@ class ReferenceCreatorDialog(QDialog):
 
     def _init_cbox_lat_chooser(self):
         """
-        Initializes self._ui.cbox_lat_chooser to have all the values in LatitudeTypes. The text shown should be
-        the value of the enum and the value of the cbox should be the enum
+        Initializes self._ui.cbox_lat_chooser to have all the values in LatitudeTypes. The text shown
+        should be the value of the enum and the value of the cbox should be the enum
 
         class LatitudeTypes(Enum):
             CENTRAL_LATITUDE = "Central Latitude"
             TRUE_SCALE_LATITUDE = "True Scale Lat"
 
-        When a new cbox item is clicked the function _on_change_lat_choice should be called which sets an instance varialbe
-        called self._latitude_choice
+        When a new cbox item is clicked the function _on_change_lat_choice should be called which sets
+        an instance variable called self._latitude_choice
         """
         cbox = self._ui.cbox_lat_chooser
         cbox.clear()
@@ -588,13 +571,9 @@ class ReferenceCreatorDialog(QDialog):
             self._ui.cbox_flat_minor.addItem(axis_type.value, axis_type)
 
         # Connect combo box signal to slot
-        self._ui.cbox_flat_minor.currentIndexChanged.connect(
-            self._on_axis_ingest_type_changed
-        )
+        self._ui.cbox_flat_minor.currentIndexChanged.connect(self._on_axis_ingest_type_changed)
 
-        self._axis_ingest_type = self._ui.cbox_flat_minor.itemData(
-            self._ui.cbox_flat_minor.currentIndex()
-        )
+        self._axis_ingest_type = self._ui.cbox_flat_minor.itemData(self._ui.cbox_flat_minor.currentIndex())
 
         # Configure flat minor value entry with float validator
         flat_validator = QDoubleValidator(self._ui.ledit_flat_minor)
@@ -602,9 +581,7 @@ class ReferenceCreatorDialog(QDialog):
         flat_validator.setDecimals(ALLOWED_DECIMALS)
         flat_validator.setBottom(0.0)
         self._ui.ledit_flat_minor.setValidator(flat_validator)
-        self._ui.ledit_flat_minor.textChanged.connect(
-            self._on_axis_ingestion_value_changed
-        )
+        self._ui.ledit_flat_minor.textChanged.connect(self._on_axis_ingestion_value_changed)
 
         # Configure semi-major entry with float validator
         semi_validator = QDoubleValidator(self._ui.ledit_semi_major)
@@ -674,7 +651,8 @@ class ReferenceCreatorDialog(QDialog):
             self._ui.lbl_flat_minor_units.setText("Meters")
         else:
             raise TypeError(
-                f"Axis ingestion type is neither inverse flatting or semi minor. Instead its {self._axis_ingest_type}"
+                f"Axis ingestion type is neither inverse flatting nor semi minor. "
+                f"Instead, it is {self._axis_ingest_type}"
             )
 
     def _on_axis_ingestion_value_changed(self, text: str):
@@ -764,9 +742,7 @@ class ReferenceCreatorDialog(QDialog):
 
         # Safe defaults if the user left them blank
         if self._proj_type != ProjectionTypes.NO_PROJECTION and (
-            self._lon_meridian is None
-            or self._latitude is None
-            or self._center_lon is None
+            self._lon_meridian is None or self._latitude is None or self._center_lon is None
         ):
             QMessageBox.warning(
                 self,
@@ -778,16 +754,11 @@ class ReferenceCreatorDialog(QDialog):
                 ),
             )
             return
-        elif (
-            self._proj_type == ProjectionTypes.NO_PROJECTION
-            and self._lon_meridian is None
-        ):
+        elif self._proj_type == ProjectionTypes.NO_PROJECTION and self._lon_meridian is None:
             QMessageBox.warning(
                 self,
                 self.tr("Missing value"),
-                self.tr(
-                    "When doing 'No Projection', the Prime Meridian field must be set."
-                ),
+                self.tr("When doing 'No Projection', the Prime Meridian field must be set."),
             )
             return
 
@@ -814,15 +785,9 @@ class ReferenceCreatorDialog(QDialog):
             proj_str = f"+proj=longlat {base}"
         elif self._proj_type == ProjectionTypes.EQUI_CYLINDRICAL:
             if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
-                proj_str = (
-                    f"+proj=eqc +lon_0={self._center_lon} +lat_0={self._latitude} "
-                    f"{base}"
-                )
+                proj_str = f"+proj=eqc +lon_0={self._center_lon} +lat_0={self._latitude} " f"{base}"
             else:
-                proj_str = (
-                    f"+proj=eqc +lon_0={self._center_lon} +lat_ts={self._latitude} "
-                    f"{base}"
-                )
+                proj_str = f"+proj=eqc +lon_0={self._center_lon} +lat_ts={self._latitude} " f"{base}"
 
         elif self._proj_type == ProjectionTypes.POLAR_STEREO:
             if self._latitude_choice == LatitudeTypes.CENTRAL_LATITUDE:
@@ -830,10 +795,7 @@ class ReferenceCreatorDialog(QDialog):
                     QMessageBox.warning(
                         self,
                         self.tr("Missing value"),
-                        self.tr(
-                            "The scale factor value is None. Please enter\n"
-                            "a scale factor value."
-                        ),
+                        self.tr("The scale factor value is None. Please enter\n" "a scale factor value."),
                     )
                     return
 
@@ -847,8 +809,7 @@ class ReferenceCreatorDialog(QDialog):
                         self,
                         self.tr("Missing value"),
                         self.tr(
-                            "The central latitude sign is None. Please select\n"
-                            "a central latitude sign."
+                            "The central latitude sign is None. Please select\n" "a central latitude sign."
                         ),
                     )
                     return
@@ -858,9 +819,7 @@ class ReferenceCreatorDialog(QDialog):
                 )
 
         else:
-            QMessageBox.critical(
-                self, "Error", f"Unknown projection type: {self._proj_type}"
-            )
+            QMessageBox.critical(self, "Error", f"Unknown projection type: {self._proj_type}")
             return
 
         pyproj_crs = pyproj.CRS.from_proj4(proj_str)
@@ -869,9 +828,7 @@ class ReferenceCreatorDialog(QDialog):
 
         self._new_crs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
-        self._app_state.add_user_created_crs(
-            self._crs_name, self._new_crs, self._export_creator_state()
-        )
+        self._app_state.add_user_created_crs(self._crs_name, self._new_crs, self._export_creator_state())
 
         self._update_user_created_crs_cbox()
 

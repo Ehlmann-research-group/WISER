@@ -68,7 +68,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(pixel == zp_pixel)
 
     def test_mv_highlight_equal_zp_region(self):
-        """Tests that the main view highlight box matches the visible region in the zoom pane after zooming."""
+        """
+        Tests that the main view highlight box matches the visible region in the
+        zoom pane after zooming.
+        """
 
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -100,7 +103,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(mv_highlight_region == zp_region)
 
     def test_click_mv_zp_region_overlap(self):
-        """Tests that clicking in the main view updates its visible region to intersect with the zoom pane's region."""
+        """
+        Tests that clicking in the main view updates its visible region to intersect with
+        the zoom pane's region.
+        """
 
         rows, cols, channels = 100, 100, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -154,11 +160,13 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(pixel == mv_pixel)
 
     def test_click_zp_move_mv(self):
-        """Tests that clicking in the zoom pane causes the main view to pan to the same region and highlight the same pixel.
+        """
+        Tests that clicking in the zoom pane causes the main view to pan to the
+        same region and highlight the same pixel.
 
         Note:
-            Due to rounding issues in test simulation, the clicked pixel might be off-by-one,
-            but the issue is not present in the actual GUI application.
+            Due to rounding issues in test simulation, the clicked pixel might be
+            off-by-one, but the issue is not present in the actual GUI application.
         """
 
         rows, cols, channels = 100, 100, 3
@@ -272,9 +280,9 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -308,7 +316,10 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         self.assertTrue(rv_10_region is None)
 
     def test_linked_highlight_box(self):
-        """Tests that highlight boxes appear in all linked raster views that are compatible with the dataset."""
+        """
+        Tests that highlight boxes appear in all linked raster views that are compatible
+        with the dataset.
+        """
 
         rows, cols, channels = 75, 75, 3
         # Create a vertical gradient from 0 to 1: shape (50,1)
@@ -319,9 +330,9 @@ class TestMainViewZoomPaneIntegration(unittest.TestCase):
         np_impl = np.repeat(impl[np.newaxis, :, :], channels, axis=0)
 
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -374,9 +385,7 @@ if __name__ == "__main__":
 
     # Create second array
     # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-    row_values = np.concatenate(
-        (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-    ).reshape(rows, 1)
+    row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
     impl2 = np.tile(row_values, (1, cols))
     np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 

@@ -95,21 +95,13 @@ class BandChooserDialog(QDialog):
         self._ui.rbtn_rgb.toggled.connect(self._on_rgb_toggled)
         self._ui.rbtn_grayscale.toggled.connect(self._on_grayscale_toggled)
 
-        self._ui.btn_rgb_choose_defaults.clicked.connect(
-            self._on_rgb_choose_default_bands
-        )
-        self._ui.btn_rgb_choose_visible.clicked.connect(
-            self._on_rgb_choose_visible_bands
-        )
+        self._ui.btn_rgb_choose_defaults.clicked.connect(self._on_rgb_choose_default_bands)
+        self._ui.btn_rgb_choose_visible.clicked.connect(self._on_rgb_choose_visible_bands)
 
-        self._ui.btn_gray_choose_defaults.clicked.connect(
-            self._on_grayscale_choose_default_bands
-        )
+        self._ui.btn_gray_choose_defaults.clicked.connect(self._on_grayscale_choose_default_bands)
 
         self._ui.chk_use_colormap.clicked.connect(self._on_grayscale_use_colormap)
-        self._ui.cbox_colormap_name.activated.connect(
-            self._on_grayscale_choose_colormap
-        )
+        self._ui.cbox_colormap_name.activated.connect(self._on_grayscale_choose_colormap)
 
     def _populate_combobox(self, combobox):
         """
@@ -176,13 +168,9 @@ class BandChooserDialog(QDialog):
         default_bands = self._dataset.default_display_bands()
         # print(f'band chooser:  default bands = {default_bands}')
 
-        self._ui.btn_rgb_choose_defaults.setEnabled(
-            default_bands is not None and len(default_bands) == 3
-        )
+        self._ui.btn_rgb_choose_defaults.setEnabled(default_bands is not None and len(default_bands) == 3)
 
-        self._ui.btn_gray_choose_defaults.setEnabled(
-            default_bands is not None and len(default_bands) == 1
-        )
+        self._ui.btn_gray_choose_defaults.setEnabled(default_bands is not None and len(default_bands) == 1)
 
         truecolor_bands = self._get_truecolor_bands()
         self._ui.btn_rgb_choose_visible.setEnabled(truecolor_bands is not None)
@@ -249,10 +237,7 @@ class BandChooserDialog(QDialog):
         return self._ui.chk_apply_globally.isChecked()
 
     def use_colormap(self):
-        return (
-            self._ui.rbtn_grayscale.isChecked()
-            and self._ui.chk_use_colormap.isChecked()
-        )
+        return self._ui.rbtn_grayscale.isChecked() and self._ui.chk_use_colormap.isChecked()
 
     def get_colormap_name(self) -> Optional[str]:
         """

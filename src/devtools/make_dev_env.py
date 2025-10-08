@@ -87,14 +87,10 @@ def main(prod_yml, additions_txt, out_yml):
     # Separate conda items and existing pip block/string, preserving order
     conda_items, pip_block, had_pip_string = split_deps_keep_order(deps)
 
-    add_conda, add_pip = parse_additions(
-        Path(additions_txt).read_text(encoding="utf-8")
-    )
+    add_conda, add_pip = parse_additions(Path(additions_txt).read_text(encoding="utf-8"))
 
     # Merge conda deps (skip duplicates by canonical name)
-    existing_names = {
-        canonical_conda_name(d) for d in conda_items if isinstance(d, str)
-    }
+    existing_names = {canonical_conda_name(d) for d in conda_items if isinstance(d, str)}
     for dep in add_conda:
         if canonical_conda_name(dep) not in existing_names:
             conda_items.append(dep)

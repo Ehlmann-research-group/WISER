@@ -68,13 +68,14 @@ class TestOpenDataset(unittest.TestCase):
         context_pane_arr = self.test_model.get_context_pane_image_data()
         zoom_pane_arr = self.test_model.get_zoom_pane_image_data()
 
-        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(
-            main_view_arr, zoom_pane_arr
-        )
+        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(main_view_arr, zoom_pane_arr)
         self.assertTrue(all_equal)
 
     def test_all_panes_same_stretch_builder1(self):
-        """Tests that histogram equalization and log conditioning in the stretch builder update all panes equally."""
+        """
+        Tests that histogram equalization and log conditioning in the stretch builder
+        update all panes equally.
+        """
         np_impl = np.array(
             [
                 [
@@ -110,9 +111,7 @@ class TestOpenDataset(unittest.TestCase):
         context_pane_arr = self.test_model.get_context_pane_image_data()
         zoom_pane_arr = self.test_model.get_zoom_pane_image_data()
 
-        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(
-            main_view_arr, zoom_pane_arr
-        )
+        all_equal = np.allclose(main_view_arr, context_pane_arr) and np.allclose(main_view_arr, zoom_pane_arr)
         self.assertTrue(all_equal)
 
     def test_open_hdr(self):
@@ -143,6 +142,6 @@ class TestOpenDataset(unittest.TestCase):
     #     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     #     # Compute the absolute path to the target file
-    #     target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "netcdf.nc"))
+    #     target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "netcdf.nc"))  # noqa: E501
 
     #     self.test_model.load_dataset(target_path)

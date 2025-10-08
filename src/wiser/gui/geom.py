@@ -4,9 +4,7 @@ import math
 from typing import Union
 
 
-def distance(
-    p1: Union[QPoint, QPointF], p2: Union[QPoint, QPointF]
-) -> Union[int, float]:
+def distance(p1: Union[QPoint, QPointF], p2: Union[QPoint, QPointF]) -> Union[int, float]:
     """
     Given two QPoint or QPointF objects, this function returns the Euclidean
     distance (L2 distance) between the two points.
@@ -16,9 +14,7 @@ def distance(
     return math.sqrt(dx * dx + dy * dy)
 
 
-def manhattan_distance(
-    p1: Union[QPoint, QPointF], p2: Union[QPoint, QPointF]
-) -> Union[int, float]:
+def manhattan_distance(p1: Union[QPoint, QPointF], p2: Union[QPoint, QPointF]) -> Union[int, float]:
     """
     Given two QPoint or QPointF objects, this function returns the Manhattan
     distance (L1 distance) between the two points.
@@ -51,9 +47,7 @@ def get_rectangle(p1: Union[QPoint, QPointF], p2: Union[QPoint, QPointF]) -> QRe
 
 
 def scale_rectangle(rect: QRect, scale):
-    return QRect(
-        rect.x() * scale, rect.y() * scale, rect.width() * scale, rect.height() * scale
-    )
+    return QRect(rect.x() * scale, rect.y() * scale, rect.width() * scale, rect.height() * scale)
 
 
 def lines_from_points_cross(p1a, p1b, p2a, p2b):

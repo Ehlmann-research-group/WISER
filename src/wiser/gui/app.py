@@ -101,9 +101,7 @@ class DataVisualizerApp(QMainWindow):
         model, various views, and hooks them together with the controller code.
         """
         super().__init__(None)
-        self.setWindowTitle(
-            self.tr("Workbench for Imaging Spectroscopy Exploration and Research")
-        )
+        self.setWindowTitle(self.tr("Workbench for Imaging Spectroscopy Exploration and Research"))
         self.setWindowIcon(QIcon(":/icons/wiser.ico"))
         # Internal state
 
@@ -134,9 +132,7 @@ class DataVisualizerApp(QMainWindow):
         self.statusBar().addPermanentWidget(self._image_coords)
 
         self.statusBar().showMessage(
-            self.tr(
-                "Welcome to WISER - the Workbench for Imaging Spectroscopy Exploration and Research"
-            ),
+            self.tr("Welcome to WISER - the Workbench for Imaging Spectroscopy Exploration and Research"),
             10000,
         )
 
@@ -222,9 +218,7 @@ class DataVisualizerApp(QMainWindow):
         self._main_view.display_bands_change.connect(self._on_display_bands_change)
         self._main_view.roi_selection_changed.connect(self._on_roi_selection_changed)
 
-        self._main_view.get_stretch_builder().stretch_changed.connect(
-            self._on_stretch_changed
-        )
+        self._main_view.get_stretch_builder().stretch_changed.connect(self._on_stretch_changed)
 
         self._zoom_pane.viewport_change.connect(self._on_zoom_viewport_change)
         self._zoom_pane.click_pixel.connect(self._on_zoom_raster_pixel_select)
@@ -300,15 +294,11 @@ class DataVisualizerApp(QMainWindow):
         self._file_menu.addSeparator()
 
         self._save_dataset_menu = self._file_menu.addMenu(self.tr("Save dataset as..."))
-        self._save_dataset_menu.setStatusTip(
-            self.tr("Save a dataset or spectral library")
-        )
+        self._save_dataset_menu.setStatusTip(self.tr("Save a dataset or spectral library"))
         self._save_dataset_menu.setEnabled(False)
 
         self._close_dataset_menu = self._file_menu.addMenu(self.tr("Close dataset"))
-        self._close_dataset_menu.setStatusTip(
-            self.tr("Close a dataset or spectral library")
-        )
+        self._close_dataset_menu.setStatusTip(self.tr("Close a dataset or spectral library"))
         self._close_dataset_menu.setEnabled(False)
 
         self._file_menu.addSeparator()
@@ -369,9 +359,7 @@ class DataVisualizerApp(QMainWindow):
         act.triggered.connect(self.show_wiser_manual)
 
     def _init_toolbars(self):
-        act = add_toolbar_action(
-            self._main_toolbar, ":/icons/open-image.svg", "Open image file", self
-        )
+        act = add_toolbar_action(self._main_toolbar, ":/icons/open-image.svg", "Open image file", self)
         act.triggered.connect(self.show_open_file_dialog)
 
         self._main_toolbar.addSeparator()
@@ -381,13 +369,9 @@ class DataVisualizerApp(QMainWindow):
         if self._app_state.get_config("feature_flags.bug_button", default=False):
 
             def _raise_bug():
-                raise Exception(
-                    "Intentional exception for testing online bug reporting"
-                )
+                raise Exception("Intentional exception for testing online bug reporting")
 
-            act = add_toolbar_action(
-                self._main_toolbar, ":/icons/bug.svg", "Generate an error!", self
-            )
+            act = add_toolbar_action(self._main_toolbar, ":/icons/bug.svg", "Generate an error!", self)
             act.triggered.connect(lambda checked=False: _raise_bug())
 
             self._main_toolbar.addSeparator()
@@ -447,9 +431,7 @@ class DataVisualizerApp(QMainWindow):
             if isinstance(plugin, plugins.ToolsMenuPlugin):
                 plugin.add_tool_menu_items(self._tools_menu, self._app_state)
 
-    def _make_dockable_pane(
-        self, widget, name, title, icon, tooltip, allowed_areas, area
-    ):
+    def _make_dockable_pane(self, widget, name, title, icon, tooltip, allowed_areas, area):
         dockable = DockablePane(
             widget,
             name,
@@ -495,9 +477,7 @@ class DataVisualizerApp(QMainWindow):
         for ds in self._app_state.get_datasets():
             act = menu.addAction(ds.get_name())
             act.setData(ds.get_id())
-            act.triggered.connect(
-                lambda checked=False, ds_id=ds.get_id(): handler(ds_id=ds_id)
-            )
+            act.triggered.connect(lambda checked=False, ds_id=ds.get_id(): handler(ds_id=ds_id))
 
         menu.setEnabled(self._app_state.num_datasets() > 0)
 
@@ -578,9 +558,7 @@ class DataVisualizerApp(QMainWindow):
         config_dialog = AppConfigDialog(self._app_state, parent=self)
         if config_dialog.exec() == QDialog.Accepted:
             # Save the configuration file
-            self._app_state.config().save(
-                os.path.join(self._config_path, "wiser-conf.json")
-            )
+            self._app_state.config().save(os.path.join(self._config_path, "wiser-conf.json"))
 
             # The only config property that is not applied automatically is the
             # BugSnag reporting configuration.  Do that here.
@@ -597,7 +575,8 @@ class DataVisualizerApp(QMainWindow):
         # These are all file formats that will appear in the file-open dialog
         supported_formats = [
             self.tr(
-                "All supported files (*.img *.hdr *.tiff *.tif *.tfw *.nc *.sli *.hdr, *.JP2 *.PDS *.lbl *xml)"
+                "All supported files (*.img *.hdr *.tiff *.tif *.tfw *.nc *.sli *.hdr, "
+                "*.JP2 *.PDS *.lbl *.xml)"
             ),
             self.tr("ENVI raster files (*.img *.hdr)"),
             self.tr("TIFF raster files (*.tiff *.tif *.tfw)"),
@@ -924,9 +903,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_geo_reference_dialog(self, in_test_mode=False):
         if self._geo_ref_dialog is None:
-            self._geo_ref_dialog = GeoReferencerDialog(
-                self._app_state, self._main_view, parent=self
-            )
+            self._geo_ref_dialog = GeoReferencerDialog(self._app_state, self._main_view, parent=self)
         # Note the best solution to the inability to properly close QDialogs
         # in our tests, but for now it gets the job done
         if not in_test_mode:
@@ -936,9 +913,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_reference_creator_dialog(self, in_test_mode=False):
         if self._crs_creator_dialog is None:
-            self._crs_creator_dialog = ReferenceCreatorDialog(
-                self._app_state, parent=self
-            )
+            self._crs_creator_dialog = ReferenceCreatorDialog(self._app_state, parent=self)
         if not in_test_mode:
             if self._crs_creator_dialog.exec_() == QDialog.Accepted:
                 pass
@@ -947,9 +922,7 @@ class DataVisualizerApp(QMainWindow):
 
     def show_similarity_transform_dialog(self, in_test_mode=False):
         if self._similarity_transform_dialog is None:
-            self._similarity_transform_dialog = SimilarityTransformDialog(
-                self._app_state, parent=self
-            )
+            self._similarity_transform_dialog = SimilarityTransformDialog(self._app_state, parent=self)
         if not in_test_mode:
             if self._similarity_transform_dialog.exec_() == QDialog.Accepted:
                 pass
@@ -967,9 +940,7 @@ class DataVisualizerApp(QMainWindow):
             rv_pos = (0, 0)
             self._main_view.show_dataset(dataset)
 
-        self._on_mainview_raster_pixel_select(
-            rv_pos, ds_point, recenter_mode=RecenterMode.IF_NOT_VISIBLE
-        )
+        self._on_mainview_raster_pixel_select(rv_pos, ds_point, recenter_mode=RecenterMode.IF_NOT_VISIBLE)
 
     def update_all_rasterpanes(self):
         """
@@ -1000,18 +971,13 @@ class DataVisualizerApp(QMainWindow):
     def get_spectrum_plot(self) -> SpectrumPlot:
         return self._spectrum_plot
 
-    def _on_display_bands_change(
-        self, ds_id: int, bands: Tuple, colormap: Optional[str], is_global: bool
-    ):
+    def _on_display_bands_change(self, ds_id: int, bands: Tuple, colormap: Optional[str], is_global: bool):
         """
         When the user changes the display bands used in one of the raster panes,
         the pane will fire an event that the application controller can receive,
         if other raster panes also need to be updated.
         """
-        logger.debug(
-            f"on_display_bands_change({ds_id}, {bands}, "
-            + f"{str_or_none(colormap)}, {is_global})"
-        )
+        logger.debug(f"on_display_bands_change({ds_id}, {bands}, " + f"{str_or_none(colormap)}, {is_global})")
         if is_global:
             self._context_pane.set_display_bands(ds_id, bands, colormap=colormap)
             self._main_view.set_display_bands(ds_id, bands, colormap=colormap)
@@ -1033,9 +999,7 @@ class DataVisualizerApp(QMainWindow):
         assert rasterview_position == (0, 0)
 
         # Make all the views in the main image window show the point.
-        self._main_view.make_point_visible(
-            ds_point.x(), ds_point.y(), rasterview_pos=None
-        )
+        self._main_view.make_point_visible(ds_point.x(), ds_point.y(), rasterview_pos=None)
 
     def _on_mainview_viewport_change(self, rasterview_position):
         """
@@ -1220,9 +1184,7 @@ class DataVisualizerApp(QMainWindow):
             if not self._main_view.is_showing_dataset(ds):
                 self._main_view.show_dataset(ds)
 
-            self._main_view.set_pixel_highlight(
-                sel, recenter=RecenterMode.IF_NOT_VISIBLE
-            )
+            self._main_view.set_pixel_highlight(sel, recenter=RecenterMode.IF_NOT_VISIBLE)
 
             self._zoom_pane.set_pixel_highlight(sel, recenter=RecenterMode.NEVER)
 

@@ -24,9 +24,7 @@ class Cache:
     def __init__(self, capacity: int = 3000000000):
         self._capacity = capacity
         self._size = 0
-        self._cache: OrderedDictType[
-            int : Union[np.ndarray, np.ma.masked_array]
-        ] = OrderedDict()
+        self._cache: OrderedDictType[int : Union[np.ndarray, np.ma.masked_array]] = OrderedDict()
         self._key_lookup_table: Dict[int : List[int]] = {}
 
     def _evict(self):
@@ -64,9 +62,7 @@ class Cache:
             self._size -= self._cache[key].nbytes
             del self._cache[key]
 
-    def add_cache_item(
-        self, key: int, value: Union[np.ndarray, np.ma.masked_array]
-    ) -> bool:
+    def add_cache_item(self, key: int, value: Union[np.ndarray, np.ma.masked_array]) -> bool:
         """
         Adds a new item to the cache. Evicts existing items if necessary to maintain capacity.
 
@@ -80,9 +76,7 @@ class Cache:
         if key in self._cache:
             data_size = value.nbytes
             if data_size > self._capacity:
-                logger.debug(
-                    f"Size of data exceeds cache size: {data_size} > {self._capacity}"
-                )
+                logger.debug(f"Size of data exceeds cache size: {data_size} > {self._capacity}")
                 return False
             if self._size + data_size > self._capacity:
                 self._evict()
@@ -131,9 +125,7 @@ class Cache:
         Raises:
             NotImplementedError: Always raised to indicate that the method needs to be overridden.
         """
-        raise NotImplementedError(
-            f"get_partial_key is not implemented for {type(self)}"
-        )
+        raise NotImplementedError(f"get_partial_key is not implemented for {type(self)}")
 
     def lookup_keys(self, partial_key: int) -> List[int]:
         """
@@ -270,9 +262,7 @@ class HistogramCache(Cache):
                 self._size -= value.nbytes
             del self._cache[key]
 
-    def add_cache_item(
-        self, key: int, values: Tuple[Union[np.ndarray, np.ma.masked_array]]
-    ):
+    def add_cache_item(self, key: int, values: Tuple[Union[np.ndarray, np.ma.masked_array]]):
         """
         The first value in values should be the histogram bins and the second should be
         the histogram edges
@@ -281,9 +271,7 @@ class HistogramCache(Cache):
         for value in values:
             data_size += value.nbytes
         if data_size > self._capacity:
-            print(
-                f"Size of data exceeds histogram cache size: {data_size} > {self._capacity}"
-            )
+            print(f"Size of data exceeds histogram cache size: {data_size} > {self._capacity}")
             return
         if self._size + data_size > self._capacity:
             self._evict()
@@ -301,9 +289,7 @@ class HistogramCache(Cache):
         max_bound,
     ):
         partial_key = self.get_partial_key(dataset)
-        cache_key = hash(
-            (dataset, band_index, stretch_type, conditioner_type, min_bound, max_bound)
-        )
+        cache_key = hash((dataset, band_index, stretch_type, conditioner_type, min_bound, max_bound))
         if partial_key not in self._key_lookup_table:
             self._key_lookup_table[partial_key] = []
         self._key_lookup_table[partial_key].append(cache_key)

@@ -55,9 +55,7 @@ class HelloContextPlugin(ContextMenuPlugin):
             raise ValueError(f"Unrecognized context_type value {context_type}")
 
         act = context_menu.addAction(f"Say hello {context_type}...")
-        act.triggered.connect(
-            lambda checked=False: self.say_hello(context_type, context)
-        )
+        act.triggered.connect(lambda checked=False: self.say_hello(context_type, context))
 
     def say_hello(self, context_type: ContextMenuType, context: Dict[str, Any]):
         context_str = pprint.pformat(context)

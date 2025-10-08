@@ -68,9 +68,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
         - Runs the warp operation.
         - Compares the resulting geo-transform to a known ground truth.
         """
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         ds = self.test_model.load_dataset(rel_path)
 
         self.test_model.open_geo_referencer()
@@ -108,9 +106,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
 
         self.test_model.set_geo_ref_polynomial_order("2")
 
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "artifacts", "test_warp_output.tif"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "test_warp_output.tif")
         self.test_model.set_geo_ref_file_save_path(rel_path)
 
         ground_truth_geo_transform = (
@@ -149,9 +145,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
         - Disables and removes invalid GCPs.
         - Executes the warp and checks the output affine transform.
         """
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         ds = self.test_model.load_dataset(rel_path)
 
         self.test_model.open_geo_referencer()
@@ -202,9 +196,7 @@ class TestGeoReferencerGUI(unittest.TestCase):
             self.test_model.enter_lon_east_geo_ref(lon_east)
             self.test_model.press_enter_lon_east_geo_ref()
 
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "artifacts", "test_warp_output.tif"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "test_warp_output.tif")
         self.test_model.set_geo_ref_file_save_path(rel_path)
 
         ground_truth_geo_transform = (
@@ -290,9 +282,7 @@ if __name__ == "__main__":
         test_model.enter_lon_east_geo_ref(lon_east)
         test_model.press_enter_lon_east_geo_ref()
 
-    rel_path = os.path.join(
-        "..", "test_utils", "test_datasets", "artifacts", "test_warp_output.tif"
-    )
+    rel_path = os.path.join("..", "test_utils", "test_datasets", "artifacts", "test_warp_output.tif")
     test_model.set_geo_ref_file_save_path(rel_path)
 
     # Disables and re-enables

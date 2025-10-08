@@ -51,7 +51,5 @@ def get_bandmath_variables(bandmath_expr: str) -> Set[str]:
     return collector.variables
 
 
-def verify_bandmath_expr(
-    bandmath_expr: str, bindings: Dict[str, VariableType]
-) -> List[str]:
+def verify_bandmath_expr(bandmath_expr: str, bindings: Dict[str, VariableType]) -> List[str]:
     return []

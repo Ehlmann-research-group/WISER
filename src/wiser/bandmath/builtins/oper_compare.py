@@ -42,10 +42,7 @@ class OperatorCompare(BandMathFunction):
         self.operator = operator
 
     def _report_type_error(self, lhs_type, rhs_type):
-        raise TypeError(
-            f"Operands {lhs_type} and {rhs_type} not compatible "
-            + f"for {self.operator}"
-        )
+        raise TypeError(f"Operands {lhs_type} and {rhs_type} not compatible " + f"for {self.operator}")
 
     def analyze(self, infos: List[BandMathExprInfo]) -> BandMathExprInfo:
         if len(infos) != 2:
@@ -55,10 +52,7 @@ class OperatorCompare(BandMathFunction):
         rhs = infos[1]
 
         # Take care of the simple case first, where it's just two numbers.
-        if (
-            lhs.result_type == VariableType.NUMBER
-            and rhs.result_type == VariableType.NUMBER
-        ):
+        if lhs.result_type == VariableType.NUMBER and rhs.result_type == VariableType.NUMBER:
             return BandMathExprInfo(VariableType.NUMBER)
 
         # If we got here, we are comparing more complex data types.
@@ -272,12 +266,8 @@ class OperatorCompare(BandMathFunction):
                     result_arr = compare_fn(lhs_value, rhs_value)
 
                 result_arr = result_arr.astype(np.byte)
-                assert lhs_value.ndim == 3 or (
-                    lhs_value.ndim == 2 and len(index_list_current) == 1
-                )
-                assert result_arr.ndim == 3 or (
-                    result_arr.ndim == 2 and len(index_list_current) == 1
-                )
+                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
+                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
                 # # Lets us handle when the band index list just has one band
@@ -331,12 +321,8 @@ class OperatorCompare(BandMathFunction):
                     result_arr = compare_fn(lhs_value, rhs_value)
                 # result_arr = compare_fn(lhs_value, rhs_value)
                 result_arr = result_arr.astype(np.byte)
-                assert lhs_value.ndim == 3 or (
-                    lhs_value.ndim == 2 and len(index_list_current) == 1
-                )
-                assert result_arr.ndim == 3 or (
-                    result_arr.ndim == 2 and len(index_list_current) == 1
-                )
+                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
+                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             else:

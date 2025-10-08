@@ -52,12 +52,8 @@ class AppConfigDialog(QDialog):
         # act based on the changes made by the user.  Also, duplicate the
         # Python system path, so that we can restore it when needed.
         self._initial_sys_path: List[str] = list(sys.path)
-        self._initial_plugin_paths: List[str] = list(
-            self._app_state.get_config("plugin_paths")
-        )
-        self._initial_plugins: List[str] = list(
-            self._app_state.get_config("plugin_paths")
-        )
+        self._initial_plugin_paths: List[str] = list(self._app_state.get_config("plugin_paths"))
+        self._initial_plugins: List[str] = list(self._app_state.get_config("plugin_paths"))
 
         self._init_general_tab()
         self._init_plugins_tab()
@@ -93,23 +89,13 @@ class AppConfigDialog(QDialog):
         )
 
         self._ui.cbox_pixel_cursor_type.addItem(self.tr("Crosshair"), "SMALL_CROSS")
-        self._ui.cbox_pixel_cursor_type.addItem(
-            self.tr("Large crosshair"), "LARGE_CROSS"
-        )
-        self._ui.cbox_pixel_cursor_type.addItem(
-            self.tr("Crosshair with box"), "SMALL_CROSS_BOX"
-        )
+        self._ui.cbox_pixel_cursor_type.addItem(self.tr("Large crosshair"), "LARGE_CROSS")
+        self._ui.cbox_pixel_cursor_type.addItem(self.tr("Crosshair with box"), "SMALL_CROSS_BOX")
 
-        self._ui.ledit_pixel_cursor_color.setText(
-            self._app_state.get_config("raster.pixel_cursor_color")
-        )
+        self._ui.ledit_pixel_cursor_color.setText(self._app_state.get_config("raster.pixel_cursor_color"))
 
-        self._ui.btn_viewport_highlight_color.clicked.connect(
-            self._on_choose_viewport_highlight_color
-        )
-        self._ui.btn_pixel_cursor_color.clicked.connect(
-            self._on_choose_pixel_cursor_color
-        )
+        self._ui.btn_viewport_highlight_color.clicked.connect(self._on_choose_viewport_highlight_color)
+        self._ui.btn_pixel_cursor_color.clicked.connect(self._on_choose_pixel_cursor_color)
 
         # Fetch the cursor type as a string
         cursor = self._app_state.get_config("raster.pixel_cursor_type")
@@ -124,12 +110,8 @@ class AppConfigDialog(QDialog):
         self._ui.ledit_aavg_x.setValidator(QIntValidator(1, 99))
         self._ui.ledit_aavg_y.setValidator(QIntValidator(1, 99))
 
-        self._ui.ledit_aavg_x.setText(
-            str(self._app_state.get_config("spectra.default_area_avg_x"))
-        )
-        self._ui.ledit_aavg_y.setText(
-            str(self._app_state.get_config("spectra.default_area_avg_y"))
-        )
+        self._ui.ledit_aavg_x.setText(str(self._app_state.get_config("spectra.default_area_avg_x")))
+        self._ui.ledit_aavg_y.setText(str(self._app_state.get_config("spectra.default_area_avg_y")))
 
         self._ui.cbox_default_avg_mode.addItem(self.tr("Mean"), "MEAN")
         self._ui.cbox_default_avg_mode.addItem(self.tr("Median"), "MEDIAN")
@@ -153,9 +135,7 @@ class AppConfigDialog(QDialog):
         self._ui.btn_edit_plugin_path.setEnabled(False)
         self._ui.btn_del_plugin_path.setEnabled(False)
 
-        self._ui.list_plugin_paths.itemSelectionChanged.connect(
-            self._on_plugin_path_selection_changed
-        )
+        self._ui.list_plugin_paths.itemSelectionChanged.connect(self._on_plugin_path_selection_changed)
         self._ui.btn_add_plugin_path.clicked.connect(self._on_add_plugin_path)
         self._ui.btn_edit_plugin_path.clicked.connect(self._on_edit_plugin_path)
         self._ui.btn_del_plugin_path.clicked.connect(self._on_del_plugin_path)
@@ -171,9 +151,7 @@ class AppConfigDialog(QDialog):
         self._ui.btn_edit_plugin.setEnabled(False)
         self._ui.btn_del_plugin.setEnabled(False)
 
-        self._ui.list_plugins.itemSelectionChanged.connect(
-            self._on_plugin_selection_changed
-        )
+        self._ui.list_plugins.itemSelectionChanged.connect(self._on_plugin_selection_changed)
         self._ui.btn_add_plugin.clicked.connect(self._on_add_plugin)
         self._ui.btn_edit_plugin.clicked.connect(self._on_edit_plugin)
         self._ui.btn_del_plugin.clicked.connect(self._on_del_plugin)
@@ -241,19 +219,13 @@ class AppConfigDialog(QDialog):
 
     def _on_del_plugin_path(self, checked=False):
         # Find the path or paths to be removed
-        paths: List[Tuple[int, str]] = qlistwidget_selections(
-            self._ui.list_plugin_paths
-        )
+        paths: List[Tuple[int, str]] = qlistwidget_selections(self._ui.list_plugin_paths)
 
         # Get user confirmation
         if len(paths) == 1:
             msg = self.tr("Remove this plugin path?") + f"\n\n{paths[0][1]}"
         else:
-            msg = (
-                self.tr("Remove these plugin paths?")
-                + "\n"
-                + "\n".join([p[1] for p in paths])
-            )
+            msg = self.tr("Remove these plugin paths?") + "\n" + "\n".join([p[1] for p in paths])
 
         result = QMessageBox.question(self, self.tr("Remove plugin paths?"), msg)
         if result != QMessageBox.Yes:
@@ -326,11 +298,7 @@ class AppConfigDialog(QDialog):
         if len(plugins) == 1:
             msg = self.tr("Remove this plugin?") + f"\n\n{plugins[0][1]}"
         else:
-            msg = (
-                self.tr("Remove these plugins?")
-                + "\n"
-                + "\n".join([p[1] for p in plugins])
-            )
+            msg = self.tr("Remove these plugins?") + "\n" + "\n".join([p[1] for p in plugins])
 
         result = QMessageBox.question(self, self.tr("Remove plugins?"), msg)
         if result != QMessageBox.Yes:
@@ -347,9 +315,7 @@ class AppConfigDialog(QDialog):
 
     def _on_verify_plugins(self, checked=False):
         if self._ui.list_plugins.count() == 0:
-            QMessageBox.information(
-                self, self.tr("No plugins"), self.tr("No plugins have been specified.")
-            )
+            QMessageBox.information(self, self.tr("No plugins"), self.tr("No plugins have been specified."))
             return
 
         # Create a new list of system paths with the updated plugin paths.
@@ -444,17 +410,11 @@ class AppConfigDialog(QDialog):
         # ==============================
         # Visible-Light group-box
 
-        self._app_state.set_config(
-            "general.red_wavelength_nm", int(self._ui.ledit_red_wavelength.text())
-        )
+        self._app_state.set_config("general.red_wavelength_nm", int(self._ui.ledit_red_wavelength.text()))
 
-        self._app_state.set_config(
-            "general.green_wavelength_nm", int(self._ui.ledit_green_wavelength.text())
-        )
+        self._app_state.set_config("general.green_wavelength_nm", int(self._ui.ledit_green_wavelength.text()))
 
-        self._app_state.set_config(
-            "general.blue_wavelength_nm", int(self._ui.ledit_blue_wavelength.text())
-        )
+        self._app_state.set_config("general.blue_wavelength_nm", int(self._ui.ledit_blue_wavelength.text()))
 
         # ==============================
         # Raster Display group-box
@@ -467,9 +427,7 @@ class AppConfigDialog(QDialog):
         cursor = self._ui.cbox_pixel_cursor_type.currentData()
         self._app_state.set_config("raster.pixel_cursor_type", cursor)
 
-        self._app_state.set_config(
-            "raster.pixel_cursor_color", self._ui.ledit_pixel_cursor_color.text()
-        )
+        self._app_state.set_config("raster.pixel_cursor_color", self._ui.ledit_pixel_cursor_color.text())
 
         # ==============================
         # New Spectra group-box
@@ -489,10 +447,7 @@ class AppConfigDialog(QDialog):
         plugins = qlistwidget_to_list(self._ui.list_plugins)
         self._app_state.set_config("plugins", plugins)
 
-        if (
-            plugin_paths != self._initial_plugin_paths
-            or plugins != self._initial_plugins
-        ):
+        if plugin_paths != self._initial_plugin_paths or plugins != self._initial_plugins:
             QMessageBox.information(
                 self,
                 self.tr("Plugin changes detected"),

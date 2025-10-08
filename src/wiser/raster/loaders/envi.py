@@ -189,9 +189,7 @@ def load_envi_header(filename: str) -> Dict[str, Any]:
 
         parts = line.split("=", maxsplit=1)
         if len(parts) != 2:
-            raise EnviFileFormatError(
-                f'Line {line_no+1}:  not of the form "name = value"'
-            )
+            raise EnviFileFormatError(f'Line {line_no+1}:  not of the form "name = value"')
 
         name = normalize_envi_header_property_name(parts[0])
 
@@ -248,9 +246,7 @@ def load_envi_header(filename: str) -> Dict[str, Any]:
 
     # This attribute is a list of strings
     if "spectra names" in metadata:
-        metadata["spectra names"] = envi_multivalue_to_list(
-            metadata["spectra names"], str
-        )
+        metadata["spectra names"] = envi_multivalue_to_list(metadata["spectra names"], str)
 
     # ===========================================================================
     # All done!
@@ -295,9 +291,7 @@ def load_envi_data(filename, header_filename=None, metadata=None, mmap=True):
     num_values = bands * samples * lines
 
     # Figure out the numpy element type from the ENVI header
-    numpy_type = map_envi_type_to_numpy_type(
-        metadata["data type"], metadata["byte order"]
-    )
+    numpy_type = map_envi_type_to_numpy_type(metadata["data type"], metadata["byte order"])
 
     # Load the binary data itself.
     header_offset = metadata["header offset"]
@@ -305,9 +299,7 @@ def load_envi_data(filename, header_filename=None, metadata=None, mmap=True):
         if mmap:
             data = np.memmap(f, numpy_type, "r", offset=header_offset)
         else:
-            data = np.fromfile(
-                f, dtype=numpy_type, count=num_values, offset=header_offset
-            )
+            data = np.fromfile(f, dtype=numpy_type, count=num_values, offset=header_offset)
 
     # Figure out the shape of the 3D array, based on the interleaving.
 
@@ -366,8 +358,7 @@ def find_envi_filenames(filename: str) -> Tuple[str, str]:
 
         if data_filename is None:
             raise FileNotFoundError(
-                "Couldn't determine ENVI data filename "
-                + f"from header file {header_filename}"
+                "Couldn't determine ENVI data filename " + f"from header file {header_filename}"
             )
 
     else:
@@ -389,8 +380,7 @@ def find_envi_filenames(filename: str) -> Tuple[str, str]:
 
         if header_filename is None:
             raise FileNotFoundError(
-                "Couldn't determine ENVI header filename "
-                + f"from data file {data_filename}"
+                "Couldn't determine ENVI header filename " + f"from data file {data_filename}"
             )
 
     return (header_filename, data_filename)

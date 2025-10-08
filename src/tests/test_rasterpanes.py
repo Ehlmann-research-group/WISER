@@ -174,9 +174,7 @@ if __name__ == "__main__":
     # Create second array
     rows, cols, channels = 50, 50, 3
     # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-    row_values = np.concatenate(
-        (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-    ).reshape(rows, 1)
+    row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(rows, 1)
     impl2 = np.tile(row_values, (1, cols))
     np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -214,20 +212,10 @@ if __name__ == "__main__":
     # # The zoom pane image size should increase. Since we zoomed out it shoild show more pixels
     # print(f"test_model.get_zoom_pane_image_size(): {test_model.get_zoom_pane_image_size()}")
 
-    # print(f"test_model.get_zoom_pane_center_raster_point(): {test_model.get_zoom_pane_center_raster_point()}")
-
     test_model.click_raster_coord_zoom_pane((ds2.get_width() / 2, ds2.get_height() / 2))
-
-    # print(f"test_model.get_zoom_pane_selected_pixel(): {test_model.get_zoom_pane_selected_pixel()}")
-
-    # print(f"test_model.get_zoom_pane_scroll_state(): {test_model.get_zoom_pane_scroll_state()}")
-
-    # print(f"test_model.get_zoom_pane_visible_region(): {test_model.get_zoom_pane_visible_region()}")
 
     # # Try commenting this line out to show that it works
     # test_model.set_zoom_pane_dataset(ds1.get_id())
-
-    # print(f"test_model.get_zoom_pane_dataset(): {test_model.get_zoom_pane_dataset().get_id()}")
 
     test_model.import_spectral_library(
         "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\SpectralLibraries\\usgs_resampHeadwallSWIR.hdr"

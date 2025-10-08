@@ -76,9 +76,7 @@ def write_deps_from_analysis(
 
     # Exclude your own package(s) etc.
     module_tops = {
-        m
-        for m in module_tops
-        if not any(m == ex or m.startswith(ex + ".") for ex in exclude_modules)
+        m for m in module_tops if not any(m == ex or m.startswith(ex + ".") for ex in exclude_modules)
     }
 
     # Map modules -> distributions, then resolve versions

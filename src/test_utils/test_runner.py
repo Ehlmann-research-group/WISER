@@ -164,10 +164,7 @@ class TestRunner:
         previous_group_result = None
         for test_group in unrolled_test_groups:
             current_result = self.run_once(test_group)
-            if (
-                current_result != previous_group_result
-                and previous_group_result is not None
-            ):
+            if current_result != previous_group_result and previous_group_result is not None:
                 raise ValueError(
                     "Previous result does not equal current result!"
                     + f"Previous result call trace: {self._func_group_to_string(previous_test_group)}"

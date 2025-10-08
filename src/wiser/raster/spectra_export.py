@@ -165,9 +165,7 @@ def export_spectrum_list(filename: str, spectra: List[Spectrum], missing_value=9
         if len(data.shape) > 1:
             # If the spectrum's data is not flat, we don't even know how to
             # interpret this correctly, so just bail.
-            raise ValueError(
-                f"Spectrum {s.get_name()} value-array is not flat:  {data.shape}"
-            )
+            raise ValueError(f"Spectrum {s.get_name()} value-array is not flat:  {data.shape}")
 
         all_data.append(data)
 
@@ -275,9 +273,7 @@ class ImportedSpectrumData:
         # If we get here and we have actual values, then that means the data
         # being imported is suspect.
         if self.finished:
-            raise ValueError(
-                "Spectrum is already finished; it cannot accept new values"
-            )
+            raise ValueError("Spectrum is already finished; it cannot accept new values")
 
         wl_value = None
         if wavelength_value_str is not None:
@@ -357,8 +353,7 @@ def import_spectra_text(
     if wavelength_cols == WavelengthCols.ODD_COLS:
         if num_cols < 2:
             raise ValueError(
-                "Input has fewer than two columns, so "
-                + "wavelengths cannot be in the odd columns."
+                "Input has fewer than two columns, so " + "wavelengths cannot be in the odd columns."
             )
 
         if num_cols % 2 != 0:
@@ -368,10 +363,7 @@ def import_spectra_text(
             )
 
     if wavelength_cols == WavelengthCols.FIRST_COL and num_cols <= 1:
-        raise ValueError(
-            "Input has only one column, so wavelengths "
-            + "cannot be in the first column."
-        )
+        raise ValueError("Input has only one column, so wavelengths " + "cannot be in the first column.")
 
     line_no = 1
     header_line = None

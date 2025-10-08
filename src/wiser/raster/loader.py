@@ -65,9 +65,7 @@ class RasterDataLoader:
         # This is a counter so we can generate names for unnamed datasets.
         self._unnamed_datasets: int = 0
 
-    def load_normal_dataset(
-        self, impl: RasterDataImpl, data_cache: "DataCache"
-    ) -> List[RasterDataSet]:
+    def load_normal_dataset(self, impl: RasterDataImpl, data_cache: "DataCache") -> List[RasterDataSet]:
         """
         The normal way to load in a dataset
         """
@@ -75,9 +73,7 @@ class RasterDataLoader:
         # This returns a list because load_FITS_dataset could possibly return a list
         return [RasterDataSet(impl, data_cache)]
 
-    def load_FITS_dataset(
-        self, impl: RasterDataImpl, data_cache: "DataCache"
-    ) -> List[RasterDataSet]:
+    def load_FITS_dataset(self, impl: RasterDataImpl, data_cache: "DataCache") -> List[RasterDataSet]:
         # We should show the Fits dialog which should return to us
         self._fits_dialog = FitsDatasetLoadingDialog(impl, data_cache)
         result = self._fits_dialog.exec()
@@ -115,13 +111,10 @@ class RasterDataLoader:
         # Try luck with gdal
         try:
             if impl_list is None:
-                impl_list = GDALRasterDataImpl.try_load_file(
-                    path, interactive=interactive
-                )
+                impl_list = GDALRasterDataImpl.try_load_file(path, interactive=interactive)
         except Exception as e:
             logger.debug(
-                f"Couldn't load file {path} with driver "
-                + f"{driver_name} and implementation {impl_type}.",
+                f"Couldn't load file {path} with driver " + f"{driver_name} and implementation {impl_type}.",
                 e,
             )
 
@@ -162,9 +155,7 @@ class RasterDataLoader:
         else:
             raise ValueError(f'Unsupported format "{format}"')
 
-    def dataset_from_numpy_array(
-        self, arr: np.ndarray, cache: "DataCache"
-    ) -> RasterDataSet:
+    def dataset_from_numpy_array(self, arr: np.ndarray, cache: "DataCache") -> RasterDataSet:
         """
         Given a NumPy ndarray, this function returns a RasterDataSet object
         that uses the array for its raster data.  The input ndarray must have
@@ -180,9 +171,7 @@ class RasterDataLoader:
         impl = NumPyRasterDataImpl(arr)
         return RasterDataSet(impl, cache)
 
-    def dataset_from_gdal_dataset(
-        self, dataset: gdal.Dataset, cache: "DataCache"
-    ) -> RasterDataSet:
+    def dataset_from_gdal_dataset(self, dataset: gdal.Dataset, cache: "DataCache") -> RasterDataSet:
         impl = ENVI_GDALRasterDataImpl(dataset)
         return RasterDataSet(impl, cache)
 

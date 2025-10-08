@@ -52,9 +52,7 @@ logger = logging.getLogger(__name__)
 Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
-TEMP_FOLDER_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "temp_output"
-)
+TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_output")
 
 
 class MathOperations(Enum):
@@ -93,9 +91,7 @@ def load_image_from_bandmath_result(
         metadata = result.get_metadata()
         if "save_state" not in metadata:
             metadata["save_state"] = SaveState.IN_DISK_NOT_SAVED
-        ds = RasterDataSet.deserialize_into_class(
-            result.get_serialize_value(), metadata
-        )
+        ds = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
         if expression:
             ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
         if expr_info.spatial_metadata_source:
@@ -108,9 +104,7 @@ def load_image_from_bandmath_result(
         return ds
     elif result_type == VariableType.IMAGE_CUBE:
         if not loader:
-            raise AttributeError(
-                "Must pass loader into function if result_type is IMAGE_CUBE"
-            )
+            raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
         cache = app_state.get_cache() if app_state else None
         name = result_name if result_name else "Computed"
         ds = loader.dataset_from_numpy_array(result, cache)
@@ -146,9 +140,7 @@ def save_image_from_bandmath_result(
         metadata = result.get_metadata()
         if "save_state" not in metadata:
             metadata["save_state"] = SaveState.IN_DISK_NOT_SAVED
-        ds = RasterDataSet.deserialize_into_class(
-            result.get_serialize_value(), metadata
-        )
+        ds = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
         if expression:
             ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
         if expr_info.spatial_metadata_source:
@@ -159,9 +151,7 @@ def save_image_from_bandmath_result(
             loader.save_dataset_as(ds, save_path, format="ENVI")
     elif result_type == VariableType.IMAGE_CUBE:
         if not loader:
-            raise AttributeError(
-                "Must pass loader into function if result_type is IMAGE_CUBE"
-            )
+            raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
         cache = app_state.get_cache() if app_state else None
         name = result_name if result_name else "Computed"
         ds = loader.dataset_from_numpy_array(result, cache)
@@ -300,19 +290,13 @@ def bandmath_success_callback(
         # sure we load results into WISER if batch is disabled.
         if load_into_wiser or not batch_enabled:
             for result_type, result, result_name, expr_info in results:
-                logger.debug(
-                    "Result of band-math evaluation is type "
-                    + f"{result_type}, value:\n{result}"
-                )
+                logger.debug("Result of band-math evaluation is type " + f"{result_type}, value:\n{result}")
 
                 # Compute a timestamp to put in the description
                 timestamp = datetime.datetime.now().isoformat()
 
                 loader = app_state.get_loader()
-                if (
-                    result_type == RasterDataSet
-                    or result_type == VariableType.IMAGE_CUBE
-                ):
+                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
                     load_image_from_bandmath_result(
                         result_type=result_type,
                         result=result,
@@ -337,33 +321,23 @@ def bandmath_success_callback(
                 elif result_type == VariableType.SPECTRUM:
                     if not result_name:
                         result_name = parent.tr("Computed:  {expression} ({timestamp})")
-                        result_name = result_name.format(
-                            expression=expression, timestamp=timestamp
-                        )
+                        result_name = result_name.format(expression=expression, timestamp=timestamp)
 
                     new_spectrum = NumPyArraySpectrum(result, name=result_name)
 
                     if expr_info.spectral_metadata_source:
-                        new_spectrum.copy_spectral_metadata(
-                            expr_info.spectral_metadata_source
-                        )
+                        new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
 
                     app_state.set_active_spectrum(new_spectrum)
         if output_folder:
             for result_type, result, result_name, expr_info in results:
-                logger.debug(
-                    "Result of band-math evaluation is type "
-                    + f"{result_type}, value:\n{result}"
-                )
+                logger.debug("Result of band-math evaluation is type " + f"{result_type}, value:\n{result}")
 
                 # Compute a timestamp to put in the description
                 timestamp = datetime.datetime.now().isoformat()
 
                 loader = app_state.get_loader()
-                if (
-                    result_type == RasterDataSet
-                    or result_type == VariableType.IMAGE_CUBE
-                ):
+                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
                     save_image_from_bandmath_result(
                         result_type=result_type,
                         result=result,
@@ -481,9 +455,7 @@ def get_valid_ignore_value(dataset: gdal.Dataset, default_ignore_value: float):
 
     # Check if the GDAL data type is supported
     if gdal_dtype not in gdal_dtype_to_numpy_dtype:
-        raise ValueError(
-            f"Unsupported GDAL data type: {gdal.GetDataTypeName(gdal_dtype)}"
-        )
+        raise ValueError(f"Unsupported GDAL data type: {gdal.GetDataTypeName(gdal_dtype)}")
 
     numpy_dtype = gdal_dtype_to_numpy_dtype[gdal_dtype]
 
@@ -501,12 +473,8 @@ def get_valid_ignore_value(dataset: gdal.Dataset, default_ignore_value: float):
     # Check if the default ignore value fits into the data type
     if min_value <= default_ignore_value <= max_value:
         # Ensure the type of default_ignore_value matches the data type
-        if (
-            np.issubdtype(numpy_dtype, np.integer)
-            and isinstance(default_ignore_value, int)
-        ) or (
-            np.issubdtype(numpy_dtype, np.floating)
-            and isinstance(default_ignore_value, (int, float))
+        if (np.issubdtype(numpy_dtype, np.integer) and isinstance(default_ignore_value, int)) or (
+            np.issubdtype(numpy_dtype, np.floating) and isinstance(default_ignore_value, (int, float))
         ):
             return default_ignore_value
 
@@ -594,9 +562,7 @@ async def get_lhs_rhs_values_async(
                     read_task_queue[RHS_KEY],
                 )
     else:
-        rhs_value = make_image_cube_compatible_by_bands(
-            rhs, lhs_value_shape, index_list_current
-        )
+        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
 
     if rhs_future is not None:
         rhs_value = await rhs_future
@@ -786,9 +752,7 @@ def get_lhs_rhs_values(lhs: BandMathValue, rhs: BandMathValue, index_list: List[
     if same_datasets:
         rhs_value = lhs_value
     else:
-        rhs_value = make_image_cube_compatible_by_bands(
-            rhs, lhs_value.shape, index_list
-        )
+        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
 
     return lhs_value, rhs_value
 
@@ -800,9 +764,7 @@ def read_lhs_future_onto_queue(
     read_thread_pool,
     read_task_queue,
 ):
-    future = event_loop.run_in_executor(
-        read_thread_pool, lhs.as_numpy_array_by_bands, index_list
-    )
+    future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
     read_task_queue.put((future, (min(index_list), max(index_list))))
 
 
@@ -824,9 +786,7 @@ def read_rhs_future_onto_queue(
     read_task_queue.put((future, (min(index_list), max(index_list))))
 
 
-def should_continue_reading_bands(
-    band_index_list_sorted: List[int], lhs: BandMathValue
-):
+def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMathValue):
     """
     lhs is assumed to have variable type ImageCube,
     band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]
@@ -896,9 +856,7 @@ def is_number(value: BandMathValue) -> bool:
     return value.type == VariableType.NUMBER
 
 
-def reorder_args(
-    lhs_type: VariableType, rhs_type: VariableType, lhs: Any, rhs: Any
-) -> Tuple[Any, Any]:
+def reorder_args(lhs_type: VariableType, rhs_type: VariableType, lhs: Any, rhs: Any) -> Tuple[Any, Any]:
     """
     This function reorders the input arguments such that:
     *   If only one argument is an image cube, it will be on the LHS.
@@ -913,10 +871,7 @@ def reorder_args(
     """
     # Since logical AND is commutative, arrange the arguments to make the
     # calculation logic easier.
-    if (
-        lhs_type == VariableType.IMAGE_CUBE_BATCH
-        or rhs_type == VariableType.IMAGE_CUBE_BATCH
-    ):
+    if lhs_type == VariableType.IMAGE_CUBE_BATCH or rhs_type == VariableType.IMAGE_CUBE_BATCH:
         if lhs_type != VariableType.IMAGE_CUBE_BATCH:
             (rhs, lhs) = (lhs, rhs)
 
@@ -925,10 +880,7 @@ def reorder_args(
         if lhs_type != VariableType.IMAGE_CUBE:
             (rhs, lhs) = (lhs, rhs)
 
-    elif (
-        lhs_type == VariableType.IMAGE_BAND_BATCH
-        or rhs_type == VariableType.IMAGE_BAND_BATCH
-    ):
+    elif lhs_type == VariableType.IMAGE_BAND_BATCH or rhs_type == VariableType.IMAGE_BAND_BATCH:
         if lhs_type != VariableType.IMAGE_BAND_BATCH:
             (rhs, lhs) = (lhs, rhs)
 
@@ -947,9 +899,7 @@ def reorder_args(
     return (lhs, rhs)
 
 
-def check_image_cube_compatible(
-    arg: BandMathExprInfo, cube_shape: Tuple[int, int, int]
-) -> None:
+def check_image_cube_compatible(arg: BandMathExprInfo, cube_shape: Tuple[int, int, int]) -> None:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on an image-cube with the specified
@@ -980,46 +930,33 @@ def check_image_cube_compatible(
         VariableType.NUMBER,
         VariableType.BOOLEAN,
     ]:
-        raise ValueError(
-            f"Cannot perform operation between IMAGE_CUBE and {arg.result_type}"
-        )
+        raise ValueError(f"Cannot perform operation between IMAGE_CUBE and {arg.result_type}")
 
     # Dimensions:  [band][y][x]
-    if (
-        arg.result_type == VariableType.IMAGE_CUBE_BATCH
-        or arg.result_type == VariableType.IMAGE_BAND_BATCH
-    ):
+    if arg.result_type == VariableType.IMAGE_CUBE_BATCH or arg.result_type == VariableType.IMAGE_BAND_BATCH:
         return
     elif arg.result_type == VariableType.IMAGE_CUBE:
         # Dimensions:  [band][y][x]
         if arg.shape != cube_shape:
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.result_type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.result_type, arg.shape)
 
     elif arg.result_type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
         # NumPy will broadcast the band across the entire image, band by band.
         if arg.shape != cube_shape[1:]:
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.result_type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.result_type, arg.shape)
 
     elif arg.result_type == VariableType.SPECTRUM:
         # Dimensions:  [band]
         if arg.shape != cube_shape[:1]:
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.result_type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.result_type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean
         assert arg.result_type in [VariableType.NUMBER, VariableType.BOOLEAN]
 
 
-def check_image_band_compatible(
-    arg: BandMathExprInfo, band_shape: Tuple[int, int]
-) -> None:
+def check_image_band_compatible(arg: BandMathExprInfo, band_shape: Tuple[int, int]) -> None:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on an image-band with the specified
@@ -1043,25 +980,19 @@ def check_image_band_compatible(
         VariableType.NUMBER,
         VariableType.BOOLEAN,
     ]:
-        raise ValueError(
-            f"Cannot perform operation between IMAGE_BAND and {arg.result_type}"
-        )
+        raise ValueError(f"Cannot perform operation between IMAGE_BAND and {arg.result_type}")
 
     if arg.result_type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
         if arg.shape != band_shape:
-            raise_shape_mismatch(
-                VariableType.IMAGE_BAND, band_shape, arg.result_type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.IMAGE_BAND, band_shape, arg.result_type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean
         assert arg.result_type in [VariableType.NUMBER, VariableType.BOOLEAN]
 
 
-def check_spectrum_compatible(
-    arg: BandMathExprInfo, spectrum_shape: Tuple[int]
-) -> None:
+def check_spectrum_compatible(arg: BandMathExprInfo, spectrum_shape: Tuple[int]) -> None:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on a spectrum with the specified shape.
@@ -1085,16 +1016,12 @@ def check_spectrum_compatible(
         VariableType.NUMBER,
         VariableType.BOOLEAN,
     ]:
-        raise ValueError(
-            f"Cannot perform operation between SPECTRUM and {arg.result_type}"
-        )
+        raise ValueError(f"Cannot perform operation between SPECTRUM and {arg.result_type}")
 
     if arg.result_type == VariableType.SPECTRUM:
         # Dimensions:  [band]
         if arg.shape != spectrum_shape:
-            raise_shape_mismatch(
-                VariableType.SPECTRUM, spectrum_shape, arg.result_type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.SPECTRUM, spectrum_shape, arg.result_type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean
@@ -1129,9 +1056,7 @@ def make_image_cube_compatible(
         VariableType.NUMBER,
         VariableType.BOOLEAN,
     ]:
-        raise TypeError(
-            f"Can't make a {arg.type} value compatible with " + "an image-cube"
-        )
+        raise TypeError(f"Can't make a {arg.type} value compatible with " + "an image-cube")
 
     result: Union[np.ndarray, Scalar] = None
 
@@ -1143,9 +1068,7 @@ def make_image_cube_compatible(
         assert result.ndim == 3
 
         if result.shape != cube_shape:
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.shape)
 
     elif arg.type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
@@ -1154,9 +1077,7 @@ def make_image_cube_compatible(
         assert result.ndim == 2
 
         if result.shape != cube_shape[1:]:
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.type, result.shape
-            )
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.type, result.shape)
 
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]
@@ -1164,9 +1085,7 @@ def make_image_cube_compatible(
         assert result.ndim == 1
 
         if result.shape != (cube_shape[0],):
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.shape)
 
         # To ensure the spectrum is broadcast across the image's pixels,
         # reshape to effectively create a 1x1 image.
@@ -1208,9 +1127,7 @@ def make_image_cube_compatible_by_bands(
         VariableType.NUMBER,
         VariableType.BOOLEAN,
     ]:
-        raise TypeError(
-            f"Can't make a {arg.type} value compatible with " + "an image-cube"
-        )
+        raise TypeError(f"Can't make a {arg.type} value compatible with " + "an image-cube")
 
     result: Union[np.ndarray, Scalar] = None
 
@@ -1221,9 +1138,7 @@ def make_image_cube_compatible_by_bands(
         assert result.ndim == 3 or (result.ndim == 2 and len(band_list) == 1)
 
         if not are_shapes_broadcastable(result.shape, cube_shape):
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.get_shape()
-            )
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.get_shape())
 
     elif arg.type == VariableType.IMAGE_BAND:
         # Dimensions:  [y][x]
@@ -1231,12 +1146,8 @@ def make_image_cube_compatible_by_bands(
         result = arg.as_numpy_array_by_bands(band_list)
         assert result.ndim == 2
 
-        if (result.shape != cube_shape[1:]) and (
-            result.shape != cube_shape and len(band_list) == 1
-        ):
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.get_shape()
-            )
+        if (result.shape != cube_shape[1:]) and (result.shape != cube_shape and len(band_list) == 1):
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.get_shape())
 
     elif arg.type == VariableType.SPECTRUM:
         # Dimensions:  [band]
@@ -1246,9 +1157,7 @@ def make_image_cube_compatible_by_bands(
         assert result.ndim == 1
 
         if (result.shape != (cube_shape[0],)) and len(band_list) != 1:
-            raise_shape_mismatch(
-                VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.get_shape()
-            )
+            raise_shape_mismatch(VariableType.IMAGE_CUBE, cube_shape, arg.type, arg.get_shape())
 
         # To ensure the spectrum is broadcast across the image's pixels,
         # reshape to effectively create a 1x1 image.
@@ -1292,9 +1201,7 @@ def are_shapes_broadcastable(shape1, shape2):
     return True
 
 
-def make_image_band_compatible(
-    arg: BandMathValue, band_shape: Tuple[int, int]
-) -> Union[np.ndarray, Scalar]:
+def make_image_band_compatible(arg: BandMathValue, band_shape: Tuple[int, int]) -> Union[np.ndarray, Scalar]:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on an image-band with the specified
@@ -1316,9 +1223,7 @@ def make_image_band_compatible(
         VariableType.NUMBER,
         VariableType.BOOLEAN,
     ]:
-        raise TypeError(
-            f"Can't make a {arg.type} value compatible with " + "an image-band"
-        )
+        raise TypeError(f"Can't make a {arg.type} value compatible with " + "an image-band")
 
     result: Union[np.ndarray, Scalar] = None
 
@@ -1328,9 +1233,7 @@ def make_image_band_compatible(
         assert result.ndim == 2
 
         if result.shape != band_shape:
-            raise_shape_mismatch(
-                VariableType.IMAGE_BAND, band_shape, arg.type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.IMAGE_BAND, band_shape, arg.type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean
@@ -1340,9 +1243,7 @@ def make_image_band_compatible(
     return result
 
 
-def make_spectrum_compatible(
-    arg: BandMathValue, spectrum_shape: Tuple[int]
-) -> Union[np.ndarray, Scalar]:
+def make_spectrum_compatible(arg: BandMathValue, spectrum_shape: Tuple[int]) -> Union[np.ndarray, Scalar]:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on a spectrum with the specified shape.
@@ -1364,9 +1265,7 @@ def make_spectrum_compatible(
         VariableType.NUMBER,
         VariableType.BOOLEAN,
     ]:
-        raise TypeError(
-            f"Can't make a {arg.type} value compatible with " + "a spectrum"
-        )
+        raise TypeError(f"Can't make a {arg.type} value compatible with " + "a spectrum")
 
     result: Union[np.ndarray, Scalar] = None
 
@@ -1376,9 +1275,7 @@ def make_spectrum_compatible(
         assert result.ndim == 1
 
         if result.shape != spectrum_shape:
-            raise_shape_mismatch(
-                VariableType.SPECTRUM, spectrum_shape, arg.type, arg.shape
-            )
+            raise_shape_mismatch(VariableType.SPECTRUM, spectrum_shape, arg.type, arg.shape)
 
     else:
         # This is a scalar:  number or Boolean

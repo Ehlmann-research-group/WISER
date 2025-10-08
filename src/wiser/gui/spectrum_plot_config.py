@@ -34,35 +34,17 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.cbox_legend.addItem(self.tr("No legend"), LegendPlacement.NO_LEGEND)
         self._ui.cbox_legend.insertSeparator(self._ui.cbox_legend.count())
         self._ui.cbox_legend.addItem(self.tr("Upper left"), LegendPlacement.UPPER_LEFT)
-        self._ui.cbox_legend.addItem(
-            self.tr("Upper center"), LegendPlacement.UPPER_CENTER
-        )
-        self._ui.cbox_legend.addItem(
-            self.tr("Upper right"), LegendPlacement.UPPER_RIGHT
-        )
-        self._ui.cbox_legend.addItem(
-            self.tr("Center left"), LegendPlacement.CENTER_LEFT
-        )
-        self._ui.cbox_legend.addItem(
-            self.tr("Center right"), LegendPlacement.CENTER_RIGHT
-        )
+        self._ui.cbox_legend.addItem(self.tr("Upper center"), LegendPlacement.UPPER_CENTER)
+        self._ui.cbox_legend.addItem(self.tr("Upper right"), LegendPlacement.UPPER_RIGHT)
+        self._ui.cbox_legend.addItem(self.tr("Center left"), LegendPlacement.CENTER_LEFT)
+        self._ui.cbox_legend.addItem(self.tr("Center right"), LegendPlacement.CENTER_RIGHT)
         self._ui.cbox_legend.addItem(self.tr("Lower left"), LegendPlacement.LOWER_LEFT)
-        self._ui.cbox_legend.addItem(
-            self.tr("Lower center"), LegendPlacement.LOWER_CENTER
-        )
-        self._ui.cbox_legend.addItem(
-            self.tr("Lower right"), LegendPlacement.LOWER_RIGHT
-        )
-        self._ui.cbox_legend.addItem(
-            self.tr("Best location"), LegendPlacement.BEST_LOCATION
-        )
+        self._ui.cbox_legend.addItem(self.tr("Lower center"), LegendPlacement.LOWER_CENTER)
+        self._ui.cbox_legend.addItem(self.tr("Lower right"), LegendPlacement.LOWER_RIGHT)
+        self._ui.cbox_legend.addItem(self.tr("Best location"), LegendPlacement.BEST_LOCATION)
         self._ui.cbox_legend.insertSeparator(self._ui.cbox_legend.count())
-        self._ui.cbox_legend.addItem(
-            self.tr("Center right (outside)"), LegendPlacement.OUTSIDE_CENTER_RIGHT
-        )
-        self._ui.cbox_legend.addItem(
-            self.tr("Lower center (outside)"), LegendPlacement.OUTSIDE_LOWER_CENTER
-        )
+        self._ui.cbox_legend.addItem(self.tr("Center right (outside)"), LegendPlacement.OUTSIDE_CENTER_RIGHT)
+        self._ui.cbox_legend.addItem(self.tr("Lower center (outside)"), LegendPlacement.OUTSIDE_LOWER_CENTER)
 
         # Choose the currently used legend-placement option in the combobox.
         index = self._ui.cbox_legend.findData(spectrum_plot.get_legend())
@@ -81,9 +63,7 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.sbox_axes_font_size.setValue(spectrum_plot.get_font_size("axes"))
         self._ui.sbox_tick_font_size.setValue(spectrum_plot.get_font_size("ticks"))
         self._ui.sbox_legend_font_size.setValue(spectrum_plot.get_font_size("legend"))
-        self._ui.sbox_selection_font_size.setValue(
-            spectrum_plot.get_font_size("selection")
-        )
+        self._ui.sbox_selection_font_size.setValue(spectrum_plot.get_font_size("selection"))
 
         # Config for the selected point
 
@@ -95,15 +75,11 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.cbox_selection_symbol.addItem(self.tr("Horizontal line"), "_")
         self._ui.cbox_selection_symbol.addItem(self.tr("Diamond"), "D")
 
-        index = self._ui.cbox_selection_symbol.findData(
-            spectrum_plot.get_selection_marker()
-        )
+        index = self._ui.cbox_selection_symbol.findData(spectrum_plot.get_selection_marker())
         if index != -1:
             self._ui.cbox_selection_symbol.setCurrentIndex(index)
 
-        self._ui.ckbox_selection_crosshair.setChecked(
-            spectrum_plot.selection_has_crosshair()
-        )
+        self._ui.ckbox_selection_crosshair.setChecked(spectrum_plot.selection_has_crosshair())
 
         # ==============================
         # X-Axis tab
@@ -128,12 +104,8 @@ class SpectrumPlotConfigDialog(QDialog):
         if units is None:
             self._ui.cbox_xaxis_units.setEnabled(False)
 
-        self._ui.ledit_xaxis_major_ticks.setValidator(
-            QDoubleValidator(0.0, math.inf, 6)
-        )
-        self._ui.ledit_xaxis_minor_ticks.setValidator(
-            QDoubleValidator(0.0, math.inf, 6)
-        )
+        self._ui.ledit_xaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
+        self._ui.ledit_xaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
 
         autoticks = spectrum_plot.get_x_autoticks()
         self._ui.gbox_xaxis_ticks.setChecked(not autoticks)
@@ -174,25 +146,17 @@ class SpectrumPlotConfigDialog(QDialog):
 
         self._ui.ckbox_xaxis_minor_ticks.clicked.connect(self._on_xaxis_minor_ticks)
 
-        self._ui.ledit_xaxis_major_ticks.textEdited.connect(
-            self._on_xaxis_major_ticks_edited
-        )
+        self._ui.ledit_xaxis_major_ticks.textEdited.connect(self._on_xaxis_major_ticks_edited)
 
-        self._ui.ledit_xaxis_minor_ticks.textEdited.connect(
-            self._on_xaxis_minor_ticks_edited
-        )
+        self._ui.ledit_xaxis_minor_ticks.textEdited.connect(self._on_xaxis_minor_ticks_edited)
 
         # ==============================
         # Y-Axis tab
 
         self._ui.ledit_yaxis_label.setText(spectrum_plot.get_y_label())
 
-        self._ui.ledit_yaxis_major_ticks.setValidator(
-            QDoubleValidator(0.0, math.inf, 6)
-        )
-        self._ui.ledit_yaxis_minor_ticks.setValidator(
-            QDoubleValidator(0.0, math.inf, 6)
-        )
+        self._ui.ledit_yaxis_major_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
+        self._ui.ledit_yaxis_minor_ticks.setValidator(QDoubleValidator(0.0, math.inf, 6))
 
         autoticks = spectrum_plot.get_y_autoticks()
         self._ui.gbox_yaxis_ticks.setChecked(not autoticks)
@@ -233,13 +197,9 @@ class SpectrumPlotConfigDialog(QDialog):
 
         self._ui.ckbox_yaxis_minor_ticks.clicked.connect(self._on_yaxis_minor_ticks)
 
-        self._ui.ledit_yaxis_major_ticks.textEdited.connect(
-            self._on_yaxis_major_ticks_edited
-        )
+        self._ui.ledit_yaxis_major_ticks.textEdited.connect(self._on_yaxis_major_ticks_edited)
 
-        self._ui.ledit_yaxis_minor_ticks.textEdited.connect(
-            self._on_yaxis_minor_ticks_edited
-        )
+        self._ui.ledit_yaxis_minor_ticks.textEdited.connect(self._on_yaxis_minor_ticks_edited)
 
         # ==============================
         # New Spectra tab
@@ -247,12 +207,8 @@ class SpectrumPlotConfigDialog(QDialog):
         self._ui.ledit_aavg_x.setValidator(QIntValidator(1, 99))
         self._ui.ledit_aavg_y.setValidator(QIntValidator(1, 99))
 
-        self._ui.ledit_aavg_x.setText(
-            str(app_state.get_config("spectra.default_area_avg_x"))
-        )
-        self._ui.ledit_aavg_y.setText(
-            str(app_state.get_config("spectra.default_area_avg_y"))
-        )
+        self._ui.ledit_aavg_x.setText(str(app_state.get_config("spectra.default_area_avg_x")))
+        self._ui.ledit_aavg_y.setText(str(app_state.get_config("spectra.default_area_avg_y")))
 
         self._ui.cbox_default_avg_mode.addItem(self.tr("Mean"), "MEAN")
         self._ui.cbox_default_avg_mode.addItem(self.tr("Median"), "MEDIAN")
@@ -375,9 +331,7 @@ class SpectrumPlotConfigDialog(QDialog):
             minor_interval = float(ledit_minor.text())
 
         label.setText(
-            self._describe_tick_results(
-                major_enabled, major_interval, minor_enabled, minor_interval
-            )
+            self._describe_tick_results(major_enabled, major_interval, minor_enabled, minor_interval)
         )
 
     def _describe_tick_results(
@@ -439,31 +393,21 @@ class SpectrumPlotConfigDialog(QDialog):
 
         # Font sizes
 
-        self._spectrum_plot.set_font_size(
-            "title", self._ui.sbox_title_font_size.value()
-        )
+        self._spectrum_plot.set_font_size("title", self._ui.sbox_title_font_size.value())
 
         self._spectrum_plot.set_font_size("axes", self._ui.sbox_axes_font_size.value())
 
         self._spectrum_plot.set_font_size("ticks", self._ui.sbox_tick_font_size.value())
 
-        self._spectrum_plot.set_font_size(
-            "legend", self._ui.sbox_legend_font_size.value()
-        )
+        self._spectrum_plot.set_font_size("legend", self._ui.sbox_legend_font_size.value())
 
-        self._spectrum_plot.set_font_size(
-            "selection", self._ui.sbox_selection_font_size.value()
-        )
+        self._spectrum_plot.set_font_size("selection", self._ui.sbox_selection_font_size.value())
 
         # Selected point on spectrum
 
-        self._spectrum_plot.set_selection_marker(
-            self._ui.cbox_selection_symbol.currentData()
-        )
+        self._spectrum_plot.set_selection_marker(self._ui.cbox_selection_symbol.currentData())
 
-        self._spectrum_plot.set_selection_crosshair(
-            self._ui.ckbox_selection_crosshair.isChecked()
-        )
+        self._spectrum_plot.set_selection_crosshair(self._ui.ckbox_selection_crosshair.isChecked())
 
         # ==============================
         # X-Axis tab

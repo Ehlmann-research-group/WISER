@@ -94,9 +94,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         Loads an ENVI dataset and verifies that the x-axis of the spectrum plot is labeled in nanometers.
         """
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
         self.test_model.click_raster_coord_main_view_rv((0, 0), (0, 0))
@@ -112,9 +110,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         Loads an ENVI dataset and verifies that the x-axis of the spectrum plot is labeled in nanometers.
         """
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
         self.test_model.click_raster_coord_zoom_pane((0, 0))
@@ -134,15 +130,11 @@ class TestSpectrumPlotUI(unittest.TestCase):
         self.test_model.set_main_view_layout((1, 2))
 
         # This will be in the (0, 0) raster view position
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
         # This will be in the (0, 1) raster view position
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "circuit_4_100_150_um"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "circuit_4_100_150_um")
         self.test_model.load_dataset(rel_path)
 
         # Switch back to nanometer units
@@ -197,9 +189,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         np_ds = self.test_model.load_dataset(np_impl)
 
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
         # Get a spectrum with wavelength nm in spectrum plot
@@ -257,9 +247,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
 
         np_ds = self.test_model.load_dataset(np_impl)
 
-        rel_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         self.test_model.load_dataset(rel_path)
 
         # Get a spectrum with wavelength nm in spectrum plot
@@ -442,9 +430,7 @@ class TestSpectrumPlotUI(unittest.TestCase):
         active_spectrum_arr = self.test_model.get_active_spectrum().get_spectrum()
 
         self.assertTrue(
-            np.array_equal(
-                active_spectrum_arr, np.array([np.nan, np.nan, np.nan]), equal_nan=True
-            )
+            np.array_equal(active_spectrum_arr, np.array([np.nan, np.nan, np.nan]), equal_nan=True)
         )
 
 

@@ -50,9 +50,7 @@ class SAMTool(GenericSpectralComputationTool):
 
     # ---------- SAM helpers ----------
     @staticmethod
-    def _resample_to(
-        x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray
-    ) -> np.ndarray:
+    def _resample_to(x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray) -> np.ndarray:
         """
         Resample y_src defined on x_src onto x_dst using linear interpolation.
         Returns NaNs when insufficient data or invalid inputs are detected.

@@ -30,9 +30,7 @@ class OperatorAdd(BandMathFunction):
     def _report_type_error(self, lhs_type, rhs_type):
         raise TypeError(f"Operands {lhs_type} and {rhs_type} not compatible for +")
 
-    def analyze(
-        self, infos: List[BandMathExprInfo], options: Dict[str, Any] = None
-    ) -> BandMathExprInfo:
+    def analyze(self, infos: List[BandMathExprInfo], options: Dict[str, Any] = None) -> BandMathExprInfo:
         if len(infos) != 2:
             raise ValueError("Binary addition requires exactly two arguments")
 
@@ -40,10 +38,7 @@ class OperatorAdd(BandMathFunction):
         rhs = infos[1]
 
         # Take care of the simple case first.
-        if (
-            lhs.result_type == VariableType.NUMBER
-            and rhs.result_type == VariableType.NUMBER
-        ):
+        if lhs.result_type == VariableType.NUMBER and rhs.result_type == VariableType.NUMBER:
             return BandMathExprInfo(VariableType.NUMBER)
 
         # If we got here, we are comparing more complex data types.
@@ -84,9 +79,7 @@ class OperatorAdd(BandMathFunction):
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
             # info.elem_type = lhs.elem_type
-            info.elem_type = get_result_dtype(
-                lhs.elem_type, rhs.elem_type, MathOperations.ADD
-            )
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, MathOperations.ADD)
 
             # TODO(donnie):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
@@ -182,16 +175,10 @@ class OperatorAdd(BandMathFunction):
                 )
 
                 result_arr = lhs_value + rhs_value
-                assert lhs_value.ndim == 3 or (
-                    lhs_value.ndim == 2 and len(index_list_current) == 1
-                )
-                assert result_arr.ndim == 3 or (
-                    result_arr.ndim == 2 and len(index_list_current) == 1
-                )
+                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
+                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
-                return BandMathValue(
-                    VariableType.IMAGE_CUBE, result_arr, is_intermediate=True
-                )
+                return BandMathValue(VariableType.IMAGE_CUBE, result_arr, is_intermediate=True)
             else:
                 lhs_value = lhs.as_numpy_array()
                 assert lhs_value.ndim == 3

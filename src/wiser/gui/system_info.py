@@ -53,9 +53,7 @@ class SystemInfoDialog(QDialog):
 
         # Installed packages and versions
 
-        installed_packages = [
-            (d.project_name, d.version) for d in pkg_resources.working_set
-        ]
+        installed_packages = [(d.project_name, d.version) for d in pkg_resources.working_set]
 
         installed_packages.sort(key=lambda t: t[0].upper())
 

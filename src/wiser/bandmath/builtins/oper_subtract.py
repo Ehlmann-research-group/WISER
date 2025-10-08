@@ -42,9 +42,7 @@ class OperatorSubtract(BandMathFunction):
     def _report_type_error(self, lhs_type, rhs_type):
         raise TypeError(f"Operands {lhs_type} and {rhs_type} not compatible for -")
 
-    def analyze(
-        self, infos: List[BandMathExprInfo], options: Dict[str, Any] = None
-    ) -> BandMathExprInfo:
+    def analyze(self, infos: List[BandMathExprInfo], options: Dict[str, Any] = None) -> BandMathExprInfo:
         if len(infos) != 2:
             raise ValueError("Binary subtraction requires exactly two arguments")
 
@@ -52,10 +50,7 @@ class OperatorSubtract(BandMathFunction):
         rhs = infos[1]
 
         # Take care of the simple case first.
-        if (
-            lhs.result_type == VariableType.NUMBER
-            and rhs.result_type == VariableType.NUMBER
-        ):
+        if lhs.result_type == VariableType.NUMBER and rhs.result_type == VariableType.NUMBER:
             return BandMathExprInfo(VariableType.NUMBER)
 
         # If we got here, we are subtracting more complex data types.
@@ -92,9 +87,7 @@ class OperatorSubtract(BandMathFunction):
 
             info = BandMathExprInfo(VariableType.IMAGE_CUBE)
             info.shape = lhs.shape
-            info.elem_type = get_result_dtype(
-                lhs.elem_type, rhs.elem_type, MathOperations.SUBTRACT
-            )
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, MathOperations.SUBTRACT)
 
             # TODO(donnie):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
@@ -114,9 +107,7 @@ class OperatorSubtract(BandMathFunction):
 
             info = BandMathExprInfo(VariableType.IMAGE_BAND)
             info.shape = lhs.shape
-            info.elem_type = get_result_dtype(
-                lhs.elem_type, rhs.elem_type, MathOperations.SUBTRACT
-            )
+            info.elem_type = get_result_dtype(lhs.elem_type, rhs.elem_type, MathOperations.SUBTRACT)
 
             # TODO(donnie):  Check that metadata are compatible, and maybe
             #     generate warnings if they aren't.
@@ -164,9 +155,7 @@ class OperatorSubtract(BandMathFunction):
 
         # Subtraction is not commutative, but it's still easier to arrange the
         # arguments to make the calculation logic easier.
-        ((lsign, lhs), (rsign, rhs)) = reorder_args(
-            lhs.type, rhs.type, (1, lhs), (-1, rhs)
-        )
+        ((lsign, lhs), (rsign, rhs)) = reorder_args(lhs.type, rhs.type, (1, lhs), (-1, rhs))
 
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][x][y]
@@ -187,18 +176,12 @@ class OperatorSubtract(BandMathFunction):
                     event_loop,
                 )
 
-                result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(
-                    rsign, rhs_value
-                )
+                result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
 
                 # The result array should have the same dimensions as the LHS input
                 # array.
-                assert lhs_value.ndim == 3 or (
-                    lhs_value.ndim == 2 and len(index_list_current) == 1
-                )
-                assert result_arr.ndim == 3 or (
-                    result_arr.ndim == 2 and len(index_list_current) == 1
-                )
+                assert lhs_value.ndim == 3 or (lhs_value.ndim == 2 and len(index_list_current) == 1)
+                assert result_arr.ndim == 3 or (result_arr.ndim == 2 and len(index_list_current) == 1)
                 assert np.squeeze(result_arr).shape == lhs_value.shape
                 return BandMathValue(VariableType.IMAGE_CUBE, result_arr)
             else:
@@ -206,9 +189,7 @@ class OperatorSubtract(BandMathFunction):
                 assert lhs_value.ndim == 3
 
                 rhs_value = make_image_cube_compatible(rhs, lhs_value.shape)
-                result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(
-                    rsign, rhs_value
-                )
+                result_arr = _apply_sign(lsign, lhs_value) + _apply_sign(rsign, rhs_value)
 
                 # The result array should have the same dimensions as the LHS input
                 # array.

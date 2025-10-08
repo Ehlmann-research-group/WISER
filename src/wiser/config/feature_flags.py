@@ -49,16 +49,12 @@ class FeatureFlags:
     def env(self) -> str:
         return self._current_env
 
-    def configure(
-        self, env: Optional[str] = None, feature_gates: Optional[Dict[str, str]] = None
-    ) -> None:
+    def configure(self, env: Optional[str] = None, feature_gates: Optional[Dict[str, str]] = None) -> None:
         if env is not None:
             self._current_env = _normalize_env(env)
         if feature_gates is not None:
             # Replace entire table to avoid stale entries
-            self._feature_gates = {
-                k.strip().lower(): _normalize_env(v) for k, v in feature_gates.items()
-            }
+            self._feature_gates = {k.strip().lower(): _normalize_env(v) for k, v in feature_gates.items()}
 
     def set_feature_level(self, feature_name: str, min_env: str) -> None:
         self._feature_gates[feature_name.strip().lower()] = _normalize_env(min_env)

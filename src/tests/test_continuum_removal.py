@@ -62,9 +62,7 @@ class TestContinuumRemoval(unittest.TestCase):
         """
         plugin = ContinuumRemovalPlugin()
 
-        load_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm"
-        )
+        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
         ground_truth_path = os.path.join(
             "..",
             "test_utils",
@@ -85,25 +83,17 @@ class TestContinuumRemoval(unittest.TestCase):
 
         context = {"wiser": self.test_model.app_state, "dataset": dataset}
 
-        cr_dataset = plugin.image(
-            min_cols, min_rows, max_cols, max_rows, min_band, max_band, context
-        )
+        cr_dataset = plugin.image(min_cols, min_rows, max_cols, max_rows, min_band, max_band, context)
 
         cr_dataset_arr = cr_dataset.get_image_data()
         gt_dataset_arr = gt_dataset.get_impl().gdal_dataset.ReadAsArray().copy()
 
         self.assertTrue(np.allclose(cr_dataset_arr, gt_dataset_arr))
-        self.assertTrue(
-            cr_dataset.get_spatial_ref().IsSame(gt_dataset.get_spatial_ref())
-        )
-        self.assertTrue(
-            cr_dataset.get_geo_transform() == gt_dataset.get_geo_transform()
-        )
+        self.assertTrue(cr_dataset.get_spatial_ref().IsSame(gt_dataset.get_spatial_ref()))
+        self.assertTrue(cr_dataset.get_geo_transform() == gt_dataset.get_geo_transform())
         self.assertTrue(cr_dataset.get_bad_bands() == gt_dataset.get_bad_bands())
         self.assertTrue(cr_dataset.has_wavelengths() == gt_dataset.has_wavelengths())
-        self.assertTrue(
-            cr_dataset._default_display_bands == gt_dataset._default_display_bands
-        )
+        self.assertTrue(cr_dataset._default_display_bands == gt_dataset._default_display_bands)
         self.assertTrue(cr_dataset._data_ignore_value == gt_dataset._data_ignore_value)
         self.assertTrue(
             dict_list_equal(
@@ -150,9 +140,7 @@ class TestContinuumRemoval(unittest.TestCase):
             852.679993 * u.nanometer,
         ]
 
-        gt_spec = NumPyArraySpectrum(
-            test_spectrum_y, "Test_spectrum", wavelengths=test_spectrum_x
-        )
+        gt_spec = NumPyArraySpectrum(test_spectrum_y, "Test_spectrum", wavelengths=test_spectrum_x)
 
         new_spec, convex_hull = plugin.plot_continuum_removal(gt_spec, None)
 

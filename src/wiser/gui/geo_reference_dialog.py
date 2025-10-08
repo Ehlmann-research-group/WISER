@@ -68,9 +68,7 @@ class COLUMN_ID(IntEnum):
 
 ID_PROPERTY = "ENTRY_ID"
 
-RESAMPLE_ALGORITHMS = {
-    name: getattr(gdal, name) for name in dir(gdal) if name.startswith("GRA_")
-}
+RESAMPLE_ALGORITHMS = {name: getattr(gdal, name) for name in dir(gdal) if name.startswith("GRA_")}
 
 
 class TRANSFORM_TYPES(Enum):
@@ -112,9 +110,7 @@ class AuthorityCodeCRS(GeneralCRS):
         srs = osr.SpatialReference()
         err = srs.SetFromUserInput(auth_code_str)
         if err != 0:
-            raise RuntimeError(
-                f"Failed to import CRS '{auth_code_str}' (GDAL error {err})"
-            )
+            raise RuntimeError(f"Failed to import CRS '{auth_code_str}' (GDAL error {err})")
 
         return srs
 
@@ -402,9 +398,7 @@ class GeoReferencerDialog(QDialog):
         We want to enable this when no data is selected and disable this when data is selected
         """
         if self._manual_entry_spacer is None:
-            self._manual_entry_spacer = QSpacerItem(
-                20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding
-            )
+            self._manual_entry_spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
         if dataset is None:
             # We want to make sure the manual chooser is being shown
             self._ui.widget_manual_entry.show()
@@ -433,9 +427,7 @@ class GeoReferencerDialog(QDialog):
     def _init_default_color_chooser(self):
         horizontal_layout = self._ui.hlayout_color_change
         self._default_color_button = QPushButton()
-        self._default_color_button.clicked.connect(
-            lambda checked: self._on_choose_default_color()
-        )
+        self._default_color_button.clicked.connect(lambda checked: self._on_choose_default_color())
         self._initial_default_color = QColor("orange").name()
         color_icon = get_color_icon(self._initial_default_color)
         self._default_color_button.setIcon(color_icon)
@@ -476,19 +468,14 @@ class GeoReferencerDialog(QDialog):
         # and store the corresponding SRS string (e.g., "EPSG:4326") as userData.
         if (
             self._reference_rasterpane is not None
-            and self._reference_rasterpane.get_rasterview().get_raster_data()
-            is not None
+            and self._reference_rasterpane.get_rasterview().get_raster_data() is not None
         ):
             try:
                 ref_ds = self._reference_rasterpane.get_rasterview().get_raster_data()
-                reference_srs_name = (
-                    "Input Ref CRS: " + ref_ds.get_spatial_ref().GetName()
-                )
+                reference_srs_name = "Input Ref CRS: " + ref_ds.get_spatial_ref().GetName()
                 reference_srs_code = ref_ds.get_spatial_ref().GetAuthorityCode(None)
                 if reference_srs_code is None:
-                    self.set_message_text(
-                        "Could not get an authority code for default dataset"
-                    )
+                    self.set_message_text("Could not get an authority code for default dataset")
                     ref_srs = ref_ds.get_spatial_ref()
                     crs = CRS.from_wkt(ref_srs.ExportToWkt())
                     if crs is not None:
@@ -531,9 +518,7 @@ class GeoReferencerDialog(QDialog):
         for name in sorted(RESAMPLE_ALGORITHMS.keys()):
             # The display text is the name, and the actual GDAL constant is stored as userData.
             interp_type_cbox.addItem(name, RESAMPLE_ALGORITHMS[name])
-        self._on_switch_resample_alg(
-            0
-        )  # Initializes the data to be the first displayed item
+        self._on_switch_resample_alg(0)  # Initializes the data to be the first displayed item
 
     def _init_poly_order_cbox(self):
         """Initialize the transformation type (polynomial order) combo box from the enum."""
@@ -571,21 +556,13 @@ class GeoReferencerDialog(QDialog):
         table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self._target_x_col_delegate = NumericDelegate()
         self._target_y_col_delegate = NumericDelegate()
-        table_widget.setItemDelegateForColumn(
-            COLUMN_ID.TARGET_X_COL, self._target_x_col_delegate
-        )
-        table_widget.setItemDelegateForColumn(
-            COLUMN_ID.TARGET_Y_COL, self._target_y_col_delegate
-        )
+        table_widget.setItemDelegateForColumn(COLUMN_ID.TARGET_X_COL, self._target_x_col_delegate)
+        table_widget.setItemDelegateForColumn(COLUMN_ID.TARGET_Y_COL, self._target_y_col_delegate)
 
         self._ref_x_col_delegate = NumericDelegate(minimum=-1e10)
         self._ref_y_col_delegate = NumericDelegate(minimum=-1e10)
-        table_widget.setItemDelegateForColumn(
-            COLUMN_ID.REF_X_COL, self._ref_x_col_delegate
-        )
-        table_widget.setItemDelegateForColumn(
-            COLUMN_ID.REF_Y_COL, self._ref_y_col_delegate
-        )
+        table_widget.setItemDelegateForColumn(COLUMN_ID.REF_X_COL, self._ref_x_col_delegate)
+        table_widget.setItemDelegateForColumn(COLUMN_ID.REF_Y_COL, self._ref_y_col_delegate)
 
         table_widget.cellChanged.connect(self._on_cell_changed)
 
@@ -641,9 +618,7 @@ class GeoReferencerDialog(QDialog):
         # Get the human-readable name of the SRS
         srs_name = srs.GetName()
 
-        self._add_srs_to_output_cbox(
-            srs_name, AuthorityCodeCRS(authority_str, float(authority_code))
-        )
+        self._add_srs_to_output_cbox(srs_name, AuthorityCodeCRS(authority_str, float(authority_code)))
 
     def _on_clear_gcps_clicked(self, checked: bool):
         """
@@ -665,9 +640,7 @@ class GeoReferencerDialog(QDialog):
 
     def _on_save_gcps_clicked(self, checked: bool):
         if not self._table_entry_list:
-            QMessageBox.information(
-                self, "No GCPs", "There are no ground-control points to save."
-            )
+            QMessageBox.information(self, "No GCPs", "There are no ground-control points to save.")
             return
 
         filename, _ = QFileDialog.getSaveFileName(
@@ -696,9 +669,7 @@ class GeoReferencerDialog(QDialog):
             elif ext == ".pts":
                 self._write_envi_pts_file(filename, auth_name, auth_code, wkt_str)
             else:
-                QMessageBox.warning(
-                    self, "Extension error", "Please use either *.points or *.pts"
-                )
+                QMessageBox.warning(self, "Extension error", "Please use either *.points or *.pts")
                 return
             self.set_message_text(f"GCPs saved to {filename}")
         except Exception as e:
@@ -717,7 +688,8 @@ class GeoReferencerDialog(QDialog):
             points, gcp_srs = self._read_gcp_file(filename)
             if points is None or gcp_srs is None:
                 raise RuntimeError(
-                    f"Passed in reference system can't be parsed. Reference system wkt:\n {gcp_srs.ExportToPrettyWkt()}"
+                    "Passed-in reference system can't be parsed. Reference system WKT:\n"
+                    f"{gcp_srs.ExportToPrettyWkt()}"
                 )
         except Exception as e:
             QMessageBox.critical(self, "Load failed", str(e))
@@ -755,9 +727,7 @@ class GeoReferencerDialog(QDialog):
         lon_east_str = self._ui.ledit_lon_east.text()
 
         if lat_north_str == "" or lon_east_str == "":
-            self.set_message_text(
-                "Ensure both Lat/North and Lon/East have valid values"
-            )
+            self.set_message_text("Ensure both Lat/North and Lon/East have valid values")
             return
 
         lat_north_value = float(lat_north_str)
@@ -791,9 +761,7 @@ class GeoReferencerDialog(QDialog):
         # Get the human-readable name of the SRS
         srs_name = srs.GetName()
 
-        self._add_srs_to_ref_choose_cbox(
-            srs_name, AuthorityCodeCRS(authority_str, float(authority_code))
-        )
+        self._add_srs_to_ref_choose_cbox(srs_name, AuthorityCodeCRS(authority_str, float(authority_code)))
 
     def _on_cell_changed(self, row: int, col: int):
         table_widget = self._ui.table_gcps
@@ -824,9 +792,7 @@ class GeoReferencerDialog(QDialog):
             list_entry = self._table_entry_list[row]
             gcp_pair = list_entry.get_gcp_pair()
             ref_gcp = gcp_pair.get_reference_gcp()
-            ref_gcp.set_spatial_point(
-                (new_ref_spatial_x, gcp_pair.get_reference_gcp_spatial_coord()[1])
-            )
+            ref_gcp.set_spatial_point((new_ref_spatial_x, gcp_pair.get_reference_gcp_spatial_coord()[1]))
             self._georeference()
         elif col == COLUMN_ID.REF_Y_COL:
             item = table_widget.item(row, col)
@@ -835,9 +801,7 @@ class GeoReferencerDialog(QDialog):
             list_entry = self._table_entry_list[row]
             gcp_pair = list_entry.get_gcp_pair()
             ref_gcp = gcp_pair.get_reference_gcp()
-            ref_gcp.set_spatial_point(
-                (gcp_pair.get_reference_gcp_spatial_coord()[0], new_ref_spatial_y)
-            )
+            ref_gcp.set_spatial_point((gcp_pair.get_reference_gcp_spatial_coord()[0], new_ref_spatial_y))
             self._georeference()
         else:
             return
@@ -922,10 +886,7 @@ class GeoReferencerDialog(QDialog):
             for row in range(len(self._table_entry_list)):
                 # We only want to change the colors of the points that weren't explicitly
                 # changed. We can easily disable this by removing the if statement
-                if (
-                    self._table_entry_list[row].get_color()
-                    == self._initial_default_color
-                ):
+                if self._table_entry_list[row].get_color() == self._initial_default_color:
                     self._table_entry_list[row].set_color(color_str)
                     self._set_color_icon(row, color_str)
             self._set_default_color_icon(color_str)
@@ -987,10 +948,7 @@ class GeoReferencerDialog(QDialog):
                     self._target_cbox.setCurrentIndex(self._prev_target_dataset_index)
                     return
             # Check if there are already GCPs
-            if (
-                len(self._table_entry_list) > 0
-                and self._prev_target_dataset_index != index
-            ):
+            if len(self._table_entry_list) > 0 and self._prev_target_dataset_index != index:
                 confirm = QMessageBox.question(
                     self,
                     self.tr("Change Target Dataset?"),
@@ -1027,10 +985,7 @@ class GeoReferencerDialog(QDialog):
                     )
                     self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
                     return
-            if (
-                len(self._table_entry_list) > 0
-                and self._prev_ref_dataset_index != index
-            ):
+            if len(self._table_entry_list) > 0 and self._prev_ref_dataset_index != index:
                 confirm = QMessageBox.question(
                     self,
                     self.tr("Change Reference Dataset?"),
@@ -1047,9 +1002,7 @@ class GeoReferencerDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     self.tr("Unreferenced Dataset"),
-                    self.tr(
-                        "You must choose a dataset with a spatial reference system"
-                    ),
+                    self.tr("You must choose a dataset with a spatial reference system"),
                 )
                 self._reference_cbox.setCurrentIndex(self._prev_ref_dataset_index)
                 return
@@ -1062,9 +1015,7 @@ class GeoReferencerDialog(QDialog):
 
     # region Helpers
 
-    def compare_srs_lenient(
-        self, srs1: osr.SpatialReference, srs2: osr.SpatialReference
-    ):
+    def compare_srs_lenient(self, srs1: osr.SpatialReference, srs2: osr.SpatialReference):
         """
         Compares srs1 and srs2, but first puts them to WKT, then reimports them as an osr.SpatialReference.
         We do this because sometimes srs's are the same but because of how they were imported, some
@@ -1082,9 +1033,7 @@ class GeoReferencerDialog(QDialog):
 
         return srs1_clone.IsSame(srs2_clone)
 
-    def load_gcps_and_srs(
-        self, gcp_points: List[Tuple[float, float, float, float]], gcp_srs: GeneralCRS
-    ):
+    def load_gcps_and_srs(self, gcp_points: List[Tuple[float, float, float, float]], gcp_srs: GeneralCRS):
         """
         Loads the gcps in with the specified srs
         """
@@ -1095,15 +1044,10 @@ class GeoReferencerDialog(QDialog):
         ref_ds = self._get_ref_dataset()
 
         skipped_gcps = []
-        if ref_ds is not None and self.compare_srs_lenient(
-            gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref()
-        ):
+        if ref_ds is not None and self.compare_srs_lenient(gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref()):
             for map_x, map_y, pix_x, pix_y in gcp_points:
                 # Verify pixel-within-images
-                if not (
-                    0 <= pix_x < target_ds.get_width()
-                    and 0 <= pix_y < target_ds.get_height()
-                ):
+                if not (0 <= pix_x < target_ds.get_width() and 0 <= pix_y < target_ds.get_height()):
                     skipped_gcps.append(
                         (
                             (map_x, map_y, pix_x, pix_y),
@@ -1114,8 +1058,7 @@ class GeoReferencerDialog(QDialog):
                     continue
                 ref_px = ref_ds.geo_to_pixel_coords_exact((map_x, map_y))
                 if ref_px is None or not (
-                    0 <= ref_px[0] < ref_ds.get_width()
-                    and 0 <= ref_px[1] < ref_ds.get_height()
+                    0 <= ref_px[0] < ref_ds.get_width() and 0 <= ref_px[1] < ref_ds.get_height()
                 ):
                     skipped_gcps.append(
                         (
@@ -1125,12 +1068,8 @@ class GeoReferencerDialog(QDialog):
                     )
                     continue
 
-                tgt_gcp = GroundControlPointRasterPane(
-                    (pix_x, pix_y), self._target_rasterpane
-                )
-                ref_gcp = GroundControlPointRasterPane(
-                    (ref_px[0], ref_px[1]), self._reference_rasterpane
-                )
+                tgt_gcp = GroundControlPointRasterPane((pix_x, pix_y), self._target_rasterpane)
+                ref_gcp = GroundControlPointRasterPane((ref_px[0], ref_px[1]), self._reference_rasterpane)
                 pair = GroundControlPointPair(tgt_gcp, ref_gcp)
                 self.gcp_pair_added.emit(pair)
         else:
@@ -1145,10 +1084,7 @@ class GeoReferencerDialog(QDialog):
             )
             for map_x, map_y, pix_x, pix_y in gcp_points:
                 # Verify pixel-within-images
-                if not (
-                    0 <= pix_x < target_ds.get_width()
-                    and 0 <= pix_y < target_ds.get_height()
-                ):
+                if not (0 <= pix_x < target_ds.get_width() and 0 <= pix_y < target_ds.get_height()):
                     skipped_gcps.append(
                         (
                             (map_x, map_y, pix_x, pix_y),
@@ -1156,9 +1092,7 @@ class GeoReferencerDialog(QDialog):
                         )
                     )
                     continue
-                tgt_gcp = GroundControlPointRasterPane(
-                    (pix_x, pix_y), self._target_rasterpane
-                )
+                tgt_gcp = GroundControlPointRasterPane((pix_x, pix_y), self._target_rasterpane)
                 ref_gcp = GroundControlPointCoordinate(
                     (map_x, map_y),
                     PointSelectorType.REFERENCE_POINT_SELECTOR,
@@ -1179,9 +1113,7 @@ class GeoReferencerDialog(QDialog):
                 info_lines.append(f"Reason: {reason}")
                 info_lines.append("")  # blank line between entries
 
-            QMessageBox.information(
-                self, "Skipped GCPs", "\n".join(info_lines).rstrip()
-            )
+            QMessageBox.information(self, "Skipped GCPs", "\n".join(info_lines).rstrip())
 
     def _read_gcp_file(self, path: str):
         ext = Path(path).suffix.lower()
@@ -1429,9 +1361,7 @@ class GeoReferencerDialog(QDialog):
 
             # Disable QTableWidgetItem if it exists
             item = table_widget.item(row, col)
-            if (
-                col == COLUMN_ID.RESIDUAL_X_COL or col == COLUMN_ID.RESIDUAL_Y_COL
-            ) and not row_enabled_state:
+            if (col == COLUMN_ID.RESIDUAL_X_COL or col == COLUMN_ID.RESIDUAL_Y_COL) and not row_enabled_state:
                 item.setText("N/A")
             if item:
                 if row_enabled_state:
@@ -1479,9 +1409,7 @@ class GeoReferencerDialog(QDialog):
         self._suppress_cell_changed = True
         checkbox = QCheckBox()
         checkbox.setChecked(table_entry.is_enabled())
-        checkbox.clicked.connect(
-            lambda checked: self._on_enabled_clicked(table_entry, checked)
-        )
+        checkbox.clicked.connect(lambda checked: self._on_enabled_clicked(table_entry, checked))
 
         table_widget.setCellWidget(row_to_add, COLUMN_ID.ENABLED_COL, checkbox)
 
@@ -1523,9 +1451,7 @@ class GeoReferencerDialog(QDialog):
         table_widget.setCellWidget(row_to_add, COLUMN_ID.COLOR_COL, color_button)
 
         pushButton = QPushButton("Remove GCP")
-        pushButton.clicked.connect(
-            lambda checked: self._on_removal_button_clicked(table_entry)
-        )
+        pushButton.clicked.connect(lambda checked: self._on_removal_button_clicked(table_entry))
         table_widget.setCellWidget(row_to_add, COLUMN_ID.REMOVAL_COL, pushButton)
 
         self._suppress_cell_changed = False
@@ -1552,9 +1478,7 @@ class GeoReferencerDialog(QDialog):
                     index_removed == table_entry.get_id()
                 ), "The index that table entry was removed does not match its ID"
                 break
-        assert (
-            index_removed is not None
-        ), "The table entry was not found in the list of entries"
+        assert index_removed is not None, "The table entry was not found in the list of entries"
         table_widget.removeRow(index_removed)
 
         # We must update the entry id's after we remove the rows so that
@@ -1596,18 +1520,10 @@ class GeoReferencerDialog(QDialog):
 
         residual_x = table_entry.get_residual_x()
         residual_y = table_entry.get_residual_y()
-        table_widget.setItem(
-            row_to_add, COLUMN_ID.TARGET_X_COL, QTableWidgetItem(str(target_x))
-        )
-        table_widget.setItem(
-            row_to_add, COLUMN_ID.TARGET_Y_COL, QTableWidgetItem(str(target_y))
-        )
-        table_widget.setItem(
-            row_to_add, COLUMN_ID.REF_X_COL, QTableWidgetItem(str(ref_x))
-        )
-        table_widget.setItem(
-            row_to_add, COLUMN_ID.REF_Y_COL, QTableWidgetItem(str(ref_y))
-        )
+        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_X_COL, QTableWidgetItem(str(target_x)))
+        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_Y_COL, QTableWidgetItem(str(target_y)))
+        table_widget.setItem(row_to_add, COLUMN_ID.REF_X_COL, QTableWidgetItem(str(ref_x)))
+        table_widget.setItem(row_to_add, COLUMN_ID.REF_Y_COL, QTableWidgetItem(str(ref_y)))
 
         res_x_str = "N/A"
         if residual_x is not None:
@@ -1641,9 +1557,11 @@ class GeoReferencerDialog(QDialog):
         return self._table_entry_list
 
     def get_gcp_table_size(self) -> int:
-        assert (
-            len(self._table_entry_list) == self._ui.table_gcps.rowCount()
-        ), f"Entry number mismatch. Table entry list {len(self._table_entry_list)} and QTableWidget has {self._ui.table_gcps.rowCount()} entries"
+        assert len(self._table_entry_list) == self._ui.table_gcps.rowCount(), (
+            f"Entry number mismatch. Table entry list "
+            f"{len(self._table_entry_list)} and QTableWidget has "
+            f"{self._ui.table_gcps.rowCount()} entries"
+        )
         return len(self._table_entry_list)
 
     def _get_target_dataset(self):
@@ -1785,8 +1703,7 @@ class GeoReferencerDialog(QDialog):
     def _enough_points_for_transform(self):
         return (
             False
-            if self._get_num_active_points()
-            < min_points_per_transform[self._curr_transform_type]
+            if self._get_num_active_points() < min_points_per_transform[self._curr_transform_type]
             else True
         )
 
@@ -1795,9 +1712,7 @@ class GeoReferencerDialog(QDialog):
         for table_entry in self._table_entry_list:
             if not table_entry.is_enabled():
                 continue
-            spatial_coord = (
-                table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
-            )
+            spatial_coord = table_entry.get_gcp_pair().get_reference_gcp().get_spatial_point()
             assert (
                 spatial_coord is not None
             ), f"spatial_coord is none on reference gcp!, spatial_coord: {spatial_coord}"
@@ -1836,22 +1751,16 @@ class GeoReferencerDialog(QDialog):
         elif self._ui.widget_manual_entry.isVisible():
             return self._get_manual_ref_chosen_crs()
         else:
-            raise RuntimeError(
-                "Both the dataset shown is none and the " "manual entry widget is None"
-            )
+            raise RuntimeError("Both the dataset shown is none and the " "manual entry widget is None")
 
     def _georeference(self):
         save_path = self._get_save_file_path()
         if save_path is None:
-            self.set_message_text(
-                "Must enter a save path for geo referencing to occur!"
-            )
+            self.set_message_text("Must enter a save path for geo referencing to occur!")
             return
 
         if self._target_rasterpane.get_rasterview().get_raster_data() is None:
-            self.set_message_text(
-                "Must select a targetr dataset for geo referencing to occur!"
-            )
+            self.set_message_text("Must select a targetr dataset for geo referencing to occur!")
             return
 
         if not self._enough_points_for_transform():
@@ -1869,7 +1778,8 @@ class GeoReferencerDialog(QDialog):
         ref_srs = self._get_reference_srs()
         ref_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         ref_projection = ref_srs.ExportToWkt()
-        # If it doesn't have a gdal dataset, instead we create one from a smaller array just to do geo referencing
+        # If it doesn't have a gdal dataset, instead we create one from a smaller
+        # array just to do geo referencing
         assert (
             ref_projection is not None and ref_srs is not None
         ), f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
@@ -1900,9 +1810,7 @@ class GeoReferencerDialog(QDialog):
             self._warp_kwargs["polynomialOrder"] = 3
             self._transform_options += ["METHOD=GCP_POLYNOMIAL", "MAX_GCP_ORDER=3"]
         else:
-            raise RuntimeError(
-                f"Unknown self._curr_transform_type: {self._curr_transform_type}"
-            )
+            raise RuntimeError(f"Unknown self._curr_transform_type: {self._curr_transform_type}")
         self._warp_kwargs["transformerOptions"] = self._transform_options
 
         try:
@@ -1913,9 +1821,7 @@ class GeoReferencerDialog(QDialog):
             msg = str(e)
             if len(msg) > 200:
                 msg = msg[:197] + "..."
-            QMessageBox.critical(
-                self, self.tr("Error!"), self.tr(f"Error:\n{msg}"), QMessageBox.Ok
-            )
+            QMessageBox.critical(self, self.tr("Error!"), self.tr(f"Error:\n{msg}"), QMessageBox.Ok)
             return
 
         try:
@@ -1923,26 +1829,21 @@ class GeoReferencerDialog(QDialog):
             warp_options = gdal.WarpOptions(**self._warp_kwargs)
             warp_save_path = f"/vsimem/temp_band_{0}"
             place_holder_arr = np.zeros((1, 1), np.uint8)
-            temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(
-                place_holder_arr, True
-            )
+            temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
             temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-            transformed_ds: gdal.Dataset = gdal.Warp(
-                warp_save_path, temp_gdal_ds, options=warp_options
-            )
+            transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
             transformed_gt = transformed_ds.GetGeoTransform()
 
             tr_output_srs_to_ref_srs = osr.CoordinateTransformation(output_srs, ref_srs)
 
             residuals = []
             for entry, gcp in gcps:
-                # These coordinates could get back to us in either lat/lon, lon/lat, or north/easting, easting/north
+                # These coordinates could get back to us in either lat/lon, lon/lat,
+                # or north/easting, easting/north
                 (
                     ok,
                     (output_spatial_x, output_spatial_y, z),
-                ) = tr_pixel_to_output_srs.TransformPoint(
-                    False, gcp.GCPPixel, gcp.GCPLine
-                )
+                ) = tr_pixel_to_output_srs.TransformPoint(False, gcp.GCPPixel, gcp.GCPLine)
 
                 # Since we use OAMS_TRADITIONAL_GIS_ORDER on both reference and output CRS, we don't need
                 # to swap the spatial coordinates
@@ -1990,9 +1891,7 @@ class GeoReferencerDialog(QDialog):
             tr_output_srs_to_ref_srs = None
             temp_gdal_ds = None
         except BaseException as e:
-            QMessageBox.warning(
-                self, self.tr("Error"), self.tr(f"Error:\n{e}"), QMessageBox.Ok
-            )
+            QMessageBox.warning(self, self.tr("Error"), self.tr(f"Error:\n{e}"), QMessageBox.Ok)
             print(f"Error:\n{e}")
         finally:
             tr_pixel_to_output_srs = None
@@ -2034,9 +1933,7 @@ class GeoReferencerDialog(QDialog):
                 QMessageBox.information(
                     self,
                     self.tr("No Target Dataset Selected"),
-                    self.tr(
-                        "A target dataset is not selected. Please select a target dataset."
-                    ),
+                    self.tr("A target dataset is not selected. Please select a target dataset."),
                 )
                 return False
 
@@ -2060,9 +1957,7 @@ class GeoReferencerDialog(QDialog):
             output_size: Tuple[int, int] = None
             output_dataset: gdal.Dataset = None
             driver: gdal.Driver = gdal.GetDriverByName("GTiff")
-            gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(
-                target_dataset.get_elem_type()
-            )
+            gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(target_dataset.get_elem_type())
 
             # Get the output size
             warp_options = gdal.WarpOptions(**self._warp_kwargs)
@@ -2071,18 +1966,13 @@ class GeoReferencerDialog(QDialog):
             temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
             # Make sure dataset has no spatial information that could mess with warping
             temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
-            transformed_ds: gdal.Dataset = gdal.Warp(
-                warp_save_path, temp_gdal_ds, options=warp_options
-            )
+            transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
 
             width = transformed_ds.RasterXSize
             height = transformed_ds.RasterYSize
             output_size = (width, height)
             output_bytes = (
-                width
-                * height
-                * target_dataset.num_bands()
-                * target_dataset.get_elem_type().itemsize
+                width * height * target_dataset.num_bands() * target_dataset.get_elem_type().itemsize
             )
 
             gdal.Unlink(warp_save_path)
@@ -2103,30 +1993,20 @@ class GeoReferencerDialog(QDialog):
                     translate_opts = gdal.TranslateOptions(
                         format="VRT",
                     )
-                temp_gdal_ds = gdal.Translate(
-                    temp_vrt_path, target_gdal_dataset, options=translate_opts
-                )
+                temp_gdal_ds = gdal.Translate(temp_vrt_path, target_gdal_dataset, options=translate_opts)
                 # Make sure dataset has no spatial information that could mess with warping
                 temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
                 warp_options = gdal.WarpOptions(**self._warp_kwargs)
-                output_dataset = gdal.Warp(
-                    save_path, temp_gdal_ds, options=warp_options
-                )
-            elif (
-                not isinstance(target_dataset_impl, GDALRasterDataImpl) and ratio > 1.0
-            ):
+                output_dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
+            elif not isinstance(target_dataset_impl, GDALRasterDataImpl) and ratio > 1.0:
                 # Saving the full object array
                 warp_options = gdal.WarpOptions(**self._warp_kwargs)
                 dataset_arr = target_dataset.get_image_data()
-                temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(
-                    dataset_arr, True
-                )
+                temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(dataset_arr, True)
                 # Make sure dataset has no spatial information that could mess with warping
                 temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
                 set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
-                output_dataset: gdal.Dataset = gdal.Warp(
-                    save_path, temp_gdal_ds, options=warp_options
-                )
+                output_dataset: gdal.Dataset = gdal.Warp(save_path, temp_gdal_ds, options=warp_options)
                 output_dataset.FlushCache()
             else:
                 # Saving incrementally using the numpy dataset
@@ -2142,9 +2022,7 @@ class GeoReferencerDialog(QDialog):
                     # print(f"saving chunk: {min(band_list_index)}_to_{max(band_list_index)}")
 
                     band_arr = target_dataset.get_multiple_band_data(band_list_index)
-                    temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(
-                        band_arr, True
-                    )
+                    temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(band_arr, True)
                     # Make sure dataset has no spatial information that could mess with warping
                     temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
                     set_data_ignore_of_gdal_dataset(temp_gdal_ds, target_dataset)
@@ -2175,7 +2053,10 @@ class GeoReferencerDialog(QDialog):
                         gdal_dtype,
                     )
 
-                    # print(f"Warping bands: {min(band_list_index)} to {max(band_list_index)} out of {target_dataset.num_bands()}")
+                    # print(
+                    #     f"Warping bands: {min(band_list_index)} to {max(band_list_index)} "
+                    #     f"out of {target_dataset.num_bands()}"
+                    # )
 
                     gdal.Unlink(warp_save_path)
                     transformed_ds = None
@@ -2188,18 +2069,14 @@ class GeoReferencerDialog(QDialog):
             copy_metadata_to_gdal_dataset(output_dataset, target_dataset)
             gt = output_dataset.GetGeoTransform()
             if gt is None:
-                raise RuntimeError(
-                    "Failed to retrieve geotransform from the transformed dataset."
-                )
+                raise RuntimeError("Failed to retrieve geotransform from the transformed dataset.")
 
             output_dataset.FlushCache()
             output_dataset = None
 
             self.set_message_text(self.tr("Done warping!"))
         except BaseException as e:
-            QMessageBox.critical(
-                self, self.tr("Error While Creating Output"), self.tr(f"Error:\n{e}")
-            )
+            QMessageBox.critical(self, self.tr("Error While Creating Output"), self.tr(f"Error:\n{e}"))
             return False
         return True
 

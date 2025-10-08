@@ -1,4 +1,5 @@
 # ruff: noqa: E402
+# ruff: noqa: E501
 import os
 import sys
 
@@ -36,9 +37,7 @@ def profile_continuum_removal_image_numba():
     if image_data.dtype != np.float32:
         image_data = image_data.astype(np.float32)
     band_info = dataset.band_list()
-    x_axis = np.array(
-        [band["wavelength"].value for band in band_info], dtype=np.float32
-    )
+    x_axis = np.array([band["wavelength"].value for band in band_info], dtype=np.float32)
     rows = np.int32(dataset.get_height())
     cols = np.int32(dataset.get_width())
     bands = np.int32(dataset.num_bands())
@@ -69,9 +68,7 @@ def profile_continuum_removal_image():
     if isinstance(image_data, np.ma.MaskedArray):
         image_data = image_data.data
     band_info = dataset.band_list()
-    x_axis = np.array(
-        [band["wavelength"].value for band in band_info], dtype=np.float32
-    )
+    x_axis = np.array([band["wavelength"].value for band in band_info], dtype=np.float32)
     rows = np.int32(dataset.get_height())
     cols = np.int32(dataset.get_width())
     bands = np.int32(dataset.num_bands())
@@ -106,9 +103,7 @@ def profile_continuum_removal_spectrum_numba():
     if spectrum.dtype != np.float32:
         spectrum = spectrum.astype(np.float32)
     band_info = dataset.band_list()
-    x_axis = np.array(
-        [band["wavelength"].value for band in band_info], dtype=np.float32
-    )
+    x_axis = np.array([band["wavelength"].value for band in band_info], dtype=np.float32)
     # result = profile_function("output/continuum_removal_spectrum_numba.txt", continuum_removal_numba, spectrum, x_axis)
     result = continuum_removal_numba(spectrum, x_axis)
     return result
@@ -133,9 +128,7 @@ def profile_continuum_spectrum_image():
     if spectrum.dtype != np.float32:
         spectrum = spectrum.astype(np.float32)
     band_info = dataset.band_list()
-    x_axis = np.array(
-        [band["wavelength"].value for band in band_info], dtype=np.float32
-    )
+    x_axis = np.array([band["wavelength"].value for band in band_info], dtype=np.float32)
     # result = profile_function("output/continuum_removal_spectrum.txt", continuum_removal, spectrum, x_axis)
     result = continuum_removal(spectrum, x_axis)
     return result
@@ -166,9 +159,7 @@ def _prepare_inputs_spectrum():
         spectrum = spectrum.astype(np.float32)
 
     band_info = dataset.band_list()
-    x_axis = np.array(
-        [band["wavelength"].value for band in band_info], dtype=np.float32
-    )
+    x_axis = np.array([band["wavelength"].value for band in band_info], dtype=np.float32)
     return spectrum, x_axis
 
 
@@ -187,9 +178,7 @@ def _prepare_inputs_image():
     if image_data.dtype != np.float32:
         image_data = image_data.astype(np.float32)
     band_info = dataset.band_list()
-    x_axis = np.array(
-        [band["wavelength"].value for band in band_info], dtype=np.float32
-    )
+    x_axis = np.array([band["wavelength"].value for band in band_info], dtype=np.float32)
     rows = np.int32(dataset.get_height())
     cols = np.int32(dataset.get_width())
     bands = np.int32(dataset.num_bands())

@@ -140,9 +140,7 @@ class ParallelTaskProcess(ParallelTask):
             self._process_id = self._process.pid
             self._child_conn.close()
             while True:
-                ready = mp_conn.wait(
-                    [self._process.sentinel, queue_reader, self._parent_conn]
-                )
+                ready = mp_conn.wait([self._process.sentinel, queue_reader, self._parent_conn])
                 # If there is a message available we read it.
                 if queue_reader in ready:
                     try:
@@ -229,7 +227,8 @@ class ParallelTaskProcess(ParallelTask):
 
 class ParallelTaskProcessPool(ParallelTask):
     """
-    This class is unfinished. But it's goal is to use a ProcessPoolExecutor to run a function in a separate process.
+    This class is unfinished. But it's goal is to use a ProcessPoolExecutor
+    to run a function in a separate process.
     """
 
     def __init__(
@@ -250,9 +249,7 @@ class ParallelTaskProcessPool(ParallelTask):
         self.started.emit(self)
 
         try:
-            self._future = self._process_pool_executor.submit(
-                self._operation, **self._kwargs
-            )
+            self._future = self._process_pool_executor.submit(self._operation, **self._kwargs)
             self._result = self._future.result()
         except Exception as e:
             self._error = e

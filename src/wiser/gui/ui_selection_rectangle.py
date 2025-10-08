@@ -57,9 +57,7 @@ class RectangleSelectionCreator(TaskDelegate):
         self._point1 = None
         self._point2 = None
 
-        self._app_state.show_status_text(
-            "Left-click and drag to create a rectangle selection."
-        )
+        self._app_state.show_status_text("Left-click and drag to create a rectangle selection.")
 
     def on_mouse_press(self, mouse_event):
         point = self._rasterview.image_coord_to_raster_coord(mouse_event.localPos())
@@ -161,8 +159,7 @@ class RectangleSelectionEditor(TaskDelegate):
 
         # Give the user some directions.
         self._app_state.show_status_text(
-            "Left-click and drag control points to adjust the rectangle."
-            + "  Press Esc key to finish edits."
+            "Left-click and drag control points to adjust the rectangle." + "  Press Esc key to finish edits."
         )
 
     def _pick_control_point(self, p):

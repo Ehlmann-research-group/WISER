@@ -54,9 +54,7 @@ def create_netcdf_from_3d_array(array, output_filename):
         The path where the netCDF file will be saved.
     """
     if array.ndim != 3:
-        raise ValueError(
-            "Input array must be a 3D array of shape (bands, height, width)."
-        )
+        raise ValueError("Input array must be a 3D array of shape (bands, height, width).")
 
     bands, height, width = array.shape
 

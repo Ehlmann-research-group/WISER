@@ -147,9 +147,7 @@ class TestZoomPaneSpectrumPlotIntegration(unittest.TestCase):
 
         self.assertTrue(np.array_equal(expected_array, spectrum_array))
 
-        collected_spectrum_array = self.test_model.get_collected_spectra()[
-            0
-        ].get_spectrum()
+        collected_spectrum_array = self.test_model.get_collected_spectra()[0].get_spectrum()
 
         expected_array = np.array([0.0, 0.0, 0.0])
 

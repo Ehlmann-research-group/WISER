@@ -73,9 +73,7 @@ class TestRoiAvgSpectrum(unittest.TestCase):
 
             roi_one_tenth = RegionOfInterest(name="roi_one_tenth")
             roi_one_tenth.add_selection(
-                RectangleSelection(
-                    QPoint(0, 0), QPoint(int(raster_width), int(raster_height))
-                )
+                RectangleSelection(QPoint(0, 0), QPoint(int(raster_width), int(raster_height)))
             )
             roi_one_tenth.add_selection(
                 PolygonSelection(
@@ -104,12 +102,8 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             app_state.add_roi(roi_one_tenth)
 
             main_view = wiser_ui._main_view
-            wiser_ui._main_view._on_show_roi_avg_spectrum(
-                roi_one_tenth, main_view._rasterviews[(0, 0)]
-            )
-            spectrum = ROIAverageSpectrum(
-                main_view._rasterviews[(0, 0)].get_raster_data(), roi_one_tenth
-            )
+            wiser_ui._main_view._on_show_roi_avg_spectrum(roi_one_tenth, main_view._rasterviews[(0, 0)])
+            spectrum = ROIAverageSpectrum(main_view._rasterviews[(0, 0)].get_raster_data(), roi_one_tenth)
             spectrum._calculate_spectrum()
             avg_spectrum_arr = spectrum._spectrum
 
@@ -150,9 +144,7 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             height = 50
             width = 50
             N = 1
-            np_impl = np.arange(1, height + 1).reshape((1, height, 1)) * np.ones(
-                (N, height, width)
-            )
+            np_impl = np.arange(1, height + 1).reshape((1, height, 1)) * np.ones((N, height, width))
             avg_value = np.mean(np_impl) + 10
             dataset = loader.dataset_from_numpy_array(np_impl, wiser_ui._data_cache)
             dataset.set_name("Test_Numpy")
@@ -162,9 +154,7 @@ class TestRoiAvgSpectrum(unittest.TestCase):
 
             roi_one_tenth = RegionOfInterest(name="roi_one_tenth")
             roi_one_tenth.add_selection(
-                RectangleSelection(
-                    QPoint(0, 0), QPoint(int(raster_width), int(raster_height))
-                )
+                RectangleSelection(QPoint(0, 0), QPoint(int(raster_width), int(raster_height)))
             )
             roi_one_tenth.add_selection(
                 PolygonSelection(
@@ -193,12 +183,8 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             app_state.add_roi(roi_one_tenth)
 
             main_view = wiser_ui._main_view
-            wiser_ui._main_view._on_show_roi_avg_spectrum(
-                roi_one_tenth, main_view._rasterviews[(0, 0)]
-            )
-            spectrum = ROIAverageSpectrum(
-                main_view._rasterviews[(0, 0)].get_raster_data(), roi_one_tenth
-            )
+            wiser_ui._main_view._on_show_roi_avg_spectrum(roi_one_tenth, main_view._rasterviews[(0, 0)])
+            spectrum = ROIAverageSpectrum(main_view._rasterviews[(0, 0)].get_raster_data(), roi_one_tenth)
             spectrum._calculate_spectrum()
             avg_spectrum_arr = spectrum._spectrum
 
@@ -238,12 +224,9 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             [5, 5, 2, 3],
             [2, 3, 4, 4],
         ]
-        assert set(
-            [
-                tuple(lst)
-                for lst in raster_to_combined_rectangles_x_axis(raster1).tolist()
-            ]
-        ) == set([tuple(list) for list in raster_RLE_truth])
+        assert set([tuple(lst) for lst in raster_to_combined_rectangles_x_axis(raster1).tolist()]) == set(
+            [tuple(list) for list in raster_RLE_truth]
+        )
 
     def test_raster_to_combined_rectangles2(self):
         raster2 = np.array(
@@ -265,17 +248,12 @@ class TestRoiAvgSpectrum(unittest.TestCase):
                 [2, 4, 4, 4],
             ]
         )
-        assert set(
-            [
-                tuple(lst)
-                for lst in raster_to_combined_rectangles_x_axis(raster2).tolist()
-            ]
-        ) == set([tuple(list) for list in raster_RLE_truth])
+        assert set([tuple(lst) for lst in raster_to_combined_rectangles_x_axis(raster2).tolist()]) == set(
+            [tuple(list) for list in raster_RLE_truth]
+        )
 
     def test_raster_to_combined_rectangles3(self):
-        raster3 = np.array(
-            [[0, 0, 1, 1, 0], [0, 1, 1, 0, 1], [1, 1, 0, 1, 1], [0, 1, 1, 0, 0]]
-        )
+        raster3 = np.array([[0, 0, 1, 1, 0], [0, 1, 1, 0, 1], [1, 1, 0, 1, 1], [0, 1, 1, 0, 0]])
         raster_RLE_truth = [
             [2, 3, 0, 0],
             [1, 2, 1, 1],
@@ -284,12 +262,9 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             [3, 4, 2, 2],
             [1, 2, 3, 3],
         ]
-        assert set(
-            [
-                tuple(lst)
-                for lst in raster_to_combined_rectangles_x_axis(raster3).tolist()
-            ]
-        ) == set([tuple(list) for list in raster_RLE_truth])
+        assert set([tuple(lst) for lst in raster_to_combined_rectangles_x_axis(raster3).tolist()]) == set(
+            [tuple(list) for list in raster_RLE_truth]
+        )
 
     def test_raster_to_combined_rectangles4(self):
         raster4 = np.array([[0, 1, 0, 1], [1, 1, 1, 0], [0, 1, 1, 1], [1, 1, 0, 0]])
@@ -300,27 +275,19 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             [1, 3, 2, 2],
             [0, 1, 3, 3],
         ]
-        assert set(
-            [
-                tuple(lst)
-                for lst in raster_to_combined_rectangles_x_axis(raster4).tolist()
-            ]
-        ) == set([tuple(list) for list in raster_RLE_truth])
+        assert set([tuple(lst) for lst in raster_to_combined_rectangles_x_axis(raster4).tolist()]) == set(
+            [tuple(list) for list in raster_RLE_truth]
+        )
 
     def test_raster_to_combined_rectangles5(self):
         raster5 = np.array([[1, 1, 1, 1], [1, 1, 0, 0], [1, 1, 1, 1], [0, 0, 1, 1]])
         raster_RLE_truth = [[0, 3, 0, 0], [0, 1, 1, 1], [0, 3, 2, 2], [2, 3, 3, 3]]
-        assert set(
-            [
-                tuple(lst)
-                for lst in raster_to_combined_rectangles_x_axis(raster5).tolist()
-            ]
-        ) == set([tuple(list) for list in raster_RLE_truth])
+        assert set([tuple(lst) for lst in raster_to_combined_rectangles_x_axis(raster5).tolist()]) == set(
+            [tuple(list) for list in raster_RLE_truth]
+        )
 
     def test_raster_to_combined_rectangles6(self):
-        raster6 = np.array(
-            [[0, 1, 1, 0], [1, 1, 1, 1], [0, 0, 1, 1], [1, 1, 0, 1], [0, 0, 1, 0]]
-        )
+        raster6 = np.array([[0, 1, 1, 0], [1, 1, 1, 1], [0, 0, 1, 1], [1, 1, 0, 1], [0, 0, 1, 0]])
         raster_RLE_truth = [
             [1, 2, 0, 0],
             [0, 3, 1, 1],
@@ -329,32 +296,23 @@ class TestRoiAvgSpectrum(unittest.TestCase):
             [3, 3, 3, 3],
             [2, 2, 4, 4],
         ]
-        assert set(
-            [
-                tuple(lst)
-                for lst in raster_to_combined_rectangles_x_axis(raster6).tolist()
-            ]
-        ) == set([tuple(list) for list in raster_RLE_truth])
+        assert set([tuple(lst) for lst in raster_to_combined_rectangles_x_axis(raster6).tolist()]) == set(
+            [tuple(list) for list in raster_RLE_truth]
+        )
 
     def test_raster_to_combined_rectangles7(self):
         raster7 = np.array([[1, 1, 0], [1, 1, 1], [0, 1, 0], [1, 1, 1]])
         raster_RLE_truth = [[0, 1, 0, 0], [0, 2, 1, 1], [1, 1, 2, 2], [0, 2, 3, 3]]
-        assert set(
-            [
-                tuple(lst)
-                for lst in raster_to_combined_rectangles_x_axis(raster7).tolist()
-            ]
-        ) == set([tuple(list) for list in raster_RLE_truth])
+        assert set([tuple(lst) for lst in raster_to_combined_rectangles_x_axis(raster7).tolist()]) == set(
+            [tuple(list) for list in raster_RLE_truth]
+        )
 
     def test_raster_to_combined_rectangles8(self):
         raster8 = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]])
         raster_RLE_truth_x = [[0, 2, 0, 3]]
-        assert set(
-            [
-                tuple(lst)
-                for lst in raster_to_combined_rectangles_x_axis(raster8).tolist()
-            ]
-        ) == set([tuple(list) for list in raster_RLE_truth_x])
+        assert set([tuple(lst) for lst in raster_to_combined_rectangles_x_axis(raster8).tolist()]) == set(
+            [tuple(list) for list in raster_RLE_truth_x]
+        )
 
     def test_create_raster_from_roi(self):
         roi = RegionOfInterest(name="testing_roi")

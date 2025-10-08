@@ -1,4 +1,5 @@
 # ruff: noqa: E402
+# ruff: noqa: E501
 import sys
 import os
 
@@ -61,9 +62,7 @@ def get_hdr_files(folder_path):
 logging.basicConfig(filename="output/app_test.log", level=logging.DEBUG)
 
 
-def benchmark_function(
-    dataset_paths, function_to_test, N=3, output_file="output/benchmark_results.txt"
-):
+def benchmark_function(dataset_paths, function_to_test, N=3, output_file="output/benchmark_results.txt"):
     """
     Benchmarks the provided function on a list of dataset paths.
 
@@ -180,9 +179,7 @@ def run_function_in_ui(dataset_path, func):
         wiser_ui.show()
 
         loader = RasterDataLoader()
-        dataset = loader.load_from_file(
-            path=dataset_path, data_cache=wiser_ui._data_cache
-        )[0]
+        dataset = loader.load_from_file(path=dataset_path, data_cache=wiser_ui._data_cache)[0]
 
         # Create an application state, no need to pass the app here
         app_state = wiser_ui._app_state
@@ -207,18 +204,14 @@ def run_function_in_ui(dataset_path, func):
 
 
 def open_and_display_dataset(dataset_path):
-    def func(
-        dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState
-    ):
+    def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
         return
 
     run_function_in_ui(dataset_path, func)
 
 
 def use_stretch_builder_linear_gui(dataset_path: str):
-    def func(
-        dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState
-    ):
+    def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
         wiser_ui._main_view._on_stretch_builder()
         stretch_builder = wiser_ui._main_view._stretch_builder
         stretch_config = stretch_builder._stretch_config
@@ -229,9 +222,7 @@ def use_stretch_builder_linear_gui(dataset_path: str):
 
 
 def use_stretch_builder_equalize_gui(dataset_path: str):
-    def func(
-        dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState
-    ):
+    def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
         wiser_ui._main_view._on_stretch_builder()
         stretch_builder = wiser_ui._main_view._stretch_builder
         stretch_config = stretch_builder._stretch_config
@@ -242,9 +233,7 @@ def use_stretch_builder_equalize_gui(dataset_path: str):
 
 
 def use_stretch_builder_sqrt_gui(dataset_path: str):
-    def func(
-        dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState
-    ):
+    def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
         wiser_ui._main_view._on_stretch_builder()
         stretch_builder = wiser_ui._main_view._stretch_builder
         stretch_config = stretch_builder._stretch_config
@@ -255,9 +244,7 @@ def use_stretch_builder_sqrt_gui(dataset_path: str):
 
 
 def use_stretch_builder_log2_gui(dataset_path: str):
-    def func(
-        dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState
-    ):
+    def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
         wiser_ui._main_view._on_stretch_builder()
         stretch_builder = wiser_ui._main_view._stretch_builder
         stretch_config = stretch_builder._stretch_config
@@ -268,17 +255,13 @@ def use_stretch_builder_log2_gui(dataset_path: str):
 
 
 def calculate_roi_average_spectrum_rectangle(dataset_path):
-    def func(
-        dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState
-    ):
+    def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
         raster_width = dataset.get_width()
         raster_height = dataset.get_height()
 
         roi_one_tenth = RegionOfInterest(name="roi_one_tenth")
         roi_one_tenth.add_selection(
-            RectangleSelection(
-                QPoint(0, 0), QPoint(int(raster_width / 10), int(raster_height / 10))
-            )
+            RectangleSelection(QPoint(0, 0), QPoint(int(raster_width / 10), int(raster_height / 10)))
         )
 
         # Create an application state, no need to pass the app here
@@ -288,17 +271,13 @@ def calculate_roi_average_spectrum_rectangle(dataset_path):
         app_state.add_roi(roi_one_tenth)
 
         main_view = wiser_ui._main_view
-        wiser_ui._main_view._on_show_roi_avg_spectrum(
-            roi_one_tenth, main_view._rasterviews[(0, 0)]
-        )
+        wiser_ui._main_view._on_show_roi_avg_spectrum(roi_one_tenth, main_view._rasterviews[(0, 0)])
 
     run_function_in_ui(dataset_path, func)
 
 
 def calculate_roi_average_spectrum_polygon(dataset_path):
-    def func(
-        dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState
-    ):
+    def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
         raster_width = dataset.get_width()
         raster_height = dataset.get_height()
 
@@ -320,24 +299,18 @@ def calculate_roi_average_spectrum_polygon(dataset_path):
         app_state.add_roi(roi)
 
         main_view = wiser_ui._main_view
-        wiser_ui._main_view._on_show_roi_avg_spectrum(
-            roi, main_view._rasterviews[(0, 0)]
-        )
+        wiser_ui._main_view._on_show_roi_avg_spectrum(roi, main_view._rasterviews[(0, 0)])
 
     run_function_in_ui(dataset_path, func)
 
 
 def calculate_roi_average_spectrum_multipix(dataset_path):
-    def func(
-        dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState
-    ):
+    def func(dataset: RasterDataSet, wiser_ui: DataVisualizerApp, app_state: ApplicationState):
         raster_width = dataset.get_width()
         raster_height = dataset.get_height()
 
         roi = RegionOfInterest(name="roi_multipixel")
-        pixel_list = [
-            QPoint(int(raster_width / i), int(raster_height / i)) for i in range(50)
-        ]
+        pixel_list = [QPoint(int(raster_width / i), int(raster_height / i)) for i in range(50)]
         roi.add_selection(MultiPixelSelection(pixel_list))
 
         # Create an application state, no need to pass the app here
@@ -347,9 +320,7 @@ def calculate_roi_average_spectrum_multipix(dataset_path):
         app_state.add_roi(roi)
 
         main_view = wiser_ui._main_view
-        wiser_ui._main_view._on_show_roi_avg_spectrum(
-            roi, main_view._rasterviews[(0, 0)]
-        )
+        wiser_ui._main_view._on_show_roi_avg_spectrum(roi, main_view._rasterviews[(0, 0)])
 
     run_function_in_ui(dataset_path, func)
 
@@ -366,11 +337,17 @@ if __name__ == "__main__":
         5. Lastly, in a terminal that has python run `python .\benchmarks.py` while in the parent folder
         of this file
     """
-    dataset_500mb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
-    dataset_900mb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr"
+    dataset_500mb = (
+        "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\ang20171108t184227_corr_v2p13_subset_bil.hdr"
+    )
+    dataset_900mb = (
+        "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr.hdr"
+    )
     dataset_6B_3bands = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.3_Slow_Histogram_calc_2Gb_img_or_mosaic\\Gale_MSL_HiRISE_Color_Mosaic_warp.tif.hdr"
     dataset_6GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Benchmarks\\RhinoLeft_2016_07_28_12_56_01_SWIRcalib_atmcorr_expanded_lines_and_samples_2.hdr"
-    dataset_15gb = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
+    dataset_15gb = (
+        "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\C5705B-00003Z-01_2018_07_28_14_18_38_VNIRcalib.hdr"
+    )
     dataset_20GB = "C:\\Users\\jgarc\\OneDrive\\Documents\\Data\\Task1.1_SlowBandMath_10gb\\ang20171108t184227_corr_v2p13_subset_bil_expanded_bands_by_40.hdr"
     dataset_list = [dataset_15gb]
     benchmark_folder = "C:\\Users\jgarc\\OneDrive\\Documents\\Data\\Benchmarks"
@@ -393,11 +370,7 @@ if __name__ == "__main__":
     ]
 
     succ_func = 0
-    total_func = (
-        len(open_and_display_dataset_funcs)
-        + len(use_stretch_builder_funcs)
-        + len(roi_avg_funcs)
-    )
+    total_func = len(open_and_display_dataset_funcs) + len(use_stretch_builder_funcs) + len(roi_avg_funcs)
     # try:
     #     print("Running open_and_display_dataset functions...")
     #     for open_and_display_dataset_func in open_and_display_dataset_funcs:

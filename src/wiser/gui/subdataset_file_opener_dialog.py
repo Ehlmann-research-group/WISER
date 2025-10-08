@@ -76,12 +76,8 @@ class SubdatasetFileOpenerDialog(QDialog):
 
         # Keep internal copies of potentially optional metadata so getters can
         # return quickly later on.
-        self._geo_transform: Optional[
-            Tuple[float, float, float, float, float, float]
-        ] = None
-        self._spatial_ref_wkt: Optional[
-            str
-        ] = None  # Keep raw string until asked for osr object
+        self._geo_transform: Optional[Tuple[float, float, float, float, float, float]] = None
+        self._spatial_ref_wkt: Optional[str] = None  # Keep raw string until asked for osr object
         self._wavelengths: Optional[np.ndarray] = None
         self._use_wavelengths: bool = None
         self.netcdf_impl = None  # Of type NetCDF_GDALRasterDataImpl
@@ -100,9 +96,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         # When the geo-transform / SRS check-boxes are toggled we dim / un-dim
         # the text so the user has quick visual feedback.
         self._ui.chk_box_geo_transform.toggled.connect(
-            lambda checked: self._set_checkbox_enabled_state(
-                self._ui.chk_box_geo_transform, checked
-            )
+            lambda checked: self._set_checkbox_enabled_state(self._ui.chk_box_geo_transform, checked)
         )
         self._ui.chk_box_srs.toggled.connect(self.set_srs_checkbox_enabled_state)
 
@@ -140,9 +134,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         """
         pal: QPalette = chk.palette()
         default_colour = chk.style().standardPalette().color(QPalette.WindowText)
-        dim_colour = (
-            chk.style().standardPalette().color(QPalette.Disabled, QPalette.Text)
-        )
+        dim_colour = chk.style().standardPalette().color(QPalette.Disabled, QPalette.Text)
         pal.setColor(QPalette.WindowText, default_colour if enabled else dim_colour)
         chk.setPalette(pal)
 
@@ -160,9 +152,7 @@ class SubdatasetFileOpenerDialog(QDialog):
             subdataset_key = subdataset_name.split(":")[-1]
             display_text = description or subdataset_key  # Human-readable if available.
             # Store *subdataset_key* as the user data; display the friendly text.
-            self._ui.cbox_subdataset_choice.addItem(
-                display_text, (subdataset_key, subdataset_name)
-            )
+            self._ui.cbox_subdataset_choice.addItem(display_text, (subdataset_key, subdataset_name))
 
         # When the list is not empty select the first item by default.
         if self._ui.cbox_subdataset_choice.count():
@@ -238,9 +228,7 @@ class SubdatasetFileOpenerDialog(QDialog):
                 srs = osr.SpatialReference()
                 srs.ImportFromWkt(srs_string)
                 pretty_wkt = srs.ExportToPrettyWkt()
-                display_text = _truncate_pretty_wkt(
-                    pretty_wkt, MAX_LINES, MAX_LINE_LENGTH
-                )
+                display_text = _truncate_pretty_wkt(pretty_wkt, MAX_LINES, MAX_LINE_LENGTH)
             except Exception:
                 # Fallback: just truncate the raw srs_string to a single line:
                 raw = srs_string.replace("\n", " ")  # collapse any existing newlines
@@ -255,9 +243,7 @@ class SubdatasetFileOpenerDialog(QDialog):
             self._ui.chk_box_srs.setText("No spatial reference system available")
             self._ui.chk_box_srs.setChecked(False)
 
-        self._set_checkbox_enabled_state(
-            self._ui.chk_box_srs, self._ui.chk_box_srs.isChecked()
-        )
+        self._set_checkbox_enabled_state(self._ui.chk_box_srs, self._ui.chk_box_srs.isChecked())
 
     def _init_bands_table_widget(self) -> None:
         """Populate the *Bands List* QTableWidget with band indices and optional
@@ -332,9 +318,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         data = self._ui.cbox_wavelength_units.currentData()
         if data is None:
             self._use_wavelengths = False
-        elif self._wavelengths is not None and self._band_count == len(
-            self._wavelengths
-        ):
+        elif self._wavelengths is not None and self._band_count == len(self._wavelengths):
             self._use_wavelengths = True
         # The else case is if we are on a dataset that doesn't have wavelengths like glt_x,
         # so we let the logic in init_bands_table_widget handle this.
@@ -349,9 +333,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         """
         current_data = self._ui.cbox_subdataset_choice.currentData()
         subdataset_name = current_data[1]
-        gdal.PushErrorHandler(
-            "CPLQuietErrorHandler"
-        )  # :contentReference[oaicite:0]{index=0}
+        gdal.PushErrorHandler("CPLQuietErrorHandler")  # :contentReference[oaicite:0]{index=0}
         try:
             subdataset: gdal.Dataset = gdal.Open(subdataset_name)
         finally:

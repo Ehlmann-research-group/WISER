@@ -93,9 +93,7 @@ class ImageCoordsWidget(QDialog):
         # print(f'Geo Transform = {xform}')
         # Add 0.5 to the pixel coordinates to give the geographic coordinates of
         # the pixel's center.
-        geo_coords = gdal.ApplyGeoTransform(
-            xform, pixel_coords[0] + 0.5, pixel_coords[1] + 0.5
-        )
+        geo_coords = gdal.ApplyGeoTransform(xform, pixel_coords[0] + 0.5, pixel_coords[1] + 0.5)
         # print(f'Geo Coords = {geo_coords}')
 
         # print(f'Display Axis-Mapping Strategy is {config.spatial_ref.GetAxisMappingStrategy()}')
@@ -197,9 +195,7 @@ class ImageCoordsWidget(QDialog):
         if self._dataset is None:
             return
 
-        visible_datasets: List[
-            RasterDataSet
-        ] = self._app._main_view.get_visible_datasets()
+        visible_datasets: List[RasterDataSet] = self._app._main_view.get_visible_datasets()
         possible_default_rv = self._app._main_view.get_rasterview_with_data()
         # This is the case where our dataset is not visible, but there are still
         # datasets visible. In this case, we want to use go to pixel on one of the
@@ -210,9 +206,7 @@ class ImageCoordsWidget(QDialog):
 
         config = self._get_config_for_dataset(self._dataset)
         dialog = GeoCoordsDialog(self._dataset, config, parent=self)
-        dataset_has_geo_srs = (
-            self._dataset is not None and self._dataset.get_spatial_ref() is not None
-        )
+        dataset_has_geo_srs = self._dataset is not None and self._dataset.get_spatial_ref() is not None
         if not dataset_has_geo_srs:
             dialog._ui.tabWidget.setTabVisible(0, False)
             dialog._ui.tabWidget.setTabVisible(1, False)

@@ -147,10 +147,7 @@ class FitsDatasetLoadingDialog(QDialog):
         axis_interpretation = self._ui.interp_opt_combo.currentData()
         data_varying_axis = self._ui.data_vary_combo.currentData()
 
-        if (
-            axis_interpretation == DataType.IMAGE_CUBE
-            or axis_interpretation == DataType.SINGLE_IMAGE_BAND
-        ):
+        if axis_interpretation == DataType.IMAGE_CUBE or axis_interpretation == DataType.SINGLE_IMAGE_BAND:
             self._dataset_impl.get_image_data()
             self.return_datasets = [RasterDataSet(self._dataset_impl, self._data_cache)]
         elif axis_interpretation == DataType.MANY_IMAGE_BAND:
@@ -167,9 +164,7 @@ class FitsDatasetLoadingDialog(QDialog):
                 height = self._dataset_impl.get_height()
                 raster_x_size = self._dataset_impl.get_width()
                 for i in range(height):
-                    arr = self._dataset_impl.get_all_bands_at_rect(
-                        0, i, raster_x_size, 1
-                    )
+                    arr = self._dataset_impl.get_all_bands_at_rect(0, i, raster_x_size, 1)
                     arr = arr.reshape(
                         (1, arr.shape[0], -1)
                     )  # 0 is the band index, I only move this so width is in same spot
@@ -180,18 +175,14 @@ class FitsDatasetLoadingDialog(QDialog):
                 width = self._dataset_impl.get_width()
                 raster_y_size = self._dataset_impl.get_height()
                 for i in range(width):
-                    arr = self._dataset_impl.get_all_bands_at_rect(
-                        i, 0, 1, raster_y_size
-                    )
+                    arr = self._dataset_impl.get_all_bands_at_rect(i, 0, 1, raster_y_size)
                     arr = arr.reshape(
                         (1, -1, arr.shape[0])
                     )  # 0 is the band index, I only move this so the height stays the same
                     numpy_impl = NumPyRasterDataImpl(arr)
                     numpy_raster_impl_list.append(numpy_impl)
             else:
-                raise Exception(
-                    "Data varying axis is somehow 3. Should be between 0 and 2"
-                )
+                raise Exception("Data varying axis is somehow 3. Should be between 0 and 2")
 
             for i in range(len(numpy_raster_impl_list)):
                 numpy_impl = numpy_raster_impl_list[i]
@@ -223,7 +214,8 @@ class FitsSpectraLoadingDialog(QDialog):
                 for i in range(self._naxis):
                     self._axis_lengths.append(self._header[f"NAXIS{i+1}"])
                 pattern = re.compile(r"unit", re.IGNORECASE)
-                # Go through each key in the fits file and parse it for unit. Make the units into astropy units
+                # Go through each key in the fits file and parse it for unit. Make the units
+                # into astropy units
                 for key in self._header:
                     if pattern.search(key):
                         print(f"fits spectra Key: {key}")
@@ -239,9 +231,7 @@ class FitsSpectraLoadingDialog(QDialog):
                         self._units.append(unit_value)
 
         except BaseException as e:
-            raise TypeError(
-                f"Error while loading in fits file at filepath: {filepath}.\nError: {e}"
-            )
+            raise TypeError(f"Error while loading in fits file at filepath: {filepath}.\nError: {e}")
 
         # Set the naxis information
         self._ui.naxis_field.setText(str(self._naxis))
@@ -309,7 +299,8 @@ class FitsSpectraLoadingDialog(QDialog):
         x_ax_line_edit = self._ui.x_axis_line_edit
         x_ax_line_edit.setText(str(DEFAULT_SPECTRAL_AXIS_NUMBER))
 
-        # Go through the currently selected data varying axis and get the min and max. Set that as the bounds for the line edit
+        # Go through the currently selected data varying axis and get the min and max.
+        # Set that as the bounds for the line edit
         max_line_edit_value = (
             self._data.shape[1] - 1
             if self._ui.data_vary_combo.currentData() == 0
@@ -317,9 +308,7 @@ class FitsSpectraLoadingDialog(QDialog):
         )
         min_line_edit_value = 0
 
-        x_validator = QIntValidator(
-            min_line_edit_value, max_line_edit_value, x_ax_line_edit
-        )
+        x_validator = QIntValidator(min_line_edit_value, max_line_edit_value, x_ax_line_edit)
 
         x_ax_line_edit.setValidator(x_validator)
 
@@ -329,9 +318,7 @@ class FitsSpectraLoadingDialog(QDialog):
         filename_suffix = self._ui.spectrum_suffix_line_edit.text()
         basename = os.path.basename(self._filepath)
         filename, _ = os.path.splitext(basename)
-        spectrum_name = (
-            filename if filename_suffix == "" else f"{filename}_{filename_suffix}"
-        )
+        spectrum_name = filename if filename_suffix == "" else f"{filename}_{filename_suffix}"
 
         data_varying_axis = self._ui.data_vary_combo.currentData()
         unit = self._ui.wavelength_units_combo.currentData()

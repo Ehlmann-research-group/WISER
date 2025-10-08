@@ -69,23 +69,13 @@ class ImportSpectraTextDialog(QDialog):
         # Hook up event-handlers
 
         self._ui.cbox_delimiter.activated.connect(lambda s: self.update_results())
-        self._ui.ckbox_header_row.clicked.connect(
-            lambda checked=False: self.update_results()
-        )
+        self._ui.ckbox_header_row.clicked.connect(lambda checked=False: self.update_results())
 
-        self._ui.rb_wavelengths_1st_col.clicked.connect(
-            lambda checked=False: self.update_results()
-        )
-        self._ui.rb_wavelengths_odd_cols.clicked.connect(
-            lambda checked=False: self.update_results()
-        )
-        self._ui.rb_wavelengths_none.clicked.connect(
-            lambda checked=False: self.update_results()
-        )
+        self._ui.rb_wavelengths_1st_col.clicked.connect(lambda checked=False: self.update_results())
+        self._ui.rb_wavelengths_odd_cols.clicked.connect(lambda checked=False: self.update_results())
+        self._ui.rb_wavelengths_none.clicked.connect(lambda checked=False: self.update_results())
 
-        self._ui.cbox_wavelength_units.activated.connect(
-            lambda s: self.update_results()
-        )
+        self._ui.cbox_wavelength_units.activated.connect(lambda s: self.update_results())
 
         # Make some initial guesses
 
@@ -143,10 +133,7 @@ class ImportSpectraTextDialog(QDialog):
             # This generates an array of bool values.
             wavelength_parts = [p.lower().startswith("wavelength") for p in parts]
 
-            if (
-                len(wavelength_parts) % 2 == 0
-                and sum(wavelength_parts) == len(wavelength_parts) // 2
-            ):
+            if len(wavelength_parts) % 2 == 0 and sum(wavelength_parts) == len(wavelength_parts) // 2:
                 # There are an even number of columns, and the odd columns all
                 # start with "wavelength", so guess "odd-column wavelengths"
                 self._ui.rb_wavelengths_odd_cols.setChecked(True)

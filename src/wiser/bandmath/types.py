@@ -125,10 +125,7 @@ class BandMathExprInfo:
             VariableType.IMAGE_BAND,
             VariableType.SPECTRUM,
         ]:
-            return (
-                f"[type={self.result_type}, elem_type={self.elem_type}, "
-                + f"shape={self.shape}]"
-            )
+            return f"[type={self.result_type}, elem_type={self.elem_type}, " + f"shape={self.shape}]"
 
         else:
             return f"[type={self.result_type}]"
@@ -235,10 +232,7 @@ class BandMathValue:
 
         # If we got here, we don't know how to convert the value into a NumPy
         # array.
-        raise TypeError(
-            f"Don't know how to convert {self.type} "
-            + f"value {self.value} into a NumPy array"
-        )
+        raise TypeError(f"Don't know how to convert {self.type} " + f"value {self.value} into a NumPy array")
 
     def as_numpy_array_by_bands(self, band_list: List[int]) -> np.ndarray:
         """
@@ -289,8 +283,7 @@ class BandMathValue:
         # We only want this function to work for numpy arrays and RasterDataSets
         # because these can be very big 3D objects
         raise TypeError(
-            "This function should only be called on numpy"
-            + f"arrays and image cubes, not {self.type}"
+            "This function should only be called on numpy" + f"arrays and image cubes, not {self.type}"
         )
 
 

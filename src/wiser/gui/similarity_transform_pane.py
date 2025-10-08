@@ -65,13 +65,9 @@ class SimilarityTransformRasterView(TiledRasterView):
         return pixmap.transformed(tr, Qt.SmoothTransformation)
 
     def scale_pixmap(self, pixmap: QPixmap, factor: float) -> QPixmap:
-        return pixmap.scaled(
-            pixmap.size() * factor, Qt.KeepAspectRatio, Qt.SmoothTransformation
-        )
+        return pixmap.scaled(pixmap.size() * factor, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-    def update_display_image(
-        self, rotation: float = 0.0, scale: float = 1.0, colors=ImageColors.RGB
-    ):
+    def update_display_image(self, rotation: float = 0.0, scale: float = 1.0, colors=ImageColors.RGB):
         """
         Overrides RasterViews version of this function to allow for rotation (degrees) and scaling.
         """
@@ -94,9 +90,7 @@ class SimilarityTransformRasterView(TiledRasterView):
                 if self._display_data[i] is None or color_indexes[i] in colors:
                     # Compute the contents of this color channel.
 
-                    arr = self._raster_data.get_band_data_normalized(
-                        self._display_bands[i]
-                    )
+                    arr = self._raster_data.get_band_data_normalized(self._display_bands[i])
 
                     band_data = arr
                     band_mask = None
@@ -112,9 +106,7 @@ class SimilarityTransformRasterView(TiledRasterView):
                     if isinstance(arr, np.ma.masked_array):
                         new_arr = np.ma.masked_array(new_data, mask=band_mask)
                         new_arr.data[band_mask] = 0
-                    new_arr = cv2_rotate_scale_expand(
-                        new_arr, angle=rotation, scale=scale, mask_fill_value=0
-                    )
+                    new_arr = cv2_rotate_scale_expand(new_arr, angle=rotation, scale=scale, mask_fill_value=0)
 
                     self._display_data[i] = new_arr
 
@@ -136,9 +128,7 @@ class SimilarityTransformRasterView(TiledRasterView):
                 mask = np.zeros(img_data.shape, dtype=bool)
                 img_data = np.ma.masked_array(img_data, mask)
             else:
-                img_data = make_rgb_image(
-                    self._display_data[0], self._display_data[1], self._display_data[2]
-                )
+                img_data = make_rgb_image(self._display_data[0], self._display_data[1], self._display_data[2])
 
         else:
             # This is a grayscale image.
@@ -164,9 +154,7 @@ class SimilarityTransformRasterView(TiledRasterView):
                 if isinstance(arr, np.ma.masked_array):
                     new_arr = np.ma.masked_array(new_data, mask=band_mask)
                     new_arr.data[band_mask] = 0
-                new_arr = cv2_rotate_scale_expand(
-                    new_arr, angle=rotation, scale=scale, mask_fill_value=0
-                )
+                new_arr = cv2_rotate_scale_expand(new_arr, angle=rotation, scale=scale, mask_fill_value=0)
 
                 self._display_data[0] = new_arr
                 self._display_data[1] = self._display_data[0]
@@ -193,9 +181,7 @@ class SimilarityTransformRasterView(TiledRasterView):
         # self._image = QImage(img_data,
         #     self._raster_data.get_width(), self._raster_data.get_height(),
         #     QImage.Format_RGB32)
-        self._image = QImage(
-            img_data, img_data.shape[1], img_data.shape[0], QImage.Format_RGB32
-        )
+        self._image = QImage(img_data, img_data.shape[1], img_data.shape[0], QImage.Format_RGB32)
 
         self._image_pixmap = QPixmap.fromImage(self._image)
         # self._image_pixmap = self.rotate_pixmap(self._image_pixmap, 45)
@@ -290,10 +276,7 @@ class SimilarityTransformPane(RasterPane):
             QMessageBox.information(
                 self,
                 self.tr("No Geographic Information"),
-                self.tr(
-                    "Selected dataset must have geographic information\n"
-                    "to use this feature."
-                ),
+                self.tr("Selected dataset must have geographic information\n" "to use this feature."),
             )
 
     def _update_image_scale(self):
@@ -305,14 +288,10 @@ class SimilarityTransformPane(RasterPane):
         # Handle window-scaling changes
         if self._act_fit_to_window.isChecked():
             # The entire image needs to fit in the summary view.
-            self.get_rasterview().scale_image_to_fit(
-                mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS
-            )
+            self.get_rasterview().scale_image_to_fit(mode=ScaleToFitMode.FIT_BOTH_DIMENSIONS)
         else:
             # Just zoom such that one of the dimensions fits.
-            self.get_rasterview().scale_image_to_fit(
-                mode=ScaleToFitMode.FIT_ONE_DIMENSION
-            )
+            self.get_rasterview().scale_image_to_fit(mode=ScaleToFitMode.FIT_ONE_DIMENSION)
 
     def _on_band_chooser(self, checked=False, rasterview_pos=(0, 0)):
         rasterview = self.get_rasterview(rasterview_pos)
@@ -337,9 +316,7 @@ class SimilarityTransformPane(RasterPane):
             # For the geo referencer, the change shouldn't be global
             self.set_display_bands(dataset.get_id(), bands, colormap=colormap)
 
-    def _on_similarity_transform_raster_pixel_select(
-        self, rasterview_position, ds_point
-    ):
+    def _on_similarity_transform_raster_pixel_select(self, rasterview_position, ds_point):
         # Get the dataset of the main view.  If no dataset is being displayed or
         # this is not the translation pane, then this is a no-op
         if self._translation:

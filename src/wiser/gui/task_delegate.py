@@ -26,9 +26,7 @@ class TaskDelegate:
     with the task.
     """
 
-    def __init__(
-        self, rasterpane: "RasterPane", rasterview: Optional[RasterView] = None
-    ):
+    def __init__(self, rasterpane: "RasterPane", rasterview: Optional[RasterView] = None):
         """
         Initialize the task delegate.  An optional raster-view may be specified,
         but in multi-view contexts, the set_rasterview() function will be the

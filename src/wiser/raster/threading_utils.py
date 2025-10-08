@@ -27,9 +27,7 @@ class Worker(QRunnable):
         try:
             self.result = self.func(*self.args, **self.kwargs)
 
-            self.signals.finished.emit(
-                (self.current_call, self.total_calls, self.result)
-            )
+            self.signals.finished.emit((self.current_call, self.total_calls, self.result))
         except BaseException as e:
             print(f"Error: \n {e}")
             self.signals.error.emit(e)

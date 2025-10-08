@@ -217,9 +217,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
 
         channel_index = 0
 
-        self.test_model.set_channel_stretch_min_max(
-            i=channel_index, stretch_min=0.25, stretch_max=0.75
-        )
+        self.test_model.set_channel_stretch_min_max(i=channel_index, stretch_min=0.25, stretch_max=0.75)
 
         norm_data = self.test_model.get_channel_stretch_norm_data(i=channel_index)
 
@@ -272,9 +270,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
         self.test_model.load_dataset(np_impl)
 
         self.test_model.set_stretch_builder_min_max_link_state(True)
-        self.test_model.set_channel_stretch_min_max(
-            i=0, stretch_min=0.25, stretch_max=0.75
-        )
+        self.test_model.set_channel_stretch_min_max(i=0, stretch_min=0.25, stretch_max=0.75)
 
         # Each call to get_channel_stretch_norm_data causes the stretch builder to reopen.
         # This helps us test caching.
@@ -310,9 +306,9 @@ class TestStretchBuilderGUI(unittest.TestCase):
         # Create second array
         rows, cols, channels = 50, 50, 3
         # Create 49 linearly spaced values from 0 to 0.75 and then append a 0
-        row_values = np.concatenate(
-            (np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))
-        ).reshape(rows, 1)
+        row_values = np.concatenate((np.linspace(0, 0.75, rows - 5), np.array([0, 0, 0, 0, 0]))).reshape(
+            rows, 1
+        )
         impl2 = np.tile(row_values, (1, cols))
         np_impl2 = np.repeat(impl2[np.newaxis, :, :], channels, axis=0)
 
@@ -480,9 +476,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
         arr = np.array([[1, 2, 3], [1, 2, 3], [1, 2, 3]])
         minval = 1
         maxval = 3
-        expected = np.array(
-            [[0.0, 0.5, 1.0], [0.0, 0.5, 1.0], [0.0, 0.5, 1.0]], dtype=np.float32
-        )
+        expected = np.array([[0.0, 0.5, 1.0], [0.0, 0.5, 1.0], [0.0, 0.5, 1.0]], dtype=np.float32)
         result = normalize_ndarray_numba(arr, minval, maxval)
         np.testing.assert_array_almost_equal(result, expected)
 
@@ -510,9 +504,7 @@ class TestStretchBuilderGUI(unittest.TestCase):
                 [0.0, 0.25, 0.5, 0.75, 1.0],
             ]
         )
-        expected = np.array(
-            [[0, 63, 127, 191, 255], [0, 63, 127, 191, 255], [0, 63, 127, 191, 255]]
-        )
+        expected = np.array([[0, 63, 127, 191, 255], [0, 63, 127, 191, 255], [0, 63, 127, 191, 255]])
         result = make_channel_image_numba(arr, stretch1=None, stretch2=None)
         np.testing.assert_array_almost_equal(result, expected)
 

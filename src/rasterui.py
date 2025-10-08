@@ -67,9 +67,7 @@ if __name__ == "__main__":
         rgb_bands = find_rgb_bands(raster_data)
 
     elif len(sys.argv) > 2:
-        print(
-            "This program takes one optional argument, the name of a raster data file."
-        )
+        print("This program takes one optional argument, the name of a raster data file.")
         sys.exit(1)
 
     ui.set_raster_data(raster_data, rgb_bands)

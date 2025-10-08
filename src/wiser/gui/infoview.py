@@ -116,9 +116,7 @@ class DatasetInfoView(QTreeWidget):
                     s.append(self.tr("(default - grayscale)"))
                 else:
                     if len(default_bands) != 3:
-                        raise ValueError(
-                            f"Expected 3 default bands, got {default_bands}"
-                        )
+                        raise ValueError(f"Expected 3 default bands, got {default_bands}")
 
                     if default_bands[0] == i:
                         s.append(self.tr("(default - red)"))

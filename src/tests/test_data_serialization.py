@@ -42,10 +42,8 @@ class TestDataSerialization(unittest.TestCase):
 
         serializedForm = ds.get_serialized_form()
 
-        reconstructed_dataset: RasterDataSet = (
-            serializedForm.get_serializable_class().deserialize_into_class(
-                serializedForm.get_serialize_value(), serializedForm.get_metadata()
-            )
+        reconstructed_dataset: RasterDataSet = serializedForm.get_serializable_class().deserialize_into_class(
+            serializedForm.get_serialize_value(), serializedForm.get_metadata()
         )
 
         assert reconstructed_dataset.is_metadata_same(
@@ -66,10 +64,8 @@ class TestDataSerialization(unittest.TestCase):
         ds = self.test_model.load_dataset(target_path)
         band = RasterDataBand(ds, 2)
         serializedForm = band.get_serialized_form()
-        reconstructed_band: RasterDataBand = (
-            serializedForm.get_serializable_class().deserialize_into_class(
-                serializedForm.get_serialize_value(), serializedForm.get_metadata()
-            )
+        reconstructed_band: RasterDataBand = serializedForm.get_serializable_class().deserialize_into_class(
+            serializedForm.get_serialize_value(), serializedForm.get_metadata()
         )
 
         assert reconstructed_band.is_metadata_same(
@@ -112,9 +108,7 @@ class TestDataSerialization(unittest.TestCase):
             )
         )
         ds = self.test_model.load_dataset(target_path)
-        band = RasterDataDynamicBand(
-            ds, wavelength_value=572, wavelength_units="nm", epsilon=0.1
-        )
+        band = RasterDataDynamicBand(ds, wavelength_value=572, wavelength_units="nm", epsilon=0.1)
         serializedForm = band.get_serialized_form()
         reconstructed_band: RasterDataDynamicBand = (
             serializedForm.get_serializable_class().deserialize_into_class(
@@ -166,19 +160,22 @@ class TestDataSerialization(unittest.TestCase):
         ), "The reconstructed spectrum has different metadata from the original spectrum"
 
     # def test_netcdf_serialization(self):
-    #     current_dir = os.path.dirname(os.path.abspath(__file__))
-    #     target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "netcdf.nc"))
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
+    # target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "netcdf.nc"))  # noqa: E501
 
-    #     ds = self.test_model.load_dataset(target_path)
+    # ds = self.test_model.load_dataset(target_path)
 
-    #     serializedForm = ds.get_serialized_form()
+    # serializedForm = ds.get_serialized_form()
 
-    #     reconstructed_dataset: RasterDataSet = serializedForm.get_serializable_class().deserialize_into_class(
+    #   reconstructed_dataset: RasterDataSet = (
+    #     serializedForm.get_serializable_class().deserialize_into_class(
     #         serializedForm.get_serialize_value(),
-    #         serializedForm.get_metadata())
+    #         serializedForm.get_metadata(),
+    #     )
+    # )
 
-    #     assert np.allclose(reconstructed_dataset.get_image_data(), ds.get_image_data), \
-    #         "The reconstructed dataset has different metadata from the original dataset"
+    # assert np.allclose(reconstructed_dataset.get_image_data(), ds.get_image_data), \
+    #     "The reconstructed dataset has different metadata from the original dataset"
 
 
 if __name__ == "__main__":

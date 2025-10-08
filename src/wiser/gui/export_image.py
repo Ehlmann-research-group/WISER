@@ -63,9 +63,7 @@ def export_raster_image(
     # image than we must have.
     if crop is not None:
         (crop_x, crop_y, crop_width, crop_height) = crop
-        image_data = image_data[
-            crop_y : crop_y + crop_height, crop_x : crop_x + crop_width
-        ]
+        image_data = image_data[crop_y : crop_y + crop_height, crop_x : crop_x + crop_width]
 
     # PIL expects data to be in one of a few formats.  The 32-bit pixel format
     # is expected to be ABGR (A = top byte, R = bottom byte).
@@ -308,9 +306,7 @@ class ExportImageDialog(QDialog):
 
         filename = self._ui.ledit_filename.text().strip()
         if len(filename) == 0:
-            QMessage.critical(
-                self, self.tr("Invalid filename"), self.tr("Filename must be specified")
-            )
+            QMessage.critical(self, self.tr("Invalid filename"), self.tr("Filename must be specified"))
             return
 
         idx_format = self._ui.cbox_image_format.currentIndex()

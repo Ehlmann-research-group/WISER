@@ -5,8 +5,8 @@ image or of 2 different images of the same dimension.
 
 This script uses datasets and images to refer to the same thing: hyperspectral images
 
-This script requires that `numpy`, `matplotlib`, `mpl_scatter_density `, and `pyside2` be installed within the Python
-environment you are running this script in.
+This script requires that `numpy`, `matplotlib`, `mpl_scatter_density `, and `pyside2`
+be installed within the Python environment you are running this script in.
 
 This script requires the following .ui files to be in the same folder as this python script:
     * error.ui - GUI for error message
@@ -242,9 +242,7 @@ class ScatterPlot2DDialog(QDialog):
         ctrl_layout.addWidget(self._btn_highlight_color)
         ctrl.setMaximumHeight(45)
 
-        self._btn_change_cmap.clicked.connect(
-            lambda checked=True: self._colormap_chooser()
-        )
+        self._btn_change_cmap.clicked.connect(lambda checked=True: self._colormap_chooser())
 
         self._btn_change_axes.clicked.connect(
             lambda checked=True: QMessageBox.information(
@@ -270,14 +268,10 @@ class ScatterPlot2DDialog(QDialog):
         self._btn_clear.clicked.connect(self._clear_selection_overlay)
         self._btn_create_roi.clicked.connect(self._create_roi_from_selection)
 
-        self._ui.btn_create_plot.clicked.connect(
-            lambda checked: self._create_scatter_plot()
-        )
+        self._ui.btn_create_plot.clicked.connect(lambda checked: self._create_scatter_plot())
 
     def _on_choose_highlight_color(self):
-        color = QColorDialog.getColor(
-            parent=self, initial=QColor(self._highlight_color_str)
-        )
+        color = QColorDialog.getColor(parent=self, initial=QColor(self._highlight_color_str))
         if color.isValid():
             self._highlight_color_str = color.name()
             self._btn_highlight_color.setIcon(get_color_icon(self._highlight_color_str))
@@ -303,17 +297,13 @@ class ScatterPlot2DDialog(QDialog):
         cbox_x_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
             cbox_x_dataset.addItem(dataset.get_name(), dataset.get_id())
-        cbox_x_dataset.currentIndexChanged.connect(
-            lambda checked: self._on_cbox_dataset_changed()
-        )
+        cbox_x_dataset.currentIndexChanged.connect(lambda checked: self._on_cbox_dataset_changed())
 
         cbox_y_dataset.clear()
         cbox_y_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
             cbox_y_dataset.addItem(dataset.get_name(), dataset.get_id())
-        cbox_y_dataset.currentIndexChanged.connect(
-            lambda checked: self._on_cbox_dataset_changed()
-        )
+        cbox_y_dataset.currentIndexChanged.connect(lambda checked: self._on_cbox_dataset_changed())
 
         cbox_render_ds.clear()
         cbox_render_ds.addItem(self.tr("(no data)"), -1)
@@ -346,9 +336,7 @@ class ScatterPlot2DDialog(QDialog):
                     for descr in descriptions
                 )
             else:
-                band_descriptions = list(
-                    (f"Band {i}", i) for i in range(len(descriptions))
-                )
+                band_descriptions = list((f"Band {i}", i) for i in range(len(descriptions)))
             cbox_x_band.clear()
             for descr, index in band_descriptions:
                 cbox_x_band.addItem(self.tr(f"{descr}"), index)
@@ -370,9 +358,7 @@ class ScatterPlot2DDialog(QDialog):
                     for descr in descriptions
                 )
             else:
-                band_descriptions = list(
-                    (f"Band {i}", i) for i in range(len(descriptions))
-                )
+                band_descriptions = list((f"Band {i}", i) for i in range(len(descriptions)))
             cbox_y_band.clear()
             for descr, index in band_descriptions:
                 cbox_y_band.addItem(self.tr(f"{descr}"), index)
@@ -437,14 +423,12 @@ class ScatterPlot2DDialog(QDialog):
                 render_dataset.get_width(),
                 render_dataset.get_height(),
             )
-        if (
-            not errors
-            and x_dataset_dims != render_dataset_dims
-            and y_dataset_dims != render_dataset_dims
-        ):
+        if not errors and x_dataset_dims != render_dataset_dims and y_dataset_dims != render_dataset_dims:
             errors.append(
                 "X dataset, Y dataset, and render dataset must have the same dimensions\n"
-                + f"X dataset dimensions: {x_dataset_dims}\nY dataset dimensions: {y_dataset_dims}\nRender dataset dimensions: {render_dataset_dims}"
+                f"X dataset dimensions: {x_dataset_dims}\n"
+                f"Y dataset dimensions: {y_dataset_dims}\n"
+                f"Render dataset dimensions: {render_dataset_dims}"
             )
         return errors
 
@@ -619,7 +603,9 @@ class ScatterPlot2DDialog(QDialog):
                     self,
                     self.tr("Error"),
                     self.tr(
-                        f"Minimum must be less than the maximum\nX min: {x_min.value()}\tX max: {x_max.value()}\nY min: {y_min.value()}\tY max: {y_max.value()}"
+                        f"Minimum must be less than the maximum\n"
+                        f"X min: {x_min.value()}\tX max: {x_max.value()}\n"
+                        f"Y min: {y_min.value()}\tY max: {y_max.value()}"
                     ),
                 )
 
@@ -746,9 +732,7 @@ class ScatterPlot2DDialog(QDialog):
             "x_band_idx": x_band_idx,
             "y_band_idx": y_band_idx,
         }
-        self._process_manager = ProcessManager(
-            _create_scatter_plot_intensive_operations, kwargs
-        )
+        self._process_manager = ProcessManager(_create_scatter_plot_intensive_operations, kwargs)
         task = self._process_manager.get_task()
         task.succeeded.connect(self._create_scatter_plot_gui_updates)
         task.error.connect(self._on_create_scatter_plot_error)
@@ -758,9 +742,7 @@ class ScatterPlot2DDialog(QDialog):
         QMessageBox.critical(
             self,
             self.tr("Error"),
-            self.tr(
-                f"An error occurred while creating the scatter plot.\n\nError:\n{task.get_error()}"
-            ),
+            self.tr(f"An error occurred while creating the scatter plot.\n\nError:\n{task.get_error()}"),
         )
 
     def _create_scatter_plot_gui_updates(self, task: ParallelTaskProcess):
@@ -950,9 +932,7 @@ class ScatterPlot2DDialog(QDialog):
             show_cap = 5000
             idx_to_show = self._selected_idx
             if len(idx_to_show) > show_cap:
-                idx_to_show = np.random.choice(
-                    idx_to_show, size=show_cap, replace=False
-                )
+                idx_to_show = np.random.choice(idx_to_show, size=show_cap, replace=False)
 
         self._sel_artist = self._ax.plot(
             self._x_flat[idx_to_show],
@@ -969,9 +949,7 @@ class ScatterPlot2DDialog(QDialog):
             self._canvas.draw_idle()
 
         render_ds_id = self._ui.cbox_render_ds.currentData()
-        self._interactive_callback(
-            self.get_selected_points(), render_ds_id, self._highlight_color_str
-        )
+        self._interactive_callback(self.get_selected_points(), render_ds_id, self._highlight_color_str)
 
     def _clear_selection_overlay(self):
         """Clear current selection, remove overlay, and reset polygon vertices."""
@@ -1020,9 +998,7 @@ class ScatterPlot2DDialog(QDialog):
     def _create_roi_from_selection(self):
         """Creates a ROI from the selection"""
         if self._selected_idx is None or len(self._selected_idx) == 0:
-            QMessageBox.information(
-                self, self.tr("No selection"), self.tr("No points are selected.")
-            )
+            QMessageBox.information(self, self.tr("No selection"), self.tr("No points are selected."))
             return
         rows, cols, _, _ = self.get_selected_points()
         coords = zip(rows.tolist(), cols.tolist())
@@ -1043,9 +1019,7 @@ class ScatterPlot2DDialog(QDialog):
         row, col, x_band_value, y_band_value
         """
         if self._selected_idx is None or len(self._selected_idx) == 0:
-            QMessageBox.information(
-                self._dlg, "No selection", "No points are selected."
-            )
+            QMessageBox.information(self._dlg, "No selection", "No points are selected.")
             return
 
         rows, cols = np.unravel_index(self._selected_idx, (self._rows, self._cols))
@@ -1053,18 +1027,12 @@ class ScatterPlot2DDialog(QDialog):
         y_vals = self._y_flat[self._selected_idx]
         arr = np.column_stack([rows, cols, x_vals, y_vals])
 
-        path, _ = QFileDialog.getSaveFileName(
-            self._dlg, "Save selected points", "", "CSV Files (*.csv)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self._dlg, "Save selected points", "", "CSV Files (*.csv)")
         if not path:
             return
         try:
-            np.savetxt(
-                path, arr, delimiter=",", header="row,col,x_band,y_band", comments=""
-            )
-            QMessageBox.information(
-                self._dlg, "Saved", f"Saved {arr.shape[0]:,} points."
-            )
+            np.savetxt(path, arr, delimiter=",", header="row,col,x_band,y_band", comments="")
+            QMessageBox.information(self._dlg, "Saved", f"Saved {arr.shape[0]:,} points.")
         except Exception as e:
             QMessageBox.critical(self._dlg, "Save failed", str(e))
 

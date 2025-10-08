@@ -31,9 +31,7 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         test_target_wls = [100 * u.nm, 200 * u.nm, 300 * u.nm, 400 * u.nm, 500 * u.nm]
         test_ref_arr = np.array([300, 200, 100, 400, 500])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sff_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )
@@ -51,9 +49,7 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         test_target_wls = [100 * u.nm, 200 * u.nm, 300 * u.nm, 400 * u.nm, 500 * u.nm]
         test_ref_arr = np.array([800, 400, 000, 400, 800])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sff_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )
@@ -78,9 +74,7 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             0.4 * u.um,
             0.5 * u.um,
         ]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sff_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )
@@ -114,9 +108,7 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             0.5 * u.um,
             0.6 * u.um,
         ]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sff_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )
@@ -150,9 +142,7 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             0.5 * u.um,
             0.6 * u.um,
         ]
-        test_ref_spectrum = NumPyArraySpectrum(
-            test_ref_arr, name="test_ref", wavelengths=test_ref_wls
-        )
+        test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
         sff_tool._target = NumPyArraySpectrum(
             test_target_arr, name="test_target", wavelengths=test_target_wls
         )

@@ -4,9 +4,7 @@ from PySide2.QtWidgets import *
 
 
 class DockablePane(QDockWidget):
-    def __init__(
-        self, widget, name, title, app_state, icon=None, tooltip=None, parent=None
-    ):
+    def __init__(self, widget, name, title, app_state, icon=None, tooltip=None, parent=None):
         super().__init__(title, parent=parent)
 
         self._name = name

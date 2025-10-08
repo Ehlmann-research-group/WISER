@@ -33,9 +33,7 @@ def get_boolean_tablewidgetitem(value: bool) -> QTableWidgetItem:
     return twi
 
 
-def get_defaultband_tablewidgetitem(
-    band_index: int, defaults: Union[Tuple[int], Tuple[int, int, int]]
-):
+def get_defaultband_tablewidgetitem(band_index: int, defaults: Union[Tuple[int], Tuple[int, int, int]]):
     """
     Returns a ``QTableWidgetItem`` object for displaying the "default display
     bands" information.
@@ -118,9 +116,7 @@ class SaveDatasetDetails(QWidget):
                 self._ui.cbox_dataset.setCurrentIndex(index)
         else:
             # Just add the one dataset to the combobox.
-            self._ui.cbox_dataset.addItem(
-                self._dataset.get_name(), self._dataset.get_id()
-            )
+            self._ui.cbox_dataset.addItem(self._dataset.get_name(), self._dataset.get_id())
 
         self._update_save_filenames()
 
@@ -173,17 +169,13 @@ class SaveDatasetDetails(QWidget):
         loader = self._app_state.get_loader()
         filenames = loader.get_save_filenames(path, format)
 
-        display_filenames = "\n".join(
-            [os.path.basename(filename) for filename in filenames]
-        )
+        display_filenames = "\n".join([os.path.basename(filename) for filename in filenames])
         self._ui.lbl_filenames_value.setText(display_filenames)
 
     def verify_config(self) -> bool:
         path = self._ui.ledit_filename.text().strip()
         if not path:
-            QMessageBox.warning(
-                self, self.tr("Missing filename"), self.tr("Filename must be specified")
-            )
+            QMessageBox.warning(self, self.tr("Missing filename"), self.tr("Filename must be specified"))
             return False
 
         return True
@@ -231,9 +223,7 @@ class SaveDatasetBasicDetails(SaveDatasetDetails):
 
 class SaveDatasetAdvancedDetails(SaveDatasetDetails):
     def __init__(self, app_state, ds_id, parent=None):
-        super().__init__(
-            Ui_SaveDatasetAdvancedDetails(), app_state, ds_id, parent=parent
-        )
+        super().__init__(Ui_SaveDatasetAdvancedDetails(), app_state, ds_id, parent=parent)
 
     def _configure_ui(self):
         """
@@ -273,9 +263,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         self._ui.cbox_wavelength_units.addItem(self.tr("GHz"), u.GHz)
 
         # TODO(donnie):  Add back in the future
-        self._ui.tabWidget.removeTab(
-            self._ui.tabWidget.indexOf(self._ui.tab_projection)
-        )
+        self._ui.tabWidget.removeTab(self._ui.tabWidget.indexOf(self._ui.tab_projection))
 
         # Hook up event handlers
 
@@ -286,9 +274,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
         self._ui.rb_rgb_default_bands.clicked.connect(self._on_rgb_default_bands)
         self._ui.rb_gray_default_bands.clicked.connect(self._on_gray_default_bands)
-        self._ui.btn_choose_visible_light_bands.clicked.connect(
-            self._on_choose_visible_light_bands
-        )
+        self._ui.btn_choose_visible_light_bands.clicked.connect(self._on_choose_visible_light_bands)
 
     def _load_dataset_details(self):
         # Do the basic configuration first.
@@ -369,9 +355,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
             self._ui.tbl_bands.setItem(index, 0, get_boolean_tablewidgetitem(True))
 
             # Column 1:  Is it a bad band?
-            self._ui.tbl_bands.setItem(
-                index, 1, get_boolean_tablewidgetitem(bad_bands[index] == 0)
-            )
+            self._ui.tbl_bands.setItem(index, 1, get_boolean_tablewidgetitem(bad_bands[index] == 0))
 
             # Column 2:  Band name / wavelength
             if self._dataset.has_wavelengths():
@@ -422,9 +406,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
                 self._ui.cbox_default_gray_band.setCurrentIndex(defaults[0])
 
             else:
-                raise ValueError(
-                    f"Default-display-bands {defaults} length is unexpected"
-                )
+                raise ValueError(f"Default-display-bands {defaults} length is unexpected")
 
         else:
             # Make sure at least one of the radio-buttons is checked.
@@ -459,9 +441,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         path = self._ui.ledit_filename.text().strip()
         if not path:
             self._ui.tabWidget.setCurrentWidget(self._ui.tab_general)
-            QMessageBox.warning(
-                self, self.tr("Missing filename"), self.tr("Filename must be specified")
-            )
+            QMessageBox.warning(self, self.tr("Missing filename"), self.tr("Filename must be specified"))
             return False
 
         # ========================================
@@ -499,9 +479,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
                 QMessageBox.warning(
                     self,
                     self.tr("Bad Dimensions"),
-                    self.tr(
-                        "Left-value and output-width must sum to less than the image width"
-                    ),
+                    self.tr("Left-value and output-width must sum to less than the image width"),
                 )
                 return False
 
@@ -510,9 +488,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
                 QMessageBox.warning(
                     self,
                     self.tr("Bad Dimensions"),
-                    self.tr(
-                        "Top-value and output-height must sum to less than the image height"
-                    ),
+                    self.tr("Top-value and output-height must sum to less than the image height"),
                 )
                 return False
 
@@ -549,8 +525,7 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
                 self,
                 self.tr("No Bands Included"),
                 self.tr(
-                    "No bands are included in the output.\n"
-                    + "Please mark at least one band to be included."
+                    "No bands are included in the output.\n" + "Please mark at least one band to be included."
                 ),
             )
             return False
@@ -777,9 +752,7 @@ class SaveDatasetDialog(QDialog):
                 self._ui.cbox_dataset.setCurrentIndex(index)
         else:
             # Just add the one dataset to the combobox.
-            self._ui.cbox_dataset.addItem(
-                self._dataset.get_name(), self._dataset.get_id()
-            )
+            self._ui.cbox_dataset.addItem(self._dataset.get_name(), self._dataset.get_id())
 
         self._update_save_filenames()
 
@@ -821,9 +794,7 @@ class SaveDatasetDialog(QDialog):
         loader = self._app_state.get_loader()
         filenames = loader.get_save_filenames(path, format)
 
-        display_filenames = "\n".join(
-            [os.path.basename(filename) for filename in filenames]
-        )
+        display_filenames = "\n".join([os.path.basename(filename) for filename in filenames])
         self._ui.lbl_filenames_value.setText(display_filenames)
 
     def accept(self):

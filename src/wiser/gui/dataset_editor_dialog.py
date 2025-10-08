@@ -43,9 +43,7 @@ class DatasetEditorDialog(QDialog):
         validator = QDoubleValidator(-1e308, 1e308, 10, self)
         validator.setNotation(QDoubleValidator.StandardNotation)
         self._ui.ledit_data_ignore.setValidator(validator)
-        self._ui.ledit_data_ignore.setText(
-            str(self._raster_dataset.get_data_ignore_value())
-        )
+        self._ui.ledit_data_ignore.setText(str(self._raster_dataset.get_data_ignore_value()))
 
     def _init_import_wvl(self) -> None:
         self._ui.btn_import_wavelengths.clicked.connect(self._on_import_wvl_clicked)
@@ -62,9 +60,7 @@ class DatasetEditorDialog(QDialog):
         )
         if selected[0]:
             filepath = selected[0]
-            dialog = ImportDatasetWavelengthsDialog(
-                filepath, self._raster_dataset, self._app, parent=self
-            )
+            dialog = ImportDatasetWavelengthsDialog(filepath, self._raster_dataset, self._app, parent=self)
             dialog.exec_()
 
     def _get_data_ignore_value(self) -> Optional[float]:

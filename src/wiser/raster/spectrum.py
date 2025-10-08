@@ -87,18 +87,15 @@ def raster_to_combined_rectangles_x_axis(raster):
                 x_start, x_end, y_start, y_end = curr_rect
 
                 # If the current rectangle does match with a previous rectangle
-                if (
-                    prev_x_start == x_start
-                    and prev_x_end == x_end
-                    and prev_y_end == y - 1
-                ):
+                if prev_x_start == x_start and prev_x_end == x_end and prev_y_end == y - 1:
                     # Merge the current rectangle with the previous one
                     curr_rect[-2] = prev_y_start
                     merged = True
                     break
 
-            # If the previous rectangle here does not continue from a current rows, we immediately add it to rectangles
-            # which we can do because we know it won't show up again
+            # If the previous rectangle here does not continue from a current rows, we
+            # immediately add it to rectangles which we can do because we know it
+            # won't show up again
             if not merged:
                 rectangles.append(np.array(prev_rect))
 
@@ -106,7 +103,8 @@ def raster_to_combined_rectangles_x_axis(raster):
         # The current rectangles are updated to get merged into the previous ones and nothing is doubly added
         previous_row_rectangles = current_row_rectangles
 
-    # For the last row it is never treated as a previous row (which would let it be added to rectangles), so we just add it to rectangles
+    # For the last row it is never treated as a previous row (which would let it be added to
+    # rectangles), so we just add it to rectangles
     rectangles += list(previous_row_rectangles)  # Accumulate merged rectangles
 
     return np.array(rectangles)
@@ -146,9 +144,7 @@ def create_raster_from_roi(roi: RegionOfInterest) -> np.ndarray:
     return raster
 
 
-def calc_spectrum_fast(
-    dataset: RasterDataSet, roi: RegionOfInterest, mode=SpectrumAverageMode.MEAN
-):
+def calc_spectrum_fast(dataset: RasterDataSet, roi: RegionOfInterest, mode=SpectrumAverageMode.MEAN):
     """
     Calculate a spectrum over a region of interest from the specified dataset.
     The calculation mode can be specified with the mode argument.
@@ -179,9 +175,7 @@ def calc_spectrum_fast(
     qrects = array_to_qrects(rects)
     for qrect in qrects:
         try:
-            s = dataset.get_all_bands_at_rect(
-                qrect.left(), qrect.top(), qrect.width(), qrect.height()
-            )
+            s = dataset.get_all_bands_at_rect(qrect.left(), qrect.top(), qrect.width(), qrect.height())
         except BaseException:
             # TODO (Joshua G-K): Make this cleaner. Either check in impl or don't let user create
             # ROIs that go out of bounds.
@@ -196,9 +190,7 @@ def calc_spectrum_fast(
                 for j in range(s.shape[2]):
                     spectra.append(s[:, i, j])
         else:
-            raise TypeError(
-                f"Expected 2 or 3 dimensions in rectangular aray, but got {s.ndim}"
-            )
+            raise TypeError(f"Expected 2 or 3 dimensions in rectangular aray, but got {s.ndim}")
 
     if len(spectra) > 1:
         spectra = np.asarray(spectra)
@@ -217,26 +209,19 @@ def calc_spectrum_fast(
     return spectrum
 
 
-def calc_rect_spectrum(
-    dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN
-):
+def calc_rect_spectrum(dataset: RasterDataSet, rect: QRect, mode=SpectrumAverageMode.MEAN):
     """
     Calculate a spectrum over a rectangular area of the specified dataset.
     The calculation mode can be specified with the mode argument.
 
     The rect argument is expected to be a QRect object.
     """
-    points = [
-        (rect.left() + dx, rect.top() + dy)
-        for dx, dy in np.ndindex(rect.width(), rect.height())
-    ]
+    points = [(rect.left() + dx, rect.top() + dy) for dx, dy in np.ndindex(rect.width(), rect.height())]
 
     return calc_spectrum(dataset, points, mode)
 
 
-def calc_spectrum(
-    dataset: RasterDataSet, points: List[QPoint], mode=SpectrumAverageMode.MEAN
-):
+def calc_spectrum(dataset: RasterDataSet, points: List[QPoint], mode=SpectrumAverageMode.MEAN):
     """
     Calculate a spectrum over a collection of points from the specified dataset.
     The calculation mode can be specified with the mode argument.
@@ -297,9 +282,7 @@ def get_all_spectra_in_roi(
     return all_spectra
 
 
-def calc_roi_spectrum(
-    dataset: RasterDataSet, roi: RegionOfInterest, mode=SpectrumAverageMode.MEAN
-):
+def calc_roi_spectrum(dataset: RasterDataSet, roi: RegionOfInterest, mode=SpectrumAverageMode.MEAN):
     """
     Calculate a spectrum over a Region of Interest from the specified dataset.
     The calculation mode can be specified with the mode argument.
@@ -438,11 +421,10 @@ class Spectrum(abc.ABC, Serializable):
         return spectral_metadata
 
     @staticmethod
-    def deserialize_into_class(
-        spectrum_arr: Union[str, np.ndarray], metadata: Dict
-    ) -> "NumPyArraySpectrum":
+    def deserialize_into_class(spectrum_arr: Union[str, np.ndarray], metadata: Dict) -> "NumPyArraySpectrum":
         """
-        This should recreate the object from the serialized form that is obtained from the get_serialized_form method.
+        This should recreate the object from the serialized form that is obtained from the
+        get_serialized_form method.
         """
         name = metadata["name"]
         source_name = metadata["source_name"]
@@ -450,9 +432,7 @@ class Spectrum(abc.ABC, Serializable):
         wavelengths = metadata["wavelengths"]
         editable = metadata["editable"]
         discardable = metadata["discardable"]
-        spectrum = NumPyArraySpectrum(
-            spectrum_arr, name, source_name, wavelengths, editable, discardable
-        )
+        spectrum = NumPyArraySpectrum(spectrum_arr, name, source_name, wavelengths, editable, discardable)
         spectrum.set_id(id)
         return spectrum
 
@@ -614,10 +594,7 @@ class RasterDataSetSpectrum(Spectrum):
         self._spectrum = None
 
     def __str__(self) -> str:
-        return (
-            f"RasterDataSetSpectrum[{self.get_source_name()}, "
-            + f"name={self.get_name()}]"
-        )
+        return f"RasterDataSetSpectrum[{self.get_source_name()}, " + f"name={self.get_name()}]"
 
     def _reset_internal_state(self):
         """
@@ -797,9 +774,7 @@ class SpectrumAtPoint(RasterDataSetSpectrum):
             top = y - (height - 1) / 2
             rect = QRect(left, top, width, height)
             try:
-                self._spectrum = calc_rect_spectrum(
-                    self._dataset, rect, mode=self._avg_mode
-                )
+                self._spectrum = calc_rect_spectrum(self._dataset, rect, mode=self._avg_mode)
             except:
                 self._spectrum = np.full((width, height), np.nan)
 
@@ -843,10 +818,7 @@ class ROIAverageSpectrum(RasterDataSetSpectrum):
         This helper function generates a name for this spectrum from its
         configuration details.
         """
-        return (
-            f"{AVG_MODE_NAMES[self._avg_mode]} of "
-            + f'"{self._roi.get_name()}" Region of Interest'
-        )
+        return f"{AVG_MODE_NAMES[self._avg_mode]} of " + f'"{self._roi.get_name()}" Region of Interest'
 
     def _calculate_spectrum(self):
         """

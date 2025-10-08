@@ -147,18 +147,14 @@ class ApplicationState(QObject):
 
         # A dictionary holding the CRSs that the user has created.
         # The key is the CRS name.
-        self._user_created_crs: Dict[
-            str, Tuple[osr.SpatialReference, CrsCreatorState]
-        ] = {}
+        self._user_created_crs: Dict[str, Tuple[osr.SpatialReference, CrsCreatorState]] = {}
 
         self._process_pool_manager = MultiprocessingManager()
 
         self._running_processes: Dict[int, ProcessManager] = {}
 
     def add_running_process(self, process_manager: ProcessManager):
-        self._running_processes[
-            process_manager.get_process_manager_id()
-        ] = process_manager
+        self._running_processes[process_manager.get_process_manager_id()] = process_manager
 
     def remove_running_process(self, process_manager_id: int):
         del self._running_processes[process_manager_id]
@@ -290,9 +286,7 @@ class ApplicationState(QObject):
         # it as a spectral library didn't work.  Load it as a regular raster
         # data file.
 
-        raster_data_list = self._raster_data_loader.load_from_file(
-            path=file_path, data_cache=self._cache
-        )
+        raster_data_list = self._raster_data_loader.load_from_file(path=file_path, data_cache=self._cache)
 
         for raster_data in raster_data_list:
             self.add_dataset(raster_data)
@@ -359,9 +353,7 @@ class ApplicationState(QObject):
 
         # Next we remove it from the render cache
         render_cache = self._cache.get_render_cache()
-        render_cache.clear_keys_from_partial(
-            render_cache.get_partial_key(dataset_to_del)
-        )
+        render_cache.clear_keys_from_partial(render_cache.get_partial_key(dataset_to_del))
 
         del self._datasets[ds_id]
         # Remove all stretches that are associated with this data set
@@ -716,9 +708,7 @@ class ApplicationState(QObject):
             raise ValueError("spectrum cannot be None")
 
         if spectrum is self._active_spectrum:
-            raise RuntimeError(
-                "Use collect_active_spectrum() to collect the " + "active spectrum"
-            )
+            raise RuntimeError("Use collect_active_spectrum() to collect the " + "active spectrum")
 
         # Assign an ID to this spectrum if it doesn't have one.
         if spectrum.get_id() is None:
@@ -728,9 +718,7 @@ class ApplicationState(QObject):
         index = len(self._collected_spectra)
         self._collected_spectra.append(spectrum)
         self._all_spectra[spectrum.get_id()] = spectrum
-        self.collected_spectra_changed.emit(
-            StateChange.ITEM_ADDED, index, spectrum.get_id()
-        )
+        self.collected_spectra_changed.emit(StateChange.ITEM_ADDED, index, spectrum.get_id())
 
     def collect_active_spectrum(self):
         """

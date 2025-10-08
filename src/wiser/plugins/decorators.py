@@ -20,10 +20,7 @@ def log_exceptions(logger: Optional[logging.Logger] = None):
             except:
                 # Log the exception, then reraise it.
                 if inspect.ismethod(func):
-                    msg = (
-                        f"{func.__self__.__class__.__name__}.{func.__name__} "
-                        + "raised an exception"
-                    )
+                    msg = f"{func.__self__.__class__.__name__}.{func.__name__} " + "raised an exception"
                 else:
                     msg = f"{func.__name__} raised an exception"
 

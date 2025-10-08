@@ -89,9 +89,7 @@ class ROIInfoEditor(QDialog):
 
         if roi is None:
             if self._roi is None:
-                raise ValueError(
-                    "ROI must be specified either to configure_ui() or store_values()"
-                )
+                raise ValueError("ROI must be specified either to configure_ui() or store_values()")
 
             roi = self._roi
 
