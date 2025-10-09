@@ -16,8 +16,9 @@ The linting / formatting is also done on push and pull-request to `main` and rel
 
 ## Dev Testing
 
-Testing is only done on push and pull-request to `main` and release branches `rel/**`. We use micromamba to make the conda environment to run our tests. Micromamba is great because it is fast to make the environment and can be quickly pulled from cache. The cache is made from the file _etc/dev-conda-lock.yml_ and will update when this file is changed. The tests use the cache and also update the cache, so there are two rules that update the micromamba environment cache. When running tests, we
-simply `cd` into _src/tests_ and run the command `pytest -s .`.
+Testing is only done on push and pull-request to `main` and release branches `rel/**`. We use micromamba to make the conda environment to run our tests. Micromamba is great because it is fast to make the environment and can be quickly pulled from cache. The cache is made from the file _etc/dev-conda-lock.yml_ and will update when this file is changed. The tests use the cache and also update the cache, so there are two rules that update the micromamba environment cache. When running tests, we simply `cd` into _src/tests_ and run the command `pytest -s .`.
+
+Testing happens after linting.
 
 ## Production Testing
 
