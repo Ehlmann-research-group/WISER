@@ -77,5 +77,4 @@ clean:
 
 	$(RM) -r build dist
 
-
 .PHONY: generated lint typecheck build-mac build-win clean
