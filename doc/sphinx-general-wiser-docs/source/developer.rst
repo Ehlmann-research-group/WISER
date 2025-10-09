@@ -15,3 +15,5 @@ adding to WISER.
     developer-content/devenv-mac.md
 
     developer-content/codesign-mac.md
+
+    developer-content/continuous-integration.md

@@ -19,6 +19,7 @@ html_theme = "sphinx_book_theme"
 html_theme_options = {
     "repository_url": "https://github.com/Ehlmann-research-group/WISER",
     "use_repository_button": True,
+    "max_navbar_depth": 10,
 }
 
 html_logo = "_static/icon_128x128.png"
