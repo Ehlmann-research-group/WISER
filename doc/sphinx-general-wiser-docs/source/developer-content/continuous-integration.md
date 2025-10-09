@@ -14,6 +14,13 @@ There is a pre-commit hook to perform the linting and formatting. However, you h
 
 The linting / formatting is also done on push and pull-request to `main` and release branches `rel/**`.
 
-## Testing
+## Dev Testing
 
-Testing is only done on push and pull-request to `main` and release branches `rel/**`. 
+Testing is only done on push and pull-request to `main` and release branches `rel/**`. We use micromamba to make the conda environment to run our tests. Micromamba is great because it is fast to make the environment and can be quickly pulled from cache. The cache is made from the file _etc/dev-conda-lock.yml_ and will update when this file is changed. The tests use the cache and also update the cache, so there are two rules that update the micromamba environment cache. When running tests, we
+simply `cd` into _src/tests_ and run the command `pytest -s .`.
+
+## Production Testing
+
+TODO Finish this section.
+
+This has not been built yet. But we would like a way to test WISER when it is in production. We would mainly want to test aspects of WISER that need to be packaged into the build. For example, to test that JP2OpenJPEG.dll were properly packaged into the build, we would have a test that would try opening up a very small JP2 file that we can run with a command like `./WISER_Bin --mode test`. We do want to have a github action for this, but we don't want it to run for a long time as builds take a while to run (and we don't want to [waste our github time](https://docs.github.com/en/billing/concepts/product-billing/github-actions#free-use-of-github-actions)). I think it would be best to run this test on pushes to `main` or `rel/**`. This has the downside of the bug not being seen until after the user has pushed their pull_request (since we will only be pull requesting into `main` and `rel/**`). However, to make it easier to test, we can make a recipe in a Makefile.
