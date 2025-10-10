@@ -16,4 +16,4 @@ adding to WISER.
 
     developer-content/codesign-mac.md
 
-    developer-content/continuous-integration.md
+    developer-content/branching-strategy.md
