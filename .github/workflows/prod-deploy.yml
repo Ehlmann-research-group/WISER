@@ -1,0 +1,67 @@
+name: Build and Smoke Test WISER
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-15 should be Apple silicon
+        # macos-13 should be Intel
+        os: [windows-latest, macos-15, macos-13]
+    runs-on: ${{matrix.os}}
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      # Micromamba from prod lockfile (conda-lock)
+      - name: Setup micromamba (prod)
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: etc/prod-conda-lock.yml
+          environment-name: wiser-prod
+          init-shell: >-
+            bash
+            powershell
+          cache-environment: true
+          cache-environment-key: wiser-prod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('etc/prod-conda-lock.yml') }}
+          cache-downloads: true
+
+      # Build (per OS) using your Makefile targets
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -leo pipefail {0}
+        run: |
+          make build-win
+          ls -la dist/WISER || true
+          cd dist/WISER
+          ./WISER.exe --test_mode
+        
+      - name: Smoke Test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -leo pipefail {0}
+        run: |
+          cd dist/WISER
+          ./WISER.exe --test_mode
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash -leo pipefail {0}
+        run: |
+          make build-mac
+          ls -la dist/WISER || true
+        
+      - name: Smoke Test (macOS)
+        if: runner.os == 'macOS'
+        shell: bash -leo pipefail {0}
+        run: |
+          cd dist/WISER
+          ./WISER_Bin --test_mode
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiser-${{ runner.os }}
+          path: dist/WISER/**
