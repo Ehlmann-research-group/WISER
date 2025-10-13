@@ -20,14 +20,21 @@ if not conda_env_prefix:
     raise RuntimeError("Must be in a conda environment to run WISER's pyinstaller built script!")
 
 # Whatever conda environment you use should have the below .dll's in Library\lib\gdalplugins
-datas = [('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath'), ('src\\wiser\\data', 'wiser\\data')]
-binaries = [(f'{conda_env_prefix}\\Library\\plugins\\platforms', 'platforms'),
-(f'{conda_env_prefix}\\Library\\plugins\\iconengines', 'iconengines'),
-(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'),
-(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_netCDF.dll', 'gdalplugins'),
-(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_JP2OpenJPEG.dll', 'gdalplugins'),
-(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'),
-(f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins')]
+datas = [
+         ('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath'),
+         ('src\\wiser\\data', 'wiser\\data'),
+         ('src\\test_utils\\test_datasets', 'test_utils\\test_datasets'),
+         ('src\\tests', 'tests'),
+        ]
+binaries = [
+    (f'{conda_env_prefix}\\Library\\plugins\\platforms', 'platforms'),
+    (f'{conda_env_prefix}\\Library\\plugins\\iconengines', 'iconengines'),
+    (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_FITS.dll', 'gdalplugins'),
+    (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_netCDF.dll', 'gdalplugins'),
+    (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_JP2OpenJPEG.dll', 'gdalplugins'),
+    (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF4.dll', 'gdalplugins'),
+    (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_HDF5.dll', 'gdalplugins'),
+]
 hiddenimports = ['PySide2.QtSvg', 'PySide2.QtXml']
 tmp_ret = collect_all('osgeo')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
