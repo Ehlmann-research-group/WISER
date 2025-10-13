@@ -26,6 +26,7 @@ dependencies:
 - proj=9.5.1
 - pyproj=3.6.1
 - pyside2=5.15.15
+- pytest=8.4.1
 - qt-main=5.15.15
 - scipy=1.13.1
 - setuptools=75.8.0
@@ -37,7 +38,6 @@ dependencies:
 - pyyaml=6.0.2
 - ruff=0.1.*
 - conda-lock=3.0.4
-- pytest=8.4.1
 - myst-parser=3.0.1
 - pip
 - pip:
