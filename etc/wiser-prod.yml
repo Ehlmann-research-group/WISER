@@ -41,6 +41,7 @@ dependencies:
   - proj=9.5.1
   - pyproj=3.6.1
   - pyside2=5.15.15
+  - pytest=8.4.1
   - qt-main=5.15.15
   - scipy=1.13.1
   - setuptools=75.8.0
