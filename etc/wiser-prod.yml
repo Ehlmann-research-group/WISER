@@ -48,6 +48,6 @@ dependencies:
   - pip:
     - bugsnag==4.7.1
     - lark==1.2.2
-    - opencv-python==4.5.3.56
+    - opencv-python-headless==4.5.3.56
     - psutil==7.0.0
     - pyinstaller==6.16.*

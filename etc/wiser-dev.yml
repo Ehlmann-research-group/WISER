@@ -7,6 +7,7 @@ dependencies:
 - python_abi=3.9
 - astropy=6.0.1
 - conda-forge::blas[build=openblas]
+- ffmpeg>=3
 - gdal=3.10.*
 - hdf4=4.2.*
 - hdf5=1.14.*
