@@ -1,0 +1,92 @@
+# .github/workflows/dev-tests.yml
+name: Run tests and linting with linux-cached-dev
+
+on:
+  # Below code (on: push:) says whenever the main branch or a rel/** branch
+  # is pushed to, we run these jobs 
+  push:
+    paths-ignore:
+      - "etc/dev-conda-lock.yml"
+    branches:
+      - main
+      - 'rel/**'
+  # Below code (on: pull_request:) says whenever the main branch or a rel/**
+  # has a PR opened for it, then whenever a push happens to that PR, we run
+  # these jobs. Duplicates job runs can occur if we have a rel/** branch
+  # PR that targets another rel/** branch or main 
+  pull_request:
+    branches:
+      - main
+      - 'rel/**'
+  # The idea here is that if someone made a change to just the lockfiles
+  # we want to both refresh the cache and make sure our tests still run
+  # so we ignore changes to dev lockfile changes here and let the
+  # environment cache update workflow trigger this
+  workflow_run:
+    workflows: ["Cache linux-cached-dev from lock"]
+    types: [completed]
+
+  workflow_dispatch: {}
+
+jobs:
+  pre:
+    name: Skip Duplicate Actions Check
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip.outputs.should_skip }}
+    steps:
+      - id: skip
+        uses: fkirc/skip-duplicate-actions@v5
+
+  lint:
+    name: Ruff lint & format check
+    needs: [pre]
+    if: ${{ needs.pre.outputs.should_skip != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install Ruff
+        run: pip install -U ruff==0.1.15
+
+      - name: Ruff format (check only)
+        run: ruff format --check .
+
+      - name: Ruff lint
+        run: ruff check .
+
+  tests:
+    # If triggered by workflow_run, only run when upstream succeeded.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    needs: [lint]
+    defaults:
+        run:
+            shell: bash -leo pipefail {0}
+    steps:
+      - name: Checkout the right commit
+        uses: actions/checkout@v4
+        with:
+          # Use the upstream run's commit on workflow_run, otherwise this run's SHA
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Restore (or create on miss) linux-cached-dev
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: etc/dev-conda-lock.yml
+          environment-name: linux-cached-dev
+          cache-environment: true
+          cache-environment-key: linux-cached-dev-${{ hashFiles('etc/dev-conda-lock.yml') }}
+          cache-downloads: true
+          init-shell: bash
+    
+      - name: Run tests under xvfb-run
+        run: |
+            xvfb-run -a --server-args="-screen 0 1280x1024x24 -ac -nolisten tcp" \
+            bash -lc 'make generated && cd src/tests && pytest -s .'
+        shell: micromamba-shell {0}

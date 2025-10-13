@@ -43,13 +43,19 @@ ifeq ($(ENV),intel)
 	@echo ENV=intel
 	conda-lock install -n wiser-dev-intel --force-platform osx-64 "$(DEV_LOCK)"
 	conda run -n wiser-dev-intel conda config --env --set subdir osx-64
+	conda run -n wiser-dev-intel pre-commit clean
+	conda run -n wiser-dev-intel pre-commit install
 else ifeq ($(ENV),arm)
 	@echo ENV=arm
 	conda-lock install -n wiser-dev-arm --force-platform osx-arm64 "$(DEV_LOCK)"
 	conda run -n wiser-dev-arm conda config --env --set subdir osx-arm64
+	conda run -n wiser-dev-arm pre-commit clean
+	conda run -n wiser-dev-arm pre-commit install
 else ifeq ($(ENV),)
 	@echo "ENV not set (default install)"
 	conda-lock install -n wiser-dev "$(DEV_LOCK)"
+	conda run -n wiser-dev pre-commit clean
+	conda run -n wiser-dev pre-commit install
 else
 	$(error Unknown ENV='$(ENV)'. Use ENV=intel or ENV=arm, or omit ENV)
 endif
@@ -70,3 +76,8 @@ else ifeq ($(ENV),)
 else
 	$(error Unknown ENV='$(ENV)'. Use ENV=intel or ENV=arm, or omit ENV)
 endif
+
+# -------------------- pre-commit hooks --------------------------------------
+git-hooks:
+	pre-commit clean
+	pre-commit install

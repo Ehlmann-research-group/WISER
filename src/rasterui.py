@@ -16,7 +16,7 @@ def find_band_near_wavelength(raster_data, wavelength, max_distance=None):
     # TODO(donnie):  assert that wavelength units is nanometers
 
     for band in bands:
-        band_wavelength = band.get('wavelength')
+        band_wavelength = band.get("wavelength")
         if band_wavelength is None:
             continue
 
@@ -31,7 +31,7 @@ def find_band_near_wavelength(raster_data, wavelength, max_distance=None):
 
     index = None
     if best_band is not None:
-        index = best_band['index']
+        index = best_band["index"]
 
     return index
 
@@ -44,14 +44,14 @@ def find_rgb_bands(raster_data):
 
     # If that didn't work, just choose first, middle and last bands
     if red_band is None or green_band is None or blue_band is None:
-        red_band   = 0
+        red_band = 0
         green_band = max(0, raster_data.num_bands() // 2 - 1)
-        blue_band  = max(0, raster_data.num_bands() - 1)
+        blue_band = max(0, raster_data.num_bands() - 1)
 
     return (red_band, green_band, blue_band)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     ui = RasterView()
@@ -61,12 +61,13 @@ if __name__ == '__main__':
     rgb_bands = (0, 0, 0)
     if len(sys.argv) == 2:
         from gdal_dataset import GDALRasterDataLoader
+
         loader = GDALRasterDataLoader()
         raster_data = loader.load(sys.argv[1])
         rgb_bands = find_rgb_bands(raster_data)
 
     elif len(sys.argv) > 2:
-        print('This program takes one optional argument, the name of a raster data file.')
+        print("This program takes one optional argument, the name of a raster data file.")
         sys.exit(1)
 
     ui.set_raster_data(raster_data, rgb_bands)

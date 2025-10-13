@@ -18,4 +18,4 @@ Usage:
 import multiprocessing as mp
 
 # Create singleton spawn context
-CTX = mp.get_context('spawn')
+CTX = mp.get_context("spawn")

@@ -19,6 +19,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+
 class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
     """
     Tests interaction between the main view and spectrum plot in WISER.
@@ -47,23 +48,31 @@ class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
         Loads a test datacube and clicks a known pixel location. Verifies that
         the spectrum shown in the plot matches the pixel's expected spectrum.
         """
-        np_impl = np.array([[[0.  , 0.  , 0.  , 1.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 1.  , 2.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 2.  , 1.  , 2.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 1.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 1.0, 2.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 2.0, 1.0, 2.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
         pixel_to_click = (0, 0)
 
@@ -77,35 +86,43 @@ class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
         spectrum_array = spectrum.get_spectrum()
 
         self.assertTrue(np.array_equal(expected_array, spectrum_array))
-    
+
     def test_collecting_spectra(self):
         """Tests spectrum collection and switching behavior in the spectrum plot.
 
         Simulates clicking two different pixels in sequence:
         - The first click collects the initial spectrum.
         - The second click changes the active spectrum.
-        
+
         Verifies that:
         - The active spectrum updates to the second pixel.
         - The collected spectrum retains the first pixel’s spectrum values.
         """
-        np_impl = np.array([[[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]],
-
-                            [[0.  , 0.  , 0.  , 0.  ],
-                                [0.25, 0.25, 0.25, 0.25],
-                                [0.5 , 0.5 , 0.5 , 0.5 ],
-                                [0.75, 0.75, 0.75, 0.75],
-                                [1.  , 1.  , 1.  , 1.  ]]])
+        np_impl = np.array(
+            [
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0, 0.0],
+                    [0.25, 0.25, 0.25, 0.25],
+                    [0.5, 0.5, 0.5, 0.5],
+                    [0.75, 0.75, 0.75, 0.75],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            ]
+        )
 
         pixel_to_click = (0, 0)
 
@@ -136,6 +153,6 @@ class TestMainViewSpectrumPlotIntegration(unittest.TestCase):
 """
 Code to make sure tests work as desired
 """
-if __name__ == '__main__':
+if __name__ == "__main__":
     tester = TestMainViewSpectrumPlotIntegration()
     tester.test_click_main_view()

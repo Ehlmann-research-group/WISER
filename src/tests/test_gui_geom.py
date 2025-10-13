@@ -2,15 +2,15 @@ import unittest
 from PySide2.QtCore import *
 
 import tests.context
-from wiser.gui.geom import (distance, manhattan_distance)
+from wiser.gui.geom import distance, manhattan_distance
 
 
 class TestGuiGeom(unittest.TestCase):
-    '''
+    """
     Exercise code in the gui.geom module.
-    '''
+    """
 
-    #======================================================
+    # ======================================================
     # gui.geom.distance()
 
     def test_distance_int_same_point(self):
@@ -53,7 +53,7 @@ class TestGuiGeom(unittest.TestCase):
         p2 = QPoint(6, 8)
         self.assertAlmostEqual(distance(p1, p2), 5)
 
-    #======================================================
+    # ======================================================
     # gui.geom.manhattan_distance()
 
     def test_manhattan_distance_int_same_point(self):

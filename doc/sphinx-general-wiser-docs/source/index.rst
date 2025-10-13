@@ -14,4 +14,3 @@ This website has information for both users of WISER and contributors to WISER.
 
    get-started.rst
    developer.rst
-   .. api/index

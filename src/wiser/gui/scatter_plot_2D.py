@@ -5,8 +5,8 @@ image or of 2 different images of the same dimension.
 
 This script uses datasets and images to refer to the same thing: hyperspectral images
 
-This script requires that `numpy`, `matplotlib`, `mpl_scatter_density `, and `pyside2` be installed within the Python
-environment you are running this script in.
+This script requires that `numpy`, `matplotlib`, `mpl_scatter_density `, and `pyside2`
+be installed within the Python environment you are running this script in.
 
 This script requires the following .ui files to be in the same folder as this python script:
     * error.ui - GUI for error message
@@ -80,13 +80,23 @@ WHITE_VIRDIS = LinearSegmentedColormap.from_list(
     N=256,
 )
 
-DEFAULT_COLOR = ('white viridis', WHITE_VIRDIS)
+DEFAULT_COLOR = ("white viridis", WHITE_VIRDIS)
 
-def _create_scatter_plot_intensive_operations(x_dataset_serialized: SerializedForm, y_dataset_serialized: SerializedForm,
-                                              x_band_idx: int, y_band_idx: int,
-                                                child_conn: mp_conn.Connection, return_queue: mp.Queue):
-    x_dataset = RasterDataSet.deserialize_into_class(x_dataset_serialized.get_serialize_value(), x_dataset_serialized.get_metadata())
-    y_dataset = RasterDataSet.deserialize_into_class(y_dataset_serialized.get_serialize_value(), y_dataset_serialized.get_metadata())
+
+def _create_scatter_plot_intensive_operations(
+    x_dataset_serialized: SerializedForm,
+    y_dataset_serialized: SerializedForm,
+    x_band_idx: int,
+    y_band_idx: int,
+    child_conn: mp_conn.Connection,
+    return_queue: mp.Queue,
+):
+    x_dataset = RasterDataSet.deserialize_into_class(
+        x_dataset_serialized.get_serialize_value(), x_dataset_serialized.get_metadata()
+    )
+    y_dataset = RasterDataSet.deserialize_into_class(
+        y_dataset_serialized.get_serialize_value(), y_dataset_serialized.get_metadata()
+    )
     x_band = x_dataset.get_band_data(x_band_idx)
     y_band = y_dataset.get_band_data(y_band_idx)
 
@@ -99,23 +109,28 @@ def _create_scatter_plot_intensive_operations(x_dataset_serialized: SerializedFo
     y = y_band.reshape(rows2 * cols2)
 
     # Safe mins/maxes for axes panel defaults
-    new_x = np.array([n for n in x if np.isnan(n) == False])
-    new_y = np.array([m for m in y if np.isnan(m) == False])
-    default_x_min = min(new_x); default_x_max = max(new_x)
-    default_y_min = min(new_y); default_y_max = max(new_y)
+    new_x = np.array([n for n in x if not np.isnan(n)])
+    new_y = np.array([m for m in y if not np.isnan(m)])
+    default_x_min = min(new_x)
+    default_x_max = max(new_x)
+    default_y_min = min(new_y)
+    default_y_max = max(new_y)
 
-    return_queue.put({
-        "default_x_min": default_x_min,
-        "default_x_max": default_x_max,
-        "default_y_min": default_y_min,
-        "default_y_max": default_y_max,
-        "rows": rows1,
-        "cols": cols1,
-        "x_flat": x,
-        "y_flat": y,
-        "xy": np.column_stack((x, y)),
-        "valid_mask": np.isfinite(np.column_stack((x, y))).all(axis=1)
-    })
+    return_queue.put(
+        {
+            "default_x_min": default_x_min,
+            "default_x_max": default_x_max,
+            "default_y_min": default_y_min,
+            "default_y_max": default_y_max,
+            "rows": rows1,
+            "cols": cols1,
+            "x_flat": x,
+            "y_flat": y,
+            "xy": np.column_stack((x, y)),
+            "valid_mask": np.isfinite(np.column_stack((x, y))).all(axis=1),
+        }
+    )
+
 
 class ScatterPlot2DDialog(QDialog):
     """
@@ -141,9 +156,14 @@ class ScatterPlot2DDialog(QDialog):
         Number of time the same 2 bands have been plotted
     """
 
-    def __init__(self, interactive_callback: Callable,
-                 clear_interactive_callback: Callable,
-                 app_state: 'ApplicationState', testing=False, parent=None):
+    def __init__(
+        self,
+        interactive_callback: Callable,
+        clear_interactive_callback: Callable,
+        app_state: "ApplicationState",
+        testing=False,
+        parent=None,
+    ):
         super().__init__(parent=parent)
         self._ui = Ui_ScatterPlotDialog()
         self._ui.setupUi(self)
@@ -222,14 +242,13 @@ class ScatterPlot2DDialog(QDialog):
         ctrl_layout.addWidget(self._btn_highlight_color)
         ctrl.setMaximumHeight(45)
 
-        self._btn_change_cmap.clicked.connect(
-            lambda checked=True: self._colormap_chooser()
-        )
+        self._btn_change_cmap.clicked.connect(lambda checked=True: self._colormap_chooser())
 
         self._btn_change_axes.clicked.connect(
-            lambda checked=True: QMessageBox.information(self,
+            lambda checked=True: QMessageBox.information(
+                self,
                 self.tr("Information"),
-                self.tr("No plot to change axes limits of")
+                self.tr("No plot to change axes limits of"),
             )
         )
 
@@ -242,16 +261,14 @@ class ScatterPlot2DDialog(QDialog):
         layout = QVBoxLayout()
         layout.setContentsMargins(QMargins(0, 0, 0, 0))
         layout.addWidget(self._navi_toolbar)
-        layout.addWidget(ctrl)          # <-- add control strip just under the toolbar
+        layout.addWidget(ctrl)  # <-- add control strip just under the toolbar
         layout.addWidget(canvas)
         self._ui.wdgt_plot.setLayout(layout)
 
         self._btn_clear.clicked.connect(self._clear_selection_overlay)
         self._btn_create_roi.clicked.connect(self._create_roi_from_selection)
 
-        self._ui.btn_create_plot.clicked.connect(
-            lambda checked: self._create_scatter_plot()
-        )
+        self._ui.btn_create_plot.clicked.connect(lambda checked: self._create_scatter_plot())
 
     def _on_choose_highlight_color(self):
         color = QColorDialog.getColor(parent=self, initial=QColor(self._highlight_color_str))
@@ -280,17 +297,13 @@ class ScatterPlot2DDialog(QDialog):
         cbox_x_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
             cbox_x_dataset.addItem(dataset.get_name(), dataset.get_id())
-        cbox_x_dataset.currentIndexChanged.connect(
-            lambda checked: self._on_cbox_dataset_changed()
-        )
+        cbox_x_dataset.currentIndexChanged.connect(lambda checked: self._on_cbox_dataset_changed())
 
         cbox_y_dataset.clear()
         cbox_y_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
             cbox_y_dataset.addItem(dataset.get_name(), dataset.get_id())
-        cbox_y_dataset.currentIndexChanged.connect(
-            lambda checked: self._on_cbox_dataset_changed()
-        )
+        cbox_y_dataset.currentIndexChanged.connect(lambda checked: self._on_cbox_dataset_changed())
 
         cbox_render_ds.clear()
         cbox_render_ds.addItem(self.tr("(no data)"), -1)
@@ -315,32 +328,40 @@ class ScatterPlot2DDialog(QDialog):
             bands = dataset.band_list()
             descriptions = list([band["description"] for band in bands])
             if descriptions[0]:
-                band_descriptions = list((f"Band {descriptions.index(descr)}: " + descr, descriptions.index(descr)) \
-                                            for descr in descriptions)
+                band_descriptions = list(
+                    (
+                        f"Band {descriptions.index(descr)}: " + descr,
+                        descriptions.index(descr),
+                    )
+                    for descr in descriptions
+                )
             else:
-                band_descriptions = list((f"Band {i}", i) \
-                                            for i in range(len(descriptions)))
-            cbox_x_band.clear()      
+                band_descriptions = list((f"Band {i}", i) for i in range(len(descriptions)))
+            cbox_x_band.clear()
             for descr, index in band_descriptions:
-                cbox_x_band.addItem(self.tr(f'{descr}'), index)
+                cbox_x_band.addItem(self.tr(f"{descr}"), index)
             spin_box_x_band.setRange(0, len(band_descriptions) - 1)
         else:
             cbox_x_band.clear()
-        
+
         y_dataset_id = self._ui.cbox_y_dataset.currentData()
         if self._app_state.has_dataset(y_dataset_id):
             dataset = self._app_state.get_dataset(y_dataset_id)
             bands = dataset.band_list()
             descriptions = list([band["description"] for band in bands])
             if descriptions[0]:
-                band_descriptions = list((f"Band {descriptions.index(descr)}: " + descr, descriptions.index(descr)) \
-                                            for descr in descriptions)
+                band_descriptions = list(
+                    (
+                        f"Band {descriptions.index(descr)}: " + descr,
+                        descriptions.index(descr),
+                    )
+                    for descr in descriptions
+                )
             else:
-                band_descriptions = list((f"Band {i}", i) \
-                                            for i in range(len(descriptions)))
+                band_descriptions = list((f"Band {i}", i) for i in range(len(descriptions)))
             cbox_y_band.clear()
             for descr, index in band_descriptions:
-                cbox_y_band.addItem(self.tr(f'{descr}'), index)
+                cbox_y_band.addItem(self.tr(f"{descr}"), index)
             spin_box_y_band.setRange(0, len(band_descriptions) - 1)
         else:
             cbox_y_band.clear()
@@ -362,8 +383,7 @@ class ScatterPlot2DDialog(QDialog):
         )
 
     def _check_bands(self) -> bool:
-        """Checks to make sure we have valid bands for the x and y axes.
-        """
+        """Checks to make sure we have valid bands for the x and y axes."""
         x_dataset = self.get_x_dataset()
         y_dataset = self.get_y_dataset()
         if x_dataset is None or y_dataset is None:
@@ -375,10 +395,10 @@ class ScatterPlot2DDialog(QDialog):
         return True
 
     def _check_dataset_compatibility(self) -> Optional[List[str]]:
-        '''
+        """
         Checks to make sure the datasets are compatible and returns a list of errors if they are not.
         If no list of errors is returned, the datasets are compatible.
-        '''
+        """
         errors = []
         x_id = self._ui.cbox_x_dataset.currentData()
         if not self._app_state.has_dataset(x_id):
@@ -399,10 +419,17 @@ class ScatterPlot2DDialog(QDialog):
             errors.append("Render dataset not found")
         else:
             render_dataset = self._app_state.get_dataset(render_id)
-            render_dataset_dims = (render_dataset.get_width(), render_dataset.get_height())
+            render_dataset_dims = (
+                render_dataset.get_width(),
+                render_dataset.get_height(),
+            )
         if not errors and x_dataset_dims != render_dataset_dims and y_dataset_dims != render_dataset_dims:
-            errors.append("X dataset, Y dataset, and render dataset must have the same dimensions\n" +
-                          f"X dataset dimensions: {x_dataset_dims}\nY dataset dimensions: {y_dataset_dims}\nRender dataset dimensions: {render_dataset_dims}")
+            errors.append(
+                "X dataset, Y dataset, and render dataset must have the same dimensions\n"
+                f"X dataset dimensions: {x_dataset_dims}\n"
+                f"Y dataset dimensions: {y_dataset_dims}\n"
+                f"Render dataset dimensions: {render_dataset_dims}"
+            )
         return errors
 
     def get_x_band(self) -> Optional[np.ndarray]:
@@ -423,13 +450,13 @@ class ScatterPlot2DDialog(QDialog):
             return None
         return y_dataset.get_band_data(idx)
 
-    def get_x_dataset(self) -> Optional['RasterDataSet']:
+    def get_x_dataset(self) -> Optional["RasterDataSet"]:
         idx = self._ui.cbox_x_dataset.currentData()
         if not self._app_state.has_dataset(idx):
             return None
         return self._app_state.get_dataset(idx)
-    
-    def get_y_dataset(self) -> Optional['RasterDataSet']:
+
+    def get_y_dataset(self) -> Optional["RasterDataSet"]:
         idx = self._ui.cbox_y_dataset.currentData()
         if not self._app_state.has_dataset(idx):
             return None
@@ -443,7 +470,7 @@ class ScatterPlot2DDialog(QDialog):
 
     def _on_cbox_dataset_changed(self):
         self._sync_band_choosers()
-    
+
     def _colormap_chooser(self):
         dialog_cmap_chooser = QDialog(self)
         ui_cmap_chooser = Ui_ScatterPlotColormap()
@@ -466,9 +493,7 @@ class ScatterPlot2DDialog(QDialog):
         self._colormap_choice = (cbox_cmap.currentText(), cbox_cmap.currentData())
 
         cbox_cmap.currentTextChanged.connect(
-            lambda checked=True: self._colormap_img_changed(
-                cbox_cmap, img_cmap
-            )
+            lambda checked=True: self._colormap_img_changed(cbox_cmap, img_cmap)
         )
 
         if dialog_cmap_chooser.exec() == QDialog.Accepted:
@@ -510,18 +535,12 @@ class ScatterPlot2DDialog(QDialog):
 
         x_range = max(default_x_max - default_x_min, 0)
         y_range = max(default_y_max - default_y_min, 0)
-        x_min.setValue(default_x_min - x_range/10)
-        x_max.setValue(default_x_max + x_range/10)
-        y_min.setValue(default_y_min - y_range/10)
-        y_max.setValue(default_y_max + y_range/10)
+        x_min.setValue(default_x_min - x_range / 10)
+        x_max.setValue(default_x_max + x_range / 10)
+        y_min.setValue(default_y_min - y_range / 10)
+        y_max.setValue(default_y_max + y_range / 10)
 
-    def _axes_chooser(
-        self,
-        default_x_min,
-        default_x_max,
-        default_y_min,
-        default_y_max
-    ):
+    def _axes_chooser(self, default_x_min, default_x_max, default_y_min, default_y_max):
         """Displays GUI that allows user to choose the axes limits
 
         Parameters
@@ -580,9 +599,14 @@ class ScatterPlot2DDialog(QDialog):
 
         if dialog.exec() == QDialog.Accepted:
             if (x_min.value() >= x_max.value()) or (y_min.value() >= y_max.value()):
-                QMessageBox.warning(self,
+                QMessageBox.warning(
+                    self,
                     self.tr("Error"),
-                    self.tr(f"Minimum must be less than the maximum\nX min: {x_min.value()}\tX max: {x_max.value()}\nY min: {y_min.value()}\tY max: {y_max.value()}")
+                    self.tr(
+                        f"Minimum must be less than the maximum\n"
+                        f"X min: {x_min.value()}\tX max: {x_max.value()}\n"
+                        f"Y min: {y_min.value()}\tY max: {y_max.value()}"
+                    ),
                 )
 
             else:
@@ -690,10 +714,7 @@ class ScatterPlot2DDialog(QDialog):
     def _create_scatter_plot(self):
         errors = self._check_dataset_compatibility()
         if errors:
-            QMessageBox.warning(self,
-                self.tr("Error"),
-                self.tr("\n\n".join(errors))
-            )
+            QMessageBox.warning(self, self.tr("Error"), self.tr("\n\n".join(errors)))
             return
         bands_valid = self._check_bands()
         if not bands_valid:
@@ -709,7 +730,7 @@ class ScatterPlot2DDialog(QDialog):
             "x_dataset_serialized": x_dataset.get_serialized_form(),
             "y_dataset_serialized": y_dataset.get_serialized_form(),
             "x_band_idx": x_band_idx,
-            "y_band_idx": y_band_idx
+            "y_band_idx": y_band_idx,
         }
         self._process_manager = ProcessManager(_create_scatter_plot_intensive_operations, kwargs)
         task = self._process_manager.get_task()
@@ -718,9 +739,11 @@ class ScatterPlot2DDialog(QDialog):
         self._process_manager.start_task(blocking=self._testing)
 
     def _on_create_scatter_plot_error(self, task: ParallelTaskProcess):
-        QMessageBox.critical(self,
-        self.tr("Error"),
-        self.tr(f"An error occurred while creating the scatter plot.\n\nError:\n{task.get_error()}"))
+        QMessageBox.critical(
+            self,
+            self.tr("Error"),
+            self.tr(f"An error occurred while creating the scatter plot.\n\nError:\n{task.get_error()}"),
+        )
 
     def _create_scatter_plot_gui_updates(self, task: ParallelTaskProcess):
         result = task.get_result()
@@ -729,7 +752,6 @@ class ScatterPlot2DDialog(QDialog):
         self._y_flat = result["y_flat"]
         self._xy = result["xy"]
         self._valid_mask = result["valid_mask"]
-
 
         default_x_min = result["default_x_min"]
         default_x_max = result["default_x_max"]
@@ -759,22 +781,30 @@ class ScatterPlot2DDialog(QDialog):
         # --- draw density plot and keep axes ---
 
         # Create the display string for the x and y bands
-        x_wvl = x_dataset.get_band_info()[x_band_idx].get('description', None)
-        x_wvl_str = f': {x_wvl}' if x_wvl else ''
-        x_band_description = f'{x_dataset.get_name()}\nBand {x_band_idx}' + x_wvl_str
+        x_wvl = x_dataset.get_band_info()[x_band_idx].get("description", None)
+        x_wvl_str = f": {x_wvl}" if x_wvl else ""
+        x_band_description = f"{x_dataset.get_name()}\nBand {x_band_idx}" + x_wvl_str
 
-        y_wvl = y_dataset.get_band_info()[y_band_idx].get('description', None)
-        y_wvl_str = f': {y_wvl}' if y_wvl else ''
-        y_band_description = f'{y_dataset.get_name()}\nBand {y_band_idx}' + y_wvl_str
+        y_wvl = y_dataset.get_band_info()[y_band_idx].get("description", None)
+        y_wvl_str = f": {y_wvl}" if y_wvl else ""
+        y_band_description = f"{y_dataset.get_name()}\nBand {y_band_idx}" + y_wvl_str
         if self._use_density_scatter:
             ax = self._using_mpl_scatter_density(
-                self._figure, self._x_flat[self._valid_mask], self._y_flat[self._valid_mask],
-                x_band_description, y_band_description, self._colormap_choice
+                self._figure,
+                self._x_flat[self._valid_mask],
+                self._y_flat[self._valid_mask],
+                x_band_description,
+                y_band_description,
+                self._colormap_choice,
             )
         else:
             ax = self._using_mpl_scatter(
-                self._figure, self._x_flat[self._valid_mask], self._y_flat[self._valid_mask],
-                x_band_description, y_band_description, self._colormap_choice
+                self._figure,
+                self._x_flat[self._valid_mask],
+                self._y_flat[self._valid_mask],
+                x_band_description,
+                y_band_description,
+                self._colormap_choice,
             )
         self._ax = ax
         self._canvas.draw_idle()
@@ -802,11 +832,11 @@ class ScatterPlot2DDialog(QDialog):
     def _using_mpl_scatter_density(
         self,
         fig: Figure,
-        x:np.ndarray,
-        y:np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
         b1_description: str,
         b2_description: str,
-        colormap: Tuple[str, LinearSegmentedColormap]
+        colormap: Tuple[str, LinearSegmentedColormap],
     ):
         """Modified version found here https://stackoverflow.com/questions/20105364/how-can-i-make-a-scatter-plot-colored-by-density-in-matplotlib
         Creates a scatter plot of x and y and density slices it to show density of points plotted
@@ -833,10 +863,10 @@ class ScatterPlot2DDialog(QDialog):
         ax.set_ylabel(b2_description)
         ax.set_title("2D scatter plot of two bands with colormap")
         density = ax.scatter_density(x, y, cmap=colormap[1])
-        x_range = max(self._x_max-self._x_min, 0)
-        y_range = max(self._y_max-self._y_min, 0)
-        ax.set_xlim(self._x_min-x_range/10, self._x_max+x_range/10)
-        ax.set_ylim(self._y_min-y_range/10, self._y_max+y_range/10)
+        x_range = max(self._x_max - self._x_min, 0)
+        y_range = max(self._y_max - self._y_min, 0)
+        ax.set_xlim(self._x_min - x_range / 10, self._x_max + x_range / 10)
+        ax.set_ylim(self._y_min - y_range / 10, self._y_max + y_range / 10)
         fig.colorbar(density, label="Number of points per spectral value")
 
         return ax
@@ -844,11 +874,11 @@ class ScatterPlot2DDialog(QDialog):
     def _using_mpl_scatter(
         self,
         fig: Figure,
-        x:np.ndarray,
-        y:np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
         b1_description: str,
         b2_description: str,
-        colormap: Tuple[str, LinearSegmentedColormap]
+        colormap: Tuple[str, LinearSegmentedColormap],
     ):
         """Create a regular Matplotlib scatter plot (no density projection).
 
@@ -861,13 +891,13 @@ class ScatterPlot2DDialog(QDialog):
         ax.set_title("2D scatter plot of two bands")
         # Use a small marker size for large datasets; single color for simplicity
         ax.scatter(x, y, s=1, c="#1f77b4", alpha=0.6, linewidths=0)
-        x_range = max(self._x_max-self._x_min, 0)
-        y_range = max(self._y_max-self._y_min, 0)
-        ax.set_xlim(self._x_min-x_range/10, self._x_max+x_range/10)
-        ax.set_ylim(self._y_min-y_range/10, self._y_max+y_range/10)
+        x_range = max(self._x_max - self._x_min, 0)
+        y_range = max(self._y_max - self._y_min, 0)
+        ax.set_xlim(self._x_min - x_range / 10, self._x_max + x_range / 10)
+        ax.set_ylim(self._y_min - y_range / 10, self._y_max + y_range / 10)
 
         return ax
-    
+
     def _clear_scatter_density_plot(self):
         fig = self._figure
         fig.clear()
@@ -905,11 +935,15 @@ class ScatterPlot2DDialog(QDialog):
                 idx_to_show = np.random.choice(idx_to_show, size=show_cap, replace=False)
 
         self._sel_artist = self._ax.plot(
-                self._x_flat[idx_to_show],
-                self._y_flat[idx_to_show],
-                marker='o', linestyle='None', markersize=2, alpha=0.7,
-                markerfacecolor='none', markeredgecolor=self._highlight_color_str
-            )[0]
+            self._x_flat[idx_to_show],
+            self._y_flat[idx_to_show],
+            marker="o",
+            linestyle="None",
+            markersize=2,
+            alpha=0.7,
+            markerfacecolor="none",
+            markeredgecolor=self._highlight_color_str,
+        )[0]
 
         if self._canvas is not None:
             self._canvas.draw_idle()
@@ -972,8 +1006,10 @@ class ScatterPlot2DDialog(QDialog):
         # format (column, row)
         points = [QPoint(coord[1], coord[0]) for coord in coords]
         selection = MultiPixelSelection(points)
-        roi = RegionOfInterest(self._app_state.unique_roi_name(self.tr('Scatter Plot Selection')),
-                                color=get_random_matplotlib_color())
+        roi = RegionOfInterest(
+            self._app_state.unique_roi_name(self.tr("Scatter Plot Selection")),
+            color=get_random_matplotlib_color(),
+        )
         roi.add_selection(selection)
         self._app_state.add_roi(roi)
 
@@ -991,9 +1027,7 @@ class ScatterPlot2DDialog(QDialog):
         y_vals = self._y_flat[self._selected_idx]
         arr = np.column_stack([rows, cols, x_vals, y_vals])
 
-        path, _ = QFileDialog.getSaveFileName(
-            self._dlg, "Save selected points", "", "CSV Files (*.csv)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self._dlg, "Save selected points", "", "CSV Files (*.csv)")
         if not path:
             return
         try:
@@ -1009,13 +1043,18 @@ class ScatterPlot2DDialog(QDialog):
         for the *current* polygon selection.
         """
         if self._selected_idx is None or len(self._selected_idx) == 0:
-            return (np.array([], dtype=int),)*2 + (np.array([]),)*2
+            return (np.array([], dtype=int),) * 2 + (np.array([]),) * 2
         rows, cols = np.unravel_index(self._selected_idx, (self._rows, self._cols))
-        return rows, cols, self._x_flat[self._selected_idx], self._y_flat[self._selected_idx]
-    
+        return (
+            rows,
+            cols,
+            self._x_flat[self._selected_idx],
+            self._y_flat[self._selected_idx],
+        )
+
     def keyPressEvent(self, e: QKeyEvent) -> None:
         if e.key() == Qt.Key_Escape:
-            self._clear_selection_overlay() 
+            self._clear_selection_overlay()
             e.accept()
             return
         super().keyPressEvent(e)

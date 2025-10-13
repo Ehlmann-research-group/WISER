@@ -13,6 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 logger = logging.getLogger(__name__)
 
+
 class ParallelTaskState(Enum):
     NOT_STARTED = "not_started"
     RUNNING = "running"
@@ -20,15 +21,16 @@ class ParallelTaskState(Enum):
     COMPLETED = "completed"
     ERROR = "error"
 
+
 class ParallelTask(QThread):
-    '''
+    """
     This class represents a long-running task that needs to execute "in the
     background" while the GUI continues to remain responsive.  Note that this
     is focused on  parallelism and not concurrency. We mean to ensure that long
     running tasks both don't affect the GUI and don't slow down the rest of
     WISER. Tasks submitted here are expected to have simple inputs and outputs
     due to inter-process communication restrictions.
-    '''
+    """
 
     # Signal:  The task has been started.  The argument of the signal is this
     # task object.
@@ -72,7 +74,7 @@ class ParallelTask(QThread):
         raise NotImplementedError("This method should be overridden by the subclass")
 
     def has_error(self):
-        return (self._error is not None)
+        return self._error is not None
 
     def get_error(self):
         return self._error
@@ -80,8 +82,9 @@ class ParallelTask(QThread):
     def get_result(self):
         return self._result
 
+
 class ParallelTaskProcess(ParallelTask):
-    '''
+    """
     This class is used to run a function in a separate process.
 
     Args:
@@ -89,11 +92,17 @@ class ParallelTaskProcess(ParallelTask):
         return_queue (mp.Queue): The return queue to get the return value from the child process.
         operation (Callable): The function to run in the separate process.
         kwargs (Dict): The keyword arguments to pass to the function.
-    '''
+    """
 
-    def __init__(self, process: mp.Process = None, parent_conn: mp_conn.Connection = None, \
-                 child_conn: mp_conn.Connection = None, return_queue: mp.Queue = None,
-                 operation: Callable = None, kwargs: Dict = {}):
+    def __init__(
+        self,
+        process: mp.Process = None,
+        parent_conn: mp_conn.Connection = None,
+        child_conn: mp_conn.Connection = None,
+        return_queue: mp.Queue = None,
+        operation: Callable = None,
+        kwargs: Dict = {},
+    ):
         super().__init__(operation, kwargs)
 
         # The process to use.
@@ -132,7 +141,7 @@ class ParallelTaskProcess(ParallelTask):
             self._child_conn.close()
             while True:
                 ready = mp_conn.wait([self._process.sentinel, queue_reader, self._parent_conn])
-                # If there is a message available we read it. 
+                # If there is a message available we read it.
                 if queue_reader in ready:
                     try:
                         msg = self._return_queue.get_nowait()
@@ -183,11 +192,11 @@ class ParallelTaskProcess(ParallelTask):
                 self._error = e
                 self.error.emit(self)
         except Exception as e:
-            logger.exception(f'Error starting process {self._process_id}: {e}')
+            logger.exception(f"Error starting process {self._process_id}: {e}")
             self._error = e
             self.error.emit(self)
             return
-        
+
         self._parent_conn.close()
         self._return_queue.close()
         if self._exit_code == 0:
@@ -197,10 +206,10 @@ class ParallelTaskProcess(ParallelTask):
             self.cancelled.emit(self)
         else:
             self.error.emit(self)
-    
+
     def get_process_id(self) -> Union[int, None]:
         return self._process_id
-    
+
     def get_task_state(self) -> ParallelTaskState:
         if self._cancelled:
             return ParallelTaskState.CANCELLED
@@ -215,22 +224,28 @@ class ParallelTaskProcess(ParallelTask):
         else:
             raise RuntimeError("This ParallelTask is in an incorrect state!")
 
-class ParallelTaskProcessPool(ParallelTask):
-    '''
-    This class is unfinished. But it's goal is to use a ProcessPoolExecutor to run a function in a separate process.
-    '''
 
-    def __init__(self, process_pool_executor: ProcessPoolExecutor = None, 
-                 operation: Callable = None, kwargs: Dict = {}):
+class ParallelTaskProcessPool(ParallelTask):
+    """
+    This class is unfinished. But it's goal is to use a ProcessPoolExecutor
+    to run a function in a separate process.
+    """
+
+    def __init__(
+        self,
+        process_pool_executor: ProcessPoolExecutor = None,
+        operation: Callable = None,
+        kwargs: Dict = {},
+    ):
         super().__init__(operation, kwargs)
 
         # The process pool executor to use.
         self._process_pool_executor = process_pool_executor
 
     def run(self):
-        '''
+        """
         DO NOT DIRECTLY CALL THIS METHOD. Use .start() instead.
-        '''
+        """
         self.started.emit(self)
 
         try:
@@ -240,5 +255,5 @@ class ParallelTaskProcessPool(ParallelTask):
             self._error = e
             self.error.emit(self)
             return
-        
+
         self.succeeded.emit(self)

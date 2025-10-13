@@ -10,7 +10,12 @@ from astropy import units as u
 from .dataset import RasterDataSet
 from .roi import RegionOfInterest
 from .spectrum import Spectrum, NumPyArraySpectrum, get_all_spectra_in_roi
-from .utils import get_spectral_unit, convert_spectral, get_band_values, make_spectral_value
+from .utils import (
+    get_spectral_unit,
+    convert_spectral,
+    get_band_values,
+    make_spectral_value,
+)
 
 
 class WavelengthCols(enum.Enum):
@@ -21,9 +26,13 @@ class WavelengthCols(enum.Enum):
     ODD_COLS = 2
 
 
-def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,
-                             roi: RegionOfInterest, unit: Optional[u.Unit]=None):
-    '''
+def export_roi_pixel_spectra(
+    filename: str,
+    dataset: RasterDataSet,
+    roi: RegionOfInterest,
+    unit: Optional[u.Unit] = None,
+):
+    """
     Export the spectrum of every point in a given Region of Interest, to a
     tab-delimited text file.  The file format is as follows:
 
@@ -43,7 +52,7 @@ def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,
     If a given spectrum value is NaN (e.g. because it is the data-ignore value,
     or is from a bad band), the output will contain the string "NaN" for that
     value.
-    '''
+    """
 
     num_bands = dataset.num_bands()
     has_wavelengths = dataset.has_wavelengths()
@@ -51,7 +60,7 @@ def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,
     if has_wavelengths:
         # Pull the wavelength values from the dataset, convert them to the
         # requested units (if specified), and extract just the list of values.
-        input_bands = [info['wavelength'] for info in dataset.band_list()]
+        input_bands = [info["wavelength"] for info in dataset.band_list()]
 
         if unit is None:
             unit = input_bands[0].unit
@@ -66,42 +75,41 @@ def export_roi_pixel_spectra(filename: str, dataset: RasterDataSet,
     spectra = [s[1] for s in all_spectra]
 
     # Output the tab-delimited file now
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         # Output header row
 
         if has_wavelengths:
-            f.write(f'Wavelength ({unit.name})')
+            f.write(f"Wavelength ({unit.name})")
         else:
-            f.write('Band')
+            f.write("Band")
 
         for p in points:
-            f.write(f'\t({p[0]},{p[1]})')
+            f.write(f"\t({p[0]},{p[1]})")
 
-        f.write('\n')
+        f.write("\n")
 
         # Output a data row for each band in the data
 
         for i in range(num_bands):
             # Band wavelength or index
-            f.write(f'{output_bands[i]}')
+            f.write(f"{output_bands[i]}")
 
             # Each pixel's value for the band
             for s in spectra:
                 # If the value is NaN, just output nothing
                 value = s[i]
                 if not np.isnan(value):
-                    value = f'{value}'
+                    value = f"{value}"
                 else:
-                    value = 'NaN'
+                    value = "NaN"
 
-                f.write(f'\t{value}')
+                f.write(f"\t{value}")
 
-            f.write('\n')
+            f.write("\n")
 
 
-def export_spectrum_list(filename: str, spectra: List[Spectrum],
-                         missing_value=9999):
-    '''
+def export_spectrum_list(filename: str, spectra: List[Spectrum], missing_value=9999):
+    """
     Export the specified list of spectra, to a tab-delimited text file.
     The file format is as follows:
 
@@ -130,7 +138,7 @@ def export_spectrum_list(filename: str, spectra: List[Spectrum],
     If a given spectrum value is NaN (e.g. because it is the data-ignore value,
     or is from a bad band), the output will contain the string "NaN" for that
     value.
-    '''
+    """
 
     # Get the spectrum bands and data for all spectra.
 
@@ -157,7 +165,7 @@ def export_spectrum_list(filename: str, spectra: List[Spectrum],
         if len(data.shape) > 1:
             # If the spectrum's data is not flat, we don't even know how to
             # interpret this correctly, so just bail.
-            raise ValueError(f'Spectrum {s.get_name()} value-array is not flat:  {data.shape}')
+            raise ValueError(f"Spectrum {s.get_name()} value-array is not flat:  {data.shape}")
 
         all_data.append(data)
 
@@ -169,49 +177,49 @@ def export_spectrum_list(filename: str, spectra: List[Spectrum],
     # print(f'spectrum data:  {all_data}')
     # print(f'longest spectrum:  {longest}')
 
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         # Write the header out.
 
         for i in range(len(spectra)):
             if i > 0:
-                f.write('\t')
+                f.write("\t")
 
             # Does this spectrum have wavelength or band index?
             if spectra_units[i] is not None:
-                f.write(f'Wavelength ({spectra_units[i]})')
+                f.write(f"Wavelength ({spectra_units[i]})")
             else:
-                f.write('Band')
+                f.write("Band")
 
-            f.write(f'\t{spectra[i].get_name()}')
+            f.write(f"\t{spectra[i].get_name()}")
 
-        f.write('\n')
+        f.write("\n")
 
         # Write the actual data out.
 
         for rownum in range(longest):
             for i in range(len(spectra)):
                 if i > 0:
-                    f.write('\t')
+                    f.write("\t")
 
                 if rownum < all_data[i].size:
                     value = all_data[i][rownum]
                     if not np.isnan(value):
-                        value = f'{value}'
+                        value = f"{value}"
                     else:
-                        value = 'NaN'
+                        value = "NaN"
 
-                    f.write(f'{all_bands[i][rownum]}\t{value}')
+                    f.write(f"{all_bands[i][rownum]}\t{value}")
 
                 else:
-                    f.write(f'{missing_value}\t{missing_value}')
+                    f.write(f"{missing_value}\t{missing_value}")
 
-            f.write('\n')
+            f.write("\n")
 
 
 class ImportedSpectrumData:
     def __init__(self, spectrum_name: str, allbands_name: Optional[str]):
         if spectrum_name is None:
-            raise ValueError('Spectrum name must be specified')
+            raise ValueError("Spectrum name must be specified")
 
         self.spectrum_name = spectrum_name
         self.allbands_name = allbands_name
@@ -226,9 +234,8 @@ class ImportedSpectrumData:
         self.ignore_value = None
         self.finished = False
 
-
     def has_wavelengths(self):
-        return (self.wavelength_unit is not None)
+        return self.wavelength_unit is not None
 
     def get_wavelength_unit(self):
         if self.allbands_name is None:
@@ -236,7 +243,7 @@ class ImportedSpectrumData:
 
         # Try to match the "all-bands name" pattern that WISER outputs.  This is
         # likely not present in other sources of spectral data.
-        m = re.fullmatch('Wavelength \(([^)]*)\)', self.allbands_name)
+        m = re.fullmatch("Wavelength \(([^)]*)\)", self.allbands_name)
         if m:
             return m.group(1).strip()
 
@@ -250,7 +257,6 @@ class ImportedSpectrumData:
 
         self.wavelength_unit = wavelength_unit
 
-
     def add_value(self, wavelength_value_str, spectrum_value_str):
         # Wavelength value-string may be None
         if wavelength_value_str:
@@ -260,14 +266,14 @@ class ImportedSpectrumData:
 
         # This is the case when the spectrum doesn't have anymore values in the
         # input file.
-        if spectrum_value_str == '':
+        if spectrum_value_str == "":
             self.finished = True
             return
 
         # If we get here and we have actual values, then that means the data
         # being imported is suspect.
         if self.finished:
-            raise ValueError('Spectrum is already finished; it cannot accept new values')
+            raise ValueError("Spectrum is already finished; it cannot accept new values")
 
         wl_value = None
         if wavelength_value_str is not None:
@@ -275,7 +281,7 @@ class ImportedSpectrumData:
             if self.wavelength_unit:
                 wl_value = make_spectral_value(wl_value, self.wavelength_unit)
 
-        if spectrum_value_str.lower() == 'nan':
+        if spectrum_value_str.lower() == "nan":
             s_value = np.nan
         else:
             s_value = float(spectrum_value_str)
@@ -290,55 +296,74 @@ class ImportedSpectrumData:
         return np.array(self.spectrum_values)
 
 
-def import_spectra_textfile(filename: str, delim='\t', has_header=True,
-        wavelength_cols=WavelengthCols.ODD_COLS,
-        wavelength_unit=None, ignore_value=None) -> List[Spectrum]:
-    '''
+def import_spectra_textfile(
+    filename: str,
+    delim="\t",
+    has_header=True,
+    wavelength_cols=WavelengthCols.ODD_COLS,
+    wavelength_unit=None,
+    ignore_value=None,
+) -> List[Spectrum]:
+    """
     TODO - write docs
-    '''
+    """
     with open(filename) as f:
         lines = f.readlines()
 
-    return import_spectra_text(lines, delim=delim, has_header=has_header,
-        wavelength_cols=wavelength_cols, wavelength_unit=wavelength_unit,
-        ignore_value=ignore_value, source_name=os.path.basename(filename))
+    return import_spectra_text(
+        lines,
+        delim=delim,
+        has_header=has_header,
+        wavelength_cols=wavelength_cols,
+        wavelength_unit=wavelength_unit,
+        ignore_value=ignore_value,
+        source_name=os.path.basename(filename),
+    )
 
 
-def import_spectra_text(lines: List[str], delim='\t', has_header=True,
-        wavelength_cols=WavelengthCols.ODD_COLS, wavelength_unit=None,
-        ignore_value=None, source_name=None) -> List[Spectrum]:
-    '''
+def import_spectra_text(
+    lines: List[str],
+    delim="\t",
+    has_header=True,
+    wavelength_cols=WavelengthCols.ODD_COLS,
+    wavelength_unit=None,
+    ignore_value=None,
+    source_name=None,
+) -> List[Spectrum]:
+    """
     TODO - write docs
-    '''
+    """
 
     def remove_trailing_newline(line):
-        '''
+        """
         Helper function to remove trailing "\n" newline character from lines,
         where present.
-        '''
-        if len(line) > 0 and line[-1] == '\n':
+        """
+        if len(line) > 0 and line[-1] == "\n":
             line = line[:-1]
         return line
 
     def make_spectrum_names(n):
-        return [f'Spectrum {i}' for i in range(1, n+1)]
+        return [f"Spectrum {i}" for i in range(1, n + 1)]
 
     if wavelength_cols not in WavelengthCols:
-        raise ValueError('wavelength_cols must be a value from WavelengthCols')
+        raise ValueError("wavelength_cols must be a value from WavelengthCols")
 
     num_cols = len(lines[0].split(delim))
     if wavelength_cols == WavelengthCols.ODD_COLS:
         if num_cols < 2:
-            raise ValueError('Input has fewer than two columns, so ' +
-                             'wavelengths cannot be in the odd columns.')
+            raise ValueError(
+                "Input has fewer than two columns, so " + "wavelengths cannot be in the odd columns."
+            )
 
         if num_cols % 2 != 0:
-            raise ValueError(f'Input has odd number of columns ({num_cols}), ' +
-                             'so wavelengths cannot be in the odd columns.')
+            raise ValueError(
+                f"Input has odd number of columns ({num_cols}), "
+                + "so wavelengths cannot be in the odd columns."
+            )
 
     if wavelength_cols == WavelengthCols.FIRST_COL and num_cols <= 1:
-        raise ValueError('Input has only one column, so wavelengths ' +
-                         'cannot be in the first column.')
+        raise ValueError("Input has only one column, so wavelengths " + "cannot be in the first column.")
 
     line_no = 1
     header_line = None
@@ -406,8 +431,10 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
 
         if num_cols is not None:
             if len(line_parts) != num_cols:
-                raise ValueError(f'Line {line_no} has {len(line_parts)} columns, ' +
-                    f'but first line has {num_cols} columns.')
+                raise ValueError(
+                    f"Line {line_no} has {len(line_parts)} columns, "
+                    + f"but first line has {num_cols} columns."
+                )
         else:
             num_cols = len(line_parts)
 
@@ -437,8 +464,12 @@ def import_spectra_text(lines: List[str], delim='\t', has_header=True,
         wavelengths = None
         if spectrum_data.has_wavelengths():
             wavelengths = spectrum_data.wavelength_values
-        spectrum = NumPyArraySpectrum(values, name=spectrum_data.spectrum_name,
-            source_name=source_name, wavelengths=wavelengths)
+        spectrum = NumPyArraySpectrum(
+            values,
+            name=spectrum_data.spectrum_name,
+            source_name=source_name,
+            wavelengths=wavelengths,
+        )
 
         spectra.append(spectrum)
 

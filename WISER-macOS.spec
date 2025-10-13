@@ -20,6 +20,8 @@ existing_datas = [
                  ('./LICENSE', '.'),
                  ('./src/wiser/bandmath/bandmath.lark', 'wiser/bandmath'),
                  ('./src/wiser/data', 'wiser/data'),
+                 ('./src/test_utils/test_datasets', 'test_utils/test_datasets'),
+                 ('./src/tests', 'tests'),
              ]
 
 existing_hidden_imports = [
