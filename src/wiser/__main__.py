@@ -125,6 +125,18 @@ def qt_debug_callback(*args, **kwargs):
     logger.debug(f"qt_debug_callback:  args={args}  kwargs={kwargs}")
 
 
+def run_tests() -> int:
+    import pytest
+
+    enabled_plugins = []  # e.g., ["-p", "pytester"] if you truly need a plugin
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # If we are in a frozen build _MEIPASS will be set so that's where our tests will be
+    base = getattr(sys, "_MEIPASS", os.path.join(current_dir, ".."))
+    test_folder_path = os.path.join(base, "tests")
+    test_files = [os.path.join(test_folder_path, "test_open_dataset_gui.py")]
+    return pytest.main(["--disable-plugin-autoload", "-v"] + test_files + enabled_plugins)
+
+
 def main():
     """
     Main entry-point for the WISER application.
@@ -146,6 +158,7 @@ def main():
         help="An optional list of data files to open in WISER",
     )
     parser.add_argument("--config_path", help="The path to read WISER configuration from")
+    parser.add_argument("--test_mode", action="store_true", help="Whether to run WISER tests before startup")
     # TODO(donnie):  Provide a way to specify Qt arguments
 
     args = parser.parse_args()
@@ -210,43 +223,52 @@ def main():
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
-    # TODO(donnie):  Pass Qt arguments
-    app = QApplication([])
+    testing: bool = args.test_mode
+    if testing:
+        code = run_tests()
+        sys.exit(code)
+    else:
+        # TODO(donnie):  Pass Qt arguments
+        app = QApplication([])
 
-    # ========================================================================
-    # WISER Application Initialization
+        # ========================================================================
+        # WISER Application Initialization
 
-    wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
+        wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
 
-    # Set the initial window size to be 70% of the screen size.
-    screen_size = app.screens()[0].size()
-    wiser_ui.resize(screen_size * 0.7)
-    wiser_ui.show()
+        # Set the initial window size to be 70% of the screen size.
+        screen_size = app.screens()[0].size()
+        wiser_ui.resize(screen_size * 0.7)
+        wiser_ui.show()
 
-    # If the WISER config file was created for the first time, ask the user if
-    # they would like to opt in to online bug reporting.
-    if not loaded_config:
-        logger.debug("WISER config not loaded.  Asking user to opt-in for " + "online bug reporting.")
-        dialog = bug_reporting.BugReportingDialog()
-        dialog.exec()
+        # If the WISER config file was created for the first time, ask the user if
+        # they would like to opt in to online bug reporting.
+        if not loaded_config:
+            logger.debug("WISER config not loaded.  Asking user to opt-in for " + "online bug reporting.")
+            dialog = bug_reporting.BugReportingDialog()
+            dialog.exec()
 
-        auto_notify = dialog.user_wants_bug_reporting()
-        config.set("general.online_bug_reporting", auto_notify)
-        bug_reporting.set_enabled(auto_notify)
+            auto_notify = dialog.user_wants_bug_reporting()
+            config.set("general.online_bug_reporting", auto_notify)
+            bug_reporting.set_enabled(auto_notify)
 
-        try:
-            # Try to save the WISER configuration file
-            logger.debug(f'Saving initial WISER config:  "{wiser_conf_path}"')
-            config.save(wiser_conf_path)
-        except OSError:
-            logger.exception(f"Couldn't save WISER config file at {config_path}")
+            try:
+                # Try to save the WISER configuration file
+                logger.debug(f'Saving initial WISER config:  "{wiser_conf_path}"')
+                config.save(wiser_conf_path)
+            except OSError:
+                logger.exception(f"Couldn't save WISER config file at {config_path}")
 
-    # If any data files are specified on the command-line, open them now
-    for file_path in sys.argv[1:]:
-        logger.info(f'Opening file "{file_path}" specified on command-line')
-        wiser_ui._app_state.open_file(file_path)
+        # If any data files are specified on the command-line, open them now
+        data_files = []
+        if args.data_files is not None:
+            data_files = args.data_files
+        if data_files:
+            for file_path in sys.argv[1:]:
+                logger.info(f'Opening file "{file_path}" specified on command-line')
+                wiser_ui._app_state.open_file(file_path)
 
-    sys.exit(app.exec_())
+        sys.exit(app.exec_())
 
 
 if __name__ == "__main__":

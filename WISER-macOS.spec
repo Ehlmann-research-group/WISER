@@ -20,6 +20,8 @@ existing_datas = [
                  ('./LICENSE', '.'),
                  ('./src/wiser/bandmath/bandmath.lark', 'wiser/bandmath'),
                  ('./src/wiser/data', 'wiser/data'),
+                 ('./src/test_utils/test_datasets', 'test_utils/test_datasets'),
+                 ('./src/tests', 'tests'),
              ]
 
 existing_hidden_imports = [
@@ -31,7 +33,7 @@ existing_binaries = [
         (f'{conda_env_prefix}/lib/gdalplugins/gdal_HDF4.dylib', 'gdalplugins'),
         (f'{conda_env_prefix}/lib/gdalplugins/gdal_HDF5.dylib', 'gdalplugins'),
         (f'{conda_env_prefix}/lib/gdalplugins/gdal_netCDF.dylib', 'gdalplugins'),
-        (f'{conda_env_prefix}\\Library\\lib\\gdalplugins\\gdal_JP2OpenJPEG.dll', 'gdalplugins'),
+        (f'{conda_env_prefix}/lib/gdalplugins/gdal_JP2OpenJPEG.dylib', 'gdalplugins'),
     ]  
 
 temp_a = Analysis(['src/wiser/__main__.py'],
