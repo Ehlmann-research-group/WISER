@@ -7,7 +7,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(SPECPATH), 'WISER', 'src', 'devtools')))
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_submodules, collect_dynamic_libs
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
 
 import subprocess
@@ -92,6 +92,11 @@ a = Analysis(
     excludes=['PyQt5'],
     noarchive=False,
     optimize=0,
+)
+
+a.binaries += collect_dynamic_libs(
+    "cv2",
+    search_patterns=["cv2*.pyd", "cv2*.dll", "python-*/cv2*.pyd", "python-*/cv2*.dll"]
 )
 
 # Write dependencies resolved by PyInstaller

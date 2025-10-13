@@ -7,7 +7,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(SPECPATH), 'WISER', 'src', 'devtools')))
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_submodules, collect_dynamic_libs
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
 
 import subprocess
@@ -87,6 +87,11 @@ a = Analysis(['src/wiser/__main__.py'],
              win_private_assemblies=False,
              cipher=block_cipher,
              noarchive=False)
+
+a.binaries += collect_dynamic_libs(
+    "cv2",
+    search_patterns=["cv2*.so", "cv2*.dylib", "python-*/cv2*.so", "python-*/cv2*.dylib"]
+)
 
 # Write dependencies resolved by PyInstaller
 write_deps_from_analysis(a, out_path="build/pyinstaller_dependencies.txt")
