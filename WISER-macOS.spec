@@ -94,7 +94,7 @@ a.binaries += collect_dynamic_libs(
 )
 
 # Write dependencies resolved by PyInstaller
-write_deps_from_analysis(a, out_path="build/pyinstaller_dependencies.txt")
+# write_deps_from_analysis(a, out_path="build/pyinstaller_dependencies.txt")
 
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
