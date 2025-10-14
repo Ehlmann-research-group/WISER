@@ -61,6 +61,7 @@ jobs:
         run: ruff check .
 
   tests:
+    name: Run tests
     # If triggered by workflow_run, only run when upstream succeeded.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest

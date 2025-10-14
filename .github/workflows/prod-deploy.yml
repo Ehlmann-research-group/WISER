@@ -15,7 +15,7 @@ jobs:
       matrix:
         # macos-15 should be Apple silicon
         # macos-13 should be Intel
-        os: [windows-latest, macos-15, macos-13]
+        os: [windows-latest] #, macos-15, macos-13]
     runs-on: ${{matrix.os}}
     
     steps:
@@ -33,6 +33,8 @@ jobs:
           cache-environment: true
           cache-environment-key: wiser-prod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('etc/prod-conda-lock.yml') }}
           cache-downloads: true
+          log-level: debug
+        timeout-minutes: 10
 
       # Build (per OS) using your Makefile targets
       - name: Build (Windows)
