@@ -77,4 +77,12 @@ clean:
 
 	$(RM) -r build dist
 
-.PHONY: generated lint typecheck build-mac build-win clean
+	$(RM) -r build dist
+
+sign-windows:  # Usage `make sign-windows LINK=https://github.com/Ehlmann-research-group/WISER/actions/runs/18478361575/artifacts/4259044563`
+	@rem Fail if LINK is missing
+	@if "$(LINK)"=="" ( echo ERROR: Provide LINK=<artifact URL> ; exit 1 )
+	@rem Call Python script with args
+	@python src\devtools\sign_windows.py --link "$(LINK)" --nsis $(NSIS) --app-version "$(APP_VERSION)" --sha1 "$(SHA1_THUMBPRINT)"
+
+.PHONY: generated lint typecheck build-mac build-win clean sign-windows
