@@ -78,6 +78,14 @@ for m in hiddenimports:
         _hidden.append(m)
 hiddenimports = _hidden
 
+# There is an issue with pyinstaller and opencv. We are using the fix here:
+# https://github.com/orgs/pyinstaller/discussions/7493#discussioncomment-5315487
+cv2_binaries = collect_dynamic_libs(
+    "cv2",
+    search_patterns=["cv2*.pyd", "cv2*.dll", "python-*/cv2*.pyd", "python-*/cv2*.dll"]
+)
+
+binaries += cv2_binaries
 
 # SECOND PASS: rebuild Analysis with the full hiddenimports list
 a = Analysis(
@@ -92,11 +100,6 @@ a = Analysis(
     excludes=['PyQt5'],
     noarchive=False,
     optimize=0,
-)
-
-a.binaries += collect_dynamic_libs(
-    "cv2",
-    search_patterns=["cv2*.pyd", "cv2*.dll", "python-*/cv2*.pyd", "python-*/cv2*.dll"]
 )
 
 # Write dependencies resolved by PyInstaller
