@@ -15,7 +15,8 @@ jobs:
       matrix:
         # macos-15 should be Apple silicon
         # macos-13 should be Intel
-        os: [windows-latest, macos-15] #, macos-13]
+        # os: [windows-latest, macos-15, macos-13]
+        os: [macos-15]
     runs-on: ${{matrix.os}}
     
     steps:
