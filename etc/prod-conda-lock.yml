@@ -13,10 +13,10 @@
 version: 1
 metadata:
   content_hash:
-    linux-64: f547a3c0e15c868c3a99a6e082407033c73450582fae49c325de3796c45cf37c
-    osx-arm64: 21df7a76140929b000ccd137a02b1f2881b0d8a452c6cbbb1c9823cec2e02849
-    osx-64: 51af042794c516da437b9e2a542ad573a1f72823350a1a2bca7c07e3b5051eaf
-    win-64: 763c83aa64566cf38b1289e68d7289cf849b25800abe42c01738cf26f83986d2
+    linux-64: 2650406b39655aa343e8eca0facb3788bc9908c6d8e4a04994305a57f7f4fe10
+    osx-arm64: 6f991709e34658bff01ab1a05c9f0f3b83461b59fc783d15410d8ab58e92f5b8
+    osx-64: 1d633000a16dbc05a8107ee047208f14900fc56ec4ebfeb6aa5e6b4d35853830
+    win-64: e7fccc887cd15e8bd0c627c5eb983fcd7b421915aa0b23ebfe4121a6a918dbf6
   channels:
   - url: conda-forge
     used_env_vars: []
@@ -14361,11 +14361,11 @@ package:
   manager: conda
   platform: win-64
   dependencies:
-    vc14_runtime: '>=14.44.35208'
-  url: https://conda.anaconda.org/conda-forge/win-64/vc-14.3-h41ae7f8_31.conda
+    vc14_runtime: '>=14.42.34433'
+  url: https://conda.anaconda.org/conda-forge/win-64/vc-14.3-h2b53caa_32.conda
   hash:
-    md5: 28f4ca1e0337d0f27afb8602663c5723
-    sha256: cb357591d069a1e6cb74199a8a43a7e3611f72a6caed9faa49dbb3d7a0a98e0b
+    md5: ef02bbe151253a72b8eda264a935db66
+    sha256: 82250af59af9ff3c6a635dd4c4764c631d854feb334d6747d356d949af44d7cf
   category: main
   optional: false
 - name: vc14_runtime
@@ -14375,10 +14375,10 @@ package:
   dependencies:
     ucrt: '>=10.0.20348.0'
     vcomp14: 14.44.35208
-  url: https://conda.anaconda.org/conda-forge/win-64/vc14_runtime-14.44.35208-h818238b_31.conda
+  url: https://conda.anaconda.org/conda-forge/win-64/vc14_runtime-14.44.35208-h818238b_32.conda
   hash:
-    md5: 603e41da40a765fd47995faa021da946
-    sha256: af4b4b354b87a9a8d05b8064ff1ea0b47083274f7c30b4eb96bc2312c9b5f08f
+    md5: 378d5dcec45eaea8d303da6f00447ac0
+    sha256: e3a3656b70d1202e0d042811ceb743bd0d9f7e00e2acdf824d231b044ef6c0fd
   category: main
   optional: false
 - name: vcomp14
@@ -14387,10 +14387,10 @@ package:
   platform: win-64
   dependencies:
     ucrt: '>=10.0.20348.0'
-  url: https://conda.anaconda.org/conda-forge/win-64/vcomp14-14.44.35208-h818238b_31.conda
+  url: https://conda.anaconda.org/conda-forge/win-64/vcomp14-14.44.35208-h818238b_32.conda
   hash:
-    md5: a6b1d5c1fc3cb89f88f7179ee6a9afe3
-    sha256: 67b317b64f47635415776718d25170a9a6f9a1218c0f5a6202bfd687e07b6ea4
+    md5: 58f67b437acbf2764317ba273d731f1d
+    sha256: f3790c88fbbdc55874f41de81a4237b1b91eab75e05d0e58661518ff04d2a8a1
   category: main
   optional: false
 - name: vs2015_runtime
@@ -14399,10 +14399,10 @@ package:
   platform: win-64
   dependencies:
     vc14_runtime: '>=14.44.35208'
-  url: https://conda.anaconda.org/conda-forge/win-64/vs2015_runtime-14.44.35208-h38c0c73_31.conda
+  url: https://conda.anaconda.org/conda-forge/win-64/vs2015_runtime-14.44.35208-h38c0c73_32.conda
   hash:
-    md5: d75abcfbc522ccd98082a8c603fce34c
-    sha256: 8b20152d00e1153ccb1ed377a160110482f286a6d85a82b57ffcd60517d523a7
+    md5: dfc1e5bbf1ecb0024a78e4e8bd45239d
+    sha256: 65cea43f4de99bc81d589e746c538908b2e95aead9042fecfbc56a4d14684a87
   category: main
   optional: false
 - name: wayland

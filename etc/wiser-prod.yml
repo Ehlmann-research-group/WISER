@@ -22,7 +22,6 @@ dependencies:
   - python_abi=3.9
   - astropy=6.0.1
   - conda-forge::blas[build=openblas]
-  - ffmpeg
   - gdal=3.10.*
   - hdf4=4.2.*
   - hdf5=1.14.*
@@ -37,7 +36,7 @@ dependencies:
   - mpl-scatter-density=0.8
   - numba=0.60.0
   - numpy=1.23.5
-  - opencv
+  - opencv=4.11.*
   - pdr=1.4.0
   - pillow=11.3.0
   - proj=9.5.1
