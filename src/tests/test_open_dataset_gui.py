@@ -134,14 +134,42 @@ class TestOpenDataset(unittest.TestCase):
 
         self.test_model.load_dataset(target_path)
 
-    # # Currently this test causes an error, in the future we want to figure out why, but for now we
-    # # will just leave this commented out.
-    # def test_open_nc(self):
-    #     """Tests that a NetCDF `.nc` file can be successfully opened and loaded into WISER."""
-    #     # Get the directory where the current file is located
-    #     current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Currently this test causes an error, in the future we want to figure out why, but for now we
+    # will just leave this commented out.
+    def test_open_nc(self):
+        """Tests that a NetCDF `.nc` file can be successfully opened and loaded into WISER."""
+        # Get the directory where the current file is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
 
-    #     # Compute the absolute path to the target file
-    #     target_path = os.path.normpath(os.path.join(current_dir, "..", "test_utils", "test_datasets", "netcdf.nc"))  # noqa: E501
+        # Compute the absolute path to the target file
+        target_path = os.path.normpath(
+            os.path.join(
+                current_dir,
+                "..",
+                "test_utils",
+                "test_datasets",
+                "EMIT_L2A_RFL_001_20241006T165148_2428011_003_crop.nc",
+            )
+        )
 
-    #     self.test_model.load_dataset(target_path)
+        self.test_model.load_dataset(target_path)
+
+    # Currently this test causes an error, in the future we want to figure out why, but for now we
+    # will just leave this commented out.
+    def test_open_jp2(self):
+        """Tests that a JP2 `.jp2` file can be successfully opened and loaded into WISER."""
+        # Get the directory where the current file is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Compute the absolute path to the target file
+        target_path = os.path.normpath(
+            os.path.join(
+                current_dir,
+                "..",
+                "test_utils",
+                "test_datasets",
+                "ESP_048952_1785_COLOR_crop.JP2",
+            )
+        )
+
+        self.test_model.load_dataset(target_path)
