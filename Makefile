@@ -71,6 +71,15 @@ build-win : generated
 dist-win : build-win
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 
+# Note that these tests don't catch all issues that would occur on a new machine.
+# To be more certain we catch problems, running with the github runner deployment
+# pipeline is necessary
+smoke-test-mac-build : build-mac
+	./dist/WISER/WISER_Bin --test_mode
+
+smoke-test-win-build : build-win
+	./dist/WISER/WISER.exe --test_mode
+
 clean:
 	$(MAKE) -C src clean
 	$(MAKE) -C src/wiser/gui clean
