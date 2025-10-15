@@ -133,7 +133,7 @@ def run_tests() -> int:
     # If we are in a frozen build _MEIPASS will be set so that's where our tests will be
     base = getattr(sys, "_MEIPASS", os.path.join(current_dir, ".."))
     test_folder_path = os.path.join(base, "tests")
-    test_files = [os.path.join(test_folder_path, "test_open_dataset_gui.py")]
+    test_files = [os.path.join(test_folder_path, ".")]
     return pytest.main(["--disable-plugin-autoload", "-v"] + test_files + enabled_plugins)
 
 
