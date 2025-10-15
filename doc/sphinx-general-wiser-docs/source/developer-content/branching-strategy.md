@@ -1,4 +1,4 @@
-# Branching Strategy
+# Branching Strategy (CI/CD)
 
 WISER will be using a trunk based branching strategy with continuous integration. Release branches will be made to strictly enforce feature freezes. More explanation below.
 
@@ -95,6 +95,30 @@ This has the downside of the bug not being seen until after the user has pushed
 their pull_request (since we will only be pull requesting into `main` and `rel/**`).
 However, to make it easier to test, we can make a recipe in a Makefile.
 
+#### Deployment Tests
+
+We currently have a github action that builds WISER on the github runners then runs
+our smoke tests then uploads distribution files to github. Currently this doesn't
+work well because on Windows, the micromamba environment is hanging at a specific
+package. The closest issue I could find online is [this]
+(https://github.com/mamba-org/mamba/issues/3575?utm_source=chatgpt.com). The macOS
+arm runner works (which is the macOS-15 one), but the macOS intel runner (macOS-13 one)
+is very slow so I want to try running the macOS-15 runner but with rosetta2 (so
+we can get intel dylibs from it).
+
+#### Deployment Test Signing
+
+The good thing about the pipeline in the [Deployment Tests](#deployment-tests) section
+is that we can deploy directly from it. Since the artifacts from these tests were
+built on a fresh machine (the github runner), we know its more sturdy than building
+it locally! All we have to do is pull the artifact down to our local machine and
+sign it. I have [made code to do this](https://github.com/Ehlmann-research-group/WISER/pull/257),
+but I am paused on finishing this until I get the deployment test github actions
+workflow correctly working.
+
+This step requires you to have Github's CLI tool installed which lets you use the
+command `gh`.
+
 ## Releases
 
 WISER releases should always be made from a release branch. Release notes
@@ -102,3 +126,5 @@ should accompany releases. Build artifacts should accompany releases. These
 build artifacts won't be signed until we figure out how to sign them on a
 github runner. Additionally, official release should be made on the github
 and the release should be tagged.
+
+#
