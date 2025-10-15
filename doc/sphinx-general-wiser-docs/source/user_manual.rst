@@ -6,7 +6,7 @@ with a variety of helpful features.
 
 **IMPORTANT NOTE:  WISER is currently in beta, which means that this
 documentation may be incomplete and/or out of date.**  Feel free to email
-[wiser@caltech.edu](mailto:wiser@caltech.edu) if you have any questions or
+`wiser@caltech.edu <mailto:wiser@caltech.edu>`_ if you have any questions or
 comments.
 
 .. toctree::
