@@ -106,6 +106,8 @@ arm runner works (which is the macOS-15 one), but the macOS intel runner (macOS-
 is very slow so I want to try running the macOS-15 runner but with rosetta2 (so
 we can get intel dylibs from it).
 
+This github action is under .github\workflows\prod-deploy.yml . 
+
 #### Deployment Test Signing
 
 The good thing about the pipeline in the [Deployment Tests](#deployment-tests) section
@@ -117,7 +119,9 @@ but I am paused on finishing this until I get the deployment test github actions
 workflow correctly working.
 
 This step requires you to have Github's CLI tool installed which lets you use the
-command `gh`.
+command `gh`. The logic for this step is in the files /src/devtools/sign_mac.py and
+/src/devtools/sign_windows.py. It was originally introduced on 
+[this](https://github.com/Ehlmann-research-group/WISER/pull/257) branch.
 
 ## Releases
 
@@ -126,5 +130,3 @@ should accompany releases. Build artifacts should accompany releases. These
 build artifacts won't be signed until we figure out how to sign them on a
 github runner. Additionally, official release should be made on the github
 and the release should be tagged.
-
-#
