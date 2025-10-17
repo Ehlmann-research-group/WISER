@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>503</width>
-    <height>626</height>
+    <width>505</width>
+    <height>638</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -27,7 +27,7 @@
    <item row="2" column="0">
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="tab_general">
       <attribute name="title">
@@ -286,40 +286,84 @@
        <string>Plugins</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_6">
-       <item row="0" column="0">
-        <widget class="QGroupBox" name="gbox_plugin_paths">
-         <property name="title">
-          <string>Plugin Directories</string>
+       <item row="2" column="0">
+        <layout class="QHBoxLayout" name="hlayout_add_env">
+         <item>
+          <widget class="QLabel" name="lbl_add_env">
+           <property name="text">
+            <string>Add Environment:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="hspacer_add_env">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="vlayout_env_manager">
+           <item>
+            <widget class="QLabel" name="lbl_env_manager">
+             <property name="text">
+              <string>Environment Manager</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="cbox_env_manager"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="vlayout_env_name">
+           <item>
+            <widget class="QLabel" name="lbl_env_name">
+             <property name="text">
+              <string>Environment Name</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="ledit_env_name"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="vlayout_add_env">
+           <item>
+            <widget class="QLabel" name="lbl_add_env_spacing">
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_add_env">
+             <property name="text">
+              <string>Add</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+       <item row="3" column="0">
+        <widget class="Line" name="line">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
          </property>
-         <layout class="QGridLayout" name="gridLayout_7">
-          <item row="0" column="0" colspan="3">
-           <widget class="QListWidget" name="list_plugin_paths"/>
-          </item>
-          <item row="1" column="0">
-           <widget class="QPushButton" name="btn_add_plugin_path">
-            <property name="text">
-             <string>Add</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QPushButton" name="btn_del_plugin_path">
-            <property name="text">
-             <string>Remove</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QPushButton" name="btn_edit_plugin_path">
-            <property name="text">
-             <string>Edit</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
         </widget>
        </item>
-       <item row="1" column="0">
+       <item row="6" column="0">
         <widget class="QGroupBox" name="gbox_plugins">
          <property name="title">
           <string>Plugins</string>
@@ -357,6 +401,87 @@
            </widget>
           </item>
          </layout>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <layout class="QHBoxLayout" name="hlayout_add_plugin">
+         <item>
+          <widget class="QLabel" name="lbl_plugin_file">
+           <property name="text">
+            <string>Add Plugin File:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="hspacer_add_plugin">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="ledit_plugin_path"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_add_plugin_file">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="lbl_advanced_section">
+         <property name="text">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:10pt; font-weight:600;&quot;&gt;Advanced&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <widget class="QGroupBox" name="gbox_plugin_paths">
+         <property name="title">
+          <string>Plugin Directories</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0" colspan="3">
+           <widget class="QListWidget" name="list_plugin_paths"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QPushButton" name="btn_add_plugin_path">
+            <property name="text">
+             <string>Add</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QPushButton" name="btn_del_plugin_path">
+            <property name="text">
+             <string>Remove</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="btn_edit_plugin_path">
+            <property name="text">
+             <string>Edit</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="Line" name="line_2">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
         </widget>
        </item>
       </layout>
