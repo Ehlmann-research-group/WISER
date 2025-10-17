@@ -1,8 +1,10 @@
 import math
 import sys
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from pathlib import Path
+import inspect
+import importlib
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -16,6 +18,9 @@ from .app_state import ApplicationState
 
 # We have a lot of variables named "plugins" so make the package name distinct.
 from wiser.plugins import utils as plugutils
+from wiser.plugins.types import ContextMenuPlugin, ToolsMenuPlugin, BandMathPlugin
+
+PluginBases = (ContextMenuPlugin, ToolsMenuPlugin, BandMathPlugin)
 
 
 def qlistwidget_to_list(list_widget: QListWidget) -> List[str]:
@@ -191,10 +196,52 @@ class AppConfigDialog(QDialog):
         self._load_plugin_from_file(file_path)
 
     def _load_plugin_from_file(self, file_path: str):
-        module_path, package_root_abs, base_dir_abs = self._derive_paths_and_module(file_path)
-        print(f"module_path: {module_path}")
-        print(f"package_root_abs: {package_root_abs}")
-        print(f"base_dir_abs: {base_dir_abs}")  # Base directory of module_path
+        plugins_dict = self._discover_plugin_classes(file_path)
+
+        base_dir_abs = plugins_dict["base_dir_abs"]
+        base_dir_duplicate = False
+        if base_dir_abs not in qlistwidget_to_list(self._ui.list_plugin_paths):
+            # Add the path to the list widget.
+            item = QListWidgetItem(base_dir_abs)
+            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self._ui.list_plugin_paths.addItem(item)
+        else:
+            base_dir_duplicate = True
+
+        plugins = plugins_dict["plugins"]
+
+        plugin_duplicates: List[str] = []
+        for plugin in plugins:
+            fqcn = plugin["fqcn"]
+            if fqcn not in qlistwidget_to_list(self._ui.list_plugins):
+                # Add the plugin to the list widget.
+                item = QListWidgetItem(fqcn)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self._ui.list_plugins.addItem(item)
+            else:
+                plugin_duplicates.append(fqcn)
+        if plugin_duplicates or base_dir_duplicate:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle("Some items were not added")
+            msg.setText("Couldn't add some items.")
+
+            details = []
+            if base_dir_duplicate:
+                details.append(f"• The base directory is already in the list:\n    {base_dir_abs}")
+            if plugin_duplicates:
+                details.append(
+                    "• The following plugins were already present and were not added:\n    - "
+                    + "\n    - ".join(plugin_duplicates)
+                )
+
+            msg.setInformativeText("\n\n".join(details))
+            msg.setStandardButtons(QMessageBox.Ok)
+            # Qt6 uses exec(), Qt5 uses exec_(); this handles both:
+            try:
+                msg.exec()
+            except AttributeError:
+                msg.exec_()
 
     def _derive_paths_and_module(self, file_path: str) -> Tuple[str, Path, Path]:
         """
@@ -233,6 +280,45 @@ class AppConfigDialog(QDialog):
             base_dir_abs = package_root_abs.parent.resolve()
 
         return module_path, package_root_abs, base_dir_abs
+
+    def _discover_plugin_classes(self, file_path: str) -> Dict:
+        """
+        Imports the target file as a module using its derived fully-qualified
+        name and returns all classes that subclass the known Plugin base classes.
+        """
+        module_path, package_root_abs, base_dir_abs = self._derive_paths_and_module(file_path)
+
+        # Ensure base_dir is importable so 'import example_plugins.context_plugin' works
+        added = False
+        if str(base_dir_abs) not in sys.path:
+            sys.path.insert(0, str(base_dir_abs))
+            added = True
+
+        # Import the module via its fully-qualified name
+        mod = importlib.import_module(module_path)
+
+        found = []
+        for name, obj in vars(mod).items():
+            if inspect.isclass(obj):
+                matches = [b.__name__ for b in PluginBases if issubclass(obj, b) and obj is not b]
+                if matches:
+                    found.append(
+                        {
+                            "name": name,
+                            "fqcn": f"{module_path}.{name}",
+                            "base_matches": matches,
+                            "cls": obj,
+                        }
+                    )
+        if added:
+            sys.path.remove(base_dir_abs)
+
+        return {
+            "module_path": module_path,
+            "package_root_abs": str(package_root_abs),
+            "base_dir_abs": str(base_dir_abs),
+            "plugins": found,
+        }
 
     # ========================================================================
     # PLUGIN PATH UI
