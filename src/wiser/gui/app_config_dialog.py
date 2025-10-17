@@ -1,5 +1,8 @@
-import math
+import abc
 import sys
+import json
+import os
+import subprocess
 
 from typing import List, Optional, Tuple, Dict
 from pathlib import Path
@@ -20,8 +23,6 @@ from .app_state import ApplicationState
 from wiser.plugins import utils as plugutils
 from wiser.plugins.types import ContextMenuPlugin, ToolsMenuPlugin, BandMathPlugin
 
-PluginBases = (ContextMenuPlugin, ToolsMenuPlugin, BandMathPlugin)
-
 
 def qlistwidget_to_list(list_widget: QListWidget) -> List[str]:
     result: List[str] = []
@@ -39,6 +40,130 @@ def qlistwidget_selections(list_widget: QListWidget) -> List[Tuple[int, str]]:
             result.append((i, item.text()))
 
     return result
+
+
+class EnvironmentManager(abc.ABC):
+    """
+    This class is the base class for all environment managers. It is used
+    to get the packages for a specific environment manager given an
+    environment name.
+    """
+
+    def get_env_manager_name(self) -> str:
+        raise NotImplementedError("Must be implemented by subclass")
+
+    def get_packages_directory(self, env_name: str) -> Path:
+        raise NotImplementedError("Must be implemented by subclass")
+
+
+class CondaEnvironmentManager(EnvironmentManager):
+    """
+    This class is used to get the packages for a conda environment.
+    """
+
+    @staticmethod
+    def get_env_manager_name() -> str:
+        return "Conda"
+
+    @staticmethod
+    def get_packages_directory(env_name: str) -> Path:
+        """
+        Return the absolute path to the Python package directory ("site-packages")
+        for a given Conda environment.
+
+        Resolution strategy (in order):
+          1) If `env_name` looks like a filesystem path, treat it as an explicit
+             prefix (env created with `-p/--prefix`).
+          2) If `env_name` is "base" (or "root"), use Conda's root prefix.
+          3) Search configured environment directories (envs_dirs), including any
+             provided via CONDA_ENVS_PATH, for `<dir>/<env_name>`.
+          4) As a final heuristic, if an active env matches the name, use CONDA_PREFIX.
+
+        Cross-platform site-packages layout:
+          - Windows:   <prefix>/Lib/site-packages
+          - POSIX:     <prefix>/lib/pythonX.Y/site-packages (chosen by glob)
+
+        Raises:
+            FileNotFoundError: If the environment or its site-packages cannot be found.
+        """
+        print(f"attempting to find packacegt_directory in conda for: {env_name}")
+        # Query `conda info --json` if available (programmatic/portable).
+        info = {}
+        try:
+            res = subprocess.run(["conda", "info", "--json"], check=True, text=True, capture_output=True)
+            info = json.loads(res.stdout or "{}")
+        except Exception:
+            # Non-fatal: fall back to env vars/heuristics below.
+            info = {}
+
+        # 1) Explicit prefix path support (env created by --prefix).
+        env_path = Path(os.path.expanduser(env_name))
+        candidate_prefixes = []
+        if env_path.is_absolute() or env_path.exists():
+            candidate_prefixes.append(env_path)
+
+        # 2) Handle base/root by using Conda's root prefix.
+        if env_name.lower() in {"base", "root"}:
+            root_prefix = info.get("root_prefix") or os.environ.get("CONDA_PREFIX")
+            if root_prefix:
+                candidate_prefixes.append(Path(root_prefix))
+
+        # 3) Resolve named env via envs_dirs (respect CONDA_ENVS_PATH override).
+        envs_dirs = []
+
+        # Environment variable takes precedence (os.pathsep handles ; on Win, : on POSIX).
+        envs_path_env = os.environ.get("CONDA_ENVS_PATH")
+        if envs_path_env:
+            envs_dirs.extend(Path(p) for p in envs_path_env.split(os.pathsep) if p)
+
+        # Add conda-configured envs_dirs and the conventional <root_prefix>/envs.
+        envs_dirs.extend(Path(p) for p in info.get("envs_dirs", []))
+        if info.get("root_prefix"):
+            envs_dirs.append(Path(info["root_prefix"]) / "envs")
+
+        # Deduplicate while preserving order.
+        seen = set()
+        envs_dirs = [p for p in envs_dirs if not (str(p) in seen or seen.add(str(p)))]
+
+        for d in envs_dirs:
+            cand = d / env_name
+            if cand.exists():
+                candidate_prefixes.append(cand)
+
+        # 4) If still nothing, but active env matches by name, use it.
+        active_prefix = info.get("active_prefix") or os.environ.get("CONDA_PREFIX")
+        if active_prefix and Path(active_prefix).name == env_name:
+            candidate_prefixes.append(Path(active_prefix))
+
+        # Pick the first existing prefix we found.
+        prefix = next((p for p in candidate_prefixes if p.exists()), None)
+        if prefix is None:
+            raise FileNotFoundError(
+                f"Conda environment '{env_name}' not found. "
+                "Checked explicit path, CONDA_ENVS_PATH, configured"
+                "envs_dirs, root_prefix/envs, and active env."
+            )
+
+        # Compute site-packages per platform layout.
+        if os.name == "nt":
+            sp = prefix / "Lib" / "site-packages"
+        else:
+            # Typical POSIX layout: <prefix>/lib/pythonX.Y/site-packages
+            candidates = sorted((prefix / "lib").glob("python*/site-packages"))
+            sp = candidates[-1] if candidates else None
+
+        if not sp or not sp.exists():
+            raise FileNotFoundError(
+                f"site-packages not found under '{prefix}'. "
+                "Expected 'Lib/site-packages' (Windows) or 'lib/pythonX.Y/site-packages' (POSIX)."
+            )
+
+        return sp
+
+
+PluginBases = (ContextMenuPlugin, ToolsMenuPlugin, BandMathPlugin)
+
+ENV_MANAGERS: List[EnvironmentManager] = [CondaEnvironmentManager]
 
 
 class AppConfigDialog(QDialog):
@@ -164,6 +289,9 @@ class AppConfigDialog(QDialog):
         self._ui.btn_verify_plugins.clicked.connect(self._on_verify_plugins)
 
         self._ui.btn_add_plugin_file.clicked.connect(self._on_add_plugin_by_file)
+        for env_manager in ENV_MANAGERS:
+            self._ui.cbox_env_manager.addItem(env_manager.get_env_manager_name(), env_manager)
+        self._ui.btn_add_env.clicked.connect(self._on_add_env)
 
     def _on_choose_viewport_highlight_color(self, checked):
         initial_color = QColor(self._ui.ledit_viewport_highlight_color.text())
@@ -319,6 +447,23 @@ class AppConfigDialog(QDialog):
             "base_dir_abs": str(base_dir_abs),
             "plugins": found,
         }
+
+    def _on_add_env(self):
+        env_manager: EnvironmentManager = self._ui.cbox_env_manager.currentData()
+        env_name: str = self._ui.ledit_env_name.text()
+        packages_path: Path = env_manager.get_packages_directory(env_name)
+
+        if packages_path not in qlistwidget_to_list(self._ui.list_plugin_paths):
+            # Add the path to the list widget.
+            item = QListWidgetItem(str(packages_path.resolve()))
+            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self._ui.list_plugin_paths.addItem(item)
+        else:
+            QMessageBox.warning(
+                self,
+                self.tr("Path already in plugin paths"),
+                self.tr(f"Path {packages_path} already in plugin paths"),
+            )
 
     # ========================================================================
     # PLUGIN PATH UI
