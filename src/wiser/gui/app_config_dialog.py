@@ -288,10 +288,12 @@ class AppConfigDialog(QDialog):
         self._ui.btn_del_plugin.clicked.connect(self._on_del_plugin)
         self._ui.btn_verify_plugins.clicked.connect(self._on_verify_plugins)
 
+        # Set easy add plugin section
         self._ui.btn_add_plugin_file.clicked.connect(self._on_add_plugin_by_file)
         for env_manager in ENV_MANAGERS:
             self._ui.cbox_env_manager.addItem(env_manager.get_env_manager_name(), env_manager)
         self._ui.btn_add_env.clicked.connect(self._on_add_env)
+        self._ui.ledit_plugin_path.setReadOnly(True)
 
     def _on_choose_viewport_highlight_color(self, checked):
         initial_color = QColor(self._ui.ledit_viewport_highlight_color.text())
@@ -320,10 +322,23 @@ class AppConfigDialog(QDialog):
         if not file_path:
             return
 
-        self._ui.ledit_env_name.setText(file_path)
         self._load_plugin_from_file(file_path)
 
     def _load_plugin_from_file(self, file_path: str):
+        """
+        Discover plugin classes in the given file and add them to the UI lists.
+
+        Plugins' base directory (if new) is added to `list_plugin_paths`, and each
+        plugin's fully qualified class name (if new) is added to `list_plugins`.
+        If duplicates are detected, a warning dialog is shown explaining what wasn't added.
+
+        Args:
+            file_path (str): Path to a Python file which may define plugin classes.
+
+        Raises:
+            FileNotFoundError: If the file is missing or cannot be discovered.
+            ValueError: If `_discover_plugin_classes` returns no valid plugins.
+        """
         plugins_dict = self._discover_plugin_classes(file_path)
 
         base_dir_abs = plugins_dict["base_dir_abs"]
