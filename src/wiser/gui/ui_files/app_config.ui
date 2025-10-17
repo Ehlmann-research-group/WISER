@@ -400,7 +400,7 @@
             <item>
              <widget class="QPushButton" name="btn_add_plugin_file">
               <property name="text">
-               <string>...</string>
+               <string>Select File</string>
               </property>
              </widget>
             </item>
