@@ -2,6 +2,7 @@ import math
 import sys
 
 from typing import List, Optional, Tuple
+from pathlib import Path
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -157,6 +158,8 @@ class AppConfigDialog(QDialog):
         self._ui.btn_del_plugin.clicked.connect(self._on_del_plugin)
         self._ui.btn_verify_plugins.clicked.connect(self._on_verify_plugins)
 
+        self._ui.btn_add_plugin_file.clicked.connect(self._on_add_plugin_by_file)
+
     def _on_choose_viewport_highlight_color(self, checked):
         initial_color = QColor(self._ui.ledit_viewport_highlight_color.text())
         color = QColorDialog.getColor(parent=self, initial=initial_color)
@@ -168,6 +171,68 @@ class AppConfigDialog(QDialog):
         color = QColorDialog.getColor(parent=self, initial=initial_color)
         if color.isValid():
             self._ui.ledit_pixel_cursor_color.setText(color.name())
+
+    # ========================================================================
+    # EASY ADD PLUGIN BY FILE UI
+    # ========================================================================
+
+    def _on_add_plugin_by_file(self, checked=False):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Plugin File",
+            "",
+            "Python Files (*.py);;All Files (*)",
+        )
+
+        if not file_path:
+            return
+
+        self._ui.ledit_env_name.setText(file_path)
+        self._load_plugin_from_file(file_path)
+
+    def _load_plugin_from_file(self, file_path: str):
+        module_path, package_root_abs, base_dir_abs = self._derive_paths_and_module(file_path)
+        print(f"module_path: {module_path}")
+        print(f"package_root_abs: {package_root_abs}")
+        print(f"base_dir_abs: {base_dir_abs}")  # Base directory of module_path
+
+    def _derive_paths_and_module(self, file_path: str) -> Tuple[str, Path, Path]:
+        """
+        Given a path to a .py file, find:
+        - the nearest parent directory that contains __init__.py (package_root)
+        - the fully-qualified module path using that package root
+        - the directory above the package root (base_dir, to put on sys.path)
+
+        Returns:
+            module_path: e.g. 'example_plugins.context_plugin'
+            package_root_abs: absolute Path to the nearest package root
+            base_dir_abs: absolute Path to the directory above package_root
+        """
+        p = Path(file_path).resolve()
+        if not p.is_file() or p.suffix != ".py":
+            raise ValueError(f"Expected a .py file, got: {p}")
+
+        current = p.parent
+        package_root = None
+        while True:
+            if (current / "__init__.py").exists():
+                package_root = current
+                break
+            if current == current.parent:
+                break  # hit filesystem root
+            current = current.parent
+
+        if package_root is None:
+            # No package root found; treat the folder containing the file as base
+            module_path = p.stem
+            package_root_abs = p.parent.resolve()
+            base_dir_abs = package_root_abs
+        else:
+            module_path = f"{package_root.name}.{p.stem}"
+            package_root_abs = package_root.resolve()
+            base_dir_abs = package_root_abs.parent.resolve()
+
+        return module_path, package_root_abs, base_dir_abs
 
     # ========================================================================
     # PLUGIN PATH UI
