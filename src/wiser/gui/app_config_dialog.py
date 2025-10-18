@@ -293,7 +293,11 @@ class AppConfigDialog(QDialog):
         for env_manager in ENV_MANAGERS:
             self._ui.cbox_env_manager.addItem(env_manager.get_env_manager_name(), env_manager)
         self._ui.btn_add_env.clicked.connect(self._on_add_env)
-        self._ui.ledit_plugin_path.setReadOnly(True)
+
+        # Set advanced button functionality
+        self._ui.btn_show_advanced.clicked.connect(self._on_show_advanced)
+        self._ui.gbox_plugins.setVisible(False)
+        self._ui.gbox_plugin_paths.setVisible(False)
 
     def _on_choose_viewport_highlight_color(self, checked):
         initial_color = QColor(self._ui.ledit_viewport_highlight_color.text())
@@ -310,6 +314,15 @@ class AppConfigDialog(QDialog):
     # ========================================================================
     # EASY ADD PLUGIN BY FILE UI
     # ========================================================================
+
+    def _on_show_advanced(self, checked=False):
+        # Determine current visibility (just use one of them as reference)
+        is_visible = self._ui.gbox_plugins.isVisible()
+        should_show = not is_visible
+
+        # Toggle visibility
+        self._ui.gbox_plugins.setVisible(should_show)
+        self._ui.gbox_plugin_paths.setVisible(should_show)
 
     def _on_add_plugin_by_file(self, checked=False):
         file_path, _ = QFileDialog.getOpenFileName(
