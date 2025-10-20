@@ -11,10 +11,6 @@ This plugin has 4 main functionalities:
 This script requires that `numpy`, `pyside2`, and `scipy` be installed within the Python
 environment you are running this script in.
 
-This script requires the following .ui files to be in the same folder as this python script:
-    * dimensions_bands.ui - GUI for dimension range and band range selection
-    * error.ui - GUI for error message
-
 Code originally written by Amy Wang, Cornell '23
 """
 
@@ -29,16 +25,18 @@ import numba
 
 from typing import TYPE_CHECKING, Tuple
 
-from wiser import plugins, raster
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 from scipy.interpolate import interp1d
 
+from wiser import plugins, raster
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.dataset import RasterDataSet, SpatialMetadata, SpectralMetadata
+
+from wiser.gui.generated.continuum_removal_dimensions_bands_ui import Ui_ContinuumRemoval
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -224,7 +222,7 @@ def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: in
     Parameters
     ----------
     image_data: np.ndarray
-        A 3D numpy array of image data
+        A 3D numpy array of image data  [y][b][x]
     x_axis: np.ndarray
         A 1D numpy array of x-axis values
     rows: int
@@ -264,7 +262,7 @@ def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, ro
     Parameters
     ----------
     image_data: np.ndarray
-        A 3D numpy array of image data
+        A 3D numpy array of image data  [x][y][b]
     x_axis: np.ndarray
         A 1D numpy array of x-axis values
     rows: int
@@ -360,13 +358,14 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             Available WISER classes
         """
 
-        path2 = os.path.join(os.path.dirname(__file__), "error.ui")
-        dialog = plugins.load_ui_file(path2)
-        error_message = dialog.findChild(QLabel, "error_message")
-        error_message.setText(message)
+        QMessageBox.critical(
+            None,
+            "Error",
+            message,
+            QMessageBox.Ok
+        )
 
-        if dialog.exec() == QDialog.Accepted:
-            self.dimension(context)
+        self.dimension(context)
 
     def set_entire_image(self, dialog, cols, rows):
         """Sets dimensions in the dimensions GUI to include the entire image
@@ -443,8 +442,9 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             Available WISER classes
         """
 
-        path = os.path.join(os.path.dirname(__file__), "dimensions_bands.ui")
-        dialog = plugins.load_ui_file(path)
+        dialog = QDialog()
+        dialog._ui = Ui_ContinuumRemoval()
+        dialog._ui.setupUi(dialog)
 
         entire_image = dialog.findChild(QPushButton, "entire_image")
         min_cols = dialog.findChild(QSpinBox, "min_cols")
@@ -545,6 +545,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         if wavelengths.dtype != np.float32:
             wavelengths = wavelengths.astype(np.float32)
 
+        print(f"wavelengths from plotting spectra: {wavelengths}")
         continuum_removed_spec, hull = continuum_removal_numba(spectrum, wavelengths)
         new_spec = raster.spectrum.NumPyArraySpectrum(continuum_removed_spec)
         new_spec.set_name(spec_object.get_name() + " Continuum Removed")
@@ -621,7 +622,11 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         else:
             assert "index" in band_description[0], "No key named index in return value of dataset.band_list()"
             x_axis = np.array([float(i["index"]) for i in band_description])
+        print(f"x_axis min_band: {min_band}")
+        print(f"x_axis max_band: {max_band}")
+        print(f"x_axis.shape before: {x_axis.shape}")
         x_axis = x_axis[min_band:max_band]
+        print(f"x_axis.shape after: {x_axis.shape}")
         default_bands = dataset.default_display_bands()
         if default_bands is None:
             default_bands = [0, 1, 2]
@@ -642,13 +647,15 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         rows = np.int32(max_rows - min_rows)
         bands = np.int32(max_band - min_band)
         image_data, x_axis = convert_to_float32_if_needed(image_data, x_axis)
-        image_data: np.ndarray = image_data.transpose(1, 2, 0)
+        print(f"image data shape before transpose: {image_data.shape}")
+        # image_data: np.ndarray = image_data.transpose(1, 2, 0)  # [x][y][b] --> [y][b][x]
         if not image_data.flags.c_contiguous:
             image_data = np.ascontiguousarray(image_data)
         if isinstance(image_data, np.ma.MaskedArray):
             image_data = image_data.data
         if image_data.dtype != np.float32:
             image_data = image_data.astype(np.float32)
+        print(f"image data shape after transpose: {image_data.shape}")
         new_image_data = continuum_removal_image_numba(image_data, x_axis, rows, cols, bands)
 
         raster_data = raster.RasterDataLoader()
