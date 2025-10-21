@@ -1,0 +1,55 @@
+name: Cache linux-cached-dev from lock
+
+on:
+  push:
+    paths:
+      - "etc/dev-conda-lock.yml"   # only rebuild when the lock changes
+      - ".github/workflows/dev-env-cache.yml"
+  workflow_dispatch:
+
+jobs:
+  cache-dev-env:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up micromamba with caching
+        id: micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+            environment-file: etc/dev-conda-lock.yml
+            environment-name: linux-cached-dev
+            cache-environment: true
+            cache-environment-key: linux-cached-dev-${{ hashFiles('etc/dev-conda-lock.yml') }}
+            cache-downloads: true
+            init-shell: bash
+  
+        # Detect whether the environment directory exists after restore
+      - name: Detect cache result (hit/miss)
+        id: cachecheck
+        shell: bash -leo pipefail {0}
+        run: |
+            ENV_DIR="${MAMBA_ROOT_PREFIX}/envs/linux-cached-dev"
+            if [ -f "${ENV_DIR}/conda-meta/history" ]; then
+                echo "restored=true" >> "$GITHUB_OUTPUT"
+                echo "Cache hit: ${ENV_DIR} exists (restored from cache)."
+            else
+                echo "restored=false" >> "$GITHUB_OUTPUT"
+                echo "Cache miss: ${ENV_DIR} not found; will (re)create."
+            fi
+
+    # Only (re)install if the env was NOT restored
+      - name: Install env from lock (cache miss)
+        if: steps.cachecheck.outputs.restored != 'true'
+        run: |
+            python -m pip install --upgrade pip conda-lock
+            conda-lock install --micromamba --name linux-cached-dev etc/dev-conda-lock.yml
+
+        # Always show a quick summary in logs
+      - name: Summary
+        run: |
+            if [ "${{ steps.cachecheck.outputs.restored }}" = "true" ]; then
+                echo "✅ Micromamba env cache HIT (linux-cached-dev)."
+            else
+                echo "♻️  Micromamba env cache MISS; created/updated env."
+            fi

@@ -17,11 +17,11 @@ from wiser.raster import spectra_export
 
 
 def avg_occurrences_per_line(lines, ch):
-    '''
+    """
     This helper function computes the average number of times the specified
     character appears in the lines of the input.  It is used to guess the
     delimiter of the input text.
-    '''
+    """
     total = 0
     num_lines = 0
     for line in lines:
@@ -31,10 +31,10 @@ def avg_occurrences_per_line(lines, ch):
 
 
 class ImportSpectraTextDialog(QDialog):
-    '''
+    """
     This dialog provides configuration options for the spectrum plot component,
     and for spectrum collection.
-    '''
+    """
 
     def __init__(self, filepath: str, parent=None):
         super().__init__(parent=parent)
@@ -49,20 +49,20 @@ class ImportSpectraTextDialog(QDialog):
 
         # Configure the UI widgets
 
-        self._ui.cbox_delimiter.addItem(self.tr('Tab'), '\t')
-        self._ui.cbox_delimiter.addItem(self.tr('Comma'), ',')
-        self._ui.cbox_delimiter.addItem(self.tr('Space'), ' ')
+        self._ui.cbox_delimiter.addItem(self.tr("Tab"), "\t")
+        self._ui.cbox_delimiter.addItem(self.tr("Comma"), ",")
+        self._ui.cbox_delimiter.addItem(self.tr("Space"), " ")
 
-        self._ui.cbox_wavelength_units.addItem(self.tr('No units'   ), None        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Meters'     ), 'm'         )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Centimeters'), 'cm'        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Millimeters'), 'mm'        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Micrometers'), 'um'        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Nanometers' ), 'nm'        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Angstroms'  ), 'angstroms' )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Wavenumber' ), 'wavenumber')
-        self._ui.cbox_wavelength_units.addItem(self.tr('MHz'        ), 'mhz'       )
-        self._ui.cbox_wavelength_units.addItem(self.tr('GHz'        ), 'ghz'       )
+        self._ui.cbox_wavelength_units.addItem(self.tr("No units"), None)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Meters"), "m")
+        self._ui.cbox_wavelength_units.addItem(self.tr("Centimeters"), "cm")
+        self._ui.cbox_wavelength_units.addItem(self.tr("Millimeters"), "mm")
+        self._ui.cbox_wavelength_units.addItem(self.tr("Micrometers"), "um")
+        self._ui.cbox_wavelength_units.addItem(self.tr("Nanometers"), "nm")
+        self._ui.cbox_wavelength_units.addItem(self.tr("Angstroms"), "angstroms")
+        self._ui.cbox_wavelength_units.addItem(self.tr("Wavenumber"), "wavenumber")
+        self._ui.cbox_wavelength_units.addItem(self.tr("MHz"), "mhz")
+        self._ui.cbox_wavelength_units.addItem(self.tr("GHz"), "ghz")
 
         self._ui.rb_wavelengths_none.setChecked(True)
 
@@ -84,21 +84,20 @@ class ImportSpectraTextDialog(QDialog):
         self.update_results()
 
     def guess_delimiter(self):
-        avg_tabs = avg_occurrences_per_line(self._spectra_text, '\t')
-        avg_commas = avg_occurrences_per_line(self._spectra_text, ',')
-        avg_spaces = avg_occurrences_per_line(self._spectra_text, ' ')
+        avg_tabs = avg_occurrences_per_line(self._spectra_text, "\t")
+        avg_commas = avg_occurrences_per_line(self._spectra_text, ",")
+        # avg_spaces = avg_occurrences_per_line(self._spectra_text, ' ')
 
         # We prioritize the delimiters since commas are definitely not numbers,
         # and the others are whitespace so they can be stripped.  But, if there
         # are no commas, then we can assume the delimiter is tabs (if they
         # appear) or spaces (as the default fallback).
         if avg_commas >= 1:
-            self.set_delimiter(',')
+            self.set_delimiter(",")
         elif avg_tabs >= 1:
-            self.set_delimiter('\t')
+            self.set_delimiter("\t")
         else:
-            self.set_delimiter(' ')
-
+            self.set_delimiter(" ")
 
     def set_delimiter(self, delim):
         index = self._ui.cbox_delimiter.findData(delim)
@@ -108,10 +107,10 @@ class ImportSpectraTextDialog(QDialog):
         self._ui.cbox_delimiter.setCurrentIndex(index)
 
     def guess_has_header(self):
-        '''
+        """
         This function takes the current delimiter and guesses whether or not
         the input data has a header row or not.
-        '''
+        """
         header_row = self._spectra_text[0]
         parts = header_row.split(self._ui.cbox_delimiter.currentData())
 
@@ -132,10 +131,9 @@ class ImportSpectraTextDialog(QDialog):
         if has_header and len(parts) > 0:
             # See how many parts of the header start with the word "wavelength".
             # This generates an array of bool values.
-            wavelength_parts = [p.lower().startswith('wavelength') for p in parts]
+            wavelength_parts = [p.lower().startswith("wavelength") for p in parts]
 
-            if (len(wavelength_parts) % 2 == 0 and
-                sum(wavelength_parts) == len(wavelength_parts) // 2):
+            if len(wavelength_parts) % 2 == 0 and sum(wavelength_parts) == len(wavelength_parts) // 2:
                 # There are an even number of columns, and the odd columns all
                 # start with "wavelength", so guess "odd-column wavelengths"
                 self._ui.rb_wavelengths_odd_cols.setChecked(True)
@@ -149,13 +147,13 @@ class ImportSpectraTextDialog(QDialog):
                 self._ui.rb_wavelengths_none.setChecked(True)
 
     def update_results(self):
-        '''
+        """
         This method attempts to parse the input text into spectra based on the
         current configuration.  If a failure occurs, the method outputs the
         failure into the results window.  If the spectra parse successfully,
         the number, names, and band-counts of the spectra are output into the
         results window.
-        '''
+        """
         self._ui.txtedit_results.clear()
 
         # Get out all the config so we can try parsing the data with it.
@@ -173,31 +171,36 @@ class ImportSpectraTextDialog(QDialog):
         wavelength_units = self._ui.cbox_wavelength_units.currentData()
 
         try:
-            spectra = spectra_export.import_spectra_text(self._spectra_text,
-                delim=delim, has_header=has_header,
+            spectra = spectra_export.import_spectra_text(
+                self._spectra_text,
+                delim=delim,
+                has_header=has_header,
                 source_name=os.path.basename(self._filepath),
-                wavelength_cols=wavelength_cols, wavelength_unit=wavelength_units)
+                wavelength_cols=wavelength_cols,
+                wavelength_unit=wavelength_units,
+            )
 
-            msg = self.tr('Successfully parsed text into {0} spectra:')
+            msg = self.tr("Successfully parsed text into {0} spectra:")
             msg = msg.format(len(spectra))
 
-            msg += '<ul>'
+            msg += "<ul>"
             for s in spectra:
                 s_msg = self.tr('<li>"{0}" ({1} bands)</li>')
                 s_msg = s_msg.format(s.get_name(), s.num_bands())
                 msg += s_msg
-            msg += '</ul>'
+            msg += "</ul>"
 
             self._spectra = spectra
 
         except Exception as e:
             traceback.print_exc()
 
-            msg = self.tr('<p style="color:red">ERROR:  Could not parse text into spectra.</p><p>Reason:  {0}</p>')
+            msg = self.tr(
+                '<p style="color:red">ERROR:  Could not parse text into spectra.</p><p>Reason:  {0}</p>'
+            )
             msg = msg.format(str(e))
 
         self._ui.txtedit_results.setHtml(msg)
-
 
     def get_spectra(self):
         return self._spectra

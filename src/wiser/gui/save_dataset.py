@@ -17,10 +17,10 @@ from wiser.raster.utils import spectral_unit_to_string
 
 
 def get_boolean_tablewidgetitem(value: bool) -> QTableWidgetItem:
-    '''
+    """
     Returns a ``QTableWidgetItem`` object for displaying a Boolean flag.  The
     initial value of the flag is specified as the ``value`` argument.
-    '''
+    """
     twi = QTableWidgetItem()
     twi.setFlags(Qt.ItemIsEnabled | Qt.ItemIsEditable | Qt.ItemIsUserCheckable)
     if value:
@@ -34,20 +34,20 @@ def get_boolean_tablewidgetitem(value: bool) -> QTableWidgetItem:
 
 
 def get_defaultband_tablewidgetitem(band_index: int, defaults: Union[Tuple[int], Tuple[int, int, int]]):
-    '''
+    """
     Returns a ``QTableWidgetItem`` object for displaying the "default display
     bands" information.
-    '''
-    txt = ''
+    """
+    txt = ""
     if defaults is not None:
         if len(defaults) == 1 and band_index == defaults[0]:
-            txt = 'Grayscale'
+            txt = "Grayscale"
 
         elif len(defaults) == 3:
             try:
                 # Look up whether the band-index is red, green, blue - or not in
                 # the defaults at all.
-                txt = ['Red', 'Green', 'Blue'][defaults.index(band_index)]
+                txt = ["Red", "Green", "Blue"][defaults.index(band_index)]
             except ValueError:
                 pass
 
@@ -55,12 +55,12 @@ def get_defaultband_tablewidgetitem(band_index: int, defaults: Union[Tuple[int],
     return twi
 
 
-
 class SaveDatasetDetails(QWidget):
-    '''
+    """
     A base-class for both of the save-dataset widgets, since they share some
     basic behavior.
-    '''
+    """
+
     def __init__(self, ui, app_state, ds_id, parent=None):
         super().__init__(parent=parent)
         self._ui = ui
@@ -83,23 +83,21 @@ class SaveDatasetDetails(QWidget):
 
         # Configure the UI components
 
-        self._ui.cbox_save_format.addItem('ENVI')
+        self._ui.cbox_save_format.addItem("ENVI")
 
         self._ui.ledit_filename.editingFinished.connect(self._on_edit_save_filename)
         self._ui.btn_filename.clicked.connect(self._on_choose_save_filename)
 
         self._load_dataset_details()
 
-
     def _configure_ui(self):
         pass
 
-
     def _load_dataset_details(self):
-        '''
+        """
         Load configuration from the datset into the UI widgets.  The base
         implementation only populates the common widgets.
-        '''
+        """
         # TODO(donnie):  If user can choose a dataset, populate dataset combo-box
         # TODO(donnie):  If dataset is specified, select it in the combo-box
 
@@ -122,22 +120,19 @@ class SaveDatasetDetails(QWidget):
 
         self._update_save_filenames()
 
-
     def _on_edit_save_filename(self):
-        '''
+        """
         A handler for when editing is finished on the "save-filename" field.
-        '''
+        """
         self._update_save_filenames()
 
-
     def _on_choose_save_filename(self, checked=False):
-        '''
+        """
         A handler for when the file-chooser for the "save-filename" is shown.
-        '''
+        """
 
         # TODO(donnie):  Do we want a filter on this dialog?
-        file_dialog = QFileDialog(parent=self,
-            caption=self.tr('Save raster dataset'))
+        file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         file_dialog.setFileMode(QFileDialog.AnyFile)
         file_dialog.setAcceptMode(QFileDialog.AcceptSave)
@@ -154,16 +149,15 @@ class SaveDatasetDetails(QWidget):
 
             self._update_save_filenames()
 
-
     def _update_save_filenames(self):
-        '''
+        """
         When the "save-filename" field changes, the "writes to" field is updated
         with the actual files that will be written to.
-        '''
+        """
         self._ui.lbl_filenames_value.clear()
 
         path = self._ui.ledit_filename.text().strip()
-        has_path = (len(path) > 0)
+        has_path = len(path) > 0
 
         self._ui.lbl_writes_to.setVisible(has_path)
         self._ui.lbl_filenames_value.setVisible(has_path)
@@ -175,22 +169,19 @@ class SaveDatasetDetails(QWidget):
         loader = self._app_state.get_loader()
         filenames = loader.get_save_filenames(path, format)
 
-        display_filenames = '\n'.join([os.path.basename(filename) for filename in filenames])
+        display_filenames = "\n".join([os.path.basename(filename) for filename in filenames])
         self._ui.lbl_filenames_value.setText(display_filenames)
-
 
     def verify_config(self) -> bool:
         path = self._ui.ledit_filename.text().strip()
         if not path:
-            QMessageBox.warning(self, self.tr('Missing filename'),
-                self.tr('Filename must be specified'))
+            QMessageBox.warning(self, self.tr("Missing filename"), self.tr("Filename must be specified"))
             return False
 
         return True
 
-
     def set_config(self, config: Dict):
-        source_ds_id = config.get('source_ds_id')
+        source_ds_id = config.get("source_ds_id")
         if source_ds_id:
             # Update the dataset display/config.
 
@@ -207,9 +198,9 @@ class SaveDatasetDetails(QWidget):
                     self._ui.cbox_dataset.addItem(dataset.get_name(), dataset.get_id())
                     self._ui.cbox_dataset.setCurrentIndex(self._ui.cbox_dataset.count())
 
-        self._ui.ledit_filename.setText(config.get('path'))
+        self._ui.ledit_filename.setText(config.get("path"))
 
-        format = config.get('format', 'ENVI')
+        format = config.get("format", "ENVI")
         index = self._ui.cbox_save_format.findText(format)
         if index == -1:
             index = 0
@@ -217,63 +208,59 @@ class SaveDatasetDetails(QWidget):
 
         self._update_save_filenames()
 
-
     def get_config(self) -> Dict[str, Any]:
         return {
-            'source_ds_id': self._ui.cbox_dataset.currentData(),
-            'path': self._ui.ledit_filename.text().strip(),
-            'format': self._ui.cbox_save_format.currentText(),
+            "source_ds_id": self._ui.cbox_dataset.currentData(),
+            "path": self._ui.ledit_filename.text().strip(),
+            "format": self._ui.cbox_save_format.currentText(),
         }
 
 
 class SaveDatasetBasicDetails(SaveDatasetDetails):
     def __init__(self, app_state, ds_id, parent=None):
-        super().__init__(Ui_SaveDatasetBasicDetails(),
-            app_state, ds_id, parent=parent)
+        super().__init__(Ui_SaveDatasetBasicDetails(), app_state, ds_id, parent=parent)
 
 
 class SaveDatasetAdvancedDetails(SaveDatasetDetails):
     def __init__(self, app_state, ds_id, parent=None):
-        super().__init__(Ui_SaveDatasetAdvancedDetails(),
-            app_state, ds_id, parent=parent)
-
+        super().__init__(Ui_SaveDatasetAdvancedDetails(), app_state, ds_id, parent=parent)
 
     def _configure_ui(self):
-        '''
+        """
         This helper method takes care of GENERAL (i.e. NOT dataset-specific)
         configuration of the user interface, such as populating general data
         values, hooking up event-handlers, etc.
 
         Dataset-specific configuration should be in the _load_dataset_details()
         method.
-        '''
+        """
         super()._configure_ui()
 
-        #========================================
+        # ========================================
         # General tab
 
         self._ui.ledit_data_ignore_value.setValidator(QDoubleValidator())
 
-        #========================================
+        # ========================================
         # Dimensions tab
 
         # None needed
 
-        #========================================
+        # ========================================
         # Bands tab
 
         # Populate the "wavelength-units" combobox.
-        self._ui.cbox_wavelength_units.addItem(self.tr('No units'   ), None        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Meters'     ), u.m         )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Centimeters'), u.cm        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Millimeters'), u.mm        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Micrometers'), u.micrometer)
-        self._ui.cbox_wavelength_units.addItem(self.tr('Nanometers' ), u.nm        )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Microns'    ), u.micron    )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Angstroms'  ), u.angstrom  )
-        self._ui.cbox_wavelength_units.addItem(self.tr('Wavenumber' ), u.cm ** -1  )
-        self._ui.cbox_wavelength_units.addItem(self.tr('MHz'        ), u.MHz       )
-        self._ui.cbox_wavelength_units.addItem(self.tr('GHz'        ), u.GHz       )
+        self._ui.cbox_wavelength_units.addItem(self.tr("No units"), None)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Meters"), u.m)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Centimeters"), u.cm)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Millimeters"), u.mm)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Micrometers"), u.micrometer)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Nanometers"), u.nm)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Microns"), u.micron)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Angstroms"), u.angstrom)
+        self._ui.cbox_wavelength_units.addItem(self.tr("Wavenumber"), u.cm**-1)
+        self._ui.cbox_wavelength_units.addItem(self.tr("MHz"), u.MHz)
+        self._ui.cbox_wavelength_units.addItem(self.tr("GHz"), u.GHz)
 
         # TODO(donnie):  Add back in the future
         self._ui.tabWidget.removeTab(self._ui.tabWidget.indexOf(self._ui.tab_projection))
@@ -289,7 +276,6 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         self._ui.rb_gray_default_bands.clicked.connect(self._on_gray_default_bands)
         self._ui.btn_choose_visible_light_bands.clicked.connect(self._on_choose_visible_light_bands)
 
-
     def _load_dataset_details(self):
         # Do the basic configuration first.
         super()._load_dataset_details()
@@ -297,34 +283,28 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         # Handle all the advanced configuration now.
         self._show_dataset_in_ui()
 
-
     def _on_dataset_changed(self, index):
         ds_id = self._ui.cbox_dataset.currentData()
         self._dataset = self._app_state.get_dataset(ds_id)
         self._show_dataset_in_ui()
-
 
     def _on_include_all_bands(self, checked=False):
         for i in range(self._ui.tbl_bands.rowCount()):
             twi = self._ui.tbl_bands.item(i, 0)
             twi.setCheckState(Qt.Checked)
 
-
     def _on_exclude_all_bands(self, checked=False):
         for i in range(self._ui.tbl_bands.rowCount()):
             twi = self._ui.tbl_bands.item(i, 0)
             twi.setCheckState(Qt.Unchecked)
 
-
     def _on_rgb_default_bands(self, checked=False):
         if checked:
             self._ui.stk_default_bands.setCurrentIndex(0)
 
-
     def _on_gray_default_bands(self, checked=False):
         if checked:
             self._ui.stk_default_bands.setCurrentIndex(1)
-
 
     def _show_dataset_in_ui(self):
         (bands, height, width) = self._dataset.get_shape()
@@ -335,17 +315,17 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
         self._ui.ledit_description.setText(self._dataset.get_description())
         self._ui.ledit_description.setCursorPosition(0)
 
-        s = ''
+        s = ""
         v = self._dataset.get_data_ignore_value()
         if v is not None:
             s = str(v)
 
         self._ui.ledit_data_ignore_value.setText(s)
 
-        #========================================
+        # ========================================
         # Dimensions tab
 
-        self._ui.lbl_src_dims_value.setText(f'{width} x {height}')
+        self._ui.lbl_src_dims_value.setText(f"{width} x {height}")
 
         self._ui.sbox_left.setRange(0, width - 1)
         self._ui.sbox_left.setValue(0)
@@ -363,27 +343,25 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
         self._ui.tbl_bands.clearContents()
         # TODO(donnie) - Needed?
-        #self._ui.tbl_bands.setRowCount(0)
+        # self._ui.tbl_bands.setRowCount(0)
 
         bad_bands = self._dataset.get_bad_bands()
         for band_info in self._dataset.band_list():
-            index = band_info['index']
+            index = band_info["index"]
 
             self._ui.tbl_bands.insertRow(index)
 
             # Column 0:  Include the band?
-            self._ui.tbl_bands.setItem(index, 0,
-                get_boolean_tablewidgetitem(True))
+            self._ui.tbl_bands.setItem(index, 0, get_boolean_tablewidgetitem(True))
 
             # Column 1:  Is it a bad band?
-            self._ui.tbl_bands.setItem(index, 1,
-                get_boolean_tablewidgetitem(bad_bands[index] == 0))
+            self._ui.tbl_bands.setItem(index, 1, get_boolean_tablewidgetitem(bad_bands[index] == 0))
 
             # Column 2:  Band name / wavelength
             if self._dataset.has_wavelengths():
-                desc = band_info['wavelength_str']
+                desc = band_info["wavelength_str"]
             else:
-                desc = band_info['description']
+                desc = band_info["description"]
 
             self._ui.tbl_bands.setItem(index, 2, QTableWidgetItem(desc))
 
@@ -400,15 +378,16 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
         # Always populate the comboboxes, regardless of whether we have defaults
         # already.
-        for cbox in [self._ui.cbox_default_red_band,
-                     self._ui.cbox_default_green_band,
-                     self._ui.cbox_default_blue_band,
-                     self._ui.cbox_default_gray_band]:
-
+        for cbox in [
+            self._ui.cbox_default_red_band,
+            self._ui.cbox_default_green_band,
+            self._ui.cbox_default_blue_band,
+            self._ui.cbox_default_gray_band,
+        ]:
             for band_info in self._dataset.band_list():
-                cbox.addItem(band_info['description'])
+                cbox.addItem(band_info["description"])
 
-        has_defaults = (defaults is not None)
+        has_defaults = defaults is not None
 
         self._ui.gbox_default_bands.setChecked(has_defaults)
         if has_defaults:
@@ -427,44 +406,45 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
                 self._ui.cbox_default_gray_band.setCurrentIndex(defaults[0])
 
             else:
-                raise ValueError(f'Default-display-bands {defaults} length is unexpected')
+                raise ValueError(f"Default-display-bands {defaults} length is unexpected")
 
         else:
             # Make sure at least one of the radio-buttons is checked.
             self._ui.rb_rgb_default_bands.setChecked(True)
             self._ui.stk_default_bands.setCurrentIndex(0)
 
-        truecolor_bands = find_truecolor_bands(self._dataset,
-            red=self._app_state.get_config('general.red_wavelength_nm') * u.nm,
-            green=self._app_state.get_config('general.green_wavelength_nm') * u.nm,
-            blue=self._app_state.get_config('general.blue_wavelength_nm') * u.nm)
+        truecolor_bands = find_truecolor_bands(
+            self._dataset,
+            red=self._app_state.get_config("general.red_wavelength_nm") * u.nm,
+            green=self._app_state.get_config("general.green_wavelength_nm") * u.nm,
+            blue=self._app_state.get_config("general.blue_wavelength_nm") * u.nm,
+        )
 
         self._ui.btn_choose_visible_light_bands.setEnabled(truecolor_bands is not None)
 
-
     def _on_choose_visible_light_bands(self, checked=False):
-        truecolor_bands = find_truecolor_bands(self._dataset,
-            red=self._app_state.get_config('general.red_wavelength_nm') * u.nm,
-            green=self._app_state.get_config('general.green_wavelength_nm') * u.nm,
-            blue=self._app_state.get_config('general.blue_wavelength_nm') * u.nm)
+        truecolor_bands = find_truecolor_bands(
+            self._dataset,
+            red=self._app_state.get_config("general.red_wavelength_nm") * u.nm,
+            green=self._app_state.get_config("general.green_wavelength_nm") * u.nm,
+            blue=self._app_state.get_config("general.blue_wavelength_nm") * u.nm,
+        )
 
         self._ui.cbox_default_red_band.setCurrentIndex(truecolor_bands[0])
         self._ui.cbox_default_green_band.setCurrentIndex(truecolor_bands[1])
         self._ui.cbox_default_blue_band.setCurrentIndex(truecolor_bands[2])
 
-
     def verify_config(self) -> bool:
-        #========================================
+        # ========================================
         # General tab
 
         path = self._ui.ledit_filename.text().strip()
         if not path:
             self._ui.tabWidget.setCurrentWidget(self._ui.tab_general)
-            QMessageBox.warning(self, self.tr('Missing filename'),
-                self.tr('Filename must be specified'))
+            QMessageBox.warning(self, self.tr("Missing filename"), self.tr("Filename must be specified"))
             return False
 
-        #========================================
+        # ========================================
         # Dimensions tab
 
         if self._ui.gbox_spatial_subset.isChecked():
@@ -478,112 +458,137 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
             if not (0 <= output_left < width):
                 self._ui.tabWidget.setCurrentWidget(self._ui.tab_dimensions)
-                QMessageBox.warning(self, self.tr('Bad Dimensions'),
-                    self.tr('Left-value must be between 0 and the image width'))
+                QMessageBox.warning(
+                    self,
+                    self.tr("Bad Dimensions"),
+                    self.tr("Left-value must be between 0 and the image width"),
+                )
                 return False
 
             if not (0 <= output_top < height):
                 self._ui.tabWidget.setCurrentWidget(self._ui.tab_dimensions)
-                QMessageBox.warning(self, self.tr('Bad Dimensions'),
-                    self.tr('Top-value must be between 0 and the image height'))
+                QMessageBox.warning(
+                    self,
+                    self.tr("Bad Dimensions"),
+                    self.tr("Top-value must be between 0 and the image height"),
+                )
                 return False
 
             if not (0 < output_left + output_width <= width):
                 self._ui.tabWidget.setCurrentWidget(self._ui.tab_dimensions)
-                QMessageBox.warning(self, self.tr('Bad Dimensions'),
-                    self.tr('Left-value and output-width must sum to less than the image width'))
+                QMessageBox.warning(
+                    self,
+                    self.tr("Bad Dimensions"),
+                    self.tr("Left-value and output-width must sum to less than the image width"),
+                )
                 return False
 
             if not (0 < output_top + output_height <= height):
                 self._ui.tabWidget.setCurrentWidget(self._ui.tab_dimensions)
-                QMessageBox.warning(self, self.tr('Bad Dimensions'),
-                    self.tr('Top-value and output-height must sum to less than the image height'))
+                QMessageBox.warning(
+                    self,
+                    self.tr("Bad Dimensions"),
+                    self.tr("Top-value and output-height must sum to less than the image height"),
+                )
                 return False
 
-        #========================================
+        # ========================================
         # Bands tab
 
         band_units: Optional[u.Unit] = self._ui.cbox_wavelength_units.currentData()
 
         count_included = 0
         for i in range(self._ui.tbl_bands.rowCount()):
-            include_band = (self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked)
+            include_band = self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked
             if include_band:
                 count_included += 1
 
             if band_units is not None:
                 band_name = self._ui.tbl_bands.item(i, 2).text()
                 try:
-                    wl = float(band_name)
+                    wl = float(band_name)  # noqa: F841
                 except ValueError:
                     self._ui.tabWidget.setCurrentWidget(self._ui.tab_bands)
                     self._ui.tbl_bands.showRow(i)
                     # Add 1 to the index, since the Qt table will have 1-based
                     # row numbers
-                    QMessageBox.warning(self, self.tr('Bad Band-Wavelength'),
-                        self.tr(f'Band {i+1} name must be a number'))
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Bad Band-Wavelength"),
+                        self.tr(f"Band {i+1} name must be a number"),
+                    )
                     return False
 
         if count_included == 0:
             self._ui.tabWidget.setCurrentWidget(self._ui.tab_bands)
-            QMessageBox.warning(self, self.tr('No Bands Included'),
-                self.tr('No bands are included in the output.\n' +
-                        'Please mark at least one band to be included.'))
+            QMessageBox.warning(
+                self,
+                self.tr("No Bands Included"),
+                self.tr(
+                    "No bands are included in the output.\n" + "Please mark at least one band to be included."
+                ),
+            )
             return False
 
-        #========================================
+        # ========================================
         # Display Bands tab
 
         if self._ui.gbox_default_bands.isChecked():
             # Pull out the default display bands
             defaults = None
             if self._ui.rb_rgb_default_bands.isChecked():
-                defaults = (self._ui.cbox_default_red_band.currentIndex(),
-                            self._ui.cbox_default_green_band.currentIndex(),
-                            self._ui.cbox_default_blue_band.currentIndex(), )
+                defaults = (
+                    self._ui.cbox_default_red_band.currentIndex(),
+                    self._ui.cbox_default_green_band.currentIndex(),
+                    self._ui.cbox_default_blue_band.currentIndex(),
+                )
 
             else:
                 assert self._ui.rb_gray_default_bands.isChecked()
-                defaults = (self._ui.cbox_default_gray_band.currentIndex(), )
+                defaults = (self._ui.cbox_default_gray_band.currentIndex(),)
 
             # Make sure that every default display-band is actually marked as
             # included in the output.
             for i in defaults:
-                include_band = (self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked)
+                include_band = self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked
 
                 if not include_band:
                     self._ui.tabWidget.setCurrentWidget(self._ui.tab_display_bands)
                     # Add 1 to the index, since the Qt table will have 1-based
                     # row numbers
-                    QMessageBox.warning(self, self.tr('Display Band Not Included'),
-                        self.tr(f'Band {i+1} is set as a default display band,\n' +
-                                'but is also not being included in the output.'))
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Display Band Not Included"),
+                        self.tr(
+                            f"Band {i+1} is set as a default display band,\n"
+                            + "but is also not being included in the output."
+                        ),
+                    )
                     return False
 
-        #========================================
+        # ========================================
         # Projection tab
 
         # Nothing to do on this tab.
 
         return True
 
-
     def get_config(self) -> Dict[str, Any]:
         # Let the superclass implementation get the basic info into a dictionary
         config = super().get_config()
 
-        #========================================
+        # ========================================
         # General tab
 
         s = self._ui.ledit_description.text().strip()
         if s:
-            config['description'] = s
+            config["description"] = s
 
         s = self._ui.ledit_data_ignore_value.text()
         if s:
-            config['data_ignore'] = float(s)
+            config["data_ignore"] = float(s)
 
-        #========================================
+        # ========================================
         # Dimensions tab
 
         if self._ui.gbox_spatial_subset.isChecked():
@@ -594,19 +599,21 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
             output_width = self._ui.sbox_width.value()
             output_height = self._ui.sbox_height.value()
 
-            config.update({
-                    'left': output_left,
-                    'top': output_top,
-                    'width': output_width,
-                    'height': output_height,
-                })
+            config.update(
+                {
+                    "left": output_left,
+                    "top": output_top,
+                    "width": output_width,
+                    "height": output_height,
+                }
+            )
 
-        #========================================
+        # ========================================
         # Bands tab
 
         config.update(self._get_ui_band_info())
 
-        #========================================
+        # ========================================
         # Display Bands tab
 
         if self._ui.gbox_default_bands.isChecked():
@@ -615,40 +622,41 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
             # bands, as some bands may not be included in the target image.
             defaults = None
             if self._ui.rb_rgb_default_bands.isChecked():
-                defaults = (self._ui.cbox_default_red_band.currentIndex(),
-                            self._ui.cbox_default_green_band.currentIndex(),
-                            self._ui.cbox_default_blue_band.currentIndex(), )
+                defaults = (
+                    self._ui.cbox_default_red_band.currentIndex(),
+                    self._ui.cbox_default_green_band.currentIndex(),
+                    self._ui.cbox_default_blue_band.currentIndex(),
+                )
 
             else:
                 assert self._ui.rb_gray_default_bands.isChecked()
-                defaults = (self._ui.cbox_default_gray_band.currentIndex(), )
+                defaults = (self._ui.cbox_default_gray_band.currentIndex(),)
 
-            config['default_display_bands'] = defaults
+            config["default_display_bands"] = defaults
 
-        #========================================
+        # ========================================
         # Projection tab
 
         # TODO(donnie):  ?
 
         return config
 
-
     def _get_ui_band_info(self):
-        '''
+        """
         This helper function retrieves the band-configuration information from
         the advanced user interface, and returns it as a dictionary of key-value
         pairs.
-        '''
+        """
 
         band_config = {}
 
         band_units: Optional[u.Unit] = self._ui.cbox_wavelength_units.currentData()
         band_units_str: Optional[str] = spectral_unit_to_string(band_units)
 
-        names_key: str = 'names'
+        names_key: str = "names"
         if band_units is not None:
-            names_key = 'wavelengths'
-            band_config['wavelength_units'] = band_units_str
+            names_key = "wavelengths"
+            band_config["wavelength_units"] = band_units_str
 
         include_bands: List[bool] = []
         bad_bands: List[bool] = []
@@ -656,12 +664,12 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
 
         need_includes = False
         for i in range(self._ui.tbl_bands.rowCount()):
-            include_band = (self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked)
+            include_band = self._ui.tbl_bands.item(i, 0).checkState() == Qt.Checked
             include_bands.append(include_band)
             if not include_band:
                 need_includes = True
 
-            bad_band = (self._ui.tbl_bands.item(i, 1).checkState() == Qt.Checked)
+            bad_band = self._ui.tbl_bands.item(i, 1).checkState() == Qt.Checked
             bad_bands.append(bad_band)
 
             band_name = self._ui.tbl_bands.item(i, 2).text()
@@ -673,21 +681,20 @@ class SaveDatasetAdvancedDetails(SaveDatasetDetails):
             band_names.append(band_name)
 
         band_config[names_key] = band_names
-        band_config['bad_bands'] = bad_bands
+        band_config["bad_bands"] = bad_bands
         if need_includes:
-            band_config['include_bands'] = include_bands
+            band_config["include_bands"] = include_bands
 
         return band_config
 
 
 class SaveDatasetDialog(QDialog):
-    '''
+    """
     A dialog for saving a dataset, with optional features for subsetting and
     editing metadata.
-    '''
+    """
 
     def __init__(self, app_state, ds_id: Optional[int] = None, parent=None):
-
         super().__init__(parent=parent)
         self._ui = Ui_SaveDatasetDialog()
         self._ui.setupUi(self)
@@ -702,11 +709,10 @@ class SaveDatasetDialog(QDialog):
         self._ui.wgt_details.insertWidget(0, self._basic_details)
         self._ui.wgt_details.insertWidget(1, self._advanced_details)
         self._ui.wgt_details.setCurrentIndex(0)
-        self._ui.btn_toggle_advanced.setText(self.tr('Show Advanced...'))
+        self._ui.btn_toggle_advanced.setText(self.tr("Show Advanced..."))
         # self.adjustSize()
 
         self._ui.btn_toggle_advanced.clicked.connect(self._on_toggle_advanced)
-
 
     def _on_toggle_advanced(self, checked=False):
         old_widget = self._current_detail_widget()
@@ -716,20 +722,18 @@ class SaveDatasetDialog(QDialog):
         self._basic_mode = not self._basic_mode
         if self._basic_mode:
             self._ui.wgt_details.setCurrentIndex(0)
-            self._ui.btn_toggle_advanced.setText(self.tr('Show Advanced...'))
+            self._ui.btn_toggle_advanced.setText(self.tr("Show Advanced..."))
 
         else:
             self._ui.wgt_details.setCurrentIndex(1)
-            self._ui.btn_toggle_advanced.setText(self.tr('Show Basic...'))
+            self._ui.btn_toggle_advanced.setText(self.tr("Show Basic..."))
 
         # self.adjustSize()
 
         new_widget = self._current_detail_widget()
         new_widget.set_config(config)
 
-
     def _configure_ui(self):
-
         # TODO(donnie):  If user can choose a dataset, populate dataset combo-box
         # TODO(donnie):  If dataset is specified, select it in the combo-box
 
@@ -752,16 +756,12 @@ class SaveDatasetDialog(QDialog):
 
         self._update_save_filenames()
 
-
     def _on_edit_save_filename(self):
         self._update_save_filenames()
 
-
     def _on_choose_save_filename(self, checked=False):
-
         # TODO(donnie):  Do we want a filter on this dialog?
-        file_dialog = QFileDialog(parent=self,
-            caption=self.tr('Save raster dataset'))
+        file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         file_dialog.setFileMode(QFileDialog.AnyFile)
         file_dialog.setAcceptMode(QFileDialog.AcceptSave)
@@ -778,12 +778,11 @@ class SaveDatasetDialog(QDialog):
 
             self._update_save_filenames()
 
-
     def _update_save_filenames(self):
         self._ui.lbl_filenames_value.clear()
 
         path = self._ui.ledit_filename.text().strip()
-        has_path = (len(path) > 0)
+        has_path = len(path) > 0
 
         self._ui.lbl_writes_to.setVisible(has_path)
         self._ui.lbl_filenames_value.setVisible(has_path)
@@ -795,15 +794,13 @@ class SaveDatasetDialog(QDialog):
         loader = self._app_state.get_loader()
         filenames = loader.get_save_filenames(path, format)
 
-        display_filenames = '\n'.join([os.path.basename(filename) for filename in filenames])
+        display_filenames = "\n".join([os.path.basename(filename) for filename in filenames])
         self._ui.lbl_filenames_value.setText(display_filenames)
-
 
     def accept(self):
         # If the current detail-widget says the config is good, accept it!
         if self._current_detail_widget().verify_config():
             super().accept()
-
 
     def _current_detail_widget(self):
         if self._basic_mode:
@@ -811,16 +808,13 @@ class SaveDatasetDialog(QDialog):
         else:
             return self._advanced_details
 
-
     def get_config(self) -> Dict[str, Any]:
         return self._current_detail_widget().get_config()
 
-
     def get_save_path(self) -> Optional[str]:
         config = self.get_config()
-        return config['path']
-
+        return config["path"]
 
     def get_save_format(self) -> str:
         config = self.get_config()
-        return config['format']
+        return config["format"]

@@ -6,104 +6,105 @@ from wiser.raster import utils
 import numpy as np
 from astropy import units as u
 
-class TestRasterUtils(unittest.TestCase):
-    '''
-    Exercise code in the wiser.raster.utils module.
-    '''
 
-    #======================================================
+class TestRasterUtils(unittest.TestCase):
+    """
+    Exercise code in the wiser.raster.utils module.
+    """
+
+    # ======================================================
     # wiser.raster.utils.make_spectral_value()
 
     def test_make_spectral_value_centimeters(self):
-        v = utils.make_spectral_value(35.2, 'centimeters')
+        v = utils.make_spectral_value(35.2, "centimeters")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.cm)
 
     def test_make_spectral_value_meters(self):
-        v = utils.make_spectral_value(35.2, 'meters')
+        v = utils.make_spectral_value(35.2, "meters")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.m)
 
     def test_make_spectral_value_micrometers(self):
-        v = utils.make_spectral_value(35.2, 'micrometers')
+        v = utils.make_spectral_value(35.2, "micrometers")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.micrometer)
 
     def test_make_spectral_value_millimeters(self):
-        v = utils.make_spectral_value(35.2, 'millimeters')
+        v = utils.make_spectral_value(35.2, "millimeters")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.millimeter)
 
     def test_make_spectral_value_microns(self):
-        v = utils.make_spectral_value(35.2, 'microns')
+        v = utils.make_spectral_value(35.2, "microns")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.micron)
 
     def test_make_spectral_value_nanometers(self):
-        v = utils.make_spectral_value(35.2, 'nanometers')
+        v = utils.make_spectral_value(35.2, "nanometers")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.nanometer)
 
     def test_make_spectral_value_cm(self):
-        v = utils.make_spectral_value(35.2, 'cm')
+        v = utils.make_spectral_value(35.2, "cm")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.cm)
 
     def test_make_spectral_value_m(self):
-        v = utils.make_spectral_value(35.2, 'm')
+        v = utils.make_spectral_value(35.2, "m")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.m)
 
     def test_make_spectral_value_mm(self):
-        v = utils.make_spectral_value(35.2, 'mm')
+        v = utils.make_spectral_value(35.2, "mm")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.millimeter)
 
     def test_make_spectral_value_nm(self):
-        v = utils.make_spectral_value(35.2, 'nm')
+        v = utils.make_spectral_value(35.2, "nm")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.nanometer)
 
     def test_make_spectral_value_um(self):
-        v = utils.make_spectral_value(35.2, 'um')
+        v = utils.make_spectral_value(35.2, "um")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.micrometer)
 
     def test_make_spectral_value_wavenumber(self):
-        v = utils.make_spectral_value(35.2, 'wavenumber')
+        v = utils.make_spectral_value(35.2, "wavenumber")
         self.assertAlmostEqual(v.value, 35.2)
-        self.assertEqual(v.unit, u.cm ** -1)
+        self.assertEqual(v.unit, u.cm**-1)
 
     def test_make_spectral_value_angstroms(self):
-        v = utils.make_spectral_value(35.2, 'angstroms')
+        v = utils.make_spectral_value(35.2, "angstroms")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.angstrom)
 
     def test_make_spectral_value_ghz(self):
-        v = utils.make_spectral_value(35.2, 'GHz')
+        v = utils.make_spectral_value(35.2, "GHz")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.GHz)
 
     def test_make_spectral_value_mhz(self):
-        v = utils.make_spectral_value(35.2, 'MHz')
+        v = utils.make_spectral_value(35.2, "MHz")
         self.assertAlmostEqual(v.value, 35.2)
         self.assertEqual(v.unit, u.MHz)
 
     def test_make_spectral_value_throws_on_unrecognized_units(self):
         with self.assertRaises(KeyError):
-            utils.make_spectral_value(35.2, 'stone')
+            utils.make_spectral_value(35.2, "stone")
 
-    #======================================================
+    # ======================================================
     # gui.util.convert_spectral()
 
     # convert_spectral(value: u.Quantity, to_unit: u.Unit)
 
-    #======================================================
+    # ======================================================
     # gui.util.get_band_values()
 
     # get_band_values(input_bands: List[u.Quantity], to_unit: Optional[u.Unit] = None) -> List[float]:
 
-    #======================================================
+    # ======================================================
     # wiser.raster.utils.find_closest_value
 
     # int arguments
@@ -164,8 +165,7 @@ class TestRasterUtils(unittest.TestCase):
     def test_find_closest_value_float_2_elems_max_distance_close_0(self):
         self.assertEqual(utils.find_closest_value([10.0, 4.5], 3.5, 1.0), 1)
 
-
-    #======================================================
+    # ======================================================
     # normalize_ndarray()
 
     def test_normalize_1d_no_minmax(self):
@@ -198,10 +198,10 @@ class TestRasterUtils(unittest.TestCase):
         out = utils.normalize_ndarray(inp, 2, 4)
 
         self.assertAlmostEqual(out[0], -0.50)
-        self.assertAlmostEqual(out[1],  0.00)
-        self.assertAlmostEqual(out[2],  0.50)
-        self.assertAlmostEqual(out[3],  1.00)
-        self.assertAlmostEqual(out[4],  1.50)
+        self.assertAlmostEqual(out[1], 0.00)
+        self.assertAlmostEqual(out[2], 0.50)
+        self.assertAlmostEqual(out[3], 1.00)
+        self.assertAlmostEqual(out[4], 1.50)
 
     def test_normalize_1d_nans_minmax_specified(self):
         inp = np.array([np.nan, 1.0, 2.0, 3.0, np.nan, 4.0, 5.0])
@@ -210,14 +210,13 @@ class TestRasterUtils(unittest.TestCase):
 
         self.assertTrue(np.isnan(out[0]))
         self.assertAlmostEqual(out[1], -0.50)
-        self.assertAlmostEqual(out[2],  0.00)
-        self.assertAlmostEqual(out[3],  0.50)
+        self.assertAlmostEqual(out[2], 0.00)
+        self.assertAlmostEqual(out[3], 0.50)
         self.assertTrue(np.isnan(out[4]))
-        self.assertAlmostEqual(out[5],  1.00)
-        self.assertAlmostEqual(out[6],  1.50)
+        self.assertAlmostEqual(out[5], 1.00)
+        self.assertAlmostEqual(out[6], 1.50)
 
-
-    #======================================================
+    # ======================================================
     # normalize_ndarray_numba()
 
     def test_normalize_njit_1d_minmax_specified(self):
@@ -226,8 +225,7 @@ class TestRasterUtils(unittest.TestCase):
         out = utils.normalize_ndarray_numba(inp, 2.0, 4.0)
 
         self.assertAlmostEqual(out[0], -0.50)
-        self.assertAlmostEqual(out[1],  0.00)
-        self.assertAlmostEqual(out[2],  0.50)
-        self.assertAlmostEqual(out[3],  1.00)
-        self.assertAlmostEqual(out[4],  1.50)
-
+        self.assertAlmostEqual(out[1], 0.00)
+        self.assertAlmostEqual(out[2], 0.50)
+        self.assertAlmostEqual(out[3], 1.00)
+        self.assertAlmostEqual(out[4], 1.50)

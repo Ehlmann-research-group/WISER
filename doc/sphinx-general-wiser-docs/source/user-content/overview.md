@@ -1,19 +1,10 @@
-Welcome to WISER, the Workbench for Imaging Spectroscopy Exploration and
-Research.  WISER makes it easy to load and analyze spectral imaging data sets
-with a variety of helpful features.
-
-**IMPORTANT NOTE:  WISER is currently in alpha, which means that this
-documentation may be incomplete and/or out of date.**  Feel free to email
-[wiser@caltech.edu](mailto:wiser@caltech.edu) if you have any questions or
-comments.
-
 # Overview
 
 The goal of WISER is to provide an intuitive and configurable user interface
 that supports many different workflows and styles of interaction.  When WISER
 is started, the UI looks like this:
 
-<img class="img_center" src="images/wiser_start.png" width="80%">
+<img class="img_center" src="../_static/images/wiser_start.png" width="80%">
 
 The WISER interface provides multiple panes for displaying raster data at
 varying levels of magnification.  The Context Pane starts out on the left side
@@ -26,17 +17,17 @@ data is loaded yet, so these areas display "(no data)".
 Across the top of the Main Window is the Main Toolbar, which provides various
 tools to work with raster data:
 
-<img class="img_center" src="images/main_toolbar.png" width="70%">
+<img class="img_center" src="../_static/images/main_toolbar.png" width="70%">
 
 The buttons marked "Display Toggles" will show and hide specific tools for
 interacting with spectral data.  These buttons are as follows:
 
-<img class="img_center" src="images/display_toggles.png" width="40%">
+<img class="img_center" src="../_static/images/display_toggles.png" width="40%">
 
 These tools are described in subsequent sections.
 
 **NOTE:**  WISER can also be extended with custom functionality through its
-[plugin API](../API).
+[plugin API](https://ehlmann-research-group.github.io/WISER-Plugin-API/).
 
 ## WISER Configuration
 
@@ -45,7 +36,7 @@ the various tools.  You can access these properties through the WISER menubar.
 For example, on macOS you can access "WISER" -> "Preferences" to show this
 dialog:
 
-<img class="img_center" src="images/wiser_config.png" width="30%">
+<img class="img_center" src="../_static/images/wiser_config.png" width="30%">
 
 These settings are saved on disk so that they don't need to be specified every
 time.  Some additional details are given in the following sections.
@@ -72,7 +63,7 @@ allows the user to configure these values.
 Here is a screenshot of WISER after loading AVIRIS data of the Caltech campus
 and the surrounding Pasadena area.
 
-<img class="img_center" src="images/wiser_caltech_annotated.png" width="80%">
+<img class="img_center" src="../_static/images/wiser_caltech_annotated.png" width="80%">
 
 In this image, all of the different tools have been shown using the display
 toggle buttons in the main toolbar:  the context pane, the main window and the
@@ -101,7 +92,7 @@ stretch of the bands being displayed.  Note that all raster display windows
 have one or more of these buttons, allowing for control of how raster data
 is displayed.
 
-<img class="img_center" src="images/main_display_buttons.png" width="30%">
+<img class="img_center" src="../_static/images/main_display_buttons.png" width="30%">
 
 ## Dataset Chooser
 
@@ -116,7 +107,7 @@ The _band chooser_ shows a dialog that gives the user significant control over
 what bands are being displayed, and whether the image is to be shown in RGB
 mode (three bands) or grayscale mode (one band only).
 
-<img class="img_center" src="images/band_chooser.png" width="40%">
+<img class="img_center" src="../_static/images/band_chooser.png" width="40%">
 
 Besides letting the user select any combination of bands, the band chooser also
 exposes the ability to select the dataset's default bands, if any were
@@ -129,7 +120,7 @@ Note that if a data set does not have default display bands, or if the data
 set doesn't have visible-light frequencies, the corresponding button in the
 dialog will be disabled.
 
-## Contrast Stretch
+## Contrast Stretch Tool
 
 The contrast stretch tool provides sophisticated options for adjusting the
 contrast of images being displayed.  This allows the user to bring out details
@@ -138,7 +129,7 @@ in the image data that might otherwise not be perceptible.
 Here is an example of the contrast stretch tool being used with the Caltech
 AVIRIS data.
 
-<img class="img_center" src="images/stretch_full_linear.png" width="80%">
+<img class="img_center" src="../_static/images/stretch_full_linear.png" width="80%">
 
 A histogram is shown for each display band, allowing one to see the
 distribution of values for that band.  The user can select both the kind of
@@ -151,7 +142,7 @@ will be discarded; otherwise, they will be kept when the dialog is closed.
 Here is another example of applying a 2.5% linear stretch to the Caltech
 AVIRIS data:
 
-<img class="img_center" src="images/stretch_2.5_linear.png" width="80%">
+<img class="img_center" src="../_static/images/stretch_2.5_linear.png" width="80%">
 
 When applying a linear stretch, the sliders may be adjusted to control the
 endpoints of the contrast-stretch operation.  Additionally, minimum and
@@ -159,7 +150,7 @@ maximum values may be specified, to exclude noise that appears outside the
 range of useful data, or to focus in on a specific range of values.
 
 For a detailed description of how WISER performs contrast stretch calculations,
-please refer to [this document](./contrast-stretch.html).
+please refer to {doc}`this document <contrast-stretch>`.
 
 # Regions of Interest
 
@@ -170,13 +161,13 @@ and the spectra of all pixels in the ROI may be exported as an ASCII file.
 
 Here are the Region of Interest tools in the main toolbar:
 
-<img class="img_center" src="images/roi_tools_annotated.png" width=400>
+<img class="img_center" src="../_static/images/roi_tools_annotated.png" width=400>
 
 The first button allows a new Region of Interest to be created; a dialog allows
 the user to enter basic details about the Region of Interest.  It is recommended
 to use a different color for each Region of Interest to avoid confusion.
 
-<img class="img_center" src="images/roi_create.png" width=400>
+<img class="img_center" src="../_static/images/roi_create.png" width=400>
 
 Once a Region of Interest is created, _selections_ may be added to the ROI.
 The right button allows users to create rectangle, polygon, and point-set
@@ -184,7 +175,7 @@ selections, which will then be added to the current Region of Interest.  The
 ROI that the selection is added to may be changed with the drop-down combobox
 in the toolbar.
 
-<img class="img_center" src="images/roi_add_selection.png" width=400>
+<img class="img_center" src="../_static/images/roi_add_selection.png" width=400>
 
 > Tip:  The status bar at the bottom of the UI provides instructions about how
 > to create each kind of selection.
@@ -196,7 +187,7 @@ done with a single polygon selection).  **It is not a problem to have
 overlapping selections in a Region of Interest;** each pixel in the ROI will
 only be used once by operations on the ROI.
 
-<img class="img_center" src="images/roi_add_selection_3.png" width=400>
+<img class="img_center" src="../_static/images/roi_add_selection_3.png" width=400>
 
 Once a Region of Interest has been created, right-clicking in the ROI's
 selections will pop up a context menu providing various operations with the ROI.
@@ -208,4 +199,4 @@ selections will pop up a context menu providing various operations with the ROI.
     window
 *   The spectra of every pixel in the ROI may be exported as an ASCII file
 
-<img class="img_center" src="images/roi_ctx_menu.png" width=600>
+<img class="img_center" src="../_static/images/roi_ctx_menu.png" width=600>

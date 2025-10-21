@@ -2,6 +2,7 @@ import unittest
 
 import util
 
+
 class TestUtil(unittest.TestCase):
     def test_closest_value(self):
         # Some simple cases with floating point values
@@ -29,5 +30,5 @@ class TestUtil(unittest.TestCase):
         self.assertEqual(util.closest_value([123], -800), 123)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

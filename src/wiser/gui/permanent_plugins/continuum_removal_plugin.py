@@ -62,8 +62,11 @@ def crossProduct(o, a, b):
 
     return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
 
+
 _point_t = types.UniTuple(types.float32, 2)
 cross_sig = types.float32(_point_t, _point_t, _point_t)
+
+
 @numba_njit_wrapper(non_njit_func=crossProduct, signature=cross_sig)
 def cross_product_numba(o, a, b):
     """Code provided by Sahil Azad
@@ -84,6 +87,7 @@ def cross_product_numba(o, a, b):
     """
 
     return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
 
 def monotone(points):
     """Code provided by Sahil Azad
@@ -110,8 +114,11 @@ def monotone(points):
         l_len += 1
     return upper
 
+
 _point_t = types.UniTuple(types.float32, 2)
 mono_sig = types.float32[:, :](types.float32[:, :])
+
+
 @numba_njit_wrapper(non_njit_func=monotone, signature=mono_sig)
 def monotone_numba(points):
     """Code provided by Sahil Azad
@@ -131,8 +138,7 @@ def monotone_numba(points):
 
     for k in range(points.shape[0]):
         p = (points[k, 0], points[k, 1])
-        while len(upper) >= 2 and cross_product_numba(
-                upper[-2], upper[-1], p) <= 0:
+        while len(upper) >= 2 and cross_product_numba(upper[-2], upper[-1], p) <= 0:
             upper.pop()
         upper.append(p)
 
@@ -171,7 +177,10 @@ def continuum_removal(reflectance, waves) -> Tuple[np.ndarray, np.ndarray]:
     final = np.column_stack((waves, norm)).transpose(1, 0)[1]
     return final, iy_hull_np
 
+
 cr_sig = types.Tuple((types.float32[:], types.float32[:]))(types.float32[:], types.float32[:])
+
+
 @numba_njit_wrapper(non_njit_func=continuum_removal, signature=cr_sig)
 def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     """Calculates the continuum removed spectrum for a single spectrum using numba
@@ -297,7 +306,7 @@ def continuum_removal_image_numba(
     ----------
     results: np.ndarray
         A 3D numpy array of continuum removed image data
-    '''
+    """
     image_data = np.ascontiguousarray(image_data)
     rows = rows
     cols = cols
@@ -318,6 +327,7 @@ def continuum_removal_image_numba(
     )  # [y][x][b] -> [b][y][x]
     return results
 
+
 class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
     """
     A Class to represents the continuum removal plugin. Can do continuum removal on a single spectrum
@@ -335,9 +345,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
     def __init__(self):
         logging.info("Continuum Removal")
 
-    def add_context_menu_items(
-        self, context_type: plugins.types.ContextMenuType, context_menu, context
-    ):
+    def add_context_menu_items(self, context_type: plugins.types.ContextMenuType, context_menu, context):
         """Adds plugin to WISER as a context menu type plugin
 
         Parameters
@@ -351,25 +359,15 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         """
 
         if context_type == plugins.ContextMenuType.SPECTRUM_PICK:
-            act1 = context_menu.addAction(
-                context_menu.tr("Continuum Removal: Single Spectrum")
-            )
-            act1.triggered.connect(
-                lambda checked=False: self.single_spectrum(context=context)
-            )
+            act1 = context_menu.addAction(context_menu.tr("Continuum Removal: Single Spectrum"))
+            act1.triggered.connect(lambda checked=False: self.single_spectrum(context=context))
 
-            act2 = context_menu.addAction(
-                context_menu.tr("Continuum Removal: Collected Spectra")
-            )
-            act2.triggered.connect(
-                lambda checked=False: self.collected_spectra(context=context)
-            )
+            act2 = context_menu.addAction(context_menu.tr("Continuum Removal: Collected Spectra"))
+            act2.triggered.connect(lambda checked=False: self.collected_spectra(context=context))
 
         if context_type == plugins.ContextMenuType.RASTER_VIEW:
             act3 = context_menu.addAction(context_menu.tr("Continuum Removal: Image"))
-            act3.triggered.connect(
-                lambda checked=False: self.dimension(context=context)
-            )
+            act3.triggered.connect(lambda checked=False: self.dimension(context=context))
 
     def error_box(self, message, context):
         """Displays desired error message and goes back to dimensions GUI when finished
@@ -493,9 +491,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         max_rows.setValue(total_rows - 1)
 
         entire_image.clicked.connect(
-            lambda checked=True: self.set_entire_image(
-                dialog, total_cols - 1, total_rows - 1
-            )
+            lambda checked=True: self.set_entire_image(dialog, total_cols - 1, total_rows - 1)
         )
 
         all_bands = dialog.findChild(QPushButton, "all_bands")
@@ -519,18 +515,10 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         min_spin.setValue(0)
         max_spin.setValue(last)
 
-        minimum.currentIndexChanged.connect(
-            lambda checked=True: self.combo_box_changed(minimum, min_spin)
-        )
-        min_spin.valueChanged.connect(
-            lambda checked=True: self.spin_box_changed(minimum, min_spin)
-        )
-        maximum.currentIndexChanged.connect(
-            lambda checked=True: self.combo_box_changed(maximum, max_spin)
-        )
-        max_spin.valueChanged.connect(
-            lambda checked=True: self.spin_box_changed(maximum, max_spin)
-        )
+        minimum.currentIndexChanged.connect(lambda checked=True: self.combo_box_changed(minimum, min_spin))
+        min_spin.valueChanged.connect(lambda checked=True: self.spin_box_changed(minimum, min_spin))
+        maximum.currentIndexChanged.connect(lambda checked=True: self.combo_box_changed(maximum, max_spin))
+        max_spin.valueChanged.connect(lambda checked=True: self.spin_box_changed(maximum, max_spin))
 
         if dialog.exec() == QDialog.Accepted:
             min_cols = min_cols.value()
@@ -546,11 +534,11 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
                 max_cols += 1
                 max_rows += 1
                 maximum += 1
-                self.image(
-                    min_cols, min_rows, max_cols, max_rows, minimum, maximum, context
-                ) 
+                self.image(min_cols, min_rows, max_cols, max_rows, minimum, maximum, context)
 
-    def plot_continuum_removal(self, spec_object: Spectrum, context: dict) -> Tuple[raster.spectrum.NumPyArraySpectrum, raster.spectrum.NumPyArraySpectrum]:
+    def plot_continuum_removal(
+        self, spec_object: Spectrum, context: dict
+    ) -> Tuple[raster.spectrum.NumPyArraySpectrum, raster.spectrum.NumPyArraySpectrum]:
         """Plots the continuum removed spectrum and the convex hull
 
         Parameters
@@ -606,9 +594,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         for spectrum in collectedSpectra:
             collected_cr.append(self.plot_continuum_removal(spectrum, context))
 
-    def image(
-        self, min_cols, min_rows, max_cols, max_rows, min_band, max_band, context
-    ):
+    def image(self, min_cols, min_rows, max_cols, max_rows, min_band, max_band, context):
         """Displays on WISER the continuum removed spectra of an image or a subset of the image
 
         Parameters
@@ -660,7 +646,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         min_band_wvl = dataset.band_list()[min_band]["wavelength"]
         # We have to do -1 here because calling this function, max_band was
         # increased by 1 to include the max band (since getting band data is exclusive)
-        max_band_wvl = dataset.band_list()[max_band-1]["wavelength"]
+        max_band_wvl = dataset.band_list()[max_band - 1]["wavelength"]
 
         # Get all of the metadata information we need to perform continuum removal
         cols = np.int32(max_cols - min_cols)
@@ -693,11 +679,15 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
 
         # Copy the metadata over
         spatial_metadata = dataset.get_spatial_metadata()
-        new_spatial_metadata = SpatialMetadata.subset_to_window(spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols)
+        new_spatial_metadata = SpatialMetadata.subset_to_window(
+            spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols
+        )
         new_data.copy_spatial_metadata(new_spatial_metadata)
 
         source_spectral_metadata = dataset.get_spectral_metadata()
-        new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(source_spectral_metadata, min_band_wvl, max_band_wvl)
+        new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(
+            source_spectral_metadata, min_band_wvl, max_band_wvl
+        )
         new_data.copy_spectral_metadata(new_spectral_metadata)
 
         # Add the dataset to WISER
