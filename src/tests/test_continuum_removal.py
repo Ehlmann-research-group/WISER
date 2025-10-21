@@ -15,7 +15,8 @@ import numpy as np
 
 import tests.context
 # import context
-from typing import List, Optional
+
+from typing import Optional
 
 from test_utils.test_model import WiserTestModel
 
@@ -25,7 +26,7 @@ from wiser.gui.permanent_plugins.continuum_removal_plugin import (
 
 from wiser.utils.numba_wrapper import convert_to_float32_if_needed
 
-from wiser.raster.spectrum import Spectrum, NumPyArraySpectrum
+from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.raster.dataset import dict_list_equal
 
 from astropy import units as u
@@ -271,4 +272,4 @@ class TestContinuumRemoval(unittest.TestCase):
         assert np.allclose(cr_numba_hull, ground_truth_hull.get_spectrum(), atol=1e-07, equal_nan=True)
 
     def test_subset_425_bands_and_nan(self):
-        
+
