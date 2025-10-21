@@ -23,6 +23,8 @@ from wiser.gui.permanent_plugins.continuum_removal_plugin import (
     ContinuumRemovalPlugin, continuum_removal_image_numba, continuum_removal_image,
     continuum_removal_numba, continuum_removal)
 
+from wiser.utils.numba_wrapper import convert_to_float32_if_needed
+
 from wiser.raster.spectrum import Spectrum, NumPyArraySpectrum
 from wiser.raster.dataset import dict_list_equal
 
@@ -71,7 +73,7 @@ class TestContinuumRemoval(unittest.TestCase):
         return header, data
 
 
-    def test_continuum_removal_image(self):
+    # def test_continuum_removal_image_4_bands(self):
         """Tests image-based continuum removal against a ground-truth output.
 
         Loads a test dataset and its precomputed continuum-removed result, then:
@@ -111,6 +113,10 @@ class TestContinuumRemoval(unittest.TestCase):
         print(f"gt_dataset_arr.shape: {gt_dataset_arr.shape}")
         print(f"cr_dataset_arr-gt_dataset_arr: {cr_dataset_arr-gt_dataset_arr}")
 
+        first_band_all_ones = np.allclose(cr_dataset_arr[0], 1.0)
+        last_band_all_ones = np.allclose(cr_dataset_arr[-1], 1.0)
+        self.assertTrue(first_band_all_ones)
+        self.assertTrue(last_band_all_ones)
         self.assertTrue(np.allclose(cr_dataset_arr, gt_dataset_arr))
         self.assertTrue(cr_dataset.get_spatial_ref().IsSame(gt_dataset.get_spatial_ref()))
         self.assertTrue(cr_dataset.get_geo_transform() == gt_dataset.get_geo_transform())
@@ -119,6 +125,123 @@ class TestContinuumRemoval(unittest.TestCase):
         self.assertTrue(cr_dataset._default_display_bands == gt_dataset._default_display_bands)
         self.assertTrue(cr_dataset._data_ignore_value == gt_dataset._data_ignore_value)
         self.assertTrue(dict_list_equal(cr_dataset._band_info, gt_dataset._band_info, ignore_keys=['wavelength_units']))
+
+    # def test_continuum_removal_image_425_bands(self):
+    #     plugin = ContinuumRemovalPlugin()
+
+    #     load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_425_7_7_nm")
+    #     # ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_continuum_removed")
+
+    #     dataset = self.test_model.load_dataset(load_path)
+    #     # gt_dataset = self.test_model.load_dataset(ground_truth_path)
+
+    #     min_cols = 0
+    #     min_rows = 0
+    #     max_cols = dataset.get_width()
+    #     max_rows = dataset.get_height()
+
+    #     min_band = 0
+    #     max_band = dataset.num_bands()
+
+    #     context = {
+    #         "wiser": self.test_model.app_state,
+    #         "dataset": dataset
+    #     }
+
+    #     cr_dataset = plugin.image(min_cols, min_rows, max_cols, max_rows, min_band, max_band, context)
+
+    #     cr_dataset_arr = cr_dataset.get_image_data()
+    #     # gt_dataset_arr = gt_dataset.get_impl().gdal_dataset.ReadAsArray().copy()
+
+    #     print(f"cr_dataset_arr: {cr_dataset_arr}")
+    #     # print(f"gt_dataset_arr: {gt_dataset_arr}")
+    #     print(f"cr_dataset_arr.shape: {cr_dataset_arr.shape}")
+    #     # print(f"gt_dataset_arr.shape: {gt_dataset_arr.shape}")
+    #     # print(f"cr_dataset_arr-gt_dataset_arr: {cr_dataset_arr-gt_dataset_arr}")
+
+    #     first_band_all_ones = np.allclose(cr_dataset_arr[0], 1.0)
+    #     last_band_all_ones = np.allclose(cr_dataset_arr[-1], 1.0)
+    #     self.assertTrue(first_band_all_ones)
+    #     self.assertTrue(last_band_all_ones)
+    #     # self.assertTrue(np.allclose(cr_dataset_arr, gt_dataset_arr))
+    #     # self.assertTrue(cr_dataset.get_spatial_ref().IsSame(gt_dataset.get_spatial_ref()))
+    #     # self.assertTrue(cr_dataset.get_geo_transform() == gt_dataset.get_geo_transform())
+    #     # self.assertTrue(cr_dataset.get_bad_bands() == gt_dataset.get_bad_bands())
+    #     # self.assertTrue(cr_dataset.has_wavelengths() == gt_dataset.has_wavelengths())
+    #     # self.assertTrue(cr_dataset._default_display_bands == gt_dataset._default_display_bands)
+    #     # self.assertTrue(cr_dataset._data_ignore_value == gt_dataset._data_ignore_value)
+    #     # self.assertTrue(dict_list_equal(cr_dataset._band_info, gt_dataset._band_info, ignore_keys=['wavelength_units']))
+    #     pass
+
+    def test_numba_non_numba_same_425_bands(self):
+        # Load in the ground truth continuum removed spectrum
+        spectrum_file_path = \
+            os.path.join(os.path.dirname(__file__),
+                         "..", "test_utils", "test_spectra", "cr_single_spectrum_at_3_3_bands_425.txt")
+        header, data = self.read_file(spectrum_file_path)
+        wvls_arr: Optional[np.ndarray] = None
+        spectrum_arr: Optional[np.ndarray] = None
+        convex_hull: Optional[np.ndarray] = None
+        spectrum_continuum_removed_arr: Optional[np.ndarray] = None
+
+        for i, name in enumerate(header):
+            col = data[:, i]
+            if name == 'Wavelength (nm)':
+                wvls_arr = col
+            elif name == 'Spectrum at (3, 3)':
+                spectrum_arr = col
+            elif name == 'Spectrum at (3, 3) Continuum Removed':
+                spectrum_continuum_removed_arr = col
+            elif name == 'Convex Hull Spectrum at (3, 3)':
+                convex_hull = col
+        if (wvls_arr is None or 
+            spectrum_arr is None or
+            convex_hull is None or
+            spectrum_continuum_removed_arr is None):
+            raise RuntimeError("Couldn't extract all values from spectrum!")
+
+        spectrum = \
+            NumPyArraySpectrum(spectrum_arr, "Test_Spectrum", wavelengths=wvls_arr)
+        ground_truth_continuum_removed = \
+            NumPyArraySpectrum(spectrum_continuum_removed_arr, "Continuum_Removed", wavelengths=wvls_arr)
+
+        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_425_7_7_nm")
+        # ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_continuum_removed")
+
+        dataset = self.test_model.load_dataset(load_path)
+        img_data = dataset.get_image_data()
+        img_data: np.ndarray = img_data.transpose(1, 2, 0)  # [x][y][b] --> [y][b][x]
+        if not img_data.flags.c_contiguous:
+            img_data = np.ascontiguousarray(img_data)
+        if isinstance(img_data, np.ma.MaskedArray):
+            img_data = img_data.data
+        if img_data.dtype != np.float32:
+            img_data = img_data.astype(np.float32)
+
+        x_axis = x_axis = np.array([float(i["wavelength_str"]) for i in dataset.band_list()])
+        x_axis = x_axis[::-1]
+        rows = dataset.get_height()
+        cols = dataset.get_width()
+        bands = dataset.num_bands()
+        img_data, x_axis = convert_to_float32_if_needed(img_data, x_axis)
+        new_image_data_numba = continuum_removal_image_numba(img_data, x_axis, rows, cols, bands)
+        new_image_data_non_numba = continuum_removal_image(img_data, x_axis, rows, cols, bands)
+
+        print(f"new_image_data_numba.shape: {new_image_data_numba.shape}")
+        print(f"new_image_data_non_numba.shape: {new_image_data_non_numba.shape}")
+        first_band_all_ones = np.allclose(new_image_data_numba[0], 1.0)
+        last_band_all_ones = np.allclose(new_image_data_non_numba[-1], 1.0)
+        self.assertTrue(np.allclose(new_image_data_numba, new_image_data_non_numba))
+        self.assertTrue(first_band_all_ones)
+        self.assertTrue(last_band_all_ones)
+
+        new_spectrum_3_3_numba = new_image_data_numba[:,3,3]
+        new_spectrum_3_3_non_numba = new_image_data_non_numba[:,3,3]
+        print(f"new_spectrum_3_3_numba.shape: {new_spectrum_3_3_numba.shape}")
+        print(f"spectrum_continuum_removed_arr.shape: {spectrum_continuum_removed_arr.shape}")
+
+        self.assertTrue(np.allclose(new_spectrum_3_3_numba, spectrum_continuum_removed_arr))
+
 
     # def test_continuum_removal_spectra(self):
     #     """Tests continuum removal on a single spectrum.

@@ -169,9 +169,6 @@ def continuum_removal(reflectance, waves) -> Tuple[np.ndarray, np.ndarray]:
     iy_hull_np = np.interp(waves, xp, fp)
     norm = np.divide(reflectance, iy_hull_np)
     final = np.column_stack((waves, norm)).transpose(1, 0)[1]
-    print(f"reflectance: {reflectance}")
-    print(f"iy_hull_np: {iy_hull_np}")
-    print(f"final: {final}")
     return final, iy_hull_np
 
 cr_sig = types.Tuple((types.float32[:], types.float32[:]))(types.float32[:], types.float32[:])
@@ -652,7 +649,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         bands = np.int32(max_band - min_band)
         image_data, x_axis = convert_to_float32_if_needed(image_data, x_axis)
         print(f"image data shape before transpose: {image_data.shape}")
-        # image_data: np.ndarray = image_data.transpose(1, 2, 0)  # [x][y][b] --> [y][b][x]
+        image_data: np.ndarray = image_data.transpose(1, 2, 0)  # [x][y][b] --> [y][b][x]
         if not image_data.flags.c_contiguous:
             image_data = np.ascontiguousarray(image_data)
         if isinstance(image_data, np.ma.MaskedArray):
