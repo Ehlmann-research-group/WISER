@@ -662,6 +662,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         # increased by 1 to include the max band (since getting band data is exclusive)
         max_band_wvl = dataset.band_list()[max_band-1]["wavelength"]
 
+        # Get all of the metadata information we need to perform continuum removal
         cols = np.int32(max_cols - min_cols)
         rows = np.int32(max_rows - min_rows)
         bands = np.int32(max_band - min_band)
@@ -675,16 +676,22 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             image_data[mask] = np.nan
         if image_data.dtype != np.float32:
             image_data = image_data.astype(np.float32)
-        bad_bands_arr = np.array(dataset.get_bad_bands())
-        bad_bands_arr = np.logical_not(bad_bands_arr)
+        if dataset.get_bad_bands() is not None:
+            bad_bands_arr = np.array(dataset.get_bad_bands())
+            bad_bands_arr = np.logical_not(bad_bands_arr)
+        else:
+            bad_bands_arr = np.array([0]*dataset.num_bands())
+        bad_bands_arr = bad_bands_arr[min_band:max_band]
         new_image_data = continuum_removal_image_numba(image_data, bad_bands_arr, x_axis, rows, cols, bands)
-        continuum_removal_image_numba.parallel_diagnostics(level=4)
+
+        # Make the new continuum removed np array into a dataset
         raster_data = raster.RasterDataLoader()
         new_data = raster_data.dataset_from_numpy_array(new_image_data, app_state.get_cache())
         new_data.set_name(f"Continuum Removal on {filename}")
         new_data.set_description(description)
         new_data.set_default_display_bands(default_bands)
 
+        # Copy the metadata over
         spatial_metadata = dataset.get_spatial_metadata()
         new_spatial_metadata = SpatialMetadata.subset_to_window(spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols)
         new_data.copy_spatial_metadata(new_spatial_metadata)
@@ -692,5 +699,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         source_spectral_metadata = dataset.get_spectral_metadata()
         new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(source_spectral_metadata, min_band_wvl, max_band_wvl)
         new_data.copy_spectral_metadata(new_spectral_metadata)
+
+        # Add the dataset to WISER
         context["wiser"].add_dataset(new_data)
         return new_data

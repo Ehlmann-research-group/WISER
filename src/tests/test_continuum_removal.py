@@ -272,4 +272,45 @@ class TestContinuumRemoval(unittest.TestCase):
         assert np.allclose(cr_numba_hull, ground_truth_hull.get_spectrum(), atol=1e-07, equal_nan=True)
 
     def test_subset_425_bands_and_nan(self):
+        """Test subsetting continuum removal for the 425x7x7 dataset to be a 225x4x3 dataset"""
+        plugin = ContinuumRemovalPlugin()
 
+        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_425_7_7_nm")
+        ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_225_4_3_nm_continuum_removed")
+
+        dataset = self.test_model.load_dataset(load_path)
+        gt_dataset = self.test_model.load_dataset(ground_truth_path)
+
+        min_cols = 2
+        min_rows = 2
+        max_cols = dataset.get_width()-2
+        max_rows = dataset.get_height()-1
+
+        min_band = 100
+        max_band = dataset.num_bands()-100
+
+        context = {
+            "wiser": self.test_model.app_state,
+            "dataset": dataset
+        }
+
+        cr_dataset = plugin.image(min_cols, min_rows, max_cols, max_rows, min_band, max_band, context)
+
+        cr_dataset_arr = cr_dataset.get_image_data()
+        gt_dataset_arr = gt_dataset.get_impl().gdal_dataset.ReadAsArray().copy()
+        self.assertTrue(cr_dataset_arr.shape == (225, 4, 3))
+
+        # Continuum removal algorithm should make the first and last bands all one
+        first_band_all_ones = np.all((cr_dataset_arr[0]==1) | np.isnan(cr_dataset_arr[0]))
+        last_band_all_ones = np.all((cr_dataset_arr[-1]==1) | np.isnan(cr_dataset_arr[-1]))
+        self.assertTrue(first_band_all_ones)
+        self.assertTrue(last_band_all_ones)
+
+        # Continuum removal algorithm should make everything less than one
+        all_less_than_one = np.nanmax(cr_dataset_arr) <= 1
+        
+        self.assertTrue(all_less_than_one)
+        self.assertTrue(np.allclose(cr_dataset_arr, gt_dataset_arr, equal_nan=True))
+        self.assertTrue(cr_dataset.get_spatial_ref().IsSame(gt_dataset.get_spatial_ref()))
+        self.assertTrue(cr_dataset.has_wavelengths() == gt_dataset.has_wavelengths())
+        self.assertTrue(cr_dataset._data_ignore_value == gt_dataset._data_ignore_value)
