@@ -73,7 +73,7 @@ class TestContinuumRemoval(unittest.TestCase):
         return header, data
 
 
-    # def test_continuum_removal_image_4_bands(self):
+    def test_continuum_removal_image_4_bands(self):
         """Tests image-based continuum removal against a ground-truth output.
 
         Loads a test dataset and its precomputed continuum-removed result, then:
@@ -107,12 +107,6 @@ class TestContinuumRemoval(unittest.TestCase):
         cr_dataset_arr = cr_dataset.get_image_data()
         gt_dataset_arr = gt_dataset.get_impl().gdal_dataset.ReadAsArray().copy()
 
-        print(f"cr_dataset_arr: {cr_dataset_arr}")
-        print(f"gt_dataset_arr: {gt_dataset_arr}")
-        print(f"cr_dataset_arr.shape: {cr_dataset_arr.shape}")
-        print(f"gt_dataset_arr.shape: {gt_dataset_arr.shape}")
-        print(f"cr_dataset_arr-gt_dataset_arr: {cr_dataset_arr-gt_dataset_arr}")
-
         first_band_all_ones = np.allclose(cr_dataset_arr[0], 1.0)
         last_band_all_ones = np.allclose(cr_dataset_arr[-1], 1.0)
         self.assertTrue(first_band_all_ones)
@@ -125,53 +119,6 @@ class TestContinuumRemoval(unittest.TestCase):
         self.assertTrue(cr_dataset._default_display_bands == gt_dataset._default_display_bands)
         self.assertTrue(cr_dataset._data_ignore_value == gt_dataset._data_ignore_value)
         self.assertTrue(dict_list_equal(cr_dataset._band_info, gt_dataset._band_info, ignore_keys=['wavelength_units']))
-
-    # def test_continuum_removal_image_425_bands(self):
-    #     plugin = ContinuumRemovalPlugin()
-
-    #     load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_425_7_7_nm")
-    #     # ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_continuum_removed")
-
-    #     dataset = self.test_model.load_dataset(load_path)
-    #     # gt_dataset = self.test_model.load_dataset(ground_truth_path)
-
-    #     min_cols = 0
-    #     min_rows = 0
-    #     max_cols = dataset.get_width()
-    #     max_rows = dataset.get_height()
-
-    #     min_band = 0
-    #     max_band = dataset.num_bands()
-
-    #     context = {
-    #         "wiser": self.test_model.app_state,
-    #         "dataset": dataset
-    #     }
-
-    #     cr_dataset = plugin.image(min_cols, min_rows, max_cols, max_rows, min_band, max_band, context)
-
-    #     cr_dataset_arr = cr_dataset.get_image_data()
-    #     # gt_dataset_arr = gt_dataset.get_impl().gdal_dataset.ReadAsArray().copy()
-
-    #     print(f"cr_dataset_arr: {cr_dataset_arr}")
-    #     # print(f"gt_dataset_arr: {gt_dataset_arr}")
-    #     print(f"cr_dataset_arr.shape: {cr_dataset_arr.shape}")
-    #     # print(f"gt_dataset_arr.shape: {gt_dataset_arr.shape}")
-    #     # print(f"cr_dataset_arr-gt_dataset_arr: {cr_dataset_arr-gt_dataset_arr}")
-
-    #     first_band_all_ones = np.allclose(cr_dataset_arr[0], 1.0)
-    #     last_band_all_ones = np.allclose(cr_dataset_arr[-1], 1.0)
-    #     self.assertTrue(first_band_all_ones)
-    #     self.assertTrue(last_band_all_ones)
-    #     # self.assertTrue(np.allclose(cr_dataset_arr, gt_dataset_arr))
-    #     # self.assertTrue(cr_dataset.get_spatial_ref().IsSame(gt_dataset.get_spatial_ref()))
-    #     # self.assertTrue(cr_dataset.get_geo_transform() == gt_dataset.get_geo_transform())
-    #     # self.assertTrue(cr_dataset.get_bad_bands() == gt_dataset.get_bad_bands())
-    #     # self.assertTrue(cr_dataset.has_wavelengths() == gt_dataset.has_wavelengths())
-    #     # self.assertTrue(cr_dataset._default_display_bands == gt_dataset._default_display_bands)
-    #     # self.assertTrue(cr_dataset._data_ignore_value == gt_dataset._data_ignore_value)
-    #     # self.assertTrue(dict_list_equal(cr_dataset._band_info, gt_dataset._band_info, ignore_keys=['wavelength_units']))
-    #     pass
 
     def test_numba_non_numba_same_425_bands_and_nan(self):
         # Load in the ground truth continuum removed spectrum
@@ -200,13 +147,8 @@ class TestContinuumRemoval(unittest.TestCase):
             spectrum_continuum_removed_arr is None):
             raise RuntimeError("Couldn't extract all values from spectrum!")
 
-        spectrum = \
-            NumPyArraySpectrum(spectrum_arr, "Test_Spectrum", wavelengths=wvls_arr)
-        ground_truth_continuum_removed = \
-            NumPyArraySpectrum(spectrum_continuum_removed_arr, "Continuum_Removed", wavelengths=wvls_arr)
-
+        # Load in the dataset where the above continuum removed spectrum comes from
         load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_425_7_7_nm")
-        # ground_truth_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_continuum_removed")
 
         dataset = self.test_model.load_dataset(load_path)
         img_data = dataset.get_image_data()
@@ -218,6 +160,7 @@ class TestContinuumRemoval(unittest.TestCase):
         if img_data.dtype != np.float32:
             img_data = img_data.astype(np.float32)
 
+        # Get all the information we need to run continuum removal
         x_axis = x_axis = np.array([float(i["wavelength_str"]) for i in dataset.band_list()])
         x_axis = x_axis[::-1]
         rows = dataset.get_height()
@@ -229,11 +172,6 @@ class TestContinuumRemoval(unittest.TestCase):
         new_image_data_numba = continuum_removal_image_numba(img_data, bad_bands_arr, x_axis, rows, cols, bands)
         new_image_data_non_numba = continuum_removal_image(img_data, bad_bands_arr, x_axis, rows, cols, bands)
 
-        print(f"new_image_data_numba.shape: {new_image_data_numba.shape}")
-        print(f"new_image_data_non_numba.shape: {new_image_data_non_numba.shape}")
-        print(f"new_image_data_numba: {new_image_data_numba}")
-        print(f"new_image_data_non_numba: {new_image_data_non_numba}")
-        print(f"new_image_data_numba-new_image_data_non_numba: {new_image_data_numba-new_image_data_non_numba}")
         first_band_all_ones = np.all((new_image_data_numba[0]==1) | np.isnan(new_image_data_numba[0]))
         last_band_all_ones = np.all((new_image_data_numba[-1]==1) | np.isnan(new_image_data_numba[-1]))
         self.assertTrue(np.allclose(new_image_data_numba, new_image_data_non_numba, equal_nan=True))
@@ -241,115 +179,96 @@ class TestContinuumRemoval(unittest.TestCase):
         self.assertTrue(last_band_all_ones)
 
         new_spectrum_3_3_numba = new_image_data_numba[:,3,3]
-        new_spectrum_3_3_non_numba = new_image_data_non_numba[:,3,3]
-        print(f"new_spectrum_3_3_numba.shape: {new_spectrum_3_3_numba.shape}")
-        print(f"spectrum_continuum_removed_arr.shape: {spectrum_continuum_removed_arr.shape}")
-
-        print(f"!$$ spectrum_arr: {spectrum_arr}")
-        print(f"!$$ convex_hull: {convex_hull}")
-        print(f"!$$ spectrum_continuum_removed_arr: {spectrum_continuum_removed_arr}")
-        print(f"")
 
         self.assertTrue(np.allclose(new_spectrum_3_3_numba, spectrum_continuum_removed_arr, equal_nan=True))
 
+    def test_continuum_removal_spectra(self):
+        """Tests continuum removal on a single spectrum.
 
-    # def test_continuum_removal_spectra(self):
-    #     """Tests continuum removal on a single spectrum.
+        Compares the plugin's output spectrum and convex hull to known correct results.
+        Validates:
+        - Continuum-removed spectrum values
+        - Convex hull spectrum values
+        - Wavelength consistency across input and output
+        """
+        plugin = ContinuumRemovalPlugin()
 
-    #     Compares the plugin's output spectrum and convex hull to known correct results.
-    #     Validates:
-    #     - Continuum-removed spectrum values
-    #     - Convex hull spectrum values
-    #     - Wavelength consistency across input and output
-    #     """
-    #     plugin = ContinuumRemovalPlugin()
+        gt_cr_spectrum_y = np.array([1.0, 1.0, 0.4978490837090547, 1.0])
+        gt_hull_spectrum_y = np.array([0.25744912028312683, 0.2996889650821686, 0.1474404445855489, 0.09369881451129913])
+        gt_spectrum_x = np.array([472.019989, 532.130005, 702.419983, 852.679993])
 
-    #     gt_cr_spectrum_y = np.array([1.0, 1.0, 0.4978490837090547, 1.0])
-    #     gt_hull_spectrum_y = np.array([0.25744912028312683, 0.2996889650821686, 0.1474404445855489, 0.09369881451129913])
-    #     gt_spectrum_x = np.array([472.019989, 532.130005, 702.419983, 852.679993])
+        test_spectrum_y = np.array([0.25744912028312683, 0.2996889650821686, 0.07340309023857117, 0.09369881451129913])
+        test_spectrum_x = [472.019989*u.nanometer, 532.130005*u.nanometer, 702.419983*u.nanometer, 852.679993*u.nanometer]
 
-    #     test_spectrum_y = np.array([0.25744912028312683, 0.2996889650821686, 0.07340309023857117, 0.09369881451129913])
-    #     test_spectrum_x = [472.019989*u.nanometer, 532.130005*u.nanometer, 702.419983*u.nanometer, 852.679993*u.nanometer]
+        gt_spec = NumPyArraySpectrum(test_spectrum_y, "Test_spectrum", wavelengths=test_spectrum_x)
 
-    #     gt_spec = NumPyArraySpectrum(test_spectrum_y, "Test_spectrum", wavelengths=test_spectrum_x)
+        new_spec, convex_hull = plugin.plot_continuum_removal(gt_spec, None)
 
-    #     new_spec, convex_hull = plugin.plot_continuum_removal(gt_spec, None)
+        new_spec_arr = new_spec.get_spectrum()
+        convex_hull_arr = convex_hull.get_spectrum()
+        wavelengths_spec = new_spec.get_wavelengths()
+        wavelengths_hull = convex_hull.get_wavelengths()
 
-    #     new_spec_arr = new_spec.get_spectrum()
-    #     convex_hull_arr = convex_hull.get_spectrum()
-    #     wavelengths_spec = new_spec.get_wavelengths()
-    #     wavelengths_hull = convex_hull.get_wavelengths()
+        self.assertTrue(wavelengths_spec == wavelengths_hull)
+        self.assertTrue(np.allclose(new_spec_arr, gt_cr_spectrum_y))
+        self.assertTrue(np.allclose(convex_hull_arr, gt_hull_spectrum_y))
 
-    #     self.assertTrue(wavelengths_spec == wavelengths_hull)
-    #     self.assertTrue(np.allclose(new_spec_arr, gt_cr_spectrum_y))
-    #     self.assertTrue(np.allclose(convex_hull_arr, gt_hull_spectrum_y))
+        wavelengths_arr = np.array([q.to_value(q.unit) for q in wavelengths_spec])
+        self.assertTrue(np.allclose(wavelengths_arr, gt_spectrum_x))
 
-    #     wavelengths_arr = np.array([q.to_value(q.unit) for q in wavelengths_spec])
-    #     self.assertTrue(np.allclose(wavelengths_arr, gt_spectrum_x))
+    def test_numba_non_numba_equal_spectrum(self):
+        """
+        Calculate the spectra from numba and non numba and make sure they are equal
+        """
+        spectrum_file_path = \
+            os.path.join(os.path.dirname(__file__),
+                         "..", "test_utils", "test_spectra", "cr_single_spectrum.txt")
+        header, data = self.read_file(spectrum_file_path)
+        wvls_arr: Optional[np.ndarray] = None
+        spectrum_arr: Optional[np.ndarray] = None
+        convex_hull: Optional[np.ndarray] = None
+        spectrum_continuum_removed_arr: Optional[np.ndarray] = None
 
-    # def test_numba_and_non_numba_equal_image(self):
-    #     """Calculate image from numba and non numba ways and make sure they are equal"""
+        for i, name in enumerate(header):
+            col = data[:, i]
+            if name == 'Wavelength (nm)':
+                wvls_arr = col
+            elif name == 'Spectrum':
+                spectrum_arr = col
+            elif name == 'Spectrum Continuum Removed':
+                spectrum_continuum_removed_arr = col
+            elif name == 'Convex Hull Spectrum':
+                convex_hull = col
+        if (wvls_arr is None or 
+            spectrum_arr is None or
+            convex_hull is None or
+            spectrum_continuum_removed_arr is None):
+            raise RuntimeError("Couldn't extract all values from spectrum!")
 
-    #     pass
-
-    # def test_numba_non_numba_equal_spectrum(self):
-    #     """
-    #     Calculate the spectra from numba and non numba and make sure they are equal
-    #     """
-    #     spectrum_file_path = \
-    #         os.path.join(os.path.dirname(__file__),
-    #                      "..", "test_utils", "test_spectra", "cr_single_spectrum.txt")
-    #     header, data = self.read_file(spectrum_file_path)
-    #     wvls_arr: Optional[np.ndarray] = None
-    #     spectrum_arr: Optional[np.ndarray] = None
-    #     convex_hull: Optional[np.ndarray] = None
-    #     spectrum_continuum_removed_arr: Optional[np.ndarray] = None
-
-    #     for i, name in enumerate(header):
-    #         col = data[:, i]
-    #         if name == 'Wavelength (nm)':
-    #             wvls_arr = col
-    #         elif name == 'Spectrum':
-    #             spectrum_arr = col
-    #         elif name == 'Spectrum Continuum Removed':
-    #             spectrum_continuum_removed_arr = col
-    #         elif name == 'Convex Hull Spectrum':
-    #             convex_hull = col
-    #     if (wvls_arr is None or 
-    #         spectrum_arr is None or
-    #         convex_hull is None or
-    #         spectrum_continuum_removed_arr is None):
-    #         raise RuntimeError("Couldn't extract all values from spectrum!")
-
-    #     spectrum = \
-    #         NumPyArraySpectrum(spectrum_arr, "Test_Spectrum", wavelengths=wvls_arr)
-    #     ground_truth_hull = \
-    #         NumPyArraySpectrum(convex_hull, "Convex_Hull", wavelengths=wvls_arr)
-    #     ground_truth_continuum_removed = \
-    #         NumPyArraySpectrum(spectrum_continuum_removed_arr, "Continuum_Removed", wavelengths=wvls_arr)
+        spectrum = \
+            NumPyArraySpectrum(spectrum_arr, "Test_Spectrum", wavelengths=wvls_arr)
+        ground_truth_hull = \
+            NumPyArraySpectrum(convex_hull, "Convex_Hull", wavelengths=wvls_arr)
+        ground_truth_continuum_removed = \
+            NumPyArraySpectrum(spectrum_continuum_removed_arr, "Continuum_Removed", wavelengths=wvls_arr)
         
-    #     cr_numba_spec, cr_numba_hull = \
-    #         continuum_removal_numba(
-    #             reflectance=spectrum_arr.astype(np.float32),
-    #             waves=wvls_arr.astype(np.float32)[::-1]
-    #         )
+        cr_numba_spec, cr_numba_hull = \
+            continuum_removal_numba(
+                reflectance=spectrum_arr.astype(np.float32),
+                waves=wvls_arr.astype(np.float32)[::-1]
+            )
 
-    #     cr_reg_spec, cr_reg_hull = \
-    #         continuum_removal(
-    #             reflectance=spectrum.get_spectrum(),
-    #             waves=spectrum.get_wavelengths()[::-1]
-    #         )
+        cr_reg_spec, cr_reg_hull = \
+            continuum_removal(
+                reflectance=spectrum.get_spectrum(),
+                waves=spectrum.get_wavelengths()[::-1]
+            )
+
+        assert cr_numba_spec.shape == cr_reg_spec.shape
+        assert np.allclose(cr_numba_spec, cr_reg_spec, atol=1e-07, equal_nan=True)
+        assert np.allclose(cr_numba_hull, cr_reg_hull, atol=1e-07, equal_nan=True)
+        assert np.allclose(cr_numba_spec, ground_truth_continuum_removed.get_spectrum(), atol=1e-07, equal_nan=True)
+        assert np.allclose(cr_numba_hull, ground_truth_hull.get_spectrum(), atol=1e-07, equal_nan=True)
+
+    def test_subset_425_bands_and_nan(self):
         
-    #     print(f"cr_numba_spec.shape: {cr_numba_spec.shape}")
-    #     print(f"cr_numba_hull.shape: {cr_numba_hull.shape}")
-    #     print(f"cr_reg_spec.shape: {cr_reg_spec.shape}")
-    #     print(f"cr_reg_hull.shape: {cr_reg_hull.shape}")
-
-    #     print(f"numba norm spec: {cr_numba_spec}")
-    #     print(f"numba norm hull: {cr_numba_hull}")
-
-    #     assert cr_numba_spec.shape == cr_reg_spec.shape
-    #     assert np.allclose(cr_numba_spec, cr_reg_spec, atol=1e-07, equal_nan=True)
-    #     assert np.allclose(cr_numba_hull, cr_reg_hull, atol=1e-07, equal_nan=True)
-    #     assert np.allclose(cr_numba_spec, ground_truth_continuum_removed.get_spectrum(), atol=1e-07, equal_nan=True)
-    #     assert np.allclose(cr_numba_hull, ground_truth_hull.get_spectrum(), atol=1e-07, equal_nan=True)
