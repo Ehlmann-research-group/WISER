@@ -422,14 +422,14 @@ class SpectralMetadata():
         if shifted_display is None:
             # Reset to first 3 (or fewer if not enough bands)
             if new_num_bands >= 3:
-                new_display: DisplayBands = list(0, 1, 2)
+                new_display: DisplayBands = [0, 1, 2]
             elif new_num_bands == 2:
-                new_display = list(0, 1)
+                new_display = [0, 1]
             elif new_num_bands == 1:
-                new_display = list(0,)
+                new_display = [0]
             else:
                 # No bands — edge case; keep as empty tuple
-                new_display = list()  # type: ignore
+                new_display = []
         else:
             new_display = shifted_display
 
