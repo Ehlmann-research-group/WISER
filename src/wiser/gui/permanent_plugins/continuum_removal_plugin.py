@@ -148,6 +148,7 @@ def monotone_numba(points):
         hull_arr[i, 0], hull_arr[i, 1] = upper[i]
     return hull_arr
 
+
 def continuum_removal(reflectance, waves) -> Tuple[np.ndarray, np.ndarray]:
     """Calculates the continuum removed spectrum
 
@@ -209,13 +210,17 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     coords_con_hull = hull.transpose()
     order = np.argsort(coords_con_hull[0])
 
-    wavelength_hull_values = coords_con_hull[0][order] # float32[:]
+    wavelength_hull_values = coords_con_hull[0][order]  # float32[:]
     # float32[:], the reflectance values at the points on the hull
     reflectance_hull_values = coords_con_hull[1][order]
 
     # np.interp commonly yields float64; Numba also prefers float64 here.
     #  Use float64 temporaries for interpolation, then cast back to float32.
-    iy_hull64 = np.interp(waves.astype(np.float64), wavelength_hull_values.astype(np.float64), reflectance_hull_values.astype(np.float64))
+    iy_hull64 = np.interp(
+        waves.astype(np.float64),
+        wavelength_hull_values.astype(np.float64),
+        reflectance_hull_values.astype(np.float64),
+    )
     iy_hull = iy_hull64.astype(np.float32)
 
     # Keep division in float32 and return float32 arrays
@@ -224,6 +229,7 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     # Returning (float32[:], float32[:]) to match cr_sig
     return norm, iy_hull
 
+
 def continuum_removal_image(
     image_data: np.ndarray,
     bad_bands_arr: np.ndarray,
@@ -231,9 +237,9 @@ def continuum_removal_image(
     rows: int,
     cols: int,
     bands: int,
-    ) -> np.ndarray:
-    '''
-    Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum 
+) -> np.ndarray:
+    """
+    Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum
     removed spectrum for each pixel in the image.
 
     Parameters
@@ -255,8 +261,8 @@ def continuum_removal_image(
     ----------
     results: np.ndarray
         A 3D numpy array of continuum removed image data
-    '''
-    rows_cols = rows*cols
+    """
+    rows_cols = rows * cols
     results = np.empty_like(image_data, dtype=np.float32)
     for i in range(rows_cols):
         row = i // cols
@@ -265,12 +271,15 @@ def continuum_removal_image(
         reflectance[bad_bands_arr] = np.nan
         continuum_removed, hull = continuum_removal(reflectance, x_axis)
         results[row, col] = continuum_removed
-    results = results.copy().transpose(
-        2, 0, 1
-    )  # [y][x][b] -> [b][y][x]
+    results = results.copy().transpose(2, 0, 1)  # [y][x][b] -> [b][y][x]
     return results
 
-cr_image_sig = types.float32[:, :, :](types.float32[:, :, :], types.boolean[:], types.float32[:], types.intp, types.intp, types.intp)
+
+cr_image_sig = types.float32[:, :, :](
+    types.float32[:, :, :], types.boolean[:], types.float32[:], types.intp, types.intp, types.intp
+)
+
+
 @numba_njit_wrapper(non_njit_func=continuum_removal_image, signature=cr_image_sig, parallel=True)
 def continuum_removal_image_numba(
     image_data: np.ndarray,
@@ -279,8 +288,8 @@ def continuum_removal_image_numba(
     rows: int,
     cols: int,
     bands: int,
-    ):
-    '''
+):
+    """
     Given a 3D numpy array of image data and a 1D numpy array of x-axis
     values, calculates the continuum removed spectrum for each pixel in
     the image using numba.
@@ -322,9 +331,7 @@ def continuum_removal_image_numba(
         # TODO (Joshua G-K) Vectorize the continuum removal function
         continuum_removed, hull = continuum_removal_numba(reflectance, x_axis)
         results[row, col] = continuum_removed
-    results = results.copy().transpose(
-        2, 0, 1
-    )  # [y][x][b] -> [b][y][x]
+    results = results.copy().transpose(2, 0, 1)  # [y][x][b] -> [b][y][x]
     return results
 
 
@@ -380,12 +387,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             Available WISER classes
         """
 
-        QMessageBox.critical(
-            None,
-            "Error",
-            message,
-            QMessageBox.Ok
-        )
+        QMessageBox.critical(None, "Error", message, QMessageBox.Ok)
 
         self.dimension(context)
 
@@ -620,9 +622,11 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         dband = max_band - min_band
         dcols = max_cols - min_cols
         drows = max_rows - min_rows
-        image_data = dataset.get_image_data_subset(min_cols, min_rows, min_band,
-                                                   dcols, drows, dband)  # [b][rows=y=height][cols=x=width]
-         # A numpy array such that the pixel (x, y) values (spectrum value) of band b are at element array[b][y][x]
+        image_data = dataset.get_image_data_subset(
+            min_cols, min_rows, min_band, dcols, drows, dband
+        )  # [b][rows=y=height][cols=x=width]
+        # A numpy array such that the pixel (x, y) values (spectrum value)
+        # of band b are at element array[b][y][x]
         filename = dataset.get_name()
         description = dataset.get_description()
         band_description = dataset.band_list()
@@ -666,7 +670,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             bad_bands_arr = np.array(dataset.get_bad_bands())
             bad_bands_arr = np.logical_not(bad_bands_arr)
         else:
-            bad_bands_arr = np.array([0]*dataset.num_bands())
+            bad_bands_arr = np.array([0] * dataset.num_bands())
         bad_bands_arr = bad_bands_arr[min_band:max_band]
         new_image_data = continuum_removal_image_numba(image_data, bad_bands_arr, x_axis, rows, cols, bands)
 
