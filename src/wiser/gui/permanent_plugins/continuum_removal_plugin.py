@@ -63,8 +63,8 @@ def crossProduct(o, a, b):
     return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
 
 _point_t = types.UniTuple(types.float32, 2)
-cross_sig = types.float32(_point_t, _point_t, _point_t)
-@numba_njit_wrapper(non_njit_func=crossProduct, signature=cross_sig)
+# cross_sig = types.float32(_point_t, _point_t, _point_t)
+# @numba_njit_wrapper(non_njit_func=crossProduct, signature=cross_sig)
 def cross_product_numba(o, a, b):
     """Code provided by Sahil Azad
     Calculates the cross product of two vectors oa and ob
@@ -111,8 +111,8 @@ def monotone(points):
     return upper
 
 _point_t = types.UniTuple(types.float32, 2)
-mono_sig = types.float32[:, :](types.float32[:, :])
-@numba_njit_wrapper(non_njit_func=monotone, signature=mono_sig)
+# mono_sig = types.float32[:, :](types.float32[:, :])
+# @numba_njit_wrapper(non_njit_func=monotone, signature=mono_sig)
 def monotone_numba(points):
     """Code provided by Sahil Azad
     Calculates the upper hull of the spectrum
@@ -171,8 +171,8 @@ def continuum_removal(reflectance, waves) -> Tuple[np.ndarray, np.ndarray]:
     final = np.column_stack((waves, norm)).transpose(1, 0)[1]
     return final, iy_hull_np
 
-cr_sig = types.Tuple((types.float32[:], types.float32[:]))(types.float32[:], types.float32[:])
-@numba_njit_wrapper(non_njit_func=continuum_removal, signature=cr_sig)
+# cr_sig = types.Tuple((types.float32[:], types.float32[:]))(types.float32[:], types.float32[:])
+# @numba_njit_wrapper(non_njit_func=continuum_removal, signature=cr_sig)
 def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     """Calculates the continuum removed spectrum for a single spectrum using numba
 
@@ -215,7 +215,14 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     # Returning (float32[:], float32[:]) to match cr_sig
     return norm, iy_hull
 
-def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
+def continuum_removal_image(
+    image_data: np.ndarray,
+    bad_bands_arr: np.ndarray,
+    x_axis: np.ndarray,
+    rows: int,
+    cols: int,
+    bands: int,
+    ) -> np.ndarray:
     '''
     Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum 
     removed spectrum for each pixel in the image.
@@ -223,7 +230,9 @@ def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: in
     Parameters
     ----------
     image_data: np.ndarray
-        A 3D numpy array of image data  [y][b][x]
+        A 3D numpy array of image data  [y][x][b]
+    bad_bands_arr: np.ndarray
+        A 1D numpy array that has 1s where the band is bad and 0s where it is good
     x_axis: np.ndarray
         A 1D numpy array of x-axis values
     rows: int
@@ -238,34 +247,49 @@ def continuum_removal_image(image_data: np.ndarray, x_axis: np.ndarray, rows: in
     results: np.ndarray
         A 3D numpy array of continuum removed image data
     '''
-    image_spectra_2d = image_data.reshape(
-        (rows * cols, bands)
-    )  # [y][x][b] -> [y*x][b]
-    results = np.empty_like(image_spectra_2d, dtype=np.float32)
-    for i in range(image_spectra_2d.shape[0]):
-        reflectance = image_spectra_2d[i]
+    # image_spectra_2d = image_data.reshape(
+    #     (rows * cols, bands)
+    # )  # [y][x][b] -> [y*x][b]
+    rows_cols = rows*cols
+    results = np.empty_like(image_data, dtype=np.float32)
+    for i in range(rows_cols):
+        row = i // cols
+        col = i % cols
+        reflectance = image_data[row, col, :]
+        reflectance[bad_bands_arr] = np.nan
         # TODO (Joshua G-K) Vectorize the continuum removal function
         continuum_removed, hull = continuum_removal(reflectance, x_axis)
-        results[i] = continuum_removed
-    results = results.reshape((rows, cols, bands))
+        results[row, col] = continuum_removed
     results = results.copy().transpose(
         2, 0, 1
     )  # [y][x][b] -> [b][y][x]
     return results
 
-cr_image_sig = types.float32[:, :, :](types.float32[:, :, :], types.float32[:], types.int32, types.int32, types.int32)
-@numba_njit_wrapper(non_njit_func=continuum_removal_image, signature=cr_image_sig, parallel=True)
-def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, rows: int, cols: int, bands: int):
+# cr_image_sig = types.float32[:, :, :](types.float32[:, :, :], types.float32[:], types.float32[:], types.intp, types.intp, types.intp)
+# @numba_njit_wrapper(non_njit_func=continuum_removal_image, signature=cr_image_sig, parallel=True)
+def continuum_removal_image_numba(
+    image_data: np.ndarray,
+    bad_bands_arr: np.ndarray,
+    x_axis: np.ndarray,
+    rows: int,
+    cols: int,
+    bands: int,
+    ):
     '''
-    Given a 3D numpy array of image data and a 1D numpy array of x-axis values, calculates the continuum 
-    removed spectrum for each pixel in the image using numba.
+    Given a 3D numpy array of image data and a 1D numpy array of x-axis
+    values, calculates the continuum removed spectrum for each pixel in
+    the image using numba.
 
     Parameters
     ----------
     image_data: np.ndarray
-        A 3D numpy array of image data  [x][y][b]
+        A 3D numpy array of image data. Expected to be in C-contiguous order
+        and with dimensions [rows=y=height][cols=x=width][b]. This lets us
+        have the best memory access to get spectra
+    bad_bands_arr: np.ndarray
+        A 1D numpy array that has 1s where the band is bad and 0s where it is good
     x_axis: np.ndarray
-        A 1D numpy array of x-axis values
+        A 1D numpy array of x-axis values (should be decreasing)
     rows: int
         The number of rows in the image
     cols: int
@@ -279,17 +303,28 @@ def continuum_removal_image_numba(image_data: np.ndarray, x_axis: np.ndarray, ro
         A 3D numpy array of continuum removed image data
     '''
     image_data = np.ascontiguousarray(image_data)
-    rows_cols = np.int32(rows * cols)
-    image_spectra_2d = image_data.reshape(
-        (rows_cols, bands)
-    )  # [y][x][b] -> [y*x][b]
-    results = np.empty_like(image_spectra_2d, dtype=np.float32)
-    for i in numba.prange(image_spectra_2d.shape[0]):
-        reflectance = image_spectra_2d[i]
+    rows = rows
+    cols = cols
+    rows_cols = rows * cols
+    # image_spectra_2d = image_data.reshape(
+    #     (rows_cols, bands)
+    # )  # [y][x][b] -> [y*x][b]
+    results = np.empty_like(image_data, dtype=np.float32)
+    for i in numba.prange(rows_cols):
+        # Because we are in C-contiguous order, we want to access columns
+        # the fastest
+        row = i // cols
+        col = i % cols
+        reflectance = image_data[row, col, :]
+        reflectance[bad_bands_arr] = np.nan
         # TODO (Joshua G-K) Vectorize the continuum removal function
         continuum_removed, hull = continuum_removal_numba(reflectance, x_axis)
-        results[i] = continuum_removed
-    results = results.reshape((rows, cols, bands))
+        if row == 3 and col == 3:
+            print(f"x_axis: {x_axis}")
+            print(f"reflectance: {reflectance}")
+            print(f"hull: {hull}")
+            print(f"continuum_removed: {continuum_removed}")
+        results[row, col] = continuum_removed
     results = results.copy().transpose(
         2, 0, 1
     )  # [y][x][b] -> [b][y][x]
@@ -648,17 +683,32 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         rows = np.int32(max_rows - min_rows)
         bands = np.int32(max_band - min_band)
         image_data, x_axis = convert_to_float32_if_needed(image_data, x_axis)
-        print(f"image data shape before transpose: {image_data.shape}")
-        image_data: np.ndarray = image_data.transpose(1, 2, 0)  # [x][y][b] --> [y][b][x]
+        print(f"image data shape before transpose: {image_data.shape}")  # [b][rows=y=height][cols=x=width]
+        image_data: np.ndarray = image_data.transpose(1, 2, 0)  # Changes to [rows=y=height][cols=x=width][b]
         if not image_data.flags.c_contiguous:
             image_data = np.ascontiguousarray(image_data)
         if isinstance(image_data, np.ma.MaskedArray):
+            print(f"^^^ masked array")
+            mask = image_data.mask
             image_data = image_data.data
+            # print(f"np.isnan(image_data) before : {np.isnan(image_data)}")
+            image_data[mask] = np.nan
+            # print(f"np.isnan(image_data) after : {np.isnan(image_data)}")
         if image_data.dtype != np.float32:
             image_data = image_data.astype(np.float32)
         print(f"image data shape after transpose: {image_data.shape}")
-        new_image_data = continuum_removal_image_numba(image_data, x_axis, rows, cols, bands)
-
+        # print(f"#$#$# x axis: {x_axis}")
+        bad_bands_arr = np.array(dataset.get_bad_bands())
+        bad_bands_arr = np.logical_not(bad_bands_arr)
+        # bad_bands_arr = bad_bands_arr[np.newaxis, np.newaxis, :]
+        print(f"bad_bands.shape: {bad_bands_arr.shape}")
+        print(f"image_data.shape: {image_data.shape}")
+        # if bad_bands_arr is not None:
+        #     print(f"np.isnan(image_data) before : {np.isnan(image_data)}")
+        #     image_data[np.logical_not(bad_bands_arr)] = np.nan
+        #     print(f"np.isnan(image_data) after : {np.isnan(image_data)}")
+        new_image_data = continuum_removal_image_numba(image_data, bad_bands_arr, x_axis, rows, cols, bands)
+        # continuum_removal_image_numba.parallel_diagnostics(level=4)
         raster_data = raster.RasterDataLoader()
         new_data = raster_data.dataset_from_numpy_array(new_image_data, app_state.get_cache())
         new_data.set_name(f"Continuum Removal on {filename}")

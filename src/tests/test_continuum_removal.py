@@ -173,7 +173,7 @@ class TestContinuumRemoval(unittest.TestCase):
     #     # self.assertTrue(dict_list_equal(cr_dataset._band_info, gt_dataset._band_info, ignore_keys=['wavelength_units']))
     #     pass
 
-    def test_numba_non_numba_same_425_bands(self):
+    def test_numba_non_numba_same_425_bands_and_nan(self):
         # Load in the ground truth continuum removed spectrum
         spectrum_file_path = \
             os.path.join(os.path.dirname(__file__),
@@ -224,14 +224,19 @@ class TestContinuumRemoval(unittest.TestCase):
         cols = dataset.get_width()
         bands = dataset.num_bands()
         img_data, x_axis = convert_to_float32_if_needed(img_data, x_axis)
-        new_image_data_numba = continuum_removal_image_numba(img_data, x_axis, rows, cols, bands)
-        new_image_data_non_numba = continuum_removal_image(img_data, x_axis, rows, cols, bands)
+        bad_bands_arr = np.array(dataset.get_bad_bands())
+        bad_bands_arr = np.logical_not(bad_bands_arr)
+        new_image_data_numba = continuum_removal_image_numba(img_data, bad_bands_arr, x_axis, rows, cols, bands)
+        new_image_data_non_numba = continuum_removal_image(img_data, bad_bands_arr, x_axis, rows, cols, bands)
 
         print(f"new_image_data_numba.shape: {new_image_data_numba.shape}")
         print(f"new_image_data_non_numba.shape: {new_image_data_non_numba.shape}")
-        first_band_all_ones = np.allclose(new_image_data_numba[0], 1.0)
-        last_band_all_ones = np.allclose(new_image_data_non_numba[-1], 1.0)
-        self.assertTrue(np.allclose(new_image_data_numba, new_image_data_non_numba))
+        print(f"new_image_data_numba: {new_image_data_numba}")
+        print(f"new_image_data_non_numba: {new_image_data_non_numba}")
+        print(f"new_image_data_numba-new_image_data_non_numba: {new_image_data_numba-new_image_data_non_numba}")
+        first_band_all_ones = np.all((new_image_data_numba[0]==1) | np.isnan(new_image_data_numba[0]))
+        last_band_all_ones = np.all((new_image_data_numba[-1]==1) | np.isnan(new_image_data_numba[-1]))
+        self.assertTrue(np.allclose(new_image_data_numba, new_image_data_non_numba, equal_nan=True))
         self.assertTrue(first_band_all_ones)
         self.assertTrue(last_band_all_ones)
 
@@ -240,7 +245,12 @@ class TestContinuumRemoval(unittest.TestCase):
         print(f"new_spectrum_3_3_numba.shape: {new_spectrum_3_3_numba.shape}")
         print(f"spectrum_continuum_removed_arr.shape: {spectrum_continuum_removed_arr.shape}")
 
-        self.assertTrue(np.allclose(new_spectrum_3_3_numba, spectrum_continuum_removed_arr))
+        print(f"!$$ spectrum_arr: {spectrum_arr}")
+        print(f"!$$ convex_hull: {convex_hull}")
+        print(f"!$$ spectrum_continuum_removed_arr: {spectrum_continuum_removed_arr}")
+        print(f"")
+
+        self.assertTrue(np.allclose(new_spectrum_3_3_numba, spectrum_continuum_removed_arr, equal_nan=True))
 
 
     # def test_continuum_removal_spectra(self):
