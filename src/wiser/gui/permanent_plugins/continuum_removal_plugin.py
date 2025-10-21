@@ -120,7 +120,7 @@ def monotone_numba(points):
     Parameters
     ----------
     points: ndarray
-        Column stacked wavelengths and reflectanc values
+        Column stacked wavelengths and reflectance values
 
     Returns
     ----------
@@ -142,7 +142,7 @@ def monotone_numba(points):
         hull_arr[i, 0], hull_arr[i, 1] = upper[i]
     return hull_arr
 
-def continuum_removal(reflectance, waves):
+def continuum_removal(reflectance, waves) -> Tuple[np.ndarray, np.ndarray]:
     """Calculates the continuum removed spectrum
 
     Parameters
@@ -169,6 +169,9 @@ def continuum_removal(reflectance, waves):
     iy_hull_np = np.interp(waves, xp, fp)
     norm = np.divide(reflectance, iy_hull_np)
     final = np.column_stack((waves, norm)).transpose(1, 0)[1]
+    print(f"reflectance: {reflectance}")
+    print(f"iy_hull_np: {iy_hull_np}")
+    print(f"final: {final}")
     return final, iy_hull_np
 
 cr_sig = types.Tuple((types.float32[:], types.float32[:]))(types.float32[:], types.float32[:])
@@ -200,12 +203,13 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
     coords_con_hull = hull.transpose()
     order = np.argsort(coords_con_hull[0])
 
-    xp = coords_con_hull[0][order]  # float32[:]
-    fp = coords_con_hull[1][order]  # float32[:]
+    wavelength_hull_values = coords_con_hull[0][order] # float32[:]
+    # float32[:], the reflectance values at the points on the hull
+    reflectance_hull_values = coords_con_hull[1][order]
 
     # np.interp commonly yields float64; Numba also prefers float64 here.
     #  Use float64 temporaries for interpolation, then cast back to float32.
-    iy_hull64 = np.interp(waves.astype(np.float64), xp.astype(np.float64), fp.astype(np.float64))
+    iy_hull64 = np.interp(waves.astype(np.float64), wavelength_hull_values.astype(np.float64), reflectance_hull_values.astype(np.float64))
     iy_hull = iy_hull64.astype(np.float32)
 
     # Keep division in float32 and return float32 arrays
