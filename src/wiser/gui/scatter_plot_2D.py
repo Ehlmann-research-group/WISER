@@ -101,8 +101,10 @@ def _create_scatter_plot_intensive_operations(x_dataset_serialized: SerializedFo
     # Safe mins/maxes for axes panel defaults
     new_x = np.array([n for n in x if np.isnan(n) == False])
     new_y = np.array([m for m in y if np.isnan(m) == False])
-    default_x_min = min(new_x); default_x_max = max(new_x)
-    default_y_min = min(new_y); default_y_max = max(new_y)
+    default_x_min = np.nanmin(new_x)
+    default_x_max = np.nanmax(new_x)
+    default_y_min = np.nanmin(new_y)
+    default_y_max = np.nanmax(new_y)
 
     return_queue.put({
         "default_x_min": default_x_min,
