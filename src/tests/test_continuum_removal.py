@@ -89,8 +89,15 @@ class TestContinuumRemoval(unittest.TestCase):
         """
         plugin = ContinuumRemovalPlugin()
 
-        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm",
+        )
         ground_truth_path = os.path.join(
+            os.path.dirname(__file__),
             "..",
             "test_utils",
             "test_datasets",
@@ -168,7 +175,13 @@ class TestContinuumRemoval(unittest.TestCase):
             raise RuntimeError("Couldn't extract all values from spectrum!")
 
         # Load in the dataset where the above continuum removed spectrum comes from
-        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_425_7_7_nm")
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_425_7_7_nm",
+        )
 
         dataset = self.test_model.load_dataset(load_path)
         img_data = dataset.get_image_data()
@@ -314,9 +327,19 @@ class TestContinuumRemoval(unittest.TestCase):
         """Test subsetting continuum removal for the 425x7x7 dataset to be a 225x4x3 dataset"""
         plugin = ContinuumRemovalPlugin()
 
-        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_425_7_7_nm")
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_425_7_7_nm",
+        )
         ground_truth_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_225_4_3_nm_continuum_removed"
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_225_4_3_nm_continuum_removed",
         )
 
         dataset = self.test_model.load_dataset(load_path)
