@@ -116,18 +116,21 @@ def _create_scatter_plot_intensive_operations(
     default_y_min = np.nanmin(new_y)
     default_y_max = np.nanmax(new_y)
 
-    return_queue.put({
-        "default_x_min": default_x_min,
-        "default_x_max": default_x_max,
-        "default_y_min": default_y_min,
-        "default_y_max": default_y_max,
-        "rows": rows1,
-        "cols": cols1,
-        "x_flat": x,
-        "y_flat": y,
-        "xy": np.column_stack((x, y)),
-        "valid_mask": np.isfinite(np.column_stack((x, y))).all(axis=1)
-    })
+    return_queue.put(
+        {
+            "default_x_min": default_x_min,
+            "default_x_max": default_x_max,
+            "default_y_min": default_y_min,
+            "default_y_max": default_y_max,
+            "rows": rows1,
+            "cols": cols1,
+            "x_flat": x,
+            "y_flat": y,
+            "xy": np.column_stack((x, y)),
+            "valid_mask": np.isfinite(np.column_stack((x, y))).all(axis=1),
+        }
+    )
+
 
 class ScatterPlot2DDialog(QDialog):
     """
