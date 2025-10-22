@@ -227,7 +227,13 @@ class TestCRSCreator(unittest.TestCase):
 
         added_crs = self.test_model.app_state.get_user_created_crs()[name][0]
 
-        rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+        rel_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm",
+        )
         ds = self.test_model.load_dataset(rel_path)
 
         self.test_model.set_geo_ref_target_dataset(ds.get_id())
@@ -235,7 +241,13 @@ class TestCRSCreator(unittest.TestCase):
 
         self.test_model.set_geo_ref_output_crs(UserGeneratedCRS(name, added_crs))
         self.test_model.set_geo_ref_polynomial_order("2")
-        save_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif")
+        save_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm_test_crs.tif",
+        )
         self.test_model.set_geo_ref_file_save_path(save_path)
 
         gcp_list = [
@@ -261,7 +273,11 @@ class TestCRSCreator(unittest.TestCase):
         test_geo_transform = testing_ds.get_geo_transform()
 
         ground_truth_ds_path = os.path.join(
-            "..", "test_utils", "test_datasets", "caltech_4_100_150_nm_epsg4087.tif"
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm_epsg4087.tif",
         )
         ground_truth_ds = self.test_model.load_dataset(ground_truth_ds_path)
         ground_truth_geo_transform = ground_truth_ds.get_geo_transform()
@@ -310,7 +326,13 @@ if __name__ == "__main__":
         [(58, 91), (395700.79550318926, 3778106.3770755623)],
     ]
 
-    rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+    rel_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test_utils",
+        "test_datasets",
+        "caltech_4_100_150_nm",
+    )
     ds = test_model.load_dataset(rel_path)
 
     test_model.open_geo_referencer()
@@ -332,15 +354,33 @@ if __name__ == "__main__":
         test_model.press_enter_reference_image()
 
     test_model.set_geo_ref_polynomial_order("2")
-    save_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif")
+    save_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test_utils",
+        "test_datasets",
+        "caltech_4_100_150_nm_test_crs.tif",
+    )
     test_model.set_geo_ref_file_save_path(save_path)
 
     test_model.set_geo_ref_output_crs(UserGeneratedCRS(name, added_crs))
 
-    rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_test_crs.tif")
+    rel_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test_utils",
+        "test_datasets",
+        "caltech_4_100_150_nm_test_crs.tif",
+    )
     ds = test_model.load_dataset(rel_path)
 
-    rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm_epsg4087.tif")
+    rel_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test_utils",
+        "test_datasets",
+        "caltech_4_100_150_nm_epsg4087.tif",
+    )
     ds = test_model.load_dataset(rel_path)
 
     test_model.app.exec_()

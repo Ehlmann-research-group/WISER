@@ -1,6 +1,7 @@
 """
 Test to make sure the interactive scatter plot works as intended
 """
+import os
 import unittest
 
 from matplotlib import use
@@ -12,7 +13,7 @@ from test_utils.test_model import WiserTestModel
 
 import numpy as np
 
-from PySide2.QtTest import QTest
+
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -44,32 +45,59 @@ class TestInteractiveScatterPlot(unittest.TestCase):
         Ensure that all of the correct points are plotted in the scatter plot and the highlight
         region is created correctly.
         """
-        np_impl = np.array(
+        np_arr = np.array(
             [
                 [
                     [0.0, np.nan, 0.0, 1.0],
-                    [0.25, 0.25, 0.25, 0.25],
+                    [0.25, 0.25, 0.25, np.nan],
                     [0.5, 0.5, 0.5, 0.5],
                     [0.75, 0.75, 0.75, 0.75],
                     [1.0, 1.0, 1.0, 1.0],
                 ],
                 [
-                    [0.0, 1.0, 2.0, 0.0],
-                    [0.25, 0.25, 0.25, 0.25],
-                    [0.5, 0.5, 0.5, 0.5],
-                    [0.75, 0.75, 0.75, 0.75],
-                    [1.0, 1.0, 1.0, 1.0],
+                    [0.0, 1.0, np.nan, 0.0],
+                    [0.25, 0.25, np.nan, 0.25],
+                    [0.5, 0.5, np.nan, 0.5],
+                    [0.75, 0.75, np.nan, 0.75],
+                    [1.0, 1.0, np.nan, 1.0],
                 ],
                 [
                     [0.0, 2.0, 1.0, 2.0],
                     [0.25, 0.25, 0.25, 0.25],
-                    [0.5, 0.5, 0.5, 0.5],
+                    [0.5, np.nan, 0.5, 0.5],
                     [0.75, 0.75, np.nan, 0.75],
-                    [1.0, 1.0, 1.0, 1.0],
+                    [np.nan, 1.0, 1.0, 1.0],
                 ],
             ]
         )
 
+        np_mask = np.array(
+            [
+                [
+                    [0, 1, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                ],
+                [
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                ],
+                [
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 1, 0],
+                    [1, 0, 0, 0],
+                ],
+            ]
+        )
+
+        np_impl = np.ma.array(np_arr, mask=np_mask)
         ds = self.test_model.load_dataset(np_impl)
         self.test_model.click_zoom_to_fit()
         self.test_model.open_interactive_scatter_plot_context_menu()
@@ -85,7 +113,7 @@ class TestInteractiveScatterPlot(unittest.TestCase):
         xy_truth = np.column_stack([x_truth, y_truth])
         self.assertTrue(np.array_equal(xy, xy_truth, equal_nan=True))
 
-        highlighted_points_truth = [(1, 0), (1, 1), (1, 2), (1, 3)]
+        highlighted_points_truth = [(1, 0), (1, 1), (1, 2)]
         self.test_model.create_polygon_in_interactive_scatter_plot(
             [(0.1, 0), (0.1, 0.49), (0.49, 0.49), (0.49, 0.1), (0.1, 0)]
         )
