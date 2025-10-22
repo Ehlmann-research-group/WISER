@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 
 class TaskDelegate:
-    '''
+    """
     This interface specifies the operations that task-delegates of the raster
     pane need to implement, in order to handle events from the raster pane's
     components.
@@ -24,33 +24,33 @@ class TaskDelegate:
     Once the task is completed, the raster pane will call the delegate's
     finish() implementation, in order to perform any final operations associated
     with the task.
-    '''
+    """
 
-    def __init__(self, rasterpane: 'RasterPane', rasterview: Optional[RasterView] = None):
-        '''
+    def __init__(self, rasterpane: "RasterPane", rasterview: Optional[RasterView] = None):
+        """
         Initialize the task delegate.  An optional raster-view may be specified,
         but in multi-view contexts, the set_rasterview() function will be the
         preferred option.
-        '''
+        """
         if rasterpane is None:
-            raise ValueError('rasterpane cannot be None')
+            raise ValueError("rasterpane cannot be None")
 
-        self._rasterpane: 'RasterPane' = rasterpane
+        self._rasterpane: "RasterPane" = rasterpane
         self._app_state = rasterpane.get_app_state()
         self._rasterview: Optional[RasterView] = rasterview
 
     def set_rasterview(self, rasterview: RasterView):
-        '''
+        """
         Specify the raster-view that this task delegate is operating on behalf
         of.
-        '''
+        """
         self._rasterview = rasterview
 
     def get_rasterview(self) -> RasterView:
-        '''
+        """
         Returns the raster-view for this task delegate, or None if a raster-view
         hasn't yet been assigned.
-        '''
+        """
         return self._rasterview
 
     def on_mouse_press(self, mouse_event) -> bool:

@@ -10,6 +10,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+
 class FunctionEvent(QEvent):
     """
     A class to wrap a callable
@@ -25,6 +26,7 @@ class FunctionEvent(QEvent):
         func (callable): A callable function that you want called in the event loop
 
     """
+
     def __init__(self, func):
         # We use the custom event type stored on TestingWidget.functionEventType.
         super().__init__(TestingWidget.functionEventType)
@@ -34,9 +36,10 @@ class FunctionEvent(QEvent):
         """Execute the function carried by this event."""
         self._func()
 
+
 class TestingWidget(QWidget):
     """
-    A transparent, frameless QWidget that acts as an event proxy to execute 
+    A transparent, frameless QWidget that acts as an event proxy to execute
     callables via a custom QEvent type.
 
     This widget does not accept mouse events (they pass through it) and is
@@ -45,9 +48,10 @@ class TestingWidget(QWidget):
     interaction with the main GUI thread is not allowed.
 
     Attributes:
-        functionEventType (QEvent.Type): A custom event type used to register and 
+        functionEventType (QEvent.Type): A custom event type used to register and
             identify events carrying callable functions to be executed.
     """
+
     # Register a unique QEvent type
     functionEventType = QEvent.Type(QEvent.registerEventType())
 

@@ -7,8 +7,19 @@ import warnings
 import numpy as np
 
 from PySide2.QtWidgets import (
-    QDialog, QMessageBox, QApplication, QFileDialog, QTableWidgetItem,
-    QAbstractItemView, QCheckBox, QDoubleSpinBox, QDialogButtonBox, QLabel, QFormLayout, QWidget, QPushButton
+    QDialog,
+    QMessageBox,
+    QApplication,
+    QFileDialog,
+    QTableWidgetItem,
+    QAbstractItemView,
+    QCheckBox,
+    QDoubleSpinBox,
+    QDialogButtonBox,
+    QLabel,
+    QFormLayout,
+    QWidget,
+    QPushButton,
 )
 from PySide2.QtCore import Qt, QSettings
 from astropy import units as u
@@ -19,13 +30,16 @@ from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
-from wiser.gui.generated.generic_spectral_computation_ui import Ui_GenericSpectralComputation  # generated from .ui
+from wiser.gui.generated.generic_spectral_computation_ui import (
+    Ui_GenericSpectralComputation,
+)  # generated from .ui
 from .util import populate_combo_box_with_units  # same util used by SAM
 
 from wiser.config import FLAGS
 
 DEFAULT_NO_SPECTRA_TEXT = "No spectra collected"
 DEFAULT_NO_DATASETS_TEXT = "No image cubes loaded"
+
 
 class GenericSpectralComputationTool(QDialog):
     """
@@ -101,7 +115,9 @@ class GenericSpectralComputationTool(QDialog):
         self._load_state()
         app = QApplication.instance()
         if app is not None:
-            app.aboutToQuit.connect(lambda: QSettings(self.SETTINGS_NAMESPACE).remove(f"session/{os.getpid()}"))
+            app.aboutToQuit.connect(
+                lambda: QSettings(self.SETTINGS_NAMESPACE).remove(f"session/{os.getpid()}")
+            )
 
     # ----------------- To be overridden/used by children -----------------
     def details_columns(self) -> List[Tuple[str, str]]:
@@ -174,8 +190,12 @@ class GenericSpectralComputationTool(QDialog):
         self._ui.label_threshold.setText(self.THRESHOLD_HEADER)
 
     def _init_reference_selection(self) -> None:
-        for lbl in (self._ui.hdr_lib, self._ui.hdr_thresh_lib,
-                    self._ui.hdr_spec, self._ui.hdr_thresh_spec):
+        for lbl in (
+            self._ui.hdr_lib,
+            self._ui.hdr_thresh_lib,
+            self._ui.hdr_spec,
+            self._ui.hdr_thresh_spec,
+        ):
             lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
     def _init_target_dropdowns(self) -> None:
@@ -193,7 +213,12 @@ class GenericSpectralComputationTool(QDialog):
     # ----------------- File pickers -----------------
     def _on_add_spectrum_clicked(self):
         start_dir = self._app_state.get_current_dir() or os.path.expanduser("~")
-        filedlg = QFileDialog(self, "Import Spectra from Text File", start_dir, "Text files (*.txt);;All Files (*)")
+        filedlg = QFileDialog(
+            self,
+            "Import Spectra from Text File",
+            start_dir,
+            "Text files (*.txt);;All Files (*)",
+        )
         filedlg.setFileMode(QFileDialog.ExistingFile)
         filedlg.setAcceptMode(QFileDialog.AcceptOpen)
         filedlg.setWindowModality(Qt.WindowModal)
@@ -222,7 +247,8 @@ class GenericSpectralComputationTool(QDialog):
         row["specs"].extend(specs)
 
     def _on_add_library_clicked(self):
-        self.raise_(); self.activateWindow()
+        self.raise_()
+        self.activateWindow()
         dlg = QFileDialog(self, "Select Library File")
         dlg.setFileMode(QFileDialog.ExistingFile)
         dlg.setNameFilters(["Spectral Library (*.hdr *.csv)", "All Files (*)"])
@@ -241,31 +267,35 @@ class GenericSpectralComputationTool(QDialog):
         row = self._ui.specGrid.rowCount()
         cb = QCheckBox(f"Added_spectrum{row}")
         spin = self._make_row_threshold_spin()
-        self._ui.specGrid.addWidget(cb,   row, 0, Qt.AlignLeft | Qt.AlignBaseline)
+        self._ui.specGrid.addWidget(cb, row, 0, Qt.AlignLeft | Qt.AlignBaseline)
         self._ui.specGrid.addWidget(spin, row, 1, Qt.AlignLeft | Qt.AlignBaseline)
         self._ui.specGrid.setRowStretch(row + 1, 1)
-        self._spec_rows.append({
-            "checkbox": cb,
-            "threshold": spin,
-            "row_index": row,
-            "path": None,
-            "specs": []
-        })
+        self._spec_rows.append(
+            {
+                "checkbox": cb,
+                "threshold": spin,
+                "row_index": row,
+                "path": None,
+                "specs": [],
+            }
+        )
 
     def addLibraryRow(self):
         row = len(self._lib_rows) + 1
         cb = QCheckBox(f"Library_{row-1}")
         spin = self._make_row_threshold_spin()
-        self._ui.libGrid.addWidget(cb,   row, 0, Qt.AlignLeft | Qt.AlignBaseline)
+        self._ui.libGrid.addWidget(cb, row, 0, Qt.AlignLeft | Qt.AlignBaseline)
         self._ui.libGrid.addWidget(spin, row, 1, Qt.AlignLeft | Qt.AlignBaseline)
         self._ui.libGrid.setRowStretch(row + 1, 1)
-        self._lib_rows.append({
-            "checkbox": cb,
-            "threshold": spin,
-            "row_index": row,
-            "path": None,
-            "lib_obj": None
-        })
+        self._lib_rows.append(
+            {
+                "checkbox": cb,
+                "threshold": spin,
+                "row_index": row,
+                "path": None,
+                "lib_obj": None,
+            }
+        )
 
     def _make_row_threshold_spin(self) -> QDoubleSpinBox:
         cfg = self.THRESHOLD_SPIN_CONFIG
@@ -296,9 +326,9 @@ class GenericSpectralComputationTool(QDialog):
 
     # ----------------- Target switching helpers -----------------
     def get_all_non_active_spectra(self) -> List[Spectrum]:
-        '''
+        """
         Retrieves all spectra from the collected spectra and spectral libraries.
-        '''
+        """
         collected_spectra = self._app_state.get_collected_spectra()
         spectral_libraries = self._app_state.get_spectral_libraries()
 
@@ -311,7 +341,6 @@ class GenericSpectralComputationTool(QDialog):
         # Combine and return
         all_non_active_spectra = collected_spectra + all_spectra_in_libraries
         return all_non_active_spectra
-
 
     # ----------------- Target switching -----------------
     def _on_target_type_changed(self, text):
@@ -337,13 +366,16 @@ class GenericSpectralComputationTool(QDialog):
             combo.addItem(placeholder)
             combo.setEnabled(False)
             ui.addRunBtn.setEnabled(False)
-    
+
     def _on_collected_spectra_changed(self, state_change: StateChange, index: int, _id: int):
         """
-        Before, we have spectra with their own name and id. A Spectra was either added or removed or edited.
+        Before, we had spectra with their own name and ID. A spectrum was either added,
+        removed, or edited.
 
-        If removed we have to see if our selected one was removed or one after or before. Basically, we have to redo
-        the list of collected spectra and if ours was removed we move it to the top and if not we move it to where it was at
+        If removed, we have to check whether the selected one was removed, or the one
+        after or before it. Basically, we need to rebuild the list of collected spectra,
+        and if ours was removed, we move it to the top; if not, we keep it in its
+        previous position.
         """
         if state_change != StateChange.ITEM_ADDED and state_change != StateChange.ITEM_REMOVED:
             return
@@ -360,12 +392,16 @@ class GenericSpectralComputationTool(QDialog):
 
         if self._ui.SelectTargetData.currentText() == "Spectrum":
             spectra = self.get_all_non_active_spectra()
-            
+
             cbox = self._ui.SelectTargetData_2
             cbox.clear()
             if len(spectra) > 0:
                 for spectrum in spectra:
-                    name = spectrum.get_name() if hasattr(spectrum, "get_name") else getattr(spectrum, "name", str(spectrum))
+                    name = (
+                        spectrum.get_name()
+                        if hasattr(spectrum, "get_name")
+                        else getattr(spectrum, "name", str(spectrum))
+                    )
                     cbox.addItem(name, spectrum)
                 cbox.setEnabled(True)
                 ui.addRunBtn.setEnabled(True)
@@ -385,7 +421,11 @@ class GenericSpectralComputationTool(QDialog):
     def _slice_to_bounds(self, spectrum: NumPyArraySpectrum) -> Tuple[np.ndarray, u.Quantity]:
         wls = spectrum.get_wavelengths()
         if not isinstance(wls, u.Quantity):
-            unit = spectrum.get_wavelength_units() if spectrum.has_wavelengths() else self._get_wavelength_units()
+            unit = (
+                spectrum.get_wavelength_units()
+                if spectrum.has_wavelengths()
+                else self._get_wavelength_units()
+            )
             wls = u.Quantity(wls, unit)
         elif wls.unit == u.dimensionless_unscaled:
             unit = self._get_wavelength_units()
@@ -399,13 +439,15 @@ class GenericSpectralComputationTool(QDialog):
         raw_r = spectrum.get_spectrum()
         arr = raw_r.value if isinstance(raw_r, u.Quantity) else np.asarray(raw_r)
         if arr.ndim != 1 or arr.shape[0] != wls.shape[0]:
-            raise ValueError(f"Shape mismatch: reflectance has shape {arr.shape}, wavelengths has shape {wls.shape}")
+            raise ValueError(
+                f"Shape mismatch: reflectance has shape {arr.shape}, wavelengths has shape {wls.shape}"
+            )
 
         mask = np.ones(wls.shape, dtype=bool)
         if self._min_wavelength is not None:
-            mask &= (wls >= self._min_wavelength)
+            mask &= wls >= self._min_wavelength
         if self._max_wavelength is not None:
-            mask &= (wls <= self._max_wavelength)
+            mask &= wls <= self._max_wavelength
 
         return arr[mask], wls[mask]
 
@@ -423,7 +465,7 @@ class GenericSpectralComputationTool(QDialog):
         min_wl = u.Quantity(min_v, units)
         max_wl = u.Quantity(max_v, units)
 
-        mode   = self._ui.SelectTargetData.currentText()
+        mode = self._ui.SelectTargetData.currentText()
         target = self._ui.SelectTargetData_2.currentData()
         if target is None:
             raise ValueError(f"No {mode.lower()} selected.")
@@ -441,7 +483,7 @@ class GenericSpectralComputationTool(QDialog):
                 lib_filename = os.path.basename(lib_row["path"])
                 row_thr = float(lib_row["threshold"].value())
                 for i in range(envilib._num_spectra):
-                    arr  = envilib._data[i]
+                    arr = envilib._data[i]
                     name = envilib._spectra_names[i] if hasattr(envilib, "_spectra_names") else None
                     spec_from_lib = NumPyArraySpectrum(arr=arr, name=name, wavelengths=wls)
                     spec_from_lib.set_id(next_id)
@@ -490,17 +532,19 @@ class GenericSpectralComputationTool(QDialog):
                 continue
             thr = self._row_threshold_for(spec, global_thr)
             if score <= thr:  # shared convention: lower score is better, pass if <= threshold
-                matches.append({
-                    "target_name": self.get_target_name(),
-                    "reference_data": spec.get_name(),
-                    "library_name": self._lib_name_by_spec_id.get(spec.get_id(), ""),
-                    "score": float(score),
-                    "threshold": float(thr),
-                    "min_wavelength": self.get_wavelength_min(),
-                    "max_wavelength": self.get_wavelength_max(),
-                    "ref_obj": spec,
-                    **extras,
-                })
+                matches.append(
+                    {
+                        "target_name": self.get_target_name(),
+                        "reference_data": spec.get_name(),
+                        "library_name": self._lib_name_by_spec_id.get(spec.get_id(), ""),
+                        "score": float(score),
+                        "threshold": float(thr),
+                        "min_wavelength": self.get_wavelength_min(),
+                        "max_wavelength": self.get_wavelength_max(),
+                        "ref_obj": spec,
+                        **extras,
+                    }
+                )
         return matches
 
     def sort_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -524,6 +568,7 @@ class GenericSpectralComputationTool(QDialog):
                 sorted_matches = self.sort_matches(matches)
             except Exception as e:
                 import traceback
+
                 self._show_message("error", "Error during run", str(e), details=traceback.format_exc())
                 raise e
                 return
@@ -533,10 +578,11 @@ class GenericSpectralComputationTool(QDialog):
                 self._view_details_dialog(sorted_matches, self._target)
             else:
                 self._show_message(
-                    "info", "No matches found",
+                    "info",
+                    "No matches found",
                     "No matches were found within the threshold.",
                     informative=f"Threshold: {self._ui.method_threshold.value()}, "
-                                f"Range: {self._min_wavelength} – {self._max_wavelength}"
+                    f"Range: {self._min_wavelength} – {self._max_wavelength}",
                 )
         finally:
             QApplication.restoreOverrideCursor()
@@ -612,7 +658,9 @@ class GenericSpectralComputationTool(QDialog):
         d.setAttribute(Qt.WA_DeleteOnClose, True)
         d.setWindowFlag(Qt.Tool, True)
         d.setModal(False)
-        d.setWindowFlags(d.windowFlags() | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowCloseButtonHint)
+        d.setWindowFlags(
+            d.windowFlags() | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowCloseButtonHint
+        )
 
         lay = self._build_details_layout(d, top, target)
 
@@ -623,15 +671,17 @@ class GenericSpectralComputationTool(QDialog):
         lay.addWidget(btn_box)
 
         d.resize(1050, 800)
-        d.show(); d.activateWindow()
+        d.show()
+        d.activateWindow()
 
     def _build_details_layout(self, d: QDialog, rows: List[Dict[str, Any]], target: NumPyArraySpectrum):
         from PySide2.QtWidgets import QVBoxLayout, QTableWidget
+
         layout = QVBoxLayout(d)
 
         # Plot
         try:
-            target.set_color('#000000')
+            target.set_color("#000000")
         except Exception:
             pass
         plot_widget = SpectrumPlotGeneric(self._app_state)
@@ -642,8 +692,15 @@ class GenericSpectralComputationTool(QDialog):
 
         # Table
         table = QTableWidget()
-        cols = [("Match", "reference_data"), ("Library", "library_name")] + self.details_columns() + \
-               [("Min WL", "min_wavelength"), ("Max WL", "max_wavelength"), ("Target", "target_name")]
+        cols = (
+            [("Match", "reference_data"), ("Library", "library_name")]
+            + self.details_columns()
+            + [
+                ("Min WL", "min_wavelength"),
+                ("Max WL", "max_wavelength"),
+                ("Target", "target_name"),
+            ]
+        )
         table.setColumnCount(len(cols))
         table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         table.setHorizontalHeaderLabels([c[0] for c in cols])
@@ -666,12 +723,20 @@ class GenericSpectralComputationTool(QDialog):
     # ----------------- Messaging -----------------
     def _show_message(
         self,
-        kind: str, title: str, text: str, informative: str = None, details: str = None,
+        kind: str,
+        title: str,
+        text: str,
+        informative: str = None,
+        details: str = None,
         buttons: "QMessageBox.StandardButtons" = QMessageBox.Ok,
-        default: "QMessageBox.StandardButton" = QMessageBox.Ok
+        default: "QMessageBox.StandardButton" = QMessageBox.Ok,
     ) -> int:
-        icon_map = {"info": QMessageBox.Information, "warning": QMessageBox.Warning,
-                    "error": QMessageBox.Critical, "question": QMessageBox.Question}
+        icon_map = {
+            "info": QMessageBox.Information,
+            "warning": QMessageBox.Warning,
+            "error": QMessageBox.Critical,
+            "question": QMessageBox.Question,
+        }
         parent = self.window() or self
         if isinstance(parent, QWidget) and parent.isMinimized():
             parent.showNormal()
@@ -679,18 +744,26 @@ class GenericSpectralComputationTool(QDialog):
         box.setIcon(icon_map.get(kind, QMessageBox.Information))
         box.setWindowTitle(title)
         box.setText(text)
-        if informative: box.setInformativeText(informative)
-        if details: box.setDetailedText(details)
+        if informative:
+            box.setInformativeText(informative)
+        if details:
+            box.setDetailedText(details)
         box.setStandardButtons(buttons)
         box.setDefaultButton(default)
         box.setWindowModality(Qt.WindowModal)
-        box.raise_(); box.activateWindow()
+        box.raise_()
+        box.activateWindow()
         return box.exec_()
 
     # ----------------- Clear / Save State -----------------
     def _on_clear_runs_clicked(self):
-        res = self._show_message("question", "Clear runs", "Clear all run history?",
-                                 buttons=QMessageBox.Yes | QMessageBox.No, default=QMessageBox.No)
+        res = self._show_message(
+            "question",
+            "Clear runs",
+            "Clear all run history?",
+            buttons=QMessageBox.Yes | QMessageBox.No,
+            default=QMessageBox.No,
+        )
         if res != QMessageBox.Yes:
             return
         self._run_history.clear()
@@ -714,9 +787,12 @@ class GenericSpectralComputationTool(QDialog):
         return s
 
     def _q_to_units(self, q):
-        if q is None: return None
-        try: return float(q.to(self._get_wavelength_units()).value)
-        except Exception: return float(getattr(q, "value", q))
+        if q is None:
+            return None
+        try:
+            return float(q.to(self._get_wavelength_units()).value)
+        except Exception:
+            return float(getattr(q, "value", q))
 
     def _units_to_q(self, v):
         return u.Quantity(v, self._get_wavelength_units()) if v is not None else None
@@ -725,8 +801,10 @@ class GenericSpectralComputationTool(QDialog):
         grid = self._ui.libGrid
         for row in self._lib_rows:
             cb, le = row["checkbox"], row["threshold"]
-            grid.removeWidget(cb); cb.deleteLater()
-            grid.removeWidget(le); le.deleteLater()
+            grid.removeWidget(cb)
+            cb.deleteLater()
+            grid.removeWidget(le)
+            le.deleteLater()
         self._lib_rows.clear()
 
     def _save_state(self) -> None:
@@ -736,10 +814,10 @@ class GenericSpectralComputationTool(QDialog):
         s.setValue("threshold", float(self._ui.method_threshold.value()))
         # target
         mode = self._ui.SelectTargetData.currentText()
-        obj  = self._ui.SelectTargetData_2.currentData()
+        obj = self._ui.SelectTargetData_2.currentData()
         s.setValue("target/mode", mode)
         s.setValue("target/name", getattr(obj, "get_name", lambda: None)())
-        s.setValue("target/id",   getattr(obj, "get_id",   lambda: None)())
+        s.setValue("target/id", getattr(obj, "get_id", lambda: None)())
         # libraries
         s.beginWriteArray("libraries")
         for i, row in enumerate(self._lib_rows):
@@ -762,19 +840,21 @@ class GenericSpectralComputationTool(QDialog):
         flat = []
         for tname, runs in self._run_history.items():
             for r in runs:
-                best   = r.get("best", {})
+                best = r.get("best", {})
                 target = r.get("target")
-                flat.append({
-                    "mode":         r.get("mode"),
-                    "target_name":  tname,
-                    "target_id":    getattr(target, "get_id", lambda: None)(),
-                    "min":          self._q_to_units(r.get("min_wavelength")),
-                    "max":          self._q_to_units(r.get("max_wavelength")),
-                    "threshold":    float(r.get("threshold", float(self._ui.method_threshold.value()))),
-                    "best_reference": best.get("reference_data"),
-                    "best_library":   best.get("library_name"),
-                    "best_score":     float(best.get("score")) if best.get("score") is not None else None,
-                })
+                flat.append(
+                    {
+                        "mode": r.get("mode"),
+                        "target_name": tname,
+                        "target_id": getattr(target, "get_id", lambda: None)(),
+                        "min": self._q_to_units(r.get("min_wavelength")),
+                        "max": self._q_to_units(r.get("max_wavelength")),
+                        "threshold": float(r.get("threshold", float(self._ui.method_threshold.value()))),
+                        "best_reference": best.get("reference_data"),
+                        "best_library": best.get("library_name"),
+                        "best_score": float(best.get("score")) if best.get("score") is not None else None,
+                    }
+                )
         s.beginWriteArray("history")
         for i, row in enumerate(flat):
             s.setArrayIndex(i)
@@ -789,11 +869,13 @@ class GenericSpectralComputationTool(QDialog):
             for idx in range(combo.count()):
                 obj = combo.itemData(idx)
                 if sid is not None and getattr(obj, "get_id", lambda: None)() == sid:
-                    combo.setCurrentIndex(idx); return
+                    combo.setCurrentIndex(idx)
+                    return
             if name:
                 for idx in range(combo.count()):
                     if getattr(combo.itemData(idx), "get_name", lambda: None)() == name:
-                        combo.setCurrentIndex(idx); return
+                        combo.setCurrentIndex(idx)
+                        return
 
     def _load_state(self) -> None:
         s = self._settings()
@@ -819,11 +901,14 @@ class GenericSpectralComputationTool(QDialog):
                 row["path"] = s.value("path", type=str)
                 row["checkbox"].setText(os.path.basename(row["path"] or "") or "Library")
                 row["checkbox"].setChecked(bool(s.value("checked", False, type=bool)))
-                saved_v   = s.value("threshold_text", None, type=float)
+                saved_v = s.value("threshold_text", None, type=float)
                 overridden = bool(s.value("threshold_overridden", False, type=bool))
                 row["threshold"].setProperty("overridden", overridden)
-                row["threshold"].setValue(float(saved_v) if (overridden and saved_v is not None)
-                                          else float(self._ui.method_threshold.value()))
+                row["threshold"].setValue(
+                    float(saved_v)
+                    if (overridden and saved_v is not None)
+                    else float(self._ui.method_threshold.value())
+                )
         s.endArray()
 
         count = s.beginReadArray("spectra")
@@ -834,18 +919,21 @@ class GenericSpectralComputationTool(QDialog):
                 row = self._spec_rows[-1]
                 row["path"] = s.value("path", type=str)
                 row["checkbox"].setChecked(bool(s.value("checked", False, type=bool)))
-                saved_v    = s.value("threshold_text", None, type=float)
+                saved_v = s.value("threshold_text", None, type=float)
                 overridden = bool(s.value("threshold_overridden", False, type=bool))
                 row["threshold"].setProperty("overridden", overridden)
-                row["threshold"].setValue(float(saved_v) if (overridden and saved_v is not None)
-                                          else float(self._ui.method_threshold.value()))
+                row["threshold"].setValue(
+                    float(saved_v)
+                    if (overridden and saved_v is not None)
+                    else float(self._ui.method_threshold.value())
+                )
                 filename = os.path.basename(row["path"] or "")
                 row["checkbox"].setText(filename or f"Added_spectrum{row['row_index']}")
         s.endArray()
 
         mode = s.value("target/mode", type=str)
         name = s.value("target/name", type=str)
-        sid  = s.value("target/id", type=int)
+        sid = s.value("target/id", type=int)
         self._restore_target_selection(mode, name, sid)
 
         table = self._ui.tableWidget
@@ -855,18 +943,22 @@ class GenericSpectralComputationTool(QDialog):
             row_idx = table.rowCount()
             table.insertRow(row_idx)
             tname = s.value("target_name", "", type=str)
-            bref  = s.value("best_reference", "", type=str)
-            bsc   = s.value("best_score", None)
+            bref = s.value("best_reference", "", type=str)
+            bsc = s.value("best_score", None)
             table.setItem(row_idx, 0, QTableWidgetItem(tname))
             table.setItem(row_idx, 1, QTableWidgetItem(bref))
-            table.setItem(row_idx, 2, QTableWidgetItem(f"{float(bsc):.4f}" if bsc is not None else ""))
+            table.setItem(
+                row_idx,
+                2,
+                QTableWidgetItem(f"{float(bsc):.4f}" if bsc is not None else ""),
+            )
             spec = {
-                "mode":        s.value("mode", "Spectrum", type=str),
+                "mode": s.value("mode", "Spectrum", type=str),
                 "target_name": tname,
-                "target_id":   s.value("target_id", None, type=int),
-                "min":         s.value("min", None, type=float),
-                "max":         s.value("max", None, type=float),
-                "threshold":   s.value("threshold", float(self._ui.method_threshold.value()), type=float),
+                "target_id": s.value("target_id", None, type=int),
+                "min": s.value("min", None, type=float),
+                "max": s.value("max", None, type=float),
+                "threshold": s.value("threshold", float(self._ui.method_threshold.value()), type=float),
             }
             btn_view = QPushButton("View Details", table)
             btn_view.clicked.connect(lambda _=False, sp=spec: self._replay_saved(sp))
@@ -906,6 +998,7 @@ class GenericSpectralComputationTool(QDialog):
         tgt_name = getattr(target, "get_name", lambda: None)() or "target"
         safe_target = tgt_name.replace(" ", "_")
         from datetime import datetime
+
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         base_dir = getattr(self._app_state, "get_current_dir", lambda: None)() or os.path.expanduser("~")
         default_path = os.path.join(base_dir, f"{safe_target}_{self.filename_stub()}_{stamp}.txt")
@@ -918,7 +1011,9 @@ class GenericSpectralComputationTool(QDialog):
         dlg.setWindowModality(Qt.WindowModal)
         dlg.selectFile(os.path.basename(default_path))
         dlg.setDirectory(os.path.dirname(default_path))
-        dlg.show(); dlg.raise_(); dlg.activateWindow()
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
         if dlg.exec_() != QDialog.Accepted:
             return
         path = dlg.selectedFiles()[0]
@@ -934,6 +1029,7 @@ class GenericSpectralComputationTool(QDialog):
             max_v = str(self._max_wavelength) if self._max_wavelength is not None else "—"
 
         from datetime import datetime
+
         unit_str = self._get_wavelength_units().to_string()
         header = [
             f"{self.filename_stub()} — WISER Plugin Export",
@@ -946,10 +1042,16 @@ class GenericSpectralComputationTool(QDialog):
         ]
 
         # table
-        cols = [("Rank", None), ("Reference", "reference_data"), ("Library", "library_name"),
-                (self.SCORE_HEADER, "score"), ("Threshold", "threshold"),
-                (f"Min WL [{unit_str}]", "min_wavelength"), (f"Max WL [{unit_str}]", "max_wavelength"),
-                ("Target", "target_name")]
+        cols = [
+            ("Rank", None),
+            ("Reference", "reference_data"),
+            ("Library", "library_name"),
+            (self.SCORE_HEADER, "score"),
+            ("Threshold", "threshold"),
+            (f"Min WL [{unit_str}]", "min_wavelength"),
+            (f"Max WL [{unit_str}]", "max_wavelength"),
+            ("Target", "target_name"),
+        ]
         # include child-specific extra columns at the end if present
         extra_cols = [c for c in self.details_columns() if c[1] not in ("score", "threshold")]
         cols[3:3] = extra_cols  # insert after Library
@@ -986,4 +1088,5 @@ class GenericSpectralComputationTool(QDialog):
             msg.exec_()
         except Exception as e:
             import traceback
+
             self._show_message("error", "Failed to save", str(e), details=traceback.format_exc())

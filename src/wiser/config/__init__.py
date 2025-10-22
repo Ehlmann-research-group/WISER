@@ -5,7 +5,7 @@ from .feature_flags import (
 )
 
 __all__ = [
-    'FLAGS',
-    'set_feature_env',
-    'ALLOWED_ENVS',
+    "FLAGS",
+    "set_feature_env",
+    "ALLOWED_ENVS",
 ]

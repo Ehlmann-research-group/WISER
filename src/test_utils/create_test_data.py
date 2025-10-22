@@ -2,7 +2,8 @@ import numpy as np
 from osgeo import gdal
 from netCDF4 import Dataset
 
-def create_raster(array, filename, driver_name, wavelength_units='nm'):
+
+def create_raster(array, filename, driver_name, wavelength_units="nm"):
     """
     Create a GDAL dataset from a 3D NumPy array using the specified driver.
     The array shape is assumed to be (bands, rows, cols).
@@ -38,10 +39,11 @@ def create_raster(array, filename, driver_name, wavelength_units='nm'):
     dataset.FlushCache()
     dataset = None
 
+
 def create_netcdf_from_3d_array(array, output_filename):
     """
     Create a netCDF file from a 3D NumPy array using the netCDF4 Python package.
-    This will produce multiple data variables, ensuring that 'reflectance' is 
+    This will produce multiple data variables, ensuring that 'reflectance' is
     visible as a subdataset when opened with GDAL.
 
     Parameters
@@ -57,25 +59,26 @@ def create_netcdf_from_3d_array(array, output_filename):
     bands, height, width = array.shape
 
     # Create a new netCDF file
-    ds = Dataset(output_filename, 'w', format='NETCDF4')
+    ds = Dataset(output_filename, "w", format="NETCDF4")
 
     # Create dimensions
-    ds.createDimension('bands', bands)
-    ds.createDimension('y', height)
-    ds.createDimension('x', width)
+    ds.createDimension("bands", bands)
+    ds.createDimension("y", height)
+    ds.createDimension("x", width)
 
     # Create the reflectance variable
-    reflectance_var = ds.createVariable('reflectance', array.dtype, ('bands', 'y', 'x'))
+    reflectance_var = ds.createVariable("reflectance", array.dtype, ("bands", "y", "x"))
     reflectance_var[:] = array
 
     # Create a dummy variable so that GDAL sees multiple data variables.
     # This ensures that each variable will appear as a subdataset.
     dummy_data = np.zeros_like(array)
-    dummy_var = ds.createVariable('dummy', array.dtype, ('bands', 'y', 'x'))
+    dummy_var = ds.createVariable("dummy", array.dtype, ("bands", "y", "x"))
     dummy_var[:] = dummy_data
 
     # Close the dataset
     ds.close()
+
 
 # 1. Create a 10x11x12 NumPy array
 #    Interpreted as 10 bands, each of shape 11x12
@@ -85,21 +88,22 @@ cols = 60
 data = np.arange(bands * rows * cols, dtype=np.float32).reshape((bands, rows, cols))
 wavelength_units = "nm"
 
-def main():
 
+def main():
     # Write to ENVI (.hdr)
     # Note that GDAL's ENVI driver will produce "test_envi.hdr" and "test_envi"
-    # as the actual binary data (no extension). 
-    filepath = f'test_datasets/envi_{bands}_{rows}_{cols}'
+    # as the actual binary data (no extension).
+    filepath = f"test_datasets/envi_{bands}_{rows}_{cols}"
     create_raster(data, filepath, "ENVI")
 
     # Write to GeoTIFF (.tiff)
-    filepath = f'test_datasets/gtiff_{bands}_{rows}_{cols}.tiff'
+    filepath = f"test_datasets/gtiff_{bands}_{rows}_{cols}.tiff"
     create_raster(data, "test_datasets/gtiff.tiff", "GTiff")
 
-    # Write to NetCDF 
+    # Write to NetCDF
     # Note that this currently doesn't work.
     # create_netcdf_from_3d_array(data, "test_datasets/netcdf.nc")
+
 
 if __name__ == "__main__":
     main()

@@ -20,12 +20,13 @@ if TYPE_CHECKING:
 
 import netCDF4 as nc
 
+
 class SubdatasetFileOpenerDialog(QDialog):
-    '''
+    """
     Dialog that allows the user to pick a sub-dataset from a NetCDF file and
     configure optional geo-referencing information before the file is opened
     inside WISER.
-    '''
+    """
 
     # Metadata keys we know GDAL uses to store geotransform / SRS for NetCDF
     _geotransform_search_keys = {
@@ -40,7 +41,12 @@ class SubdatasetFileOpenerDialog(QDialog):
     # ---------------------------------------------------------------------
     # Construction / UI initialisation
     # ---------------------------------------------------------------------
-    def __init__(self, gdal_dataset: gdal.Dataset, netcdf_dataset: nc.Dataset, parent: QWidget = None):
+    def __init__(
+        self,
+        gdal_dataset: gdal.Dataset,
+        netcdf_dataset: nc.Dataset,
+        parent: QWidget = None,
+    ):
         """Create the dialog.
 
         Parameters
@@ -96,7 +102,7 @@ class SubdatasetFileOpenerDialog(QDialog):
 
     def set_srs_checkbox_enabled_state(self, checked: bool):
         self._set_checkbox_enabled_state(self._ui.chk_box_srs, checked)
-        if checked == False:
+        if not checked:
             self._set_checkbox_enabled_state(self._ui.chk_box_geo_transform, checked)
             self._ui.chk_box_geo_transform.setCheckState(Qt.Unchecked)
 
@@ -104,7 +110,9 @@ class SubdatasetFileOpenerDialog(QDialog):
     # Helpers
     # ------------------------------------------------------------------
     @staticmethod
-    def _parse_geotransform_string(gtr: str) -> Optional[Tuple[float, float, float, float, float, float]]:
+    def _parse_geotransform_string(
+        gtr: str,
+    ) -> Optional[Tuple[float, float, float, float, float, float]]:
         """Convert the NC_GLOBAL#geotransform style string into a 6-tuple of
         floats in the order GDAL expects.
         Example input::
@@ -125,7 +133,6 @@ class SubdatasetFileOpenerDialog(QDialog):
         the widget itself (the user can still re-enable it).
         """
         pal: QPalette = chk.palette()
-        role = QPalette.WindowText if chk.isEnabled() else QPalette.Disabled
         default_colour = chk.style().standardPalette().color(QPalette.WindowText)
         dim_colour = chk.style().standardPalette().color(QPalette.Disabled, QPalette.Text)
         pal.setColor(QPalette.WindowText, default_colour if enabled else dim_colour)
@@ -170,7 +177,9 @@ class SubdatasetFileOpenerDialog(QDialog):
             self._ui.chk_box_geo_transform.setChecked(False)
 
         # Ensure the grey-out is correct on first show.
-        self._set_checkbox_enabled_state(self._ui.chk_box_geo_transform, self._ui.chk_box_geo_transform.isChecked())
+        self._set_checkbox_enabled_state(
+            self._ui.chk_box_geo_transform, self._ui.chk_box_geo_transform.isChecked()
+        )
 
     def _init_spatial_ref(self) -> None:
         """Initialise the spatial reference system check-box."""
@@ -278,11 +287,15 @@ class SubdatasetFileOpenerDialog(QDialog):
             cmb.setEnabled(False)
 
         self._band_count = subdataset.RasterCount
-        if wavelengths is not None and self._band_count == len(wavelengths) and self._get_wavelength_units() is not None:
+        if (
+            wavelengths is not None
+            and self._band_count == len(wavelengths)
+            and self._get_wavelength_units() is not None
+        ):
             self._use_wavelengths = True
         else:
             self._use_wavelengths = False
-    
+
         # Disable wavelength-unit selection if we did not manage to extract any.
         self._ui.cbox_wavelength_units.setEnabled(self._use_wavelengths)
 
@@ -315,12 +328,12 @@ class SubdatasetFileOpenerDialog(QDialog):
     # ------------------------------------------------------------------
 
     def _get_selected_subdataset(self) -> gdal.Dataset:
-        '''
+        """
         Gets the selected subdataset from the subdataset chooser
-        '''
+        """
         current_data = self._ui.cbox_subdataset_choice.currentData()
         subdataset_name = current_data[1]
-        gdal.PushErrorHandler('CPLQuietErrorHandler')  # :contentReference[oaicite:0]{index=0}
+        gdal.PushErrorHandler("CPLQuietErrorHandler")  # :contentReference[oaicite:0]{index=0}
         try:
             subdataset: gdal.Dataset = gdal.Open(subdataset_name)
         finally:
@@ -328,7 +341,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         assert subdataset is not None, "Selected subdataset can not be opened!"
         return subdataset
 
-    def  _get_wavelength_units(self) -> Optional[u.Unit]:
+    def _get_wavelength_units(self) -> Optional[u.Unit]:
         """Return the currently selected *astropy.units.Unit* or *None*."""
         return self._ui.cbox_wavelength_units.currentData()
 
@@ -336,7 +349,9 @@ class SubdatasetFileOpenerDialog(QDialog):
         """Return the key for the currently selected sub-dataset."""
         return self._ui.cbox_subdataset_choice.currentData()
 
-    def _get_geo_transform(self) -> Optional[Tuple[float, float, float, float, float, float]]:
+    def _get_geo_transform(
+        self,
+    ) -> Optional[Tuple[float, float, float, float, float, float]]:
         """Return the geo-transform tuple if the user left the check-box enabled
         **and** the dataset actually has one. Otherwise *None*.
         """
@@ -371,7 +386,14 @@ class SubdatasetFileOpenerDialog(QDialog):
         else:
             wavelengths = None
         geotransform = self._get_geo_transform()
-        self.netcdf_impl = NetCDF_GDALRasterDataImpl(subdataset, self._netcdf_dataset, subdataset_name,
-                                                srs, wl_unit, wavelengths, geotransform)
+        self.netcdf_impl = NetCDF_GDALRasterDataImpl(
+            subdataset,
+            self._netcdf_dataset,
+            subdataset_name,
+            srs,
+            wl_unit,
+            wavelengths,
+            geotransform,
+        )
 
         super().accept()
