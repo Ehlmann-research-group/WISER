@@ -623,8 +623,16 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         dcols = max_cols - min_cols
         drows = max_rows - min_rows
         # Dimensions: [b][rows=y=height][cols=x=width]
-        image_data = dataset.get_image_data_subset(min_cols, min_rows, min_band, dcols, drows, dband)
-        # A numpy array such that the pixel (x, y) values (spectrum value) of band b are at element array[b][y][x]
+        image_data = dataset.get_image_data_subset(
+            min_cols,
+            min_rows,
+            min_band,
+            dcols,
+            drows,
+            dband,
+        )
+        # A numpy array such that the pixel (x, y) values (spectrum value) of band b
+        # are atelement array[b][y][x]
         filename = dataset.get_name()
         description = dataset.get_description()
         band_description = dataset.band_list()

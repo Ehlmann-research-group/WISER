@@ -109,8 +109,8 @@ def _create_scatter_plot_intensive_operations(
     y = y_band.reshape(rows2 * cols2)
 
     # Safe mins/maxes for axes panel defaults
-    new_x = np.array([n for n in x if np.isnan(n) == False])
-    new_y = np.array([m for m in y if np.isnan(m) == False])
+    new_x = np.array([n for n in x if np.isnan(n) == False])  #noqa: E712
+    new_y = np.array([m for m in y if np.isnan(m) == False])  #noqa: E712
     default_x_min = np.nanmin(new_x)
     default_x_max = np.nanmax(new_x)
     default_y_min = np.nanmin(new_y)
