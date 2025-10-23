@@ -125,7 +125,7 @@ def qt_debug_callback(*args, **kwargs):
     logger.debug(f"qt_debug_callback:  args={args}  kwargs={kwargs}")
 
 
-def run_tests() -> int:
+def run_tests(tests: list[str]) -> int:
     import pytest
 
     enabled_plugins = []  # e.g., ["-p", "pytester"] if you truly need a plugin
@@ -133,8 +133,12 @@ def run_tests() -> int:
     # If we are in a frozen build _MEIPASS will be set so that's where our tests will be
     base = getattr(sys, "_MEIPASS", os.path.join(current_dir, ".."))
     test_folder_path = os.path.join(base, "tests")
-    test_files = [os.path.join(test_folder_path, "test_open_dataset_gui.py")]
-    return pytest.main(["--disable-plugin-autoload", "-v"] + test_files + enabled_plugins)
+    # If the user didn't pass in any tests, we just use the full testing directory
+    if len(tests) == 0:
+        tests = [test_folder_path]
+    # In pytest the multiprocessing tests need to be run with -s . I don't know why.
+    pytest_args = ["--disable-plugin-autoload", "-v", "-s"] + tests + enabled_plugins
+    return pytest.main(pytest_args)
 
 
 def main():
@@ -158,7 +162,16 @@ def main():
         help="An optional list of data files to open in WISER",
     )
     parser.add_argument("--config_path", help="The path to read WISER configuration from")
-    parser.add_argument("--test_mode", action="store_true", help="Whether to run WISER tests before startup")
+    parser.add_argument(
+        "--test_mode",
+        nargs="*",
+        default=None,
+        help=(
+            "Whether to run WISER tests \
+        before startup. If included, you may specify what files to run tests on. If no files \
+        are specified, tests will be run on the full test directory."
+        ),
+    )
     # TODO(donnie):  Provide a way to specify Qt arguments
 
     args = parser.parse_args()
@@ -223,9 +236,9 @@ def main():
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
-    testing: bool = args.test_mode
-    if testing:
-        code = run_tests()
+    tests = args.test_mode
+    if tests is not None:
+        code = run_tests(tests)
         sys.exit(code)
     else:
         # TODO(donnie):  Pass Qt arguments

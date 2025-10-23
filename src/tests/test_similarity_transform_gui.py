@@ -52,8 +52,15 @@ class TestSimliarityTransformGUI(unittest.TestCase):
             The transformed array matches the ground truth array.
             The geotransform metadata is identical to the ground truth.
         """
-        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm",
+        )
         ground_truth_path = os.path.join(
+            os.path.dirname(__file__),
             "..",
             "test_utils",
             "test_datasets",
@@ -61,6 +68,7 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         )
 
         temp_save_path = os.path.join(
+            os.path.dirname(__file__),
             "..",
             "test_utils",
             "test_datasets",
@@ -117,8 +125,15 @@ class TestSimliarityTransformGUI(unittest.TestCase):
         Asserts:
             The translated geotransform matches the expected values.
         """
-        load_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_4_100_150_nm",
+        )
         temp_save_path = os.path.join(
+            os.path.dirname(__file__),
             "..",
             "test_utils",
             "test_datasets",
@@ -164,7 +179,13 @@ Code to make sure tests work as desired. Feel free to change to your needs.
 if __name__ == "__main__":
     test_model = WiserTestModel(use_gui=True)
 
-    rel_path = os.path.join("..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+    rel_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test_utils",
+        "test_datasets",
+        "caltech_4_100_150_nm",
+    )
     ds = test_model.load_dataset(rel_path)
 
     test_model.open_similarity_transform_dialog()
@@ -179,6 +200,7 @@ if __name__ == "__main__":
     test_model.choose_interpolation_rs(2)
 
     save_path = os.path.join(
+        os.path.dirname(__file__),
         "..",
         "test_utils",
         "test_datasets",
