@@ -86,7 +86,6 @@ class CondaEnvironmentManager(EnvironmentManager):
         Raises:
             FileNotFoundError: If the environment or its site-packages cannot be found.
         """
-        print(f"attempting to find packacegt_directory in conda for: {env_name}")
         # Query `conda info --json` if available (programmatic/portable).
         info = {}
         try:
@@ -479,18 +478,30 @@ class AppConfigDialog(QDialog):
     def _on_add_env(self):
         env_manager: EnvironmentManager = self._ui.cbox_env_manager.currentData()
         env_name: str = self._ui.ledit_env_name.text()
-        packages_path: Path = env_manager.get_packages_directory(env_name)
+        try:
+            packages_path: Path = env_manager.get_packages_directory(env_name)
 
-        if packages_path not in qlistwidget_to_list(self._ui.list_plugin_paths):
-            # Add the path to the list widget.
-            item = QListWidgetItem(str(packages_path.resolve()))
-            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            self._ui.list_plugin_paths.addItem(item)
-        else:
+            if packages_path not in qlistwidget_to_list(self._ui.list_plugin_paths):
+                # Add the path to the list widget.
+                item = QListWidgetItem(str(packages_path.resolve()))
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self._ui.list_plugin_paths.addItem(item)
+                QMessageBox.information(
+                    self,
+                    self.tr("Environment Found"),
+                    self.tr(f"The environment {env_name} was successfully found and added!"),
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Path already in plugin paths"),
+                    self.tr(f"Path {packages_path} already in plugin paths"),
+                )
+        except FileNotFoundError as e:
             QMessageBox.warning(
                 self,
-                self.tr("Path already in plugin paths"),
-                self.tr(f"Path {packages_path} already in plugin paths"),
+                self.tr(f"Could Not Find {env_manager.get_env_manager_name()} Environment"),
+                self.tr(f"Received Error:\n\n{e}"),
             )
 
     # ========================================================================
