@@ -243,6 +243,7 @@ class DataVisualizerApp(QMainWindow):
         self._geo_ref_dialog: GeoReferencerDialog = None
         self._crs_creator_dialog: ReferenceCreatorDialog = None
         self._similarity_transform_dialog: SimilarityTransformDialog = None
+        self._config_dialog: AppConfigDialog = None
 
     def _init_menus(self):
         # Configure the menus based on the OS/platform
@@ -553,10 +554,14 @@ class DataVisualizerApp(QMainWindow):
         """Shows the WISER manual in a web browser."""
         webbrowser.open(ONLINE_WISER_MANUAL_URL)
 
-    def show_preferences(self, evt):
+    def show_preferences(self, evt=None, in_test_mode=False):
         """Shows the WISER preferences / config dialog."""
-        config_dialog = AppConfigDialog(self._app_state, parent=self)
-        if config_dialog.exec() == QDialog.Accepted:
+        self._config_dialog = AppConfigDialog(self._app_state, parent=self)
+        if in_test_mode:
+            self._config_dialog.show()
+            # Save the configuration file
+            self._app_state.config().save(os.path.join(self._config_path, "wiser-conf.json"))
+        elif self._config_dialog.exec() == QDialog.Accepted:
             # Save the configuration file
             self._app_state.config().save(os.path.join(self._config_path, "wiser-conf.json"))
 
