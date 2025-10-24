@@ -16,7 +16,12 @@ import os
 import unittest
 
 import tests.context
+# Uncomment the below line when you want to run the test with
+# `python <test-file-name>.py`
 # import context
+
+from pathlib import Path
+from typing import List
 
 import numpy as np
 
@@ -223,8 +228,6 @@ class TestCRSCreator(unittest.TestCase):
             name=name,
         )
 
-        self.test_model.open_geo_referencer()
-
         added_crs = self.test_model.app_state.get_user_created_crs()[name][0]
 
         rel_path = os.path.join(
@@ -236,18 +239,26 @@ class TestCRSCreator(unittest.TestCase):
         )
         ds = self.test_model.load_dataset(rel_path)
 
+        self.test_model.open_geo_referencer()
+
         self.test_model.set_geo_ref_target_dataset(ds.get_id())
         self.test_model.set_geo_ref_reference_dataset(ds.get_id())
 
         self.test_model.set_geo_ref_output_crs(UserGeneratedCRS(name, added_crs))
         self.test_model.set_geo_ref_polynomial_order("2")
-        save_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "test_utils",
-            "test_datasets",
-            "caltech_4_100_150_nm_test_crs.tif",
+        save_path = str(
+            Path(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "test_utils",
+                    "test_datasets",
+                    "caltech_4_100_150_nm_test_crs.tif",
+                )
+            ).resolve()
         )
+        if os.path.exists(save_path):
+            os.remove(save_path)
         self.test_model.set_geo_ref_file_save_path(save_path)
 
         gcp_list = [
@@ -364,6 +375,8 @@ if __name__ == "__main__":
     test_model.set_geo_ref_file_save_path(save_path)
 
     test_model.set_geo_ref_output_crs(UserGeneratedCRS(name, added_crs))
+
+    test_model.click_run_warp()
 
     rel_path = os.path.join(
         os.path.dirname(__file__),
