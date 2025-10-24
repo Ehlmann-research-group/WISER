@@ -34,7 +34,7 @@ jobs:
           cache-environment-key: wiser-prod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('etc/prod-conda-lock.yml') }}
           cache-downloads: true
           log-level: debug
-        timeout-minutes: 4
+        timeout-minutes: 8
 
       # Build (per OS) using your Makefile targets
       - name: Build (Windows)
