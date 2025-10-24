@@ -94,7 +94,6 @@ class CondaEnvironmentManager(EnvironmentManager):
         except Exception:
             # Non-fatal: fall back to env vars/heuristics below.
             info = {}
-
         # 1) Explicit prefix path support (env created by --prefix).
         env_path = Path(os.path.expanduser(env_name))
         candidate_prefixes = []
@@ -108,7 +107,7 @@ class CondaEnvironmentManager(EnvironmentManager):
                 candidate_prefixes.append(Path(root_prefix))
 
         # 3) Resolve named env via envs_dirs (respect CONDA_ENVS_PATH override).
-        envs_dirs = []
+        envs_dirs: List[Path] = []
 
         # Environment variable takes precedence (os.pathsep handles ; on Win, : on POSIX).
         envs_path_env = os.environ.get("CONDA_ENVS_PATH")
@@ -117,6 +116,7 @@ class CondaEnvironmentManager(EnvironmentManager):
 
         # Add conda-configured envs_dirs and the conventional <root_prefix>/envs.
         envs_dirs.extend(Path(p) for p in info.get("envs_dirs", []))
+        envs_dirs.extend(Path(p) for p in info.get("envs", []))
         if info.get("root_prefix"):
             envs_dirs.append(Path(info["root_prefix"]) / "envs")
 
@@ -124,10 +124,13 @@ class CondaEnvironmentManager(EnvironmentManager):
         seen = set()
         envs_dirs = [p for p in envs_dirs if not (str(p) in seen or seen.add(str(p)))]
 
+        # See what paths match our environment
         for d in envs_dirs:
             cand = d / env_name
             if cand.exists():
                 candidate_prefixes.append(cand)
+            if str(d.resolve()).endswith(env_name):
+                candidate_prefixes.append(d)
 
         # 4) If still nothing, but active env matches by name, use it.
         active_prefix = info.get("active_prefix") or os.environ.get("CONDA_PREFIX")
