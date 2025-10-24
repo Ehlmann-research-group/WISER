@@ -1,3 +1,4 @@
+(contrast-stretch)=
 # Contrast Stretch
 
 WISER supports manipulating the contrast stretch of data sets being displayed.

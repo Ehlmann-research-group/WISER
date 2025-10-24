@@ -24,6 +24,7 @@ datas = [
          ('src\\wiser\\bandmath\\bandmath.lark', 'wiser\\bandmath'),
          ('src\\wiser\\data', 'wiser\\data'),
          ('src\\test_utils\\test_datasets', 'test_utils\\test_datasets'),
+         ('src\\test_utils\\test_spectra', 'test_utils\\test_spectra'),
          ('src\\tests', 'tests'),
         ]
 binaries = [

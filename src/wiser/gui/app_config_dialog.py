@@ -1,7 +1,13 @@
-import math
+import abc
 import sys
+import json
+import os
+import subprocess
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
+from pathlib import Path
+import inspect
+import importlib
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -15,6 +21,7 @@ from .app_state import ApplicationState
 
 # We have a lot of variables named "plugins" so make the package name distinct.
 from wiser.plugins import utils as plugutils
+from wiser.plugins.types import ContextMenuPlugin, ToolsMenuPlugin, BandMathPlugin
 
 
 def qlistwidget_to_list(list_widget: QListWidget) -> List[str]:
@@ -33,6 +40,132 @@ def qlistwidget_selections(list_widget: QListWidget) -> List[Tuple[int, str]]:
             result.append((i, item.text()))
 
     return result
+
+
+class EnvironmentManager(abc.ABC):
+    """
+    This class is the base class for all environment managers. It is used
+    to get the packages for a specific environment manager given an
+    environment name.
+    """
+
+    def get_env_manager_name(self) -> str:
+        raise NotImplementedError("Must be implemented by subclass")
+
+    def get_packages_directory(self, env_name: str) -> Path:
+        raise NotImplementedError("Must be implemented by subclass")
+
+
+class CondaEnvironmentManager(EnvironmentManager):
+    """
+    This class is used to get the packages for a conda environment.
+    """
+
+    @staticmethod
+    def get_env_manager_name() -> str:
+        return "Conda"
+
+    @staticmethod
+    def get_packages_directory(env_name: str) -> Path:
+        """
+        Return the absolute path to the Python package directory ("site-packages")
+        for a given Conda environment.
+
+        Resolution strategy (in order):
+          1) If `env_name` looks like a filesystem path, treat it as an explicit
+             prefix (env created with `-p/--prefix`).
+          2) If `env_name` is "base" (or "root"), use Conda's root prefix.
+          3) Search configured environment directories (envs_dirs), including any
+             provided via CONDA_ENVS_PATH, for `<dir>/<env_name>`.
+          4) As a final heuristic, if an active env matches the name, use CONDA_PREFIX.
+
+        Cross-platform site-packages layout:
+          - Windows:   <prefix>/Lib/site-packages
+          - POSIX:     <prefix>/lib/pythonX.Y/site-packages (chosen by glob)
+
+        Raises:
+            FileNotFoundError: If the environment or its site-packages cannot be found.
+        """
+        # Query `conda info --json` if available (programmatic/portable).
+        info = {}
+        try:
+            res = subprocess.run(["conda", "info", "--json"], check=True, text=True, capture_output=True)
+            info = json.loads(res.stdout or "{}")
+        except Exception:
+            # Non-fatal: fall back to env vars/heuristics below.
+            info = {}
+        # 1) Explicit prefix path support (env created by --prefix).
+        env_path = Path(os.path.expanduser(env_name))
+        candidate_prefixes = []
+        if env_path.is_absolute() or env_path.exists():
+            candidate_prefixes.append(env_path)
+
+        # 2) Handle base/root by using Conda's root prefix.
+        if env_name.lower() in {"base", "root"}:
+            root_prefix = info.get("root_prefix") or os.environ.get("CONDA_PREFIX")
+            if root_prefix:
+                candidate_prefixes.append(Path(root_prefix))
+
+        # 3) Resolve named env via envs_dirs (respect CONDA_ENVS_PATH override).
+        envs_dirs: List[Path] = []
+
+        # Environment variable takes precedence (os.pathsep handles ; on Win, : on POSIX).
+        envs_path_env = os.environ.get("CONDA_ENVS_PATH")
+        if envs_path_env:
+            envs_dirs.extend(Path(p) for p in envs_path_env.split(os.pathsep) if p)
+
+        # Add conda-configured envs_dirs and the conventional <root_prefix>/envs.
+        envs_dirs.extend(Path(p) for p in info.get("envs_dirs", []))
+        envs_dirs.extend(Path(p) for p in info.get("envs", []))
+        if info.get("root_prefix"):
+            envs_dirs.append(Path(info["root_prefix"]) / "envs")
+
+        # Deduplicate while preserving order.
+        seen = set()
+        envs_dirs = [p for p in envs_dirs if not (str(p) in seen or seen.add(str(p)))]
+
+        # See what paths match our environment
+        for d in envs_dirs:
+            cand = d / env_name
+            if cand.exists():
+                candidate_prefixes.append(cand)
+            if str(d.resolve()).endswith(env_name):
+                candidate_prefixes.append(d)
+
+        # 4) If still nothing, but active env matches by name, use it.
+        active_prefix = info.get("active_prefix") or os.environ.get("CONDA_PREFIX")
+        if active_prefix and Path(active_prefix).name == env_name:
+            candidate_prefixes.append(Path(active_prefix))
+
+        # Pick the first existing prefix we found.
+        prefix = next((p for p in candidate_prefixes if p.exists()), None)
+        if prefix is None:
+            raise FileNotFoundError(
+                f"Conda environment '{env_name}' not found. "
+                "Checked explicit path, CONDA_ENVS_PATH, configured"
+                "envs_dirs, root_prefix/envs, and active env."
+            )
+
+        # Compute site-packages per platform layout.
+        if os.name == "nt":
+            sp = prefix / "Lib" / "site-packages"
+        else:
+            # Typical POSIX layout: <prefix>/lib/pythonX.Y/site-packages
+            candidates = sorted((prefix / "lib").glob("python*/site-packages"))
+            sp = candidates[-1] if candidates else None
+
+        if not sp or not sp.exists():
+            raise FileNotFoundError(
+                f"site-packages not found under '{prefix}'. "
+                "Expected 'Lib/site-packages' (Windows) or 'lib/pythonX.Y/site-packages' (POSIX)."
+            )
+
+        return sp
+
+
+PluginBases = (ContextMenuPlugin, ToolsMenuPlugin, BandMathPlugin)
+
+ENV_MANAGERS: List[EnvironmentManager] = [CondaEnvironmentManager]
 
 
 class AppConfigDialog(QDialog):
@@ -157,6 +290,17 @@ class AppConfigDialog(QDialog):
         self._ui.btn_del_plugin.clicked.connect(self._on_del_plugin)
         self._ui.btn_verify_plugins.clicked.connect(self._on_verify_plugins)
 
+        # Set easy add plugin section
+        self._ui.btn_add_plugin_file.clicked.connect(self._on_add_plugin_by_file)
+        for env_manager in ENV_MANAGERS:
+            self._ui.cbox_env_manager.addItem(env_manager.get_env_manager_name(), env_manager)
+        self._ui.btn_add_env.clicked.connect(self._on_add_env)
+
+        # Set advanced button functionality
+        self._ui.btn_show_advanced.clicked.connect(self._on_show_advanced)
+        self._ui.gbox_plugins.setVisible(False)
+        self._ui.gbox_plugin_paths.setVisible(False)
+
     def _on_choose_viewport_highlight_color(self, checked):
         initial_color = QColor(self._ui.ledit_viewport_highlight_color.text())
         color = QColorDialog.getColor(parent=self, initial=initial_color)
@@ -168,6 +312,202 @@ class AppConfigDialog(QDialog):
         color = QColorDialog.getColor(parent=self, initial=initial_color)
         if color.isValid():
             self._ui.ledit_pixel_cursor_color.setText(color.name())
+
+    # ========================================================================
+    # EASY ADD PLUGIN BY FILE UI
+    # ========================================================================
+
+    def _on_show_advanced(self, checked=False):
+        # Determine current visibility (just use one of them as reference)
+        is_visible = self._ui.gbox_plugins.isVisible()
+        should_show = not is_visible
+
+        # Toggle visibility
+        self._ui.gbox_plugins.setVisible(should_show)
+        self._ui.gbox_plugin_paths.setVisible(should_show)
+
+    def _on_add_plugin_by_file(self, checked=False):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Plugin File",
+            "",
+            "Python Files (*.py);;All Files (*)",
+        )
+
+        if not file_path:
+            return
+
+        self._load_plugin_from_file(file_path)
+
+    def _load_plugin_from_file(self, file_path: str) -> Tuple[List[Dict], str]:
+        """
+        Discover plugin classes in the given file and add them to the UI lists.
+
+        Plugins' base directory (if new) is added to `list_plugin_paths`, and each
+        plugin's fully qualified class name (if new) is added to `list_plugins`.
+        If duplicates are detected, a warning dialog is shown explaining what wasn't added.
+
+        Args:
+            file_path (str): Path to a Python file which may define plugin classes.
+
+        Raises:
+            FileNotFoundError: If the file is missing or cannot be discovered.
+            ValueError: If `_discover_plugin_classes` returns no valid plugins.
+        """
+        plugins_dict = self._discover_plugin_classes(file_path)
+
+        base_dir_abs: str = plugins_dict["base_dir_abs"]
+        base_dir_duplicate = False
+        if base_dir_abs not in qlistwidget_to_list(self._ui.list_plugin_paths):
+            # Add the path to the list widget.
+            item = QListWidgetItem(base_dir_abs)
+            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self._ui.list_plugin_paths.addItem(item)
+        else:
+            base_dir_duplicate = True
+
+        plugins: List[Dict] = plugins_dict["plugins"]
+
+        plugin_duplicates: List[str] = []
+        for plugin in plugins:
+            fqcn = plugin["fqcn"]
+            if fqcn not in qlistwidget_to_list(self._ui.list_plugins):
+                # Add the plugin to the list widget.
+                item = QListWidgetItem(fqcn)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self._ui.list_plugins.addItem(item)
+            else:
+                plugin_duplicates.append(fqcn)
+        if plugin_duplicates or base_dir_duplicate:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle("Some items were not added")
+            msg.setText("Couldn't add some items.")
+
+            details = []
+            if base_dir_duplicate:
+                details.append(f"• The base directory is already in the list:\n    {base_dir_abs}")
+            if plugin_duplicates:
+                details.append(
+                    "• The following plugins were already present and were not added:\n    - "
+                    + "\n    - ".join(plugin_duplicates)
+                )
+
+            msg.setInformativeText("\n\n".join(details))
+            msg.setStandardButtons(QMessageBox.Ok)
+            # Qt6 uses exec(), Qt5 uses exec_(); this handles both:
+            try:
+                msg.exec()
+            except AttributeError:
+                msg.exec_()
+
+        return plugins, base_dir_abs
+
+    def _derive_paths_and_module(self, file_path: str) -> Tuple[str, Path, Path]:
+        """
+        Given a path to a .py file, find:
+        - the nearest parent directory that contains __init__.py (package_root)
+        - the fully-qualified module path using that package root
+        - the directory above the package root (base_dir, to put on sys.path)
+
+        Returns:
+            module_path: e.g. 'example_plugins.context_plugin'
+            package_root_abs: absolute Path to the nearest package root
+            base_dir_abs: absolute Path to the directory above package_root
+        """
+        p = Path(file_path).resolve()
+        if not p.is_file() or p.suffix != ".py":
+            raise ValueError(f"Expected a .py file, got: {p}")
+
+        current = p.parent
+        package_root = None
+        while True:
+            if (current / "__init__.py").exists():
+                package_root = current
+                break
+            if current == current.parent:
+                break  # hit filesystem root
+            current = current.parent
+
+        if package_root is None:
+            # No package root found; treat the folder containing the file as base
+            module_path = p.stem
+            package_root_abs = p.parent.resolve()
+            base_dir_abs = package_root_abs
+        else:
+            module_path = f"{package_root.name}.{p.stem}"
+            package_root_abs = package_root.resolve()
+            base_dir_abs = package_root_abs.parent.resolve()
+
+        return module_path, package_root_abs, base_dir_abs
+
+    def _discover_plugin_classes(self, file_path: str) -> Dict:
+        """
+        Imports the target file as a module using its derived fully-qualified
+        name and returns all classes that subclass the known Plugin base classes.
+        """
+        module_path, package_root_abs, base_dir_abs = self._derive_paths_and_module(file_path)
+
+        # Ensure base_dir is importable so 'import example_plugins.context_plugin' works
+        added = False
+        if str(base_dir_abs) not in sys.path:
+            sys.path.insert(0, str(base_dir_abs))
+            added = True
+
+        # Import the module via its fully-qualified name
+        mod = importlib.import_module(module_path)
+
+        found = []
+        for name, obj in vars(mod).items():
+            if inspect.isclass(obj):
+                matches = [b.__name__ for b in PluginBases if issubclass(obj, b) and obj is not b]
+                if matches:
+                    found.append(
+                        {
+                            "name": name,
+                            "fqcn": f"{module_path}.{name}",
+                            "base_matches": matches,
+                            "cls": obj,
+                        }
+                    )
+        if added:
+            sys.path.remove(str(base_dir_abs))
+
+        return {
+            "module_path": module_path,
+            "package_root_abs": str(package_root_abs),
+            "base_dir_abs": str(base_dir_abs),
+            "plugins": found,
+        }
+
+    def _on_add_env(self):
+        env_manager: EnvironmentManager = self._ui.cbox_env_manager.currentData()
+        env_name: str = self._ui.ledit_env_name.text()
+        try:
+            packages_path: Path = env_manager.get_packages_directory(env_name)
+            packages_path_str = str(packages_path.resolve())
+            if packages_path_str not in qlistwidget_to_list(self._ui.list_plugin_paths):
+                # Add the path to the list widget.
+                item = QListWidgetItem(packages_path_str)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self._ui.list_plugin_paths.addItem(item)
+                QMessageBox.information(
+                    self,
+                    self.tr("Environment Found"),
+                    self.tr(f"The environment {env_name} was successfully found and added!"),
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Path already in plugin paths"),
+                    self.tr(f"Path {packages_path_str} already in plugin paths"),
+                )
+        except FileNotFoundError as e:
+            QMessageBox.warning(
+                self,
+                self.tr(f"Could Not Find {env_manager.get_env_manager_name()} Environment"),
+                self.tr(f"Received Error:\n\n{e}"),
+            )
 
     # ========================================================================
     # PLUGIN PATH UI

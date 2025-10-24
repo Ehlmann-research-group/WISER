@@ -111,10 +111,15 @@ def _create_scatter_plot_intensive_operations(
     # Safe mins/maxes for axes panel defaults
     new_x = np.array([n for n in x if not np.isnan(n)])
     new_y = np.array([m for m in y if not np.isnan(m)])
-    default_x_min = min(new_x)
-    default_x_max = max(new_x)
-    default_y_min = min(new_y)
-    default_y_max = max(new_y)
+    default_x_min = np.nanmin(new_x)
+    default_x_max = np.nanmax(new_x)
+    default_y_min = np.nanmin(new_y)
+    default_y_max = np.nanmax(new_y)
+
+    assert not np.isnan(default_x_min), "default_x_min is nan"
+    assert not np.isnan(default_x_max), "default_x_max is nan"
+    assert not np.isnan(default_y_min), "default_y_min is nan"
+    assert not np.isnan(default_y_max), "default_y_max is nan"
 
     return_queue.put(
         {
@@ -865,6 +870,12 @@ class ScatterPlot2DDialog(QDialog):
         density = ax.scatter_density(x, y, cmap=colormap[1])
         x_range = max(self._x_max - self._x_min, 0)
         y_range = max(self._y_max - self._y_min, 0)
+        print(f"x_range: {x_range}")
+        print(f"y_range: {y_range}")
+        print(f"self._x_min: {self._x_min}")
+        print(f"self._x_max: {self._x_max}")
+        print(f"self._y_min: {self._y_min}")
+        print(f"self._y_max: {self._y_max}")
         ax.set_xlim(self._x_min - x_range / 10, self._x_max + x_range / 10)
         ax.set_ylim(self._y_min - y_range / 10, self._y_max + y_range / 10)
         fig.colorbar(density, label="Number of points per spectral value")
@@ -893,6 +904,12 @@ class ScatterPlot2DDialog(QDialog):
         ax.scatter(x, y, s=1, c="#1f77b4", alpha=0.6, linewidths=0)
         x_range = max(self._x_max - self._x_min, 0)
         y_range = max(self._y_max - self._y_min, 0)
+        print(f"x_range: {x_range}")
+        print(f"y_range: {y_range}")
+        print(f"self._x_min: {self._x_min}")
+        print(f"self._x_max: {self._x_max}")
+        print(f"self._y_min: {self._y_min}")
+        print(f"self._y_max: {self._y_max}")
         ax.set_xlim(self._x_min - x_range / 10, self._x_max + x_range / 10)
         ax.set_ylim(self._y_min - y_range / 10, self._y_max + y_range / 10)
 
