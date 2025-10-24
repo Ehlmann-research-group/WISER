@@ -22,6 +22,7 @@ existing_datas = [
                  ('./src/wiser/data', 'wiser/data'),
                  ('./src/test_utils/test_datasets', 'test_utils/test_datasets'),
                  ('./src/test_utils/test_spectra', 'test_utils/test_spectra'),
+                 ('./src/example_plugins', 'example_plugins'),
                  ('./src/tests', 'tests'),
              ]
 
