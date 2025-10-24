@@ -336,7 +336,7 @@ class AppConfigDialog(QDialog):
 
         self._load_plugin_from_file(file_path)
 
-    def _load_plugin_from_file(self, file_path: str):
+    def _load_plugin_from_file(self, file_path: str) -> Tuple[List[Dict], str]:
         """
         Discover plugin classes in the given file and add them to the UI lists.
 
@@ -353,7 +353,7 @@ class AppConfigDialog(QDialog):
         """
         plugins_dict = self._discover_plugin_classes(file_path)
 
-        base_dir_abs = plugins_dict["base_dir_abs"]
+        base_dir_abs: str = plugins_dict["base_dir_abs"]
         base_dir_duplicate = False
         if base_dir_abs not in qlistwidget_to_list(self._ui.list_plugin_paths):
             # Add the path to the list widget.
@@ -363,7 +363,7 @@ class AppConfigDialog(QDialog):
         else:
             base_dir_duplicate = True
 
-        plugins = plugins_dict["plugins"]
+        plugins: List[Dict] = plugins_dict["plugins"]
 
         plugin_duplicates: List[str] = []
         for plugin in plugins:
@@ -397,6 +397,8 @@ class AppConfigDialog(QDialog):
                 msg.exec()
             except AttributeError:
                 msg.exec_()
+
+        return plugins, base_dir_abs
 
     def _derive_paths_and_module(self, file_path: str) -> Tuple[str, Path, Path]:
         """
