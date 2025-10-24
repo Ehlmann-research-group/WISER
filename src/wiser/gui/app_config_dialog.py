@@ -471,7 +471,7 @@ class AppConfigDialog(QDialog):
                         }
                     )
         if added:
-            sys.path.remove(base_dir_abs)
+            sys.path.remove(str(base_dir_abs))
 
         return {
             "module_path": module_path,
