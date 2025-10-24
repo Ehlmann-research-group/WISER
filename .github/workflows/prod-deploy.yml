@@ -34,7 +34,7 @@ jobs:
           cache-environment-key: wiser-prod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('etc/prod-conda-lock.yml') }}
           cache-downloads: true
           log-level: debug
-        timeout-minutes: 10
+        timeout-minutes: 4
 
       # Build (per OS) using your Makefile targets
       - name: Build (Windows)
@@ -45,6 +45,7 @@ jobs:
           ls -la dist/WISER || true
           cd dist/WISER
           ./WISER.exe --test_mode
+        timeout-minutes: 25
         
       - name: Smoke Test (Windows)
         if: runner.os == 'Windows'
@@ -52,6 +53,7 @@ jobs:
         run: |
           cd dist/WISER
           ./WISER.exe --test_mode
+        timeout-minutes: 10
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
@@ -59,6 +61,7 @@ jobs:
         run: |
           make build-mac
           ls -la dist/WISER || true
+        timeout-minutes: 25
         
       - name: Smoke Test (macOS)
         if: runner.os == 'macOS'
@@ -66,10 +69,12 @@ jobs:
         run: |
           cd dist/WISER
           ./WISER_Bin --test_mode
+        timeout-minutes: 10
 
       - name: Upload artifact Windows
         uses: actions/upload-artifact@v4
         with:
           name: wiser-${{ runner.os }}-${{ runner.arch }}
           path: dist/**
-      
+        timeout-minutes: 30
+  
