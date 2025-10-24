@@ -482,10 +482,10 @@ class AppConfigDialog(QDialog):
         env_name: str = self._ui.ledit_env_name.text()
         try:
             packages_path: Path = env_manager.get_packages_directory(env_name)
-
-            if packages_path not in qlistwidget_to_list(self._ui.list_plugin_paths):
+            packages_path_str = str(packages_path.resolve())
+            if packages_path_str not in qlistwidget_to_list(self._ui.list_plugin_paths):
                 # Add the path to the list widget.
-                item = QListWidgetItem(str(packages_path.resolve()))
+                item = QListWidgetItem(packages_path_str)
                 item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 self._ui.list_plugin_paths.addItem(item)
                 QMessageBox.information(
@@ -497,7 +497,7 @@ class AppConfigDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     self.tr("Path already in plugin paths"),
-                    self.tr(f"Path {packages_path} already in plugin paths"),
+                    self.tr(f"Path {packages_path_str} already in plugin paths"),
                 )
         except FileNotFoundError as e:
             QMessageBox.warning(
