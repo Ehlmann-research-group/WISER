@@ -45,9 +45,7 @@ jobs:
         run: |
           make build-win
           ls -la dist/WISER || true
-          cd dist/WISER
-          ./WISER.exe --test_mode
-        timeout-minutes: 25
+        timeout-minutes: 15
         
       - name: Smoke Test (Windows)
         if: runner.os == 'Windows'
