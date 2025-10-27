@@ -27,7 +27,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--link", required=True, help="GitHub Actions run URL")
     p.add_argument("--root", default=".", help="Project root (default: current dir)")
     p.add_argument("--dist-name", default="dist", help='Dist folder name under root (default: "dist")')
-    p.add_argument("--artifact-name", default="wiser-Windows", help="Artifact name in the run")
+    p.add_argument("--artifact-name", default="wiser-Windows-X64", help="Artifact name in the run")
     p.add_argument("--nsis", default=os.environ.get("NSIS", "makensis"), help="Path to makensis.exe")
     p.add_argument("--nsi-script", default=r"install-win\win-install.nsi", help="NSIS script path")
     p.add_argument(

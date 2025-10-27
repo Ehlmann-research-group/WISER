@@ -77,7 +77,7 @@ def parse_args():
     p.add_argument("--link", required=True, help="GitHub Actions run URL")
     p.add_argument("--root", default=".", help="Project root (default: current dir)")
     p.add_argument("--dist-name", default="dist", help='Dist folder name under root (default: "dist")')
-    p.add_argument("--artifact-name", default="wiser-mac-arm", help="Artifact name in the run to download")
+    p.add_argument("--artifact-name", default="wiser-macOS-X64", help="Artifact name in the run to download")
     p.add_argument(
         "--app-name",
         default=os.environ.get("APP_NAME", "WISER"),
@@ -86,7 +86,9 @@ def parse_args():
     p.add_argument(
         "--app-version", default=os.environ.get("APP_VERSION"), help="Version string for DMG filename"
     )
-    p.add_argument("--sign-script", default="../../install-mac/sign_wiser.sh", help="Codesign script to run (bash)")
+    p.add_argument(
+        "--sign-script", default="../../install-mac/sign_wiser.sh", help="Codesign script to run (bash)"
+    )
     p.add_argument("--notarize", action="store_true", help="Submit DMG to Apple notarization with notarytool")
     p.add_argument("--apple-id", default=os.environ.get("AD_USERNAME"), help="Apple ID (or set AD_USERNAME)")
     p.add_argument(
