@@ -1773,7 +1773,9 @@ class WiserTestModel:
     # ==========================================
 
     @run_in_wiser_decorator
-    def open_interactive_scatter_plot_context_menu(self, rv_pos: Tuple[int, int] = (0, 0)) -> ScatterPlot2DDialog:
+    def open_interactive_scatter_plot_context_menu(
+        self, rv_pos: Tuple[int, int] = (0, 0)
+    ) -> ScatterPlot2DDialog:
         rv = self.get_main_view_rv(rv_pos)
         scat_plot = self.main_view.on_scatter_plot_2D(rv, testing=True)
         return scat_plot
@@ -1818,11 +1820,10 @@ class WiserTestModel:
         dlg = self.main_view._interactive_scatter_plot_dialog
         QTest.mouseClick(dlg._ui.btn_create_plot, Qt.LeftButton)
 
-
     def get_interactive_scatter_plot_xy_values(self):
         dlg = self.main_view._interactive_scatter_plot_dialog
         return dlg.get_xy()
-    
+
     def get_interactive_scatter_plot_process_manager(self):
         process_manager = self.main_view._interactive_scatter_plot_dialog._process_manager
         return process_manager
