@@ -101,24 +101,13 @@ def _create_scatter_plot_intensive_operations(
     x_band = x_dataset.get_band_data(x_band_idx)
     y_band = y_dataset.get_band_data(y_band_idx)
 
-    print(f"x_band: {x_band}")
-    print(f"y_band: {y_band}")
-    print(f"x_band.shape: {x_band.shape}")
-    print(f"y_band.shape: {y_band.shape}")
-
     cols1 = x_dataset.get_width()
     rows1 = x_dataset.get_height()
     cols2 = y_dataset.get_width()
     rows2 = y_dataset.get_height()
 
-    print(f"cols1, row1s: {cols1}, {rows1}")
-    print(f"cols2, row2s: {cols2}, {rows2}")
-
     x = x_band.reshape(rows1 * cols1)
     y = y_band.reshape(rows2 * cols2)
-
-    print(f"x flat: {x}")
-    print(f"y flat: {y}")
 
     # Safe mins/maxes for axes panel defaults
     new_x = np.array([n for n in x if not np.isnan(n)])
@@ -774,15 +763,6 @@ class ScatterPlot2DDialog(QDialog):
         default_x_max = result["default_x_max"]
         default_y_min = result["default_y_min"]
         default_y_max = result["default_y_max"]
-
-        print(f'xy scatterplot2d gui update: {result["xy"]}')
-        print(f'self._xy: {self._xy}')
-        print(f'x_flat: {result["x_flat"]}')
-        print(f'y_flat: {result["y_flat"]}')
-        print(f'default_x_min: {result["default_x_min"]}')
-        print(f'default_x_max: {result["default_x_max"]}')
-        print(f'default_y_min: {result["default_y_min"]}')
-        print(f'default_y_max: {result["default_y_max"]}')
 
         self._btn_change_axes.clicked.disconnect()
         self._btn_change_axes.clicked.connect(

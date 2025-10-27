@@ -119,9 +119,6 @@ class TestInteractiveScatterPlot(unittest.TestCase):
         x_truth = np_impl[0][:, :].flatten()
         y_truth = np_impl[2][:, :].flatten()
         xy_truth = np.column_stack([x_truth, y_truth])
-        print(f"xy_truth test: {xy_truth}")
-        print(f"!@#!@#!@#!@#!@#!@#!@#@!#!@#@!#!@#@!#!@#!@")
-        print(f"xy test: {xy}")
         self.assertTrue(np.array_equal(xy, xy_truth, equal_nan=True))
 
         highlighted_points_truth = [(1, 0), (1, 1), (1, 2)]
@@ -209,13 +206,9 @@ if __name__ == "__main__":
     )
     points = test_model.main_view._interactive_scatter_highlight_points
     highlighted_points_truth = [(1, 0), (1, 1), (1, 2)]
-    print(f"points: {points}")
     assert highlighted_points_truth == points
     x_truth = np_impl[0][:, :].flatten()
     y_truth = np_impl[2][:, :].flatten()
     xy_truth = np.column_stack([x_truth, y_truth])
-    print(f"xy_truth: {xy_truth}")
-    print(f"xy test __main__: {xy}")
     assert np.array_equal(xy, xy_truth, equal_nan=True)
-    print(f"they are equal")
     test_model.app.exec_()

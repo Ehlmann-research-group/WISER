@@ -223,22 +223,6 @@ class ParallelTaskProcess(ParallelTask):
             return ParallelTaskState.COMPLETED
         else:
             raise RuntimeError("This ParallelTask is in an incorrect state!")
-        # elif self._process.exitcode is None:
-        #     try:
-        #         alive = self._process.is_alive()
-        #     except ValueError:
-        #         alive = False
-        #     if alive:
-        #         return ParallelTaskState.RUNNING
-        # elif self._process.exitcode is not None:
-        #     try:
-        #         alive = self._process.is_alive()
-        #     except ValueError:
-        #         alive = False
-        #     if not alive: 
-        #         return ParallelTaskState.COMPLETED
-        # else:
-        #     raise RuntimeError("This ParallelTask is in an incorrect state!")
 
 
 class ParallelTaskProcessPool(ParallelTask):
