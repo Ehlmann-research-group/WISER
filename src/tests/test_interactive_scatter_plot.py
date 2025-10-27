@@ -1,7 +1,6 @@
 """
 Test to make sure the interactive scatter plot works as intended
 """
-import os
 import unittest
 
 from matplotlib import use
@@ -17,8 +16,6 @@ import numpy as np
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-
-from wiser.gui.parallel_task import ParallelTaskState
 
 import time
 

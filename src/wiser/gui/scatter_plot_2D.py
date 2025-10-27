@@ -91,7 +91,6 @@ def _create_scatter_plot_intensive_operations(
     child_conn: mp_conn.Connection,
     return_queue: mp.Queue,
 ):
-    print(f"^&* in scatter plot intensiveo perations")
     x_dataset = RasterDataSet.deserialize_into_class(
         x_dataset_serialized.get_serialize_value(), x_dataset_serialized.get_metadata()
     )
