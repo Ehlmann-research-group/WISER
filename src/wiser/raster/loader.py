@@ -89,7 +89,8 @@ class RasterDataLoader:
         Load a raster data-set from the specified path.  Returns a
         list of :class:`RasterDataSet` object.
         """
-
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"File path {path} does not exist!")
         # Iterate through all supported formats, and try to use each one to
         # load the raster data.
         impl_list = None

@@ -1,3 +1,5 @@
+import traceback
+
 import multiprocessing as mp
 import multiprocessing.connection as mp_conn
 
@@ -9,8 +11,6 @@ from PySide2.QtCore import *
 
 from wiser.gui.parallel_task import ParallelTaskProcess, ParallelTaskProcessPool
 from wiser.utils.multiprocessing_context import CTX
-
-import traceback
 
 SENTINEL_RESULT = "__RESULT__"
 SENTINEL_ERROR = "__ERROR__"

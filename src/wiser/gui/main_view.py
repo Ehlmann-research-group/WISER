@@ -400,6 +400,7 @@ class MainViewWidget(RasterPane):
             parent=self,
         )
         self._interactive_scatter_plot_dialog.show()
+        return self._interactive_scatter_plot_dialog
 
     def _make_interactive_scatter_plot_highlights(
         self, selected_points, render_ds_id, color_hex: Optional[str] = None

@@ -1773,9 +1773,12 @@ class WiserTestModel:
     # ==========================================
 
     @run_in_wiser_decorator
-    def open_interactive_scatter_plot_context_menu(self, rv_pos: Tuple[int, int] = (0, 0)):
+    def open_interactive_scatter_plot_context_menu(
+        self, rv_pos: Tuple[int, int] = (0, 0)
+    ) -> ScatterPlot2DDialog:
         rv = self.get_main_view_rv(rv_pos)
-        self.main_view.on_scatter_plot_2D(rv, testing=True)
+        scat_plot = self.main_view.on_scatter_plot_2D(rv, testing=True)
+        return scat_plot
 
     @run_in_wiser_decorator
     def set_interactive_scatter_x_axis_dataset(self, ds_id: int):
@@ -1819,7 +1822,11 @@ class WiserTestModel:
 
     def get_interactive_scatter_plot_xy_values(self):
         dlg = self.main_view._interactive_scatter_plot_dialog
-        return dlg._xy
+        return dlg.get_xy()
+
+    def get_interactive_scatter_plot_process_manager(self):
+        process_manager = self.main_view._interactive_scatter_plot_dialog._process_manager
+        return process_manager
 
     @run_in_wiser_decorator
     def create_polygon_in_interactive_scatter_plot(self, polygon: List[Tuple[int, int]]):
@@ -1936,6 +1943,41 @@ class WiserTestModel:
     # Code to remove a bandmath job based on the job's id
 
     # Code to view the progress bar of the batch job
+
+    # ==========================================
+    # region Adding Plugins
+    # ==========================================
+
+    def load_plugin_by_file(self, file_path: str) -> Tuple[List[Dict], str]:
+        """
+        Load a plugin file from the given file path.
+
+        This function parses the specified plugin file and returns a list of
+        plugin definitions along with the base directory of the plugin relative
+        to its fully qualified path.
+
+        Parameters
+        ----------
+        file_path : str
+            The file path to the plugin file.
+
+        Returns
+        -------
+        tuple[list[dict], str]
+            A tuple containing:
+
+            - list[dict]: A list of dictionaries, where each dictionary represents a
+            plugin found in the file. Each dictionary includes the following keys:
+                - name (str): The plugin's name.
+                - fqcn (str): The fully qualified class name of the plugin.
+                - base_matches (list[str]): List of base class names matched by the plugin.
+                - cls (type): The plugin class object.
+
+            - str: The plugin's fully qualified base directory path.
+        """
+        self.main_window.show_preferences(None, in_test_mode=True)
+        config_dialog = self.main_window._config_dialog
+        return config_dialog._load_plugin_from_file(file_path)
 
     # ==========================================
     # region General
