@@ -1,3 +1,7 @@
+import sys
+import io
+import traceback
+
 import multiprocessing as mp
 import multiprocessing.connection as mp_conn
 
@@ -17,6 +21,20 @@ SENTINEL_ERROR = "__ERROR__"
 
 
 def child_trampoline(op: Callable, child_conn: mp_conn.Connection, return_queue: mp.Queue, **kwargs):
+    class ConnWriter(io.TextIOBase):
+        def __init__(self, conn, name):
+            self.conn = conn
+            self.name = name
+        def write(self, s):
+            try:
+                self.conn.send(["stdout" if self.name == "stdout" else "stderr", {"text": s}])
+            except Exception:
+                pass
+            return len(s)
+
+    sys.stdout = ConnWriter(child_conn, "stdout")
+    sys.stderr = ConnWriter(child_conn, "stderr")
+
     try:
         op(child_conn=child_conn, return_queue=return_queue, **kwargs)
     except Exception:
