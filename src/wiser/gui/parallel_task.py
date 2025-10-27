@@ -219,7 +219,7 @@ class ParallelTaskProcess(ParallelTask):
             return ParallelTaskState.NOT_STARTED
         elif self._exit_code is None:
             return ParallelTaskState.RUNNING
-        elif not (self._exit_code is None):
+        elif not self._exit_code is None:
             return ParallelTaskState.COMPLETED
         else:
             raise RuntimeError("This ParallelTask is in an incorrect state!")
