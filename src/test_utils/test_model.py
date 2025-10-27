@@ -1773,9 +1773,12 @@ class WiserTestModel:
     # ==========================================
 
     @run_in_wiser_decorator
-    def open_interactive_scatter_plot_context_menu(self, rv_pos: Tuple[int, int] = (0, 0)):
+    def open_interactive_scatter_plot_context_menu(
+        self, rv_pos: Tuple[int, int] = (0, 0)
+    ) -> ScatterPlot2DDialog:
         rv = self.get_main_view_rv(rv_pos)
-        self.main_view.on_scatter_plot_2D(rv, testing=True)
+        scat_plot = self.main_view.on_scatter_plot_2D(rv, testing=True)
+        return scat_plot
 
     @run_in_wiser_decorator
     def set_interactive_scatter_x_axis_dataset(self, ds_id: int):
@@ -1819,7 +1822,11 @@ class WiserTestModel:
 
     def get_interactive_scatter_plot_xy_values(self):
         dlg = self.main_view._interactive_scatter_plot_dialog
-        return dlg._xy
+        return dlg.get_xy()
+
+    def get_interactive_scatter_plot_process_manager(self):
+        process_manager = self.main_view._interactive_scatter_plot_dialog._process_manager
+        return process_manager
 
     @run_in_wiser_decorator
     def create_polygon_in_interactive_scatter_plot(self, polygon: List[Tuple[int, int]]):

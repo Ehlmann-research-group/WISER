@@ -7,7 +7,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(SPECPATH), 'WISER', 'src', 'devtools')))
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_submodules, collect_dynamic_libs
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
 
 import subprocess
@@ -22,6 +22,7 @@ existing_datas = [
                  ('./src/wiser/data', 'wiser/data'),
                  ('./src/test_utils/test_datasets', 'test_utils/test_datasets'),
                  ('./src/test_utils/test_spectra', 'test_utils/test_spectra'),
+                 ('./src/example_plugins', 'example_plugins'),
                  ('./src/tests', 'tests'),
              ]
 
@@ -74,6 +75,14 @@ for m in existing_hidden_imports:
         _hidden.append(m)
 existing_hidden_imports = _hidden
 
+# There is an issue with pyinstaller and opencv. We are using the fix here:
+# https://github.com/orgs/pyinstaller/discussions/7493#discussioncomment-5315487
+cv2_binaries = collect_dynamic_libs(
+    "cv2",
+    search_patterns=["cv2*.so", "cv2*.dylib", "python-*/cv2*.so", "python-*/cv2*.dylib"]
+)
+
+existing_binaries += cv2_binaries
 
 # SECOND PASS: rebuild Analysis with the full existing_hidden_imports list
 a = Analysis(['src/wiser/__main__.py'],
@@ -90,7 +99,7 @@ a = Analysis(['src/wiser/__main__.py'],
              noarchive=False)
 
 # Write dependencies resolved by PyInstaller
-write_deps_from_analysis(a, out_path="build/pyinstaller_dependencies.txt")
+# write_deps_from_analysis(a, out_path="build/pyinstaller_dependencies.txt")
 
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)

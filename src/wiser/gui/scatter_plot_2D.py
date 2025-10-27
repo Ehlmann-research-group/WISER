@@ -1053,6 +1053,9 @@ class ScatterPlot2DDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self._dlg, "Save failed", str(e))
 
+    def get_xy(self):
+        return self._xy
+
     def get_selected_points(self):
         """
         Programmatic access:
