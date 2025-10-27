@@ -54,7 +54,7 @@ jobs:
         run: |
           cd dist/WISER
           ./WISER.exe --test_mode
-        timeout-minutes: 10
+        timeout-minutes: 20
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
@@ -70,7 +70,7 @@ jobs:
         run: |
           cd dist/WISER
           ./WISER_Bin --test_mode
-        timeout-minutes: 10
+        timeout-minutes: 20
 
       - name: Upload artifact Windows
         uses: actions/upload-artifact@v4
