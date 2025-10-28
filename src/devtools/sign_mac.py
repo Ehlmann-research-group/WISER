@@ -137,7 +137,8 @@ def main():
             str(dist_dir),
         ]
     )
-    
+
+    # Make sure the download WISER.app.tgz is correct
     tar_sha_path = os.path.join(dist_dir, "WISER.app.tgz.sha256")
     run([
         "shasum",
@@ -147,6 +148,7 @@ def main():
         tar_sha_path
     ])
 
+    # Extract the app from the tar (we need to use tar to perserve symlinks)
     tar_path = os.path.join(dist_dir, "WISER.app.tgz")
     run(
         [
@@ -197,7 +199,7 @@ def main():
         ]
     )
 
-    # hdiutil convert → UDZO
+    # hdiutil convert --> UDZO
     run(["hdiutil", "convert", str(tmp_dmg), "-format", "UDZO", "-o", str(final_dmg)])
 
     # remove tmp dmg
