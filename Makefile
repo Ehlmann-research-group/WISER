@@ -108,7 +108,7 @@ sign-mac:
 	@python src/devtools/sign_mac.py --link "$(LINK)" --app-version "$(APP_VERSION)" \
 			--apple-id "$(AD_USERNAME)" --team-id "$(AD_TEAM_ID)" \
 			--app-password "$(AD_PASSWORD)" --app-name "$(APP_NAME)" \
-			--artifact-name "$(MAC_DIST_GITHUB_NAME)"
+			--artifact-name "$(MAC_DIST_GITHUB_NAME)" --notarize
 
 sign-windows:  # Usage `make sign-windows LINK=https://github.com/Ehlmann-research-group/WISER/actions/runs/18478361575/artifacts/4259044563`
 	@rem Fail if LINK is missing

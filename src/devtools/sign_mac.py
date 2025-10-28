@@ -113,6 +113,7 @@ def main():
 
     # Tools
     ensure_tool("gh", "Install: https://cli.github.com/")
+    ensure_tool("tar")  # for getting WISER.app out of tar ball
     ensure_tool("hdiutil")
     ensure_tool("xcrun")  # for notarytool
 
@@ -134,6 +135,26 @@ def main():
             args.artifact_name,
             "--dir",
             str(dist_dir),
+        ]
+    )
+    
+    tar_sha_path = os.path.join(dist_dir, "WISER.app.tgz.sha256")
+    run([
+        "shasum",
+        "-a",
+        "256",
+        "-c",
+        tar_sha_path
+    ])
+
+    tar_path = os.path.join(dist_dir, "WISER.app.tgz")
+    run(
+        [
+            "tar",
+            "-C",
+            str(dist_dir),
+            "-xzf",
+            tar_path,
         ]
     )
 
