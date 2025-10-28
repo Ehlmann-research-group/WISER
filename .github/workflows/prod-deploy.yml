@@ -12,8 +12,7 @@ jobs:
       matrix:
         # macos-15 should be Apple silicon
         # macos-13 should be Intel
-        # os: [windows-latest, macos-15, macos-13]
-        os: [macos-15]
+        os: [windows-latest, macos-15, macos-13]
     runs-on: ${{matrix.os}}
     
     steps:
@@ -69,13 +68,13 @@ jobs:
           ls -la dist/WISER || true
         timeout-minutes: 25
         
-      # - name: Smoke Test (macOS)
-      #   if: runner.os == 'macOS'
-      #   shell: bash -leo pipefail {0}
-      #   run: |
-      #     cd dist/WISER
-      #     ./WISER_Bin --test_mode
-      #   timeout-minutes: 20
+      - name: Smoke Test (macOS)
+        if: runner.os == 'macOS'
+        shell: bash -leo pipefail {0}
+        run: |
+          cd dist/WISER
+          ./WISER_Bin --test_mode
+        timeout-minutes: 20
 
       - name: Pack macOS .app (preserve symlinks & modes)
         if: runner.os == 'macOS'
