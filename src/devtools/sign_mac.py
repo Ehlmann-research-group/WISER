@@ -87,7 +87,9 @@ def parse_args():
         "--app-version", default=os.environ.get("APP_VERSION"), help="Version string for DMG filename"
     )
     p.add_argument(
-        "--sign-script", default="../../install-mac/sign_wiser.sh", help="Codesign script to run (bash)"
+        "--sign-script",
+        default=os.path.join(os.path.dirname(__file__), "..", "..", "install-mac", "sign_wiser.sh"),
+        help="Codesign script to run (bash)"
     )
     p.add_argument("--notarize", action="store_true", help="Submit DMG to Apple notarization with notarytool")
     p.add_argument("--apple-id", default=os.environ.get("AD_USERNAME"), help="Apple ID (or set AD_USERNAME)")
