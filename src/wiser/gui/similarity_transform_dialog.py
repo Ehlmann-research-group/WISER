@@ -322,22 +322,17 @@ class SimilarityTransformDialog(QDialog):
         self.set_orig_coord_text(self._make_point_to_text(orig_geo_coords))
         self.set_new_coord_text(self._make_point_to_text(new_geo_coord))
 
-    # -------------------------------------------------------------------------
-    # Button handlers
-    # -------------------------------------------------------------------------
+    # region Button handlers
 
     @Slot()
     def _on_run_rotate_scale(self) -> None:
         self._on_create_rotated_scaled_dataset()
-        # Placeholder - real implementation will apply transform.
 
     @Slot()
     def _on_create_translation(self) -> None:
         self._on_create_translated_dataset()
-        # Placeholder - real implementation will apply translation.
 
     def _on_choose_save_filename_rs(self, checked=False):
-        # TODO (Joshua G-K): Allow this to also save as an .hdr
         file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         # Restrict selection to only .tif files.
