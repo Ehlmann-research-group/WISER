@@ -491,9 +491,7 @@ class SimilarityTransformDialog(QDialog):
             QMessageBox.warning(
                 self,
                 self.tr("Rotate/Scale Dataset Not Selected"),
-                self.tr(
-                    "You have no rotate/scale dataset selected.\n" "Please select a rotate/scale dataset."
-                ),
+                self.tr("You have no rotate/scale dataset selected.\n Please select a rotate/scale dataset."),
             )
             return
         driver: gdal.Driver = gdal.GetDriverByName("GTiff")

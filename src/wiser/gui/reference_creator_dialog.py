@@ -343,7 +343,7 @@ class ReferenceCreatorDialog(QDialog):
             QMessageBox.question(
                 self,
                 "Replace current parameters?",
-                "Loading “{0}” will overwrite all fields you have entered so far.\n" "Continue?".format(name),
+                "Loading “{0}” will overwrite all fields you have entered so far.\n Continue?".format(name),
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,
             )
@@ -795,7 +795,7 @@ class ReferenceCreatorDialog(QDialog):
                     QMessageBox.warning(
                         self,
                         self.tr("Missing value"),
-                        self.tr("The scale factor value is None. Please enter\n" "a scale factor value."),
+                        self.tr("The scale factor value is None. Please enter\n a scale factor value."),
                     )
                     return
 
@@ -809,7 +809,7 @@ class ReferenceCreatorDialog(QDialog):
                         self,
                         self.tr("Missing value"),
                         self.tr(
-                            "The central latitude sign is None. Please select\n" "a central latitude sign."
+                            "The central latitude sign is None. Please select\n a central latitude sign."
                         ),
                     )
                     return

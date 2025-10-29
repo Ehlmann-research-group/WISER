@@ -15,6 +15,14 @@ if TYPE_CHECKING:
 
 
 class GeoReferencerPane(RasterPane, PointSelector):
+    """
+    This class represents one of the geo referencer panes. It is
+    a regular rasterpane except that it doesn't need a lot of the
+    capabilities like adding datasets or having ROIs. It is just
+    needed for displaying the datasets visually and selecting
+    target and reference points.
+    """
+
     def __init__(self, app_state, pane_type: PointSelectorType, parent=None):
         super().__init__(
             app_state=app_state,
@@ -43,38 +51,20 @@ class GeoReferencerPane(RasterPane, PointSelector):
 
     def _init_select_tools(self):
         """
-        We don't want this to initialize any of the select tools.
-        The select tools currently are just the ROI tools
+        We don't want this or the parent class to initialize any of
+        the select tools. The select tools currently are just the ROI
+        tools
         """
         return
 
     def _on_band_chooser(self, checked=False, rasterview_pos=(0, 0)):
-        rasterview = self.get_rasterview(rasterview_pos)
-        dataset = rasterview.get_raster_data()
-        display_bands = rasterview.get_display_bands()
-        colormap = rasterview.get_colormap()
-
-        dialog = BandChooserDialog(
-            self._app_state,
-            dataset,
-            display_bands,
-            colormap=colormap,
-            can_apply_global=False,
-            parent=self,
+        super()._on_band_chooser(
+            checked=checked,
+            rasterview_pos=rasterview_pos,
+            singular_update=True,
         )
-        dialog.setModal(True)
-
-        if dialog.exec_() == QDialog.Accepted:
-            bands = dialog.get_display_bands()
-            colormap = dialog.get_colormap_name()
-
-            # For the geo referencer, the change shouldn't be global
-            self.set_display_bands(dataset.get_id(), bands, colormap=colormap)
 
     def _on_dataset_added(self, ds_id):
-        """
-        We don't want to do anything here
-        """
         return
 
     def _onRasterMousePress(self, rasterview, mouse_event):
@@ -92,8 +82,6 @@ class GeoReferencerPane(RasterPane, PointSelector):
         """
         if not isinstance(mouse_event, QMouseEvent):
             return
-
-        # print(f'MouseEvent at pos={mouse_event.pos()}, localPos={mouse_event.localPos()}')
 
         self._task_delegate.on_mouse_release(mouse_event, self)
 
@@ -116,13 +104,7 @@ class GeoReferencerPane(RasterPane, PointSelector):
         self.update_all_rasterviews()
 
     def _has_delegate_for_rasterview(self, rasterview: RasterView, user_input: bool = True) -> bool:
-        """
-        We do not want to call this function in the parent class
-        """
         return
 
     def _update_delegate(self, done: bool) -> None:
-        """
-        We do not want to call this function in the parent class
-        """
         return

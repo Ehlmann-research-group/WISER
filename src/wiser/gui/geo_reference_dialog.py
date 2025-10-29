@@ -1751,7 +1751,7 @@ class GeoReferencerDialog(QDialog):
         elif self._ui.widget_manual_entry.isVisible():
             return self._get_manual_ref_chosen_crs()
         else:
-            raise RuntimeError("Both the dataset shown is none and the " "manual entry widget is None")
+            raise RuntimeError("Both the dataset shown is none and the manual entry widget is None")
 
     def _georeference(self):
         save_path = self._get_save_file_path()

@@ -1388,7 +1388,24 @@ class RasterPane(QWidget):
         dataset = self._app_state.get_dataset(ds_id)
         self.show_dataset(dataset, rasterview_pos)
 
-    def _on_band_chooser(self, checked=False, rasterview_pos=(0, 0)):
+    def _on_band_chooser(
+        self,
+        checked=False,
+        rasterview_pos=(0, 0),
+        singular_update: bool = False,
+    ):
+        """
+        Shows the user a dialog to change the bands being displayed.
+
+        Parameters
+        ----------
+        - checked: bool = False
+            a default value passed into the function due to this being a button slot
+        - rasterview_pos: Tuple[int, int] = (0, 0)
+            the raster view position to do the band chooser on
+        - singular_update: bool = False
+            whether or not to force the raster pane to only update itself
+        """
         # print(f'on_band_chooser invoked for position {rasterview_pos}')
 
         rasterview = self.get_rasterview(rasterview_pos)
@@ -1400,9 +1417,10 @@ class RasterPane(QWidget):
 
         if dialog.exec_() == QDialog.Accepted:
             bands = dialog.get_display_bands()
-            is_global = dialog.apply_globally()
+            is_global = dialog.apply_globally() and not singular_update
             colormap = dialog.get_colormap_name()
-            self.display_bands_change.emit(dataset.get_id(), bands, colormap, is_global)
+            if not singular_update:
+                self.display_bands_change.emit(dataset.get_id(), bands, colormap, is_global)
 
             # Only update our display bands if the change was not global, since
             # if it was, the main application controller will change everybody's
