@@ -338,7 +338,7 @@ def set_data_ignore_of_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: 
 
 
 def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: "RasterDataSet"):
-    # 1. Propagate wavelength names (band descriptions)
+    # Propagate wavelength names (band descriptions)
     band_info = source_dataset.band_list()  # returns dict of lists keyed by metadata names
     wle_names = band_info[0].get("wavelength_name")
     if wle_names:
@@ -347,26 +347,25 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: "R
             b = gdal_dataset.GetRasterBand(i + 1)
             b.SetDescription(wle_name)
 
-    # 2. Propagate data‑ignore (NoData) value
+    # Propagate data‑ignore (NoData) value
     nodata = source_dataset.get_data_ignore_value()
     if nodata is not None:
         # set the same nodata on every band
         for i in range(1, gdal_dataset.RasterCount + 1):
             gdal_dataset.GetRasterBand(i).SetNoDataValue(nodata)
 
-    # 3. Propagate default bands (for display)
-    #    e.g. (1,) or (3, 2, 1)
+    # Propagate default bands (for display)
     defaults = source_dataset.default_display_bands()
     if defaults:
         # store as comma‑separated string in metadata
         gdal_dataset.SetMetadataItem("DEFAULT_BANDS", ",".join(str(b) for b in defaults))
 
-    # 4. Propagate bad bands
+    # Propagate bad bands
     bad = source_dataset.get_bad_bands()  # list of ints
     if bad:
         gdal_dataset.SetMetadataItem("BAD_BANDS", ",".join(str(b) for b in bad))
 
-    # (Optional) If you also want to store wavelength units:
+    # Propagate wavelength units:
     wl_str = band_info[0].get("wavelength_str")  # list of astropy.Quantity
     if wl_str is not None:
         for i, q in enumerate(band_info):
@@ -379,7 +378,7 @@ def copy_metadata_to_gdal_dataset(gdal_dataset: gdal.Dataset, source_dataset: "R
             wl_units = band_info[i].get("wavelength_units")
             gdal_dataset.GetRasterBand(i + 1).SetMetadataItem("wavelength_units", str(wl_units))
 
-    # Don't forget to flush/close when done:
+    # Flush and close when done
     gdal_dataset.FlushCache()
     gdal_dataset = None
 

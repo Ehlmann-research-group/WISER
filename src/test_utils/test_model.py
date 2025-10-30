@@ -1668,7 +1668,7 @@ class WiserTestModel:
         ledit.setFocus()
         ledit.selectAll()
         QTest.keyClicks(ledit, str(value))
-        assert abs(dlg.image_rotation() - value) < 1e-2
+        assert abs(dlg.get_image_rotation() - value) < 1e-2
 
     def set_rotation_slider(self, value: int) -> None:
         """Set rotation with the slider instead of the line-edit."""
@@ -1683,7 +1683,7 @@ class WiserTestModel:
         ledit.setFocus()
         ledit.selectAll()
         QTest.keyClicks(ledit, str(value))
-        assert abs(dlg.image_scale() - value) < 1e-6
+        assert abs(dlg.get_image_scale() - value) < 1e-6
 
     def choose_interpolation_rs(self, index: int) -> None:
         """Pick an interpolation entry by *index* (0 = Nearest, …)."""

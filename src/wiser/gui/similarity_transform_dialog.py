@@ -369,7 +369,6 @@ class SimilarityTransformDialog(QDialog):
             self._ui.ledit_save_path_rs.setText(filename)
 
     def _on_choose_save_filename_translate(self, checked=False):
-        # TODO (Joshua G-K): Allow this to also save as an .hdr
         file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         # Restrict selection to only .tif files.
@@ -405,9 +404,7 @@ class SimilarityTransformDialog(QDialog):
                     return
             self._ui.ledit_save_path_translate.setText(filename)
 
-    # -------------------------------------------------------------------------
-    # Public helper methods for external callers
-    # -------------------------------------------------------------------------
+    # region Public helper methods for external callers
 
     def set_orig_coord_text(self, text: str) -> None:
         """Update the previous coordinate label."""
@@ -431,10 +428,10 @@ class SimilarityTransformDialog(QDialog):
 
     # region Convenience getters
 
-    def image_rotation(self) -> float:
+    def get_image_rotation(self) -> float:
         return self._image_rotation
 
-    def image_scale(self) -> float:
+    def get_image_scale(self) -> float:
         return self._image_scale
 
     def _get_translated_geotransform(self) -> tuple[float, float]:
@@ -515,14 +512,24 @@ class SimilarityTransformDialog(QDialog):
                 ratio = MAX_RAM_BYTES / output_bytes  # Proportion of bands to use for each iteration
             else:
                 ratio = 1
-            new_dataset = driver.Create(save_path, pixmap_width, pixmap_height, num_bands, gdal_data_type)
+            # Create the actual dataset that we want
+            new_dataset = driver.Create(
+                save_path,
+                pixmap_width,
+                pixmap_height,
+                num_bands,
+                gdal_data_type,
+            )
             if new_dataset is None:
                 raise RuntimeError("Failed to create the output dataset")
+            # The number of bands we operate on per iteration of creating
+            # th rotated and scaled dataset
             num_bands_per = int(ratio * num_bands)
             if num_bands_per <= 0:
                 num_bands_per == 1
             ds_data_ignore = self._rotate_scale_dataset.get_data_ignore_value()
             data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
+            # Rotate and scale bands at the appropriate interval
             for band_index in range(0, num_bands, num_bands_per):
                 band_list_index = [
                     band for band in range(band_index, band_index + num_bands_per) if band < num_bands
@@ -547,6 +554,7 @@ class SimilarityTransformDialog(QDialog):
                 if len(rotated_scaled_band_arr.shape) == 2:
                     rotated_scaled_band_arr = rotated_scaled_band_arr
                 elif len(rotated_scaled_band_arr.shape) == 3:
+                    # y, x, b -> b, y, x
                     rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
                 else:
                     raise RuntimeError(
@@ -562,8 +570,10 @@ class SimilarityTransformDialog(QDialog):
                     rotated_scaled_band_arr,
                     gdal_data_type,
                 )
+            # Copies numeric metadata like wavelenghs, bad bands, data ignore, and default bands
             copy_metadata_to_gdal_dataset(new_dataset, self._rotate_scale_dataset)
             new_dataset.FlushCache()
+            # Copies geographic data separately
             if self._rotate_scale_dataset.has_geographic_info():
                 new_dataset.SetSpatialRef(self._rotate_scale_dataset.get_spatial_ref())
                 gt = self._rotate_scale_dataset.get_geo_transform()
@@ -622,12 +632,12 @@ class SimilarityTransformDialog(QDialog):
             return
 
         try:
-            self.set_translate_message_text("Starting Translation.")
+            self.set_translate_message_text(self.tr("Starting Translation."))
             if isinstance(self._translation_dataset.get_impl(), GDALRasterDataImpl):
                 impl = self._translation_dataset.get_impl()
                 translation_gdal_dataset = impl.gdal_dataset
                 if driver is None:
-                    raise RuntimeError("GDAL driver not available")
+                    raise RuntimeError(self.tr("GDAL driver not available"))
                 new_dataset: gdal.Dataset = driver.CreateCopy(save_path, translation_gdal_dataset, 0)
                 new_dataset.SetGeoTransform(new_geo_transform)
                 copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)
