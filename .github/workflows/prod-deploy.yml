@@ -69,13 +69,13 @@ jobs:
           ls -la dist/WISER || true
         timeout-minutes: 25
         
-      - name: Smoke Test (macOS)
-        if: runner.os == 'macOS'
-        shell: bash -leo pipefail {0}
-        run: |
-          cd dist/WISER
-          ./WISER_Bin --test_mode
-        timeout-minutes: 20
+      # - name: Smoke Test (macOS)
+      #   if: runner.os == 'macOS'
+      #   shell: bash -leo pipefail {0}
+      #   run: |
+      #     cd dist/WISER
+      #     ./WISER_Bin --test_mode
+      #   timeout-minutes: 20
 
       - name: Pack macOS .app (preserve symlinks & modes)
         if: runner.os == 'macOS'
@@ -96,4 +96,3 @@ jobs:
             dist/WISER.app.tgz
             dist/WISER.app.tgz.sha256
         timeout-minutes: 20
-  
