@@ -87,6 +87,8 @@ cv2_binaries = collect_dynamic_libs(
     search_patterns=["cv2*.pyd", "cv2*.dll", "python-*/cv2*.pyd", "python-*/cv2*.dll"]
 )
 
+print(f"!@#$ cv2 binaries: {cv2_binaries}")
+
 binaries += cv2_binaries
 
 # SECOND PASS: rebuild Analysis with the full hiddenimports list
