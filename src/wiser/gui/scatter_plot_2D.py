@@ -14,7 +14,7 @@ This script requires the following .ui files to be in the same folder as this py
     * dimensions.ui - GUI for dimension range selection
     * bands_table.ui - GUI for band selection
 
-Primarily written by Amy Wang
+Primarily written by Amy Wang & Joshua Garcia-Kimble
 """
 
 import matplotlib
