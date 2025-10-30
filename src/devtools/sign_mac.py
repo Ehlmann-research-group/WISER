@@ -89,7 +89,7 @@ def parse_args():
     p.add_argument(
         "--sign-script",
         default=os.path.join(os.path.dirname(__file__), "..", "..", "install-mac", "sign_wiser.sh"),
-        help="Codesign script to run (bash)"
+        help="Codesign script to run (bash)",
     )
     p.add_argument("--notarize", action="store_true", help="Submit DMG to Apple notarization with notarytool")
     p.add_argument("--apple-id", default=os.environ.get("AD_USERNAME"), help="Apple ID (or set AD_USERNAME)")
@@ -140,13 +140,7 @@ def main():
 
     # Make sure the download WISER.app.tgz is correct
     tar_sha_path = os.path.join(dist_dir, "WISER.app.tgz.sha256")
-    run([
-        "shasum",
-        "-a",
-        "256",
-        "-c",
-        tar_sha_path
-    ])
+    run(["shasum", "-a", "256", "-c", tar_sha_path])
 
     # Extract the app from the tar (we need to use tar to perserve symlinks)
     tar_path = os.path.join(dist_dir, "WISER.app.tgz")
