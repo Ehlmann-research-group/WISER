@@ -50,7 +50,10 @@ temp_a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['pyinstaller_hooks/set_wiser_env_prod.py'],
+    runtime_hooks=[
+        'pyinstaller_hooks\\set_wiser_env_prod.py',
+        'pyinstaller_hooks\\pyi_rth_cv2.py',
+    ],
     excludes=['PyQt5'],
     noarchive=False,
     optimize=0,
@@ -91,12 +94,12 @@ print(f"!@#$ cv2 binaries before: {cv2_binaries}")
 more_cv2_binaries = []
 seen = set(cv2_binaries)
 
-for dest, src in cv2_binaries:
+for src, dest in cv2_binaries:
     print(f"====================")
     print(f"dest: {dest}")
     print(f"src: {src}")
     print(f"====================")
-    new_tuple = (dest, 'cv2')
+    new_tuple = (src, 'cv2')
     # use both dest+src for dedupe (you can also just use new_dest)
     if new_tuple in seen:
         continue
@@ -122,7 +125,10 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['pyinstaller_hooks/set_wiser_env_prod.py'],
+    runtime_hooks=[
+        'pyinstaller_hooks\\set_wiser_env_prod.py',
+        'pyinstaller_hooks\\pyi_rth_cv2.py',
+    ],
     excludes=['PyQt5'],
     noarchive=False,
     optimize=0,
