@@ -89,22 +89,6 @@ cv2_binaries = collect_dynamic_libs(
     search_patterns=["cv2*.so", "cv2*.dylib", "python-*/cv2*.so", "python-*/cv2*.dylib"]
 )
 
-more_cv2_binaries = []
-seen = set(cv2_binaries)
-
-for dest, src in cv2_binaries:
-    new_tuple = (dest, 'cv2')
-    # use both dest+src for dedupe (you can also just use new_dest)
-    if new_tuple in seen:
-        continue
-    seen.add(new_tuple)
-
-    more_cv2_binaries.append(new_tuple)
-
-# Put all dynamic libs in the cv2 folder because sometimes they can
-# get nested into a subfolder which will make it so cv2 can't find it
-cv2_binaries += more_cv2_binaries
-
 existing_binaries += cv2_binaries
 
 # SECOND PASS: rebuild Analysis with the full existing_hidden_imports list
