@@ -80,6 +80,10 @@ existing_hidden_imports = _hidden
 
 # There is an issue with pyinstaller and opencv. We are using the fix here:
 # https://github.com/orgs/pyinstaller/discussions/7493#discussioncomment-5315487
+#
+# Although there is another issue with the path to cv2 that's placed on sys.path
+# being an absolute path on the build machine and not the host machine. Our hook
+# pyinstaller_hooks/pyi_rth_cv2.py is meant to help fix this as well.
 cv2_binaries = collect_dynamic_libs(
     "cv2",
     search_patterns=["cv2*.so", "cv2*.dylib", "python-*/cv2*.so", "python-*/cv2*.dylib"]
@@ -98,11 +102,8 @@ for dest, src in cv2_binaries:
     more_cv2_binaries.append(new_tuple)
 
 # Put all dynamic libs in the cv2 folder because sometimes they can
-# get nested into a subfolder which will make it so cv2 can't find
-# it
+# get nested into a subfolder which will make it so cv2 can't find it
 cv2_binaries += more_cv2_binaries
-
-print(f"!@#$ cv2 binaries: {cv2_binaries}")
 
 existing_binaries += cv2_binaries
 
