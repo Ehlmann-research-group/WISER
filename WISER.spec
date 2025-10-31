@@ -89,28 +89,28 @@ hiddenimports = _hidden
 # Although there is another issue with the path to cv2 that's placed on sys.path
 # being an absolute path on the build machine and not the host machine. Our hook
 # pyinstaller_hooks/pyi_rth_cv2.py is meant to help fix this as well.
-# cv2_binaries = collect_dynamic_libs(
-#     "cv2",
-#     search_patterns=["cv2*.pyd", "cv2*.dll", "python-*/cv2*.pyd", "python-*/cv2*.dll"]
-# )
+cv2_binaries = collect_dynamic_libs(
+    "cv2",
+    search_patterns=["cv2*.pyd", "cv2*.dll", "python-*/cv2*.pyd", "python-*/cv2*.dll"]
+)
 
-# more_cv2_binaries = []
-# seen = set(cv2_binaries)
+more_cv2_binaries = []
+seen = set(cv2_binaries)
 
-# for src, dest in cv2_binaries:
-#     new_tuple = (src, 'cv2')
-#     # use both dest+src for dedupe (you can also just use new_dest)
-#     if new_tuple in seen:
-#         continue
-#     seen.add(new_tuple)
+for src, dest in cv2_binaries:
+    new_tuple = (src, 'cv2')
+    # use both dest+src for dedupe (you can also just use new_dest)
+    if new_tuple in seen:
+        continue
+    seen.add(new_tuple)
 
-#     more_cv2_binaries.append(new_tuple)
+    more_cv2_binaries.append(new_tuple)
 
-# # Put all dynamic libs in the cv2 folder because sometimes they can
-# # get nested into a subfolder which will make it so cv2 can't find it
-# cv2_binaries += more_cv2_binaries
+# Put all dynamic libs in the cv2 folder because sometimes they can
+# get nested into a subfolder which will make it so cv2 can't find it
+cv2_binaries += more_cv2_binaries
 
-# binaries += cv2_binaries
+binaries += cv2_binaries
 
 # SECOND PASS: rebuild Analysis with the full hiddenimports list
 a = Analysis(
