@@ -89,35 +89,22 @@ need to be packaged into a .dmg and code-signed.
 
 TODO Finish this section.
 
-
-
-OLD: This has not been built yet. But we would like a way to test WISER when it is
-in production. We would mainly want to test aspects of WISER that need to be
-packaged into the build. For example, to test that JP2OpenJPEG.dll were properly
-packaged into the build, we would have a test that would try opening up a very
-small JP2 file that we can run with a command like `./WISER_Bin --mode test`.
-We do want to have a github action for this, but we don't want it to run for a
-long time as builds take a while to run (and we don't want to
-[waste our github time](https://docs.github.com/en/billing/concepts/product-billing/github-actions#free-use-of-github-actions)). 
-I think it would be best to run this test on pushes to `main` or `rel/**`.
-This has the downside of the bug not being seen until after the user has pushed
-their pull_request (since we will only be pull requesting into `main` and `rel/**`).
-However, to make it easier to test, we can make a recipe in a Makefile.
-
 Currently, we test on our distributables in the github
 runners by running WISER with the `--test_mode` flag. We
 do this because we want to make sure everything in our
 distributables was packaged up correctly. For example, to 
-test that JP2OpenJPEG.dll were properly packaged into the
+test that JP2OpenJPEG.dll was properly packaged into the
 build, we would have a test that would try opening up a very
 small JP2 file that we can run with a command like `./WISER_Bin --mode test`. So you can see how it is important
-to run tests on the build artifact. We want to build these
+to run tests on the build artifact.
+
+We want to build these
 artifacts and run these tests on `main` and `rel/**` banches
 because these branches are meant to contain very stable 
 code that can be deployed at a moments notice. However, 
 currently we are still deciding whether we should run 
 deployment tests on every PR to `main` and `rel/**` or
-nightly. 
+nightly.
 
 TODO (Joshua G-K): Figure out if we should do nightly builds
 or run builds on each PR to main/rel** branches.
@@ -125,13 +112,12 @@ or run builds on each PR to main/rel** branches.
 #### Deployment Tests
 
 We currently have a github action that builds WISER on the github runners then runs
-our smoke tests then uploads distribution files to github. Currently this doesn't
-work well because on Windows, the micromamba environment is hanging at a specific
-package. The closest issue I could find online is [this]
-(https://github.com/mamba-org/mamba/issues/3575?utm_source=chatgpt.com). The macOS
-arm runner works (which is the macOS-15 one), but the macOS intel runner (macOS-13 one)
-is very slow so I want to try running the macOS-15 runner but with rosetta2 (so
-we can get intel dylibs from it).
+our smoke tests then uploads distribution files to github. Currently, this only happens
+by workflow_dispatch, which means a developer must manually make it run.
+
+There are also simple make recipes to build and test wiser locally.
+The make commands `smoke-test-win-build` and `smoke-test-mac-build` when run from the root directory
+build WISER and run the `--test_mode` locally. This is useful to find build bugs as well.
 
 This github action is under .github\workflows\prod-deploy.yml . 
 
@@ -139,10 +125,19 @@ This github action is under .github\workflows\prod-deploy.yml .
 
 The good thing about the pipeline in the [Deployment Tests](#deployment-tests) section
 is that we can deploy directly from it. Since the artifacts from these tests were
-built on a fresh machine (the github runner), we know its more sturdy than building
+built on a fresh machine (the github runner), we know its more reproducible than building
 it locally! All we have to do is pull the artifact down to our local machine and
 sign it. I have [made code to do this](https://github.com/Ehlmann-research-group/WISER/pull/257).
 
+You can run this code by going into the root directory and doing
+
+`make sign-mac LINK=<link-address-of-artifact> MAC_DIST_GITHUB_NAME=<artifact-github-name>`
+
+or simply
+
+`make sign-windows LINK=<link-address-of-artifact>`
+
+for windows.
 This step requires you to have Github's CLI tool installed which lets you use the
 command `gh`. The logic for this step is in the files /src/devtools/sign_mac.py and
 /src/devtools/sign_windows.py. It was originally introduced on 
