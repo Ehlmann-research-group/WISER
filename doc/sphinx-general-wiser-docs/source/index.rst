@@ -13,5 +13,6 @@ This website has information for both users of WISER and contributors to WISER.
    :caption: Contents:
 
    get-started.rst
+   user-manual.rst
    developer.rst
-   user_manual.rst
+   contributing.rst
