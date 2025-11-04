@@ -1,24 +1,3 @@
-<!-- We use semantic commit messages for the title
-and summary. It's described here:
-https://sparkbox.com/foundry/semantic_commit_messages.
-Use the below prefixes at the start of each PR merge
-commit (it would also be useful to the reviewer to
-do this for all other commits which would help get
-your change merged faster):
-    (feat:)
-    (fix:)
-    (docs:)
-    (style:)
-    (refactor:)
-    (perf:)
-    (test:)
-    (hotfix:)
-    (build:)
-    (ci:)
-    (chore:)
-    (rev:)
--->
-
 ## What does this change do?
 <!-- Short summary -->
 
