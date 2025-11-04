@@ -54,8 +54,6 @@ your change merged faster):
 ## Checklist
 - [ ] There is an issue associated with this pull request
 - [ ] Code compiles/builds without errors
-- [ ] Unit/integration tests added or updated
-- [ ] Documentation (if needed) updated
 - [ ] No new lint/style issues introduced
 - [ ] Branch is up-to-date with main/master
 - [ ] All CI checks passed
