@@ -5,7 +5,7 @@ Before submitting a feature request, please review the following guidelines.
 
 ## How to Submit a Feature Request
 All new feature requests should be submitted as a **GitHub issue** using the  
-**Feature request** issue template.
+**Feature request** issue template. Click [here](https://github.com/Ehlmann-research-group/WISER/issues/new/choose) to go to GitHub issues.
 
 When filling out the template:
 - Clearly describe the **problem** your feature aims to solve.  
