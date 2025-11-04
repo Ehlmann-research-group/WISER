@@ -7,16 +7,6 @@ do this for all other commits which would help get
 your change merged faster):
     (feat:)
     (fix:)
-    (docs:)
-    (style:)
-    (refactor:)
-    (perf:)
-    (test:)
-    (hotfix:)
-    (build:)
-    (ci:)
-    (chore:)
-    (rev:)
 -->
 
 ## What does this change do?
