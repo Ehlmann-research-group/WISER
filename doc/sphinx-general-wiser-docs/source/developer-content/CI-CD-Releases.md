@@ -9,7 +9,7 @@ stable builds to be made frequently. Currently, the deployment process for WISER
 we would run it on ever PR to main but this process takes
 a long time.
 
-TODO (Joshua-GK): FIgure out a way to run constant builds
+TODO (Joshua-GK): Figure out a way to run constant builds
 (currently I am thinking that nightly builds will work, maybe figure out a way to speed up pyinstaller builds
 so we can feasibly run the build process on every PR)
 
