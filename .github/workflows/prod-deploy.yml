@@ -52,6 +52,14 @@ jobs:
           ./WISER.exe --test_mode
         timeout-minutes: 20
 
+      - name: Upload artifact Windows
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiser-${{ runner.os }}-${{ runner.arch }}
+          path: dist/**
+        timeout-minutes: 20
+
       - name: Build (macOS)
         if: runner.os == 'macOS'
         shell: bash -leo pipefail {0}
@@ -68,10 +76,19 @@ jobs:
           ./WISER_Bin --test_mode
         timeout-minutes: 20
 
-      - name: Upload artifact Windows
+      - name: Pack macOS .app (preserve symlinks & modes)
+        if: runner.os == 'macOS'
+        run: |
+          tar -C dist -czf dist/WISER.app.tgz WISER.app
+          shasum -a 256 dist/WISER.app.tgz > dist/WISER.app.tgz.sha256
+        timeout-minutes: 20
+
+      - name: Upload artifact macOS
+        if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: wiser-${{ runner.os }}-${{ runner.arch }}
-          path: dist/**
-        timeout-minutes: 30
-  
+          path: |
+            dist/WISER.app.tgz
+            dist/WISER.app.tgz.sha256
+        timeout-minutes: 20

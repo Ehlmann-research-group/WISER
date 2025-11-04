@@ -50,7 +50,10 @@ temp_a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['pyinstaller_hooks/set_wiser_env_prod.py'],
+    runtime_hooks=[
+        'pyinstaller_hooks\\set_wiser_env_prod.py',
+        'pyinstaller_hooks\\pyi_rth_cv2.py',
+    ],
     excludes=['PyQt5'],
     noarchive=False,
     optimize=0,
@@ -82,6 +85,10 @@ hiddenimports = _hidden
 
 # There is an issue with pyinstaller and opencv. We are using the fix here:
 # https://github.com/orgs/pyinstaller/discussions/7493#discussioncomment-5315487
+#
+# Although there is another issue with the path to cv2 that's placed on sys.path
+# being an absolute path on the build machine and not the host machine. Our hook
+# pyinstaller_hooks/pyi_rth_cv2.py is meant to help fix this as well.
 cv2_binaries = collect_dynamic_libs(
     "cv2",
     search_patterns=["cv2*.pyd", "cv2*.dll", "python-*/cv2*.pyd", "python-*/cv2*.dll"]
@@ -98,7 +105,10 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['pyinstaller_hooks/set_wiser_env_prod.py'],
+    runtime_hooks=[
+        'pyinstaller_hooks\\set_wiser_env_prod.py',
+        'pyinstaller_hooks\\pyi_rth_cv2.py',
+    ],
     excludes=['PyQt5'],
     noarchive=False,
     optimize=0,
