@@ -1,4 +1,4 @@
-# CI/CD and Rleases
+# CI/CD and Releases
 
 CI/CD stands for continuous integration/continuous
 development. It is a practice that is meant to allow

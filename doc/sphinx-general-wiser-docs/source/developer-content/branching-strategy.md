@@ -1,4 +1,4 @@
-# Branching Strategy (CI/CD)
+# Branching Strategy
 
 WISER will be using a trunk based branching strategy with continuous integration. Release branches will be made to strictly enforce feature freezes. More explanation below.
 
