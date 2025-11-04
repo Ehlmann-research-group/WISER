@@ -58,6 +58,25 @@ A proper commit message should look like this:
 
 Wrap lines at 50 characters.
 
+We use semantic commit messages for the title
+and summary. It's described [here](https://sparkbox.com/foundry/semantic_commit_messages).
+Use the below prefixes at the start of each PR merge
+commit title (it would also help the reviewer to
+do this for all other commit messages):
+  - feat:
+  - fix:
+  - docs:
+  - style:
+  - refactor:
+  - perf:
+  - test:
+  - hotfix:
+  - build:
+  - ci:
+  - chore:
+  - rev:
+
+
 ### Guidelines
 
 - Keep commit messages **clear and concise**.  
