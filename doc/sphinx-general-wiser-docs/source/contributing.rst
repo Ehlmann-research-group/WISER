@@ -10,3 +10,5 @@ what you have found.
     :caption: Contents
 
     general-content/feature-submitting-guide.md
+
+    general-content/bug-submitting-guide.md
