@@ -33,6 +33,13 @@ from wiser.bandmath.utils import (
     load_band_from_bandmath_result,
 )
 
+import pytest
+
+pytestmark = [
+    pytest.mark.slow,
+    pytest.mark.multiprocessing,
+]
+
 
 def make_image(bands, width, height):
     arr = np.zeros(shape=(bands, width, height))

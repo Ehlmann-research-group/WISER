@@ -16,6 +16,12 @@ from wiser.raster.dataset import (
 )
 from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
 
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+]
+
 
 class TestDataSerialization(unittest.TestCase):
     def setUp(self):
