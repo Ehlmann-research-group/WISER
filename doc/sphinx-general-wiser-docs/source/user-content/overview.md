@@ -1,4 +1,4 @@
-# Overview
+# WISER Overview
 
 The goal of WISER is to provide an intuitive and configurable user interface
 that supports many different workflows and styles of interaction.  When WISER
