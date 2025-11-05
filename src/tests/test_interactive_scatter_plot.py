@@ -23,8 +23,8 @@ import pytest
 
 pytestmark = [
     pytest.mark.feature,
-    pytest.mark.slow,
     pytest.mark.multiprocessing,
+    pytest.mark.slow,
 ]
 
 

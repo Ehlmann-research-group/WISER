@@ -7,8 +7,8 @@ from wiser.gui.spectrum_plot import generate_ticks
 import pytest
 
 pytestmark = [
-    pytest.mark.unit,
     pytest.mark.smoke,
+    pytest.mark.unit,
 ]
 
 

@@ -23,6 +23,13 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import pytest
+
+pytestmark = [
+    pytest.mark.feature,
+    pytest.mark.smoke,
+]
+
 
 class TestSimliarityTransformGUI(unittest.TestCase):
     """Unit tests for the Similarity Transform dialog using the WISER GUI.

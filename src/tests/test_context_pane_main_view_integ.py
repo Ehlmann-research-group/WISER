@@ -26,7 +26,10 @@ from PySide2.QtWidgets import *
 
 import pytest
 
-pytestmark = [pytest.mark.slow, pytest.mark.integration]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.slow,
+]
 
 
 class TestContextPaneMainViewIntegration(unittest.TestCase):

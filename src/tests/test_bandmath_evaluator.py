@@ -36,8 +36,8 @@ from wiser.bandmath.utils import (
 import pytest
 
 pytestmark = [
-    pytest.mark.slow,
     pytest.mark.multiprocessing,
+    pytest.mark.slow,
 ]
 
 

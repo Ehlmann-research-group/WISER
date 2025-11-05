@@ -36,6 +36,13 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import pytest
+
+pytestmark = [
+    pytest.mark.feature,
+    pytest.mark.smoke,
+]
+
 
 class TestRoiAvgSpectrum(unittest.TestCase):
     """

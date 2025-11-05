@@ -5,7 +5,9 @@ from wiser.gui.util import make_filename
 
 import pytest
 
-pytestmark = [pytest.mark.unit]
+pytestmark = [
+    pytest.mark.unit,
+]
 
 
 class TestGuiUtil(unittest.TestCase):
