@@ -19,3 +19,5 @@ adding to WISER.
     developer-content/CI-CD-Releases.md
 
     developer-content/branching-strategy.md
+
+    developer-content/testing-standards.md
