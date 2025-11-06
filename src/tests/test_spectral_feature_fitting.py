@@ -19,7 +19,7 @@ from wiser.raster.utils import make_spectral_value
 import pytest
 
 pytestmark = [
-    pytest.mark.feature,
+    pytest.mark.functional,
     pytest.mark.smoke,
 ]
 

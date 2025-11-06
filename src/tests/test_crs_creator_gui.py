@@ -43,7 +43,7 @@ from wiser.gui.geo_reference_dialog import UserGeneratedCRS, AuthorityCodeCRS
 import pytest
 
 pytestmark = [
-    pytest.mark.feature,
+    pytest.mark.functional,
 ]
 
 

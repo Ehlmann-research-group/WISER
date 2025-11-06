@@ -22,7 +22,7 @@ import time
 import pytest
 
 pytestmark = [
-    pytest.mark.feature,
+    pytest.mark.functional,
     pytest.mark.multiprocessing,
     pytest.mark.slow,
 ]

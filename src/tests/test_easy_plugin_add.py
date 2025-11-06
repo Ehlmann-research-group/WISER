@@ -10,7 +10,7 @@ from test_utils.test_model import WiserTestModel
 import pytest
 
 pytestmarker = [
-    pytest.mark.feature,
+    pytest.mark.functional,
 ]
 
 

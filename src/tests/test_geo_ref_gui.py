@@ -37,7 +37,7 @@ from PySide2.QtWidgets import *
 import pytest
 
 pytestmark = [
-    pytest.mark.feature,
+    pytest.mark.functional,
 ]
 
 
