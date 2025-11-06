@@ -1,3 +1,22 @@
+[tool.pytest.ini_options]
+# When using multiple of these, always use them in the
+# order that they are in the list, which is alphabetical
+addopts = "--strict-markers"
+markers = [
+  "build: ensures that build has proper pieces packaged in it",
+  "e2e: tests wiser end to end",
+  "functional: validates if a piece of the software functions correctly",
+  "integration: verifies how different components work together",
+  "multiprocessing: tests that use multiprocess",
+  "performance: tests wiser on performance",
+  "smoke: checks of core paths",
+  "slow: tests that are slow",
+  "unit: verifies small, isolated functionality work",
+]
+testpaths = [
+  "src/tests",
+]
+
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [

@@ -19,6 +19,14 @@ from PySide2.QtWidgets import *
 
 import time
 
+import pytest
+
+pytestmark = [
+    pytest.mark.functional,
+    pytest.mark.multiprocessing,
+    pytest.mark.slow,
+]
+
 
 class TestInteractiveScatterPlot(unittest.TestCase):
     """

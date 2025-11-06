@@ -30,6 +30,13 @@ from wiser.raster.dataset import RasterDataSet
 from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
 
 
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+]
+
+
 class TestRasterPanes(unittest.TestCase):
     """
     Test suite for validating image rendering in raster panes.

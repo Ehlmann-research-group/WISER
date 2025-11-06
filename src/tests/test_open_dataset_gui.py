@@ -15,6 +15,12 @@ import numpy as np
 
 from test_utils.test_model import WiserTestModel
 
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+]
+
 
 class TestOpenDataset(unittest.TestCase):
     """

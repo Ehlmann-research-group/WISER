@@ -5,6 +5,13 @@ import tests.context
 from wiser import plugins
 from wiser.plugins import utils
 
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+    pytest.mark.unit,
+]
+
 
 class TestPluginsUtils(unittest.TestCase):
     """
