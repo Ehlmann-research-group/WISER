@@ -39,6 +39,7 @@ As of **11/05/2025**, we do not yet organize tests by type (unit, integration, e
 - If the test works y by clicking through gui elements and only 
 tests one piece of functionality, put `_gui` at the end. If it tests 
 the interface between two features put `_integ` at  the end. We may change or get rid of this in the future in place of pytest markers.
+- Currently, there are no hard set rules dictating what to name the rest of the file, but generally it should be make clear what is being tested and any specifics about what is being tested.
 - Test classes should follow Python testing patterns. If using unittest style, inherit from `unittest.TestCase`.
 - Test functions should start with `test_`.
 
