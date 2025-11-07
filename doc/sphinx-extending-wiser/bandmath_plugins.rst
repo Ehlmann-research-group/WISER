@@ -99,3 +99,12 @@ implemented to operate on NumPy ``ndarray`` objects for maximum generality,
 although it may also be useful to implement certain operations against
 :class:`wiser.raster.RasterDataSet` or :class:`wiser.raster.Spectrum` objects,
 where metadata is available for use.
+
+Example BandMath Plugin
+-----------------------
+
+Okay, lets get into an example plugin that lets you do a spectral angle calculation
+between a spectrum and a dataset.
+
+.. literalinclude:: ../../src/example_plugins/bandmath_plugin.py
+   :language: python

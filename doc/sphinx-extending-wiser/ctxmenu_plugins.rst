@@ -28,3 +28,11 @@ with WISER.
 The ``ContextMenuType`` enumeration is as follows:
 
 .. autoenum:: wiser.plugins.ContextMenuType
+
+Example Context-Menu Plugin
+---------------------------
+
+Here is an example of a simple context menu plugin.
+
+.. literalinclude:: ../../src/example_plugins/ctxmenu_plugin.py
+   :language: python
