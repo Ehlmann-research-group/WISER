@@ -72,4 +72,7 @@ class DatasetChooserDialogFactory(ChooserDialogFactory):
         self._widget_parent = widget_parent
 
     def create_chooser_dialog(self) -> DatasetChooserDialog:
-        return DatasetChooserDialog()
+        return DatasetChooserDialog(
+            app_state=self._app_state,
+            parent=self._widget_parent,
+        )
