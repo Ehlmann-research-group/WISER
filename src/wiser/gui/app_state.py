@@ -4,7 +4,7 @@ import warnings
 from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
 from PySide2.QtCore import *
-from PySide2.QtWidgets import QMessageBox
+from PySide2.QtWidgets import QMessageBox, QDialog
 
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color
@@ -27,6 +27,7 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 from wiser.raster.data_cache import DataCache
 
 from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
+from wiser.gui.ui_library import DatasetChooserDialogFactory, DatasetChooserDialog
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
@@ -152,6 +153,9 @@ class ApplicationState(QObject):
         self._process_pool_manager = MultiprocessingManager()
 
         self._running_processes: Dict[int, ProcessManager] = {}
+
+        # Factories
+        self._dataset_chooser_factory: DatasetChooserDialogFactory = DatasetChooserDialogFactory()
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
@@ -782,3 +786,11 @@ class ApplicationState(QObject):
                 self._user_created_crs[name] = (crs, crs_creator_state)
         else:
             self._user_created_crs[name] = (crs, crs_creator_state)
+
+    # region UI Library Access
+
+    def choose_dataset_ui(self) -> RasterDataSet:
+        dataset_chooser_dialog = self._dataset_chooser_factory.create_chooser_dialog()
+
+        if dataset_chooser_dialog.exec_() == QDialog.Accepted:
+            return dataset_chooser_dialog.get_chosen_object()

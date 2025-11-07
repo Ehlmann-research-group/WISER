@@ -79,7 +79,6 @@ from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemova
 from wiser.gui.parallel_task import ParallelTaskProcess
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
-from wiser.gui.ui_library import DatasetChooserDialogFactory, DatasetChooserDialog
 
 from wiser.config import FLAGS
 
@@ -242,9 +241,6 @@ class DataVisualizerApp(QMainWindow):
         self._crs_creator_dialog: ReferenceCreatorDialog = None
         self._similarity_transform_dialog: SimilarityTransformDialog = None
         self._config_dialog: AppConfigDialog = None
-
-        # Factories
-        self._dataset_chooser_factory: DatasetChooserDialogFactory = DatasetChooserDialogFactory()
 
     def _init_menus(self):
         # Configure the menus based on the OS/platform
@@ -1212,11 +1208,3 @@ class DataVisualizerApp(QMainWindow):
         )
         spectrum = SpectrumAtPoint(dataset, ds_point.toTuple(), area, mode)
         self._app_state.set_active_spectrum(spectrum)
-
-    # region UI Library Access
-
-    def choose_dataset_ui(self) -> RasterDataSet:
-        dataset_chooser_dialog = self._dataset_chooser_factory.create_chooser_dialog()
-
-        if dataset_chooser_dialog.exec_() == QDialog.Accepted:
-            return dataset_chooser_dialog.get_chosen_object()
