@@ -53,3 +53,14 @@ A spectrum may be constructed from a NumPy array using the
 
 .. autoclass:: wiser.raster.NumPyArraySpectrum
     :members:
+
+
+Region Of Interest
+------------------
+
+A region of interest that is draw on the screen is represented by the ``Region Of Interest``
+class.
+
+.. autoclass:: wiser.raster.RegionOfInterest
+    :members:
+    :undoc-members:
