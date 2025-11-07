@@ -1201,10 +1201,13 @@ class RasterDataSet(Serializable):
     def determine_link_state(self, dataset: "RasterDataSet") -> GeographicLinkState:
         """
         Tests to see if the passed in dataset is compatible to link with the current dataset
+
+        Args:
+            dataset (RasterDataSet):
+                The dataset that we want to determine our dataset's link state with
+
         Returns:
-            0 is no link,
-            1 is pixel link,
-            2 is spatial link
+            GeographicLinkState: 0 is no link, 1 is pixel link, 2 is spatial link
         """
         ds0_dim = (self.get_width(), self.get_height())
         ds_dim = (dataset.get_width(), dataset.get_height())
@@ -1412,16 +1415,18 @@ class RasterDataSet(Serializable):
         dataset_serialize_value: Union[str, np.ndarray], dataset_metadata: Dict
     ) -> "RasterDataSet":
         """
-        We need to properly open up the dataset, if it is a subdataset, then we need to properly
-        open that subdataset.
+        We need to properly open up the dataset, if it is a subdataset, then we need
+        to properly open that subdataset.
 
         Args:
-            - dataset_serialize_value: A string that represents the file path to the dataset, or a numpy array
-            that represents the data in the dataset.
-            - dataset_metadata: A dictionary that represents the metadata needed to recreate this object.
+            dataset_serialize_value (Union[str, np.ndarray]):
+                A string that represents the file path to the dataset, or a numpy array
+                that represents the data in the dataset.
+            dataset_metadata (Dict):
+                A dictionary that represents the metadata needed to recreate this object.
 
         Returns:
-            A RasterDataSet object that represents the dataset.
+            RasterDataSet: Takes the passed in parameters and reconstructs a dataset ojbect.
         """
         if isinstance(dataset_serialize_value, str) and dataset_serialize_value.startswith("NETCDF:"):
             dataset_serialize_value = dataset_serialize_value[7:]
