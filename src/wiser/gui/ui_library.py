@@ -48,7 +48,7 @@ class DatasetChooserDialog(ChooserDialog, QDialog):
         datasets = self._app_state.get_datasets()
 
         for dataset in datasets:
-            self._cbox_ds.addItem(text=dataset.get_name(), userData=dataset.get_id())
+            self._cbox_ds.addItem(dataset.get_name(), dataset.get_id())
 
     def get_chosen_object(self) -> "RasterDataSet":
         if not self._accepted:
