@@ -7,14 +7,14 @@ assignees: ''
 
 ---
 
-### Summary
+## Summary
 _Describe the documentation update needed._
 
-### Location
+## Location
 _Link to the page or file that needs updating._
 
-### Details
+## Details
 _Explain what should be added, removed, or changed._
 
-### Additional Context
+## Additional Context
 _Optional: Include screenshots, references, or related issues._
