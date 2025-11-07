@@ -8,15 +8,14 @@ if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
 
 
-class ChooserDialog(ABC):
-    @abstractmethod
+class ChooserDialog:
     def get_chosen_object() -> Optional[Any]:
         """
         Retrieves the chosen object after a user has accepted the dialog.
 
         If the user didn't accept the dialog, this will return None.
         """
-        pass
+        raise NotImplementedError("This function must be implemented by the subclass.")
 
 
 class ChooserDialogFactory(ABC):

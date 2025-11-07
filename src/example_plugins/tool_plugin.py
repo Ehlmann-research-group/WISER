@@ -21,10 +21,13 @@ class HelloToolPlugin(ToolsMenuPlugin):
         Use QMenu.addAction() to add individual actions, or QMenu.addMenu() to
         add sub-menus to the Tools menu.
         """
+        self._app_state = wiser
         logger.info("HelloToolPlugin is adding tool-menu items")
         act = tool_menu.addAction("Say hello...")
         act.triggered.connect(self.say_hello)
 
     def say_hello(self, checked: bool = False):
         logger.info("HelloToolPlugin.say_hello() was called!")
-        QMessageBox.information(None, "Hello-Tool Plugin", "Hello from the toolbar!")
+        # QMessageBox.information(None, "Hello-Tool Plugin", "Hello from the toolbar!")
+        dataset = self._app_state.choose_dataset_ui()
+        print(f"dataset name: {dataset.get_name()}")

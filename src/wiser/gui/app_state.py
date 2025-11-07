@@ -155,7 +155,7 @@ class ApplicationState(QObject):
         self._running_processes: Dict[int, ProcessManager] = {}
 
         # Factories
-        self._dataset_chooser_factory: DatasetChooserDialogFactory = DatasetChooserDialogFactory()
+        self._dataset_chooser_factory: DatasetChooserDialogFactory = DatasetChooserDialogFactory(self)
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
