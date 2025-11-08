@@ -792,7 +792,7 @@ class ApplicationState(QObject):
 
     # region UI Library Access
 
-    def choose_dataset_ui(self) -> RasterDataSet:
+    def choose_dataset_ui(self) -> Optional[RasterDataSet]:
         dataset_chooser_dialog = self._dataset_chooser_factory.create_chooser_dialog()
 
         if dataset_chooser_dialog.exec_() == QDialog.Accepted:
