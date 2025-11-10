@@ -9,6 +9,8 @@ from PySide2.QtWidgets import (
     QDialogButtonBox,
     QSpinBox,
 )
+from PySide2.QtCore import Qt
+
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
 
 if TYPE_CHECKING:
@@ -17,25 +19,41 @@ if TYPE_CHECKING:
 
 
 class SingleItemChooserDialog(QDialog):
-    def __init__(self, dialog_name: str, app_state: "ApplicationState", parent=None):
+    def __init__(
+        self,
+        label_name: str,
+        app_state: "ApplicationState",
+        description: Optional[str] = None,
+        parent=None,
+    ):
         super().__init__(parent=parent)
 
-        if app_state is None or dialog_name is None:
+        self.setWindowTitle(self.tr("Selection Dialog"))
+
+        if app_state is None or label_name is None:
             return
 
         self._app_state = app_state
         self._accepted = False
 
-        self._lbl = QLabel(self.tr(dialog_name), self)
+        self._lbl = QLabel(self.tr(label_name), self)
         self._cbox = QComboBox(self)  # leave empty, subclass will populate
 
         layout = QGridLayout(self)
         layout.addWidget(self._lbl, 0, 0)
         layout.addWidget(self._cbox, 0, 1)
 
-        self._create_button_box(layout=layout)
+        self._lbl_description: QLabel = None
+        if description:
+            self._lbl_description = QLabel(self.tr(description), self)
+            self._lbl_description.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            layout.addWidget(self._lbl_description, 1, 0, 1, 2)
+            self._create_button_box(layout=layout, bbox_row=2)
+        else:
+            self._create_button_box(layout=layout)
 
         self.setLayout(layout)
+        self.setFixedSize(self.sizeHint())
 
     def _create_button_box(
         self,
@@ -72,10 +90,16 @@ class SingleItemChooserDialog(QDialog):
 
 
 class SpectrumChooserDialog(SingleItemChooserDialog):
-    def __init__(self, app_state: "ApplicationState", parent=None):
+    def __init__(
+        self,
+        app_state: "ApplicationState",
+        description: Optional[str] = None,
+        parent=None,
+    ):
         super().__init__(
-            dialog_name="Spectrum Chooser",
+            label_name="Spectrum Chooser",
             app_state=app_state,
+            description=description,
             parent=parent,
         )
 
@@ -93,10 +117,16 @@ class SpectrumChooserDialog(SingleItemChooserDialog):
 
 
 class ROIChooserDialog(SingleItemChooserDialog):
-    def __init__(self, app_state: "ApplicationState", parent=None):
+    def __init__(
+        self,
+        app_state: "ApplicationState",
+        description: Optional[str] = None,
+        parent=None,
+    ):
         super().__init__(
-            dialog_name="ROI (Region Of Interest) Chooser",
+            label_name="ROI (Region Of Interest) Chooser",
             app_state=app_state,
+            description=description,
             parent=parent,
         )
 
@@ -115,10 +145,16 @@ class ROIChooserDialog(SingleItemChooserDialog):
 
 
 class DatasetChooserDialog(SingleItemChooserDialog):
-    def __init__(self, app_state: "ApplicationState", parent=None):
+    def __init__(
+        self,
+        app_state: "ApplicationState",
+        description: Optional[str] = None,
+        parent=None,
+    ):
         super().__init__(
-            dialog_name="Dataset Chooser",
+            label_name="Dataset Chooser",
             app_state=app_state,
+            description=description,
             parent=parent,
         )
 
@@ -136,8 +172,13 @@ class DatasetChooserDialog(SingleItemChooserDialog):
 
 
 class BandChooserDialog(SingleItemChooserDialog):
-    def __init__(self, app_state: "ApplicationState", parent=None):
-        super().__init__(dialog_name=None, app_state=None, parent=parent)
+    def __init__(
+        self,
+        app_state: "ApplicationState",
+        description: Optional[str] = None,
+        parent=None,
+    ):
+        super().__init__(label_name=None, app_state=None, parent=parent)
 
         self._app_state = app_state
 
@@ -159,7 +200,15 @@ class BandChooserDialog(SingleItemChooserDialog):
         layout.addWidget(self._sbox_band, 1, 1)
         layout.addWidget(self._cbox_band, 1, 2)
 
-        self._create_button_box(layout=layout, bbox_row=2, bbox_col_span=3)
+        self._lbl_description_title: QLabel = None
+        self._lbl_description: QLabel = None
+        if description:
+            self._lbl_description = QLabel(self.tr(description), self)
+            self._lbl_description.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            layout.addWidget(self._lbl_description, 2, 1, 1, 3)
+            self._create_button_box(layout=layout, bbox_row=3, bbox_col_span=3)
+        else:
+            self._create_button_box(layout=layout, bbox_row=2, bbox_col_span=3)
 
         self.setLayout(layout)
 
@@ -176,6 +225,8 @@ class BandChooserDialog(SingleItemChooserDialog):
         # Keeps the combo box and spin box in sync
         self._cbox_band.currentIndexChanged.connect(self._sync_cbox_to_sbox)
         self._sbox_band.valueChanged.connect(self._sync_sbox_to_cbox)
+
+        self.setFixedSize(self.sizeHint())
 
     def _on_cbox_dataset_changed(self, checked=False):
         self._sync_band_chooser()
