@@ -31,6 +31,7 @@ from wiser.gui.ui_library import (
     DatasetChooserDialogFactory,
     SpectrumChooserDialogFactory,
     ROIChooserDialogFactory,
+    BandChooserDialogFactory,
 )
 
 if TYPE_CHECKING:
@@ -170,6 +171,11 @@ class ApplicationState(QObject):
         )
 
         self._roi_chooser_factory: ROIChooserDialogFactory = ROIChooserDialogFactory(
+            self,
+            widget_parent=self._app,
+        )
+
+        self._band_chooser_factory: BandChooserDialogFactory = BandChooserDialogFactory(
             self,
             widget_parent=self._app,
         )
@@ -823,3 +829,9 @@ class ApplicationState(QObject):
 
         if roi_chooser_dialog.exec_() == QDialog.Accepted:
             return roi_chooser_dialog.get_chosen_object()
+
+    def choose_band_ui(self) -> Optional[RasterDataBand]:
+        band_chooser_dialog = self._band_chooser_factory.create_chooser_dialog()
+
+        if band_chooser_dialog.exec_() == QDialog.Accepted:
+            return band_chooser_dialog.get_chosen_object()
