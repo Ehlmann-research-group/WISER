@@ -1,7 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional
 
-from PySide2.QtWidgets import QDialog, QLabel, QComboBox, QGridLayout
+from PySide2.QtWidgets import (
+    QDialog,
+    QLabel,
+    QComboBox,
+    QGridLayout,
+    QDialogButtonBox,
+)
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -16,7 +22,7 @@ class SingleItemChooserDialog(QDialog):
         self._accepted = False
 
         # Create widgets
-        self._lbl = QLabel(dialog_name, self)
+        self._lbl = QLabel(self.tr(dialog_name), self)
         self._cbox = QComboBox(self)  # leave empty for now
 
         # Create layout
@@ -24,9 +30,21 @@ class SingleItemChooserDialog(QDialog):
         layout.addWidget(self._lbl, 0, 0)
         layout.addWidget(self._cbox, 0, 1)
 
+        # Create Button Box
+        self._button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            parent=self,
+        )
+
+        self._button_box.accepted.connect(self.accept)
+        self._button_box.rejected.connect(self.reject)
+
+        # Put buttons on next row spanning both columns
+        layout.addWidget(self._button_box, 1, 0, 1, 2)
+
         self.setLayout(layout)
 
-    def get_chosen_object() -> Optional[Any]:
+    def get_chosen_object(self) -> Optional[Any]:
         """
         Retrieves the chosen object after a user has accepted the dialog.
 
@@ -44,6 +62,10 @@ class SingleItemChooserDialog(QDialog):
 
 
 class ChooserDialogFactory(ABC):
+    def __init__(self, app_state: "ApplicationState", widget_parent=None):
+        self._app_state = app_state
+        self._widget_parent = widget_parent
+
     @abstractmethod
     def create_chooser_dialog(self) -> QDialog:
         """
@@ -56,7 +78,7 @@ class ChooserDialogFactory(ABC):
 class SpectrumChooserDialog(SingleItemChooserDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(
-            dialog_name=self.tr("Spectrum Chooser"),
+            dialog_name="Spectrum Chooser",
             app_state=app_state,
             parent=parent,
         )
@@ -70,14 +92,14 @@ class SpectrumChooserDialog(SingleItemChooserDialog):
         if not self._accepted:
             return None
         spectrum_id = self._cbox.currentData()
-        spectrum = self._app_state.get_dataset(spectrum_id)
+        spectrum = self._app_state.get_spectrum(spectrum_id)
         return spectrum
 
 
 class ROIChooserDialog(SingleItemChooserDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(
-            dialog_name=self.tr("ROI (Region Of Interest) Chooser"),
+            dialog_name="ROI (Region Of Interest) Chooser",
             app_state=app_state,
             parent=parent,
         )
@@ -92,14 +114,14 @@ class ROIChooserDialog(SingleItemChooserDialog):
             return None
         roi_id = self._cbox.currentData()
         kwargs = {"id": roi_id}
-        roi = self._app_state.get_roi(kwargs)
+        roi = self._app_state.get_roi(**kwargs)
         return roi
 
 
 class DatasetChooserDialog(SingleItemChooserDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(
-            dialog_name=self.tr("Dataset Chooser"),
+            dialog_name="Dataset Chooser",
             app_state=app_state,
             parent=parent,
         )
@@ -118,12 +140,24 @@ class DatasetChooserDialog(SingleItemChooserDialog):
 
 
 class DatasetChooserDialogFactory(ChooserDialogFactory):
-    def __init__(self, app_state: "ApplicationState", widget_parent=None):
-        self._app_state = app_state
-        self._widget_parent = widget_parent
-
     def create_chooser_dialog(self) -> DatasetChooserDialog:
         return DatasetChooserDialog(
+            app_state=self._app_state,
+            parent=self._widget_parent,
+        )
+
+
+class SpectrumChooserDialogFactory(ChooserDialogFactory):
+    def create_chooser_dialog(self) -> SpectrumChooserDialog:
+        return SpectrumChooserDialog(
+            app_state=self._app_state,
+            parent=self._widget_parent,
+        )
+
+
+class ROIChooserDialogFactory(ChooserDialogFactory):
+    def create_chooser_dialog(self) -> ROIChooserDialog:
+        return ROIChooserDialog(
             app_state=self._app_state,
             parent=self._widget_parent,
         )

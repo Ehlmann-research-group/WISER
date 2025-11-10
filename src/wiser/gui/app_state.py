@@ -27,7 +27,11 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 from wiser.raster.data_cache import DataCache
 
 from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
-from wiser.gui.ui_library import DatasetChooserDialogFactory, DatasetChooserDialog
+from wiser.gui.ui_library import (
+    DatasetChooserDialogFactory,
+    SpectrumChooserDialogFactory,
+    ROIChooserDialogFactory,
+)
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
@@ -156,6 +160,16 @@ class ApplicationState(QObject):
 
         # Factories
         self._dataset_chooser_factory: DatasetChooserDialogFactory = DatasetChooserDialogFactory(
+            self,
+            widget_parent=self._app,
+        )
+
+        self._spectrum_chooser_factory: SpectrumChooserDialogFactory = SpectrumChooserDialogFactory(
+            self,
+            widget_parent=self._app,
+        )
+
+        self._roi_chooser_factory: ROIChooserDialogFactory = ROIChooserDialogFactory(
             self,
             widget_parent=self._app,
         )
@@ -797,3 +811,15 @@ class ApplicationState(QObject):
 
         if dataset_chooser_dialog.exec_() == QDialog.Accepted:
             return dataset_chooser_dialog.get_chosen_object()
+
+    def choose_spectrum_ui(self) -> Optional[Spectrum]:
+        spectrum_chooser_dialog = self._spectrum_chooser_factory.create_chooser_dialog()
+
+        if spectrum_chooser_dialog.exec_() == QDialog.Accepted:
+            return spectrum_chooser_dialog.get_chosen_object()
+
+    def choose_roi_ui(self) -> Optional[RegionOfInterest]:
+        roi_chooser_dialog = self._roi_chooser_factory.create_chooser_dialog()
+
+        if roi_chooser_dialog.exec_() == QDialog.Accepted:
+            return roi_chooser_dialog.get_chosen_object()
