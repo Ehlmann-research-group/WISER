@@ -226,18 +226,15 @@ class DataVisualizerApp(QMainWindow):
         self._zoom_pane.display_bands_change.connect(self._on_display_bands_change)
         self._zoom_pane.roi_selection_changed.connect(self._on_roi_selection_changed)
 
-        # =======================================
         # EVENTS
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
-        # =======================================
         # TESTING ITEMS
 
         self._invisible_testing_widget = TestingWidget()
 
-        # =======================================
         # GUI PIECES WITH PERSISTENCE
         self._bandmath_dialog: BandMathDialog = None
         self._geo_ref_dialog: GeoReferencerDialog = None

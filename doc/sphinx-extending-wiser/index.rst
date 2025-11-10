@@ -16,6 +16,7 @@ Extending WISER
     toolsmenu_plugins.rst
     ui_plugins
     bandmath_plugins
+    plugin_utilities
     plugin_dependencies
     wiser_state
     supporting_types

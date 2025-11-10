@@ -4,7 +4,7 @@ import warnings
 from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
 from PySide2.QtCore import *
-from PySide2.QtWidgets import QMessageBox
+from PySide2.QtWidgets import QMessageBox, QDialog
 
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color
@@ -27,6 +27,12 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 from wiser.raster.data_cache import DataCache
 
 from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
+from wiser.gui.ui_library import (
+    DatasetChooserDialog,
+    SpectrumChooserDialog,
+    ROIChooserDialog,
+    BandChooserDialog,
+)
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
@@ -152,6 +158,15 @@ class ApplicationState(QObject):
         self._process_pool_manager = MultiprocessingManager()
 
         self._running_processes: Dict[int, ProcessManager] = {}
+
+        # Plugin Chooser Dialogs
+        self._plugin_dataset_chooser_dialog: Optional[DatasetChooserDialog] = None
+
+        self._plugin_spectrum_chooser_dialog: Optional[SpectrumChooserDialog] = None
+
+        self._plugin_roi_chooser_dialog: Optional[ROIChooserDialog] = None
+
+        self._plugin_band_chooser_dialog: Optional[BandChooserDialog] = None
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
@@ -660,7 +675,7 @@ class ApplicationState(QObject):
 
     def get_all_spectra(self):
         """
-        Retrieves all spectra in thet spectrum plot.
+        Retrieves all spectra in the spectrum plot.
         """
         return self._all_spectra
 
@@ -782,3 +797,70 @@ class ApplicationState(QObject):
                 self._user_created_crs[name] = (crs, crs_creator_state)
         else:
             self._user_created_crs[name] = (crs, crs_creator_state)
+
+    # region UI Library Access
+
+    def choose_dataset_ui(
+        self,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[RasterDataSet]:
+        self._plugin_dataset_chooser_dialog = DatasetChooserDialog(
+            app_state=self,
+            description=description,
+            parent=self._app,
+        )
+        if in_test_mode:
+            self._plugin_dataset_chooser_dialog.show()
+        else:
+            if self._plugin_dataset_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_dataset_chooser_dialog.get_chosen_object()
+
+    def choose_spectrum_ui(
+        self,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[Spectrum]:
+        self._plugin_spectrum_chooser_dialog = SpectrumChooserDialog(
+            app_state=self,
+            description=description,
+            parent=self._app,
+        )
+
+        if in_test_mode:
+            self._plugin_spectrum_chooser_dialog.show()
+        else:
+            if self._plugin_spectrum_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_spectrum_chooser_dialog.get_chosen_object()
+
+    def choose_roi_ui(
+        self,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[RegionOfInterest]:
+        self._plugin_roi_chooser_dialog = ROIChooserDialog(
+            app_state=self,
+            description=description,
+            parent=self._app,
+        )
+        if in_test_mode:
+            self._plugin_roi_chooser_dialog.show()
+        else:
+            if self._plugin_roi_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_roi_chooser_dialog.get_chosen_object()
+
+    def choose_band_ui(
+        self,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[RasterDataBand]:
+        self._plugin_band_chooser_dialog = BandChooserDialog(
+            app_state=self,
+            description=description,
+            parent=self._app,
+        )
+        if in_test_mode:
+            self._plugin_band_chooser_dialog.show()
+        else:
+            if self._plugin_band_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_band_chooser_dialog.get_chosen_object()
