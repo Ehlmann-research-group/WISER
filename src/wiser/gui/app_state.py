@@ -800,37 +800,47 @@ class ApplicationState(QObject):
 
     # region UI Library Access
 
-    def choose_dataset_ui(self) -> Optional[RasterDataSet]:
+    def choose_dataset_ui(self, in_test_mode=False) -> Optional[RasterDataSet]:
         self._plugin_dataset_chooser_dialog = DatasetChooserDialog(
             self,
-            widget_parent=self._app,
+            parent=self._app,
         )
+        if in_test_mode:
+            self._plugin_dataset_chooser_dialog.show()
+        else:
+            if self._plugin_dataset_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_dataset_chooser_dialog.get_chosen_object()
 
-        if self._plugin_dataset_chooser_dialog.exec_() == QDialog.Accepted:
-            return self._plugin_dataset_chooser_dialog.get_chosen_object()
-
-    def choose_spectrum_ui(self) -> Optional[Spectrum]:
+    def choose_spectrum_ui(self, in_test_mode=False) -> Optional[Spectrum]:
         self._plugin_spectrum_chooser_dialog = SpectrumChooserDialog(
             self,
-            widget_parent=self._app,
+            parent=self._app,
         )
 
-        if self._plugin_spectrum_chooser_dialog.exec_() == QDialog.Accepted:
-            return self._plugin_spectrum_chooser_dialog.get_chosen_object()
+        if in_test_mode:
+            self._plugin_spectrum_chooser_dialog.show()
+        else:
+            if self._plugin_spectrum_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_spectrum_chooser_dialog.get_chosen_object()
 
-    def choose_roi_ui(self) -> Optional[RegionOfInterest]:
+    def choose_roi_ui(self, in_test_mode=False) -> Optional[RegionOfInterest]:
         self._plugin_roi_chooser_dialog = ROIChooserDialog(
             self,
-            widget_parent=self._app,
+            parent=self._app,
         )
-        if self._plugin_roi_chooser_dialog.exec_() == QDialog.Accepted:
-            return self._plugin_roi_chooser_dialog.get_chosen_object()
+        if in_test_mode:
+            self._plugin_roi_chooser_dialog.show()
+        else:
+            if self._plugin_roi_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_roi_chooser_dialog.get_chosen_object()
 
-    def choose_band_ui(self) -> Optional[RasterDataBand]:
+    def choose_band_ui(self, in_test_mode=False) -> Optional[RasterDataBand]:
         self._plugin_band_chooser_dialog = BandChooserDialog(
             self,
-            widget_parent=self._app,
+            parent=self._app,
         )
-
-        if self._plugin_band_chooser_dialog.exec_() == QDialog.Accepted:
-            return self._plugin_band_chooser_dialog.get_chosen_object()
+        if in_test_mode:
+            self._plugin_band_chooser_dialog.show()
+        else:
+            if self._plugin_band_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_band_chooser_dialog.get_chosen_object()
