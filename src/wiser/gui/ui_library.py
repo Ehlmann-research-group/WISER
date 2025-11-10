@@ -74,6 +74,28 @@ class SpectrumChooserDialog(ChooserDialog):
         return spectrum
 
 
+class ROIChooserDialog(ChooserDialog):
+    def __init__(self, app_state: "ApplicationState", parent=None):
+        super().__init__(
+            dialog_name="ROI (Region Of Interest) Chooser",
+            app_state=app_state,
+            parent=parent,
+        )
+
+        rois = self._app_state.get_rois()
+
+        for roi in rois:
+            self._cbox.addItem(roi.get_name(), roi.get_id())
+
+    def get_chosen_object(self) -> Optional["RasterDataSet"]:
+        if not self._accepted:
+            return None
+        roi_id = self._cbox.currentData()
+        kwargs = {"id": roi_id}
+        roi = self._app_state.get_roi(kwargs)
+        return roi
+
+
 class DatasetChooserDialog(ChooserDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(
