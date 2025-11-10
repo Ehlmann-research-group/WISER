@@ -9,14 +9,14 @@ if TYPE_CHECKING:
     from wiser.raster.spectrum import Spectrum
 
 
-class ChooserDialog(QDialog):
+class SingleItemChooserDialog(QDialog):
     def __init__(self, dialog_name: str, app_state: "ApplicationState", parent=None):
         super().__init__(parent=parent)
         self._app_state = app_state
         self._accepted = False
 
         # Create widgets
-        self._lbl = QLabel(self.tr(dialog_name), self)
+        self._lbl = QLabel(dialog_name, self)
         self._cbox = QComboBox(self)  # leave empty for now
 
         # Create layout
@@ -53,10 +53,10 @@ class ChooserDialogFactory(ABC):
         pass
 
 
-class SpectrumChooserDialog(ChooserDialog):
+class SpectrumChooserDialog(SingleItemChooserDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(
-            dialog_name="Spectrum Chooser",
+            dialog_name=self.tr("Spectrum Chooser"),
             app_state=app_state,
             parent=parent,
         )
@@ -74,10 +74,10 @@ class SpectrumChooserDialog(ChooserDialog):
         return spectrum
 
 
-class ROIChooserDialog(ChooserDialog):
+class ROIChooserDialog(SingleItemChooserDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(
-            dialog_name="ROI (Region Of Interest) Chooser",
+            dialog_name=self.tr("ROI (Region Of Interest) Chooser"),
             app_state=app_state,
             parent=parent,
         )
@@ -96,10 +96,10 @@ class ROIChooserDialog(ChooserDialog):
         return roi
 
 
-class DatasetChooserDialog(ChooserDialog):
+class DatasetChooserDialog(SingleItemChooserDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(
-            dialog_name="Dataset Chooser",
+            dialog_name=self.tr("Dataset Chooser"),
             app_state=app_state,
             parent=parent,
         )
