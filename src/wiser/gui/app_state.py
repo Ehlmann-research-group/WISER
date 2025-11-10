@@ -667,7 +667,7 @@ class ApplicationState(QObject):
 
     def get_all_spectra(self):
         """
-        Retrieves all spectra in thet spectrum plot.
+        Retrieves all spectra in the spectrum plot.
         """
         return self._all_spectra
 
