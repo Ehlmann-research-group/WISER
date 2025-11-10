@@ -28,10 +28,10 @@ from wiser.raster.data_cache import DataCache
 
 from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
 from wiser.gui.ui_library import (
-    DatasetChooserDialogFactory,
-    SpectrumChooserDialogFactory,
-    ROIChooserDialogFactory,
-    BandChooserDialogFactory,
+    DatasetChooserDialog,
+    SpectrumChooserDialog,
+    ROIChooserDialog,
+    BandChooserDialog,
 )
 
 if TYPE_CHECKING:
@@ -159,26 +159,14 @@ class ApplicationState(QObject):
 
         self._running_processes: Dict[int, ProcessManager] = {}
 
-        # Factories
-        self._dataset_chooser_factory: DatasetChooserDialogFactory = DatasetChooserDialogFactory(
-            self,
-            widget_parent=self._app,
-        )
+        # Plugin Chooser Dialogs
+        self._plugin_dataset_chooser_dialog: Optional[DatasetChooserDialog] = None
 
-        self._spectrum_chooser_factory: SpectrumChooserDialogFactory = SpectrumChooserDialogFactory(
-            self,
-            widget_parent=self._app,
-        )
+        self._plugin_spectrum_chooser_dialog: Optional[SpectrumChooserDialog] = None
 
-        self._roi_chooser_factory: ROIChooserDialogFactory = ROIChooserDialogFactory(
-            self,
-            widget_parent=self._app,
-        )
+        self._plugin_roi_chooser_dialog: Optional[ROIChooserDialog] = None
 
-        self._band_chooser_factory: BandChooserDialogFactory = BandChooserDialogFactory(
-            self,
-            widget_parent=self._app,
-        )
+        self._plugin_band_chooser_dialog: Optional[BandChooserDialog] = None
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
@@ -813,25 +801,36 @@ class ApplicationState(QObject):
     # region UI Library Access
 
     def choose_dataset_ui(self) -> Optional[RasterDataSet]:
-        dataset_chooser_dialog = self._dataset_chooser_factory.create_chooser_dialog()
+        self._plugin_dataset_chooser_dialog = DatasetChooserDialog(
+            self,
+            widget_parent=self._app,
+        )
 
-        if dataset_chooser_dialog.exec_() == QDialog.Accepted:
-            return dataset_chooser_dialog.get_chosen_object()
+        if self._plugin_dataset_chooser_dialog.exec_() == QDialog.Accepted:
+            return self._plugin_dataset_chooser_dialog.get_chosen_object()
 
     def choose_spectrum_ui(self) -> Optional[Spectrum]:
-        spectrum_chooser_dialog = self._spectrum_chooser_factory.create_chooser_dialog()
+        self._plugin_spectrum_chooser_dialog = SpectrumChooserDialog(
+            self,
+            widget_parent=self._app,
+        )
 
-        if spectrum_chooser_dialog.exec_() == QDialog.Accepted:
-            return spectrum_chooser_dialog.get_chosen_object()
+        if self._plugin_spectrum_chooser_dialog.exec_() == QDialog.Accepted:
+            return self._plugin_spectrum_chooser_dialog.get_chosen_object()
 
     def choose_roi_ui(self) -> Optional[RegionOfInterest]:
-        roi_chooser_dialog = self._roi_chooser_factory.create_chooser_dialog()
-
-        if roi_chooser_dialog.exec_() == QDialog.Accepted:
-            return roi_chooser_dialog.get_chosen_object()
+        self._plugin_roi_chooser_dialog = ROIChooserDialog(
+            self,
+            widget_parent=self._app,
+        )
+        if self._plugin_roi_chooser_dialog.exec_() == QDialog.Accepted:
+            return self._plugin_roi_chooser_dialog.get_chosen_object()
 
     def choose_band_ui(self) -> Optional[RasterDataBand]:
-        band_chooser_dialog = self._band_chooser_factory.create_chooser_dialog()
+        self._plugin_band_chooser_dialog = BandChooserDialog(
+            self,
+            widget_parent=self._app,
+        )
 
-        if band_chooser_dialog.exec_() == QDialog.Accepted:
-            return band_chooser_dialog.get_chosen_object()
+        if self._plugin_band_chooser_dialog.exec_() == QDialog.Accepted:
+            return self._plugin_band_chooser_dialog.get_chosen_object()

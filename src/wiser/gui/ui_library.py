@@ -71,20 +71,6 @@ class SingleItemChooserDialog(QDialog):
         return super().reject()
 
 
-class ChooserDialogFactory(ABC):
-    def __init__(self, app_state: "ApplicationState", widget_parent=None):
-        self._app_state = app_state
-        self._widget_parent = widget_parent
-
-    @abstractmethod
-    def create_chooser_dialog(self) -> QDialog:
-        """
-        Creates a dialog to choose some object inside of WISER like a
-        dataset or spectrum.
-        """
-        pass
-
-
 class SpectrumChooserDialog(SingleItemChooserDialog):
     def __init__(self, app_state: "ApplicationState", parent=None):
         super().__init__(
@@ -232,35 +218,3 @@ class BandChooserDialog(SingleItemChooserDialog):
         band_id = self._cbox_band.currentData()
         band = RasterDataBand(dataset=dataset, band_index=band_id)
         return band
-
-
-class DatasetChooserDialogFactory(ChooserDialogFactory):
-    def create_chooser_dialog(self) -> DatasetChooserDialog:
-        return DatasetChooserDialog(
-            app_state=self._app_state,
-            parent=self._widget_parent,
-        )
-
-
-class SpectrumChooserDialogFactory(ChooserDialogFactory):
-    def create_chooser_dialog(self) -> SpectrumChooserDialog:
-        return SpectrumChooserDialog(
-            app_state=self._app_state,
-            parent=self._widget_parent,
-        )
-
-
-class ROIChooserDialogFactory(ChooserDialogFactory):
-    def create_chooser_dialog(self) -> ROIChooserDialog:
-        return ROIChooserDialog(
-            app_state=self._app_state,
-            parent=self._widget_parent,
-        )
-
-
-class BandChooserDialogFactory(ChooserDialogFactory):
-    def create_chooser_dialog(self) -> BandChooserDialog:
-        return BandChooserDialog(
-            app_state=self._app_state,
-            parent=self._widget_parent,
-        )
