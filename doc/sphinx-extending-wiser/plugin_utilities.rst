@@ -34,8 +34,8 @@ of interest in a tools menu plugin:
             self._app_state = wiser
 
         def roi_angle_mapper(self):
-            dataset = self._app_state.choose_dataset_ui()
-            roi = self._app_state.choose_roi_ui()
+            dataset = self._app_state.choose_dataset_ui(description="Description: choose dataset to perform analysis on")
+            roi = self._app_state.choose_roi_ui(description="Description: choose ROI to get Average Spectrum")
 
             mean_roi_spec_arr = calc_roi_spectrum(dataset=dataset, roi=roi, mode=SpectrumAverageMode.MEAN)
             image_arr = dataset.get_image_data()
