@@ -32,6 +32,7 @@ from wiser.gui.ui_library import (
     SpectrumChooserDialog,
     ROIChooserDialog,
     BandChooserDialog,
+    DynamicInputDialog,
 )
 
 if TYPE_CHECKING:
@@ -167,6 +168,8 @@ class ApplicationState(QObject):
         self._plugin_roi_chooser_dialog: Optional[ROIChooserDialog] = None
 
         self._plugin_band_chooser_dialog: Optional[BandChooserDialog] = None
+
+        self._dynamic_input_dialog: Optional[DynamicInputDialog] = None
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
@@ -864,3 +867,21 @@ class ApplicationState(QObject):
         else:
             if self._plugin_band_chooser_dialog.exec_() == QDialog.Accepted:
                 return self._plugin_band_chooser_dialog.get_chosen_object()
+
+    def create_form(
+        self,
+        form_inputs: List[Tuple[str, str, int, Optional[List[Any]]]],
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[Dict[str, Any]]:
+        self._dynamic_input_dialog = DynamicInputDialog(
+            dialog_title=title,
+            description=description,
+            parent=self._app,
+        )
+
+        if in_test_mode:
+            self._dynamic_input_dialog.show()
+        else:
+            return self._dynamic_input_dialog.create_input_dialog(form_inputs)

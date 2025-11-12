@@ -64,3 +64,11 @@ class.
 .. autoclass:: wiser.raster.RegionOfInterest
     :members:
     :undoc-members:
+
+DynamicInputDialog
+------------------
+
+A utility for plugin developers to use to easily collect user input through a GUI.
+
+.. autoclass:: wiser.gui.ui_library.DynamicInputDialog
+    :members:

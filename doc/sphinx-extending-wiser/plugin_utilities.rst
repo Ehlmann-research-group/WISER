@@ -1,7 +1,7 @@
 Plugin Utilities
 ================
 
-WISER exposes 4 ways to create your own UI items for your plugins. These ways let you 
+WISER exposes 4 ways to create your own UI items that get wiser state for your plugins. These ways let you 
 prompt the user to choose datasets, spectra, ROIs, and bands. You access them
 through :class:`wiser.gui.app_state.ApplicationState`. The methods are:
 
@@ -11,6 +11,28 @@ through :class:`wiser.gui.app_state.ApplicationState`. The methods are:
     spectrum: Spectrm = app_state.choose_spectrum_ui()
     roi: RegionOfInterest = app_state.choose_roi_ui()
     band: RasterDataBand = app_state.choose_band_ui()
+
+The :class:`wiser.gui.ui_library.DynamicInputDialog` provides a simple way to collect user input that isn't tied to WISER's internal state.
+By passing in a list of input specifications, you can dynamically generate a dialog that displays text fields and
+combo boxes. This is useful for plugins or tools that need to ask users for parameters,
+options, or configuration values before running. Here is an example of its use:
+
+.. code-block:: python
+
+    form_inputs = [
+            ("Enter Wavelength", "wvl", 2),
+            ("Enter Divisor", "divisor", 1),
+            ("Enter Dimensionality Reduction", "dim_reduction", 0, ["PCA", "SVD"]),
+        ]
+    return_dict: Dict[str, Any] = self._app_state.create_form(
+        form_inputs,
+        title="Analysis Params",
+        description="In the above text enter the parameters needed to perform the algorithm.",
+    )
+
+This will construct a GUI element that looks like this:
+
+.. image:: images/dynamic_plugin_input.png
 
 Below is an example that asks the user to first select a dataset and then a region
 of interest in a tools menu plugin:
