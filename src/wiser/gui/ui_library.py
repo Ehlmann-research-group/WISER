@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, List, Dict, Tuple
+from enum import IntEnum
 
 from PySide2.QtWidgets import (
     QDialog,
@@ -8,8 +9,14 @@ from PySide2.QtWidgets import (
     QGridLayout,
     QDialogButtonBox,
     QSpinBox,
+    QLineEdit,
+    QWidget,
+    QHBoxLayout,
 )
+from PySide2.QtGui import QDoubleValidator
 from PySide2.QtCore import Qt
+
+from .util import populate_combo_box_with_units
 
 from wiser.raster.dataset import RasterDataSet, RasterDataBand
 
@@ -87,6 +94,198 @@ class SingleItemChooserDialog(QDialog):
     def reject(self):
         self._accepted = False
         return super().reject()
+
+
+class DynamicInputType(IntEnum):
+    COMBO_BOX = 0
+    FLOAT_NO_UNITS = 1
+    FLOAT_UNITS = 2
+
+
+class DynamicInputDialog(QDialog):
+    def __init__(
+        self,
+        dialog_title: Optional[str] = None,
+        description: Optional[str] = None,
+        parent=None,
+    ):
+        super().__init__(parent=parent)
+        self._dialog_title: Optional[str] = dialog_title
+        self._description: Optional[str] = description
+        self._return_dict: Dict[str, Any] = {}
+
+    def create_input_dialog(
+        self, inputs: List[Tuple[str, str, DynamicInputType, Optional[List[Any]]]]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Create and execute a dynamic input dialog.
+
+        Args:
+            inputs:
+                A list of tuples defining the requested inputs:
+                [
+                    ("<display name>", "<return_key>", DynamicInputType, [<combo_items> or None]),
+                    ...
+                ]
+
+                - For DynamicInputType.COMBO_BOX:
+                    Provide a 4th element: a list of items for the combo box.
+                - For DynamicInputType.FLOAT_NO_UNITS:
+                    4th element is ignored (can be None).
+                - For DynamicInputType.FLOAT_UNITS:
+                    4th element is ignored (can be None). A unit selector combo is created
+                    using populate_combo_box_with_units.
+
+        Returns:
+            Optional[Dict]:
+                - On Accepted: { "<return_key>": value, ... }
+                - On Rejected: None
+        """
+        self._return_dict = {}
+
+        if self._dialog_title:
+            self.setWindowTitle(self._dialog_title)
+
+        layout = QGridLayout(self)
+        row = 0
+
+        # Build user input rows
+        for spec in inputs:
+            if len(spec) < 3:
+                raise ValueError(
+                    "Each input spec must have at least 3 elements: "
+                    "(display_name, return_key, DynamicInputType[, options])."
+                )
+
+            display_name, return_key, input_type = spec[0], spec[1], spec[2]
+            options = spec[3] if len(spec) > 3 else None
+
+            label = QLabel(display_name, self)
+            layout.addWidget(label, row, 0, alignment=Qt.AlignRight | Qt.AlignVCenter)
+
+            if input_type == DynamicInputType.COMBO_BOX:
+                if options is None:
+                    raise ValueError(
+                        f"COMBO_BOX input '{display_name}' requires options list as 4th tuple element."
+                    )
+
+                combo = QComboBox(self)
+                for opt in options:
+                    combo.addItem(str(opt))
+
+                # Initialize dict with current value (if any)
+                if combo.count() > 0:
+                    self._return_dict[return_key] = combo.currentText()
+                else:
+                    self._return_dict[return_key] = None
+
+                combo.currentIndexChanged.connect(
+                    lambda _idx, key=return_key, c=combo: self._on_combo_changed(key, c)
+                )
+
+                layout.addWidget(combo, row, 1)
+
+            elif input_type == DynamicInputType.FLOAT_NO_UNITS:
+                line = QLineEdit(self)
+                line.setValidator(QDoubleValidator(line))
+                line.setPlaceholderText("Enter value")
+
+                line.textChanged.connect(
+                    lambda text, key=return_key: self._on_float_changed_no_units(key, text)
+                )
+
+                self._return_dict[return_key] = None  # start unset
+                layout.addWidget(line, row, 1)
+
+            elif input_type == DynamicInputType.FLOAT_UNITS:
+                line = QLineEdit(self)
+                line.setValidator(QDoubleValidator(line))
+                line.setPlaceholderText("Enter value")
+
+                unit_combo = QComboBox(self)
+                populate_combo_box_with_units(unit_combo)
+
+                # Container so both appear in a single grid cell
+                container = QWidget(self)
+                hbox = QHBoxLayout(container)
+                hbox.setContentsMargins(0, 0, 0, 0)
+                hbox.addWidget(line)
+                hbox.addWidget(unit_combo)
+
+                self._return_dict[return_key] = None
+
+                # When value changes, recompute
+                line.textChanged.connect(
+                    lambda text, key=return_key, le=line, uc=unit_combo: self._on_float_units_changed(
+                        key, le, uc
+                    )
+                )
+                # When unit changes, recompute with same numeric value
+                unit_combo.currentIndexChanged.connect(
+                    lambda _idx, key=return_key, le=line, uc=unit_combo: self._on_float_units_changed(
+                        key, le, uc
+                    )
+                )
+
+                layout.addWidget(container, row, 1)
+
+            else:
+                raise ValueError(f"Unsupported DynamicInputType for '{display_name}'.")
+
+            row += 1
+
+        if self._description:
+            desc_label = QLabel(self._description, self)
+            desc_label.setWordWrap(True)
+            layout.addWidget(desc_label, row, 0, 1, 2)
+            row += 1
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons, row, 0, 1, 2)
+
+        # Execute dialog
+        result = self.exec()
+        if result == QDialog.Accepted:
+            return self._return_dict
+        return None
+
+    # Internal update helpers
+
+    def _on_combo_changed(self, key: str, combo: QComboBox) -> None:
+        self._return_dict[key] = combo.currentText()
+
+    def _on_float_changed_no_units(self, key: str, text: str) -> None:
+        text = text.strip()
+        if not text:
+            self._return_dict[key] = None
+            return
+        try:
+            self._return_dict[key] = float(text)
+        except ValueError:
+            # Keep last valid or set None; here we choose None
+            self._return_dict[key] = None
+
+    def _on_float_units_changed(self, key: str, line_edit: QLineEdit, unit_combo: QComboBox) -> None:
+        text = line_edit.text().strip()
+        if not text:
+            self._return_dict[key] = None
+            return
+
+        try:
+            value = float(text)
+        except ValueError:
+            self._return_dict[key] = None
+            return
+
+        unit = unit_combo.currentData()
+        if unit is None:
+            # "None" selection → plain float
+            self._return_dict[key] = value
+        else:
+            # Assuming astropy.units, store as Quantity
+            self._return_dict[key] = value * unit
 
 
 class SpectrumChooserDialog(SingleItemChooserDialog):
