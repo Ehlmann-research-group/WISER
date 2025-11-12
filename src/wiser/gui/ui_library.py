@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional, List, Dict, Tuple
 from enum import IntEnum
 
@@ -13,6 +12,7 @@ from PySide2.QtWidgets import (
     QWidget,
     QHBoxLayout,
 )
+
 from PySide2.QtGui import QDoubleValidator
 from PySide2.QtCore import Qt
 
@@ -103,6 +103,12 @@ class DynamicInputType(IntEnum):
 
 
 class DynamicInputDialog(QDialog):
+    """
+    This class lets plugin creators make a dialog with inputs that they can set!
+
+    You make use of this class by using the function create_input_dialog
+    """
+
     def __init__(
         self,
         dialog_title: Optional[str] = None,
@@ -141,6 +147,7 @@ class DynamicInputDialog(QDialog):
                 - On Accepted: { "<return_key>": value, ... }
                 - On Rejected: None
         """
+
         self._return_dict = {}
 
         if self._dialog_title:
@@ -161,7 +168,7 @@ class DynamicInputDialog(QDialog):
             options = spec[3] if len(spec) > 3 else None
 
             label = QLabel(display_name, self)
-            layout.addWidget(label, row, 0, alignment=Qt.AlignRight | Qt.AlignVCenter)
+            layout.addWidget(label, row, 0, alignment=Qt.AlignLeft | Qt.AlignVCenter)
 
             if input_type == DynamicInputType.COMBO_BOX:
                 if options is None:

@@ -875,7 +875,11 @@ class ApplicationState(QObject):
         description: Optional[str] = None,
         in_test_mode=False,
     ) -> Optional[Dict[str, Any]]:
-        self._dynamic_input_dialog = DynamicInputDialog(dialog_title=title, description=description)
+        self._dynamic_input_dialog = DynamicInputDialog(
+            dialog_title=title,
+            description=description,
+            parent=self._app,
+        )
 
         if in_test_mode:
             self._dynamic_input_dialog.show()
