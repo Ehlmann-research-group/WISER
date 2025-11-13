@@ -3,6 +3,9 @@ import os
 import warnings
 from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+
 from PySide2.QtCore import *
 from PySide2.QtWidgets import QMessageBox, QDialog
 
@@ -34,6 +37,7 @@ from wiser.gui.ui_library import (
     BandChooserDialog,
     DynamicInputDialog,
     TableWidgetDisplay,
+    MatplotlibDisplay,
 )
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.util import StateChange
@@ -173,6 +177,9 @@ class ApplicationState(QObject):
 
         # The set of table display widgets that users can make for their plugins
         self._table_display_widgets: set[TableWidgetDisplay] = set()
+
+        # The set of matplotlib display widgets that users can make for their plugins
+        self._matplotlib_display_widgets: set[MatplotlibDisplay] = set()
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
@@ -947,3 +954,30 @@ class ApplicationState(QObject):
     def _on_table_display_widget_closed(self, table_display_widget: TableWidgetDisplay):
         self._table_display_widgets.remove(table_display_widget)
         del table_display_widget
+
+    def show_matplotlib_display_widget(
+        self,
+        figure: Figure,
+        axes: Axes,
+        window_title: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        """Creates and shows a widget with a matplotlib plot"""
+        matplotlib_display = MatplotlibDisplay()
+        matplotlib_display.create_plot(
+            figure=figure,
+            axes=axes,
+            window_title=window_title,
+            description=description,
+        )
+
+        self._matplotlib_display_widgets.add(matplotlib_display)
+
+        matplotlib_display.closed.connect(
+            lambda: self._on_matplotlib_display_widget_closed(matplotlib_display)
+        )
+        matplotlib_display.show()
+
+    def _on_matplotlib_display_widget_closed(self, matplotlib_display: MatplotlibDisplay):
+        self._matplotlib_display_widgets.remove(matplotlib_display)
+        del matplotlib_display

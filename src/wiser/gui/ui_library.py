@@ -1,6 +1,11 @@
 from typing import TYPE_CHECKING, Any, Optional, List, Dict, Tuple
 from enum import IntEnum
 
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+
 from PySide2.QtWidgets import (
     QDialog,
     QLabel,
@@ -597,6 +602,45 @@ class TableWidgetDisplay(QWidget):
         # Adjust final sizing
         self._table.resizeColumnsToContents()
         self._table.resizeRowsToContents()
+
+    def closeEvent(self, event):
+        self.closed.emit()
+        return super().closeEvent(event)
+
+
+class MatplotlibDisplay(QWidget):
+    closed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+
+    def create_plot(
+        self,
+        figure: Figure,
+        axes: Axes,
+        window_title: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        self._figure = figure
+        self._figure_canvas = FigureCanvas(self._figure)
+        self._axes = axes
+
+        self._toolbar = NavigationToolbar(self._figure_canvas, self)
+
+        if window_title:
+            self.setWindowTitle(self.tr(window_title))
+
+        layout = QVBoxLayout(self)
+
+        # Description label
+        if description:
+            description_label = QLabel(self)
+            description_label.setWordWrap(True)
+            description_label.setText(self.tr(description))
+            layout.addWidget(description_label)
+
+        layout.addWidget(self._toolbar)
+        layout.addWidget(self._figure_canvas)
 
     def closeEvent(self, event):
         self.closed.emit()
