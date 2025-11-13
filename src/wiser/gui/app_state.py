@@ -36,8 +36,8 @@ from wiser.gui.ui_library import (
     ROIChooserDialog,
     BandChooserDialog,
     DynamicInputDialog,
-    TableWidgetDisplay,
-    MatplotlibDisplay,
+    TableDisplayWidget,
+    MatplotlibDisplayWidget,
 )
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.util import StateChange
@@ -176,10 +176,10 @@ class ApplicationState(QObject):
         self._generic_spectrum_plots: set[SpectrumPlotGeneric] = set()
 
         # The set of table display widgets that users can make for their plugins
-        self._table_display_widgets: set[TableWidgetDisplay] = set()
+        self._table_display_widgets: set[TableDisplayWidget] = set()
 
         # The set of matplotlib display widgets that users can make for their plugins
-        self._matplotlib_display_widgets: set[MatplotlibDisplay] = set()
+        self._matplotlib_display_widgets: set[MatplotlibDisplayWidget] = set()
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
@@ -935,8 +935,8 @@ class ApplicationState(QObject):
                 self.tr("Error!"),
                 self.tr("Number of columns must match number of items in header!"),
             )
-        # Do not pass self._app as the parent of TableWidgetDisplay
-        table_display_widget: TableWidgetDisplay = TableWidgetDisplay()
+        # Do not pass self._app as the parent of TableDisplayWidget
+        table_display_widget: TableDisplayWidget = TableDisplayWidget()
         table_display_widget.create_table(
             header=header,
             rows=rows,
@@ -951,7 +951,7 @@ class ApplicationState(QObject):
         )
         table_display_widget.show()
 
-    def _on_table_display_widget_closed(self, table_display_widget: TableWidgetDisplay):
+    def _on_table_display_widget_closed(self, table_display_widget: TableDisplayWidget):
         self._table_display_widgets.remove(table_display_widget)
         del table_display_widget
 
@@ -963,7 +963,7 @@ class ApplicationState(QObject):
         description: Optional[str] = None,
     ):
         """Creates and shows a widget with a matplotlib plot"""
-        matplotlib_display = MatplotlibDisplay()
+        matplotlib_display = MatplotlibDisplayWidget()
         matplotlib_display.create_plot(
             figure=figure,
             axes=axes,
@@ -978,6 +978,6 @@ class ApplicationState(QObject):
         )
         matplotlib_display.show()
 
-    def _on_matplotlib_display_widget_closed(self, matplotlib_display: MatplotlibDisplay):
+    def _on_matplotlib_display_widget_closed(self, matplotlib_display: MatplotlibDisplayWidget):
         self._matplotlib_display_widgets.remove(matplotlib_display)
         del matplotlib_display

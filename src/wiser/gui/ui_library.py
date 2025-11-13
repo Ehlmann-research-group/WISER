@@ -506,7 +506,7 @@ class BandChooserDialog(SingleItemChooserDialog):
         return band
 
 
-class TableWidgetDisplay(QWidget):
+class TableDisplayWidget(QWidget):
     closed = Signal()
 
     def __init__(self, parent=None):
@@ -608,7 +608,7 @@ class TableWidgetDisplay(QWidget):
         return super().closeEvent(event)
 
 
-class MatplotlibDisplay(QWidget):
+class MatplotlibDisplayWidget(QWidget):
     closed = Signal()
 
     def __init__(self, parent=None):
