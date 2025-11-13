@@ -919,7 +919,7 @@ class ApplicationState(QObject):
 
     def _on_generic_spectrum_plot_closed(self, spectrum_plot: SpectrumPlotGeneric):
         self._generic_spectrum_plots.remove(spectrum_plot)
-        del spectrum_plot
+        spectrum_plot.deleteLater()
 
     def show_table_widget(
         self,
@@ -949,11 +949,12 @@ class ApplicationState(QObject):
         table_display_widget.closed.connect(
             lambda: self._on_table_display_widget_closed(table_display_widget)
         )
+
         table_display_widget.show()
 
     def _on_table_display_widget_closed(self, table_display_widget: TableDisplayWidget):
         self._table_display_widgets.remove(table_display_widget)
-        del table_display_widget
+        table_display_widget.deleteLater()
 
     def show_matplotlib_display_widget(
         self,
@@ -976,8 +977,9 @@ class ApplicationState(QObject):
         matplotlib_display.closed.connect(
             lambda: self._on_matplotlib_display_widget_closed(matplotlib_display)
         )
+
         matplotlib_display.show()
 
     def _on_matplotlib_display_widget_closed(self, matplotlib_display: MatplotlibDisplayWidget):
         self._matplotlib_display_widgets.remove(matplotlib_display)
-        del matplotlib_display
+        matplotlib_display.deleteLater()
