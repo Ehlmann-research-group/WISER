@@ -256,7 +256,7 @@ class DynamicInputDialog(QDialog):
         result = self.exec()
         if result == QDialog.Accepted:
             return self._return_dict
-        return None
+        return {}
 
     # Internal update helpers
 
