@@ -11,10 +11,14 @@ from PySide2.QtWidgets import (
     QLineEdit,
     QWidget,
     QHBoxLayout,
+    QVBoxLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QAbstractItemView,
 )
 
-from PySide2.QtGui import QDoubleValidator
-from PySide2.QtCore import Qt
+from PySide2.QtGui import QDoubleValidator, QIntValidator
+from PySide2.QtCore import Qt, Signal
 
 from .util import populate_combo_box_with_units
 
@@ -100,6 +104,9 @@ class DynamicInputType(IntEnum):
     COMBO_BOX = 0
     FLOAT_NO_UNITS = 1
     FLOAT_UNITS = 2
+    INT_NO_UNITS = 3
+    INT_UNITS = 4
+    STRING = 5
 
 
 class DynamicInputDialog(QDialog):
@@ -192,10 +199,14 @@ class DynamicInputDialog(QDialog):
 
                 layout.addWidget(combo, row, 1)
 
-            elif input_type == DynamicInputType.FLOAT_NO_UNITS:
+            elif input_type == DynamicInputType.FLOAT_NO_UNITS or input_type == DynamicInputType.INT_NO_UNITS:
                 line = QLineEdit(self)
-                line.setValidator(QDoubleValidator(line))
-                line.setPlaceholderText("Enter value")
+                if input_type == DynamicInputType.FLOAT_NO_UNITS:
+                    line.setValidator(QDoubleValidator(line))
+                    line.setPlaceholderText("Enter number")
+                elif input_type == DynamicInputType.INT_NO_UNITS:
+                    line.setValidator(QIntValidator(line))
+                    line.setPlaceholderText("Enter integer")
 
                 line.textChanged.connect(
                     lambda text, key=return_key: self._on_float_changed_no_units(key, text)
@@ -204,10 +215,14 @@ class DynamicInputDialog(QDialog):
                 self._return_dict[return_key] = None  # start unset
                 layout.addWidget(line, row, 1)
 
-            elif input_type == DynamicInputType.FLOAT_UNITS:
+            elif input_type == DynamicInputType.FLOAT_UNITS or input_type == DynamicInputType.INT_UNITS:
                 line = QLineEdit(self)
-                line.setValidator(QDoubleValidator(line))
-                line.setPlaceholderText("Enter value")
+                if input_type == DynamicInputType.FLOAT_UNITS:
+                    line.setValidator(QDoubleValidator(line))
+                    line.setPlaceholderText("Enter number")
+                elif input_type == DynamicInputType.INT_UNITS:
+                    line.setValidator(QIntValidator(line))
+                    line.setPlaceholderText("Enter integer")
 
                 unit_combo = QComboBox(self)
                 populate_combo_box_with_units(unit_combo)
@@ -235,7 +250,16 @@ class DynamicInputDialog(QDialog):
                 )
 
                 layout.addWidget(container, row, 1)
+            elif input_type == DynamicInputType.STRING:
+                line = QLineEdit(self)
+                line.setPlaceholderText("Enter text")
 
+                line.textChanged.connect(
+                    lambda text, key=return_key: self._return_dict.__setitem__(key, text)
+                )
+
+                self._return_dict[return_key] = None
+                layout.addWidget(line, row, 1)
             else:
                 raise ValueError(f"Unsupported DynamicInputType for '{display_name}'.")
 
@@ -475,3 +499,105 @@ class BandChooserDialog(SingleItemChooserDialog):
         band_id = self._cbox_band.currentData()
         band = RasterDataBand(dataset=dataset, band_index=band_id)
         return band
+
+
+class TableWidgetDisplay(QWidget):
+    closed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+
+        self._layout = QVBoxLayout(self)
+
+        # Description label
+        self._description_label = QLabel(self)
+        self._description_label.setWordWrap(True)
+        self._description_label.hide()
+        self._layout.addWidget(self._description_label)
+
+        # Table widget
+        self._table = QTableWidget(self)
+        self._table.setAlternatingRowColors(True)
+        self._table.setCornerButtonEnabled(False)
+        self._table.verticalHeader().setVisible(False)
+
+        # Selectable, but not editable
+        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectItems)
+        self._table.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self._table.setFocusPolicy(Qt.StrongFocus)
+
+        # Allow column expansion
+        header = self._table.horizontalHeader()
+        header.setStretchLastSection(True)
+
+        self._layout.addWidget(self._table)
+
+    def create_table(
+        self,
+        header: List[str],
+        rows: List[List[Any]],
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        """
+        Creates a GUI item that has a description at the top and a
+        QTableWidget with the specified header and the given rows.
+        The table widget is only for display, so no interaction
+        can be done.
+
+        Args:
+            header (List[str]):
+                A list of each of the column header names in order
+
+            rows (List[List[Any]]):
+                Each of the rows to put into the table in order. The
+                elements in the outer list correspond to rows in the
+                table. The elements in the inner list correspond to
+                columns for that row.
+
+            description (str, optional):
+                Optional text placed above the table.
+
+            title (str, optional):
+                Optional title displayed above the description.
+        """
+
+        if title:
+            self.setWindowTitle(title)
+
+        if description:
+            self._description_label.setText(description)
+            self._description_label.show()
+        else:
+            self._description_label.hide()
+
+        # Reset the table
+        self._table.clear()
+        self._table.setRowCount(0)
+        self._table.setColumnCount(0)
+
+        # Set headers
+        self._table.setColumnCount(len(header))
+        self._table.setHorizontalHeaderLabels(header)
+
+        # Insert rows
+        self._table.setRowCount(len(rows))
+
+        for r, row in enumerate(rows):
+            for c, value in enumerate(row[: len(header)]):
+                text = "" if value is None else str(value)
+                item = QTableWidgetItem(text)
+
+                # Allow selection but no editing
+                item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+
+                self._table.setItem(r, c, item)
+
+        # Adjust final sizing
+        self._table.resizeColumnsToContents()
+        self._table.resizeRowsToContents()
+
+    def closeEvent(self, event):
+        self.closed.emit()
+        return super().closeEvent(event)

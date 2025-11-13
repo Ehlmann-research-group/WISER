@@ -33,16 +33,13 @@ from wiser.gui.ui_library import (
     ROIChooserDialog,
     BandChooserDialog,
     DynamicInputDialog,
+    TableWidgetDisplay,
 )
+from wiser.gui.spectrum_plot import SpectrumPlotGeneric
+from wiser.gui.util import StateChange
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
-
-
-class StateChange(enum.Enum):
-    ITEM_ADDED = 1
-    ITEM_EDITED = 2
-    ITEM_REMOVED = 3
 
 
 def make_unique_name(candidate: str, used_names: str) -> str:
@@ -170,6 +167,12 @@ class ApplicationState(QObject):
         self._plugin_band_chooser_dialog: Optional[BandChooserDialog] = None
 
         self._dynamic_input_dialog: Optional[DynamicInputDialog] = None
+
+        # The set of generic spectrum plots that users can make for their plugins
+        self._generic_spectrum_plots: set[SpectrumPlotGeneric] = set()
+
+        # The set of table display widgets that users can make for their plugins
+        self._table_display_widgets: set[TableWidgetDisplay] = set()
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
@@ -885,3 +888,62 @@ class ApplicationState(QObject):
             self._dynamic_input_dialog.show()
         else:
             return self._dynamic_input_dialog.create_input_dialog(form_inputs)
+
+    def show_spectra_in_plot(
+        self,
+        spectra: List[Spectrum],
+        plot_title: Optional[str] = None,
+    ):
+        generic_spectrum_plot = SpectrumPlotGeneric(self)
+        if plot_title is not None:
+            generic_spectrum_plot.set_title(plot_title)
+        for spectrum in spectra:
+            if spectrum.get_id() is None:
+                spectrum.set_id(self.take_next_id())
+            generic_spectrum_plot.add_collected_spectrum(spectrum)
+        self._generic_spectrum_plots.add(generic_spectrum_plot)
+
+        # We keep a reference to generic_spectrum_plot so it doesn't get garbage collected
+        generic_spectrum_plot.closed.connect(
+            lambda: self._on_generic_spectrum_plot_closed(generic_spectrum_plot)
+        )
+
+        generic_spectrum_plot.show()
+
+    def _on_generic_spectrum_plot_closed(self, spectrum_plot: SpectrumPlotGeneric):
+        self._generic_spectrum_plots.remove(spectrum_plot)
+        del spectrum_plot
+
+    def show_table_widget(
+        self,
+        header: List[str],
+        rows: List[List[Any]],
+        window_title: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        """Creates and shows a table widget that is meant for display."""
+        if len(header) != len(rows[0]):
+            QMessageBox.warning(
+                self._app,
+                self.tr("Error!"),
+                self.tr("Number of columns must match number of items in header!"),
+            )
+        # Do not pass self._app as the parent of TableWidgetDisplay
+        table_display_widget: TableWidgetDisplay = TableWidgetDisplay()
+        table_display_widget.create_table(
+            header=header,
+            rows=rows,
+            title=window_title,
+            description=description,
+        )
+
+        # We keep a reference to table_display_widget so it doesn't get garbage collected
+        self._table_display_widgets.add(table_display_widget)
+        table_display_widget.closed.connect(
+            lambda: self._on_table_display_widget_closed(table_display_widget)
+        )
+        table_display_widget.show()
+
+    def _on_table_display_widget_closed(self, table_display_widget: TableWidgetDisplay):
+        self._table_display_widgets.remove(table_display_widget)
+        del table_display_widget

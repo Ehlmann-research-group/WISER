@@ -4,14 +4,13 @@ import os
 import platform
 import warnings
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from wiser import version
-from wiser.raster.spectrum import SpectrumAverageMode
 
 
 class PixelReticleType(enum.Enum):

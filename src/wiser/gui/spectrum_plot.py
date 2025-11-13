@@ -1,5 +1,3 @@
-import enum
-import os
 import traceback
 import warnings
 
@@ -9,25 +7,24 @@ from PySide2.QtWidgets import *
 
 from typing import Dict
 
-import wiser.gui.generated.resources
 
 from .app_config import LegendPlacement
-from .app_state import ApplicationState, StateChange
 from .dataset_chooser import DatasetChooser
 from .export_plot_image import ExportPlotImageDialog
 from .spectrum_plot_config import SpectrumPlotConfigDialog
 from .spectrum_info_editor import SpectrumInfoEditor
 
-from .util import add_toolbar_action, get_random_matplotlib_color, get_color_icon
-
+from .util import (
+    add_toolbar_action,
+    get_random_matplotlib_color,
+    get_color_icon,
+    StateChange,
+)
 from .plugin_utils import add_plugin_context_menu_items
 
 from wiser import plugins
 
-from wiser.raster import RasterDataSet
-from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectra_export import export_spectrum_list
-from wiser.raster.spectrum import Spectrum
 from wiser.raster import utils as raster_utils
 
 import matplotlib
@@ -46,6 +43,9 @@ from matplotlib.backends.backend_qt5agg import FigureCanvas
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from wiser.raster import RasterDataSet
+    from wiser.raster.spectrum import Spectrum
+
     from wiser.gui.app_state import ApplicationState
 
 MATPLOTLIB_LEGEND_ARGS = {
@@ -148,12 +148,12 @@ class SpectrumDisplayInfo:
     information for a specific spectrum being displayed.
     """
 
-    def __init__(self, spectrum: Spectrum):
+    def __init__(self, spectrum: "Spectrum"):
         """
         *   id is the numeric ID assigned to the spectrum
         *   line2d is the matplotlib line for the spectrum's data
         """
-        self._spectrum: Spectrum = spectrum
+        self._spectrum: "Spectrum" = spectrum
 
         if self._spectrum.get_color() is None:
             self._spectrum.set_color(get_random_matplotlib_color())
@@ -172,7 +172,7 @@ class SpectrumDisplayInfo:
 
         return self._icon
 
-    def get_spectrum(self) -> Spectrum:
+    def get_spectrum(self) -> "Spectrum":
         return self._spectrum
 
     def generate_plot(self, axes, use_wavelengths, to_unit=u.nm, should_recalculate=True):
@@ -236,7 +236,7 @@ class SpectrumPointDisplayInfo:
 
     def __init__(
         self,
-        spectrum: Spectrum,
+        spectrum: "Spectrum",
         band_index: int,
         use_wavelength: bool,
         band_units=None,
@@ -440,13 +440,15 @@ class SpectrumPlotGeneric(QWidget):
     This widget provides a spectrum-plot window in the user interface.
     """
 
+    closed = Signal()
+
     def __init__(self, app_state, parent=None):
         super().__init__(parent=parent)
 
         # =====================================================================
         # General configuration for the spectrum plot
 
-        self._app_state: ApplicationState = app_state
+        self._app_state: "ApplicationState" = app_state
 
         # Are we displaying a legend?
         self._legend_location: LegendPlacement = LegendPlacement.NO_LEGEND
@@ -498,7 +500,7 @@ class SpectrumPlotGeneric(QWidget):
 
         # This class gets its collected spectra from a list while the child class SpectrumPlot gets
         # its collected spectrum from app_state
-        self._collected_spectra: List[Spectrum] = []
+        self._collected_spectra: List["Spectrum"] = []
 
         # Initialize UI components of the widget
 
@@ -1287,7 +1289,7 @@ class SpectrumPlotGeneric(QWidget):
 
         self._draw_spectra()
 
-    def add_collected_spectrum(self, spectrum: Spectrum):
+    def add_collected_spectrum(self, spectrum: "Spectrum"):
         self._collected_spectra.append(spectrum)
         index = len(self._collected_spectra) - 1
         self._on_collected_spectra_changed(StateChange.ITEM_ADDED, index=index)
@@ -1578,6 +1580,10 @@ class SpectrumPlotGeneric(QWidget):
         # All done!
         self._figure_canvas.draw()
 
+    def closeEvent(self, event):
+        self.closed.emit()
+        return super().closeEvent(event)
+
 
 class SpectrumPlot(SpectrumPlotGeneric):
     def __init__(self, app, parent=None):
@@ -1586,7 +1592,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
         self._app = app
 
         # What dataset are we showing spectra from on new mouse-clicks?
-        self._dataset: RasterDataSet = None
+        self._dataset: "RasterDataSet" = None
 
         # Display state for the "active spectrum"
         self._active_spectrum_color = None
@@ -1657,7 +1663,7 @@ class SpectrumPlot(SpectrumPlotGeneric):
             if current_ds_id == ds_id:
                 self._dataset = None
 
-    def get_spectrum_dataset(self) -> Optional[RasterDataSet]:
+    def get_spectrum_dataset(self) -> Optional["RasterDataSet"]:
         return self._dataset
 
     def _on_plot_context_menu(self, event):

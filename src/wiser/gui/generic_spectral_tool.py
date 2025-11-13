@@ -1,7 +1,7 @@
 # Generic shared logic for spectral computations (parent class)
 from __future__ import annotations
 
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple, TYPE_CHECKING
 import os
 import warnings
 import numpy as np
@@ -24,7 +24,6 @@ from PySide2.QtWidgets import (
 from PySide2.QtCore import Qt, QSettings
 from astropy import units as u
 
-from wiser.gui.app_state import ApplicationState, StateChange
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
@@ -33,9 +32,12 @@ from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.generated.generic_spectral_computation_ui import (
     Ui_GenericSpectralComputation,
 )  # generated from .ui
-from .util import populate_combo_box_with_units  # same util used by SAM
+from .util import populate_combo_box_with_units, StateChange
 
 from wiser.config import FLAGS
+
+if TYPE_CHECKING:
+    from wiser.gui.app_state import ApplicationState
 
 DEFAULT_NO_SPECTRA_TEXT = "No spectra collected"
 DEFAULT_NO_DATASETS_TEXT = "No image cubes loaded"
