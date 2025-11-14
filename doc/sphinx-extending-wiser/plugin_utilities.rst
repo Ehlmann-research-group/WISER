@@ -34,6 +34,52 @@ This will construct a GUI element that looks like this:
 
 .. image:: images/dynamic_plugin_input.png
 
+The class :class:`wiser.gui.ui_library.TableDisplayWidget` provides a way
+to display the output of your code in the form of a table. An example of how
+to use it is below:
+
+.. code-block:: python
+
+    header = ["Location", "Pizza", "Salad"]
+    rows = [["LA", "10000", "12000"], ["SF", "3000", "3600"]]
+    self._app_state.show_table_widget(
+        header=header,
+        rows=rows,
+        window_title="Pizza and Salad by City",
+        description="Shows the amount of\npizza and salad per city.",
+    )
+
+The class :class:`wiser.gui.ui_library.MatplotlibDisplayWidget` provides a way to
+display matplotlib plots in a GUI element in WISER. An example of how to use
+it is below:
+
+.. code-block:: python
+
+    # Make some 2D data
+    data = np.random.rand(30, 40)
+
+    # Create figure + axes
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    # Draw heatmap
+    img = ax.imshow(data, cmap="viridis", origin="lower")
+
+    # Add colorbar
+    cbar = fig.colorbar(img, ax=ax)
+    cbar.set_label("Intensity")
+
+    # Add labels
+    ax.set_title("Random Heatmap")
+    ax.set_xlabel("X axis")
+    ax.set_ylabel("Y axis")
+
+    self._app_state.show_matplotlib_display_widget(
+        figure=fig,
+        axes=ax,
+        window_title="Simple Matplotlib Plot",
+        description="Example to show the matplotlib functionality working",
+    )
+
 Below is an example that asks the user to first select a dataset and then a region
 of interest in a tools menu plugin:
 

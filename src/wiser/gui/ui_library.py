@@ -621,6 +621,10 @@ class MatplotlibDisplayWidget(QWidget):
         window_title: Optional[str] = None,
         description: Optional[str] = None,
     ):
+        """
+        Creates a QWidget that containts the figure and axes passed in. You
+        can optionally set the window title and provide a description.
+        """
         self._figure = figure
         self._figure_canvas = FigureCanvas(self._figure)
         self._axes = axes
