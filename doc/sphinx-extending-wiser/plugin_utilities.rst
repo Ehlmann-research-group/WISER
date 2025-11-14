@@ -12,10 +12,13 @@ through :class:`wiser.gui.app_state.ApplicationState`. The methods are:
     roi: RegionOfInterest = app_state.choose_roi_ui()
     band: RasterDataBand = app_state.choose_band_ui()
 
-The :class:`wiser.gui.ui_library.DynamicInputDialog` provides a simple way to collect user input that isn't tied to WISER's internal state.
-By passing in a list of input specifications, you can dynamically generate a dialog that displays text fields and
-combo boxes. This is useful for plugins or tools that need to ask users for parameters,
-options, or configuration values before running. Here is an example of its use:
+The :class:`wiser.gui.ui_library.DynamicInputDialog` provides a simple way to
+collect user input that isn't tied to WISER's internal state. By passing in a
+list of input specifications, you can dynamically generate a dialog that displays
+text fields and combo boxes. This is useful for plugins or tools that need to
+ask users for parameters, options, or configuration values before running. You should
+not use this class directly and instead use the function `ApplicationState.create_form`.
+Here is an example of its use:
 
 .. code-block:: python
 
@@ -35,8 +38,9 @@ This will construct a GUI element that looks like this:
 .. image:: images/dynamic_plugin_input.png
 
 The class :class:`wiser.gui.ui_library.TableDisplayWidget` provides a way
-to display the output of your code in the form of a table. An example of how
-to use it is below:
+to display the output of your code in the form of a table. You should
+not use this class directly and instead use the function `ApplicationState.show_table_widget`.
+An example of how to use it is below:
 
 .. code-block:: python
 
@@ -50,8 +54,10 @@ to use it is below:
     )
 
 The class :class:`wiser.gui.ui_library.MatplotlibDisplayWidget` provides a way to
-display matplotlib plots in a GUI element in WISER. An example of how to use
-it is below:
+display matplotlib plots in a GUI element in WISER. You should
+not use this class directly and instead use the function
+`ApplicationState.show_table_widget`. An example of how to use
+it through app_state is below:
 
 .. code-block:: python
 
@@ -80,8 +86,34 @@ it is below:
         description="Example to show the matplotlib functionality working",
     )
 
-Below is an example that asks the user to first select a dataset and then a region
-of interest in a tools menu plugin:
+You can also use the function `ApplicationState.show_spectra_in_plot` to
+plot a list of spectra in a spectrum plot. Here is an example of its use:
+
+.. code-block:: python
+
+        test_spectrum_y = np.array(
+            [
+                0.25744912028312683,
+                0.2996889650821686,
+                0.07340309023857117,
+                0.09369881451129913,
+            ]
+        )
+        test_spectrum_x = [
+            472.019989 * u.nanometer,
+            532.130005 * u.nanometer,
+            702.419983 * u.nanometer,
+            852.679993 * u.nanometer,
+        ]
+
+        double = test_spectrum_y + test_spectrum_y
+        spec1 = NumPyArraySpectrum(test_spectrum_y, "Test_spectrum1", wavelengths=test_spectrum_x)
+        spec2 = NumPyArraySpectrum(double, "Test_spectrum2", wavelengths=test_spectrum_x)
+
+        self._app_state.show_spectra_in_plot([spec1, spec2])
+
+Lastly, below is a tools menu plugin example that asks the user to first
+select a dataset and then a region of interest in a tools menu plugin:
 
 .. code-block:: python
 

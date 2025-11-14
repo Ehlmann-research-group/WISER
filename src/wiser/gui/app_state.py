@@ -901,6 +901,10 @@ class ApplicationState(QObject):
         spectra: List[Spectrum],
         plot_title: Optional[str] = None,
     ):
+        """
+        Takes the list of spectra passed in and displays it in a generic
+        spectrum plot.
+        """
         generic_spectrum_plot = SpectrumPlotGeneric(self)
         if plot_title is not None:
             generic_spectrum_plot.set_title(plot_title)
