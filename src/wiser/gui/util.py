@@ -15,6 +15,18 @@ import cv2
 from astropy import units as u
 
 import math
+import enum
+
+
+class StateChange(enum.Enum):
+    """
+    Whether a spectrum was added, removed or edited
+    in the spectrum plot
+    """
+
+    ITEM_ADDED = 1
+    ITEM_EDITED = 2
+    ITEM_REMOVED = 3
 
 
 def populate_combo_box_with_units(
