@@ -12,6 +12,7 @@ from test_utils.test_model import WiserTestModel
 from test_utils.test_function_decorator import run_in_wiser_decorator
 
 import numpy as np
+from astropy import units as u
 
 from wiser.gui.ui_library import (
     DatasetChooserDialog,
@@ -20,6 +21,8 @@ from wiser.gui.ui_library import (
     BandChooserDialog,
     TableDisplayWidget,
 )
+
+from wiser.raster.spectrum import NumPyArraySpectrum
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
@@ -180,6 +183,37 @@ class TestUILibrary(unittest.TestCase):
         self.assertTrue(table_widget._table.columnCount() == len(header))
         self.assertTrue(table_widget.windowTitle() == window_title)
         self.assertTrue(table_widget._description_label.text() == description)
+
+    def test_spectrum_plot_generic(self):
+        test_spectrum_y = np.array(
+            [
+                0.25744912028312683,
+                0.2996889650821686,
+                0.07340309023857117,
+                0.09369881451129913,
+            ]
+        )
+        test_spectrum_x = [
+            472.019989 * u.nanometer,
+            532.130005 * u.nanometer,
+            702.419983 * u.nanometer,
+            852.679993 * u.nanometer,
+        ]
+        truth_x_range = (452.9869888, 871.7129931999999)
+        truth_y_range = (0.047104348242282865, 0.6256766721606255)
+
+        double = test_spectrum_y + test_spectrum_y
+        spec1 = NumPyArraySpectrum(test_spectrum_y, "Test_spectrum1", wavelengths=test_spectrum_x)
+        spec2 = NumPyArraySpectrum(double, "Test_spectrum2", wavelengths=test_spectrum_x)
+
+        app_state = self.test_model.app_state
+        app_state.show_spectra_in_plot([spec1, spec2])
+
+        generic_sp = next(iter(app_state._generic_spectrum_plots))
+
+        self.assertTrue(generic_sp._plot_uses_wavelengths is not None and generic_sp._plot_uses_wavelengths)
+        self.assertTrue(generic_sp.get_x_range() == truth_x_range)
+        self.assertTrue(generic_sp.get_y_range() == truth_y_range)
 
 
 if __name__ == "__main__":
