@@ -1766,7 +1766,7 @@ class JP2_GDALRasterDataImpl(GDALRasterDataImpl):
                     logger.debug(f"Opened {load_path} with driver {driver}")
                     return [cls(gdal_dataset)]
             except RuntimeError as e:
-                logger.warning(f"Failed to open {load_path} with driver {driver}: {e}")
+                logger.debug(f"Failed to open {load_path} with driver {driver}: {e}")
                 continue
 
         raise ValueError(f"Unable to open {load_path} as a JPEG2000 file using drivers {allowed_drivers}")
