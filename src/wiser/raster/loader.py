@@ -104,10 +104,8 @@ class RasterDataLoader:
                     impl_list = impl_type.try_load_file(path, interactive=interactive)
             except Exception as e:
                 logger.debug(
-                    "Couldn't load file %s with driver %s and implementation %s. Error: %s",
-                    path,
-                    driver_name,
-                    impl_type,
+                    f"Couldn't load file {path} with driver "
+                    + f"{driver_name} and implementation {impl_type}.",
                     e,
                 )
 
