@@ -13,7 +13,7 @@ from PySide2.QtWidgets import QDialog
 from wiser import plugins
 from wiser.raster import RasterDataLoader
 from wiser.raster import RasterDataSet
-from wiser.raster.utils import compute_PCA_on_image
+from wiser.raster.utils import compute_PCA_on_image, create_pca_metadata_widget
 from wiser.gui.generated.pca_dialog_ui import Ui_PCA_Dialog
 
 if TYPE_CHECKING:
@@ -65,14 +65,14 @@ class PCAPlugin(plugins.ContextMenuPlugin):
         self,
         dataset: RasterDataSet,
         num_components: int,
-        estimator: ESTIMATOR_TYPES,
+        estimator: ESTIMATOR_TYPES,  # TODO (Joshua G-K): Add correlation estimator
         app_state: "ApplicationState",
         test_mode: bool = False,
     ):
         image_arr = dataset.get_image_data()
 
         # Returns in format [y][x][num_components]
-        masked_arr = compute_PCA_on_image(
+        masked_arr, pca = compute_PCA_on_image(
             image_arr=image_arr,
             num_components=num_components,
             bad_bands=dataset.get_bad_bands(),
@@ -88,4 +88,9 @@ class PCAPlugin(plugins.ContextMenuPlugin):
         new_dataset.set_name(f"PCA on {dataset.get_name()}")
         new_dataset.set_description(dataset.get_description())
         new_dataset.copy_spatial_metadata(dataset.get_spatial_metadata())
+
+        self._pca_widget = create_pca_metadata_widget(pca=pca, dataset=new_dataset)
+
+        self._pca_widget.show()
+
         app_state.add_dataset(new_dataset)

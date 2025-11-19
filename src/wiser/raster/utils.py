@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union, TYPE_CHECKING, Any, Callable
+from typing import Dict, List, Optional, Union, TYPE_CHECKING, Any, Tuple
 
 from osgeo import gdal, osr
 
@@ -10,6 +10,15 @@ from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
+
+from PySide2.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QPushButton,
+    QFileDialog,
+    QPlainTextEdit,
+    QMessageBox,
+)
 
 ARRAY_NUMBA_THRESHOLD = 150000000  # 150 MB
 
@@ -62,12 +71,134 @@ def get_spectral_unit_from_any(unit: Any) -> Optional[u.Unit]:
         return None
 
 
+def create_pca_metadata_widget(pca, dataset, parent=None) -> QWidget:
+    """
+    Create a QWidget that displays PCA metadata and has a 'Save To File' button.
+
+    Args:
+        pca: A fitted sklearn.decomposition.PCA instance.
+        dataset: An object with a .get_name() method.
+        parent: Optional parent QWidget.
+
+    Returns:
+        QWidget: The constructed widget.
+    """
+
+    class PcaMetadataWidget(QWidget):
+        def __init__(self, pca_obj: PCA, dataset_obj: "RasterDataSet", parent=None):
+            super().__init__(parent)
+            self._pca = pca_obj
+            self._dataset = dataset_obj
+
+            self._text_edit = QPlainTextEdit(self)
+            self._text_edit.setReadOnly(True)
+
+            self._save_button = QPushButton("Save To File", self)
+            self._save_button.clicked.connect(self._on_save_clicked)
+
+            layout = QVBoxLayout(self)
+            layout.addWidget(self._text_edit)
+            layout.addWidget(self._save_button)
+            self.setLayout(layout)
+
+            self._text_edit.setPlainText(self._build_text())
+
+        def _fmt_array(self, arr, indent="    "):
+            # Nicely format numpy arrays with indentation
+            arr = np.asarray(arr)
+            arr_str = np.array2string(
+                arr,
+                precision=4,
+                suppress_small=True,
+                max_line_width=120,
+                threshold=arr.size,
+            )
+            return "\n".join(indent + line for line in arr_str.splitlines())
+
+        def _build_text(self) -> str:
+            lines = []
+
+            # Dataset name
+            name = "Unknown"
+            if hasattr(self._dataset, "get_name") and callable(self._dataset.get_name):
+                name = self._dataset.get_name()
+
+            lines.append(f"Dataset: {name}")
+            lines.append("PCA Metadata")
+            lines.append("=" * 60)
+            lines.append("")
+
+            # PCA init parameters (not learned attributes)
+            lines.append("Parameters:")
+            lines.append(f"  n_components: {getattr(self._pca, 'n_components', 'N/A')}")
+            lines.append(f"  whiten: {getattr(self._pca, 'whiten', 'N/A')}")
+            lines.append(f"  svd_solver: {getattr(self._pca, 'svd_solver', 'N/A')}")
+            lines.append(f"  tol: {getattr(self._pca, 'tol', 'N/A')}")
+            lines.append(f"  iterated_power: {getattr(self._pca, 'iterated_power', 'N/A')}")
+            lines.append("")
+            lines.append("Learned Attributes:")
+            lines.append("-" * 60)
+
+            # Helper to add an attribute if present
+            def add_attr(name, label=None, is_array=False):
+                if not hasattr(self._pca, name):
+                    return
+                value = getattr(self._pca, name)
+                label = label or name
+                if is_array:
+                    lines.append(f"{label}:")
+                    lines.append(self._fmt_array(value))
+                else:
+                    lines.append(f"{label}: {value}")
+                lines.append("")
+
+            # Common learned attributes after fit
+            add_attr("n_components_", "n_components_")
+            add_attr("n_features_in_", "n_features_in_")
+            add_attr("mean_", "mean_", is_array=True)
+            add_attr("components_", "components_", is_array=True)
+            add_attr("explained_variance_", "explained_variance_", is_array=True)
+            add_attr("explained_variance_ratio_", "explained_variance_ratio_", is_array=True)
+            add_attr("singular_values_", "singular_values_", is_array=True)
+            add_attr("noise_variance_", "noise_variance_")
+
+            return "\n".join(lines)
+
+        def _on_save_clicked(self):
+            text = self._text_edit.toPlainText()
+            if not text:
+                QMessageBox.information(self, "Nothing to Save", "There is no text to save.")
+                return
+
+            filename, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save PCA Metadata",
+                "",
+                "Text Files (*.txt);;All Files (*)",
+            )
+
+            if not filename:
+                return  # user cancelled
+
+            try:
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(text)
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error Saving File",
+                    f"Could not save file:\n{e}",
+                )
+
+    return PcaMetadataWidget(pca, dataset, parent)
+
+
 def compute_PCA_on_image(
     image_arr: Union[np.ndarray, np.ma.masked_array],
     num_components: int,
     bad_bands: List[int] = None,
     data_ignore: Number = None,
-) -> Union[np.ndarray, np.ma.masked_array]:
+) -> Tuple[Union[np.ndarray, np.ma.masked_array], PCA]:
     """
     This function handles all of the necessary cleaning needed to perform PCA
     on the spectra in an image_cube. This cleaning involves not including pixels with
@@ -135,7 +266,7 @@ def compute_PCA_on_image(
     return_arr[coords[:, 0], coords[:, 1], :] = oper_result
     masked_return_arr = np.ma.masked_values(return_arr, data_ignore)
 
-    return masked_return_arr
+    return masked_return_arr, pca
 
 
 def build_band_info_from_wavelengths(
