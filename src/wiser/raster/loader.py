@@ -158,7 +158,7 @@ class RasterDataLoader:
         else:
             raise ValueError(f'Unsupported format "{format}"')
 
-    def dataset_from_numpy_array(self, arr: np.ndarray, cache: "DataCache") -> RasterDataSet:
+    def dataset_from_numpy_array(self, arr: np.ndarray, cache: "DataCache" = None) -> RasterDataSet:
         """
         Given a NumPy ndarray, this function returns a RasterDataSet object
         that uses the array for its raster data.  The input ndarray must have
