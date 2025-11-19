@@ -64,6 +64,7 @@ class PCAPlugin(plugins.ContextMenuPlugin):
         num_components: int,
         estimator: ESTIMATOR_TYPES,
         app_state: "ApplicationState",
+        test_mode: bool = False,
     ):
         num_cols = dataset.get_width()
         num_rows = dataset.get_height()
@@ -89,6 +90,7 @@ class PCAPlugin(plugins.ContextMenuPlugin):
             # Remove the bad bands and be able to reconstruct the bad bands
 
             # Returns to use in [y][x][num_components]
+            print(f"1. type image_arr: {type(image_arr)}")
             masked_arr = operation_on_all_spectra(
                 image_arr=image_arr,
                 num_components=num_components,
@@ -97,7 +99,9 @@ class PCAPlugin(plugins.ContextMenuPlugin):
             )
 
             # [y][x][num_components] --> [num_components][y][x]
-            masked_arr = np.copy(masked_arr.transpose(2, 0, 1), order="C")
+            masked_arr = masked_arr.transpose(2, 0, 1).copy(order="C")
+            if test_mode:
+                return masked_arr
             data_loader = RasterDataLoader()
             new_dataset = data_loader.dataset_from_numpy_array(masked_arr)
             new_dataset.set_name(f"PCA on {dataset.get_name()}")
@@ -144,6 +148,8 @@ class PCAPlugin(plugins.ContextMenuPlugin):
         print(f"PCA_result shape: {PCA_result.shape}")
         PCA_result = PCA_result.reshape((num_rows, num_cols, num_components))
         new_image_data = PCA_result.copy().transpose(2, 0, 1)  # [y][x][b] -> [b][y][x]
+        if test_mode:
+            return new_image_data
         raster_data = RasterDataLoader()
         new_data = raster_data.dataset_from_numpy_array(new_image_data)
         new_data.set_name(f"PCA on {dataset.get_name()}")

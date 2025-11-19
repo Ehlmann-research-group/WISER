@@ -101,11 +101,13 @@ def operation_on_all_spectra(
     print(f"coords.shape: {coords.shape}")
     print(f"coords: {coords}")
     # Remove the bad pixels from the image array
-
-    image_arr = np.copy(image_arr.transpose(1, 2, 0), order="C")  # [b][y][x] --> [y][x][b]
+    print(f"2. type image_arr: {type(image_arr)}")
+    image_arr = image_arr.transpose(1, 2, 0).copy(order="C")  # [b][y][x] --> [y][x][b]
     # [y][x][b] --> [y*x][b]
+    print(f"3. type image_arr: {type(image_arr)}")
     image_arr: np.ndarray = image_arr.reshape((image_arr.shape[0] * image_arr.shape[1], image_arr.shape[2]))
-    save_arr = np.copy(image_arr, order="C")
+    print(f"4. type image_arr: {type(image_arr)}")
+    # save_arr = np.copy(image_arr, order="C")
     if bad_bands is not None:
         print(f"Bad_bands: {bad_bands}")
         print(f"Bad_bands.shape: {len(bad_bands)}")
@@ -114,11 +116,12 @@ def operation_on_all_spectra(
         bad_bands_bool = np.array(bad_bands, dtype=bool)
         image_arr = image_arr[:, bad_bands_bool]
         print(f"image_arr.shape after bad bands removed: {image_arr.shape}")
-    print(f"np.allclose after bad bands: {np.allclose(save_arr, image_arr)}")
+    # print(f"np.allclose after bad bands: {np.allclose(save_arr, image_arr)}")
     # [y][x][2] --> [y*x][2]
     coords = coords.reshape((coords.shape[0] * coords.shape[1], coords.shape[2]))
 
-    if isinstance(image_arr, np.ma.masked_array):
+    print(f"$%^ type of image_arr: {type(image_arr)}")
+    if isinstance(image_arr, np.ma.MaskedArray):
         mask_1d = ~np.all(image_arr.mask == True, axis=1)  # noqa: E712
         print(f"mask_1d.shape: {mask_1d.shape}")
         print(f"image_arr.shape before masking: {image_arr.shape}")
@@ -145,10 +148,10 @@ def operation_on_all_spectra(
 
     if True:
         print(f"data_ignore: {data_ignore}")
-        return_arr = np.full((nrows, ncols, num_components), data_ignore)
+        return_arr = np.full((nrows, ncols, num_components), data_ignore, dtype=np.float32)
         return_arr[coords[:, 0], coords[:, 1], :] = oper_result
-
-        print(f"return_Arr equal oper_reuslt?: {np.allclose(return_arr.flatten(), oper_result.flatten())}")
+        print(f"return_arr.shape: {return_arr.shape}")
+        # print(f"return_Arr equal oper_reuslt?: {np.allclose(return_arr.flatten(), oper_result.flatten())}")
 
         # print(f"coords[:, 0]: {coords[:, 0]}")
         # print(f"coords[:, 1]: {coords[:, 1]}")
