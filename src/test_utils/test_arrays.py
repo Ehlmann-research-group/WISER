@@ -3,7 +3,7 @@ Arrays used to test functionality in data processing
 """
 import numpy as np
 
-# region PCA Testing Arrays
+# region PCA Arrays
 
 test_arr_extra_2_bands_data_ignore = np.array(
     [

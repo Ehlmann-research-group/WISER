@@ -62,18 +62,18 @@ def get_spectral_unit_from_any(unit: Any) -> Optional[u.Unit]:
         return None
 
 
-def operation_on_all_spectra(
+def compute_PCA_on_image(
     image_arr: Union[np.ndarray, np.ma.masked_array],
     num_components: int,
     bad_bands: List[int] = None,
     data_ignore: Number = None,
-) -> np.ndarray:
+) -> Union[np.ndarray, np.ma.masked_array]:
     """
-    This function handles all of the necessary cleaning needed to perform an operation
+    This function handles all of the necessary cleaning needed to perform PCA
     on the spectra in an image_cube. This cleaning involves not including pixels with
-    the data ignore value and not including bands that should be ignored. It returns
-    a RasterDataSet object. It doesn't return an array because the array could be too big
-    to fit into memory. This function assumes that operation needs a cleaned array
+    the data ignore value and not including bands that should be ignored. If there are
+    any non-numeric values (like np.nan or +/-np.inf left in the array after cleaning,
+    then this function errors).
 
     Args:
         image_arr (Union[np.ndarray, np.ma.masked_array]):
@@ -84,94 +84,58 @@ def operation_on_all_spectra(
             An array where 1's mean keep the band, 0's mean get rid of it
         data_ignore (Number):
             The number the signifies a pixel should be ignored
+
+    Returns:
+        Union[np.ndarray, np.ma.masked_array]:
+            The array after we have performmed PCA. It is returned in the format
+            [y][x][b]
     """
     nbands = image_arr.shape[0]
     nrows = image_arr.shape[1]
     ncols = image_arr.shape[2]
+
     # Match each spectra with its location in the image
-    print(f"image_arr.shape: {image_arr.shape}")
     ys = np.arange(nrows)
     xs = np.arange(ncols)
 
     yy, xx = np.meshgrid(ys, xs, indexing="ij")
-    # coords = np.stack(yy.ravel(), xx.ravel(), axis=1)
     # Shape [y][x][2]
     coords = np.stack((yy, xx), axis=2)
 
-    print(f"coords.shape: {coords.shape}")
-    print(f"coords: {coords}")
     # Remove the bad pixels from the image array
-    print(f"2. type image_arr: {type(image_arr)}")
     image_arr = image_arr.transpose(1, 2, 0).copy(order="C")  # [b][y][x] --> [y][x][b]
     # [y][x][b] --> [y*x][b]
-    print(f"3. type image_arr: {type(image_arr)}")
     image_arr: np.ndarray = image_arr.reshape((image_arr.shape[0] * image_arr.shape[1], image_arr.shape[2]))
-    print(f"4. type image_arr: {type(image_arr)}")
-    # save_arr = np.copy(image_arr, order="C")
+
     if bad_bands is not None:
-        print(f"Bad_bands: {bad_bands}")
-        print(f"Bad_bands.shape: {len(bad_bands)}")
         assert len(bad_bands) == nbands, "Length of bad_bands must match number of bands"
-        print(f"image_arr.shape before bad bands removed: {image_arr.shape}")
         bad_bands_bool = np.array(bad_bands, dtype=bool)
         image_arr = image_arr[:, bad_bands_bool]
-        print(f"image_arr.shape after bad bands removed: {image_arr.shape}")
-    # print(f"np.allclose after bad bands: {np.allclose(save_arr, image_arr)}")
     # [y][x][2] --> [y*x][2]
     coords = coords.reshape((coords.shape[0] * coords.shape[1], coords.shape[2]))
 
-    print(f"$%^ type of image_arr: {type(image_arr)}")
     if isinstance(image_arr, np.ma.MaskedArray):
         mask_1d = ~np.all(image_arr.mask == True, axis=1)  # noqa: E712
-        print(f"mask_1d.shape: {mask_1d.shape}")
-        print(f"image_arr.shape before masking: {image_arr.shape}")
         image_arr = image_arr.data[mask_1d, :]
-        print(f"image_arr.shape after masking: {image_arr.shape}")
-        print(f"coords.shape before masking: {coords.shape}")
         coords = coords[mask_1d, :]
-        print(f"coords.shape after masking: {coords.shape}")
-
-    print(f"image_arr.shape after cleaning: {image_arr.shape}")
-    print(f"coords.shape after cleaning: {coords.shape}")
-    print(f"coords, last y?: {coords[coords.shape[0]-1, 0]}]")
-    print(f"coords, last x?: {coords[coords.shape[0]-1, 1]}]")
+        if not np.isfinite(image_arr).all():
+            raise ValueError("Array contains a non-numeric value after cleaning!")
 
     pca = PCA(n_components=num_components)
 
-    # We expect oper_result to be given back to us in [y*x][k] form
+    # We expect oper_result to be given back to us in
+    # [y*x][num_components] form
     oper_result = pca.fit_transform(image_arr)
-    print(f"oper_result.shape: {oper_result.shape}")
 
     # Remove the bad bands from the spectra
     if data_ignore is None:
         data_ignore = np.nan
 
-    if True:
-        print(f"data_ignore: {data_ignore}")
-        return_arr = np.full((nrows, ncols, num_components), data_ignore, dtype=np.float32)
-        return_arr[coords[:, 0], coords[:, 1], :] = oper_result
-        print(f"return_arr.shape: {return_arr.shape}")
-        # print(f"return_Arr equal oper_reuslt?: {np.allclose(return_arr.flatten(), oper_result.flatten())}")
+    return_arr = np.full((nrows, ncols, num_components), data_ignore, dtype=np.float32)
+    return_arr[coords[:, 0], coords[:, 1], :] = oper_result
+    masked_return_arr = np.ma.masked_values(return_arr, data_ignore)
 
-        # print(f"coords[:, 0]: {coords[:, 0]}")
-        # print(f"coords[:, 1]: {coords[:, 1]}")
-
-        print(f"amount equal to data_ignore: {np.sum(return_arr == data_ignore)}")
-
-        masked_return_arr = np.ma.masked_values(return_arr, data_ignore)
-        print(f"masked_return_arr.shape: {masked_return_arr.shape}")
-
-        return masked_return_arr
-    else:
-        return_arr = oper_result.reshape((nrows, ncols, num_components))
-        return return_arr
-    # Perform the operation
-
-    # Reconstruct the bands in the spectra
-
-    # Reconstruct the bad pixels in the image
-
-    # Reconstruct the metadata for the image
+    return masked_return_arr
 
 
 def build_band_info_from_wavelengths(
