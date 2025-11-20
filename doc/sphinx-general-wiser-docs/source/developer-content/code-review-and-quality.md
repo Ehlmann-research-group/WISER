@@ -63,18 +63,18 @@ and summary. It's described [here](https://sparkbox.com/foundry/semantic_commit_
 Use the below prefixes at the start of each PR merge
 commit title (it would also help the reviewer to
 do this for all other commit messages):
-  - feat:
-  - fix:
-  - docs:
-  - style:
-  - refactor:
-  - perf:
-  - test:
-  - hotfix:
-  - build:
-  - ci:
-  - chore:
-  - rev:
+  - feat:     (feature)
+  - fix:      (fix)
+  - docs:     (documentation)
+  - style:    (style change)
+  - refactor: (code refactor)
+  - perf:     (performance improvement)
+  - test:     (adding tests)
+  - hotfix:   (quick urgen fix)
+  - build:    (changes to build system)
+  - ci:       (changes to continuous integration)
+  - chore:    (miscellaneous task)
+  - rev:      (revision)
 
 
 ### Guidelines
@@ -148,6 +148,23 @@ To maintain clarity in GUI code, widgets should use consistent prefixes:
 | Line Edit | `ledit_` | `ledit_path_input` |
 | Spin Box | `sbox_` | `sbox_frame_index` |
 
+### Private and public attributes/methods
+
+In a class, a private attribute (variable) should have an underscore infront of it. If it does not
+have an underscore infront of it, then it's assumped to be public. Example:
+
+```python
+self._update_table  # Private
+# vs
+self.update_table  # Public
+```
+
+Python does not enforce variables that have an underscore prefix to be private,
+but it is common practice to not access them directly. If you need to, consider
+first why the variable is private and then make a getter for it.
+
+The same naming convention rules apply for private and public methods (functions).
+
 ### Enforced Code Style
 
 Python formatting is **enforced automatically**:
@@ -155,6 +172,25 @@ Python formatting is **enforced automatically**:
 - They are validated by **pre-commit hooks** and **GitHub Actions**.  
 - Always run pre-commit checks locally before pushing to avoid CI failures.
 
+## Code Design
+
+Code design is very important to the maintainability of code and how hard
+future refactors will be. Making a set of rules that gives us perfect maintainability
+and minimal refactors seems impossible, so these rules may be updated as we see fit.
+
+### General Design Rules
+1. Try to keep functions backwards compatible. We do not want to break something that
+a plugin (or internal WISER functionality) relies on.
+2. Document contracts, not just parameters
+    - What does this function guarantee? What does it expect?
+    - E.g. “Raises ValueError if array has NaNs.”
+3. Use exceptions over error codes
+    - Return useful values, raise on error.
+    - Don’t overload **None** or **False** to mean “something exploded”. You can still return **None** or **False** just not in-place of an error.
+  Log, don’t print.
+4. Use the logging module with module-level loggers.
+    - Don’t log at ERROR for things the user can reasonably fix (e.g. invalid user input).
+ 
 ## Summary
 
 In WISER, code review and submission are designed to:
