@@ -390,6 +390,7 @@ class AppConfigDialog(QDialog):
                 self._ui.list_plugins.addItem(item)
             else:
                 plugin_duplicates.append(fqcn)
+
         if plugin_duplicates or base_dir_duplicate:
             msg = QMessageBox(self)
             msg.setIcon(QMessageBox.Warning)
