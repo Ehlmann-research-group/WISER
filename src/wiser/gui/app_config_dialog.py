@@ -338,13 +338,21 @@ class AppConfigDialog(QDialog):
             if not file_path:
                 return
 
-            self._load_plugin_from_file(file_path)
-            QMessageBox.information(
-                self,
-                self.tr("Plugin Added"),
-                self.tr("Your plugin was successfully added!"),
-            )
-        except RuntimeError as e:
+            plugins, _ = self._load_plugin_from_file(file_path)
+            if len(plugins) == 0:
+                QMessageBox.warning(
+                    self,
+                    self.tr("No Plugin Found"),
+                    self.tr("No plugin was found in your file!"),
+                )
+            else:
+                QMessageBox.information(
+                    self,
+                    self.tr("Plugin Added"),
+                    self.tr("Your plugin was successfully added!"),
+                )
+
+        except (RuntimeError, ModuleNotFoundError) as e:
             QMessageBox.warning(
                 self,
                 self.tr("Failed To Add Plugin"),
@@ -368,6 +376,10 @@ class AppConfigDialog(QDialog):
         """
         plugins_dict = self._discover_plugin_classes(file_path)
 
+        plugins: List[Dict] = plugins_dict["plugins"]
+        if len(plugins) == 0:
+            return [], ""
+
         base_dir_abs: str = plugins_dict["base_dir_abs"]
         base_dir_duplicate = False
         if base_dir_abs not in qlistwidget_to_list(self._ui.list_plugin_paths):
@@ -377,8 +389,6 @@ class AppConfigDialog(QDialog):
             self._ui.list_plugin_paths.addItem(item)
         else:
             base_dir_duplicate = True
-
-        plugins: List[Dict] = plugins_dict["plugins"]
 
         plugin_duplicates: List[str] = []
         for plugin in plugins:
