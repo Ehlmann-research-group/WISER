@@ -1,7 +1,8 @@
-from typing import Dict, List, Optional, Union, TYPE_CHECKING, Any
+from typing import Dict, List, Optional, Union, TYPE_CHECKING, Any, Tuple
 
 from osgeo import gdal, osr
 
+from sklearn.decomposition import PCA
 import numpy as np
 from astropy import units as u
 
@@ -9,6 +10,15 @@ from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_
 
 if TYPE_CHECKING:
     from wiser.raster.dataset import RasterDataSet
+
+from PySide2.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QPushButton,
+    QFileDialog,
+    QPlainTextEdit,
+    QMessageBox,
+)
 
 ARRAY_NUMBA_THRESHOLD = 150000000  # 150 MB
 
@@ -59,6 +69,204 @@ def get_spectral_unit_from_any(unit: Any) -> Optional[u.Unit]:
         return KNOWN_SPECTRAL_UNITS[unit.lower()]
     else:
         return None
+
+
+def create_pca_metadata_widget(pca, dataset, parent=None) -> QWidget:
+    """
+    Create a QWidget that displays PCA metadata and has a 'Save To File' button.
+
+    Args:
+        pca: A fitted sklearn.decomposition.PCA instance.
+        dataset: An object with a .get_name() method.
+        parent: Optional parent QWidget.
+
+    Returns:
+        QWidget: The constructed widget.
+    """
+
+    class PcaMetadataWidget(QWidget):
+        def __init__(self, pca_obj: PCA, dataset_obj: "RasterDataSet", parent=None):
+            super().__init__(parent)
+            self._pca = pca_obj
+            self._dataset = dataset_obj
+
+            self._text_edit = QPlainTextEdit(self)
+            self._text_edit.setReadOnly(True)
+
+            self._save_button = QPushButton("Save To File", self)
+            self._save_button.clicked.connect(self._on_save_clicked)
+
+            layout = QVBoxLayout(self)
+            layout.addWidget(self._text_edit)
+            layout.addWidget(self._save_button)
+            self.setLayout(layout)
+
+            self._text_edit.setPlainText(self._build_text())
+
+        def _fmt_array(self, arr, indent="    "):
+            # Nicely format numpy arrays with indentation
+            arr = np.asarray(arr)
+            arr_str = np.array2string(
+                arr,
+                precision=4,
+                suppress_small=True,
+                max_line_width=120,
+                threshold=arr.size,
+            )
+            return "\n".join(indent + line for line in arr_str.splitlines())
+
+        def _build_text(self) -> str:
+            lines = []
+
+            # Dataset name
+            name = "Unknown"
+            if hasattr(self._dataset, "get_name") and callable(self._dataset.get_name):
+                name = self._dataset.get_name()
+
+            lines.append(f"Dataset: {name}")
+            lines.append("PCA Metadata")
+            lines.append("=" * 60)
+            lines.append("")
+
+            # PCA init parameters (not learned attributes)
+            lines.append("Parameters:")
+            lines.append(f"  n_components: {getattr(self._pca, 'n_components', 'N/A')}")
+            lines.append(f"  whiten: {getattr(self._pca, 'whiten', 'N/A')}")
+            lines.append(f"  svd_solver: {getattr(self._pca, 'svd_solver', 'N/A')}")
+            lines.append(f"  tol: {getattr(self._pca, 'tol', 'N/A')}")
+            lines.append(f"  iterated_power: {getattr(self._pca, 'iterated_power', 'N/A')}")
+            lines.append("")
+            lines.append("Learned Attributes:")
+            lines.append("-" * 60)
+
+            # Helper to add an attribute if present
+            def add_attr(name, label=None, is_array=False):
+                if not hasattr(self._pca, name):
+                    return
+                value = getattr(self._pca, name)
+                label = label or name
+                if is_array:
+                    lines.append(f"{label}:")
+                    lines.append(self._fmt_array(value))
+                else:
+                    lines.append(f"{label}: {value}")
+                lines.append("")
+
+            # Common learned attributes after fit
+            add_attr("n_components_", "n_components_")
+            add_attr("n_features_in_", "n_features_in_")
+            add_attr("mean_", "mean_", is_array=True)
+            add_attr("components_", "components_", is_array=True)
+            add_attr("explained_variance_", "explained_variance_", is_array=True)
+            add_attr("explained_variance_ratio_", "explained_variance_ratio_", is_array=True)
+            add_attr("singular_values_", "singular_values_", is_array=True)
+            add_attr("noise_variance_", "noise_variance_")
+
+            return "\n".join(lines)
+
+        def _on_save_clicked(self):
+            text = self._text_edit.toPlainText()
+            if not text:
+                QMessageBox.information(self, "Nothing to Save", "There is no text to save.")
+                return
+
+            filename, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save PCA Metadata",
+                "",
+                "Text Files (*.txt);;All Files (*)",
+            )
+
+            if not filename:
+                return  # user cancelled
+
+            try:
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(text)
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error Saving File",
+                    f"Could not save file:\n{e}",
+                )
+
+    return PcaMetadataWidget(pca, dataset, parent)
+
+
+def compute_PCA_on_image(
+    image_arr: Union[np.ndarray, np.ma.masked_array],
+    num_components: int,
+    bad_bands: List[int] = None,
+    data_ignore: Number = None,
+) -> Tuple[Union[np.ndarray, np.ma.masked_array], PCA]:
+    """
+    This function handles all of the necessary cleaning needed to perform PCA
+    on the spectra in an image_cube. This cleaning involves not including pixels with
+    the data ignore value and not including bands that should be ignored. If there are
+    any non-numeric values (like np.nan or +/-np.inf left in the array after cleaning,
+    then this function errors).
+
+    Args:
+        image_arr (Union[np.ndarray, np.ma.masked_array]):
+            A 3D array with dimensions [b][y][x]
+        num_components (int):
+            The number of components for PCA
+        bad_bands (List[int]):
+            An array where 1's mean keep the band, 0's mean get rid of it
+        data_ignore (Number):
+            The number the signifies a pixel should be ignored
+
+    Returns:
+        Union[np.ndarray, np.ma.masked_array]:
+            The array after we have performmed PCA. It is returned in the format
+            [y][x][b]
+    """
+    nbands = image_arr.shape[0]
+    nrows = image_arr.shape[1]
+    ncols = image_arr.shape[2]
+
+    # Match each spectra with its location in the image
+    ys = np.arange(nrows)
+    xs = np.arange(ncols)
+
+    yy, xx = np.meshgrid(ys, xs, indexing="ij")
+    # Shape [y][x][2]
+    coords = np.stack((yy, xx), axis=2)
+
+    # Remove the bad pixels from the image array
+    image_arr = image_arr.transpose(1, 2, 0).copy(order="C")  # [b][y][x] --> [y][x][b]
+    # [y][x][b] --> [y*x][b]
+    image_arr: np.ndarray = image_arr.reshape((image_arr.shape[0] * image_arr.shape[1], image_arr.shape[2]))
+
+    if bad_bands is not None:
+        assert len(bad_bands) == nbands, "Length of bad_bands must match number of bands"
+        bad_bands_bool = np.array(bad_bands, dtype=bool)
+        image_arr = image_arr[:, bad_bands_bool]
+    # [y][x][2] --> [y*x][2]
+    coords = coords.reshape((coords.shape[0] * coords.shape[1], coords.shape[2]))
+
+    if isinstance(image_arr, np.ma.MaskedArray):
+        mask_1d = ~np.all(image_arr.mask == True, axis=1)  # noqa: E712
+        image_arr = image_arr.data[mask_1d, :]
+        coords = coords[mask_1d, :]
+        if not np.isfinite(image_arr).all():
+            raise ValueError("Array contains a non-numeric value after cleaning!")
+
+    pca = PCA(n_components=num_components)
+
+    # We expect oper_result to be given back to us in
+    # [y*x][num_components] form
+    oper_result = pca.fit_transform(image_arr)
+
+    # Remove the bad bands from the spectra
+    if data_ignore is None:
+        data_ignore = np.nan
+
+    return_arr = np.full((nrows, ncols, num_components), data_ignore, dtype=np.float32)
+    return_arr[coords[:, 0], coords[:, 1], :] = oper_result
+    masked_return_arr = np.ma.masked_values(return_arr, data_ignore)
+
+    return masked_return_arr, pca
 
 
 def build_band_info_from_wavelengths(
