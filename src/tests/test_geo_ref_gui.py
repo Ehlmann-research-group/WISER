@@ -34,6 +34,12 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+import pytest
+
+pytestmark = [
+    pytest.mark.functional,
+]
+
 
 class TestGeoReferencerGUI(unittest.TestCase):
     """Test case for validating the GeoReferencer UI workflow in WISER.

@@ -7,29 +7,29 @@ assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## Describe the bug
+_A clear and concise description of what the bug is._
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+## To Reproduce
+_Steps to reproduce the behavior:_
+1. _Go to '...'_
+2. _Click on '....'_
+3. _Scroll down to '....'_
+4. _See error_
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+## Expected behavior
+_A clear and concise description of what you expected to happen._
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+## Screenshots
+_If applicable, add screenshots to help explain your problem._
 
-**Desktop (please complete the following information):**
- - OS: [e.g. Windows, MacOSx]
-- CPU architecture: [e.g. x86_64, arm]
- - Version [e.g. 1.3b1]
+## Desktop (please complete the following information):
+ - _OS: [e.g. Windows, MacOSx]_
+- _CPU architecture: [e.g. x86_64, arm]_
+ - _Version [e.g. 1.3b1]_
 
-**[Optional] Error Message**
-The error message in the console if there is one.
+## [Optional] Error Message
+_The error message in the console if there is one._
 
-**Additional context**
-Add any other context about the problem here.
+## Additional context
+_Add any other context about the problem here._

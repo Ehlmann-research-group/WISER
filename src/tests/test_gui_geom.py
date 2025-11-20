@@ -4,6 +4,12 @@ from PySide2.QtCore import *
 import tests.context
 from wiser.gui.geom import distance, manhattan_distance
 
+import pytest
+
+pytestmark = [
+    pytest.mark.unit,
+]
+
 
 class TestGuiGeom(unittest.TestCase):
     """

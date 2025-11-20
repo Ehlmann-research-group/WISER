@@ -26,6 +26,13 @@ from PySide2.QtWidgets import *
 
 from .utils import are_pixels_close, are_qrects_close
 
+import pytest
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.smoke,
+]
+
 
 class TestMainViewZoomPaneIntegration(unittest.TestCase):
     """

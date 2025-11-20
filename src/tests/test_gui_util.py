@@ -3,6 +3,12 @@ import unittest
 import tests.context
 from wiser.gui.util import make_filename
 
+import pytest
+
+pytestmark = [
+    pytest.mark.unit,
+]
+
 
 class TestGuiUtil(unittest.TestCase):
     """

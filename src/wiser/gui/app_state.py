@@ -3,8 +3,11 @@ import os
 import warnings
 from typing import Dict, List, Optional, Tuple, Callable, TYPE_CHECKING
 
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+
 from PySide2.QtCore import *
-from PySide2.QtWidgets import QMessageBox
+from PySide2.QtWidgets import QMessageBox, QDialog
 
 from .app_config import ApplicationConfig, PixelReticleType
 from .util import get_random_matplotlib_color
@@ -27,15 +30,20 @@ from wiser.raster.roi import RegionOfInterest, roi_to_pyrep, roi_from_pyrep
 from wiser.raster.data_cache import DataCache
 
 from wiser.gui.subprocessing_manager import MultiprocessingManager, ProcessManager
+from wiser.gui.ui_library import (
+    DatasetChooserDialog,
+    SpectrumChooserDialog,
+    ROIChooserDialog,
+    BandChooserDialog,
+    DynamicInputDialog,
+    TableDisplayWidget,
+    MatplotlibDisplayWidget,
+)
+from wiser.gui.spectrum_plot import SpectrumPlotGeneric
+from wiser.gui.util import StateChange
 
 if TYPE_CHECKING:
     from wiser.gui.reference_creator_dialog import CrsCreatorState
-
-
-class StateChange(enum.Enum):
-    ITEM_ADDED = 1
-    ITEM_EDITED = 2
-    ITEM_REMOVED = 3
 
 
 def make_unique_name(candidate: str, used_names: str) -> str:
@@ -152,6 +160,26 @@ class ApplicationState(QObject):
         self._process_pool_manager = MultiprocessingManager()
 
         self._running_processes: Dict[int, ProcessManager] = {}
+
+        # Plugin Chooser Dialogs
+        self._plugin_dataset_chooser_dialog: Optional[DatasetChooserDialog] = None
+
+        self._plugin_spectrum_chooser_dialog: Optional[SpectrumChooserDialog] = None
+
+        self._plugin_roi_chooser_dialog: Optional[ROIChooserDialog] = None
+
+        self._plugin_band_chooser_dialog: Optional[BandChooserDialog] = None
+
+        self._dynamic_input_dialog: Optional[DynamicInputDialog] = None
+
+        # The set of generic spectrum plots that users can make for their plugins
+        self._generic_spectrum_plots: set[SpectrumPlotGeneric] = set()
+
+        # The set of table display widgets that users can make for their plugins
+        self._table_display_widgets: set[TableDisplayWidget] = set()
+
+        # The set of matplotlib display widgets that users can make for their plugins
+        self._matplotlib_display_widgets: set[MatplotlibDisplayWidget] = set()
 
     def add_running_process(self, process_manager: ProcessManager):
         self._running_processes[process_manager.get_process_manager_id()] = process_manager
@@ -660,7 +688,7 @@ class ApplicationState(QObject):
 
     def get_all_spectra(self):
         """
-        Retrieves all spectra in thet spectrum plot.
+        Retrieves all spectra in the spectrum plot.
         """
         return self._all_spectra
 
@@ -782,3 +810,180 @@ class ApplicationState(QObject):
                 self._user_created_crs[name] = (crs, crs_creator_state)
         else:
             self._user_created_crs[name] = (crs, crs_creator_state)
+
+    # region UI Library Access
+
+    def choose_dataset_ui(
+        self,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[RasterDataSet]:
+        self._plugin_dataset_chooser_dialog = DatasetChooserDialog(
+            app_state=self,
+            description=description,
+            parent=self._app,
+        )
+        if in_test_mode:
+            self._plugin_dataset_chooser_dialog.show()
+        else:
+            if self._plugin_dataset_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_dataset_chooser_dialog.get_chosen_object()
+
+    def choose_spectrum_ui(
+        self,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[Spectrum]:
+        self._plugin_spectrum_chooser_dialog = SpectrumChooserDialog(
+            app_state=self,
+            description=description,
+            parent=self._app,
+        )
+
+        if in_test_mode:
+            self._plugin_spectrum_chooser_dialog.show()
+        else:
+            if self._plugin_spectrum_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_spectrum_chooser_dialog.get_chosen_object()
+
+    def choose_roi_ui(
+        self,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[RegionOfInterest]:
+        self._plugin_roi_chooser_dialog = ROIChooserDialog(
+            app_state=self,
+            description=description,
+            parent=self._app,
+        )
+        if in_test_mode:
+            self._plugin_roi_chooser_dialog.show()
+        else:
+            if self._plugin_roi_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_roi_chooser_dialog.get_chosen_object()
+
+    def choose_band_ui(
+        self,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[RasterDataBand]:
+        self._plugin_band_chooser_dialog = BandChooserDialog(
+            app_state=self,
+            description=description,
+            parent=self._app,
+        )
+        if in_test_mode:
+            self._plugin_band_chooser_dialog.show()
+        else:
+            if self._plugin_band_chooser_dialog.exec_() == QDialog.Accepted:
+                return self._plugin_band_chooser_dialog.get_chosen_object()
+
+    def create_form(
+        self,
+        form_inputs: List[Tuple[str, str, int, Optional[List[Any]]]],
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        in_test_mode=False,
+    ) -> Optional[Dict[str, Any]]:
+        self._dynamic_input_dialog = DynamicInputDialog(
+            dialog_title=title,
+            description=description,
+            parent=self._app,
+        )
+
+        if in_test_mode:
+            self._dynamic_input_dialog.show()
+        else:
+            return self._dynamic_input_dialog.create_input_dialog(form_inputs)
+
+    def show_spectra_in_plot(
+        self,
+        spectra: List[Spectrum],
+        plot_title: Optional[str] = None,
+    ):
+        """
+        Takes the list of spectra passed in and displays it in a generic
+        spectrum plot.
+        """
+        generic_spectrum_plot = SpectrumPlotGeneric(self)
+        if plot_title is not None:
+            generic_spectrum_plot.set_title(plot_title)
+        for spectrum in spectra:
+            if spectrum.get_id() is None:
+                spectrum.set_id(self.take_next_id())
+            generic_spectrum_plot.add_collected_spectrum(spectrum)
+        self._generic_spectrum_plots.add(generic_spectrum_plot)
+
+        # We keep a reference to generic_spectrum_plot so it doesn't get garbage collected
+        generic_spectrum_plot.closed.connect(
+            lambda: self._on_generic_spectrum_plot_closed(generic_spectrum_plot)
+        )
+
+        generic_spectrum_plot.show()
+
+    def _on_generic_spectrum_plot_closed(self, spectrum_plot: SpectrumPlotGeneric):
+        self._generic_spectrum_plots.remove(spectrum_plot)
+        spectrum_plot.deleteLater()
+
+    def show_table_widget(
+        self,
+        header: List[str],
+        rows: List[List[Any]],
+        window_title: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        """Creates and shows a table widget that is meant for display."""
+        if len(header) != len(rows[0]):
+            QMessageBox.warning(
+                self._app,
+                self.tr("Error!"),
+                self.tr("Number of columns must match number of items in header!"),
+            )
+        # Do not pass self._app as the parent of TableDisplayWidget
+        table_display_widget: TableDisplayWidget = TableDisplayWidget()
+        table_display_widget.create_table(
+            header=header,
+            rows=rows,
+            title=window_title,
+            description=description,
+        )
+
+        # We keep a reference to table_display_widget so it doesn't get garbage collected
+        self._table_display_widgets.add(table_display_widget)
+        table_display_widget.closed.connect(
+            lambda: self._on_table_display_widget_closed(table_display_widget)
+        )
+
+        table_display_widget.show()
+
+    def _on_table_display_widget_closed(self, table_display_widget: TableDisplayWidget):
+        self._table_display_widgets.remove(table_display_widget)
+        table_display_widget.deleteLater()
+
+    def show_matplotlib_display_widget(
+        self,
+        figure: Figure,
+        axes: Axes,
+        window_title: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        """Creates and shows a widget with a matplotlib plot"""
+        matplotlib_display = MatplotlibDisplayWidget()
+        matplotlib_display.create_plot(
+            figure=figure,
+            axes=axes,
+            window_title=window_title,
+            description=description,
+        )
+
+        self._matplotlib_display_widgets.add(matplotlib_display)
+
+        matplotlib_display.closed.connect(
+            lambda: self._on_matplotlib_display_widget_closed(matplotlib_display)
+        )
+
+        matplotlib_display.show()
+
+    def _on_matplotlib_display_widget_closed(self, matplotlib_display: MatplotlibDisplayWidget):
+        self._matplotlib_display_widgets.remove(matplotlib_display)
+        matplotlib_display.deleteLater()

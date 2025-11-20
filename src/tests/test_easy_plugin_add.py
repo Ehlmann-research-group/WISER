@@ -7,6 +7,12 @@ from pathlib import Path
 
 from test_utils.test_model import WiserTestModel
 
+import pytest
+
+pytestmarker = [
+    pytest.mark.functional,
+]
+
 
 class TestAddingPlugins(unittest.TestCase):
     """

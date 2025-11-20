@@ -6,13 +6,13 @@ from PySide2.QtWidgets import *
 
 import wiser.gui.generated.resources
 
-from .app_state import ApplicationState
 from wiser.raster.dataset import RasterDataSet
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .rasterpane import RasterPane
+    from .app_state import ApplicationState
 
 
 class DatasetChooser(QToolButton):
@@ -23,7 +23,7 @@ class DatasetChooser(QToolButton):
     been loaded.
     """
 
-    def __init__(self, rasterpane: "RasterPane", app_state: ApplicationState):
+    def __init__(self, rasterpane: "RasterPane", app_state: "ApplicationState"):
         """
         NOTE:  The RasterPane argument allows the dataset chooser to be informed
                when the raster-pane switches to multiple views.  It may be set

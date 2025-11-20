@@ -1,24 +1,22 @@
 import logging
 
-from typing import Any, Dict
-# from typing import TYPE_CHECKING
-# if TYPE_CHECKING:
-#     from .app_state import ApplicationState
-
+from typing import Any, Dict, TYPE_CHECKING
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .app_state import ApplicationState
 from wiser import plugins
+
+if TYPE_CHECKING:
+    from .app_state import ApplicationState
 
 
 logger = logging.getLogger(__name__)
 
 
 def add_plugin_context_menu_items(
-    app_state: ApplicationState,
+    app_state: "ApplicationState",
     context_type: plugins.ContextMenuType,
     menu: QMenu,
     **kwargs,

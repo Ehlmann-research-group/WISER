@@ -17,6 +17,13 @@ from wiser.raster.selection import RectangleSelection
 from wiser.raster.roi import RegionOfInterest
 from wiser.raster.utils import make_spectral_value
 
+import pytest
+
+pytestmark = [
+    pytest.mark.functional,
+    pytest.mark.smoke,
+]
+
 
 class TestSpectralAngleMapper(unittest.TestCase):
     def setUp(self):

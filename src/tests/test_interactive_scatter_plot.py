@@ -19,6 +19,14 @@ from PySide2.QtWidgets import *
 
 import time
 
+import pytest
+
+pytestmark = [
+    pytest.mark.functional,
+    pytest.mark.multiprocessing,
+    pytest.mark.slow,
+]
+
 
 class TestInteractiveScatterPlot(unittest.TestCase):
     """
@@ -101,10 +109,10 @@ class TestInteractiveScatterPlot(unittest.TestCase):
         self.test_model.click_zoom_to_fit()
         scat_plot = self.test_model.open_interactive_scatter_plot_context_menu()
         self.test_model.set_interactive_scatter_x_axis_dataset(ds.get_id())
-        self.test_model.set_interactive_scatter_y_axis_dataset(ds.get_id())
-        self.test_model.set_interactive_scatter_render_dataset(ds.get_id())
         self.test_model.set_interactive_scatter_x_band(0)
+        self.test_model.set_interactive_scatter_y_axis_dataset(ds.get_id())
         self.test_model.set_interactive_scatter_y_band(2)
+        self.test_model.set_interactive_scatter_render_dataset(ds.get_id())
         self.test_model.click_create_scatter_plot()
         start_time = time.time()
         timeout = 5

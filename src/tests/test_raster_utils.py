@@ -6,6 +6,13 @@ from wiser.raster import utils
 import numpy as np
 from astropy import units as u
 
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+    pytest.mark.unit,
+]
+
 
 class TestRasterUtils(unittest.TestCase):
     """

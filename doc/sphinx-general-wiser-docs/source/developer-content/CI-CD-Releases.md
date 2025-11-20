@@ -145,7 +145,51 @@ command `gh`. The logic for this step is in the files /src/devtools/sign_mac.py 
 
 ## Releases
 
-WISER releases should always be made from a release branch. Release notes should accompany releases. Build artifacts 
+WISER releases should always be made from a release branch. Release 
+notes should accompany releases. Build artifacts 
 should accompany releases. These build artifacts won't be 
 signed. Additionally, official release should be 
-made on the github and the release should be tagged.
+made on the GitHub through the [Releases feature](https://github.com/Ehlmann-research-group/WISER/releases)
+and the release should be tagged.
+
+## Release Process
+
+The process of creating a release is documented below.
+
+1. Build WISER through the GitHub workflow `prod-deploy`.
+2. Do `make sign-mac` or `make sign-windows` to run the signing
+logic. For signing on mac, you must have a valid Apple Developer 
+signing certificate tied to a paid Apple Developer Program account. 
+For signing on windows, you must have a windows code signing 
+certificate. This is tied to an individual or a legal entity.
+
+    a. If you do code sign your own distribution, please do not 
+    present it to others as a official WISER release unless you have 
+    been explicitly allowed to do so for a specific release.
+
+3. If you are making an official release, you will need access to 
+the [WISER website](https://ehlmann.caltech.edu/wiser/index.html) 
+and a stable place to host the WISER distributable. When you have 
+access to this, you will add a download link to the website for the 
+new release.
+
+4. You will need to make a release on GitHub with the release notes 
+and tag the release's commit.
+
+5. You will then need to put the release on the [website's release notes page](https://ehlmann.caltech.edu/wiser/release-notes.html).
+
+6. Lastly, you will need to update the plugin API documentation on 
+the page for [Plugin Dependencies](https://ehlmann-research-group.
+github.io/WISER-Plugin-API/plugin_dependencies.html) to include all 
+of the dependencies in the latest version.
+
+7. Finally, if have the permissions to, then you should send an 
+email to wiser-announce@caltech.edu to announce a new release of 
+WISER with a summary of what is in the release. If you don't have 
+permission to, reach out to someone who does with the email you want 
+them to send.
+
+> **Note**: This process can only be done by a maintainer with 
+access to all of these resources. This intentionally limits who can 
+do official WISER releases. If the community thinks that an official 
+WISER release should be done, please reach out to the maintainers.

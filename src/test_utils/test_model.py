@@ -52,11 +52,18 @@ from wiser.gui.reference_creator_dialog import (
 )
 from wiser.gui.similarity_transform_dialog import SimilarityTransformDialog
 from wiser.gui.scatter_plot_2D import ScatterPlot2DDialog
+from wiser.gui.ui_library import (
+    DatasetChooserDialog,
+    SpectrumChooserDialog,
+    ROIChooserDialog,
+    BandChooserDialog,
+)
 
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.dataset import RasterDataSet
+from wiser.raster.dataset import RasterDataSet, RasterDataBand
 from wiser.raster.spectrum import Spectrum
 from wiser.raster.spectral_library import ListSpectralLibrary
+from wiser.raster.roi import RegionOfInterest
 
 from .test_event_loop_functions import FunctionEvent
 from .test_function_decorator import run_in_wiser_decorator
@@ -1978,6 +1985,119 @@ class WiserTestModel:
         self.main_window.show_preferences(None, in_test_mode=True)
         config_dialog = self.main_window._config_dialog
         return config_dialog._load_plugin_from_file(file_path)
+
+    # ==========================================
+    # region UI Library
+    # ==========================================
+
+    # Don't run this function in the decorator
+    def open_plugin_dataset_chooser(self):
+        self.app_state.choose_dataset_ui(in_test_mode=True)
+
+    @run_in_wiser_decorator
+    def select_plugin_dataset(self, ds_id: int):
+        dataset_chooser_dialog = self.app_state._plugin_dataset_chooser_dialog
+        cbox = dataset_chooser_dialog._cbox
+        for i in range(cbox.count()):
+            if cbox.itemData(i) == ds_id:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                break
+
+    def accept_plugin_dataset_chooser(self) -> Optional[RasterDataSet]:
+        self.app_state._plugin_dataset_chooser_dialog.accept()
+        dataset = self.app_state._plugin_dataset_chooser_dialog.get_chosen_object()
+        return dataset
+
+    @run_in_wiser_decorator
+    def reject_plugin_dataset_chooser(self) -> None:
+        self.app_state._plugin_dataset_chooser_dialog.reject()
+        # We expect this to be none here
+        none_ = self.app_state._plugin_dataset_chooser_dialog.get_chosen_object()
+        return none_
+
+    def open_plugin_spectrum_chooser(self):
+        self.app_state.choose_spectrum_ui(in_test_mode=True)
+
+    @run_in_wiser_decorator
+    def select_plugin_spectrum(self, spectrum_id: int):
+        spectrum_chooser_dialog = self.app_state._plugin_spectrum_chooser_dialog
+        cbox = spectrum_chooser_dialog._cbox
+        for i in range(cbox.count()):
+            if cbox.itemData(i) == spectrum_id:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                break
+
+    def accept_plugin_spectrum_chooser(self) -> Optional[Spectrum]:
+        self.app_state._plugin_spectrum_chooser_dialog.accept()
+        spectrum = self.app_state._plugin_spectrum_chooser_dialog.get_chosen_object()
+        return spectrum
+
+    @run_in_wiser_decorator
+    def reject_plugin_spectrum_chooser(self) -> None:
+        self.app_state._plugin_spectrum_chooser_dialog.reject()
+        # We expect this to be none here
+        none_ = self.app_state._plugin_spectrum_chooser_dialog.get_chosen_object()
+        return none_
+
+    def open_plugin_roi_chooser(self):
+        self.app_state.choose_roi_ui(in_test_mode=True)
+
+    @run_in_wiser_decorator
+    def select_plugin_roi(self, roi_id: int):
+        roi_chooser_dialog = self.app_state._plugin_roi_chooser_dialog
+        cbox = roi_chooser_dialog._cbox
+        for i in range(cbox.count()):
+            if cbox.itemData(i) == roi_id:
+                cbox.setCurrentIndex(i)
+                cbox.activated.emit(i)
+                break
+
+    def accept_plugin_roi_chooser(self) -> Optional[RegionOfInterest]:
+        self.app_state._plugin_roi_chooser_dialog.accept()
+        roi = self.app_state._plugin_roi_chooser_dialog.get_chosen_object()
+        return roi
+
+    @run_in_wiser_decorator
+    def reject_plugin_roi_chooser(self) -> None:
+        self.app_state._plugin_roi_chooser_dialog.reject()
+        # We expect this to be none here
+        none_ = self.app_state._plugin_roi_chooser_dialog.get_chosen_object()
+        return none_
+
+    @run_in_wiser_decorator
+    def open_plugin_band_chooser(self):
+        self.app_state.choose_band_ui(in_test_mode=True)
+
+    @run_in_wiser_decorator
+    def select_plugin_band(self, dataset: RasterDataSet, band_idx: int):
+        band_chooser_dialog = self.app_state._plugin_band_chooser_dialog
+        cbox_dataset = band_chooser_dialog._cbox_dataset
+        for i in range(cbox_dataset.count()):
+            if cbox_dataset.itemData(i) == dataset.get_id():
+                cbox_dataset.setCurrentIndex(i)
+                cbox_dataset.activated.emit(i)
+                break
+
+        cbox_band = band_chooser_dialog._cbox_band
+        for i in range(cbox_band.count()):
+            if cbox_band.itemData(i) == band_idx:
+                cbox_band.setCurrentIndex(i)
+                cbox_band.activated.emit(i)
+                break
+
+    def accept_plugin_band_chooser(self) -> Optional[RasterDataBand]:
+        self.app_state._plugin_band_chooser_dialog.accept()
+        band = self.app_state._plugin_band_chooser_dialog.get_chosen_object()
+        return band
+
+    @run_in_wiser_decorator
+    def reject_plugin_band_chooser(self) -> None:
+        self.app_state._plugin_band_chooser_dialog.reject()
+        # We expect this to be none here
+        none_ = self.app_state._plugin_band_chooser_dialog.get_chosen_object()
+        return none_
 
     # ==========================================
     # region General
