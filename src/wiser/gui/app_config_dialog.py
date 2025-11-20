@@ -327,17 +327,29 @@ class AppConfigDialog(QDialog):
         self._ui.gbox_plugin_paths.setVisible(should_show)
 
     def _on_add_plugin_by_file(self, checked=False):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Plugin File",
-            "",
-            "Python Files (*.py);;All Files (*)",
-        )
+        try:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Plugin File",
+                "",
+                "Python Files (*.py);;All Files (*)",
+            )
 
-        if not file_path:
-            return
+            if not file_path:
+                return
 
-        self._load_plugin_from_file(file_path)
+            self._load_plugin_from_file(file_path)
+            QMessageBox.information(
+                self,
+                self.tr("Plugin Added"),
+                self.tr("Your plugin was successfully added!"),
+            )
+        except RuntimeError as e:
+            QMessageBox.warning(
+                self,
+                self.tr("Failed To Add Plugin"),
+                self.tr(f"Could not add your plugin!\nReceived Error:\n\n{e}"),
+            )
 
     def _load_plugin_from_file(self, file_path: str) -> Tuple[List[Dict], str]:
         """
