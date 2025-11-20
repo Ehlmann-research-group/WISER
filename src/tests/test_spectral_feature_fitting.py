@@ -39,12 +39,15 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         test_ref_arr = np.array([300, 200, 100, 400, 500])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sff_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 600 * u.nm
+        score = sff_tool.compute_score(
+            target=target_spectrum,
+            ref=test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sff_tool._min_wavelength = 100 * u.nm
-        sff_tool._max_wavelength = 600 * u.nm
-        score = sff_tool.compute_score(test_ref_spectrum)
         rmse = score[0]
         scale = score[1]["scale"]
         self.assertTrue(np.isclose(rmse, 0, atol=1e-5))
@@ -57,12 +60,15 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         test_ref_arr = np.array([800, 400, 000, 400, 800])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sff_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sff_tool.compute_score(
+            target=target_spectrum,
+            ref=test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sff_tool._min_wavelength = 100 * u.nm
-        sff_tool._max_wavelength = 500 * u.nm
-        score = sff_tool.compute_score(test_ref_spectrum)
         rmse = score[0]
         scale = score[1]["scale"]
         self.assertTrue(np.isclose(rmse, 0, atol=1e-5))
@@ -82,12 +88,15 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             0.5 * u.um,
         ]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sff_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sff_tool.compute_score(
+            target=target_spectrum,
+            ref=test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sff_tool._min_wavelength = 100 * u.nm
-        sff_tool._max_wavelength = 500 * u.nm
-        score = sff_tool.compute_score(test_ref_spectrum)
         rmse = score[0]
         scale = score[1]["scale"]
         self.assertTrue(np.isclose(rmse, 0, atol=1e-5))
@@ -116,12 +125,15 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             0.6 * u.um,
         ]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sff_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sff_tool.compute_score(
+            target=target_spectrum,
+            ref=test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sff_tool._min_wavelength = 100 * u.nm
-        sff_tool._max_wavelength = 500 * u.nm
-        score = sff_tool.compute_score(test_ref_spectrum)
         rmse = score[0]
         scale = score[1]["scale"]
         self.assertTrue(np.isclose(rmse, 0, atol=1e-5))
@@ -150,12 +162,15 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             0.6 * u.um,
         ]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sff_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sff_tool.compute_score(
+            target=target_spectrum,
+            ref=test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sff_tool._min_wavelength = 100 * u.nm
-        sff_tool._max_wavelength = 500 * u.nm
-        score = sff_tool.compute_score(test_ref_spectrum)
         rmse = score[0]
         scale = score[1]["scale"]
         # Got these values by hand

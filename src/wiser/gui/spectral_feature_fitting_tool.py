@@ -18,7 +18,6 @@ class SFFTool(GenericSpectralComputationTool):
     SCORE_HEADER = "Fit RMS"
     THRESHOLD_HEADER = "Initial RMSE"
     THRESHOLD_SPIN_CONFIG = dict(min=0.0, max=1.0, decimals=4, step=0.005)
-    SPEC_THRESHOLD_ATTR = "_sff_max_rms"
 
     def __init__(self, app_state: ApplicationState, parent=None):
         self._max_rms: float = 0.03  # metric-specific name as requested
@@ -104,14 +103,25 @@ class SFFTool(GenericSpectralComputationTool):
         cr = y / cont
         return 1.0 - cr
 
-    # compute SFF RMS + scale between self._target and ref
-    def compute_score(self, ref: NumPyArraySpectrum) -> Tuple[float, Dict[str, Any]]:
-        if self._target is None:
-            raise RuntimeError("compute_score called without a target set")
-
+    # compute SFF RMS + scale between target and ref
+    def compute_score(
+        self,
+        target: NumPyArraySpectrum,
+        ref: NumPyArraySpectrum,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
+    ) -> Tuple[float, Dict[str, Any]]:
         MIN_SAMPLES = 3
-        t_reflect, t_wls = self._slice_to_bounds(self._target)
-        r_reflect, r_wls = self._slice_to_bounds(ref)
+        t_reflect, t_wls = self._slice_to_bounds(
+            spectrum=target,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
+        r_reflect, r_wls = self._slice_to_bounds(
+            spectrum=ref,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
 
         t_x = t_wls.value
         r_x = r_wls.value

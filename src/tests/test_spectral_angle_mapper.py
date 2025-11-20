@@ -47,12 +47,15 @@ class TestSpectralAngleMapper(unittest.TestCase):
         test_ref_arr = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sam_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sam_tool.compute_score(
+            target_spectrum,
+            test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sam_tool._min_wavelength = 100 * u.nm
-        sam_tool._max_wavelength = 500 * u.nm
-        score = sam_tool.compute_score(test_ref_spectrum)
         self.assertTrue(np.isclose(score[0], 0.0, atol=1e-5))
 
     def test_spectral_angle_mapper_different_spectrum_same_angle(self):
@@ -62,12 +65,15 @@ class TestSpectralAngleMapper(unittest.TestCase):
         test_ref_arr = np.array([0.2, 0.4, 0.6, 0.8, 1.0])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sam_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sam_tool.compute_score(
+            target_spectrum,
+            test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sam_tool._min_wavelength = 100 * u.nm
-        sam_tool._max_wavelength = 500 * u.nm
-        score = sam_tool.compute_score(test_ref_spectrum)
         self.assertTrue(np.isclose(score[0], 0.0, atol=1e-5))
 
     def test_spectral_angle_mapper_different_spectrum_different_angle(self):
@@ -77,12 +83,15 @@ class TestSpectralAngleMapper(unittest.TestCase):
         test_ref_arr = np.array([0.2, 0.4, 1, 0.8, 1])
         test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sam_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sam_tool.compute_score(
+            target_spectrum,
+            test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sam_tool._min_wavelength = 100 * u.nm
-        sam_tool._max_wavelength = 500 * u.nm
-        score = sam_tool.compute_score(test_ref_spectrum)
         angle = self.angle_between(test_target_arr, test_ref_arr * 1000)
         self.assertTrue(np.isclose(score[0], angle, rtol=1e-5))
 
@@ -109,12 +118,15 @@ class TestSpectralAngleMapper(unittest.TestCase):
             0.6 * u.um,
         ]
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
-        sam_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sam_tool.compute_score(
+            target_spectrum,
+            test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
         )
-        sam_tool._min_wavelength = 100 * u.nm
-        sam_tool._max_wavelength = 500 * u.nm
-        score = sam_tool.compute_score(test_ref_spectrum)
         angle = self.angle_between(test_target_arr[1:-1], test_ref_arr[1:-1] * 1000)
         self.assertTrue(np.isclose(score[0], angle, rtol=1e-5))
 
@@ -131,9 +143,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             500 * u.nm,
             600 * u.nm,
         ]
-        sam_tool._target = NumPyArraySpectrum(
-            test_target_arr, name="test_target", wavelengths=test_target_wls
-        )
+        target_spectrum = NumPyArraySpectrum(test_target_arr, name="test_target", wavelengths=test_target_wls)
 
         # Create reference spectrum
         test_ref_arr = np.array([10, 0.2, 0.3, 0.4, 1, 0.8, 1, 10])
@@ -150,8 +160,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
         test_ref_spectrum = NumPyArraySpectrum(test_ref_arr, name="test_ref", wavelengths=test_ref_wls)
 
         # Set min and max wavelengths
-        sam_tool._min_wavelength = 100 * u.nm
-        sam_tool._max_wavelength = 500 * u.nm
-        score = sam_tool.compute_score(test_ref_spectrum)
+        min_wvl = 100 * u.nm
+        max_wvl = 500 * u.nm
+        score = sam_tool.compute_score(
+            target_spectrum,
+            test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
         angle_truth = 12.536956571873665
         self.assertTrue(np.isclose(score[0], angle_truth, rtol=1e-5))

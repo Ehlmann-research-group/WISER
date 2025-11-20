@@ -18,7 +18,6 @@ class SAMTool(GenericSpectralComputationTool):
     SCORE_HEADER = "Angle (°)"
     THRESHOLD_HEADER = "Initial Angle (°)"
     THRESHOLD_SPIN_CONFIG = dict(min=0.0, max=180.0, decimals=2, step=1.0)
-    SPEC_THRESHOLD_ATTR = "_sam_threshold"
 
     def __init__(self, app_state: ApplicationState, parent=None):
         self._threshold: float = 5.0  # metric-specific name as requested
@@ -61,13 +60,24 @@ class SAMTool(GenericSpectralComputationTool):
         return interp_fn(x_dst)
 
     # compute spectral angle between target and ref in degrees
-    def compute_score(self, ref: NumPyArraySpectrum) -> Tuple[float, Dict[str, Any]]:
-        if self._target is None:
-            raise RuntimeError("compute_score called without a target set")
-
+    def compute_score(
+        self,
+        target: NumPyArraySpectrum,
+        ref: NumPyArraySpectrum,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
+    ) -> Tuple[float, Dict[str, Any]]:
         MIN_SAMPLES = 3
-        t_arr, t_wls = self._slice_to_bounds(self._target)
-        r_arr, r_wls = self._slice_to_bounds(ref)
+        t_arr, t_wls = self._slice_to_bounds(
+            spectrum=target,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
+        r_arr, r_wls = self._slice_to_bounds(
+            spectrum=ref,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
 
         t_x = t_wls.value
         r_x = r_wls.value
