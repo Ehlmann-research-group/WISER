@@ -55,7 +55,7 @@ class SAMTool(GenericSpectralComputationTool):
         Returns NaNs when insufficient data or invalid inputs are detected.
         """
         if x_src.size < 2 or np.all(~np.isfinite(y_src)):
-            return np.full_like(x_dst, np.nan, dtype=float)
+            return np.full_like(x_dst, np.nan, dtype=float)  # TODO (Joshua G-K) Raise error instead
         interp_fn = interp1d(x_src, y_src, bounds_error=False, fill_value="extrapolate")
         return interp_fn(x_dst)
 

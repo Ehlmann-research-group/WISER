@@ -1,7 +1,7 @@
 # Generic shared logic for spectral computations (parent class)
 from __future__ import annotations
 
-from typing import List, Optional, Dict, Any, Tuple, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, Tuple, TYPE_CHECKING, Union
 import os
 import warnings
 import numpy as np
@@ -27,6 +27,7 @@ from astropy import units as u
 from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
+from wiser.raster.dataset import RasterDataSet
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.generated.generic_spectral_computation_ui import (
@@ -46,7 +47,7 @@ DEFAULT_NO_DATASETS_TEXT = "No image cubes loaded"
 class SpectralComputationInputs:
     def __init__(
         self,
-        target: NumPyArraySpectrum,
+        target: Union[NumPyArraySpectrum, "RasterDataSet"],
         mode: str,
         refs: List[NumPyArraySpectrum],
         thresholds: List[float],
@@ -57,7 +58,7 @@ class SpectralComputationInputs:
     ):
         assert len(refs) == len(thresholds), "Number of refs and thresholds must me equal!"
         self.target = target
-        self.mode = mode
+        self.mode = mode  # Either 'Spectrum' or 'Image Cube'
         self.refs = refs
         self.thresholds = thresholds
         self.global_thr = global_thr
@@ -546,32 +547,84 @@ class GenericSpectralComputationTool(QDialog):
         """Child must implement. Return (score, extras_dict). NaN to skip."""
         raise NotImplementedError
 
-    def find_matches(self, spectral_inputs: SpectralComputationInputs) -> List[Dict[str, Any]]:
+    def find_matches(self, spectral_inputs: SpectralComputationInputs) -> Optional[List[Dict[str, Any]]]:
         matches: List[Dict[str, Any]] = []
         target = spectral_inputs.target
         min_wvl = spectral_inputs.min_wvl
         max_wvl = spectral_inputs.max_wvl
         lib_name_by_spec_id = spectral_inputs.lib_name_by_spec_id
+        references = spectral_inputs.refs
+        mode = spectral_inputs.mode
+        """
+        If the mode is 'Image Cube' we return None and instead add the dataset to the app
+        """
+        """
+        Preprocess for image_arr:
+            - Get target spec array
+            - Get image_cube arr
+            - Extract wavelength unit from image_cube, convert min and max wvl to image_cube unit
+            - then use dimensionless to slice  in bounds
+            - Interpolate target arr based on image_cube. Target arr should be in image_cube units
+            - In parallel do compute_score on each spectra
+        
+        """
 
-        for spec, row_thr in zip(spectral_inputs.refs, spectral_inputs.thresholds):
-            score, extras = self.compute_score(spectral_inputs.target, spec, min_wvl, max_wvl)
-            if not np.isfinite(score):
-                continue
-            if score <= row_thr:  # shared convention: lower score is better, pass if <= threshold
-                matches.append(
-                    {
-                        "target_name": target.get_name(),
-                        "reference_data": spec.get_name(),
-                        "library_name": lib_name_by_spec_id.get(spec.get_id(), ""),
-                        "score": float(score),
-                        "threshold": float(row_thr),
-                        "min_wavelength": min_wvl,
-                        "max_wavelength": max_wvl,
-                        "ref_obj": spec,
-                        **extras,
-                    }
-                )
-        return matches
+        if mode == "Spectrum":
+            assert isinstance(target, NumPyArraySpectrum)
+            for spec, row_thr in zip(spectral_inputs.refs, spectral_inputs.thresholds):
+                score, extras = self.compute_score(spectral_inputs.target, spec, min_wvl, max_wvl)
+                if not np.isfinite(score):
+                    continue
+                if score <= row_thr:  # shared convention: lower score is better, pass if <= threshold
+                    matches.append(
+                        {
+                            "target_name": target.get_name(),
+                            "reference_data": spec.get_name(),
+                            "library_name": lib_name_by_spec_id.get(spec.get_id(), ""),
+                            "score": float(score),
+                            "threshold": float(row_thr),
+                            "min_wavelength": min_wvl,
+                            "max_wavelength": max_wvl,
+                            "ref_obj": spec,
+                            **extras,
+                        }
+                    )
+            return matches
+        else:
+            """
+            Preprocess v2:
+            - Get image_cube arr
+            - Get units of image_cube
+            - Convert all references to units of image_cube and min and max wvl
+            - Get wavelengths of image cube
+            - Convert wavelength units of each reference to wavelength units of image cube
+            - Convert wavelengths of each reference to wavelengths of image cube
+            - In Numba, pass in: image cube, image cube wavelengths, reference spec, ref spec wavelengths
+                all in the units of image cube
+                - Slice image cube to bounds, then make read only
+                - For each ref spec
+                    - Slice it to bounds
+                    - Resample it
+                    - Perform operation on each in parallel
+            """
+            assert isinstance(target, RasterDataSet)
+            target_unit = target.get_band_unit()
+            print(f"unit: {target_unit}")
+            new_min_wvl = min_wvl.to(target_unit)
+            new_max_wvl = max_wvl.to(target_unit)
+            print(f"old min_wvl: {min_wvl}, old max_wvl: {max_wvl}")
+            print(f"new min_wvl: {new_min_wvl}, new max_wvl: {new_max_wvl}")
+            length_all_references = 0
+            ref_offsets = [0]
+            # We are using an offset array to package all of the references into
+            # with offsets
+            for ref in references:
+                length_of_ref = ref.get_shape()[0]
+                length_all_references += length_of_ref
+                ref_offsets.append(ref_offsets[-1] + length_of_ref)
+                print(f"shape: {ref.get_shape()}")
+            # new_references = np.ndarray()
+            return None
 
     def sort_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return sorted(matches, key=lambda rec: rec["score"]) if matches else []
@@ -588,27 +641,28 @@ class GenericSpectralComputationTool(QDialog):
                 self._show_message("warning", "Invalid input", str(e))
                 raise e
             print(f"spectral_inputs.mode = {spectral_inputs.mode}")
-            if spectral_inputs.mode == "Spectrum":
-                try:
-                    matches = self.find_matches(spectral_inputs)
-                    sorted_matches = self.sort_matches(matches)
-                except Exception as e:
-                    import traceback
+            try:
+                matches = self.find_matches(spectral_inputs)
+                if matches is None:
+                    return
+                sorted_matches = self.sort_matches(matches)
+            except Exception as e:
+                import traceback
 
-                    self._show_message("error", "Error during run", str(e), details=traceback.format_exc())
-                    raise e
+                self._show_message("error", "Error during run", str(e), details=traceback.format_exc())
+                raise e
 
-                if sorted_matches:
-                    self._record_run(spectral_inputs, sorted_matches)
-                    self._view_details_dialog(sorted_matches, spectral_inputs.target)
-                else:
-                    self._show_message(
-                        "info",
-                        "No matches found",
-                        "No matches were found within the threshold.",
-                        informative=f"Threshold: {self._ui.method_threshold.value()}, "
-                        f"Range: {spectral_inputs.min_wvl} - {spectral_inputs.max_wvl}",
-                    )
+            if sorted_matches:
+                self._record_run(spectral_inputs, sorted_matches)
+                self._view_details_dialog(sorted_matches, spectral_inputs.target)
+            else:
+                self._show_message(
+                    "info",
+                    "No matches found",
+                    "No matches were found within the threshold.",
+                    informative=f"Threshold: {self._ui.method_threshold.value()}, "
+                    f"Range: {spectral_inputs.min_wvl} - {spectral_inputs.max_wvl}",
+                )
 
         finally:
             QApplication.restoreOverrideCursor()
