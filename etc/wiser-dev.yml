@@ -30,6 +30,7 @@ dependencies:
 - pytest=8.4.1
 - qt-main=5.15.15
 - scipy=1.13.1
+- scikit-learn=1.6.1
 - setuptools=75.8.0
 - sphinx=7.4.7
 - sphinx-autodoc2=0.5.*
