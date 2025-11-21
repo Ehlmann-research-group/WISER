@@ -247,7 +247,7 @@ def compute_PCA_on_image(
 
     if isinstance(image_arr, np.ma.MaskedArray):
         # It is possible for the masked array to not have a mask
-        if image_arr.mask:
+        if image_arr.mask is not np.ma.nomask:
             mask_1d = ~np.all(image_arr.mask == True, axis=1)  # noqa: E712
             image_arr = image_arr.data[mask_1d, :]
             coords = coords[mask_1d, :]
