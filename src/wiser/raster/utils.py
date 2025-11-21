@@ -246,11 +246,13 @@ def compute_PCA_on_image(
     coords = coords.reshape((coords.shape[0] * coords.shape[1], coords.shape[2]))
 
     if isinstance(image_arr, np.ma.MaskedArray):
-        mask_1d = ~np.all(image_arr.mask == True, axis=1)  # noqa: E712
-        image_arr = image_arr.data[mask_1d, :]
-        coords = coords[mask_1d, :]
-        if not np.isfinite(image_arr).all():
-            raise ValueError("Array contains a non-numeric value after cleaning!")
+        # It is possible for the masked array to not have a mask
+        if image_arr.mask:
+            mask_1d = ~np.all(image_arr.mask == True, axis=1)  # noqa: E712
+            image_arr = image_arr.data[mask_1d, :]
+            coords = coords[mask_1d, :]
+            if not np.isfinite(image_arr).all():
+                raise ValueError("Array contains a non-numeric value after cleaning!")
 
     pca = PCA(n_components=num_components)
 
