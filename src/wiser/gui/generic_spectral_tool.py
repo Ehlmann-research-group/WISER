@@ -5,6 +5,8 @@ from typing import List, Optional, Dict, Any, Tuple, TYPE_CHECKING, Union
 import os
 import warnings
 import numpy as np
+from numba import njit, prange, types
+from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 from PySide2.QtWidgets import (
     QDialog,
@@ -28,12 +30,19 @@ from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.loader import RasterDataLoader
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.generated.generic_spectral_computation_ui import (
     Ui_GenericSpectralComputation,
 )  # generated from .ui
-from .util import populate_combo_box_with_units, StateChange
+from .util import (
+    populate_combo_box_with_units,
+    StateChange,
+    interp1d_monotonic_numba,
+    slice_to_bounds_1D_numba,
+    slice_to_bounds_3D_numba,
+)
 
 from wiser.config import FLAGS
 
@@ -65,6 +74,200 @@ class SpectralComputationInputs:
         self.min_wvl = min_wvl
         self.max_wvl = max_wvl
         self.lib_name_by_spec_id = lib_name_by_spec_id
+
+
+compute_score_image_sig = types.float32[:, :, :](
+    types.float32[:, :, :],  # target_image_arr
+    types.float32[:],  # target_wavelengths
+    types.boolean[:],  # target_bad_bands
+    types.float32,  # min_wvl
+    types.float32,  # max_wvl
+    types.float32[:],  # reference_spectra
+    types.float32[:],  # reference_spectra_wvls
+    types.boolean[:],  # reference_spectra_bad_bands
+    types.uint32[:],  # reference_spectra_indices
+)
+
+
+def dot3d(a, b):
+    return np.dot(a, b)
+
+
+dot3d_sig = types.float32[:, :](types.float32[:, :, :], types.float32[:])
+
+
+@numba_njit_wrapper(
+    non_njit_func=dot3d,
+    signature=dot3d_sig,
+)
+def dot3d_numba(a, b):
+    """
+    Dot product of a 3D array of shape (y, x, b)
+    and a 1D array of shape (b,). Returns a 2D array.
+    """
+    y = a.shape[0]
+    x = a.shape[1]
+    nb = a.shape[2]
+
+    out = np.empty((y, x), dtype=np.float32)
+
+    for i in prange(y):
+        for j in range(x):
+            s = 0.0
+            for k in range(nb):
+                s += a[i, j, k] * b[k]
+            out[i, j] = s
+
+    return out
+
+
+def compute_score_image_python(
+    target_image_arr: np.ndarray,  # float32[:, :, :]
+    target_wavelengths: np.ndarray,  # float32[:]
+    target_bad_bands: np.ndarray,  # bool[:]
+    min_wvl: np.float32,  # float32
+    max_wvl: np.float32,  #   float32
+    reference_spectra: np.ndarray,  # float32 [:]
+    reference_spectra_wvls: np.ndarray,  # float32 [:], in target_image_arr units
+    reference_spectra_bad_bands: np.ndarray,  # bool[:]
+    reference_spectra_indices: np.ndarray,  # uint32[:]
+):
+    return
+
+
+@numba_njit_wrapper(
+    non_njit_func=compute_score_image_python,
+    signature=compute_score_image_sig,
+    parallel=True,
+)
+def compute_score_image(
+    target_image_arr: np.ndarray,  # float32[:, :, :]
+    target_wavelengths: np.ndarray,  # float32[:]
+    target_bad_bands: np.ndarray,  # bool[:]
+    min_wvl: np.float32,  # float32
+    max_wvl: np.float32,  #   float32
+    reference_spectra: np.ndarray,  # float32 [:]
+    reference_spectra_wvls: np.ndarray,  # float32 [:], in target_image_arr units
+    reference_spectra_bad_bands: np.ndarray,  # bool[:]
+    reference_spectra_indices: np.ndarray,  # uint32[:]
+):
+    """ """
+
+    # Slice image cube to bounds w/ min_wvl and max_wvl
+
+    """
+    Get out bad bands. We are going to be interpolating our reference
+    spectra to match our target image cube. So we will need to do the interpolation on the
+    reference spectra after getting rid of the bad bands. So we may have 
+    [0, 100, 200, 500, 600]
+    then we would interpolate to whatever the target is, lets say
+    [0, 50, 150, 250, 350, 450, 550, 650]. The question is should we use the values
+    between 200 and 500 from our refernce array. Probably not. So we would need 
+    to get rid of those values in the after interpolation array. Now we have 
+    a reference array after interpolation and after getting rid of the reference
+    array's bad bands. Now we need to get rid of the bad bands for the image
+    cube in the target_image_arr and the reference array.
+
+    """
+    if (
+        reference_spectra_wvls.shape[0] != reference_spectra_bad_bands.shape[0]
+        or reference_spectra.shape[0] != reference_spectra_wvls.shape[0]
+    ):
+        raise ValueError("Shape mismatch in reference spectra and wavelengths/bad bands.")
+
+    # print(f"1")
+    target_image_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_3D_numba(
+        target_image_arr,
+        target_wavelengths,
+        target_bad_bands,
+        min_wvl,
+        max_wvl,
+    )
+    target_image_arr_sliced = target_image_arr_sliced[target_bad_bands_sliced, :, :]
+    if not np.isfinite(target_image_arr_sliced).all():
+        raise ValueError("Target image array is not finite after cleaning")
+    if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
+        raise ValueError("Reference spectra array is not finite")
+    # print(f"2")
+    # print(f"type target_bad_bands: {target_bad_bands.dtype}")
+    # print(f"type ref_bad bands: {reference_spectra_bad_bands.dtype}")
+    # print(f"target_image_arr_sliced.shape: {target_image_arr_sliced.shape}")
+    # print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
+    # print(f"target_bad_bands_sliced.shape: {target_bad_bands_sliced.shape}")
+    num_spectra = reference_spectra_indices.shape[0] - 1
+    out = np.empty(
+        (
+            num_spectra,
+            target_image_arr_sliced.shape[1],
+            target_image_arr_sliced.shape[2],
+        ),
+        dtype=np.float32,
+    )
+
+    target_image_arr_norm = target_image_arr_norm = np.sqrt(
+        (target_image_arr_sliced * target_image_arr_sliced).sum(axis=0)
+    )
+    target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))
+    # print(f"shape of target_image_arr_norm: {target_image_arr_norm.shape}")
+
+    for i in prange(reference_spectra_indices.shape[0] - 1):
+        # print(f"i iteration: {i}")
+        start = reference_spectra_indices[i]
+        end = reference_spectra_indices[i + 1]
+        ref_spectrum = reference_spectra[start:end]
+        ref_wvls = reference_spectra_wvls[start:end]
+        ref_bad_bands = reference_spectra_bad_bands[start:end]
+        # print(f"i: 1")
+        ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+            ref_spectrum,
+            ref_wvls,
+            ref_bad_bands,
+            min_wvl,
+            max_wvl,
+        )
+        # print(f"i: 2")
+        if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
+            ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
+        ):
+            ref_spectrum_interp = ref_spectrum_sliced
+            # print(f"i: 3.1")
+        else:
+            ref_spectrum_interp = interp1d_monotonic_numba(
+                ref_wvls_sliced,
+                ref_spectrum_sliced,
+                target_wvls_sliced,
+            )
+            # print(f"i: 3.2")
+
+        ref_spectrum_good_bands = ref_spectrum_interp[target_bad_bands_sliced]
+
+        ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
+
+        denom = target_image_arr_norm * ref_spec_norm
+        # print(f"shape of target_image_arr_norm: {target_image_arr_norm.shape}")
+        # print(f"ref_spectrum_good_bands.shape: {ref_spectrum_good_bands.shape}")
+
+        # dot_prod_out = np.empty(
+        #     (target_image_arr_sliced.shape[0], target_image_arr_sliced.shape[1]),
+        #     dtype=np.float32,
+        # )
+
+        # np.dot(target_image_arr_sliced, ref_spectrum_good_bands, out=dot_prod_out)
+        dot_prod_out = dot3d_numba(target_image_arr_sliced, ref_spectrum_good_bands)
+        cosang = np.clip(
+            dot_prod_out / denom,
+            -1.0,
+            1.0,
+        )
+        # print(f"cosang.shape: {cosang.shape}")
+        out[i, :, :] = np.degrees(np.arccos(cosang))
+
+        # print(f"ref_spectrum_final: {ref_spectrum_good_bands.shape}")
+
+        # TODO (Joshua G-K) Write a fast way to incorporate the reference
+        # spectrum's bad bands.
+
+    return out
 
 
 class GenericSpectralComputationTool(QDialog):
@@ -609,9 +812,18 @@ class GenericSpectralComputationTool(QDialog):
             """
             assert isinstance(target, RasterDataSet)
             target_unit = target.get_band_unit()
+            target_image_cube = target.get_image_data()  # [b][y][x]
+            # Get the wavelenghts in the unit of the dataset
+            target_wavelengths = [b["wavelength"].to(target_unit).value for b in target.get_band_info()]
+            target_wavelengths = np.array(target_wavelengths, dtype=np.float32)
+            target_bad_bands = np.array(target.get_bad_bands()).astype(
+                np.bool_
+            )  # 1's correspond for bands we keep, 0's don't
             print(f"unit: {target_unit}")
             new_min_wvl = min_wvl.to(target_unit)
+            new_min_wvl = np.float32(new_min_wvl.value)
             new_max_wvl = max_wvl.to(target_unit)
+            new_max_wvl = np.float32(new_max_wvl.value)
             print(f"old min_wvl: {min_wvl}, old max_wvl: {max_wvl}")
             print(f"new min_wvl: {new_min_wvl}, new max_wvl: {new_max_wvl}")
             length_all_references = 0
@@ -622,8 +834,48 @@ class GenericSpectralComputationTool(QDialog):
                 length_of_ref = ref.get_shape()[0]
                 length_all_references += length_of_ref
                 ref_offsets.append(ref_offsets[-1] + length_of_ref)
-                print(f"shape: {ref.get_shape()}")
-            # new_references = np.ndarray()
+                # print(f"shape: {ref.get_shape()}")
+
+            new_refs_arr = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
+            new_refs_wvl = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
+            new_refs_bad_bands = np.ones((length_all_references,), dtype=np.bool_)
+            i = 0
+            for ref in references:
+                ref_unit = ref.get_wavelength_units()
+                if ref_unit is None:
+                    continue
+                new_refs_arr[ref_offsets[i] : ref_offsets[i + 1]] = ref.get_spectrum()
+                wvls = [wvl.to(target_unit).value for wvl in ref.get_wavelengths()]
+                new_refs_wvl[ref_offsets[i] : ref_offsets[i + 1]] = wvls
+                i += 1
+            # new_refs_arr = np.ndarray()
+            any_nan = np.any(np.isnan(new_refs_arr))
+            print(f"any_nan?:  {any_nan}")
+            print(f"new_refs_arr.shape: {new_refs_arr.shape}")
+            print(f"new_refs_arr: {new_refs_arr}")
+            print(f"new_refs_wvls: {new_refs_wvl}")
+            print(f"Target_wavelengths.shape: {target_wavelengths.shape}")
+            print(f"target_bad_bands.shape: {target_bad_bands.shape}")
+            ref_offsets = np.array(ref_offsets, dtype=np.uint32)
+            print(f"number of refs: {len(ref_offsets)-1}")
+            out = compute_score_image(
+                target_image_arr=target_image_cube.data,
+                target_wavelengths=target_wavelengths,
+                target_bad_bands=target_bad_bands,
+                min_wvl=new_min_wvl,
+                max_wvl=new_max_wvl,
+                reference_spectra=new_refs_arr,
+                reference_spectra_wvls=new_refs_wvl,
+                reference_spectra_bad_bands=new_refs_bad_bands,
+                reference_spectra_indices=ref_offsets,
+            )
+
+            print(f"out.shape: {out.shape}")
+            loader = RasterDataLoader()
+            out_dataset = loader.dataset_from_numpy_array(out)
+            out_dataset.set_name("SAM Output Whole Image")
+            self._app_state.add_dataset(out_dataset)
+
             return None
 
     def sort_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
