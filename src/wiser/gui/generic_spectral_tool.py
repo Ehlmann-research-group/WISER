@@ -42,6 +42,7 @@ from .util import (
     interp1d_monotonic_numba,
     slice_to_bounds_1D_numba,
     slice_to_bounds_3D_numba,
+    dot3d_numba,
 )
 
 from wiser.config import FLAGS
@@ -76,51 +77,6 @@ class SpectralComputationInputs:
         self.lib_name_by_spec_id = lib_name_by_spec_id
 
 
-compute_score_image_sig = types.float32[:, :, :](
-    types.float32[:, :, :],  # target_image_arr
-    types.float32[:],  # target_wavelengths
-    types.boolean[:],  # target_bad_bands
-    types.float32,  # min_wvl
-    types.float32,  # max_wvl
-    types.float32[:],  # reference_spectra
-    types.float32[:],  # reference_spectra_wvls
-    types.boolean[:],  # reference_spectra_bad_bands
-    types.uint32[:],  # reference_spectra_indices
-)
-
-
-def dot3d(a, b):
-    return np.dot(a, b)
-
-
-dot3d_sig = types.float32[:, :](types.float32[:, :, :], types.float32[:])
-
-
-@numba_njit_wrapper(
-    non_njit_func=dot3d,
-    signature=dot3d_sig,
-)
-def dot3d_numba(a, b):
-    """
-    Dot product of a 3D array of shape (y, x, b)
-    and a 1D array of shape (b,). Returns a 2D array.
-    """
-    y = a.shape[0]
-    x = a.shape[1]
-    nb = a.shape[2]
-
-    out = np.empty((y, x), dtype=np.float32)
-
-    for i in prange(y):
-        for j in range(x):
-            s = 0.0
-            for k in range(nb):
-                s += a[i, j, k] * b[k]
-            out[i, j] = s
-
-    return out
-
-
 def compute_score_image_python(
     target_image_arr: np.ndarray,  # float32[:, :, :]
     target_wavelengths: np.ndarray,  # float32[:]
@@ -135,6 +91,19 @@ def compute_score_image_python(
     return
 
 
+compute_score_image_sig = types.float32[:, :, :](
+    types.float32[:, :, :],  # target_image_arr
+    types.float32[:],  # target_wavelengths
+    types.boolean[:],  # target_bad_bands
+    types.float32,  # min_wvl
+    types.float32,  # max_wvl
+    types.float32[:],  # reference_spectra
+    types.float32[:],  # reference_spectra_wvls
+    types.boolean[:],  # reference_spectra_bad_bands
+    types.uint32[:],  # reference_spectra_indices
+)
+
+
 @numba_njit_wrapper(
     non_njit_func=compute_score_image_python,
     signature=compute_score_image_sig,
@@ -145,7 +114,7 @@ def compute_score_image(
     target_wavelengths: np.ndarray,  # float32[:]
     target_bad_bands: np.ndarray,  # bool[:]
     min_wvl: np.float32,  # float32
-    max_wvl: np.float32,  #   float32
+    max_wvl: np.float32,  # float32
     reference_spectra: np.ndarray,  # float32 [:]
     reference_spectra_wvls: np.ndarray,  # float32 [:], in target_image_arr units
     reference_spectra_bad_bands: np.ndarray,  # bool[:]
@@ -252,7 +221,7 @@ def compute_score_image(
         #     dtype=np.float32,
         # )
 
-        # np.dot(target_image_arr_sliced, ref_spectrum_good_bands, out=dot_prod_out)
+        # dot_prod_out = np.dot(target_image_arr_sliced, ref_spectrum_good_bands)
         dot_prod_out = dot3d_numba(target_image_arr_sliced, ref_spectrum_good_bands)
         cosang = np.clip(
             dot_prod_out / denom,

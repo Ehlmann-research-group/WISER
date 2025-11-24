@@ -4,12 +4,157 @@ from __future__ import annotations
 import os
 from typing import Dict, Any, Tuple, List
 import numpy as np
+from numba import types, prange
 from scipy.interpolate import interp1d
 
 from astropy import units as u
 from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.gui.app_state import ApplicationState
 from .generic_spectral_tool import GenericSpectralComputationTool
+from wiser.utils.numba_wrapper import numba_njit_wrapper
+from .util import (
+    interp1d_monotonic_numba,
+    slice_to_bounds_3D_numba,
+    slice_to_bounds_1D_numba,
+    dot3d_numba,
+)
+from wiser.gui.permanent_plugins.continuum_removal_plugin import (
+    continuum_removal_image_numba,
+    continuum_removal_numba,
+)
+
+
+def compute_sff_image(
+    target_image_arr: np.ndarray,  # float32[:, :, :]
+    target_wavelengths: np.ndarray,  # float32[:]
+    target_bad_bands: np.ndarray,  # bool[:]
+    min_wvl: np.float32,  # float32
+    max_wvl: np.float32,  # float32
+    reference_spectra: np.ndarray,  # float32 [:]
+    reference_spectra_wvls: np.ndarray,  # float32 [:], in target_image_arr units
+    reference_spectra_bad_bands: np.ndarray,  # bool[:]
+    reference_spectra_indices: np.ndarray,  # uint32[:]
+):
+    pass
+
+
+compute_sff_image_sig = types.float32[:, :, :](
+    types.float32[:, :, :],  # target_image_arr
+    types.float32[:],  # target_wavelengths
+    types.boolean[:],  # target_bad_bands
+    types.float32,  # min_wvl
+    types.float32,  # max_wvl
+    types.float32[:],  # reference_spectra
+    types.float32[:],  # reference_spectra_wvls
+    types.boolean[:],  # reference_spectra_bad_bands
+    types.uint32[:],  # reference_spectra_indices
+)
+
+
+# @numba_njit_wrapper(
+#     non_njit_func=compute_sff_image,
+#     signature=compute_sff_image_sig,
+#     parallel=True,
+# )
+def compute_sff_image_numba(
+    target_image_arr: np.ndarray,  # float32[:, :, :]
+    target_wavelengths: np.ndarray,  # float32[:]
+    target_bad_bands: np.ndarray,  # bool[:]
+    min_wvl: np.float32,  # float32
+    max_wvl: np.float32,  # float32
+    reference_spectra: np.ndarray,  # float32 [:]
+    reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
+    reference_spectra_bad_bands: np.ndarray,  # bool[:]
+    reference_spectra_indices: np.ndarray,  # uint32[:]
+):
+    """
+    1. Slice image to range
+    2. Create output array
+    3. For each spectra. Slice it to range. Continuum remove, compute the scale and rms
+    """
+    if (
+        reference_spectra_wvls.shape[0] != reference_spectra_bad_bands.shape[0]
+        or reference_spectra.shape[0] != reference_spectra_wvls.shape[0]
+    ):
+        raise ValueError("Shape mismatch in reference spectra and wavelengths/bad bands.")
+
+    target_image_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_3D_numba(
+        target_image_arr,
+        target_wavelengths,
+        target_bad_bands,
+        min_wvl,
+        max_wvl,
+    )
+    target_image_arr_sliced = target_image_arr_sliced[target_bad_bands_sliced, :, :]
+
+    target_image_cr = np.float32(1.0) - continuum_removal_image_numba(
+        target_image_arr_sliced,
+        np.array([0] * target_image_arr_sliced.shape[0], dtype=np.bool_),
+        target_wvls_sliced[target_bad_bands],
+        np.int32(target_image_arr_sliced.shape[1]),
+        np.int32(target_image_arr_sliced.shape[2]),
+        np.int32(target_image_arr_sliced.shape[0]),
+    )
+    if not np.isfinite(target_image_arr_sliced).all():
+        raise ValueError("Target image array is not finite after cleaning")
+    if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
+        raise ValueError("Reference spectra array is not finite")
+    num_spectra = reference_spectra_indices.shape[0] - 1
+    out = np.empty(
+        (
+            num_spectra,
+            target_image_arr_sliced.shape[1],
+            target_image_arr_sliced.shape[2],
+        ),
+        dtype=np.float32,
+    )
+
+    target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))
+    for i in prange(reference_spectra_indices.shape[0] - 1):
+        start = reference_spectra_indices[i]
+        end = reference_spectra_indices[i + 1]
+        ref_spectrum = reference_spectra[start:end]
+        ref_wvls = reference_spectra_wvls[start:end]
+        ref_bad_bands = reference_spectra_bad_bands[start:end]
+
+        ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+            ref_spectrum,
+            ref_wvls,
+            ref_bad_bands,
+            min_wvl,
+            max_wvl,
+        )
+
+        # Interpolate to target wvl's spacing
+        if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
+            ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
+        ):
+            ref_spectrum_interp = ref_spectrum_sliced
+        else:
+            ref_spectrum_interp = interp1d_monotonic_numba(
+                ref_wvls_sliced,
+                ref_spectrum_sliced,
+                target_wvls_sliced,
+            )
+
+        ref_spectrum_good_bands = ref_spectrum_interp[target_bad_bands_sliced]
+        wvls_sliced_good_bands = target_wvls_sliced[target_bad_bands_sliced]
+
+        # Continuum remove and invert
+        ref_spectrum_cr, _ = continuum_removal_numba(
+            ref_spectrum_good_bands,
+            wvls_sliced_good_bands,
+        )
+        ref_spectrum_cr = np.float32(1.0) - ref_spectrum_cr
+
+        num = dot3d_numba(target_image_cr, ref_spectrum_cr)
+        denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
+
+        scale = num / denom
+        resid = target_image_cr - scale * ref_spectrum_cr
+        rms = np.sqrt(np.nanmean(resid**2))  # noqa: F841
+
+    return out
 
 
 class SFFTool(GenericSpectralComputationTool):

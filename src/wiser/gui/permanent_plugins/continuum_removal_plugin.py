@@ -328,8 +328,7 @@ def continuum_removal_image_numba(
         col = i % cols
         reflectance = image_data[row, col, :]
         reflectance[bad_bands_arr] = np.float32(np.nan)
-        # TODO (Joshua G-K) Vectorize the continuum removal function
-        continuum_removed, hull = continuum_removal_numba(reflectance, x_axis)
+        continuum_removed, _ = continuum_removal_numba(reflectance, x_axis)
         results[row, col] = continuum_removed
     results = results.copy().transpose(2, 0, 1)  # [y][x][b] -> [b][y][x]
     return results
@@ -670,7 +669,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             bad_bands_arr = np.array(dataset.get_bad_bands())
             bad_bands_arr = np.logical_not(bad_bands_arr)
         else:
-            bad_bands_arr = np.array([0] * dataset.num_bands())
+            bad_bands_arr = np.array([0] * dataset.num_bands(), dtype=np.bool_)
         bad_bands_arr = bad_bands_arr[min_band:max_band]
         new_image_data = continuum_removal_image_numba(image_data, bad_bands_arr, x_axis, rows, cols, bands)
 

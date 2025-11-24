@@ -10,7 +10,7 @@ from PySide2.QtWidgets import *
 
 import matplotlib
 import numpy as np
-from numba import types
+from numba import types, prange
 from scipy.interpolate import interp1d as _scipy_interp1d
 from PIL import Image
 import cv2
@@ -31,6 +31,39 @@ class StateChange(enum.Enum):
     ITEM_ADDED = 1
     ITEM_EDITED = 2
     ITEM_REMOVED = 3
+
+
+def dot3d(a, b):
+    return np.dot(a, b)
+
+
+dot3d_sig = types.float32[:, :](types.float32[:, :, :], types.float32[:])
+
+
+@numba_njit_wrapper(
+    non_njit_func=dot3d,
+    signature=dot3d_sig,
+)
+def dot3d_numba(a, b):
+    """
+    Dot product of a 3D array of shape (y, x, b)
+    and a 1D array of shape (b,). Returns a 2D array
+    shaped (y, x).
+    """
+    y = a.shape[0]
+    x = a.shape[1]
+    nb = a.shape[2]
+
+    out = np.empty((y, x), dtype=np.float32)
+
+    for i in prange(y):
+        for j in range(x):
+            s = 0.0
+            for k in range(nb):
+                s += a[i, j, k] * b[k]
+            out[i, j] = s
+
+    return out
 
 
 def interp1d_monotonic(x, y, x_new):
