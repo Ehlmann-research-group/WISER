@@ -35,14 +35,10 @@ from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.generated.generic_spectral_computation_ui import (
     Ui_GenericSpectralComputation,
-)  # generated from .ui
+)
 from .util import (
     populate_combo_box_with_units,
     StateChange,
-    interp1d_monotonic_numba,
-    slice_to_bounds_1D_numba,
-    slice_to_bounds_3D_numba,
-    dot3d_numba,
 )
 
 from wiser.config import FLAGS
@@ -75,168 +71,6 @@ class SpectralComputationInputs:
         self.min_wvl = min_wvl
         self.max_wvl = max_wvl
         self.lib_name_by_spec_id = lib_name_by_spec_id
-
-
-def compute_score_image_python(
-    target_image_arr: np.ndarray,  # float32[:, :, :]
-    target_wavelengths: np.ndarray,  # float32[:]
-    target_bad_bands: np.ndarray,  # bool[:]
-    min_wvl: np.float32,  # float32
-    max_wvl: np.float32,  #   float32
-    reference_spectra: np.ndarray,  # float32 [:]
-    reference_spectra_wvls: np.ndarray,  # float32 [:], in target_image_arr units
-    reference_spectra_bad_bands: np.ndarray,  # bool[:]
-    reference_spectra_indices: np.ndarray,  # uint32[:]
-):
-    return
-
-
-compute_score_image_sig = types.float32[:, :, :](
-    types.float32[:, :, :],  # target_image_arr
-    types.float32[:],  # target_wavelengths
-    types.boolean[:],  # target_bad_bands
-    types.float32,  # min_wvl
-    types.float32,  # max_wvl
-    types.float32[:],  # reference_spectra
-    types.float32[:],  # reference_spectra_wvls
-    types.boolean[:],  # reference_spectra_bad_bands
-    types.uint32[:],  # reference_spectra_indices
-)
-
-
-@numba_njit_wrapper(
-    non_njit_func=compute_score_image_python,
-    signature=compute_score_image_sig,
-    parallel=True,
-)
-def compute_score_image(
-    target_image_arr: np.ndarray,  # float32[:, :, :]
-    target_wavelengths: np.ndarray,  # float32[:]
-    target_bad_bands: np.ndarray,  # bool[:]
-    min_wvl: np.float32,  # float32
-    max_wvl: np.float32,  # float32
-    reference_spectra: np.ndarray,  # float32 [:]
-    reference_spectra_wvls: np.ndarray,  # float32 [:], in target_image_arr units
-    reference_spectra_bad_bands: np.ndarray,  # bool[:]
-    reference_spectra_indices: np.ndarray,  # uint32[:]
-):
-    """ """
-
-    # Slice image cube to bounds w/ min_wvl and max_wvl
-
-    """
-    Get out bad bands. We are going to be interpolating our reference
-    spectra to match our target image cube. So we will need to do the interpolation on the
-    reference spectra after getting rid of the bad bands. So we may have 
-    [0, 100, 200, 500, 600]
-    then we would interpolate to whatever the target is, lets say
-    [0, 50, 150, 250, 350, 450, 550, 650]. The question is should we use the values
-    between 200 and 500 from our refernce array. Probably not. So we would need 
-    to get rid of those values in the after interpolation array. Now we have 
-    a reference array after interpolation and after getting rid of the reference
-    array's bad bands. Now we need to get rid of the bad bands for the image
-    cube in the target_image_arr and the reference array.
-
-    """
-    if (
-        reference_spectra_wvls.shape[0] != reference_spectra_bad_bands.shape[0]
-        or reference_spectra.shape[0] != reference_spectra_wvls.shape[0]
-    ):
-        raise ValueError("Shape mismatch in reference spectra and wavelengths/bad bands.")
-
-    # print(f"1")
-    target_image_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_3D_numba(
-        target_image_arr,
-        target_wavelengths,
-        target_bad_bands,
-        min_wvl,
-        max_wvl,
-    )
-    target_image_arr_sliced = target_image_arr_sliced[target_bad_bands_sliced, :, :]
-    if not np.isfinite(target_image_arr_sliced).all():
-        raise ValueError("Target image array is not finite after cleaning")
-    if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
-        raise ValueError("Reference spectra array is not finite")
-    # print(f"2")
-    # print(f"type target_bad_bands: {target_bad_bands.dtype}")
-    # print(f"type ref_bad bands: {reference_spectra_bad_bands.dtype}")
-    # print(f"target_image_arr_sliced.shape: {target_image_arr_sliced.shape}")
-    # print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
-    # print(f"target_bad_bands_sliced.shape: {target_bad_bands_sliced.shape}")
-    num_spectra = reference_spectra_indices.shape[0] - 1
-    out = np.empty(
-        (
-            num_spectra,
-            target_image_arr_sliced.shape[1],
-            target_image_arr_sliced.shape[2],
-        ),
-        dtype=np.float32,
-    )
-
-    target_image_arr_norm = target_image_arr_norm = np.sqrt(
-        (target_image_arr_sliced * target_image_arr_sliced).sum(axis=0)
-    )
-    target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))
-    # print(f"shape of target_image_arr_norm: {target_image_arr_norm.shape}")
-
-    for i in prange(reference_spectra_indices.shape[0] - 1):
-        # print(f"i iteration: {i}")
-        start = reference_spectra_indices[i]
-        end = reference_spectra_indices[i + 1]
-        ref_spectrum = reference_spectra[start:end]
-        ref_wvls = reference_spectra_wvls[start:end]
-        ref_bad_bands = reference_spectra_bad_bands[start:end]
-        # print(f"i: 1")
-        ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
-            ref_spectrum,
-            ref_wvls,
-            ref_bad_bands,
-            min_wvl,
-            max_wvl,
-        )
-        # print(f"i: 2")
-        if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
-            ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
-        ):
-            ref_spectrum_interp = ref_spectrum_sliced
-            # print(f"i: 3.1")
-        else:
-            ref_spectrum_interp = interp1d_monotonic_numba(
-                ref_wvls_sliced,
-                ref_spectrum_sliced,
-                target_wvls_sliced,
-            )
-            # print(f"i: 3.2")
-
-        ref_spectrum_good_bands = ref_spectrum_interp[target_bad_bands_sliced]
-
-        ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
-
-        denom = target_image_arr_norm * ref_spec_norm
-        # print(f"shape of target_image_arr_norm: {target_image_arr_norm.shape}")
-        # print(f"ref_spectrum_good_bands.shape: {ref_spectrum_good_bands.shape}")
-
-        # dot_prod_out = np.empty(
-        #     (target_image_arr_sliced.shape[0], target_image_arr_sliced.shape[1]),
-        #     dtype=np.float32,
-        # )
-
-        # dot_prod_out = np.dot(target_image_arr_sliced, ref_spectrum_good_bands)
-        dot_prod_out = dot3d_numba(target_image_arr_sliced, ref_spectrum_good_bands)
-        cosang = np.clip(
-            dot_prod_out / denom,
-            -1.0,
-            1.0,
-        )
-        # print(f"cosang.shape: {cosang.shape}")
-        out[i, :, :] = np.degrees(np.arccos(cosang))
-
-        # print(f"ref_spectrum_final: {ref_spectrum_good_bands.shape}")
-
-        # TODO (Joshua G-K) Write a fast way to incorporate the reference
-        # spectrum's bad bands.
-
-    return out
 
 
 class GenericSpectralComputationTool(QDialog):
@@ -719,7 +553,90 @@ class GenericSpectralComputationTool(QDialog):
         """Child must implement. Return (score, extras_dict). NaN to skip."""
         raise NotImplementedError
 
+    def compute_score_image(
+        self,
+        target_image_name: str,
+        target_image_arr: np.ndarray,  # float32[:, :, :]
+        target_wavelengths: np.ndarray,  # float32[:]
+        target_bad_bands: np.ndarray,  # bool[:]
+        min_wvl: np.float32,  # float32
+        max_wvl: np.float32,  # float32
+        reference_spectra: List[NumPyArraySpectrum],
+        reference_spectra_arr: np.ndarray,  # float32 [:]
+        reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
+        reference_spectra_bad_bands: np.ndarray,  # bool[:]
+        reference_spectra_indices: np.ndarray,  # uint32[:]
+        thresholds: np.ndarray,  # float32[:]
+    ) -> None:
+        """Child must implement. Return Nothing. Load dataset into app instead."""
+        raise NotImplementedError
+
     def find_matches(self, spectral_inputs: SpectralComputationInputs) -> Optional[List[Dict[str, Any]]]:
+        """Find spectral matches for a single spectrum or an image cube.
+
+        This method operates in two modes, driven by ``spectral_inputs.mode``:
+
+        * ``"Spectrum"``: Compute a similarity score between a single target
+        spectrum and each reference spectrum. Return a list of match records
+        (one per passing reference), including metadata and any extra fields
+        from ``compute_score``.
+        * ``"Image Cube"``: Treat the target as a raster
+        dataset, compute per-pixel scores against all reference spectra
+        (via ``compute_score_image``), and attach the resulting products to
+        the application. In this mode, the method returns ``None`` and all
+        side effects are handled by the callee.
+        * Any other mode: Error
+
+        Matching uses a shared convention where **lower scores are better**,
+        and a match is accepted if ``score <= threshold``.
+
+        Args:
+            spectral_inputs (SpectralComputationInputs):
+                Container for all inputs required to perform the
+                spectral computation. Expected to provide
+
+                * ``target``: Either a :class:`NumPyArraySpectrum` (Spectrum mode)
+                or a :class:`RasterDataSet` (image mode).
+                * ``min_wvl`` / ``max_wvl``: Wavelength bounds for the comparison.
+                * ``lib_name_by_spec_id``: Mapping from reference spectrum ID to
+                library name.
+                * ``refs``: Iterable of reference spectra.
+                * ``mode``: String flag controlling behavior (e.g. ``"Spectrum"``
+                or ``"Image Cube"``).
+                * ``thresholds``: Iterable of per-reference score thresholds.
+
+        Returns:
+            Optional(List(Dict(str, Any))):
+                In ``"Spectrum"`` mode, a list of dictionaries describing each
+                reference that passes its threshold. Each dictionary includes
+
+                * ``target_name``: Name of the target spectrum.
+                * ``reference_data``: Name of the reference spectrum.
+                * ``library_name``: Library that the reference belongs to (if any).
+                * ``score``: Numeric score returned by ``compute_score``.
+                * ``threshold``: Threshold used for acceptance.
+                * ``min_wavelength`` / ``max_wavelength``: Bounds used for matching.
+                * ``ref_obj``: The reference spectrum object itself.
+                * Any additional key/value pairs returned in ``extras`` from
+                :meth:`compute_score`.
+
+                In image mode (non-``"Spectrum"``), returns ``None``. In that
+                case, the concrete subclass is responsible for consuming the
+                output of :meth:`compute_score_image` and attaching datasets
+                to the application state.
+
+        Raises:
+            AssertionError: If ``spectral_inputs.mode == "Spectrum"`` but
+                ``spectral_inputs.target`` is not a :class:`NumPyArraySpectrum`,
+                or if image mode is selected but the target is not a
+                :class:`RasterDataSet`.
+            AssertionError: If the number of thresholds does not match the
+                number of reference spectra in image mode.
+            ValueError: May be raised indirectly from lower-level routines
+                (e.g., wavelength unit conversion, array shape mismatches)
+                invoked by :meth:`compute_score` or :meth:`compute_score_image`.
+
+        """
         matches: List[Dict[str, Any]] = []
         target = spectral_inputs.target
         min_wvl = spectral_inputs.min_wvl
@@ -727,19 +644,6 @@ class GenericSpectralComputationTool(QDialog):
         lib_name_by_spec_id = spectral_inputs.lib_name_by_spec_id
         references = spectral_inputs.refs
         mode = spectral_inputs.mode
-        """
-        If the mode is 'Image Cube' we return None and instead add the dataset to the app
-        """
-        """
-        Preprocess for image_arr:
-            - Get target spec array
-            - Get image_cube arr
-            - Extract wavelength unit from image_cube, convert min and max wvl to image_cube unit
-            - then use dimensionless to slice  in bounds
-            - Interpolate target arr based on image_cube. Target arr should be in image_cube units
-            - In parallel do compute_score on each spectra
-        
-        """
 
         if mode == "Spectrum":
             assert isinstance(target, NumPyArraySpectrum)
@@ -762,52 +666,38 @@ class GenericSpectralComputationTool(QDialog):
                         }
                     )
             return matches
-        else:
-            """
-            Preprocess v2:
-            - Get image_cube arr
-            - Get units of image_cube
-            - Convert all references to units of image_cube and min and max wvl
-            - Get wavelengths of image cube
-            - Convert wavelength units of each reference to wavelength units of image cube
-            - Convert wavelengths of each reference to wavelengths of image cube
-            - In Numba, pass in: image cube, image cube wavelengths, reference spec, ref spec wavelengths
-                all in the units of image cube
-                - Slice image cube to bounds, then make read only
-                - For each ref spec
-                    - Slice it to bounds
-                    - Resample it
-                    - Perform operation on each in parallel
-            """
+        elif mode == "Image":
+            # Image mode: run per-pixel scoring against all reference spectra.
             assert isinstance(target, RasterDataSet)
             target_unit = target.get_band_unit()
             target_image_cube = target.get_image_data()  # [b][y][x]
-            # Get the wavelenghts in the unit of the dataset
+
+            # Convert dataset bad-band flags → boolean mask (True = keep).
             target_wavelengths = [b["wavelength"].to(target_unit).value for b in target.get_band_info()]
             target_wavelengths = np.array(target_wavelengths, dtype=np.float32)
             target_bad_bands = np.array(target.get_bad_bands()).astype(
                 np.bool_
             )  # 1's correspond for bands we keep, 0's don't
-            print(f"unit: {target_unit}")
+
+            # Normalize user wavelength bounds to dataset units.
             new_min_wvl = min_wvl.to(target_unit)
             new_min_wvl = np.float32(new_min_wvl.value)
             new_max_wvl = max_wvl.to(target_unit)
             new_max_wvl = np.float32(new_max_wvl.value)
-            print(f"old min_wvl: {min_wvl}, old max_wvl: {max_wvl}")
-            print(f"new min_wvl: {new_min_wvl}, new max_wvl: {new_max_wvl}")
+
+            # Build packed reference buffers (values + wavelengths).
             length_all_references = 0
             ref_offsets = [0]
-            # We are using an offset array to package all of the references into
-            # with offsets
             for ref in references:
                 length_of_ref = ref.get_shape()[0]
                 length_all_references += length_of_ref
                 ref_offsets.append(ref_offsets[-1] + length_of_ref)
-                # print(f"shape: {ref.get_shape()}")
 
             new_refs_arr = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
             new_refs_wvl = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
             new_refs_bad_bands = np.ones((length_all_references,), dtype=np.bool_)
+
+            # Copy reference spectra into packed buffers.
             i = 0
             for ref in references:
                 ref_unit = ref.get_wavelength_units()
@@ -817,35 +707,29 @@ class GenericSpectralComputationTool(QDialog):
                 wvls = [wvl.to(target_unit).value for wvl in ref.get_wavelengths()]
                 new_refs_wvl[ref_offsets[i] : ref_offsets[i + 1]] = wvls
                 i += 1
-            # new_refs_arr = np.ndarray()
-            any_nan = np.any(np.isnan(new_refs_arr))
-            print(f"any_nan?:  {any_nan}")
-            print(f"new_refs_arr.shape: {new_refs_arr.shape}")
-            print(f"new_refs_arr: {new_refs_arr}")
-            print(f"new_refs_wvls: {new_refs_wvl}")
-            print(f"Target_wavelengths.shape: {target_wavelengths.shape}")
-            print(f"target_bad_bands.shape: {target_bad_bands.shape}")
+
+            # Per-reference thresholds
+            thresholds = np.array(spectral_inputs.thresholds, dtype=np.float32)
             ref_offsets = np.array(ref_offsets, dtype=np.uint32)
-            print(f"number of refs: {len(ref_offsets)-1}")
-            out = compute_score_image(
+            assert thresholds.shape[0] == len(references)
+
+            # It's the child class's job to add the output to WISER
+            self.compute_score_image(
+                target_image_name=target.get_name(),
                 target_image_arr=target_image_cube.data,
                 target_wavelengths=target_wavelengths,
                 target_bad_bands=target_bad_bands,
                 min_wvl=new_min_wvl,
                 max_wvl=new_max_wvl,
-                reference_spectra=new_refs_arr,
+                reference_spectra=references,
+                reference_spectra_arr=new_refs_arr,
                 reference_spectra_wvls=new_refs_wvl,
                 reference_spectra_bad_bands=new_refs_bad_bands,
                 reference_spectra_indices=ref_offsets,
+                thresholds=thresholds,
             )
-
-            print(f"out.shape: {out.shape}")
-            loader = RasterDataLoader()
-            out_dataset = loader.dataset_from_numpy_array(out)
-            out_dataset.set_name("SAM Output Whole Image")
-            self._app_state.add_dataset(out_dataset)
-
-            return None
+        else:
+            raise ValueError("Spectral computation mode must be 'Spectrum' or 'Image Cube'.")
 
     def sort_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return sorted(matches, key=lambda rec: rec["score"]) if matches else []

@@ -795,7 +795,7 @@ class RasterView(QWidget):
                         band_data = arr.data
                         band_mask = arr.mask
                     stretches = [None, None]
-                    if self._stretches[i]:
+                    if i < len(self._stretches) and self._stretches[i]:
                         stretches = self._stretches[i].get_stretches()
                     new_data = make_channel_image(band_data, stretches[0], stretches[1])
 

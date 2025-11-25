@@ -4,12 +4,266 @@ from __future__ import annotations
 import os
 from typing import Dict, Any, Tuple, List
 import numpy as np
+from numba import types, prange
 from scipy.interpolate import interp1d
 from astropy import units as u
 
+from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.gui.app_state import ApplicationState
 from .generic_spectral_tool import GenericSpectralComputationTool
+from wiser.utils.numba_wrapper import numba_njit_wrapper
+from .util import (
+    interp1d_monotonic_numba,
+    slice_to_bounds_3D,
+    slice_to_bounds_3D_numba,
+    slice_to_bounds_1D,
+    slice_to_bounds_1D_numba,
+    dot3d_numba,
+)
+
+
+def compute_sam_image(
+    target_image_arr: np.ndarray,  # float32[:, :, :]
+    target_wavelengths: np.ndarray,  # float32[:]
+    target_bad_bands: np.ndarray,  # bool[:]
+    min_wvl: np.float32,  # float32
+    max_wvl: np.float32,  #   float32
+    reference_spectra: np.ndarray,  # float32 [:]
+    reference_spectra_wvls: np.ndarray,  # float32 [:], in target_image_arr units
+    reference_spectra_bad_bands: np.ndarray,  # bool[:]
+    reference_spectra_indices: np.ndarray,  # uint32[:]
+):
+    pass
+
+
+compute_sam_image_sig = types.Tuple(
+    (
+        types.boolean[:, :, :],
+        types.float32[:, :, :],
+    )
+)(
+    types.float32[:, :, :],  # target_image_arr
+    types.float32[:],  # target_wavelengths
+    types.boolean[:],  # target_bad_bands
+    types.float32,  # min_wvl
+    types.float32,  # max_wvl
+    types.float32[:],  # reference_spectra
+    types.float32[:],  # reference_spectra_wvls
+    types.boolean[:],  # reference_spectra_bad_bands
+    types.uint32[:],  # reference_spectra_indices
+    types.float32[:],
+)
+
+
+@numba_njit_wrapper(
+    non_njit_func=compute_sam_image,
+    signature=compute_sam_image_sig,
+    parallel=True,
+    cache=True,
+)
+def compute_sam_image_numba(
+    target_image_arr: np.ndarray,
+    target_wavelengths: np.ndarray,
+    target_bad_bands: np.ndarray,
+    min_wvl: np.float32,
+    max_wvl: np.float32,
+    reference_spectra: np.ndarray,
+    reference_spectra_wvls: np.ndarray,
+    reference_spectra_bad_bands: np.ndarray,
+    reference_spectra_indices: np.ndarray,
+    thresholds: np.ndarray,
+):
+    """Compute a Spectral Angle Mapper (SAM) classification and angle image using Numba.
+
+    This function computes the Spectral Angle Mapper (SAM) between each pixel in a
+    hyperspectral image and a set of reference spectra, interpolating the
+    reference spectra to match the image wavelengths. It returns both a boolean
+    classification mask (per reference spectrum) and the corresponding SAM angles
+    (in degrees).
+
+    The workflow is:
+
+    1. Slice the target image, wavelengths, and bad-band mask to the user-specified
+       wavelength range ``[min_wvl, max_wvl]``.
+    2. Remove bands marked as bad in ``target_bad_bands`` from the image.
+    3. For each reference spectrum:
+       * Slice to the same wavelength range.
+       * Optionally interpolate to match ``target_wavelengths`` if grids differ.
+       * Apply the target image's bad-band mask to the interpolated spectrum.
+       * Compute SAM:
+         - Normalize the target spectra and reference spectrum.
+         - Compute the dot product and angle (in degrees).
+       * Threshold the angle to produce a boolean classification map.
+
+    The function is intended to be JIT-compiled with Numba for efficient per-pixel
+    computation over large hyperspectral images.
+
+    Args:
+        target_image_arr (np.ndarray):
+            3D float32 array of shape ``(bands, rows, cols)`` containing the target
+            hyperspectral image data. Bands correspond to ``target_wavelengths``.
+        target_wavelengths (np.ndarray):
+            1D float32 array of shape ``(bands,)`` containing the wavelengths
+            associated with ``target_image_arr``. Must be strictly increasing.
+        target_bad_bands (np.ndarray):
+            1D boolean array of shape ``(bands,)`` indicating which bands in the
+            target image are considered bad (``True`` for bad bands). These bands
+            are removed before SAM computation.
+        min_wvl (np.float32):
+            Minimum wavelength (inclusive) of the spectral range to use, in the
+            same units as ``target_wavelengths``.
+        max_wvl (np.float32):
+            Maximum wavelength (inclusive) of the spectral range to use, in the
+            same units as ``target_wavelengths``.
+        reference_spectra (np.ndarray):
+            1D float32 array containing one or more concatenated reference spectra.
+            Individual spectra are segmented using ``reference_spectra_indices``.
+        reference_spectra_wvls (np.ndarray):
+            1D float32 array of the same length as ``reference_spectra`` giving
+            the wavelength associated with each reference spectrum sample, in the
+            same units as ``target_wavelengths``.
+        reference_spectra_bad_bands (np.ndarray):
+            1D boolean array of the same length as ``reference_spectra`` indicating
+            bad samples in the reference spectra (``True`` for bad samples).
+        reference_spectra_indices (np.ndarray):
+            1D uint32 array of shape ``(num_spectra + 1,)`` giving start and end
+            indices into ``reference_spectra`` (and companion arrays) for each
+            reference spectrum. For spectrum ``i``, the slice is
+            ``reference_spectra[reference_spectra_indices[i]:reference_spectra_indices[i+1]]``.
+        thresholds (np.ndarray):
+            1D float32 array of shape ``(num_spectra,)`` specifying SAM angle
+            thresholds (in degrees) for each reference spectrum. Angles strictly
+            less than the threshold are marked as matches in the output
+            classification mask.
+
+    Returns:
+        Tuple(np.ndarray, np.ndarray):
+            A tuple ``(out_classification, out_angle)`` where
+
+            - ``out_classification`` is a 3D boolean array of shape
+              ``(num_spectra, rows, cols)``. Element
+              ``out_classification[i, y, x]`` is ``True`` if the SAM angle between
+              pixel ``(y, x)`` and reference spectrum ``i`` is less than
+              ``thresholds[i]``.
+            - ``out_angle`` is a 3D float32 array of shape
+              ``(num_spectra, rows, cols)`` containing the SAM angle (in degrees)
+              between each pixel and each reference spectrum. Element
+              ``out_angle[i, y, x]`` is the SAM angle for pixel ``(y, x)`` and
+              reference spectrum ``i``.
+
+    Raises:
+        ValueError:
+            If the shapes of ``reference_spectra``, ``reference_spectra_wvls``, and
+            ``reference_spectra_bad_bands`` are inconsistent.
+        ValueError:
+            If ``target_image_arr_sliced`` contains non-finite values after slicing
+            and bad-band removal.
+        ValueError:
+            If any of the reference spectra entries marked as good
+            (``reference_spectra_bad_bands == False``) contain non-finite values.
+
+    Notes:
+        This function is wrapped by ``numba_njit_wrapper`` and compiled with
+        Numba's ``nopython`` mode and parallel execution enabled. When Numba is
+        not available, the non-JIT fallback function ``compute_sam_image`` is
+        used instead.
+
+    """
+    if (
+        reference_spectra_wvls.shape[0] != reference_spectra_bad_bands.shape[0]
+        or reference_spectra.shape[0] != reference_spectra_wvls.shape[0]
+    ):
+        raise ValueError("Shape mismatch in reference spectra and wavelengths/bad bands.")
+
+    # Slice the target image array, wvls, and bad bands in the bands dimension to get
+    # into the user specified range
+    target_image_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_3D_numba(
+        target_image_arr,
+        target_wavelengths,
+        target_bad_bands,
+        min_wvl,
+        max_wvl,
+    )
+    # Now slice the bad bands out of the array
+    target_image_arr_sliced = target_image_arr_sliced[target_bad_bands_sliced, :, :]
+    if not np.isfinite(target_image_arr_sliced).all():
+        raise ValueError("Target image array is not finite after cleaning")
+    if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
+        raise ValueError("Reference spectra array is not finite")
+
+    num_spectra = reference_spectra_indices.shape[0] - 1
+    out_classification = np.empty(
+        (
+            num_spectra,
+            target_image_arr_sliced.shape[1],
+            target_image_arr_sliced.shape[2],
+        ),
+        dtype=np.bool_,
+    )
+    out_angle = np.empty(
+        (
+            num_spectra,
+            target_image_arr_sliced.shape[1],
+            target_image_arr_sliced.shape[2],
+        ),
+        dtype=np.float32,
+    )
+
+    target_image_arr_norm = target_image_arr_norm = np.sqrt(
+        (target_image_arr_sliced * target_image_arr_sliced).sum(axis=0)
+    )
+    # If we change dot3d_numba we could not transpose the array here
+    target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))  # [b][y][x] -> [y][x][b]
+
+    for i in prange(reference_spectra_indices.shape[0] - 1):
+        # Extract desired spectra and slice to user specified wvl bounds
+        start = reference_spectra_indices[i]
+        end = reference_spectra_indices[i + 1]
+        ref_spectrum = reference_spectra[start:end]
+        ref_wvls = reference_spectra_wvls[start:end]
+        ref_bad_bands = reference_spectra_bad_bands[start:end]
+        # TODO (Joshua G-K): Figure out a way to use the bad bands quickly
+        ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+            ref_spectrum,
+            ref_wvls,
+            ref_bad_bands,
+            min_wvl,
+            max_wvl,
+        )
+
+        # See if we need to interpolate linearly
+        if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
+            ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
+        ):
+            ref_spectrum_interp = ref_spectrum_sliced
+        else:
+            ref_spectrum_interp = interp1d_monotonic_numba(
+                ref_wvls_sliced,
+                ref_spectrum_sliced,
+                target_wvls_sliced,
+            )
+
+        ref_spectrum_good_bands = ref_spectrum_interp[target_bad_bands_sliced]
+
+        # Compute the angle
+        ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
+
+        denom = target_image_arr_norm * ref_spec_norm
+
+        dot_prod_out = dot3d_numba(target_image_arr_sliced, ref_spectrum_good_bands)
+        cosang = np.clip(
+            dot_prod_out / denom,
+            -1.0,
+            1.0,
+        )
+        angle = np.degrees(np.arccos(cosang))
+        out_angle[i, :, :] = angle
+
+        thr = thresholds[i]
+        out_classification[i, :, :] = angle < thr
+
+    return out_classification, out_angle
 
 
 class SAMTool(GenericSpectralComputationTool):
@@ -101,3 +355,58 @@ class SAMTool(GenericSpectralComputationTool):
             angle_deg = float(np.degrees(np.arccos(cosang)))
 
         return angle_deg, {}
+
+    def compute_score_image(
+        self,
+        target_image_name: str,
+        target_image_arr: np.ndarray,  # float32[:, :, :]
+        target_wavelengths: np.ndarray,  # float32[:]
+        target_bad_bands: np.ndarray,  # bool[:]
+        min_wvl: np.float32,  # float32
+        max_wvl: np.float32,  # float32
+        reference_spectra: List[NumPyArraySpectrum],
+        reference_spectra_arr: np.ndarray,  # float32 [:]
+        reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
+        reference_spectra_bad_bands: np.ndarray,  # bool[:]
+        reference_spectra_indices: np.ndarray,  # uint32[:]
+        thresholds: np.ndarray,  # float32[:]
+    ):
+        out_classification, out_angle = compute_sam_image_numba(
+            target_image_arr,
+            target_wavelengths,
+            target_bad_bands,
+            min_wvl,
+            max_wvl,
+            reference_spectra_arr,
+            reference_spectra_wvls,
+            reference_spectra_bad_bands,
+            reference_spectra_indices,
+            thresholds,
+        )
+        loader = RasterDataLoader()
+
+        # Load in out_angle dataset
+        out_angle_dataset = loader.dataset_from_numpy_array(out_angle)
+        out_angle_dataset.set_name(
+            self._app_state.unique_dataset_name(f"SAM Angle, Img: {target_image_name}"),
+        )
+        band_descriptions = []
+
+        for i in range(0, len(reference_spectra)):
+            spectrum_name = reference_spectra[i].get_name()
+            band_descriptions.append(f"Spec: {spectrum_name}")
+
+        out_angle_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_angle_dataset)
+
+        # Load in out_classification_dataset
+        out_cls_dataset = loader.dataset_from_numpy_array(out_classification)
+        out_cls_dataset.set_name(self._app_state.unique_dataset_name(f"SAM CLS, Img: {target_image_name}"))
+
+        band_descriptions = []
+        for i in range(0, len(reference_spectra)):
+            spectrum_name = reference_spectra[i].get_name()
+            band_descriptions.append(f"Spec: {spectrum_name}")
+
+        out_cls_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_cls_dataset)

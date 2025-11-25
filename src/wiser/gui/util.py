@@ -33,6 +33,104 @@ class StateChange(enum.Enum):
     ITEM_REMOVED = 3
 
 
+def compute_resid(target_image_cr, scale, ref_spectrum_cr):
+    pass
+
+
+compute_resid_sig = types.float32[:, :, :](  # return type
+    types.float32[:, :, :],  # target_image_cr
+    types.float32[:, :],  # scale
+    types.float32[:],  # ref_spectrum_cr
+)
+
+
+@numba_njit_wrapper(
+    non_njit_func=compute_resid,
+    signature=compute_resid_sig,
+    parallel=True,
+    cache=True,
+)
+def compute_resid_numba(target_image_cr, scale2d, ref1d):
+    rows, cols, bands = target_image_cr.shape
+    out = np.empty_like(target_image_cr, dtype=np.float32)
+
+    for k in prange(bands):
+        # 2D slice of output for band k
+        for i in prange(rows):
+            for j in range(cols):
+                out[i, j, k] = target_image_cr[i, j, k] - scale2d[i, j] * ref1d[k]
+
+    return out
+
+
+def nanmean_last_axis_3d_numpy(a: np.ndarray) -> np.ndarray:
+    """
+    NumPy version: compute nanmean over the last axis of a 3D array.
+
+    Parameters
+    ----------
+    a : np.ndarray
+        3D array (will be treated as float).
+
+    Returns
+    -------
+    out : np.ndarray
+        2D array of nanmeans over the last axis.
+    """
+    # axis = -1 means "last axis"
+    return np.nanmean(a, axis=-1).astype(np.float32)
+
+
+mean3d_last_axis_sig = types.float32[:, :](types.float32[:, :, :])
+
+
+@numba_njit_wrapper(
+    non_njit_func=nanmean_last_axis_3d_numpy,
+    signature=mean3d_last_axis_sig,
+    cache=True,
+)
+def nanmean_last_axis_3d(a):
+    """
+    Compute the nanmean over the last axis (axis=2) of a 3D float32 array.
+
+    Parameters
+    ----------
+    a : float32[:, :, :]
+        Input 3D array.
+
+    Returns
+    -------
+    out : float32[:, :]
+        2D array where out[i, j] is the mean of a[i, j, :]
+        ignoring NaNs. If all values along the last axis are NaN,
+        out[i, j] will be NaN (matching np.nanmean behavior).
+    """
+    n0 = a.shape[0]
+    n1 = a.shape[1]
+    n2 = a.shape[2]
+
+    out = np.empty((n0, n1), dtype=np.float32)
+
+    for i in range(n0):
+        for j in range(n1):
+            total = 0.0
+            count = 0
+            for k in range(n2):
+                val = a[i, j, k]
+                # ignore NaNs
+                if not np.isnan(val):
+                    total += val
+                    count += 1
+
+            if count > 0:
+                out[i, j] = total / count
+            else:
+                # all-NaN slice -> NaN, like np.nanmean
+                out[i, j] = np.float32(np.nan)
+
+    return out
+
+
 def dot3d(a, b):
     return np.dot(a, b)
 
@@ -293,7 +391,7 @@ interp1d_monotonic_sig = types.float32[:](types.float32[:], types.float32[:], ty
 @numba_njit_wrapper(
     non_njit_func=interp1d_monotonic,
     signature=interp1d_monotonic_sig,
-    parallel=True,
+    cache=True,
 )
 def interp1d_monotonic_numba(x, y, x_new):
     """

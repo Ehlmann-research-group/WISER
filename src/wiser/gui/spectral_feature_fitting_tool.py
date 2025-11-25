@@ -8,6 +8,7 @@ from numba import types, prange
 from scipy.interpolate import interp1d
 
 from astropy import units as u
+from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.gui.app_state import ApplicationState
 from .generic_spectral_tool import GenericSpectralComputationTool
@@ -17,6 +18,8 @@ from .util import (
     slice_to_bounds_3D_numba,
     slice_to_bounds_1D_numba,
     dot3d_numba,
+    nanmean_last_axis_3d,
+    compute_resid_numba,
 )
 from wiser.gui.permanent_plugins.continuum_removal_plugin import (
     continuum_removal_image_numba,
@@ -38,7 +41,13 @@ def compute_sff_image(
     pass
 
 
-compute_sff_image_sig = types.float32[:, :, :](
+compute_sff_image_sig = types.Tuple(
+    (
+        types.boolean[:, :, :],
+        types.float32[:, :, :],
+        types.float32[:, :, :],
+    )
+)(
     types.float32[:, :, :],  # target_image_arr
     types.float32[:],  # target_wavelengths
     types.boolean[:],  # target_bad_bands
@@ -48,14 +57,16 @@ compute_sff_image_sig = types.float32[:, :, :](
     types.float32[:],  # reference_spectra_wvls
     types.boolean[:],  # reference_spectra_bad_bands
     types.uint32[:],  # reference_spectra_indices
+    types.float32[:],
 )
 
 
-# @numba_njit_wrapper(
-#     non_njit_func=compute_sff_image,
-#     signature=compute_sff_image_sig,
-#     parallel=True,
-# )
+@numba_njit_wrapper(
+    non_njit_func=compute_sff_image,
+    signature=compute_sff_image_sig,
+    parallel=True,
+    cache=True,
+)
 def compute_sff_image_numba(
     target_image_arr: np.ndarray,  # float32[:, :, :]
     target_wavelengths: np.ndarray,  # float32[:]
@@ -66,11 +77,66 @@ def compute_sff_image_numba(
     reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
     reference_spectra_bad_bands: np.ndarray,  # bool[:]
     reference_spectra_indices: np.ndarray,  # uint32[:]
+    thresholds: np.float32,
 ):
-    """
-    1. Slice image to range
-    2. Create output array
-    3. For each spectra. Slice it to range. Continuum remove, compute the scale and rms
+    """Compute Spectral Feature Fitting (SFF) classification for an image.
+
+    This function applies the Spectral Feature Fitting (SFF) algorithm to each
+    pixel spectrum of a hyperspectral cube using a bank of reference spectra.
+    The workflow is:
+
+    1. Slice the image cube and reference spectra to the requested wavelength range.
+    2. Remove bands marked as bad by ``target_bad_bands``.
+    3. Continuum-remove and invert both the image spectra and reference spectra.
+    4. Compute the scale factor and RMSE (residual error) between each pixel
+       spectrum and each reference spectrum.
+    5. Apply per-spectrum thresholds to generate boolean classification layers.
+
+    The computation is optimized for Numba and parallelized over the reference
+    spectra.
+
+    Args:
+        target_image_arr (np.ndarray):
+            Float32 array of shape ``(bands, rows, cols)`` representing the
+            hyperspectral image cube.
+        target_wavelengths (np.ndarray):
+            Float32 1D array of wavelength positions for the target image.
+        target_bad_bands (np.ndarray):
+            Boolean 1D mask of length ``bands`` indicating which bands to keep.
+        min_wvl (np.float32):
+            Minimum wavelength for slicing (inclusive).
+        max_wvl (np.float32):
+            Maximum wavelength for slicing (inclusive).
+        reference_spectra (np.ndarray):
+            Float32 1D array of concatenated reference spectra.
+        reference_spectra_wvls (np.ndarray):
+            Float32 1D array of wavelengths aligned with ``reference_spectra``.
+        reference_spectra_bad_bands (np.ndarray):
+            Boolean 1D mask describing bad samples in the reference spectra.
+        reference_spectra_indices (np.ndarray):
+            UInt32 1D array of segment boundaries; each pair ``[i, i+1]``
+            defines a single reference spectrum slice inside the packed array.
+        thresholds (np.ndarray):
+            Float32 1D array of RMSE thresholds, one per reference spectrum.
+
+    Returns:
+        Tuple(np.ndarray, np.ndarray, np.ndarray):
+            A tuple ``(classification, rmse, scale)`` where each element is a
+            3D array of shape ``(num_refs, rows, cols)``
+
+            * ``classification`` — boolean mask where ``True`` indicates a
+              match for the corresponding reference spectrum.
+            * ``rmse`` — float32 RMSE image for each reference spectrum.
+            * ``scale`` — float32 scale factor image for each reference spectrum.
+
+    Raises:
+        ValueError: If wavelength arrays or bad-band masks have inconsistent
+            shapes or contain non-finite values.
+
+    Notes:
+        This function is the Numba-accelerated implementation of SFF. The pure
+        Python version is ``compute_sff_image`` and shares the same behavior.
+
     """
     if (
         reference_spectra_wvls.shape[0] != reference_spectra_bad_bands.shape[0]
@@ -78,6 +144,7 @@ def compute_sff_image_numba(
     ):
         raise ValueError("Shape mismatch in reference spectra and wavelengths/bad bands.")
 
+    # Slice image and metadata to wavelength bounds.
     target_image_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_3D_numba(
         target_image_arr,
         target_wavelengths,
@@ -87,30 +154,62 @@ def compute_sff_image_numba(
     )
     target_image_arr_sliced = target_image_arr_sliced[target_bad_bands_sliced, :, :]
 
+    # Meta-data needed to do continuum removal
+    good_bands = np.array([0] * target_image_arr_sliced.shape[0], dtype=np.bool_)
+    good_wvls = target_wvls_sliced[target_bad_bands_sliced].copy()
+    rows = target_image_arr_sliced.shape[1]
+    cols = target_image_arr_sliced.shape[2]
+    bands = target_image_arr_sliced.shape[0]
+
+    # [b][y][x] -> [y][x][b], continuum removal takes the array in this way
+    target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))
     target_image_cr = np.float32(1.0) - continuum_removal_image_numba(
         target_image_arr_sliced,
-        np.array([0] * target_image_arr_sliced.shape[0], dtype=np.bool_),
-        target_wvls_sliced[target_bad_bands],
-        np.int32(target_image_arr_sliced.shape[1]),
-        np.int32(target_image_arr_sliced.shape[2]),
-        np.int32(target_image_arr_sliced.shape[0]),
+        good_bands,
+        good_wvls,
+        rows,
+        cols,
+        bands,
     )
+    # [b][y][x] -> [y][x][b]
+    target_image_cr = target_image_cr.transpose((1, 2, 0))
+
+    # Validate numerical integrity
     if not np.isfinite(target_image_arr_sliced).all():
         raise ValueError("Target image array is not finite after cleaning")
     if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
         raise ValueError("Reference spectra array is not finite")
+
     num_spectra = reference_spectra_indices.shape[0] - 1
-    out = np.empty(
+
+    # Output buffers: one layer per reference spectrum.
+    out_classification = np.empty(
         (
             num_spectra,
+            target_image_arr_sliced.shape[0],
             target_image_arr_sliced.shape[1],
-            target_image_arr_sliced.shape[2],
+        ),
+        dtype=np.bool_,
+    )
+    out_rmse = np.empty(
+        (
+            num_spectra,
+            target_image_arr_sliced.shape[0],
+            target_image_arr_sliced.shape[1],
+        ),
+        dtype=np.float32,
+    )
+    out_scale = np.empty(
+        (
+            num_spectra,
+            target_image_arr_sliced.shape[0],
+            target_image_arr_sliced.shape[1],
         ),
         dtype=np.float32,
     )
 
-    target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))
     for i in prange(reference_spectra_indices.shape[0] - 1):
+        # Get reference and clean
         start = reference_spectra_indices[i]
         end = reference_spectra_indices[i + 1]
         ref_spectrum = reference_spectra[start:end]
@@ -125,7 +224,7 @@ def compute_sff_image_numba(
             max_wvl,
         )
 
-        # Interpolate to target wvl's spacing
+        # Regrid reference to match image wavelength sampling if needed
         if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
             ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
         ):
@@ -140,7 +239,7 @@ def compute_sff_image_numba(
         ref_spectrum_good_bands = ref_spectrum_interp[target_bad_bands_sliced]
         wvls_sliced_good_bands = target_wvls_sliced[target_bad_bands_sliced]
 
-        # Continuum remove and invert
+        # Start computing sff
         ref_spectrum_cr, _ = continuum_removal_numba(
             ref_spectrum_good_bands,
             wvls_sliced_good_bands,
@@ -149,12 +248,16 @@ def compute_sff_image_numba(
 
         num = dot3d_numba(target_image_cr, ref_spectrum_cr)
         denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
-
         scale = num / denom
-        resid = target_image_cr - scale * ref_spectrum_cr
-        rms = np.sqrt(np.nanmean(resid**2))  # noqa: F841
 
-    return out
+        resid = compute_resid_numba(target_image_cr, scale, ref_spectrum_cr)
+        rmse = np.sqrt(nanmean_last_axis_3d(resid**2))  # noqa: F841
+        thr = thresholds[i]
+        out_classification[i, :, :] = rmse < thr
+        out_rmse[i, :, :] = rmse
+        out_scale[i, :, :] = scale
+
+    return out_classification, out_rmse, out_scale
 
 
 class SFFTool(GenericSpectralComputationTool):
@@ -298,3 +401,74 @@ class SFFTool(GenericSpectralComputationTool):
         resid = a_t - scale * a_r
         rms = float(np.sqrt(np.nanmean(resid**2)))
         return rms, {"scale": float(scale)}
+
+    def compute_score_image(
+        self,
+        target_image_name: str,
+        target_image_arr: np.ndarray,  # float32[:, :, :]
+        target_wavelengths: np.ndarray,  # float32[:]
+        target_bad_bands: np.ndarray,  # bool[:]
+        min_wvl: np.float32,  # float32
+        max_wvl: np.float32,  # float32
+        reference_spectra: List[NumPyArraySpectrum],
+        reference_spectra_arr: np.ndarray,  # float32 [:]
+        reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
+        reference_spectra_bad_bands: np.ndarray,  # bool[:]
+        reference_spectra_indices: np.ndarray,  # uint32[:]
+        thresholds: np.ndarray,  # float32[:]
+    ):
+        out_cls, out_rmse, out_scale = compute_sff_image_numba(
+            target_image_arr,
+            target_wavelengths,
+            target_bad_bands,
+            min_wvl,
+            max_wvl,
+            reference_spectra_arr,
+            reference_spectra_wvls,
+            reference_spectra_bad_bands,
+            reference_spectra_indices,
+            thresholds,
+        )
+        loader = RasterDataLoader()
+
+        # Load in out_cls dataset
+        out_cls_dataset = loader.dataset_from_numpy_array(out_cls)
+        out_cls_dataset.set_name(
+            self._app_state.unique_dataset_name(f"SFF CLS, Img: {target_image_name}"),
+        )
+        band_descriptions = []
+
+        for i in range(0, len(reference_spectra)):
+            spectrum_name = reference_spectra[i].get_name()
+            band_descriptions.append(f"Spec: {spectrum_name}")
+
+        out_cls_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_cls_dataset)
+
+        # Load in out_rmse dataset
+        out_rmse_dataset = loader.dataset_from_numpy_array(out_rmse)
+        out_rmse_dataset.set_name(
+            self._app_state.unique_dataset_name(f"SFF RMSE, Img: {target_image_name}"),
+        )
+        band_descriptions = []
+
+        for i in range(0, len(reference_spectra)):
+            spectrum_name = reference_spectra[i].get_name()
+            band_descriptions.append(f"Spec: {spectrum_name}")
+
+        out_rmse_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_rmse_dataset)
+
+        # Load in out_scale dataset
+        out_scale_dataset = loader.dataset_from_numpy_array(out_scale)
+        out_scale_dataset.set_name(
+            self._app_state.unique_dataset_name(f"SFF SCALE, Img: {target_image_name}"),
+        )
+        band_descriptions = []
+
+        for i in range(0, len(reference_spectra)):
+            spectrum_name = reference_spectra[i].get_name()
+            band_descriptions.append(f"Spec: {spectrum_name}")
+
+        out_scale_dataset.set_band_descriptions(band_descriptions)
+        self._app_state.add_dataset(out_scale_dataset)

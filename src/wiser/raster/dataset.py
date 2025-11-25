@@ -722,6 +722,18 @@ class RasterDataSet(Serializable):
         self._band_info = band_list
         self._has_wavelengths = self._compute_has_wavelengths()
 
+    def set_band_descriptions(self, band_descriptions: List[str]):
+        """
+        This sets just the band description for all the bands in the dataset
+        based on what is in band_descriptions list.
+        """
+        assert len(band_descriptions) == len(self._band_info), (
+            "Passed in band_descriptions must be the same length" " as dataset's _band_info"
+        )
+        for i in range(len(band_descriptions)):
+            b = self._band_info[i]
+            b["description"] = band_descriptions[i]
+
     def set_band_unit(self, unit: u.Unit):
         """
         This should ONLY be used for datasets that have NumPyRasterDataImpl as

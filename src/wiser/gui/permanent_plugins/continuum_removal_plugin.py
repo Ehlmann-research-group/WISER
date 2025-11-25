@@ -314,7 +314,8 @@ def continuum_removal_image_numba(
     Returns
     ----------
     results: np.ndarray
-        A 3D numpy array of continuum removed image data
+        A 3D numpy array of continuum removed image data. Returns
+        array in [b][y][x] order
     """
     image_data = np.ascontiguousarray(image_data)
     rows = rows
