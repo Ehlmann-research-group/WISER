@@ -567,11 +567,14 @@ class GenericSpectralComputationTool(QDialog):
         reference_spectra_bad_bands: np.ndarray,  # bool[:]
         reference_spectra_indices: np.ndarray,  # uint32[:]
         thresholds: np.ndarray,  # float32[:]
-    ) -> None:
+    ) -> List[int]:
         """Child must implement. Return Nothing. Load dataset into app instead."""
         raise NotImplementedError
 
-    def find_matches(self, spectral_inputs: SpectralComputationInputs) -> Optional[List[Dict[str, Any]]]:
+    def find_matches(
+        self,
+        spectral_inputs: SpectralComputationInputs,
+    ) -> Union[List[Dict[str, Any]], List[int]]:
         """Find spectral matches for a single spectrum or an image cube.
 
         This method operates in two modes, driven by ``spectral_inputs.mode``:
@@ -666,15 +669,18 @@ class GenericSpectralComputationTool(QDialog):
                         }
                     )
             return matches
-        elif mode == "Image":
+        elif mode == "Image Cube":
             # Image mode: run per-pixel scoring against all reference spectra.
             assert isinstance(target, RasterDataSet)
             target_unit = target.get_band_unit()
+            print(f"target_unit: {target_unit}")
             target_image_cube = target.get_image_data()  # [b][y][x]
+            print(f"target_image_cube.dtype: {target_image_cube.dtype}")
 
             # Convert dataset bad-band flags → boolean mask (True = keep).
             target_wavelengths = [b["wavelength"].to(target_unit).value for b in target.get_band_info()]
             target_wavelengths = np.array(target_wavelengths, dtype=np.float32)
+            print(f"target_wavelengths: {target_wavelengths}")
             target_bad_bands = np.array(target.get_bad_bands()).astype(
                 np.bool_
             )  # 1's correspond for bands we keep, 0's don't
@@ -684,6 +690,7 @@ class GenericSpectralComputationTool(QDialog):
             new_min_wvl = np.float32(new_min_wvl.value)
             new_max_wvl = max_wvl.to(target_unit)
             new_max_wvl = np.float32(new_max_wvl.value)
+            print(f"new_min_wvl: {new_min_wvl}, new_max_wvl: {new_max_wvl}")
 
             # Build packed reference buffers (values + wavelengths).
             length_all_references = 0
@@ -713,10 +720,18 @@ class GenericSpectralComputationTool(QDialog):
             ref_offsets = np.array(ref_offsets, dtype=np.uint32)
             assert thresholds.shape[0] == len(references)
 
+            if isinstance(target_image_cube, np.ma.MaskedArray):
+                target_image_arr = target_image_cube.data
+            else:
+                target_image_arr = target_image_cube
+
+            print(f"!$$ target_image_arr.shape: {target_image_arr.shape}")
+            print(f"target_wavelengths.shape: {target_wavelengths.shape}")
+            print(f"target_bad_bands.shape: {target_bad_bands.shape}")
             # It's the child class's job to add the output to WISER
-            self.compute_score_image(
+            ds_ids = self.compute_score_image(
                 target_image_name=target.get_name(),
-                target_image_arr=target_image_cube.data,
+                target_image_arr=target_image_arr,
                 target_wavelengths=target_wavelengths,
                 target_bad_bands=target_bad_bands,
                 min_wvl=new_min_wvl,
@@ -728,6 +743,7 @@ class GenericSpectralComputationTool(QDialog):
                 reference_spectra_indices=ref_offsets,
                 thresholds=thresholds,
             )
+            return ds_ids
         else:
             raise ValueError("Spectral computation mode must be 'Spectrum' or 'Image Cube'.")
 
@@ -745,7 +761,7 @@ class GenericSpectralComputationTool(QDialog):
             except Exception as e:
                 self._show_message("warning", "Invalid input", str(e))
                 raise e
-            print(f"spectral_inputs.mode = {spectral_inputs.mode}")
+
             try:
                 matches = self.find_matches(spectral_inputs)
                 if matches is None:

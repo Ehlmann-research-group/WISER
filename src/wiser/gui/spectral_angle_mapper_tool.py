@@ -370,7 +370,7 @@ class SAMTool(GenericSpectralComputationTool):
         reference_spectra_bad_bands: np.ndarray,  # bool[:]
         reference_spectra_indices: np.ndarray,  # uint32[:]
         thresholds: np.ndarray,  # float32[:]
-    ):
+    ) -> List[int]:
         out_classification, out_angle = compute_sam_image_numba(
             target_image_arr,
             target_wavelengths,
@@ -410,3 +410,5 @@ class SAMTool(GenericSpectralComputationTool):
 
         out_cls_dataset.set_band_descriptions(band_descriptions)
         self._app_state.add_dataset(out_cls_dataset)
+
+        return [out_cls_dataset.get_id(), out_angle_dataset.get_id()]

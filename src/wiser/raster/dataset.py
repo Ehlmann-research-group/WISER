@@ -719,7 +719,7 @@ class RasterDataSet(Serializable):
                 *   'wavelength_units' - the string version of the band's
                     wavelength-units value
         """
-        self._band_info = band_list
+        self._band_info = copy.deepcopy(band_list)
         self._has_wavelengths = self._compute_has_wavelengths()
 
     def set_band_descriptions(self, band_descriptions: List[str]):

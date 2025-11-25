@@ -1,4 +1,7 @@
+import os
 import unittest
+
+from typing import List
 
 import tests.context
 # import context
@@ -9,12 +12,11 @@ from astropy import units as u
 from test_utils.test_model import WiserTestModel
 
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
-from wiser.gui.app_state import ApplicationState
+from wiser.gui.generic_spectral_tool import (
+    SpectralComputationInputs,
+)
+
 from wiser.raster.spectrum import NumPyArraySpectrum
-from wiser.raster.dataset import RasterDataSet
-from wiser.raster.selection import RectangleSelection
-from wiser.raster.roi import RegionOfInterest
-from wiser.raster.utils import make_spectral_value
 
 import pytest
 
@@ -176,3 +178,53 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         # Got these values by hand
         self.assertTrue(np.isclose(rmse, 0.11525837934301877, atol=1e-5))
         self.assertTrue(np.isclose(scale, 0.6655593783366949, atol=1e-5))
+
+    def sff_image_cube_helper(
+        self,
+        arr: np.ndarray,  # [b][y][x] shape
+        wvl_list: List[u.Quantity],
+        bad_bands: List[int],  # 1's mean keep, 0's mean remove
+        refs: List[NumPyArraySpectrum],
+        thresholds: List[np.float32],
+        gt_cls: np.ndarray,  # [1][y][x]
+        gt_angle: np.ndarray,  # [1][y][x]
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
+    ):
+        ds = self.test_model.load_dataset(arr)
+        ds.set_bad_bands(bad_bands=bad_bands)
+        band_list = []
+        i = 0
+        for wvl in wvl_list:
+            band_dict = {}
+            band_dict["index"] = i
+            band_dict["description"] = f"{wvl.value} {wvl.unit}"
+            band_dict["wavelength"] = wvl
+            band_dict["wavelength_str"] = f"{wvl.to_value(wvl.unit)}"
+            band_dict["wavelength_units"] = wvl.unit.to_string()
+            band_list.append(band_dict)
+            i += 1
+        ds.set_band_list(band_list)
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=refs,
+            thresholds=thresholds,
+            global_thr=None,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+            lib_name_by_spec_id=None,
+        )
+
+        generic_spectral_comp = SFFTool(
+            app_state=self.test_model.app_state,
+        )
+
+        ds_ids = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+
+        cls_ds = self.test_model.app_state.get_dataset(ds_ids[0])
+        angle_ds = self.test_model.app_state.get_dataset(ds_ids[1])
+
+        self.assertTrue(np.allclose(cls_ds.get_image_data(), gt_cls, atol=1e-5))
+        self.assertTrue(np.allclose(angle_ds.get_image_data(), gt_angle, atol=1e-5))
