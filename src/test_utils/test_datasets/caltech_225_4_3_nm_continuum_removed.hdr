@@ -12,7 +12,7 @@ data ignore value = -9999
 map info = {UTM, 1, 1, 395788.031497448, 3778081.26270922, 2, 2, 11, North,WGS-84, rotation=-2}
 coordinate system string = {PROJCS["UTM_Zone_11N",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",-117],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1],AXIS["Easting",EAST],AXIS["Northing",NORTH]]}
 default bands = { 0, 1, 2 }
-wavelength units = nm
+wavelength units = Nanometers
 wavelength = {
   877.72998, 882.73999, 887.73999, 892.75, 897.76001, 902.77002, 907.780029,
   912.789978, 917.799988, 922.809998, 927.809998, 932.820007, 937.830017,

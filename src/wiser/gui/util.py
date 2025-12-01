@@ -196,7 +196,7 @@ def interp1d_monotonic(x, y, x_new):
         y,
         kind="linear",
         bounds_error=False,
-        fill_value="extrapolate",
+        fill_value=np.nan,
         assume_sorted=True,
     )
 
@@ -425,10 +425,10 @@ def interp1d_monotonic_numba(x, y, x_new):
     for i in range(m):
         xn = x_new[i]
 
-        # # handle out-of-bounds (no extrapolation)
-        # if xn < x[0] or xn > x[n - 1]:
-        #     out[i] = fill_value
-        #     continue
+        # handle out-of-bounds (no extrapolation)
+        if xn < x[0] or xn > x[n - 1]:
+            out[i] = np.nan
+            continue
 
         # advance j until we find x[j] <= xn <= x[j+1]
         # we know xn is >= previous x_new, so j never moves backwards

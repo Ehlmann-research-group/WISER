@@ -764,7 +764,7 @@ class GenericSpectralComputationTool(QDialog):
 
             try:
                 matches = self.find_matches(spectral_inputs)
-                if matches is None:
+                if spectral_inputs.mode == "Image Cube":
                     return
                 sorted_matches = self.sort_matches(matches)
             except Exception as e:

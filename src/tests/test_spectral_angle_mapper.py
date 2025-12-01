@@ -279,11 +279,12 @@ class TestSpectralAngleMapper(unittest.TestCase):
         ]
 
         # Create target spectrum
-        ref_1_arr = np.array([0.0, 50.0, 100.0], dtype=np.float32)
+        ref_1_arr = np.array([0.0, 50.0, 100.0, 150.0], dtype=np.float32)
         ref_1_wls = [
             100 * u.nm,
             300 * u.nm,
             500 * u.nm,
+            700 * u.nm,
         ]
         reference_spec = NumPyArraySpectrum(ref_1_arr, name="ref_1", wavelengths=ref_1_wls)
         refs = [reference_spec]
@@ -335,11 +336,12 @@ class TestSpectralAngleMapper(unittest.TestCase):
         ]
 
         # Create target spectrum
-        ref_1_arr = np.array([0.0, 50.0, 100.0], dtype=np.float32)
+        ref_1_arr = np.array([0.0, 50.0, 100.0, 150.0], dtype=np.float32)
         ref_1_wls = [
             100 * u.nm,
             300 * u.nm,
             500 * u.nm,
+            700 * u.nm,
         ]
         reference_spec = NumPyArraySpectrum(ref_1_arr, name="ref_1", wavelengths=ref_1_wls)
         refs = [reference_spec]
@@ -428,10 +430,8 @@ class TestSpectralAngleMapper(unittest.TestCase):
             refs=refs,
             thresholds=[np.float32(10.0)],
             global_thr=None,
-            # min_wvl=0 * u.nm,
-            # max_wvl=3000 * u.nm,
-            min_wvl=1000 * u.nm,
-            max_wvl=1100 * u.nm,
+            min_wvl=0 * u.nm,
+            max_wvl=3000 * u.nm,
             lib_name_by_spec_id=None,
         )
 

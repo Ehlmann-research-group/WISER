@@ -201,7 +201,6 @@ class TestContinuumRemoval(unittest.TestCase):
 
         # Get all the information we need to run continuum removal
         x_axis = x_axis = np.array([float(i["wavelength_str"]) for i in dataset.band_list()])
-        x_axis = x_axis[::-1]
         rows = dataset.get_height()
         cols = dataset.get_width()
         bands = dataset.num_bands()
@@ -234,12 +233,13 @@ class TestContinuumRemoval(unittest.TestCase):
         """
         plugin = ContinuumRemovalPlugin()
 
-        gt_cr_spectrum_y = np.array([1.0, 1.0, 0.4978490837090547, 1.0])
+        # Checked by hand
+        gt_cr_spectrum_y = np.array([1.0, 1.0, 0.38580793715, 1.0])
         gt_hull_spectrum_y = np.array(
             [
                 0.25744912028312683,
                 0.2996889650821686,
-                0.1474404445855489,
+                0.19025811335,
                 0.09369881451129913,
             ]
         )
@@ -314,11 +314,11 @@ class TestContinuumRemoval(unittest.TestCase):
         )
 
         cr_numba_spec, cr_numba_hull = continuum_removal_numba(
-            reflectance=spectrum_arr.astype(np.float32), waves=wvls_arr.astype(np.float32)[::-1]
+            reflectance=spectrum_arr.astype(np.float32), waves=wvls_arr.astype(np.float32)
         )
 
         cr_reg_spec, cr_reg_hull = continuum_removal(
-            reflectance=spectrum.get_spectrum(), waves=spectrum.get_wavelengths()[::-1]
+            reflectance=spectrum.get_spectrum(), waves=spectrum.get_wavelengths()
         )
 
         assert cr_numba_spec.shape == cr_reg_spec.shape

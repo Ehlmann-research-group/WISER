@@ -23,7 +23,7 @@ from .util import (
 )
 from wiser.gui.permanent_plugins.continuum_removal_plugin import (
     continuum_removal_image_numba,
-    continuum_removal_numba,
+    continuum_removal_numba2,
 )
 
 
@@ -61,12 +61,12 @@ compute_sff_image_sig = types.Tuple(
 )
 
 
-@numba_njit_wrapper(
-    non_njit_func=compute_sff_image,
-    signature=compute_sff_image_sig,
-    parallel=True,
-    cache=True,
-)
+# @numba_njit_wrapper(
+#     non_njit_func=compute_sff_image,
+#     signature=compute_sff_image_sig,
+#     parallel=True,
+#     cache=True,
+# )
 def compute_sff_image_numba(
     target_image_arr: np.ndarray,  # float32[:, :, :]
     target_wavelengths: np.ndarray,  # float32[:]
@@ -208,6 +208,12 @@ def compute_sff_image_numba(
         dtype=np.float32,
     )
 
+    print(f"*&* reference_spectra_indices: {reference_spectra_indices}")
+    print(f"target_image_arr_sliced: {target_image_arr_sliced}")
+    print(f"target_image_cr: {target_image_cr}")
+    print(f"*&* target_wvls_sliced: {target_wvls_sliced}")
+    print(f"*&* target_bad_bands_sliced: {target_wvls_sliced}")
+
     for i in prange(reference_spectra_indices.shape[0] - 1):
         # Get reference and clean
         start = reference_spectra_indices[i]
@@ -216,39 +222,69 @@ def compute_sff_image_numba(
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
 
+        # ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+        #     ref_spectrum,
+        #     ref_wvls,
+        #     ref_bad_bands,
+        #     min_wvl,
+        #     max_wvl,
+        # )
+
+        # # Regrid reference to match image wavelength sampling if needed
+        # if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
+        #     ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
+        # ):
+        #     ref_spectrum_interp = ref_spectrum_sliced
+        # else:
+        #     ref_spectrum_interp = interp1d_monotonic_numba(
+        #         ref_wvls_sliced,
+        #         ref_spectrum_sliced,
+        #         target_wvls_sliced,
+        #     )
+
+        # possibly get rid of bad bands in reference spectrum and target here
+
+        # Regrid reference to match image wavelength sampling if needed
+        if ref_spectrum.shape == target_wavelengths.shape and np.allclose(
+            ref_spectrum, target_wavelengths, rtol=0.0, atol=1e-9
+        ):
+            ref_spectrum_interp = ref_spectrum
+        else:
+            ref_spectrum_interp = interp1d_monotonic_numba(
+                ref_wvls,
+                ref_spectrum,
+                target_wavelengths,
+            )
+
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
-            ref_spectrum,
-            ref_wvls,
+            ref_spectrum_interp,
+            target_wvls_sliced,
             ref_bad_bands,
             min_wvl,
             max_wvl,
         )
 
-        # Regrid reference to match image wavelength sampling if needed
-        if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
-            ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
-        ):
-            ref_spectrum_interp = ref_spectrum_sliced
-        else:
-            ref_spectrum_interp = interp1d_monotonic_numba(
-                ref_wvls_sliced,
-                ref_spectrum_sliced,
-                target_wvls_sliced,
-            )
-
-        ref_spectrum_good_bands = ref_spectrum_interp[target_bad_bands_sliced]
+        ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
         wvls_sliced_good_bands = target_wvls_sliced[target_bad_bands_sliced]
 
         # Start computing sff
-        ref_spectrum_cr, _ = continuum_removal_numba(
+        ref_spectrum_cr, _ = continuum_removal_numba2(
             ref_spectrum_good_bands,
             wvls_sliced_good_bands,
         )
+        print(f"ref_spectrum_sliced: {ref_spectrum_sliced}")
+        print(f"ref_spectrum_interp: {ref_spectrum_interp}")
+        print(f"&$& ref_spectrum_good_bands: {ref_spectrum_good_bands}")
+        print(f"$%$ ref_spectrum_cr: {ref_spectrum_cr} before - 1.0")
         ref_spectrum_cr = np.float32(1.0) - ref_spectrum_cr
+        print(f"$%$ ref_spectrum_cr: {ref_spectrum_cr}")
 
         num = dot3d_numba(target_image_cr, ref_spectrum_cr)
+        print(f"num: {num}")
         denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
+        print(f"denom: {denom}")
         scale = num / denom
+        print(f"scale: {scale}")
 
         resid = compute_resid_numba(target_image_cr, scale, ref_spectrum_cr)
         rmse = np.sqrt(nanmean_last_axis_3d(resid**2))  # noqa: F841

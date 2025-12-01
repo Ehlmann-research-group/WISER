@@ -10,6 +10,13 @@ import numpy as np
 from astropy import units as u
 
 from test_utils.test_model import WiserTestModel
+from test_utils.test_arrays import (
+    sam_sff_masked_array,
+    sam_sff_fail_masked_array,
+    spec_arr_caltech_425_7_7,
+    spec_bbl_caltech_425_7_7,
+    spec_wvl_caltech_425_7_7,
+)
 
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
 from wiser.gui.generic_spectral_tool import (
@@ -187,7 +194,8 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         refs: List[NumPyArraySpectrum],
         thresholds: List[np.float32],
         gt_cls: np.ndarray,  # [1][y][x]
-        gt_angle: np.ndarray,  # [1][y][x]
+        gt_rmse: np.ndarray,  # [1][y][x]
+        gt_scale: np.ndarray,  # [1][y][x]
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ):
@@ -217,6 +225,12 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             lib_name_by_spec_id=None,
         )
 
+        print(f"ds.get_image_data(): {ds.get_image_data()}")
+        print(f"ds.get_band_list(): {ds.get_band_info()}")
+        print(f"ds.get_bad_bands(): {ds.get_bad_bands()}")
+        print(f"refs: {refs}")
+        print(f"thresholds: {thresholds}")
+
         generic_spectral_comp = SFFTool(
             app_state=self.test_model.app_state,
         )
@@ -224,7 +238,71 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         ds_ids = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
 
         cls_ds = self.test_model.app_state.get_dataset(ds_ids[0])
-        angle_ds = self.test_model.app_state.get_dataset(ds_ids[1])
+        rmse_ds = self.test_model.app_state.get_dataset(ds_ids[1])
+        scale_ds = self.test_model.app_state.get_dataset(ds_ids[2])
+
+        print(f"#$% cls_ds.get_image_data(): {cls_ds.get_image_data()}")
+        print(f"#$% rmse_ds.get_image_data(): {rmse_ds.get_image_data()}")
+        print(f"#$% scale_ds.get_image_data(): {scale_ds.get_image_data()}")
 
         self.assertTrue(np.allclose(cls_ds.get_image_data(), gt_cls, atol=1e-5))
-        self.assertTrue(np.allclose(angle_ds.get_image_data(), gt_angle, atol=1e-5))
+        self.assertTrue(np.allclose(rmse_ds.get_image_data(), gt_rmse, atol=1e-5))
+        self.assertTrue(np.allclose(scale_ds.get_image_data(), gt_scale, atol=1e-5))
+
+    def test_sff_image_bad_bands_resampling(self):
+        bad_bands = [1, 0, 1, 1]
+        wvl_list: List[u.Quantity] = [
+            200 * u.nm,
+            300 * u.nm,
+            400 * u.nm,
+            600 * u.nm,
+        ]
+
+        # Create target spectrum
+        ref_1_arr = np.array([2.5, 0.5, 0.5, 4.5], dtype=np.float32)
+        ref_1_wls = [
+            100 * u.nm,
+            300 * u.nm,
+            500 * u.nm,
+            700 * u.nm,
+        ]
+        reference_spec = NumPyArraySpectrum(ref_1_arr, name="ref_1", wavelengths=ref_1_wls)
+        refs = [reference_spec]
+
+        thresholds = [np.float32(0.03)]
+
+        gt_cls = np.array(
+            [
+                [
+                    [False, False, False, False],
+                    [True, True, True, True],
+                    [False, False, False, False],
+                ],
+            ],
+        )
+
+        gt_angle = np.array(
+            [
+                [
+                    [19.454195, 19.454195, 19.454195, 19.454195],
+                    [6.0172796, 6.0172796, 6.0172796, 6.0172796],
+                    [22.7592, 22.7592, 22.7592, 22.7592],
+                ],
+            ],
+        )
+
+        min_wvl = 200 * u.nm
+        max_wvl = 600 * u.nm
+
+        self.sff_image_cube_helper(
+            arr=sam_sff_masked_array,
+            wvl_list=wvl_list,
+            bad_bands=bad_bands,
+            refs=refs,
+            thresholds=thresholds,
+            gt_cls=gt_cls,
+            gt_rmse=gt_angle,
+            gt_scale=gt_angle,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
