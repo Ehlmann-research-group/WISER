@@ -133,7 +133,7 @@ def nanmean_last_axis_3d(a):
 
 def dot3d(a, b):
     """
-    Dot product of a 3D array of shape (y, x, b) and 
+    Dot product of a 3D array of shape (y, x, b) and
     a 1D array of shape (b,). Returns a 2D array shaped (y, x).
     """
     # b_extended = b[np.newaxis, np.newaxis, :]  # reshape b to (b, 1, 1)
@@ -375,10 +375,7 @@ def slice_to_bounds_1D_numba(
     min_wvl: np.float32,
     max_wvl: np.float32,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    if (
-        spectrum_arr.ndim != 1
-        or spectrum_arr.shape[0] != wvls.shape[0]
-    ):
+    if spectrum_arr.ndim != 1 or spectrum_arr.shape[0] != wvls.shape[0]:
         raise ValueError(
             f"Shape mismatch: reflectance has shape {spectrum_arr.shape}, "
             f"wavelengths has shape {wvls.shape}, "

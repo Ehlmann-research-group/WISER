@@ -609,7 +609,7 @@ class GenericSpectralComputationTool(QDialog):
                 * ``mode``: String flag controlling behavior (e.g. ``"Spectrum"``
                 or ``"Image Cube"``).
                 * ``thresholds``: Iterable of per-reference score thresholds.
-            
+
             python_mode (bool):
                 Whether to run the compute intensive algorithms in python or not.
                 If False, it tries to run in compiled numba code.

@@ -45,7 +45,8 @@ def compute_sam_image(
         or reference_spectra.shape[0] != reference_spectra_wvls.shape[0]
     ):
         raise ValueError("Shape mismatch in reference spectra and wavelengths/bad bands.")
-        # Slice the target image array, wvls, and bad bands in the bands dimension to get
+
+    # Slice the target image array, wvls, and bad bands in the bands dimension to get
     # into the user specified range
     target_image_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_3D(
         target_image_arr,
@@ -79,9 +80,7 @@ def compute_sam_image(
         dtype=np.float32,
     )
 
-    target_image_arr_norm = np.sqrt(
-        (target_image_arr_sliced * target_image_arr_sliced).sum(axis=0)
-    )
+    target_image_arr_norm = np.sqrt((target_image_arr_sliced * target_image_arr_sliced).sum(axis=0))
     # If we change dot3d_numba we could not transpose the array here
     target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))  # [b][y][x] -> [y][x][b]
 
@@ -92,28 +91,59 @@ def compute_sam_image(
         ref_spectrum = reference_spectra[start:end]
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
-        # TODO (Joshua G-K): Figure out a way to use the bad bands quickly
-        ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D(
-            ref_spectrum,
-            ref_wvls,
-            ref_bad_bands,
+        # # TODO (Joshua G-K): Figure out a way to use the bad bands quickly
+        # ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D(
+        #     ref_spectrum,
+        #     ref_wvls,
+        #     ref_bad_bands,
+        #     min_wvl,
+        #     max_wvl,
+        # )
+
+        # # See if we need to interpolate linearly
+        # if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
+        #     ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
+        # ):
+        #     ref_spectrum_interp = ref_spectrum_sliced
+        # else:
+        #     ref_spectrum_interp = interp1d_monotonic(
+        #         ref_wvls_sliced,
+        #         ref_spectrum_sliced,
+        #         target_wvls_sliced,
+        #     )
+        if ref_spectrum.shape == target_wavelengths.shape and np.allclose(
+            ref_spectrum, target_wavelengths, rtol=0.0, atol=1e-9
+        ):
+            ref_spectrum_interp = ref_spectrum
+        else:
+            ref_spectrum_interp = interp1d_monotonic_numba(
+                ref_wvls,
+                ref_spectrum,
+                target_wavelengths,
+            )
+
+            ref_bad_bands_float = ref_bad_bands.astype(np.float32)
+            ref_bad_bands_interp = interp1d_monotonic_numba(
+                ref_wvls,
+                ref_bad_bands_float,
+                target_wavelengths,
+            )
+            ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
+
+        print(f"ref_bad_bands_interp: {ref_bad_bands_interp}")
+        print(f"%^%^ ref_spectrum_interp.shape: {ref_spectrum_interp.shape}")
+        print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
+        print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
+        ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+            ref_spectrum_interp,
+            target_wvls_sliced,
+            ref_bad_bands_interp,
             min_wvl,
             max_wvl,
         )
 
-        # See if we need to interpolate linearly
-        if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
-            ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
-        ):
-            ref_spectrum_interp = ref_spectrum_sliced
-        else:
-            ref_spectrum_interp = interp1d_monotonic(
-                ref_wvls_sliced,
-                ref_spectrum_sliced,
-                target_wvls_sliced,
-            )
-
-        ref_spectrum_good_bands = ref_spectrum_interp[target_bad_bands_sliced]
+        ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
 
         # Compute the angle
         ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
@@ -154,12 +184,12 @@ compute_sam_image_sig = types.Tuple(
 )
 
 
-@numba_njit_wrapper(
-    non_njit_func=compute_sam_image,
-    signature=compute_sam_image_sig,
-    parallel=True,
-    cache=True,
-)
+# @numba_njit_wrapper(
+#     non_njit_func=compute_sam_image,
+#     signature=compute_sam_image_sig,
+#     parallel=True,
+#     cache=True,
+# )
 def compute_sam_image_numba(
     target_image_arr: np.ndarray,
     target_wavelengths: np.ndarray,
@@ -308,9 +338,7 @@ def compute_sam_image_numba(
         dtype=np.float32,
     )
 
-    target_image_arr_norm = np.sqrt(
-        (target_image_arr_sliced * target_image_arr_sliced).sum(axis=0)
-    )
+    target_image_arr_norm = np.sqrt((target_image_arr_sliced * target_image_arr_sliced).sum(axis=0))
     # If we change dot3d_numba we could not transpose the array here
     target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))  # [b][y][x] -> [y][x][b]
 
@@ -321,28 +349,61 @@ def compute_sam_image_numba(
         ref_spectrum = reference_spectra[start:end]
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
-        # TODO (Joshua G-K): Figure out a way to use the bad bands quickly
+
+        # # TODO (Joshua G-K): Figure out a way to use the bad bands quickly
+        # ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+        #     ref_spectrum,
+        #     ref_wvls,
+        #     ref_bad_bands,
+        #     min_wvl,
+        #     max_wvl,
+        # )
+
+        # # See if we need to interpolate linearly
+        # if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
+        #     ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
+        # ):
+        #     ref_spectrum_interp = ref_spectrum_sliced
+        # else:
+        #     ref_spectrum_interp = interp1d_monotonic_numba(
+        #         ref_wvls_sliced,
+        #         ref_spectrum_sliced,
+        #         target_wvls_sliced,
+        #     )
+        if ref_spectrum.shape == target_wavelengths.shape and np.allclose(
+            ref_spectrum, target_wavelengths, rtol=0.0, atol=1e-9
+        ):
+            ref_spectrum_interp = ref_spectrum
+        else:
+            ref_spectrum_interp = interp1d_monotonic_numba(
+                ref_wvls,
+                ref_spectrum,
+                target_wavelengths,
+            )
+
+            ref_bad_bands_float = ref_bad_bands.astype(np.float32)
+            ref_bad_bands_interp = interp1d_monotonic_numba(
+                ref_wvls,
+                ref_bad_bands_float,
+                target_wavelengths,
+            )
+            ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
+
+        print(f"ref_bad_bands_interp: {ref_bad_bands_interp}")
+        print(f"%^%^ ref_spectrum_interp.shape: {ref_spectrum_interp.shape}")
+        print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
+        print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
-            ref_spectrum,
-            ref_wvls,
-            ref_bad_bands,
+            ref_spectrum_interp,
+            target_wvls_sliced,
+            ref_bad_bands_interp,
             min_wvl,
             max_wvl,
         )
 
-        # See if we need to interpolate linearly
-        if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
-            ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
-        ):
-            ref_spectrum_interp = ref_spectrum_sliced
-        else:
-            ref_spectrum_interp = interp1d_monotonic_numba(
-                ref_wvls_sliced,
-                ref_spectrum_sliced,
-                target_wvls_sliced,
-            )
-
-        ref_spectrum_good_bands = ref_spectrum_interp[target_bad_bands_sliced]
+        ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
+        # wvls_sliced_good_bands = target_wvls_sliced[target_bad_bands_sliced]
 
         # Compute the angle
         ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
