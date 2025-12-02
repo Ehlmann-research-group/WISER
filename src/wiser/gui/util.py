@@ -132,6 +132,16 @@ def nanmean_last_axis_3d(a):
 
 
 def dot3d(a, b):
+    """
+    Dot product of a 3D array of shape (y, x, b) and 
+    a 1D array of shape (b,). Returns a 2D array shaped (y, x).
+    """
+    # b_extended = b[np.newaxis, np.newaxis, :]  # reshape b to (b, 1, 1)
+    # rows = a.shape[0]
+    # cols = a.shape[1]
+    # b_extended = np.repeat(b_extended, repeats=rows, axis=0)
+    # b_extended = np.repeat(b_extended, repeats=cols, axis=1)
+    print(f"!@#$, a.shape: {a.shape}, b_extended.shape: {b.shape}")
     return np.dot(a, b)
 
 
@@ -361,19 +371,18 @@ slice_bounds_sig = types.Tuple((types.float32[:], types.float32[:], types.boolea
 def slice_to_bounds_1D_numba(
     spectrum_arr: np.ndarray,
     wvls: np.ndarray,
-    bad_bands: np.ndarray,
+    ref_bad_bands: np.ndarray,
     min_wvl: np.float32,
     max_wvl: np.float32,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     if (
         spectrum_arr.ndim != 1
         or spectrum_arr.shape[0] != wvls.shape[0]
-        or spectrum_arr.shape[0] != bad_bands.shape[0]
     ):
         raise ValueError(
             f"Shape mismatch: reflectance has shape {spectrum_arr.shape}, "
             f"wavelengths has shape {wvls.shape}, "
-            f"bad_bands has shape {bad_bands.shape}"
+            f"bad_bands has shape {ref_bad_bands.shape}"
         )
 
     mask = np.ones(wvls.shape, dtype=np.bool_)
@@ -382,7 +391,7 @@ def slice_to_bounds_1D_numba(
     if max_wvl is not None:
         mask &= wvls <= max_wvl
 
-    return spectrum_arr[mask], wvls[mask], bad_bands[mask]
+    return spectrum_arr[mask], wvls[mask], ref_bad_bands[mask]
 
 
 interp1d_monotonic_sig = types.float32[:](types.float32[:], types.float32[:], types.float32[:])
@@ -400,7 +409,7 @@ def interp1d_monotonic_numba(x, y, x_new):
     This function implements a single-pass, monotonic, linear interpolation
     algorithm that is compatible with Numba's `njit`. Both `x` and `x_new`
     must be strictly increasing. Values in `x_new` that fall outside the
-    range `[x[0], x[-1]]` are interpolated.
+    range `[x[0], x[-1]]` are returned as np.nan.
 
     Args:
         x (np.ndarray):

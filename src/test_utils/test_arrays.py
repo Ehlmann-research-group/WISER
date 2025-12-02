@@ -352,7 +352,7 @@ gt_clean_test_arr = np.array(
     dtype=np.float32,
 )
 
-sam_sff_arr_reg = np.array(
+sam_sff_arr_basic = np.array(
     [
         [
             [0.0, 0.0, 0.0, 0.0],
@@ -378,8 +378,48 @@ sam_sff_arr_reg = np.array(
     dtype=np.float32,
 )
 
+sam_sff_arr_reg = np.array(
+    [
+        [
+            [0.0, 0.0, 0.0, 0.0],
+            [0.75, 0.75, 0.75, 0.75],
+            [0.0, 0.0, 0.0, 0.0],
+        ],
+        [
+            [1234, 1234, 1234, 1234],
+            [1234, 1234, 1234, 1234],
+            [1234, 1234, 1234, 1234],
+        ],
+        [
+            [0.25, 0.25, 0.25, 0.25],
+            [0.25, 0.25, 0.25, 0.25],
+            [0.15, 0.15, 0.15, 0.15],
+        ],
+        [
+            [1.0, 1.0, 1.0, 1.0],
+            [0.5, 0.5, 0.5, 0.5],
+            [0.4, 0.4, 0.4, 0.4],
+        ],
+        [
+            [0.25, 0.25, 0.25, 0.25],
+            [0., 0., 0., 0.],
+            [0.7, 0.7, 0.7, 0.7],
+        ],
+        [
+            [0., 0., 0., 0.],
+            [0.15, 0.15, 0.15, 0.15],
+            [1.0, 1.0, 1.0, 1.0],
+        ],
+    ],
+    dtype=np.float32,
+)
+
+sam_sff_basic_mask = np.zeros_like(sam_sff_arr_basic, dtype=np.bool_)
+sam_sff_masked_arr_basic = np.ma.masked_array(sam_sff_arr_basic, mask=sam_sff_basic_mask)
+
+
 sam_sff_reg_mask = np.zeros_like(sam_sff_arr_reg, dtype=np.bool_)
-sam_sff_masked_array = np.ma.masked_array(sam_sff_arr_reg, mask=sam_sff_reg_mask)
+sam_sff_masked_arr_reg = np.ma.masked_array(sam_sff_arr_reg, mask=sam_sff_reg_mask)
 
 sam_sff_arr_fail = np.array(
     [
@@ -403,7 +443,7 @@ sam_sff_arr_fail = np.array(
             [1.0, 1.0, 1.0, 1.0],
             [1.0, 1.0, 1.0, 1.0],
         ],
-    ],
+    ], 
     dtype=np.float32,
 )
 

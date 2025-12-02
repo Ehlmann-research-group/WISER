@@ -567,6 +567,7 @@ class GenericSpectralComputationTool(QDialog):
         reference_spectra_bad_bands: np.ndarray,  # bool[:]
         reference_spectra_indices: np.ndarray,  # uint32[:]
         thresholds: np.ndarray,  # float32[:]
+        python_mode: bool = False,
     ) -> List[int]:
         """Child must implement. Return Nothing. Load dataset into app instead."""
         raise NotImplementedError
@@ -574,6 +575,7 @@ class GenericSpectralComputationTool(QDialog):
     def find_matches(
         self,
         spectral_inputs: SpectralComputationInputs,
+        python_mode: bool = False,
     ) -> Union[List[Dict[str, Any]], List[int]]:
         """Find spectral matches for a single spectrum or an image cube.
 
@@ -607,6 +609,10 @@ class GenericSpectralComputationTool(QDialog):
                 * ``mode``: String flag controlling behavior (e.g. ``"Spectrum"``
                 or ``"Image Cube"``).
                 * ``thresholds``: Iterable of per-reference score thresholds.
+            
+            python_mode (bool):
+                Whether to run the compute intensive algorithms in python or not.
+                If False, it tries to run in compiled numba code.
 
         Returns:
             Optional(List(Dict(str, Any))):
@@ -742,6 +748,7 @@ class GenericSpectralComputationTool(QDialog):
                 reference_spectra_bad_bands=new_refs_bad_bands,
                 reference_spectra_indices=ref_offsets,
                 thresholds=thresholds,
+                python_mode=python_mode,
             )
             return ds_ids
         else:

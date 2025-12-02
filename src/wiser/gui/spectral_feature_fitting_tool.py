@@ -23,7 +23,7 @@ from .util import (
 )
 from wiser.gui.permanent_plugins.continuum_removal_plugin import (
     continuum_removal_image_numba,
-    continuum_removal_numba2,
+    continuum_removal_numba,
 )
 
 
@@ -222,26 +222,6 @@ def compute_sff_image_numba(
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
 
-        # ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
-        #     ref_spectrum,
-        #     ref_wvls,
-        #     ref_bad_bands,
-        #     min_wvl,
-        #     max_wvl,
-        # )
-
-        # # Regrid reference to match image wavelength sampling if needed
-        # if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
-        #     ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
-        # ):
-        #     ref_spectrum_interp = ref_spectrum_sliced
-        # else:
-        #     ref_spectrum_interp = interp1d_monotonic_numba(
-        #         ref_wvls_sliced,
-        #         ref_spectrum_sliced,
-        #         target_wvls_sliced,
-        #     )
-
         # possibly get rid of bad bands in reference spectrum and target here
 
         # Regrid reference to match image wavelength sampling if needed
@@ -256,10 +236,23 @@ def compute_sff_image_numba(
                 target_wavelengths,
             )
 
+            ref_bad_bands_float = ref_bad_bands.astype(np.float32)
+            ref_bad_bands_interp = interp1d_monotonic_numba(
+                ref_wvls,
+                ref_bad_bands_float,
+                target_wavelengths,
+            )
+            ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
+
+        print(f"ref_bad_bands_interp: {ref_bad_bands_interp}")
+        print(f"%^%^ ref_spectrum_interp.shape: {ref_spectrum_interp.shape}")
+        print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
+        print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
             target_wvls_sliced,
-            ref_bad_bands,
+            ref_bad_bands_interp,
             min_wvl,
             max_wvl,
         )
@@ -268,10 +261,11 @@ def compute_sff_image_numba(
         wvls_sliced_good_bands = target_wvls_sliced[target_bad_bands_sliced]
 
         # Start computing sff
-        ref_spectrum_cr, _ = continuum_removal_numba2(
+        ref_spectrum_cr, _ = continuum_removal_numba(
             ref_spectrum_good_bands,
             wvls_sliced_good_bands,
         )
+        print(f"^%^ ref_spectrum_cr.shape: {ref_spectrum_cr.shape}")
         print(f"ref_spectrum_sliced: {ref_spectrum_sliced}")
         print(f"ref_spectrum_interp: {ref_spectrum_interp}")
         print(f"&$& ref_spectrum_good_bands: {ref_spectrum_good_bands}")
@@ -284,9 +278,10 @@ def compute_sff_image_numba(
         denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
         print(f"denom: {denom}")
         scale = num / denom
-        print(f"scale: {scale}")
+        print(f"$%! scale: {scale}")
 
         resid = compute_resid_numba(target_image_cr, scale, ref_spectrum_cr)
+        print(f"resid: {resid}")
         rmse = np.sqrt(nanmean_last_axis_3d(resid**2))  # noqa: F841
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
@@ -452,19 +447,34 @@ class SFFTool(GenericSpectralComputationTool):
         reference_spectra_bad_bands: np.ndarray,  # bool[:]
         reference_spectra_indices: np.ndarray,  # uint32[:]
         thresholds: np.ndarray,  # float32[:]
+        python_mode: bool = False,
     ) -> List[int]:
-        out_cls, out_rmse, out_scale = compute_sff_image_numba(
-            target_image_arr,
-            target_wavelengths,
-            target_bad_bands,
-            min_wvl,
-            max_wvl,
-            reference_spectra_arr,
-            reference_spectra_wvls,
-            reference_spectra_bad_bands,
-            reference_spectra_indices,
-            thresholds,
-        )
+        if not python_mode:
+            out_cls, out_rmse, out_scale = compute_sff_image_numba(
+                target_image_arr,
+                target_wavelengths,
+                target_bad_bands,
+                min_wvl,
+                max_wvl,
+                reference_spectra_arr,
+                reference_spectra_wvls,
+                reference_spectra_bad_bands,
+                reference_spectra_indices,
+                thresholds,
+            )
+        else:
+            out_cls, out_rmse, out_scale = compute_sff_image(
+                target_image_arr,
+                target_wavelengths,
+                target_bad_bands,
+                min_wvl,
+                max_wvl,
+                reference_spectra_arr,
+                reference_spectra_wvls,
+                reference_spectra_bad_bands,
+                reference_spectra_indices,
+                thresholds,
+            )
         loader = RasterDataLoader()
 
         # Load in out_cls dataset
