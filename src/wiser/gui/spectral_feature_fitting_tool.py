@@ -417,6 +417,8 @@ def compute_sff_image_numba(
             max_wvl,
         )
 
+        # bad_bands_union = ref_bad_bands_sliced & target_bad_bands_sliced
+
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
         wvls_sliced_good_bands = target_wvls_sliced[target_bad_bands_sliced]
 
@@ -448,6 +450,9 @@ def compute_sff_image_numba(
         out_classification[i, :, :] = rmse < thr
         out_rmse[i, :, :] = rmse
         out_scale[i, :, :] = scale
+        print(f"!$#$#$#@ cls: {out_classification[i, :, :]}")
+        print(f"rmse: {rmse}")
+        print(f"scale: {scale}")
 
     return out_classification, out_rmse, out_scale
 
@@ -551,47 +556,105 @@ class SFFTool(GenericSpectralComputationTool):
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ) -> Tuple[float, Dict[str, Any]]:
+        """
+        Spectral Feature Fitting (SFF) score between a target spectrum and a reference
+        spectrum, implemented to match the logic of `compute_sff_image` but for 1D spectra.
+
+        Returns
+        -------
+        rms : float
+            RMSE of the continuum-removed, inverted target vs. scaled reference.
+        info : dict
+            Currently contains {"scale": scale}.
+        """
         MIN_SAMPLES = 3
-        t_reflect, t_wls = self._slice_to_bounds(
-            spectrum=target,
-            min_wvl=min_wvl,
-            max_wvl=max_wvl,
-        )
-        r_reflect, r_wls = self._slice_to_bounds(
-            spectrum=ref,
-            min_wvl=min_wvl,
-            max_wvl=max_wvl,
+
+        # --- Convert wavelengths to a common unit and build numpy arrays ---
+        target_unit = target.get_wavelength_units()
+        if target_unit is None:
+            raise ValueError("Target spectrum has no wavelength units.")
+
+        target_wvls_arr = np.array([w.to(target_unit).value for w in target.get_wavelengths()])
+        target_arr = np.asarray(target.get_spectrum(), dtype=np.float32)
+
+        # For now, treat all bands as "good" (no bad-band mask available at this layer).
+        # This matches the SAM `compute_score` approach.
+        target_dummy_bad_bands = np.zeros(target_wvls_arr.shape[0], dtype=np.bool_)
+
+        min_wvl_value = float(min_wvl.to(target_unit).value)
+        max_wvl_value = float(max_wvl.to(target_unit).value)
+
+        # Slice target to wavelength bounds (analogous to slice_to_bounds_3D in image version)
+        target_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_1D(
+            spectrum_arr=target_arr,
+            wvls=target_wvls_arr,
+            bad_bands=target_dummy_bad_bands,
+            min_wvl=min_wvl_value,
+            max_wvl=max_wvl_value,
         )
 
-        t_x = t_wls.value
-        r_x = r_wls.value
+        # --- Reference: resample to target wavelengths, then slice similarly ---
+        ref_arr = np.asarray(ref.get_spectrum(), dtype=np.float32)
+        ref_wvls_arr = np.array([w.to(target_unit).value for w in ref.get_wavelengths()])
 
-        if np.array_equal(r_x, t_x):
-            r_reflect_rs = r_reflect
+        # Regrid reference to match target wavelength sampling if needed
+        if ref_wvls_arr.shape == target_wvls_arr.shape and np.allclose(
+            ref_wvls_arr, target_wvls_arr, rtol=0.0, atol=1e-9
+        ):
+            ref_resampled = ref_arr
         else:
-            r_reflect_rs = self._resample_to(r_x, r_reflect, t_x)
+            # Same conceptual step as interp1d_monotonic(...) in compute_sff_image
+            ref_resampled = self._resample_to(ref_wvls_arr, ref_arr, target_wvls_arr)
 
-        valid = np.isfinite(t_reflect) & np.isfinite(r_reflect_rs)
-        if valid.sum() < MIN_SAMPLES:
+        # Slice the resampled reference to the same wavelength bounds
+        ref_arr_sliced, _, _ = slice_to_bounds_1D(
+            spectrum_arr=ref_resampled,
+            wvls=target_wvls_arr,
+            bad_bands=target_dummy_bad_bands,
+            min_wvl=min_wvl_value,
+            max_wvl=max_wvl_value,
+        )
+
+        # --- Build a common "good" mask like target_bad_bands_sliced does in the image code ---
+        # Here we also enforce finiteness, since continuum_removal is not NaN-aware.
+        finite_mask = np.isfinite(target_arr_sliced) & np.isfinite(ref_arr_sliced)
+        if finite_mask.sum() < MIN_SAMPLES:
             return (np.nan, {})
 
-        t_xv = t_x[valid]
-        t_reflect_v = t_reflect[valid]
-        r_reflect_v = r_reflect_rs[valid]
+        t_vals = target_arr_sliced[finite_mask]
+        r_vals = ref_arr_sliced[finite_mask]
+        w_vals = target_wvls_sliced[finite_mask]
 
-        a_t = self._continuum_remove_and_invert(t_xv, t_reflect_v)
-        a_r = self._continuum_remove_and_invert(t_xv, r_reflect_v)
-        if not np.any(np.isfinite(a_r)) or np.allclose(a_r, 0.0, atol=1e-12):
+        # --- Continuum removal + inversion (1 - CR) for both target and reference ---
+        # This mirrors:
+        #   ref_spectrum_cr, _ = continuum_removal(...)
+        #   ref_spectrum_cr = 1.0 - ref_spectrum_cr
+        # and the analogous image-side continuum_removal_image + (1 - ...) combo.
+        t_cr, _ = continuum_removal(t_vals, w_vals)
+        r_cr, _ = continuum_removal(r_vals, w_vals)
+
+        t_cr = np.float32(1.0) - t_cr
+        r_cr = np.float32(1.0) - r_cr
+
+        # Validate numerical integrity similar to compute_sff_image checks
+        if not np.isfinite(t_cr).all():
+            return (np.nan, {})
+        if not np.isfinite(r_cr).all():
             return (np.nan, {})
 
-        num = float(np.dot(a_r, a_t))
-        den = float(np.dot(a_r, a_r))
-        if den <= 0:
-            return (np.nan, {})
-        scale = max(0.0, num / den)
+        # --- SFF core: scale, residual, RMSE ---
+        num = float(np.dot(r_cr, t_cr))
+        denom = float(np.dot(r_cr, r_cr))
 
-        resid = a_t - scale * a_r
+        if denom == 0.0 or not np.isfinite(denom):
+            return (np.nan, {})
+
+        # Note: image code does NOT clamp scale with max(0, ...), so we don't either.
+        scale = num / denom
+
+        resid = t_cr - scale * r_cr
         rms = float(np.sqrt(np.nanmean(resid**2)))
+
         return rms, {"scale": float(scale)}
 
     def compute_score_image(

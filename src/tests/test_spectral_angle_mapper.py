@@ -447,69 +447,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
         gt_cls = np.array(
             [
                 [
-                    [
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                    ],
-                    [
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                    ],
-                    [
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                    ],
-                    [
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                    ],
-                    [
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                    ],
-                    [
-                        True,
-                        False,
-                        True,
-                        True,
-                        True,
-                        True,
-                        True,
-                    ],
-                    [
-                        True,
-                        False,
-                        True,
-                        False,
-                        False,
-                        False,
-                        True,
-                    ],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, False, True, True, True, True, True],
+                    [True, False, True, False, False, False, True],
                 ],
             ],
         )
@@ -517,69 +461,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
         gt_angle = np.array(
             [
                 [
-                    [
-                        4.67927,
-                        3.9164667,
-                        5.004333,
-                        3.7836175,
-                        3.9698532,
-                        4.796936,
-                        4.711228,
-                    ],
-                    [
-                        4.1235504,
-                        6.248146,
-                        6.5446057,
-                        5.3662233,
-                        3.5150776,
-                        4.365248,
-                        3.2047296,
-                    ],
-                    [
-                        4.1235504,
-                        4.908359,
-                        5.575275,
-                        4.7186646,
-                        2.9932327,
-                        9.862048,
-                        8.187411,
-                    ],
-                    [
-                        4.734869,
-                        4.908359,
-                        5.575275,
-                        0.0,
-                        3.8797956,
-                        6.082926,
-                        9.802952,
-                    ],
-                    [
-                        4.3238635,
-                        5.156207,
-                        4.203468,
-                        0.0,
-                        3.8797956,
-                        2.3756166,
-                        4.960055,
-                    ],
-                    [
-                        9.1437025,
-                        10.073412,
-                        9.405649,
-                        7.001798,
-                        5.931016,
-                        2.3756166,
-                        4.960055,
-                    ],
-                    [
-                        6.378765,
-                        10.8794365,
-                        7.693987,
-                        14.871129,
-                        16.298986,
-                        12.574226,
-                        4.8210926,
-                    ],
+                    [4.67927, 3.9164667, 5.004333, 3.7836175, 3.9698532, 4.796936, 4.711228],
+                    [4.1235504, 6.248146, 6.5446057, 5.3662233, 3.5150776, 4.365248, 3.2047296],
+                    [4.1235504, 4.908359, 5.575275, 4.7186646, 2.9932327, 9.862048, 8.187411],
+                    [4.734869, 4.908359, 5.575275, 0.0, 3.8797956, 6.082926, 9.802952],
+                    [4.3238635, 5.156207, 4.203468, 0.0, 3.8797956, 2.3756166, 4.960055],
+                    [9.1437025, 10.073412, 9.405649, 7.001798, 5.931016, 2.3756166, 4.960055],
+                    [6.378765, 10.8794365, 7.693987, 14.871129, 16.298986, 12.574226, 4.8210926],
                 ],
             ],
         )
@@ -590,7 +478,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
         self.assertTrue(np.allclose(cls_ds.get_image_data(), gt_cls, atol=1e-5))
         self.assertTrue(np.allclose(angle_ds.get_image_data(), gt_angle, atol=1e-5))
 
-    def test_sam_target_image_single_spec(self):
+    def test_sam_target_image_single_spec_same(self):
         bad_bands = [1, 0, 1, 1]
         wvl_list: List[u.Quantity] = [
             200 * u.nm,
