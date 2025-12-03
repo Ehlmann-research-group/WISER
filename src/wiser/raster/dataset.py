@@ -336,7 +336,7 @@ class SpectralMetadata:
     def get_has_wavelengths(self) -> bool:
         return self._has_wavelengths
 
-    def get_wavelengths(self) -> List[u.Quantity]:
+    def get_wavelengths(self) -> Optional[List[u.Quantity]]:
         return self._wavelengths
 
     def get_wavelength_units(self) -> u.Unit:
@@ -748,6 +748,13 @@ class RasterDataSet(Serializable):
         that can be converted to wavelength); otherwise, returns ``False``.
         """
         return self._has_wavelengths
+
+    def get_wavelengths(self) -> Optional[List[u.Quantity]]:
+        """
+        Returns the wavelengths of the dataset if it has wavelengths.
+        """
+        if self.has_wavelengths():
+            return [b["wavelength"] for b in self._band_info]
 
     def default_display_bands(self) -> Optional[DisplayBands]:
         """

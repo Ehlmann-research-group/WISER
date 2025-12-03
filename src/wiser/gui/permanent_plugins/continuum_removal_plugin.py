@@ -178,6 +178,7 @@ def continuum_removal(reflectance, waves) -> Tuple[np.ndarray, np.ndarray]:
     fp = coords_con_hull[1][order]
     iy_hull_np = np.interp(waves, xp, fp)
     norm = np.divide(reflectance, iy_hull_np)
+    norm[iy_hull_np == 0.0] = 1.0
     final = np.column_stack((waves, norm)).transpose(1, 0)[1]
     return final, iy_hull_np
 

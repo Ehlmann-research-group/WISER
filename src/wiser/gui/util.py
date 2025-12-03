@@ -34,7 +34,30 @@ class StateChange(enum.Enum):
 
 
 def compute_resid(target_image_cr, scale, ref_spectrum_cr):
-    pass
+    """
+    Vectorized equivalent of compute_resid_numba using NumPy broadcasting.
+
+    Args:
+        target_image_cr (np.ndarray):
+            A 3D array of shape (rows, cols, bands) representing the
+            continuum-removed target image cube.
+        scale (np.ndarray):
+            A 2D array of shape (rows, cols) containing per-pixel scale
+            factors.
+        ref_spectrum_cr (np.ndarray):
+            A 1D array of length (bands,) containing the reference
+            continuum-removed spectrum.
+
+    Returns:
+        np.ndarray:
+            A 3D array of shape (rows, cols, bands) where each element is:
+
+                target_image_cr[i, j, k]
+                - scale[i, j] * ref_spectrum_cr[k]
+
+            The output dtype is float32.
+    """
+    return target_image_cr - scale[:, :, None] * ref_spectrum_cr[None, None, :]
 
 
 compute_resid_sig = types.float32[:, :, :](  # return type
@@ -63,7 +86,7 @@ def compute_resid_numba(target_image_cr, scale2d, ref1d):
     return out
 
 
-def nanmean_last_axis_3d_numpy(a: np.ndarray) -> np.ndarray:
+def nanmean_last_axis_3d(a: np.ndarray) -> np.ndarray:
     """
     NumPy version: compute nanmean over the last axis of a 3D array.
 
@@ -77,7 +100,7 @@ def nanmean_last_axis_3d_numpy(a: np.ndarray) -> np.ndarray:
     out : np.ndarray
         2D array of nanmeans over the last axis.
     """
-    # axis = -1 means "last axis"
+    print(f"a: {a}")
     return np.nanmean(a, axis=-1).astype(np.float32)
 
 
@@ -85,11 +108,11 @@ mean3d_last_axis_sig = types.float32[:, :](types.float32[:, :, :])
 
 
 @numba_njit_wrapper(
-    non_njit_func=nanmean_last_axis_3d_numpy,
+    non_njit_func=nanmean_last_axis_3d,
     signature=mean3d_last_axis_sig,
     cache=True,
 )
-def nanmean_last_axis_3d(a):
+def nanmean_last_axis_3d_numba(a):
     """
     Compute the nanmean over the last axis (axis=2) of a 3D float32 array.
 

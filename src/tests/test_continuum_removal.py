@@ -210,7 +210,14 @@ class TestContinuumRemoval(unittest.TestCase):
         new_image_data_numba = continuum_removal_image_numba(
             img_data, bad_bands_arr, x_axis, rows, cols, bands
         )
-        new_image_data_non_numba = continuum_removal_image(img_data, bad_bands_arr, x_axis, rows, cols, bands)
+        new_image_data_non_numba = continuum_removal_image(
+            img_data,
+            bad_bands_arr,
+            x_axis,
+            rows,
+            cols,
+            bands,
+        )
 
         first_band_all_ones = np.all((new_image_data_numba[0] == 1) | np.isnan(new_image_data_numba[0]))
         last_band_all_ones = np.all((new_image_data_numba[-1] == 1) | np.isnan(new_image_data_numba[-1]))
@@ -381,3 +388,86 @@ class TestContinuumRemoval(unittest.TestCase):
         self.assertTrue(cr_dataset.get_spatial_ref().IsSame(gt_dataset.get_spatial_ref()))
         self.assertTrue(cr_dataset.has_wavelengths() == gt_dataset.has_wavelengths())
         self.assertTrue(cr_dataset._data_ignore_value == gt_dataset._data_ignore_value)
+
+    def test_nan_output(self):
+        spec_arr = np.array(
+            [
+                [
+                    [0.0, 0.25, 1.0, 0.25, 0.0],
+                    [0.0, 0.25, 1.0, 0.25, 0.0],
+                    [0.0, 0.25, 1.0, 0.25, 0.0],
+                    [0.0, 0.25, 1.0, 0.25, 0.0],
+                ],
+                [
+                    [0.75, 0.25, 0.5, 0.0, 0.15],
+                    [0.75, 0.25, 0.5, 0.0, 0.15],
+                    [0.75, 0.25, 0.5, 0.0, 0.15],
+                    [0.75, 0.25, 0.5, 0.0, 0.15],
+                ],
+                [
+                    [0.0, 0.15, 0.4, 0.7, 1.0],
+                    [0.0, 0.15, 0.4, 0.7, 1.0],
+                    [0.0, 0.15, 0.4, 0.7, 1.0],
+                    [0.0, 0.15, 0.4, 0.7, 1.0],
+                ],
+            ],
+            dtype=np.float32,
+        )
+        # Continuum removal takes it in the form [y][x][b] not [b][y][x]
+        # spec_arr = spec_arr.transpose((2, 0, 1))
+        print(f"#$##$ spec_arr.shape: {spec_arr.shape}")
+        spec_bad_bands = np.array([0, 0, 0, 0, 0], dtype=np.bool_)
+        spec_wvl = np.array([100, 200, 300, 400, 500], dtype=np.float32)
+
+        gt_cr = np.array(
+            [
+                [
+                    [1.0, 0.5, 1.0, 0.5, 1.0],
+                    [1.0, 0.5, 1.0, 0.5, 1.0],
+                    [1.0, 0.5, 1.0, 0.5, 1.0],
+                    [1.0, 0.5, 1.0, 0.5, 1.0],
+                ],
+                [
+                    [1.0, 0.4, 1.0, 0.0, 1.0],
+                    [1.0, 0.4, 1.0, 0.0, 1.0],
+                    [1.0, 0.4, 1.0, 0.0, 1.0],
+                    [1.0, 0.4, 1.0, 0.0, 1.0],
+                ],
+                [
+                    [1.0, 0.6, 0.8, 0.93333333, 1.0],
+                    [1.0, 0.6, 0.8, 0.93333333, 1.0],
+                    [1.0, 0.6, 0.8, 0.93333333, 1.0],
+                    [1.0, 0.6, 0.8, 0.93333333, 1.0],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        rows = spec_arr.shape[0]
+        cols = spec_arr.shape[1]
+        bands = spec_arr.shape[2]
+
+        cr_numba = continuum_removal_image_numba(
+            image_data=spec_arr,
+            bad_bands_arr=spec_bad_bands,
+            x_axis=spec_wvl,
+            rows=rows,
+            cols=cols,
+            bands=bands,
+        )
+        cr_numba = cr_numba.transpose((1, 2, 0))
+        cr_python = continuum_removal_image(
+            image_data=spec_arr,
+            bad_bands_arr=spec_bad_bands,
+            x_axis=spec_wvl,
+            rows=rows,
+            cols=cols,
+            bands=bands,
+        )
+        cr_python = cr_python.transpose((1, 2, 0))
+
+        print(f"*&* cr_numba: {cr_numba}")
+        print(f"*&* cr_python: {cr_python}")
+
+        self.assertTrue(np.allclose(gt_cr, cr_numba))
+        self.assertTrue(np.allclose(gt_cr, cr_python))

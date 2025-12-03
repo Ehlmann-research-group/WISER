@@ -69,7 +69,6 @@ class SingleItemChooserDialog(QDialog):
             self._create_button_box(layout=layout)
 
         self.setLayout(layout)
-        self.setFixedSize(self.sizeHint())
 
     def _create_button_box(
         self,

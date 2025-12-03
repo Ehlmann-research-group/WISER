@@ -91,26 +91,7 @@ def compute_sam_image(
         ref_spectrum = reference_spectra[start:end]
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
-        # # TODO (Joshua G-K): Figure out a way to use the bad bands quickly
-        # ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D(
-        #     ref_spectrum,
-        #     ref_wvls,
-        #     ref_bad_bands,
-        #     min_wvl,
-        #     max_wvl,
-        # )
 
-        # # See if we need to interpolate linearly
-        # if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
-        #     ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
-        # ):
-        #     ref_spectrum_interp = ref_spectrum_sliced
-        # else:
-        #     ref_spectrum_interp = interp1d_monotonic(
-        #         ref_wvls_sliced,
-        #         ref_spectrum_sliced,
-        #         target_wvls_sliced,
-        #     )
         if ref_spectrum.shape == target_wavelengths.shape and np.allclose(
             ref_spectrum, target_wavelengths, rtol=0.0, atol=1e-9
         ):
@@ -131,10 +112,6 @@ def compute_sam_image(
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
-        print(f"ref_bad_bands_interp: {ref_bad_bands_interp}")
-        print(f"%^%^ ref_spectrum_interp.shape: {ref_spectrum_interp.shape}")
-        print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
-        print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
             target_wvls_sliced,
@@ -184,12 +161,12 @@ compute_sam_image_sig = types.Tuple(
 )
 
 
-# @numba_njit_wrapper(
-#     non_njit_func=compute_sam_image,
-#     signature=compute_sam_image_sig,
-#     parallel=True,
-#     cache=True,
-# )
+@numba_njit_wrapper(
+    non_njit_func=compute_sam_image,
+    signature=compute_sam_image_sig,
+    parallel=True,
+    cache=True,
+)
 def compute_sam_image_numba(
     target_image_arr: np.ndarray,
     target_wavelengths: np.ndarray,
@@ -350,26 +327,6 @@ def compute_sam_image_numba(
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
 
-        # # TODO (Joshua G-K): Figure out a way to use the bad bands quickly
-        # ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
-        #     ref_spectrum,
-        #     ref_wvls,
-        #     ref_bad_bands,
-        #     min_wvl,
-        #     max_wvl,
-        # )
-
-        # # See if we need to interpolate linearly
-        # if ref_wvls_sliced.shape == target_wvls_sliced.shape and np.allclose(
-        #     ref_wvls_sliced, target_wvls_sliced, rtol=0.0, atol=1e-9
-        # ):
-        #     ref_spectrum_interp = ref_spectrum_sliced
-        # else:
-        #     ref_spectrum_interp = interp1d_monotonic_numba(
-        #         ref_wvls_sliced,
-        #         ref_spectrum_sliced,
-        #         target_wvls_sliced,
-        #     )
         if ref_spectrum.shape == target_wavelengths.shape and np.allclose(
             ref_spectrum, target_wavelengths, rtol=0.0, atol=1e-9
         ):
@@ -390,10 +347,6 @@ def compute_sam_image_numba(
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
-        print(f"ref_bad_bands_interp: {ref_bad_bands_interp}")
-        print(f"%^%^ ref_spectrum_interp.shape: {ref_spectrum_interp.shape}")
-        print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
-        print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
             target_wvls_sliced,
@@ -403,7 +356,6 @@ def compute_sam_image_numba(
         )
 
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
-        # wvls_sliced_good_bands = target_wvls_sliced[target_bad_bands_sliced]
 
         # Compute the angle
         ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
@@ -469,7 +421,7 @@ class SAMTool(GenericSpectralComputationTool):
         """
         if x_src.size < 2 or np.all(~np.isfinite(y_src)):
             return np.full_like(x_dst, np.nan, dtype=float)  # TODO (Joshua G-K) Raise error instead
-        interp_fn = interp1d(x_src, y_src, bounds_error=False, fill_value="extrapolate")
+        interp_fn = interp1d(x_src, y_src, bounds_error=False, fill_value=np.nan)
         return interp_fn(x_dst)
 
     # compute spectral angle between target and ref in degrees
@@ -481,36 +433,53 @@ class SAMTool(GenericSpectralComputationTool):
         max_wvl: u.Quantity,
     ) -> Tuple[float, Dict[str, Any]]:
         MIN_SAMPLES = 3
-        t_arr, t_wls = self._slice_to_bounds(
-            spectrum=target,
-            min_wvl=min_wvl,
-            max_wvl=max_wvl,
-        )
-        r_arr, r_wls = self._slice_to_bounds(
-            spectrum=ref,
-            min_wvl=min_wvl,
-            max_wvl=max_wvl,
+        target_unit = target.get_wavelength_units()
+        target_wvls_arr = np.array([wvl.to(target_unit).value for wvl in target.get_wavelengths()])
+        target_dummy_bad_bands = np.array(
+            [0] * target_wvls_arr.shape[0], dtype=np.bool_
+        )  # No bad bands for now
+        target_arr = target.get_spectrum()
+        min_wvl_value = min_wvl.to(target_unit).value
+        max_wvl_value = max_wvl.to(target_unit).value
+        target_arr_sliced, _, _ = slice_to_bounds_1D(
+            spectrum_arr=target_arr,
+            wvls=target_wvls_arr,
+            bad_bands=target_dummy_bad_bands,
+            min_wvl=min_wvl_value,
+            max_wvl=max_wvl_value,
         )
 
-        t_x = t_wls.value
-        r_x = r_wls.value
+        ref_arr = ref.get_spectrum()
+        ref_wvls_arr = np.array([wvl.to(target_unit).value for wvl in ref.get_wavelengths()])
 
-        if r_x.shape == t_x.shape and np.allclose(r_x, t_x, rtol=0, atol=1e-9):
-            r_resampled = r_arr
+        if ref_wvls_arr.shape == target_wvls_arr.shape and np.allclose(
+            ref_wvls_arr, target_wvls_arr, rtol=0, atol=1e-9
+        ):
+            r_resampled = ref_arr
         else:
-            r_resampled = self._resample_to(r_x, r_arr, t_x)
+            r_resampled = self._resample_to(ref_wvls_arr, ref_arr, target_wvls_arr)
 
-        valid = np.isfinite(t_arr) & np.isfinite(r_resampled)
-        t_vec = t_arr[valid]
-        r_vec = r_resampled[valid]
-        if t_vec.size < MIN_SAMPLES:
+        ref_arr_sliced, _, _ = slice_to_bounds_1D(
+            spectrum_arr=r_resampled,
+            wvls=target_wvls_arr,
+            bad_bands=target_dummy_bad_bands,
+            min_wvl=min_wvl_value,
+            max_wvl=max_wvl_value,
+        )
+
+        print(f"type(target_arr_sliced): {type(target_arr_sliced)}")
+        print(f"type(ref_arr_sliced): {type(ref_arr_sliced)}")
+        valid = np.isfinite(target_arr_sliced) & np.isfinite(ref_arr_sliced)
+        target_arr_valid = target_arr_sliced[valid]
+        ref_arr_valid = ref_arr_sliced[valid]
+        if target_arr_valid.size < MIN_SAMPLES:
             return (np.nan, {})
 
-        denom = np.linalg.norm(t_vec) * np.linalg.norm(r_vec)
+        denom = np.linalg.norm(target_arr_valid) * np.linalg.norm(ref_arr_valid)
         if denom == 0:
             angle_deg = 90.0
         else:
-            cosang = np.clip(np.dot(t_vec, r_vec) / denom, -1.0, 1.0)
+            cosang = np.clip(np.dot(target_arr_valid, ref_arr_valid) / denom, -1.0, 1.0)
             angle_deg = float(np.degrees(np.arccos(cosang)))
 
         return angle_deg, {}

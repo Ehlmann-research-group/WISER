@@ -183,6 +183,7 @@ class GenericSpectralComputationTool(QDialog):
         ui.addCancelBtn.clicked.connect(self.cancel)
         ui.addLibBtn.clicked.connect(self._on_add_library_clicked)
         ui.addSpecBtn.clicked.connect(self._on_add_spectrum_clicked)
+        ui.btn_add_collected_spec.clicked.connect(self._on_add_collected_spectrum)
         ui.SelectTargetData.currentTextChanged.connect(self._on_target_type_changed)
         ui.clearRunsBtn.clicked.connect(self._on_clear_runs_clicked)
 
@@ -228,6 +229,18 @@ class GenericSpectralComputationTool(QDialog):
         ui.SelectTargetData.blockSignals(False)
         ui.SelectTargetData.setCurrentText("Spectrum")
         self._on_target_type_changed("Spectrum")
+
+    def _on_add_collected_spectrum(self):
+        spec = self._app_state.choose_spectrum_ui()
+        if spec is None:
+            return
+
+        self.addSpectrumRow()
+        row = self._spec_rows[-1]
+        spec_name = spec.get_name()
+        row["checkbox"].setText(f"{spec_name}")
+        row["checkbox"].setChecked(True)
+        row["specs"].extend([spec])
 
     # ----------------- File pickers -----------------
     def _on_add_spectrum_clicked(self):
@@ -443,6 +456,10 @@ class GenericSpectralComputationTool(QDialog):
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ) -> Tuple[np.ndarray, u.Quantity]:
+        """
+        Slices the given spectrum to the specified wavelength bounds.
+        Returns a numpy array and a list of u.Quantity objects
+        """
         wls = spectrum.get_wavelengths()
         if not isinstance(wls, u.Quantity):
             unit = (
@@ -455,13 +472,10 @@ class GenericSpectralComputationTool(QDialog):
             unit = self._get_wavelength_units()
             wls = u.Quantity(wls.value, unit)
 
-        if min_wvl is not None:
-            wls = wls.to(min_wvl.unit)
-        if max_wvl is not None:
-            wls = wls.to(max_wvl.unit)
+        min_wvl = min_wvl.to(unit)
+        max_wvl = max_wvl.to(unit)
 
-        raw_r = spectrum.get_spectrum()
-        arr = raw_r.value if isinstance(raw_r, u.Quantity) else np.asarray(raw_r)
+        arr = spectrum.get_spectrum()
         if arr.ndim != 1 or arr.shape[0] != wls.shape[0]:
             raise ValueError(
                 f"Shape mismatch: reflectance has shape {arr.shape}, wavelengths has shape {wls.shape}"
