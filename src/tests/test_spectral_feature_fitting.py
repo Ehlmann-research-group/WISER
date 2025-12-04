@@ -603,9 +603,27 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         print(f"rmse_ds_py: {rmse_ds_py.get_image_data()}")
         print(f"scale_ds_py: {scale_ds_py.get_image_data()}")
 
-        self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
-        self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), rmse_ds_py.get_image_data(), atol=1e-5))
-        self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), scale_ds_py.get_image_data(), atol=1e-5))
+        self.assertTrue(
+            np.allclose(
+                cls_ds_numba.get_image_data(),
+                cls_ds_py.get_image_data(),
+                atol=1e-5,
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                rmse_ds_numba.get_image_data(),
+                rmse_ds_py.get_image_data(),
+                atol=1e-5,
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                scale_ds_numba.get_image_data(),
+                scale_ds_py.get_image_data(),
+                atol=1e-5,
+            )
+        )
 
         self.assertTrue(np.allclose(cls_ds_py.get_image_data(), gt_cls, atol=1e-5))
         self.assertTrue(np.allclose(rmse_ds_py.get_image_data(), gt_rmse, atol=1e-5))
@@ -765,3 +783,169 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             min_wvl=min_wvl,
             max_wvl=max_wvl,
         )
+
+    def test_real_dataset(self):
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_425_7_7_nm",
+        )
+        ds = self.test_model.load_dataset(load_path)
+
+        assert len(spec_wvl_caltech_425_7_7) == len(
+            spec_bbl_caltech_425_7_7
+        ), "Wavelength and bad band lists should be same length"
+
+        # Create target spectrum
+        reference_spec = NumPyArraySpectrum(
+            spec_arr_caltech_425_7_7,
+            name="ref_1",
+            wavelengths=spec_wvl_caltech_425_7_7,
+        )
+        reference_spec.set_bad_bands(np.array(spec_bbl_caltech_425_7_7, dtype=np.bool_))
+        refs = [reference_spec]
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=refs,
+            thresholds=[np.float32(0.03)],
+            global_thr=None,
+            min_wvl=0 * u.nm,
+            max_wvl=3000 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        generic_spectral_comp = SFFTool(
+            app_state=self.test_model.app_state,
+        )
+
+        ds_ids_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        ds_ids_py = generic_spectral_comp.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=True,
+        )
+
+        cls_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[0])
+        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
+        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
+
+        cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
+        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
+        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+
+        gt_cls = np.array(
+            [
+                [
+                    [False, True, False, False, True, False, False],
+                    [False, False, False, False, False, False, True],
+                    [False, False, False, False, True, False, False],
+                    [False, False, False, True, False, False, False],
+                    [False, False, False, True, False, True, False],
+                    [False, False, False, False, False, True, False],
+                    [False, False, False, False, False, False, False],
+                ],
+            ],
+            dtype=bool,
+        )
+
+        gt_rmse = np.array(
+            [
+                [
+                    [
+                        4.15869579e-02,
+                        2.67113838e-02,
+                        3.42449397e-02,
+                        3.91400270e-02,
+                        2.59997919e-02,
+                        4.66828644e-02,
+                        3.39062773e-02,
+                    ],
+                    [
+                        3.90569009e-02,
+                        4.18114625e-02,
+                        6.75352290e-02,
+                        4.01185751e-02,
+                        6.47246987e-02,
+                        7.05183372e-02,
+                        2.06421167e-02,
+                    ],
+                    [
+                        3.90569009e-02,
+                        6.34371936e-02,
+                        6.33805543e-02,
+                        4.17735800e-02,
+                        2.59930417e-02,
+                        6.67657554e-02,
+                        5.63891456e-02,
+                    ],
+                    [
+                        7.03767166e-02,
+                        6.34371936e-02,
+                        6.33805543e-02,
+                        6.91024793e-09,
+                        4.15737741e-02,
+                        7.17460141e-02,
+                        6.13145716e-02,
+                    ],
+                    [
+                        5.63222840e-02,
+                        4.57529202e-02,
+                        6.34744987e-02,
+                        6.91024793e-09,
+                        4.15737741e-02,
+                        1.85179412e-02,
+                        7.36641288e-02,
+                    ],
+                    [
+                        7.32245743e-02,
+                        9.45611745e-02,
+                        7.03115687e-02,
+                        5.77710494e-02,
+                        4.57442738e-02,
+                        1.85179412e-02,
+                        7.36641288e-02,
+                    ],
+                    [
+                        4.72590104e-02,
+                        1.02343604e-01,
+                        6.46559149e-02,
+                        6.49090931e-02,
+                        9.99532044e-02,
+                        7.77708739e-02,
+                        5.49362153e-02,
+                    ],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        gt_scale = np.array(
+            [
+                [
+                    [0.455986, 0.65979195, 0.7567702, 0.9816899, 0.79046255, 0.46928725, 0.57569593],
+                    [0.85807157, 0.71898293, 1.111077, 0.94852084, 0.38690406, 0.42547914, 0.95766056],
+                    [0.85807157, 0.5376752, 1.2289493, 0.97301376, 1.0478121, 0.32740894, 0.4004305],
+                    [0.37324774, 0.5376752, 1.2289493, 1.0, 0.37899017, 0.4287117, 0.70357853],
+                    [0.5306847, 0.6437702, 1.2857003, 1.0, 0.37899017, 1.05792, 0.6288043],
+                    [0.8110572, 1.1717851, 1.0490555, 0.75910807, 0.81594414, 1.05792, 0.6288043],
+                    [0.71527946, 1.0300289, 0.80894065, 0.73367685, 0.30036724, 0.30632356, 0.84332615],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        print(f"$%$ cls_ds: {cls_ds_numba.get_image_data()}")
+        print(f"$%$ rmse_ds_numba: {rmse_ds_numba.get_image_data()}")
+        print(f"$%$ scale_ds_numba: {scale_ds_numba.get_image_data()}")
+
+        self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
+        self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), rmse_ds_py.get_image_data(), atol=1e-5))
+        self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), scale_ds_py.get_image_data(), atol=1e-5))
+
+        # I verified these by hand
+        self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), gt_cls, atol=1e-5))
+        self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), gt_rmse, atol=1e-5))
+        self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), gt_scale, atol=1e-5))

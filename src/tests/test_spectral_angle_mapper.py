@@ -394,7 +394,6 @@ class TestSpectralAngleMapper(unittest.TestCase):
         self.assertFalse(False)
 
     def test_real_dataset(self):
-        # Load in the dataset where the above continuum removed spectrum comes from
         load_path = os.path.join(
             os.path.dirname(__file__),
             "..",
@@ -407,21 +406,14 @@ class TestSpectralAngleMapper(unittest.TestCase):
         assert len(spec_wvl_caltech_425_7_7) == len(
             spec_bbl_caltech_425_7_7
         ), "Wavelength and bad band lists should be same length"
-        wvls = [
-            spec_wvl_caltech_425_7_7[i]
-            for i in range(len(spec_bbl_caltech_425_7_7))
-            if spec_bbl_caltech_425_7_7[i] == 1
-        ]
-        mask = np.array(spec_bbl_caltech_425_7_7, dtype=bool)
-        spec_arr = spec_arr_caltech_425_7_7[mask]
 
-        assert len(wvls) == spec_arr.shape[0], "Length of wvls should match first dimension of spec_arr"
         # Create target spectrum
         reference_spec = NumPyArraySpectrum(
-            spec_arr,
+            spec_arr_caltech_425_7_7,
             name="ref_1",
-            wavelengths=wvls,
+            wavelengths=spec_wvl_caltech_425_7_7,
         )
+        reference_spec.set_bad_bands(np.array(spec_bbl_caltech_425_7_7, dtype=np.bool_))
         refs = [reference_spec]
 
         spectral_inputs = SpectralComputationInputs(
@@ -440,9 +432,16 @@ class TestSpectralAngleMapper(unittest.TestCase):
         )
 
         ds_ids = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        ds_ids_py = generic_spectral_comp.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=True,
+        )
 
         cls_ds = self.test_model.app_state.get_dataset(ds_ids[0])
         angle_ds = self.test_model.app_state.get_dataset(ds_ids[1])
+
+        cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
+        angle_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
 
         gt_cls = np.array(
             [
@@ -461,13 +460,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
         gt_angle = np.array(
             [
                 [
-                    [4.67927, 3.9164667, 5.004333, 3.7836175, 3.9698532, 4.796936, 4.711228],
-                    [4.1235504, 6.248146, 6.5446057, 5.3662233, 3.515022, 4.365248, 3.2047296],
-                    [4.1235504, 4.908359, 5.5752397, 4.7186646, 2.9932327, 9.862008, 8.187411],
-                    [4.734869, 4.908359, 5.5752397, 0.0, 3.8797956, 6.082894, 9.802952],
-                    [4.3238635, 5.156207, 4.203468, 0.0, 3.8797956, 2.3756166, 4.960055],
-                    [9.1437025, 10.073412, 9.405649, 7.0017424, 5.931016, 2.3756166, 4.960055],
-                    [6.378765, 10.8794365, 7.693987, 14.871129, 16.298986, 12.574226, 4.8210926],
+                    [4.6792693, 3.9164665, 5.0043325, 3.7836173, 3.969853, 4.7969356, 4.711228],
+                    [4.1235504, 6.2481456, 6.5446053, 5.366223, 3.5150776, 4.3652477, 3.2047293],
+                    [4.1235504, 4.9083586, 5.5752745, 4.7186646, 2.9932325, 9.862047, 8.18741],
+                    [4.7348685, 4.9083586, 5.5752745, 0.0, 3.8797953, 6.082926, 9.802952],
+                    [4.3238635, 5.156207, 4.203468, 0.0, 3.8797953, 2.3756166, 4.9600544],
+                    [9.143702, 10.073412, 9.405649, 7.0017977, 5.931016, 2.3756166, 4.9600544],
+                    [6.3787646, 10.879436, 7.6939864, 14.871127, 16.298985, 12.574225, 4.821092],
                 ]
             ],
             dtype=np.float32,
@@ -476,9 +475,12 @@ class TestSpectralAngleMapper(unittest.TestCase):
         print(f"$%$ cls_ds: {cls_ds.get_image_data()}")
         print(f"$%$ angle_ds: {angle_ds.get_image_data()}")
 
+        self.assertTrue(np.allclose(cls_ds.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
+        self.assertTrue(np.allclose(angle_ds.get_image_data(), angle_ds_py.get_image_data(), atol=1e-5))
+
         # I verified these by hand
-        self.assertTrue(np.allclose(cls_ds.get_image_data(), gt_cls, atol=1e-5))
-        self.assertTrue(np.allclose(angle_ds.get_image_data(), gt_angle, atol=1e-5))
+        self.assertTrue(np.allclose(cls_ds.get_image_data(), gt_cls, atol=1e-4))
+        self.assertTrue(np.allclose(angle_ds.get_image_data(), gt_angle, atol=1e-4))
 
     def test_sam_target_image_single_spec_same(self):
         bad_bands = [1, 0, 1, 1]

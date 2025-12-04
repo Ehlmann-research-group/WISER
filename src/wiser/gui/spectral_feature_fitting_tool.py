@@ -141,10 +141,11 @@ def compute_sff_image(
         # bounds) --> continuum remove --> remove target's bad bands
 
         # Interpolate / regrid
-        if ref_spectrum.shape == target_wavelengths.shape and np.allclose(
-            ref_spectrum, target_wavelengths, rtol=0.0, atol=1e-9
+        if ref_wvls.shape == target_wavelengths.shape and np.allclose(
+            ref_wvls, target_wavelengths, rtol=0.0, atol=1e-9
         ):
             ref_spectrum_interp = ref_spectrum
+            ref_bad_bands_interp = ref_bad_bands
         else:
             ref_spectrum_interp = interp1d_monotonic(
                 ref_wvls,
@@ -195,6 +196,8 @@ def compute_sff_image(
 
         ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
+        finite_mask = np.isfinite(ref_spec_cr_target_grid_target_bb).astype(np.bool_)
+        ref_bad_bands = ref_bad_bands & finite_mask
         # bad_bands_combined = ref_bad_bands_sliced[target_bad_bands_sliced]
         # print(f"ref_bad_bands_sliced: {ref_bad_bands_sliced}")
         # print(f"ref_bad_bands_sliced.shape: {ref_bad_bands_sliced.shape}")
@@ -442,10 +445,11 @@ def compute_sff_image_numba(
         # remove ref's bad bands --> continuum remove --> regrid to target wvls sliced
         # --> remove target's bad bands
         # The above steps will let us match the wvl grid of the target image
-        if ref_spectrum.shape == target_wavelengths.shape and np.allclose(
-            ref_spectrum, target_wavelengths, rtol=0.0, atol=1e-9
+        if ref_wvls.shape == target_wavelengths.shape and np.allclose(
+            ref_wvls, target_wavelengths, rtol=0.0, atol=1e-9
         ):
             ref_spectrum_interp = ref_spectrum
+            ref_bad_bands_interp = ref_bad_bands
         else:
             ref_spectrum_interp = interp1d_monotonic_numba(
                 ref_wvls,
@@ -491,7 +495,11 @@ def compute_sff_image_numba(
             ref_wvl_bb_removed,
         )
         # Put back into the target wvl grid
-        ref_spec_cr_target_grid = np.full_like(ref_spectrum_sliced, SFF_NEUTRAL_FILL_VALUE, dtype=np.float32)
+        ref_spec_cr_target_grid = np.full_like(
+            ref_spectrum_sliced,
+            SFF_NEUTRAL_FILL_VALUE,
+            dtype=np.float32,
+        )
         ref_spec_cr_target_grid[ref_bad_bands_sliced] = ref_spec_cr
 
         # Remove the target wvl bad bands
@@ -499,6 +507,8 @@ def compute_sff_image_numba(
 
         ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
+        finite_mask = np.isfinite(ref_spec_cr_target_grid_target_bb).astype(np.bool_)
+        ref_bad_bands = ref_bad_bands & finite_mask
         # ref_spectrum_good_bands = ref_spectrum_sliced[bad_bands_combined]
         # wvls_sliced_good_bands = target_wvls_sliced[bad_bands_combined]
 
