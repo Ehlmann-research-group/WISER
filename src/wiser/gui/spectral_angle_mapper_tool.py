@@ -324,7 +324,7 @@ def compute_sam_image_numba(
     if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
         raise ValueError("Reference spectra array is not finite")
 
-    print(f"Target image shape after slicing and bad band removal: \n{target_image_arr_sliced.shape}")
+    # print(f"Target image shape after slicing and bad band removal: \n{target_image_arr_sliced.shape}")
 
     num_spectra = reference_spectra_indices.shape[0] - 1
     out_classification = np.empty(
@@ -357,8 +357,8 @@ def compute_sam_image_numba(
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
 
-        print(f"**$: ref_spectrum.shape: {ref_spectrum.shape}")
-        print(f"**$: target_wavelengths.shape: {target_wavelengths.shape}")
+        # print(f"**$: ref_spectrum.shape: {ref_spectrum.shape}")
+        # print(f"**$: target_wavelengths.shape: {target_wavelengths.shape}")
         if ref_wvls.shape == target_wavelengths.shape and np.allclose(
             ref_wvls, target_wavelengths, rtol=0.0, atol=1e-9
         ):
@@ -393,32 +393,32 @@ def compute_sam_image_numba(
 
         # AND with existing mask
         ref_bad_bands = ref_bad_bands_sliced & finite_mask
-        print(f"new bad bands mask: {ref_bad_bands_sliced}")
+        # print(f"new bad bands mask: {ref_bad_bands_sliced}")
 
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
         ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
         # Compute the angle
-        print(f"target_bad_bands_sliced: {target_bad_bands_sliced}")
-        print(f"ref_spectrum_sliced: {ref_spectrum_sliced}")
-        print(f"ref_spectrum_good_bands before: {ref_spectrum_good_bands}")
+        # print(f"target_bad_bands_sliced: {target_bad_bands_sliced}")
+        # print(f"ref_spectrum_sliced: {ref_spectrum_sliced}")
+        # print(f"ref_spectrum_good_bands before: {ref_spectrum_good_bands}")
         ref_spectrum_good_bands[~ref_bad_bands] = 0.0
-        print(f"ref_bad_bands_sliced: {ref_bad_bands_sliced}")
-        print(f"target_bad_bands_sliced: {target_bad_bands_sliced}")
-        print(f"ref_bad_bands: {ref_bad_bands}")
-        print(f"ref_spectrum_good_bands after: {ref_spectrum_good_bands}")
+        # print(f"ref_bad_bands_sliced: {ref_bad_bands_sliced}")
+        # print(f"target_bad_bands_sliced: {target_bad_bands_sliced}")
+        # print(f"ref_bad_bands: {ref_bad_bands}")
+        # print(f"ref_spectrum_good_bands after: {ref_spectrum_good_bands}")
         ref_spec_norm = np.sqrt(
             (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands)),
         )
-        print(f"ref_spec_norm: {ref_spec_norm}")
-        print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
-        print(f"target_image_arr_sliced.shape: {target_image_arr_sliced.shape}")
+        # print(f"ref_spec_norm: {ref_spec_norm}")
+        # print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
+        # print(f"target_image_arr_sliced.shape: {target_image_arr_sliced.shape}")
         target_image_arr_sliced[:, :, ~ref_bad_bands] = 0.0
         # target_image_arr_sliced[~ref_bad_bands] = 0.0
         target_image_arr_norm = np.sqrt(
             (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
         )
-        print(f"target_image_arr_norm: {target_image_arr_norm}")
+        # print(f"target_image_arr_norm: {target_image_arr_norm}")
 
         denom = target_image_arr_norm * ref_spec_norm
 

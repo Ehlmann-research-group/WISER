@@ -241,8 +241,7 @@ def compute_sff_image(
         print(f"resid: {resid}")
         ref_good_bands_num = ref_bad_bands.sum()
         print(f"ref_good_bands_num: {ref_good_bands_num}")
-        if ref_good_bands_num == 0:
-            return out_classification.fill(np.nan), out_rmse.fill(np.nan), out_scale.fill(np.nan)
+
         rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)  # noqa: F841
         print(f"#$### rmse: {rmse}")
         thr = thresholds[i]
@@ -273,12 +272,12 @@ compute_sff_image_sig = types.Tuple(
 )
 
 
-# @numba_njit_wrapper(
-#     non_njit_func=compute_sff_image,
-#     signature=compute_sff_image_sig,
-#     parallel=True,
-#     cache=True,
-# )
+@numba_njit_wrapper(
+    non_njit_func=compute_sff_image,
+    signature=compute_sff_image_sig,
+    parallel=True,
+    cache=True,
+)
 def compute_sff_image_numba(
     target_image_arr: np.ndarray,  # float32[:, :, :]
     target_wavelengths: np.ndarray,  # float32[:]
@@ -391,9 +390,6 @@ def compute_sff_image_numba(
     if not np.isfinite(target_image_arr_sliced).all():
         raise ValueError("Target image array is not finite after cleaning")
     if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
-        print(f"reference_spectra_bad_bands: {reference_spectra_bad_bands}")
-        print(f"After masking: {reference_spectra[reference_spectra_bad_bands]}")
-        print(f"before masking: {reference_spectra}")
         raise ValueError("Reference spectra array is not finite")
 
     num_spectra = reference_spectra_indices.shape[0] - 1
@@ -457,16 +453,16 @@ def compute_sff_image_numba(
                 target_wavelengths,
             )
 
-            print(f"&*()ref_bad_bands before: {ref_bad_bands}")
+            # print(f"&*()ref_bad_bands before: {ref_bad_bands}")
             ref_bad_bands_float = ref_bad_bands.astype(np.float32)
             ref_bad_bands_interp = interp1d_monotonic_numba(
                 ref_wvls,
                 ref_bad_bands_float,
                 target_wavelengths,
             )
-            print(f"&*()ref_bad_bands_interp before: {ref_bad_bands_interp}")
+            # print(f"&*()ref_bad_bands_interp before: {ref_bad_bands_interp}")
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
-            print(f"&*()ref_bad_bands_interp after: {ref_bad_bands_interp}")
+            # print(f"&*()ref_bad_bands_interp after: {ref_bad_bands_interp}")
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
         # print(f"ref_bad_bands_interp: {ref_bad_bands_interp}")
@@ -486,9 +482,9 @@ def compute_sff_image_numba(
         # Remove bad bands
         ref_spec_bb_removed = ref_spectrum_sliced[ref_bad_bands_sliced]
         ref_wvl_bb_removed = ref_wvls_sliced[ref_bad_bands_sliced]
-        print(f"numba!@# ref_spec_bb_removed: {ref_spec_bb_removed}")
-        print(f"numba!@# ref_wvl_bb_removed: {ref_wvl_bb_removed}")
-        print(f"numba!@# ref_bad_bands_sliced: {ref_bad_bands_sliced}")
+        # print(f"numba!@# ref_spec_bb_removed: {ref_spec_bb_removed}")
+        # print(f"numba!@# ref_wvl_bb_removed: {ref_wvl_bb_removed}")
+        # print(f"numba!@# ref_bad_bands_sliced: {ref_bad_bands_sliced}")
         # Calculate Continuum Removal
         ref_spec_cr, _ = continuum_removal_numba(
             ref_spec_bb_removed,
@@ -535,17 +531,15 @@ def compute_sff_image_numba(
         resid = compute_resid_numba(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
         # print(f"resid: {resid}")
         ref_good_bands_num = ref_bad_bands.sum()
-        if ref_good_bands_num == 0:
-            return out_classification.fill(np.nan), out_rmse.fill(np.nan), out_scale.fill(np.nan)
         rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)  # noqa: F841
         # print(f"#$### nanmean_last_axis_3d_numba(resid**2): {nanmean_last_axis_3d_numba(resid**2)}")
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
         out_rmse[i, :, :] = rmse
         out_scale[i, :, :] = scale
-        print(f"!$#$#$#@ cls: {out_classification[i, :, :]}")
-        print(f"rmse: {rmse}")
-        print(f"scale: {scale}")
+        # print(f"!$#$#$#@ cls: {out_classification[i, :, :]}")
+        # print(f"rmse: {rmse}")
+        # print(f"scale: {scale}")
 
     return out_classification, out_rmse, out_scale
 
