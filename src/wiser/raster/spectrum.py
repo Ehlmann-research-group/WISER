@@ -478,7 +478,7 @@ class NumPyArraySpectrum(Spectrum):
         self._editable = editable
         self._discardable = discardable
 
-        self._bad_bands: np.ndarray = np.array([1] * len(wavelengths), dtype=np.bool_)
+        self._bad_bands: np.ndarray = np.array([1] * arr.shape[0], dtype=np.bool_)
 
     def get_name(self) -> Optional[str]:
         """
