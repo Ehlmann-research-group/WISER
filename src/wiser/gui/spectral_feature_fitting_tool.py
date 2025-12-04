@@ -169,7 +169,7 @@ def compute_sff_image(
         # Slice to target bounds
         ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D(
             ref_spectrum_interp,
-            target_wvls_sliced,
+            target_wavelengths,
             ref_bad_bands_interp,
             min_wvl,
             max_wvl,
@@ -475,7 +475,7 @@ def compute_sff_image_numba(
         # print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
-            target_wvls_sliced,
+            target_wavelengths,
             ref_bad_bands_interp,
             min_wvl,
             max_wvl,

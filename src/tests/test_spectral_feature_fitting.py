@@ -949,3 +949,113 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), gt_cls, atol=1e-5))
         self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), gt_rmse, atol=1e-5))
         self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), gt_scale, atol=1e-5))
+
+    def test_real_dataset_wvl_range(self):
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_425_7_7_nm",
+        )
+        ds = self.test_model.load_dataset(load_path)
+
+        assert len(spec_wvl_caltech_425_7_7) == len(
+            spec_bbl_caltech_425_7_7
+        ), "Wavelength and bad band lists should be same length"
+
+        # Create target spectrum
+        reference_spec = NumPyArraySpectrum(
+            spec_arr_caltech_425_7_7,
+            name="ref_1",
+            wavelengths=spec_wvl_caltech_425_7_7,
+        )
+        reference_spec.set_bad_bands(np.array(spec_bbl_caltech_425_7_7, dtype=np.bool_))
+        refs = [reference_spec]
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=refs,
+            thresholds=[np.float32(0.03)],
+            global_thr=None,
+            min_wvl=500 * u.nm,
+            max_wvl=800 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        generic_spectral_comp = SFFTool(
+            app_state=self.test_model.app_state,
+        )
+
+        ds_ids_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        ds_ids_py = generic_spectral_comp.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=True,
+        )
+
+        cls_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[0])
+        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
+        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
+
+        cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
+        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
+        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+
+        gt_cls = np.array(
+            [
+                [
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, True, True, True, True],
+                    [True, True, True, False, False, False, True],
+                ],
+            ],
+            dtype=bool,
+        )
+
+        gt_rmse = np.array(
+            [
+                [
+                    [0.00781717, 0.00970175, 0.00803732, 0.00737635, 0.00694940, 0.00590582, 0.00426650],
+                    [0.01285552, 0.01355712, 0.01205199, 0.00956496, 0.01158792, 0.00733761, 0.00868836],
+                    [0.01285552, 0.02188376, 0.02288154, 0.02097216, 0.01207388, 0.00760688, 0.00773576],
+                    [0.00895406, 0.02188376, 0.02288154, 0.0, 0.00604921, 0.00771927, 0.00733730],
+                    [0.01402717, 0.01071708, 0.01205534, 0.0, 0.00604921, 0.01332386, 0.00813457],
+                    [0.02077080, 0.01800390, 0.01050609, 0.02156494, 0.02411406, 0.01332386, 0.00813457],
+                    [0.01864223, 0.01864909, 0.01370439, 0.04051615, 0.05566560, 0.03812130, 0.01488061],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        gt_scale = np.array(
+            [
+                [
+                    [0.5564888, 0.5459802, 0.6939239, 0.890549, 0.4113036, 0.58705455, 0.39620492],
+                    [0.70108235, 0.83560324, 0.81425375, 0.67377347, 0.6462094, 0.6246722, 0.7911657],
+                    [0.70108235, 1.2905596, 1.7001185, 1.4661641, 0.74856055, 0.505528, 0.5340029],
+                    [0.4489755, 1.2905596, 1.7001185, 1.0, 0.30333203, 0.61036533, 0.5108548],
+                    [1.0240606, 0.7866247, 1.0699975, 1.0, 0.30333203, 1.2448131, 0.5546283],
+                    [1.3916637, 1.5169978, 1.0026667, 1.7749125, 1.8842245, 1.2448131, 0.5546283],
+                    [1.1446683, 1.3643247, 1.1220623, 1.882119, 1.7891349, 1.4034332, 1.2758653],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        print(f"$%$ cls_ds: {cls_ds_numba.get_image_data()}")
+        print(f"$%$ rmse_ds_numba: {rmse_ds_numba.get_image_data()}")
+        print(f"$%$ scale_ds_numba: {scale_ds_numba.get_image_data()}")
+
+        self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
+        self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), rmse_ds_py.get_image_data(), atol=1e-5))
+        self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), scale_ds_py.get_image_data(), atol=1e-5))
+
+        # I verified these by hand
+        self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), gt_cls, atol=1e-5))
+        self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), gt_rmse, atol=1e-5))
+        self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), gt_scale, atol=1e-5))

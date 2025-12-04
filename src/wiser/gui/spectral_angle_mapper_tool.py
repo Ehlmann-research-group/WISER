@@ -114,7 +114,7 @@ def compute_sam_image(
 
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
-            target_wvls_sliced,
+            target_wavelengths,
             ref_bad_bands_interp,
             min_wvl,
             max_wvl,
@@ -151,7 +151,9 @@ def compute_sam_image(
         print(f"denom.shape after: {denom.shape}")
 
         dot_prod_out = dot3d(
-            target_image_arr_sliced, ref_spectrum_good_bands, ref_bad_bands.astype(np.float32)
+            target_image_arr_sliced,
+            ref_spectrum_good_bands,
+            ref_bad_bands,
         )
         cosang = np.clip(
             dot_prod_out / denom,
@@ -380,7 +382,7 @@ def compute_sam_image_numba(
 
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
-            target_wvls_sliced,
+            target_wavelengths,
             ref_bad_bands_interp,
             min_wvl,
             max_wvl,

@@ -400,7 +400,11 @@ def slice_to_bounds_1D_numba(
     min_wvl: np.float32,
     max_wvl: np.float32,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    if spectrum_arr.ndim != 1 or spectrum_arr.shape[0] != wvls.shape[0]:
+    if (
+        spectrum_arr.ndim != 1
+        or spectrum_arr.shape[0] != wvls.shape[0]
+        or spectrum_arr.shape[0] != ref_bad_bands.shape[0]
+    ):
         raise ValueError(
             f"Shape mismatch: reflectance has shape {spectrum_arr.shape}, "
             f"wavelengths has shape {wvls.shape}, "
