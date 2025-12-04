@@ -80,7 +80,6 @@ def compute_sam_image(
         dtype=np.float32,
     )
 
-    target_image_arr_norm = np.sqrt((target_image_arr_sliced * target_image_arr_sliced).sum(axis=0))
     # If we change dot3d_numba we could not transpose the array here
     target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))  # [b][y][x] -> [y][x][b]
 
@@ -120,16 +119,30 @@ def compute_sam_image(
             max_wvl,
         )
 
-        bad_bands_combined = target_bad_bands_sliced & ref_bad_bands_sliced
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
+        ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
         # Compute the angle
-        ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
-
+        ref_spec_norm = np.sqrt(
+            (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands * ref_bad_bands)),
+        )
+        print(f"$%$^$ ref_bad_bands.shape: {ref_bad_bands.shape}")
+        print(f"ref_spectrum_good_bands.shape: {ref_spectrum_good_bands.shape}")
+        print(f"target_image_arr_sliced.shape before: {target_image_arr_sliced.shape}")
+        target_image_arr_sliced[~ref_bad_bands] = 0.0
+        print(f"target_image_arr_sliced.shape after: {target_image_arr_sliced.shape}")
+        target_image_arr_norm = np.sqrt(
+            (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
+        )
+        print(f"target_image_arr_norm.shape after: {target_image_arr_norm.shape}")
         denom = target_image_arr_norm * ref_spec_norm
+        print(f"spec_norm: {ref_spec_norm}")
+        print(f"type(spec_norm): {type(ref_spec_norm)}")
+        print(f"spec_norm.shape: {ref_spec_norm.shape}")
+        print(f"denom.shape after: {denom.shape}")
 
         dot_prod_out = dot3d(
-            target_image_arr_sliced, ref_spectrum_good_bands, bad_bands_combined.astype(np.float32)
+            target_image_arr_sliced, ref_spectrum_good_bands, ref_bad_bands.astype(np.float32)
         )
         cosang = np.clip(
             dot_prod_out / denom,
@@ -358,15 +371,26 @@ def compute_sam_image_numba(
             max_wvl,
         )
 
-        bad_bands_combined = target_bad_bands_sliced & ref_bad_bands_sliced
-        ref_spectrum_good_bands = ref_spectrum_sliced[bad_bands_combined]
+        ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
+        ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
         # Compute the angle
-        ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
+        ref_spec_norm = np.sqrt(
+            (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands * ref_bad_bands)),
+        )
+
+        target_image_arr_sliced[~ref_bad_bands] = 0.0
+        target_image_arr_norm = np.sqrt(
+            (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
+        )
 
         denom = target_image_arr_norm * ref_spec_norm
 
-        dot_prod_out = dot3d_numba(target_image_arr_sliced, ref_spectrum_good_bands, bad_bands_combined)
+        dot_prod_out = dot3d_numba(
+            target_image_arr_sliced,
+            ref_spectrum_good_bands,
+            ref_bad_bands,
+        )
         cosang = np.clip(
             dot_prod_out / denom,
             -1.0,
