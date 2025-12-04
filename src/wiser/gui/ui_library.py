@@ -346,8 +346,11 @@ class SpectrumChooserDialog(SingleItemChooserDialog):
         if not self._accepted:
             return None
         spectrum_id = self._cbox.currentData()
-        spectrum = self._app_state.get_spectrum(spectrum_id)
-        return spectrum
+        try:
+            spectrum = self._app_state.get_spectrum(spectrum_id)
+            return spectrum
+        except KeyError:
+            return None
 
 
 class ROIChooserDialog(SingleItemChooserDialog):
