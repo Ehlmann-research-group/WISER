@@ -26,11 +26,10 @@ from PySide2.QtWidgets import (
 from PySide2.QtCore import Qt, QSettings
 from astropy import units as u
 
-from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
+from wiser.raster.spectrum import Spectrum
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.dataset import RasterDataSet
-from wiser.raster.loader import RasterDataLoader
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.generated.generic_spectral_computation_ui import (
@@ -53,9 +52,9 @@ DEFAULT_NO_DATASETS_TEXT = "No image cubes loaded"
 class SpectralComputationInputs:
     def __init__(
         self,
-        target: Union[NumPyArraySpectrum, "RasterDataSet"],
+        target: Union[Spectrum, "RasterDataSet"],
         mode: str,
-        refs: List[NumPyArraySpectrum],
+        refs: List[Spectrum],
         thresholds: List[float],
         global_thr: float,
         min_wvl: Optional[u.Quantity],
@@ -120,7 +119,7 @@ class GenericSpectralComputationTool(QDialog):
         self._add_interpolation_note()
 
         self._app_state = app_state
-        self._target: Optional[NumPyArraySpectrum] = None
+        self._target: Optional[Spectrum] = None
 
         self._run_history: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -153,7 +152,7 @@ class GenericSpectralComputationTool(QDialog):
 
     # ----------------- Public setters/getters -----------------
 
-    def get_target_name(self, target: NumPyArraySpectrum) -> str:
+    def get_target_name(self, target: Spectrum) -> str:
         return target.get_name() if target else "<no target>"
 
     def get_wavelength_min(self) -> Optional[u.Quantity]:
@@ -452,7 +451,7 @@ class GenericSpectralComputationTool(QDialog):
     # ----------------- Shared input resolution -----------------
     def _slice_to_bounds(
         self,
-        spectrum: NumPyArraySpectrum,
+        spectrum: Spectrum,
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ) -> Tuple[np.ndarray, u.Quantity]:
@@ -509,7 +508,7 @@ class GenericSpectralComputationTool(QDialog):
         next_id = self._app_state.take_next_id()
 
         lib_name_by_spec_id: Dict[int, str] = {}
-        refs: List[NumPyArraySpectrum] = []
+        refs: List[Spectrum] = []
         thresholds: List[float] = []
 
         # Libraries
@@ -522,7 +521,7 @@ class GenericSpectralComputationTool(QDialog):
                 for i in range(envilib._num_spectra):
                     arr = envilib._data[i]
                     name = envilib._spectra_names[i] if hasattr(envilib, "_spectra_names") else None
-                    spec_from_lib = NumPyArraySpectrum(arr=arr, name=name, wavelengths=wls)
+                    spec_from_lib = Spectrum(arr=arr, name=name, wavelengths=wls)
                     spec_from_lib.set_id(next_id)
                     lib_name_by_spec_id[spec_from_lib.get_id()] = lib_filename
                     next_id += 1
@@ -559,8 +558,8 @@ class GenericSpectralComputationTool(QDialog):
     # ----------------- Match pipeline -----------------
     def compute_score(
         self,
-        target: NumPyArraySpectrum,
-        ref: NumPyArraySpectrum,
+        target: Spectrum,
+        ref: Spectrum,
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ) -> Tuple[float, Dict[str, Any]]:
@@ -575,7 +574,7 @@ class GenericSpectralComputationTool(QDialog):
         target_bad_bands: np.ndarray,  # bool[:]
         min_wvl: np.float32,  # float32
         max_wvl: np.float32,  # float32
-        reference_spectra: List[NumPyArraySpectrum],
+        reference_spectra: List[Spectrum],
         reference_spectra_arr: np.ndarray,  # float32 [:]
         reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
         reference_spectra_bad_bands: np.ndarray,  # bool[:]
@@ -614,7 +613,7 @@ class GenericSpectralComputationTool(QDialog):
                 Container for all inputs required to perform the
                 spectral computation. Expected to provide
 
-                * ``target``: Either a :class:`NumPyArraySpectrum` (Spectrum mode)
+                * ``target``: Either a :class:`Spectrum` (Spectrum mode)
                 or a :class:`RasterDataSet` (image mode).
                 * ``min_wvl`` / ``max_wvl``: Wavelength bounds for the comparison.
                 * ``lib_name_by_spec_id``: Mapping from reference spectrum ID to
@@ -650,7 +649,7 @@ class GenericSpectralComputationTool(QDialog):
 
         Raises:
             AssertionError: If ``spectral_inputs.mode == "Spectrum"`` but
-                ``spectral_inputs.target`` is not a :class:`NumPyArraySpectrum`,
+                ``spectral_inputs.target`` is not a :class:`Spectrum`,
                 or if image mode is selected but the target is not a
                 :class:`RasterDataSet`.
             AssertionError: If the number of thresholds does not match the
@@ -669,7 +668,7 @@ class GenericSpectralComputationTool(QDialog):
         mode = spectral_inputs.mode
 
         if mode == "Spectrum":
-            assert isinstance(target, NumPyArraySpectrum)
+            assert isinstance(target, Spectrum), "Spectrum selected but target is not a spectrum!"
             for spec, row_thr in zip(spectral_inputs.refs, spectral_inputs.thresholds):
                 score, extras = self.compute_score(spectral_inputs.target, spec, min_wvl, max_wvl)
                 if not np.isfinite(score):
@@ -733,6 +732,8 @@ class GenericSpectralComputationTool(QDialog):
                 new_refs_arr[ref_offsets[i] : ref_offsets[i + 1]] = ref.get_spectrum()
                 wvls = [wvl.to(target_unit).value for wvl in ref.get_wavelengths()]
                 new_refs_wvl[ref_offsets[i] : ref_offsets[i + 1]] = wvls
+                bad_bands = ref.get_bad_bands()
+                new_refs_bad_bands[ref_offsets[i] : ref_offsets[i + 1]] = bad_bands
                 i += 1
 
             # Per-reference thresholds
@@ -878,7 +879,7 @@ class GenericSpectralComputationTool(QDialog):
         except Exception:
             pass
 
-    def _view_details_dialog(self, matches: List[Dict[str, Any]], target: NumPyArraySpectrum, parent=None):
+    def _view_details_dialog(self, matches: List[Dict[str, Any]], target: Spectrum, parent=None):
         top = matches[:10]
         d = QDialog(parent or self)
         d.setWindowTitle(f"{self.filename_stub()} — Details")
@@ -901,7 +902,7 @@ class GenericSpectralComputationTool(QDialog):
         d.show()
         d.activateWindow()
 
-    def _build_details_layout(self, d: QDialog, rows: List[Dict[str, Any]], target: NumPyArraySpectrum):
+    def _build_details_layout(self, d: QDialog, rows: List[Dict[str, Any]], target: Spectrum):
         from PySide2.QtWidgets import QVBoxLayout, QTableWidget
 
         layout = QVBoxLayout(d)

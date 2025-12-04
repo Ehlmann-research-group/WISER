@@ -33,7 +33,7 @@ class StateChange(enum.Enum):
     ITEM_REMOVED = 3
 
 
-def compute_resid(target_image_cr, scale, ref_spectrum_cr):
+def compute_resid(target_image_cr, scale, ref_spectrum_cr, mask):
     """
     Vectorized equivalent of compute_resid_numba using NumPy broadcasting.
 
@@ -47,6 +47,9 @@ def compute_resid(target_image_cr, scale, ref_spectrum_cr):
         ref_spectrum_cr (np.ndarray):
             A 1D array of length (bands,) containing the reference
             continuum-removed spectrum.
+        ref_spectrum_cr (np.ndarray):
+            A 1D array of length (bands,) mask for what bands are good
+            to use in target_image_cr and ref_spectrum_cr
 
     Returns:
         np.ndarray:
@@ -57,13 +60,14 @@ def compute_resid(target_image_cr, scale, ref_spectrum_cr):
 
             The output dtype is float32.
     """
-    return target_image_cr - scale[:, :, None] * ref_spectrum_cr[None, None, :]
+    return (target_image_cr - scale[:, :, None] * ref_spectrum_cr[None, None, :]) * mask[None, None, :]
 
 
 compute_resid_sig = types.float32[:, :, :](  # return type
     types.float32[:, :, :],  # target_image_cr
     types.float32[:, :],  # scale
     types.float32[:],  # ref_spectrum_cr
+    types.boolean[:],  # band mask
 )
 
 
@@ -73,7 +77,13 @@ compute_resid_sig = types.float32[:, :, :](  # return type
     parallel=True,
     cache=True,
 )
-def compute_resid_numba(target_image_cr, scale2d, ref1d):
+def compute_resid_numba(target_image_cr, scale2d, ref1d, mask1d):
+    """
+    Computes the residual between target_image_cr and scale2d * ref1d.
+    Masks out the residual computation where the mask is 0.
+    target_image_cr is shape (y, x, b), scale2d is (y, x), ref1d is (b,),
+    and mask is (b,) where 1's are keep, 0's are ignore.
+    """
     rows, cols, bands = target_image_cr.shape
     out = np.empty_like(target_image_cr, dtype=np.float32)
 
@@ -81,12 +91,12 @@ def compute_resid_numba(target_image_cr, scale2d, ref1d):
         # 2D slice of output for band k
         for i in prange(rows):
             for j in range(cols):
-                out[i, j, k] = target_image_cr[i, j, k] - scale2d[i, j] * ref1d[k]
+                out[i, j, k] = (target_image_cr[i, j, k] - scale2d[i, j] * ref1d[k]) * mask1d[k]
 
     return out
 
 
-def nanmean_last_axis_3d(a: np.ndarray) -> np.ndarray:
+def mean_last_axis_3d(a: np.ndarray, total: np.float32) -> np.ndarray:
     """
     NumPy version: compute nanmean over the last axis of a 3D array.
 
@@ -101,18 +111,18 @@ def nanmean_last_axis_3d(a: np.ndarray) -> np.ndarray:
         2D array of nanmeans over the last axis.
     """
     print(f"a: {a}")
-    return np.nanmean(a, axis=-1).astype(np.float32)
+    return np.sum(a, axis=-1).astype(np.float32) / total
 
 
-mean3d_last_axis_sig = types.float32[:, :](types.float32[:, :, :])
+mean3d_last_axis_sig = types.float32[:, :](types.float32[:, :, :], types.float32)
 
 
 @numba_njit_wrapper(
-    non_njit_func=nanmean_last_axis_3d,
+    non_njit_func=mean_last_axis_3d,
     signature=mean3d_last_axis_sig,
     cache=True,
 )
-def nanmean_last_axis_3d_numba(a):
+def mean_last_axis_3d_numba(a, divisor):
     """
     Compute the nanmean over the last axis (axis=2) of a 3D float32 array.
 
@@ -137,49 +147,41 @@ def nanmean_last_axis_3d_numba(a):
     for i in range(n0):
         for j in range(n1):
             total = 0.0
-            count = 0
             for k in range(n2):
                 val = a[i, j, k]
-                # ignore NaNs
-                if not np.isnan(val):
-                    total += val
-                    count += 1
+                total += val
 
-            if count > 0:
-                out[i, j] = total / count
-            else:
-                # all-NaN slice -> NaN, like np.nanmean
-                out[i, j] = np.float32(np.nan)
+            out[i, j] = total / divisor
 
     return out
 
 
-def dot3d(a, b):
+def dot3d(a, b, mask):
     """
     Dot product of a 3D array of shape (y, x, b) and
     a 1D array of shape (b,). Returns a 2D array shaped (y, x).
+    Mask is shaped (b,) and 1's are to keep 0's are to remove.
     """
-    # b_extended = b[np.newaxis, np.newaxis, :]  # reshape b to (b, 1, 1)
-    # rows = a.shape[0]
-    # cols = a.shape[1]
-    # b_extended = np.repeat(b_extended, repeats=rows, axis=0)
-    # b_extended = np.repeat(b_extended, repeats=cols, axis=1)
-    print(f"!@#$, a.shape: {a.shape}, b_extended.shape: {b.shape}")
-    return np.dot(a, b)
+    mask_float = mask.astype(np.float32)
+
+    b_masked = b * mask_float
+
+    return np.dot(a, b_masked)
 
 
-dot3d_sig = types.float32[:, :](types.float32[:, :, :], types.float32[:])
+dot3d_sig = types.float32[:, :](types.float32[:, :, :], types.float32[:], types.boolean[:])
 
 
 @numba_njit_wrapper(
     non_njit_func=dot3d,
     signature=dot3d_sig,
 )
-def dot3d_numba(a, b):
+def dot3d_numba(a, b, mask):
     """
     Dot product of a 3D array of shape (y, x, b)
     and a 1D array of shape (b,). Returns a 2D array
-    shaped (y, x).
+    shaped (y, x). Mask is shaped (b,) and 1's are to
+    keep 0's are to remove.
     """
     y = a.shape[0]
     x = a.shape[1]
@@ -191,7 +193,7 @@ def dot3d_numba(a, b):
         for j in range(x):
             s = 0.0
             for k in range(nb):
-                s += a[i, j, k] * b[k]
+                s += a[i, j, k] * b[k] * mask[k]
             out[i, j] = s
 
     return out

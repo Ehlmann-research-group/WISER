@@ -13,8 +13,8 @@ from wiser.gui.util import (
     dot3d_numba,
     compute_resid,
     compute_resid_numba,
-    nanmean_last_axis_3d,
-    nanmean_last_axis_3d_numba,
+    mean_last_axis_3d,
+    mean_last_axis_3d_numba,
 )
 from test_utils.test_arrays import sam_sff_arr_reg
 
@@ -210,15 +210,44 @@ class TestGuiUtil(unittest.TestCase):
 
         ref_spec = np.array([0.25, 0.75, 0.125, 0.15, 0.175], dtype=np.float32)
 
-        dot_py = dot3d(arr_sliced, ref_spec)
+        mask = np.array([1] * ref_spec.shape[0], dtype=np.bool_)
 
-        dot_numba = dot3d_numba(arr_sliced, ref_spec)
+        dot_py = dot3d(arr_sliced, ref_spec, mask)
+
+        dot_numba = dot3d_numba(arr_sliced, ref_spec, mask)
 
         gt_arr = np.array(
             [
                 [0.35, 0.35, 0.35, 0.35],
                 [0.46375, 0.46375, 0.46375, 0.46375],
                 [0.4425, 0.4425, 0.4425, 0.4425],
+            ],
+            dtype=np.float32,
+        )
+
+        self.assertTrue(np.allclose(dot_py, dot_numba, equal_nan=True))
+        self.assertTrue(np.allclose(gt_arr, dot_numba, equal_nan=True))
+        self.assertTrue(np.allclose(gt_arr, dot_py, equal_nan=True))
+
+    def test_dot3D_with_mask(self):
+        arr = sam_sff_arr_reg
+        bad_bands = np.array([1, 0, 1, 1, 1, 1], dtype=np.bool_)
+        arr_sliced = arr[bad_bands, :, :]
+        arr_sliced = arr_sliced.transpose((1, 2, 0))
+
+        ref_spec = np.array([0.25, 0.75, 0.125, 0.15, 0.175], dtype=np.float32)
+
+        mask = np.array([1, 0, 1, 0, 1], dtype=np.bool_)
+
+        dot_py = dot3d(arr_sliced, ref_spec, mask)
+
+        dot_numba = dot3d_numba(arr_sliced, ref_spec, mask)
+
+        gt_arr = np.array(
+            [
+                [0.125, 0.125, 0.125, 0.125],
+                [0.27625, 0.27625, 0.27625, 0.27625],
+                [0.225, 0.225, 0.225, 0.225],
             ],
             dtype=np.float32,
         )
@@ -299,9 +328,108 @@ class TestGuiUtil(unittest.TestCase):
             ],
             dtype=np.float32,
         )
+        mask = np.array([1, 1, 1, 1, 1], dtype=np.bool_)
+        resid_py = compute_resid(
+            target_image_cr=target_img,
+            scale=scale,
+            ref_spectrum_cr=ref_arr,
+            mask=mask,
+        )
+        resid_numba = compute_resid_numba(
+            target_image_cr=target_img,
+            scale2d=scale,
+            ref1d=ref_arr,
+            mask1d=mask,
+        )
 
-        resid_py = compute_resid(target_image_cr=target_img, scale=scale, ref_spectrum_cr=ref_arr)
-        resid_numba = compute_resid_numba(target_image_cr=target_img, scale2d=scale, ref1d=ref_arr)
+        self.assertTrue(np.allclose(gt_resid, resid_numba))
+        self.assertTrue(np.allclose(gt_resid, resid_py))
+
+    def test_compute_resid_with_mask(self):
+        target_img = np.array(
+            [
+                [
+                    [0.0, 0.5, 0.0, 0.5, 0.0],
+                    [0.0, 0.5, 0.0, 0.5, 0.0],
+                    [0.0, 0.5, 0.0, 0.5, 0.0],
+                    [0.0, 0.5, 0.0, 0.5, 0.0],
+                ],
+                [
+                    [0.0, 0.6, 0.0, 1.0, 0.0],
+                    [0.0, 0.6, 0.0, 1.0, 0.0],
+                    [0.0, 0.6, 0.0, 1.0, 0.0],
+                    [0.0, 0.6, 0.0, 1.0, 0.0],
+                ],
+                [
+                    [0.0, 0.39999998, 0.19999999, 0.06666666, 0.0],
+                    [0.0, 0.39999998, 0.19999999, 0.06666666, 0.0],
+                    [0.0, 0.39999998, 0.19999999, 0.06666666, 0.0],
+                    [0.0, 0.39999998, 0.19999999, 0.06666666, 0.0],
+                ],
+            ],
+            dtype=np.float32,
+        )
+        scale = np.array(
+            [
+                [
+                    0.46511632,
+                    0.46511632,
+                    0.46511632,
+                    0.46511632,
+                ],
+                [
+                    0.8682171,
+                    0.8682171,
+                    0.8682171,
+                    0.8682171,
+                ],
+                [
+                    0.19121446,
+                    0.19121446,
+                    0.19121446,
+                    0.19121446,
+                ],
+            ],
+            dtype=np.float32,
+        )
+        ref_arr = np.array([0.0, 0.19999999, 0.5, 1.0, 0.0], dtype=np.float32)
+
+        gt_resid = np.array(
+            [
+                [
+                    [0.0, 0.40697676, -0.23255816, 0.0, 0.0],
+                    [0.0, 0.40697676, -0.23255816, 0.0, 0.0],
+                    [0.0, 0.40697676, -0.23255816, 0.0, 0.0],
+                    [0.0, 0.40697676, -0.23255816, 0.0, 0.0],
+                ],
+                [
+                    [0.0, 0.42635660, -0.43410856, 0.0, 0.0],
+                    [0.0, 0.42635660, -0.43410856, 0.0, 0.0],
+                    [0.0, 0.42635660, -0.43410856, 0.0, 0.0],
+                    [0.0, 0.42635660, -0.43410856, 0.0, 0.0],
+                ],
+                [
+                    [0.0, 0.36175710, 0.10439276, 0.0, 0.0],
+                    [0.0, 0.36175710, 0.10439276, 0.0, 0.0],
+                    [0.0, 0.36175710, 0.10439276, 0.0, 0.0],
+                    [0.0, 0.36175710, 0.10439276, 0.0, 0.0],
+                ],
+            ],
+            dtype=np.float32,
+        )
+        mask = np.array([0, 1, 1, 0, 1], dtype=np.bool_)
+        resid_py = compute_resid(
+            target_image_cr=target_img,
+            scale=scale,
+            ref_spectrum_cr=ref_arr,
+            mask=mask,
+        )
+        resid_numba = compute_resid_numba(
+            target_image_cr=target_img,
+            scale2d=scale,
+            ref1d=ref_arr,
+            mask1d=mask,
+        )
 
         self.assertTrue(np.allclose(gt_resid, resid_numba))
         self.assertTrue(np.allclose(gt_resid, resid_py))
@@ -331,7 +459,7 @@ class TestGuiUtil(unittest.TestCase):
             dtype=np.float32,
         )
 
-        gt_nanmean = np.array(
+        gt_mean = np.array(
             [
                 [
                     [0.04418605, 0.04418605, 0.04418605, 0.04418605],
@@ -340,11 +468,11 @@ class TestGuiUtil(unittest.TestCase):
                 ]
             ]
         )
-
+        total_denom = 5
         # How we calculate in in sff, the ground truth assumes **2
-        nanmean_py = nanmean_last_axis_3d(resid**2)
+        mean_py = mean_last_axis_3d(resid**2, total_denom)
 
-        nanmean_numba = nanmean_last_axis_3d_numba(resid**2)
+        mean_numba = mean_last_axis_3d_numba(resid**2, total_denom)
 
-        self.assertTrue(np.allclose(gt_nanmean, nanmean_py))
-        self.assertTrue(np.allclose(gt_nanmean, nanmean_numba))
+        self.assertTrue(np.allclose(gt_mean, mean_py))
+        self.assertTrue(np.allclose(gt_mean, mean_numba))

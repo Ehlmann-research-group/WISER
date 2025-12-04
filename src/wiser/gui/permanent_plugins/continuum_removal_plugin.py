@@ -96,7 +96,8 @@ def monotone(points):
     Parameters
     ----------
     points: ndarray
-        Column stacked wavelengths and reflectance values
+        Column stacked wavelengths and reflectance values (Nx2) where N
+        is number of wavelength/reflectance value. Should be in increasing order.
 
     Returns
     ----------
@@ -106,8 +107,9 @@ def monotone(points):
 
     upper = []
     l_len = 0
-    for p in points:
-        # We do '> 0' because when going clock wise around the hull
+    for i in range(points.shape[0]):
+        p = points[i, :]
+        # We do '> 0' because we are going clock wise around the hull
         while l_len >= 2 and cross_product(upper[-2], upper[-1], p) > 0:
             upper = upper[:-1]
             l_len -= 1
@@ -140,7 +142,7 @@ def monotone_numba(points):
 
     for k in range(points.shape[0]):
         p = (points[k, 0], points[k, 1])
-        # We do '> 0' because when going clock wise around the hull
+        # We do '> 0' because we are going clock wise around the hull
         while len(upper) >= 2 and cross_product_numba(upper[-2], upper[-1], p) > 0:
             upper.pop()
         upper.append(p)
@@ -196,6 +198,9 @@ def continuum_removal_numba(reflectance: np.ndarray, waves: np.ndarray):
         second to last value in upper hull list
     waves: list
         last value in upper hull list
+    mask: ndarray
+        A numpy boolean array used to mask which points to consider in the hull.
+        1 means consider. 0 means don't consider.
 
     Returns
     ----------
@@ -274,7 +279,7 @@ def continuum_removal_image(
         col = i % cols
         reflectance = image_data[row, col, :]
         reflectance[bad_bands_arr] = np.nan
-        continuum_removed, hull = continuum_removal(reflectance, x_axis)
+        continuum_removed, _ = continuum_removal(reflectance, x_axis)
         results[row, col] = continuum_removed
     results = results.copy().transpose(2, 0, 1)  # [y][x][b] -> [b][y][x]
     return results
@@ -328,8 +333,6 @@ def continuum_removal_image_numba(
     rows_cols = rows * cols
     results = np.empty_like(image_data, dtype=np.float32)
     for i in numba.prange(rows_cols):
-        # Because we are in C-contiguous order, we want to access columns
-        # the fastest
         row = i // cols
         col = i % cols
         reflectance = image_data[row, col, :]

@@ -9,7 +9,7 @@ from scipy.interpolate import interp1d
 from astropy import units as u
 
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.spectrum import NumPyArraySpectrum
+from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.gui.app_state import ApplicationState
 from .generic_spectral_tool import GenericSpectralComputationTool
 from wiser.utils.numba_wrapper import numba_njit_wrapper
@@ -120,6 +120,7 @@ def compute_sam_image(
             max_wvl,
         )
 
+        bad_bands_combined = target_bad_bands_sliced & ref_bad_bands_sliced
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
 
         # Compute the angle
@@ -127,7 +128,9 @@ def compute_sam_image(
 
         denom = target_image_arr_norm * ref_spec_norm
 
-        dot_prod_out = dot3d(target_image_arr_sliced, ref_spectrum_good_bands)
+        dot_prod_out = dot3d(
+            target_image_arr_sliced, ref_spectrum_good_bands, bad_bands_combined.astype(np.float32)
+        )
         cosang = np.clip(
             dot_prod_out / denom,
             -1.0,
@@ -355,14 +358,15 @@ def compute_sam_image_numba(
             max_wvl,
         )
 
-        ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
+        bad_bands_combined = target_bad_bands_sliced & ref_bad_bands_sliced
+        ref_spectrum_good_bands = ref_spectrum_sliced[bad_bands_combined]
 
         # Compute the angle
         ref_spec_norm = np.sqrt((ref_spectrum_good_bands * ref_spectrum_good_bands).sum(axis=0))
 
         denom = target_image_arr_norm * ref_spec_norm
 
-        dot_prod_out = dot3d_numba(target_image_arr_sliced, ref_spectrum_good_bands)
+        dot_prod_out = dot3d_numba(target_image_arr_sliced, ref_spectrum_good_bands, bad_bands_combined)
         cosang = np.clip(
             dot_prod_out / denom,
             -1.0,
@@ -492,7 +496,7 @@ class SAMTool(GenericSpectralComputationTool):
         target_bad_bands: np.ndarray,  # bool[:]
         min_wvl: np.float32,  # float32
         max_wvl: np.float32,  # float32
-        reference_spectra: List[NumPyArraySpectrum],
+        reference_spectra: List[Spectrum],
         reference_spectra_arr: np.ndarray,  # float32 [:]
         reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
         reference_spectra_bad_bands: np.ndarray,  # bool[:]

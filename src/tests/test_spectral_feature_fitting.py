@@ -594,17 +594,18 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
         scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
 
+        print("===================Numba======================")
         print(f"cls_ds_numba: {cls_ds_numba.get_image_data()}")
         print(f"rmse_ds_numba: {rmse_ds_numba.get_image_data()}")
         print(f"scale_ds_numba: {scale_ds_numba.get_image_data()}")
-        print("=========================================")
+        print("===================Python======================")
         print(f"cls_ds_py: {cls_ds_py.get_image_data()}")
         print(f"rmse_ds_py: {rmse_ds_py.get_image_data()}")
         print(f"scale_ds_py: {scale_ds_py.get_image_data()}")
 
-        self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), gt_cls, atol=1e-5))
-        self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), gt_rmse, atol=1e-5))
-        self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), gt_scale, atol=1e-5))
+        self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
+        self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), rmse_ds_py.get_image_data(), atol=1e-5))
+        self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), scale_ds_py.get_image_data(), atol=1e-5))
 
         self.assertTrue(np.allclose(cls_ds_py.get_image_data(), gt_cls, atol=1e-5))
         self.assertTrue(np.allclose(rmse_ds_py.get_image_data(), gt_rmse, atol=1e-5))
@@ -664,6 +665,86 @@ class TestSpectralFeatureFitting(unittest.TestCase):
                     [0.21020478, 0.21020478, 0.21020478, 0.21020478],
                     [0.27842304, 0.27842304, 0.27842304, 0.27842304],
                     [0.17735738, 0.17735738, 0.17735738, 0.17735738],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        min_wvl = 0.0 * u.nm
+        max_wvl = 500 * u.nm
+
+        self.sff_py_numba_comparison_helper(
+            arr=sam_sff_masked_arr_reg,
+            wvl_list=target_wvl_list,
+            bad_bands=target_bad_bands,
+            refs=refs,
+            thresholds=thresholds,
+            gt_cls=gt_cls,
+            gt_rmse=gt_rmse,
+            gt_scale=gt_scale,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
+
+    def test_py_numba_with_ref_mask(self):
+        target_bad_bands = [1, 0, 1, 1, 1, 1]
+        target_wvl_list: List[u.Quantity] = [
+            100 * u.nm,
+            150 * u.nm,
+            200 * u.nm,
+            300 * u.nm,
+            400 * u.nm,
+            500 * u.nm,
+        ]
+
+        # Create ref spectrum
+        ref_1_arr = np.array([1.2, 0.8, 0.8, 0.51, 0.49, 0.2, -0.2, 2.2], dtype=np.float32)
+        ref_1_wls = [
+            50 * u.nm,
+            150 * u.nm,
+            250 * u.nm,
+            299 * u.nm,
+            301 * u.nm,
+            350 * u.nm,
+            450 * u.nm,
+            550 * u.nm,
+        ]
+        reference_spec = NumPyArraySpectrum(ref_1_arr, name="ref_1", wavelengths=ref_1_wls)
+        ref_bad_bands = np.array([1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.bool_)
+        reference_spec.set_bad_bands(ref_bad_bands)
+        refs = [reference_spec]
+
+        thresholds = [np.float32(0.190)]
+
+        # Hand checked
+        gt_cls = np.array(
+            [
+                [
+                    [False, False, False, False],
+                    [False, False, False, False],
+                    [True, True, True, True],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        gt_scale = np.array(
+            [
+                [
+                    [0.57692313, 0.57692313, 0.57692313, 0.57692313],
+                    [1.0769231, 1.0769231, 1.0769231, 1.0769231],
+                    [0.14102563, 0.14102563, 0.14102563, 0.14102563],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        gt_rmse = np.array(
+            [
+                [
+                    [0.19611613, 0.19611613, 0.19611613, 0.19611613],
+                    [0.19611616, 0.19611616, 0.19611616, 0.19611616],
+                    [0.18957892, 0.18957892, 0.18957892, 0.18957892],
                 ],
             ],
             dtype=np.float32,

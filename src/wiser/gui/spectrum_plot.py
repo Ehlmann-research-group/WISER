@@ -1819,7 +1819,6 @@ class SpectrumPlot(SpectrumPlotGeneric):
         # Update the UI to match the new state.
 
         spectrum = self._app_state.get_active_spectrum()
-        print(f"spectrum.get_spectrum(): {spectrum.get_spectrum()}")
         # print(f"spectrum bad bands: {self._app_state.get_datasets()[0].get_bad_bands()}")
         # print(f"spectrum.get_wavelengths(): {spectrum.get_wavelengths()}")
         if spectrum is not None:

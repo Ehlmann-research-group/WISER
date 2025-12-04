@@ -332,6 +332,13 @@ class Spectrum(abc.ABC, Serializable):
         """Returns the number of spectral bands in the spectrum."""
         pass
 
+    def get_bad_bands(self) -> np.ndarray:
+        """
+        Returns a boolean numpy array indicating which bands are bad (1 for bands
+        to keep, 0 for bands to removed).  If no bad bands are defined, returns None.
+        """
+        return np.array([1] * self.num_bands(), dtype=np.bool_)
+
     def get_shape(self) -> Tuple[int]:
         """
         Returns the shape of the spectrum.  This is always simply
@@ -471,6 +478,8 @@ class NumPyArraySpectrum(Spectrum):
         self._editable = editable
         self._discardable = discardable
 
+        self._bad_bands: np.ndarray = np.array([1] * len(wavelengths), dtype=np.bool_)
+
     def get_name(self) -> Optional[str]:
         """
         Returns the current name of the spectrum, or ``None`` if no name has
@@ -504,6 +513,17 @@ class NumPyArraySpectrum(Spectrum):
     def num_bands(self) -> int:
         """Returns the number of spectral bands in the spectrum."""
         return self._arr.shape[0]
+
+    def set_bad_bands(self, bad_bands: np.ndarray):
+        """Sets the bad bands array for this spectrum. 1 is keep, 0 is ignore."""
+        assert bad_bands.ndim == 1 and bad_bands.shape[0] == self.num_bands(), (
+            "Passed in bad bands either doesn't have 1 dimension or doesn't have"
+            "same number of bands as this spectrum!"
+        )
+        self._bad_bands = bad_bands
+
+    def get_bad_bands(self):
+        return self._bad_bands
 
     def has_wavelengths(self) -> bool:
         """
@@ -655,6 +675,9 @@ class RasterDataSetSpectrum(Spectrum):
     def num_bands(self) -> int:
         """Returns the number of spectral bands in the raster data."""
         return self._dataset.num_bands()
+
+    def get_bad_bands(self):
+        return self._dataset.get_bad_bands()
 
     def get_elem_type(self) -> np.dtype:
         """
