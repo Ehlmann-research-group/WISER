@@ -677,7 +677,9 @@ class RasterDataSetSpectrum(Spectrum):
         return self._dataset.num_bands()
 
     def get_bad_bands(self):
-        return self._dataset.get_bad_bands()
+        if self._dataset.get_bad_bands() is None:
+            return np.array([1] * self.num_bands(), dtype=np.bool_)
+        return np.array(self._dataset.get_bad_bands(), dtype=np.bool_)
 
     def get_elem_type(self) -> np.dtype:
         """

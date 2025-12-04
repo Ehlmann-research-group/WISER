@@ -670,6 +670,7 @@ class GenericSpectralComputationTool(QDialog):
         if mode == "Spectrum":
             assert isinstance(target, Spectrum), "Spectrum selected but target is not a spectrum!"
             for spec, row_thr in zip(spectral_inputs.refs, spectral_inputs.thresholds):
+                print(f"type(spec): {type(spec)}")
                 score, extras = self.compute_score(spectral_inputs.target, spec, min_wvl, max_wvl)
                 if not np.isfinite(score):
                     continue
