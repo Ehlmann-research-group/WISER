@@ -48,7 +48,7 @@ def compute_sam_image(
 
     # Slice the target image array, wvls, and bad bands in the bands dimension to get
     # into the user specified range
-    target_image_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_3D(
+    target_image_arr_sliced, _, target_bad_bands_sliced = slice_to_bounds_3D(
         target_image_arr,
         target_wavelengths,
         target_bad_bands,
@@ -83,7 +83,7 @@ def compute_sam_image(
     # If we change dot3d_numba we could not transpose the array here
     target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))  # [b][y][x] -> [y][x][b]
 
-    for i in prange(reference_spectra_indices.shape[0] - 1):
+    for i in range(reference_spectra_indices.shape[0] - 1):
         # Extract desired spectra and slice to user specified wvl bounds
         start = reference_spectra_indices[i]
         end = reference_spectra_indices[i + 1]
@@ -112,7 +112,7 @@ def compute_sam_image(
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
-        ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+        ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
             target_wavelengths,
             ref_bad_bands_interp,
@@ -299,7 +299,7 @@ def compute_sam_image_numba(
 
     # Slice the target image array, wvls, and bad bands in the bands dimension to get
     # into the user specified range
-    target_image_arr_sliced, target_wvls_sliced, target_bad_bands_sliced = slice_to_bounds_3D_numba(
+    target_image_arr_sliced, _, target_bad_bands_sliced = slice_to_bounds_3D_numba(
         target_image_arr,
         target_wavelengths,
         target_bad_bands,

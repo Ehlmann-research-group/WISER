@@ -839,67 +839,13 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             [
                 [
                     [
-                        4.15869579e-02,
-                        2.67113838e-02,
-                        3.42449397e-02,
-                        3.91400270e-02,
-                        2.59997919e-02,
-                        4.66828644e-02,
-                        3.39062773e-02,
-                    ],
-                    [
-                        3.90569009e-02,
-                        4.18114625e-02,
-                        6.75352290e-02,
-                        4.01185751e-02,
-                        6.47246987e-02,
-                        7.05183372e-02,
-                        2.06421167e-02,
-                    ],
-                    [
-                        3.90569009e-02,
-                        6.34371936e-02,
-                        6.33805543e-02,
-                        4.17735800e-02,
-                        2.59930417e-02,
-                        6.67657554e-02,
-                        5.63891456e-02,
-                    ],
-                    [
-                        7.03767166e-02,
-                        6.34371936e-02,
-                        6.33805543e-02,
-                        6.91024793e-09,
-                        4.15737741e-02,
-                        7.17460141e-02,
-                        6.13145716e-02,
-                    ],
-                    [
-                        5.63222840e-02,
-                        4.57529202e-02,
-                        6.34744987e-02,
-                        6.91024793e-09,
-                        4.15737741e-02,
-                        1.85179412e-02,
-                        7.36641288e-02,
-                    ],
-                    [
-                        7.32245743e-02,
-                        9.45611745e-02,
-                        7.03115687e-02,
-                        5.77710494e-02,
-                        4.57442738e-02,
-                        1.85179412e-02,
-                        7.36641288e-02,
-                    ],
-                    [
-                        4.72590104e-02,
-                        1.02343604e-01,
-                        6.46559149e-02,
-                        6.49090931e-02,
-                        9.99532044e-02,
-                        7.77708739e-02,
-                        5.49362153e-02,
+                        [0.04158696, 0.02671138, 0.03424494, 0.03914003, 0.02599979, 0.04668286, 0.03390628],
+                        [0.03905690, 0.04181146, 0.06753523, 0.04011858, 0.06472470, 0.07051834, 0.02064212],
+                        [0.03905690, 0.06343719, 0.06338055, 0.04177358, 0.02599304, 0.06676576, 0.05638915],
+                        [0.07037672, 0.06343719, 0.06338055, 0.00000001, 0.04157377, 0.07174601, 0.06131457],
+                        [0.05632228, 0.04575292, 0.06347450, 0.00000001, 0.04157377, 0.01851794, 0.07366413],
+                        [0.07322457, 0.09456117, 0.07031157, 0.05777105, 0.04574427, 0.01851794, 0.07366413],
+                        [0.04725901, 0.10234360, 0.06465591, 0.06490909, 0.09995320, 0.07777087, 0.05493622],
                     ],
                 ],
             ],
@@ -920,10 +866,6 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             ],
             dtype=np.float32,
         )
-
-        print(f"$%$ cls_ds: {cls_ds_numba.get_image_data()}")
-        print(f"$%$ rmse_ds_numba: {rmse_ds_numba.get_image_data()}")
-        print(f"$%$ scale_ds_numba: {scale_ds_numba.get_image_data()}")
 
         self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
         self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), rmse_ds_py.get_image_data(), atol=1e-5))
@@ -1030,10 +972,6 @@ class TestSpectralFeatureFitting(unittest.TestCase):
             ],
             dtype=np.float32,
         )
-
-        print(f"$%$ cls_ds: {cls_ds_numba.get_image_data()}")
-        print(f"$%$ rmse_ds_numba: {rmse_ds_numba.get_image_data()}")
-        print(f"$%$ scale_ds_numba: {scale_ds_numba.get_image_data()}")
 
         self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
         self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), rmse_ds_py.get_image_data(), atol=1e-5))

@@ -297,7 +297,7 @@ def slice_to_bounds_3D(
     return spectrum_arr[mask, :, :], wvls[mask], bad_bands[mask]
 
 
-# Numba signature for 3D version:
+# Numba signature for 3D version
 slice_bounds_3d_sig = types.Tuple(
     (
         types.float32[:, :, :],
