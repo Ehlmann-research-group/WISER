@@ -112,6 +112,7 @@ def compute_sam_image(
                 target_wavelengths,
             )
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp[~np.isfinite(ref_bad_bands_interp)] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
         ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D(
@@ -363,6 +364,7 @@ def compute_sam_image_numba(
                 target_wavelengths,
             )
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp[~np.isfinite(ref_bad_bands_interp)] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
         ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
@@ -503,6 +505,7 @@ class SAMTool(GenericSpectralComputationTool):
                 ref_wvls_arr, ref_bad_bands.astype(np.float32), target_wvls_arr
             )
             ref_bad_bands_resampled[ref_bad_bands_resampled < 1.0] = 0.0
+            ref_bad_bands_resampled[~np.isfinite(ref_bad_bands_resampled)] = 0.0
             ref_bad_bands_resampled = ref_bad_bands_resampled.astype(np.bool_)
 
         ref_arr_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D(

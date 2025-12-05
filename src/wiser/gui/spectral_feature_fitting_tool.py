@@ -150,6 +150,7 @@ def compute_sff_image(
                 target_wavelengths,
             )
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp[~np.isfinite(ref_bad_bands_interp)] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
         # Slice to target bounds
@@ -378,7 +379,6 @@ def compute_sff_image_numba(
         ref_spectrum = reference_spectra[start:end]
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
-
         # For reference spectrum:
         # interpolate (regrid to target wvls) --> slice to target bounds -->
         # remove ref's bad bands --> continuum remove --> regrid to target wvls sliced
@@ -403,6 +403,7 @@ def compute_sff_image_numba(
                 target_wavelengths,
             )
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp[~np.isfinite(ref_bad_bands_interp)] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
@@ -431,7 +432,6 @@ def compute_sff_image_numba(
 
         # Remove the target wvl bad bands
         ref_spec_cr_target_grid_target_bb = ref_spec_cr_target_grid[target_bad_bands_sliced]
-
         ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
         # We technically shouldn't need to do this because the user's mask should work
@@ -439,11 +439,9 @@ def compute_sff_image_numba(
         finite_mask = np.isfinite(ref_spec_cr_target_grid_target_bb).astype(np.bool_)
         ref_bad_bands = ref_bad_bands & finite_mask
         ref_spectrum_cr = np.float32(1.0) - ref_spec_cr_target_grid_target_bb
-
         num = dot3d_numba(target_image_cr, ref_spectrum_cr, ref_bad_bands)
         denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
         scale = num / denom
-
         rmse = compute_rmse_numba(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
@@ -565,6 +563,7 @@ class SFFTool(GenericSpectralComputationTool):
                 target_wvls_arr,
             )
             ref_bad_bands_resampled[ref_bad_bands_resampled < 1.0] = 0.0
+            ref_bad_bands_resampled[~np.isfinite(ref_bad_bands_resampled)] = 0.0
             ref_bad_bands_resampled = ref_bad_bands_resampled.astype(np.bool_)
 
         # Slice the resampled reference to the same wavelength bounds

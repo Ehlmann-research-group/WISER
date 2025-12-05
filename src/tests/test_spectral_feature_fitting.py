@@ -26,6 +26,7 @@ from wiser.gui.generic_spectral_tool import (
 
 from wiser.raster.spectrum import NumPyArraySpectrum
 from wiser.raster.dataset import RasterDataSet
+from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 
 import pytest
 
@@ -981,3 +982,83 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         self.assertTrue(np.allclose(cls_ds_numba.get_image_data(), gt_cls, atol=1e-5))
         self.assertTrue(np.allclose(rmse_ds_numba.get_image_data(), gt_rmse, atol=1e-5))
         self.assertTrue(np.allclose(scale_ds_numba.get_image_data(), gt_scale, atol=1e-5))
+
+    def test_real_dataset_real_spectral_library(self):
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_datasets",
+            "caltech_425_7_7_nm",
+        )
+        ds = self.test_model.load_dataset(load_path)
+
+        load_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "test_utils",
+            "test_spectra",
+            "usgs_resampHeadwallSWIR",
+        )
+        spec_library = ENVISpectralLibrary(load_path)
+        self.test_model.app_state.add_spectral_library(spec_library)
+
+        refs: List[NumPyArraySpectrum] = []
+        thresholds: List[np.float32] = []
+        for i in range(spec_library.num_spectra()):
+            refs.append(spec_library.get_spectrum(i))
+            thresholds.append(np.float32(0.03))
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=refs,
+            thresholds=thresholds,
+            global_thr=None,
+            min_wvl=0.0 * u.nm,
+            max_wvl=3000.0 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        generic_spectral_comp = SFFTool(
+            app_state=self.test_model.app_state,
+        )
+
+        ds_ids_numba = generic_spectral_comp.find_matches(spectral_inputs=spectral_inputs)
+        ds_ids_py = generic_spectral_comp.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=True,
+        )
+
+        cls_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[0])
+        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
+        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
+
+        cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
+        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
+        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+
+        self.assertTrue(
+            np.allclose(
+                cls_ds_numba.get_image_data(),
+                cls_ds_py.get_image_data(),
+                atol=4e-2,
+                equal_nan=False,
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                rmse_ds_numba.get_image_data(),
+                rmse_ds_py.get_image_data(),
+                atol=4e-2,
+                equal_nan=False,
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                scale_ds_numba.get_image_data(),
+                scale_ds_py.get_image_data(),
+                atol=4e-2,
+                equal_nan=False,
+            )
+        )

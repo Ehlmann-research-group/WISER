@@ -53,28 +53,29 @@ def compute_rmse(target_image_cr, scale, ref_spectrum_cr, mask):
         np.ndarray:
             2D float32 array of shape (rows, cols) with RMSE per pixel.
     """
-    # Broadcast to 3D but collapse in the same expression so intermediates
-    # are (at worst) limited to one 3D-like temp, not an explicit residual cube
-    # that we then square again.
-    # residual = (target - scale*ref) * mask
-    # rmse = sqrt(sum(residual**2, axis=-1) / num_good_bands)
-
-    # Cast to float32 explicitly in case inputs are float64
     target = target_image_cr.astype(np.float32, copy=False)
     scale2d = scale.astype(np.float32, copy=False)
     ref1d = ref_spectrum_cr.astype(np.float32, copy=False)
 
-    # Only count masked bands
-    ref_good_bands_num = mask.sum()
+    rows, cols, bands = target.shape
+    out = np.zeros((rows, cols), dtype=np.float32)
 
-    # Compute squared residuals with broadcasting
-    # shape: (rows, cols, bands)
-    resid_sq = ((target - scale2d[:, :, None] * ref1d[None, None, :]) * mask[None, None, :]) ** 2
+    # Count only good bands
+    ref_good_bands_num = int(mask.sum())
 
-    # Collapse bands -> (rows, cols)
-    rmse = np.sqrt(resid_sq.sum(axis=-1) / ref_good_bands_num).astype(np.float32)
+    for k in range(bands):
+        if not mask[k]:
+            continue
+        # 2D view for this band
+        band2d = target[:, :, k]
+        # residual = band - scale * ref[k]  (all 2D)
+        resid2d = band2d - scale2d * ref1d[k]
+        # accumulate squared residuals; resid2d**2 is 2D
+        out += resid2d * resid2d
 
-    return rmse
+    out /= ref_good_bands_num
+    np.sqrt(out, out=out)
+    return out.astype(np.float32)
 
 
 compute_rmse_sig = types.float32[:, :](
@@ -106,15 +107,15 @@ def compute_rmse_numba(target_image_cr, scale2d, ref1d, mask1d):
     rows, cols, bands = target_image_cr.shape
     out = np.empty((rows, cols), dtype=np.float32)
     ref_good_bands_num = mask1d.sum()
+    valid_idx = np.nonzero(mask1d)[0].astype(np.int64)
 
     for i in prange(rows):
         for j in range(cols):
             acc = 0.0
             s = scale2d[i, j]
-            for k in range(bands):
-                if mask1d[k]:
-                    diff = target_image_cr[i, j, k] - s * ref1d[k]
-                    acc += diff * diff
+            for idx in valid_idx:
+                diff = target_image_cr[i, j, idx] - s * ref1d[idx]
+                acc += diff * diff
             # If ref_good_bands_num == 0, you'd want to handle that earlier
             out[i, j] = np.sqrt(acc / ref_good_bands_num)
 
@@ -186,11 +187,11 @@ def dot3d(a, b, mask):
     a 1D array of shape (b,). Returns a 2D array shaped (y, x).
     Mask is shaped (b,) and 1's are to keep 0's are to remove.
     """
-    mask_float = mask.astype(np.float32)
+    good = mask & np.isfinite(b)
 
-    b_masked = b * mask_float
+    b[~good] = 0.0
 
-    return np.dot(a, b_masked)
+    return np.dot(a, b)
 
 
 dot3d_sig = types.float32[:, :](types.float32[:, :, :], types.float32[:], types.boolean[:])
@@ -209,59 +210,18 @@ def dot3d_numba(a, b, mask):
     """
     y = a.shape[0]
     x = a.shape[1]
-    nb = a.shape[2]
 
     out = np.empty((y, x), dtype=np.float32)
+    valid_idx = np.nonzero(mask)[0].astype(np.int64)
 
     for i in prange(y):
         for j in range(x):
             s = 0.0
-            for k in range(nb):
-                s += a[i, j, k] * b[k] * mask[k]
+            for idx in valid_idx:
+                s += a[i, j, idx] * b[idx]
             out[i, j] = s
 
     return out
-
-
-def interp1d_monotonic(x, y, x_new):
-    """Perform linear interpolation on strictly increasing `x` and `x_new`.
-
-    This function wraps :func:`scipy.interpolate.interp1d` to mimic the
-    behavior of a monotonic, single-pass linear interpolation routine.
-    Both `x` and `x_new` are assumed to be strictly increasing. When
-    `extrapolate` is False, values of `x_new` that fall outside the
-    domain ``[x[0], x[-1]]`` are assigned `fill_value`. When
-    `extrapolate` is True, values outside the domain are linearly
-    extrapolated using the end segments of the data.
-
-    Args:
-        x (np.ndarray):
-            A 1D float array of strictly increasing x-coordinates.
-        y (np.ndarray):
-            A 1D float array of values corresponding to `x`. Must have
-            the same length as `x`.
-        x_new (np.ndarray):
-            A 1D float array of strictly increasing query points at
-            which interpolation and extrapolation is
-            evaluated.
-
-    Returns:
-        np.ndarray:
-            A 1D float array of interpolated and possibly extrapolated
-            values evaluated at each point in `x_new`.
-    """
-    f = _scipy_interp1d(
-        x,
-        y,
-        kind="linear",
-        bounds_error=False,
-        fill_value=np.nan,
-        assume_sorted=True,
-    )
-
-    # Evaluate at x_new
-    out = f(x_new)
-    return np.asarray(out, dtype=float)
 
 
 def slice_to_bounds_3D(
@@ -442,6 +402,47 @@ def slice_to_bounds_1D_numba(
         mask &= wvls <= max_wvl
 
     return spectrum_arr[mask], wvls[mask], ref_bad_bands[mask]
+
+
+def interp1d_monotonic(x, y, x_new):
+    """Perform linear interpolation on strictly increasing `x` and `x_new`.
+
+    This function wraps :func:`scipy.interpolate.interp1d` to mimic the
+    behavior of a monotonic, single-pass linear interpolation routine.
+    Both `x` and `x_new` are assumed to be strictly increasing. When
+    `extrapolate` is False, values of `x_new` that fall outside the
+    domain ``[x[0], x[-1]]`` are assigned `fill_value`. When
+    `extrapolate` is True, values outside the domain are linearly
+    extrapolated using the end segments of the data.
+
+    Args:
+        x (np.ndarray):
+            A 1D float array of strictly increasing x-coordinates.
+        y (np.ndarray):
+            A 1D float array of values corresponding to `x`. Must have
+            the same length as `x`.
+        x_new (np.ndarray):
+            A 1D float array of strictly increasing query points at
+            which interpolation and extrapolation is
+            evaluated.
+
+    Returns:
+        np.ndarray:
+            A 1D float array of interpolated and possibly extrapolated
+            values evaluated at each point in `x_new`.
+    """
+    f = _scipy_interp1d(
+        x,
+        y,
+        kind="linear",
+        bounds_error=False,
+        fill_value=np.nan,
+        assume_sorted=True,
+    )
+
+    # Evaluate at x_new
+    out = f(x_new)
+    return np.asarray(out, dtype=float)
 
 
 interp1d_monotonic_sig = types.float32[:](types.float32[:], types.float32[:], types.float32[:])
