@@ -22,6 +22,8 @@ from .util import (
     slice_to_bounds_1D_numba,
     dot3d,
     dot3d_numba,
+    compute_image_norm,
+    compute_image_norm_numba,
 )
 
 
@@ -110,6 +112,7 @@ def compute_sam_image(
                 target_wavelengths,
             )
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp[~np.isfinite(ref_bad_bands_interp)] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
         ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D(
@@ -134,9 +137,9 @@ def compute_sam_image(
         ref_spec_norm = np.sqrt(
             (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands)),
         )
-        target_image_arr_sliced[:, :, ~ref_bad_bands] = 0.0
-        target_image_arr_norm = np.sqrt(
-            (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
+        target_image_arr_norm = compute_image_norm(
+            target_image_arr=target_image_arr_sliced,
+            ref_bad_bands=ref_bad_bands,
         )
         denom = target_image_arr_norm * ref_spec_norm
         dot_prod_out = dot3d(
@@ -361,6 +364,7 @@ def compute_sam_image_numba(
                 target_wavelengths,
             )
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
+            ref_bad_bands_interp[~np.isfinite(ref_bad_bands_interp)] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
         ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
@@ -389,9 +393,9 @@ def compute_sam_image_numba(
         ref_spec_norm = np.sqrt(
             (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands)),
         )
-        target_image_arr_sliced[:, :, ~ref_bad_bands] = 0.0
-        target_image_arr_norm = np.sqrt(
-            (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
+        target_image_arr_norm = compute_image_norm_numba(
+            target_image_arr=target_image_arr_sliced,
+            ref_bad_bands=ref_bad_bands,
         )
 
         denom = target_image_arr_norm * ref_spec_norm
@@ -501,6 +505,7 @@ class SAMTool(GenericSpectralComputationTool):
                 ref_wvls_arr, ref_bad_bands.astype(np.float32), target_wvls_arr
             )
             ref_bad_bands_resampled[ref_bad_bands_resampled < 1.0] = 0.0
+            ref_bad_bands_resampled[~np.isfinite(ref_bad_bands_resampled)] = 0.0
             ref_bad_bands_resampled = ref_bad_bands_resampled.astype(np.bool_)
 
         ref_arr_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D(
