@@ -97,14 +97,14 @@ def compute_sam_image(
             ref_spectrum_interp = ref_spectrum
             ref_bad_bands_interp = ref_bad_bands
         else:
-            ref_spectrum_interp = interp1d_monotonic_numba(
+            ref_spectrum_interp = interp1d_monotonic(
                 ref_wvls,
                 ref_spectrum,
                 target_wavelengths,
             )
 
             ref_bad_bands_float = ref_bad_bands.astype(np.float32)
-            ref_bad_bands_interp = interp1d_monotonic_numba(
+            ref_bad_bands_interp = interp1d_monotonic(
                 ref_wvls,
                 ref_bad_bands_float,
                 target_wavelengths,
@@ -112,7 +112,7 @@ def compute_sam_image(
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
-        ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+        ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D(
             ref_spectrum_interp,
             target_wavelengths,
             ref_bad_bands_interp,
