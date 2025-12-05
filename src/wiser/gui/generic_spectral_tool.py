@@ -569,17 +569,17 @@ class GenericSpectralComputationTool(QDialog):
     def compute_score_image(
         self,
         target_image_name: str,
-        target_image_arr: np.ndarray,  # float32[:, :, :]
-        target_wavelengths: np.ndarray,  # float32[:]
-        target_bad_bands: np.ndarray,  # bool[:]
-        min_wvl: np.float32,  # float32
-        max_wvl: np.float32,  # float32
+        target_image_arr: np.ndarray,
+        target_wavelengths: np.ndarray,
+        target_bad_bands: np.ndarray,
+        min_wvl: np.float32,
+        max_wvl: np.float32,
         reference_spectra: List[Spectrum],
-        reference_spectra_arr: np.ndarray,  # float32 [:]
-        reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
-        reference_spectra_bad_bands: np.ndarray,  # bool[:]
-        reference_spectra_indices: np.ndarray,  # uint32[:]
-        thresholds: np.ndarray,  # float32[:]
+        reference_spectra_arr: np.ndarray,
+        reference_spectra_wvls: np.ndarray,
+        reference_spectra_bad_bands: np.ndarray,
+        reference_spectra_indices: np.ndarray,
+        thresholds: np.ndarray,
         python_mode: bool = False,
     ) -> List[int]:
         """Child must implement. Return Nothing. Load dataset into app instead."""
@@ -670,7 +670,6 @@ class GenericSpectralComputationTool(QDialog):
         if mode == "Spectrum":
             assert isinstance(target, Spectrum), "Spectrum selected but target is not a spectrum!"
             for spec, row_thr in zip(spectral_inputs.refs, spectral_inputs.thresholds):
-                print(f"type(spec): {type(spec)}")
                 score, extras = self.compute_score(spectral_inputs.target, spec, min_wvl, max_wvl)
                 if not np.isfinite(score):
                     continue
@@ -693,14 +692,11 @@ class GenericSpectralComputationTool(QDialog):
             # Image mode: run per-pixel scoring against all reference spectra.
             assert isinstance(target, RasterDataSet)
             target_unit = target.get_band_unit()
-            print(f"target_unit: {target_unit}")
             target_image_cube = target.get_image_data()  # [b][y][x]
-            print(f"target_image_cube.dtype: {target_image_cube.dtype}")
 
             # Convert dataset bad-band flags → boolean mask (True = keep).
             target_wavelengths = [b["wavelength"].to(target_unit).value for b in target.get_band_info()]
             target_wavelengths = np.array(target_wavelengths, dtype=np.float32)
-            print(f"target_wavelengths: {target_wavelengths}")
             target_bad_bands = np.array(target.get_bad_bands()).astype(
                 np.bool_
             )  # 1's correspond for bands we keep, 0's don't
@@ -710,7 +706,6 @@ class GenericSpectralComputationTool(QDialog):
             new_min_wvl = np.float32(new_min_wvl.value)
             new_max_wvl = max_wvl.to(target_unit)
             new_max_wvl = np.float32(new_max_wvl.value)
-            print(f"new_min_wvl: {new_min_wvl}, new_max_wvl: {new_max_wvl}")
 
             # Build packed reference buffers (values + wavelengths).
             length_all_references = 0
@@ -747,9 +742,6 @@ class GenericSpectralComputationTool(QDialog):
             else:
                 target_image_arr = target_image_cube
 
-            print(f"!$$ target_image_arr.shape: {target_image_arr.shape}")
-            print(f"target_wavelengths.shape: {target_wavelengths.shape}")
-            print(f"target_bad_bands.shape: {target_bad_bands.shape}")
             # It's the child class's job to add the output to WISER
             ds_ids = self.compute_score_image(
                 target_image_name=target.get_name(),

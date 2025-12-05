@@ -458,7 +458,7 @@ class SAMTool(GenericSpectralComputationTool):
         Returns NaNs when insufficient data or invalid inputs are detected.
         """
         if x_src.size < 2 or np.all(~np.isfinite(y_src)):
-            return np.full_like(x_dst, np.nan, dtype=float)  # TODO (Joshua G-K) Raise error instead
+            raise ValueError("Insufficient data or non finite data values! Can't perform interpolation.")
         interp_fn = interp1d(x_src, y_src, bounds_error=False, fill_value=np.nan)
         return interp_fn(x_dst)
 
@@ -531,17 +531,17 @@ class SAMTool(GenericSpectralComputationTool):
     def compute_score_image(
         self,
         target_image_name: str,
-        target_image_arr: np.ndarray,  # float32[:, :, :]
-        target_wavelengths: np.ndarray,  # float32[:]
-        target_bad_bands: np.ndarray,  # bool[:]
-        min_wvl: np.float32,  # float32
-        max_wvl: np.float32,  # float32
+        target_image_arr: np.ndarray,
+        target_wavelengths: np.ndarray,
+        target_bad_bands: np.ndarray,
+        min_wvl: np.float32,
+        max_wvl: np.float32,
         reference_spectra: List[Spectrum],
-        reference_spectra_arr: np.ndarray,  # float32 [:]
-        reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
-        reference_spectra_bad_bands: np.ndarray,  # bool[:]
-        reference_spectra_indices: np.ndarray,  # uint32[:]
-        thresholds: np.ndarray,  # float32[:]
+        reference_spectra_arr: np.ndarray,
+        reference_spectra_wvls: np.ndarray,
+        reference_spectra_bad_bands: np.ndarray,
+        reference_spectra_indices: np.ndarray,
+        thresholds: np.ndarray,
         python_mode: bool = False,
     ) -> List[int]:
         if not python_mode:

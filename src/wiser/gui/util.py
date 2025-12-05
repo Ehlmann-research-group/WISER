@@ -63,11 +63,11 @@ def compute_resid(target_image_cr, scale, ref_spectrum_cr, mask):
     return (target_image_cr - scale[:, :, None] * ref_spectrum_cr[None, None, :]) * mask[None, None, :]
 
 
-compute_resid_sig = types.float32[:, :, :](  # return type
-    types.float32[:, :, :],  # target_image_cr
-    types.float32[:, :],  # scale
-    types.float32[:],  # ref_spectrum_cr
-    types.boolean[:],  # band mask
+compute_resid_sig = types.float32[:, :, :](
+    types.float32[:, :, :],
+    types.float32[:, :],
+    types.float32[:],
+    types.boolean[:],
 )
 
 
@@ -110,7 +110,6 @@ def mean_last_axis_3d(a: np.ndarray, total: np.float32) -> np.ndarray:
     out : np.ndarray
         2D array of nanmeans over the last axis.
     """
-    print(f"a: {a}")
     return np.sum(a, axis=-1).astype(np.float32) / total
 
 
@@ -301,16 +300,16 @@ def slice_to_bounds_3D(
 # Numba signature for 3D version:
 slice_bounds_3d_sig = types.Tuple(
     (
-        types.float32[:, :, :],  # sliced spectrum_arr
-        types.float32[:],  # sliced wvls
-        types.boolean[:],  # sliced bad_bands
+        types.float32[:, :, :],
+        types.float32[:],
+        types.boolean[:],
     )
 )(
-    types.float32[:, :, :],  # spectrum_arr
-    types.float32[:],  # wvls
-    types.boolean[:],  # bad_bands
-    types.float32,  # min_wvl
-    types.float32,  # max_wvl
+    types.float32[:, :, :],
+    types.float32[:],
+    types.boolean[:],
+    types.float32,
+    types.float32,
 )
 
 

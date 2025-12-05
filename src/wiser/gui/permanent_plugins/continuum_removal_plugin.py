@@ -564,8 +564,6 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
             spectrum = spectrum.astype(np.float32)
         wavelengths_org = spec_object.get_wavelengths()  # type <astropy>
         wavelengths = np.array([i.value for i in wavelengths_org])
-        print(f"!@# wavelengths: {wavelengths}")
-        print(f"!@# spectrum: {spectrum}")
         if wavelengths.dtype != np.float32:
             wavelengths = wavelengths.astype(np.float32)
 
