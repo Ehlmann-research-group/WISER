@@ -26,7 +26,7 @@ from PySide2.QtWidgets import (
 from PySide2.QtCore import Qt, QSettings
 from astropy import units as u
 
-from wiser.raster.spectrum import Spectrum
+from wiser.raster.spectrum import Spectrum, NumPyArraySpectrum
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
 from wiser.raster.dataset import RasterDataSet
@@ -505,8 +505,6 @@ class GenericSpectralComputationTool(QDialog):
         if target is None:
             raise ValueError(f"No {mode.lower()} selected.")
 
-        next_id = self._app_state.take_next_id()
-
         lib_name_by_spec_id: Dict[int, str] = {}
         refs: List[Spectrum] = []
         thresholds: List[float] = []
@@ -521,10 +519,11 @@ class GenericSpectralComputationTool(QDialog):
                 for i in range(envilib._num_spectra):
                     arr = envilib._data[i]
                     name = envilib._spectra_names[i] if hasattr(envilib, "_spectra_names") else None
-                    spec_from_lib = Spectrum(arr=arr, name=name, wavelengths=wls)
-                    spec_from_lib.set_id(next_id)
+                    spec_from_lib = NumPyArraySpectrum(arr=arr, name=name, wavelengths=wls)
+                    if spec_from_lib.get_id() is None:
+                        next_id = self._app_state.take_next_id()
+                        spec_from_lib.set_id(next_id)
                     lib_name_by_spec_id[spec_from_lib.get_id()] = lib_filename
-                    next_id += 1
                     refs.append(spec_from_lib)
                     thresholds.append(row_thr)
 
@@ -534,9 +533,10 @@ class GenericSpectralComputationTool(QDialog):
                 row_thr = float(row["threshold"].value())
                 spec_filename = os.path.basename(row.get("path") or "")
                 for spec in row["specs"]:
-                    spec.set_id(next_id)
+                    if spec.get_id() is None:
+                        next_id = self._app_state.take_next_id()
+                        spec.set_id(next_id)
                     lib_name_by_spec_id[spec.get_id()] = spec_filename
-                    next_id += 1
                     refs.append(spec)
                     thresholds.append(row_thr)
 

@@ -440,7 +440,8 @@ class Spectrum(abc.ABC, Serializable):
         editable = metadata["editable"]
         discardable = metadata["discardable"]
         spectrum = NumPyArraySpectrum(spectrum_arr, name, source_name, wavelengths, editable, discardable)
-        spectrum.set_id(id)
+        if spectrum.get_id() is None:
+            spectrum.set_id(id)
         return spectrum
 
 

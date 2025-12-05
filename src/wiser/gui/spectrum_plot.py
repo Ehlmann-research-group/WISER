@@ -887,12 +887,16 @@ class SpectrumPlotGeneric(QWidget):
         )
 
     def _remove_spectrum_from_plot(self, spectrum, treeitem):
+        # import pdb
+        # print(f"_remove_spectrum_from_plot")
         id = spectrum.get_id()
+        # pdb.set_trace()
         display_info = self._spectrum_display_info.get(id)
         if display_info is None:
             # Already not displaying the spectrum - we are done!
             return
 
+        print(f"attempting to remove from plot: {id}")
         del self._spectrum_display_info[id]
 
         # Figure out whether we should use wavelengths or not in the plot.
