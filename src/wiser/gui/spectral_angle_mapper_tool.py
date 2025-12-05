@@ -125,7 +125,6 @@ def compute_sam_image(
 
         # AND with existing mask
         ref_bad_bands = ref_bad_bands_sliced & finite_mask
-        print(f"new bad bands mask: {ref_bad_bands_sliced}")
 
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
         ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
@@ -135,21 +134,11 @@ def compute_sam_image(
         ref_spec_norm = np.sqrt(
             (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands)),
         )
-        print(f"$%$^$ ref_bad_bands.shape: {ref_bad_bands.shape}")
-        print(f"ref_spectrum_good_bands.shape: {ref_spectrum_good_bands.shape}")
-        print(f"target_image_arr_sliced.shape before: {target_image_arr_sliced.shape}")
         target_image_arr_sliced[:, :, ~ref_bad_bands] = 0.0
-        print(f"target_image_arr_sliced.shape after: {target_image_arr_sliced.shape}")
         target_image_arr_norm = np.sqrt(
             (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
         )
-        print(f"target_image_arr_norm.shape after: {target_image_arr_norm.shape}")
         denom = target_image_arr_norm * ref_spec_norm
-        print(f"spec_norm: {ref_spec_norm}")
-        print(f"type(spec_norm): {type(ref_spec_norm)}")
-        print(f"spec_norm.shape: {ref_spec_norm.shape}")
-        print(f"denom.shape after: {denom.shape}")
-
         dot_prod_out = dot3d(
             target_image_arr_sliced,
             ref_spectrum_good_bands,
@@ -188,12 +177,12 @@ compute_sam_image_sig = types.Tuple(
 )
 
 
-# @numba_njit_wrapper(
-#     non_njit_func=compute_sam_image,
-#     signature=compute_sam_image_sig,
-#     parallel=True,
-#     cache=True,
-# )
+@numba_njit_wrapper(
+    non_njit_func=compute_sam_image,
+    signature=compute_sam_image_sig,
+    parallel=True,
+    cache=True,
+)
 def compute_sam_image_numba(
     target_image_arr: np.ndarray,
     target_wavelengths: np.ndarray,
@@ -324,8 +313,6 @@ def compute_sam_image_numba(
     if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
         raise ValueError("Reference spectra array is not finite")
 
-    # print(f"Target image shape after slicing and bad band removal: \n{target_image_arr_sliced.shape}")
-
     num_spectra = reference_spectra_indices.shape[0] - 1
     out_classification = np.empty(
         (
@@ -344,8 +331,6 @@ def compute_sam_image_numba(
         dtype=np.float32,
     )
 
-    # target_image_arr_norm = np.sqrt((target_image_arr_sliced * target_image_arr_sliced).sum(axis=0))
-    # print(f"target_image_arr_norm: {target_image_arr_norm}")
     # If we change dot3d_numba we could not transpose the array here
     target_image_arr_sliced = target_image_arr_sliced.transpose((1, 2, 0))  # [b][y][x] -> [y][x][b]
 
@@ -357,8 +342,6 @@ def compute_sam_image_numba(
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
 
-        # print(f"**$: ref_spectrum.shape: {ref_spectrum.shape}")
-        # print(f"**$: target_wavelengths.shape: {target_wavelengths.shape}")
         if ref_wvls.shape == target_wavelengths.shape and np.allclose(
             ref_wvls, target_wavelengths, rtol=0.0, atol=1e-9
         ):
@@ -380,7 +363,7 @@ def compute_sam_image_numba(
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
-        ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
+        ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
             target_wavelengths,
             ref_bad_bands_interp,
@@ -391,34 +374,25 @@ def compute_sam_image_numba(
         # Create mask: 1 = finite, 0 = non-finite
         finite_mask = np.isfinite(ref_spectrum_sliced).astype(np.bool_)
 
-        # AND with existing mask
+        # AND with existing mask.
+        # Technically we shouldn't have to do this because the datasets mask
+        # should properly mask out the nan's. We only mask the finite values
+        # on the reference bands because it is computationally inexpensive
+        # and is defensive
         ref_bad_bands = ref_bad_bands_sliced & finite_mask
-        # print(f"new bad bands mask: {ref_bad_bands_sliced}")
 
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
         ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
         # Compute the angle
-        # print(f"target_bad_bands_sliced: {target_bad_bands_sliced}")
-        # print(f"ref_spectrum_sliced: {ref_spectrum_sliced}")
-        # print(f"ref_spectrum_good_bands before: {ref_spectrum_good_bands}")
         ref_spectrum_good_bands[~ref_bad_bands] = 0.0
-        # print(f"ref_bad_bands_sliced: {ref_bad_bands_sliced}")
-        # print(f"target_bad_bands_sliced: {target_bad_bands_sliced}")
-        # print(f"ref_bad_bands: {ref_bad_bands}")
-        # print(f"ref_spectrum_good_bands after: {ref_spectrum_good_bands}")
         ref_spec_norm = np.sqrt(
             (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands)),
         )
-        # print(f"ref_spec_norm: {ref_spec_norm}")
-        # print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
-        # print(f"target_image_arr_sliced.shape: {target_image_arr_sliced.shape}")
         target_image_arr_sliced[:, :, ~ref_bad_bands] = 0.0
-        # target_image_arr_sliced[~ref_bad_bands] = 0.0
         target_image_arr_norm = np.sqrt(
             (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
         )
-        # print(f"target_image_arr_norm: {target_image_arr_norm}")
 
         denom = target_image_arr_norm * ref_spec_norm
 
@@ -476,7 +450,7 @@ class SAMTool(GenericSpectralComputationTool):
         )
         return default_path
 
-    # ---------- SAM helpers ----------
+    # SAM helpers
     @staticmethod
     def _resample_to(x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray) -> np.ndarray:
         """
@@ -499,41 +473,47 @@ class SAMTool(GenericSpectralComputationTool):
         MIN_SAMPLES = 3
         target_unit = target.get_wavelength_units()
         target_wvls_arr = np.array([wvl.to(target_unit).value for wvl in target.get_wavelengths()])
-        target_dummy_bad_bands = np.array(
-            [0] * target_wvls_arr.shape[0], dtype=np.bool_
-        )  # No bad bands for now
+        target_bad_bands = target.get_bad_bands()
+
         target_arr = target.get_spectrum()
         min_wvl_value = min_wvl.to(target_unit).value
         max_wvl_value = max_wvl.to(target_unit).value
-        target_arr_sliced, _, _ = slice_to_bounds_1D(
+        target_arr_sliced, _, target_bad_bands_sliced = slice_to_bounds_1D(
             spectrum_arr=target_arr,
             wvls=target_wvls_arr,
-            bad_bands=target_dummy_bad_bands,
+            bad_bands=target_bad_bands,
             min_wvl=min_wvl_value,
             max_wvl=max_wvl_value,
         )
 
         ref_arr = ref.get_spectrum()
         ref_wvls_arr = np.array([wvl.to(target_unit).value for wvl in ref.get_wavelengths()])
+        ref_bad_bands = ref.get_bad_bands()
 
         if ref_wvls_arr.shape == target_wvls_arr.shape and np.allclose(
             ref_wvls_arr, target_wvls_arr, rtol=0, atol=1e-9
         ):
             r_resampled = ref_arr
+            ref_bad_bands_resampled = ref_bad_bands
         else:
             r_resampled = self._resample_to(ref_wvls_arr, ref_arr, target_wvls_arr)
+            ref_bad_bands_resampled = self._resample_to(
+                ref_wvls_arr, ref_bad_bands.astype(np.float32), target_wvls_arr
+            )
+            ref_bad_bands_resampled[ref_bad_bands_resampled < 1.0] = 0.0
+            ref_bad_bands_resampled = ref_bad_bands_resampled.astype(np.bool_)
 
-        ref_arr_sliced, _, _ = slice_to_bounds_1D(
+        ref_arr_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D(
             spectrum_arr=r_resampled,
             wvls=target_wvls_arr,
-            bad_bands=target_dummy_bad_bands,
+            bad_bands=ref_bad_bands_resampled,
             min_wvl=min_wvl_value,
             max_wvl=max_wvl_value,
         )
 
-        print(f"type(target_arr_sliced): {type(target_arr_sliced)}")
-        print(f"type(ref_arr_sliced): {type(ref_arr_sliced)}")
         valid = np.isfinite(target_arr_sliced) & np.isfinite(ref_arr_sliced)
+        valid &= ref_bad_bands_sliced
+        valid &= target_bad_bands_sliced
         target_arr_valid = target_arr_sliced[valid]
         ref_arr_valid = ref_arr_sliced[valid]
         if target_arr_valid.size < MIN_SAMPLES:

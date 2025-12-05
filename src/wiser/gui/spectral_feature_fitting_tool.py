@@ -22,8 +22,6 @@ from .util import (
     slice_to_bounds_1D_numba,
     dot3d,
     dot3d_numba,
-    mean_last_axis_3d,
-    mean_last_axis_3d_numba,
     compute_resid,
     compute_resid_numba,
 )
@@ -119,12 +117,6 @@ def compute_sff_image(
         dtype=np.float32,
     )
 
-    print(f"*&* reference_spectra_indices: {reference_spectra_indices}")
-    print(f"target_image_arr_sliced: {target_image_arr_sliced}")
-    print(f"target_image_cr: {target_image_cr}")
-    print(f"*&* target_wvls_sliced: {target_wvls_sliced}")
-    print(f"*&* target_bad_bands_sliced: {target_wvls_sliced}")
-
     for i in prange(reference_spectra_indices.shape[0] - 1):
         # Get reference and clean
         start = reference_spectra_indices[i]
@@ -132,8 +124,6 @@ def compute_sff_image(
         ref_spectrum = reference_spectra[start:end]
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
-
-        # possibly get rid of bad bands in reference spectrum and target here
 
         # For reference spectrum:
         # interpolate (regrid to target) --> slice to target bounds -->
@@ -162,10 +152,6 @@ def compute_sff_image(
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
-        print(f"ref_bad_bands_interp: {ref_bad_bands_interp}")
-        print(f"%^%^ ref_spectrum_interp.shape: {ref_spectrum_interp.shape}")
-        print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
-        print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
         # Slice to target bounds
         ref_spectrum_sliced, _, ref_bad_bands_sliced = slice_to_bounds_1D(
             ref_spectrum_interp,
@@ -198,52 +184,18 @@ def compute_sff_image(
 
         finite_mask = np.isfinite(ref_spec_cr_target_grid_target_bb).astype(np.bool_)
         ref_bad_bands = ref_bad_bands & finite_mask
-        # bad_bands_combined = ref_bad_bands_sliced[target_bad_bands_sliced]
-        # print(f"ref_bad_bands_sliced: {ref_bad_bands_sliced}")
-        # print(f"ref_bad_bands_sliced.shape: {ref_bad_bands_sliced.shape}")
-        # print(f"ref_wvls_sliced: {ref_wvls_sliced}")
-        # print(f"ref_wvls_sliced.shape: {ref_wvls_sliced.shape}")
-        # print(f"target_bad_bands_sliced: {target_bad_bands_sliced}")
-        # print(f"target_bad_bands_sliced.shape: {target_bad_bands_sliced.shape}")
-        # print(f"bad_bands_combined: {bad_bands_combined}")
-        # print(f"bad_bands_combined.shape: {bad_bands_combined.shape}")
-        # ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
-        # wvls_sliced_good_bands = target_wvls_sliced[target_bad_bands_sliced]
-
-        # # Start computing sff
-        # ref_spectrum_cr, _ = continuum_removal(
-        #     ref_spectrum_good_bands,
-        #     wvls_sliced_good_bands,
-        #     bad_bands_combined,
-        # )
-        # print(f"^%^ ref_spectrum_cr.shape: {ref_spectrum_cr.shape}")
-        # print(f"ref_spectrum_sliced: {ref_spectrum_sliced}")
-        # print(f"ref_spectrum_interp: {ref_spectrum_interp}")
-        # print(f"&$& ref_spectrum_good_bands: {ref_spectrum_good_bands}")
-        # print(f"$%$ ref_spectrum_cr: {ref_spectrum_cr} before - 1.0")
         ref_spectrum_cr = np.float32(1.0) - ref_spec_cr_target_grid_target_bb
-        print(f"$%$ ref_spectrum_cr: {ref_spectrum_cr}")
 
-        """
-        target_image_cr has more bands because it wasn't sliced, but ref_spectrum_cr was.
-        We might not want to slice with bad_bands and just use it to mask
-        """
         # Now they are all the same elgnth and 1's where we kee, 0's where
         # we remove/delete
         num = dot3d(target_image_cr, ref_spectrum_cr, ref_bad_bands)
-        print(f"num: {num}")
         denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
-        print(f"denom: {denom}")
         scale = num / denom
-        print(f"$%! scale: {scale}")
 
         resid = compute_resid(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
-        print(f"resid: {resid}")
         ref_good_bands_num = ref_bad_bands.sum()
-        print(f"ref_good_bands_num: {ref_good_bands_num}")
 
         rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)  # noqa: F841
-        print(f"#$### rmse: {rmse}")
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
         out_rmse[i, :, :] = rmse
@@ -420,12 +372,6 @@ def compute_sff_image_numba(
         dtype=np.float32,
     )
 
-    # print(f"*&* reference_spectra_indices: {reference_spectra_indices}")
-    # print(f"target_image_arr_sliced: {target_image_arr_sliced}")
-    # print(f"target_image_cr: {target_image_cr}")
-    # print(f"*&* target_wvls_sliced: {target_wvls_sliced}")
-    # print(f"*&* target_bad_bands_sliced: {target_wvls_sliced}")
-
     for i in prange(reference_spectra_indices.shape[0] - 1):
         # Get reference and clean
         start = reference_spectra_indices[i]
@@ -433,8 +379,6 @@ def compute_sff_image_numba(
         ref_spectrum = reference_spectra[start:end]
         ref_wvls = reference_spectra_wvls[start:end]
         ref_bad_bands = reference_spectra_bad_bands[start:end]
-
-        # possibly get rid of bad bands in reference spectrum and target here
 
         # For reference spectrum:
         # interpolate (regrid to target wvls) --> slice to target bounds -->
@@ -453,22 +397,15 @@ def compute_sff_image_numba(
                 target_wavelengths,
             )
 
-            # print(f"&*()ref_bad_bands before: {ref_bad_bands}")
             ref_bad_bands_float = ref_bad_bands.astype(np.float32)
             ref_bad_bands_interp = interp1d_monotonic_numba(
                 ref_wvls,
                 ref_bad_bands_float,
                 target_wavelengths,
             )
-            # print(f"&*()ref_bad_bands_interp before: {ref_bad_bands_interp}")
             ref_bad_bands_interp[ref_bad_bands_interp < 1.0] = 0.0
-            # print(f"&*()ref_bad_bands_interp after: {ref_bad_bands_interp}")
             ref_bad_bands_interp = ref_bad_bands_interp.astype(np.bool_)
 
-        # print(f"ref_bad_bands_interp: {ref_bad_bands_interp}")
-        # print(f"%^%^ ref_spectrum_interp.shape: {ref_spectrum_interp.shape}")
-        # print(f"target_wvls_sliced.shape: {target_wvls_sliced.shape}")
-        # print(f"ref_bad_bands.shape: {ref_bad_bands.shape}")
         ref_spectrum_sliced, ref_wvls_sliced, ref_bad_bands_sliced = slice_to_bounds_1D_numba(
             ref_spectrum_interp,
             target_wavelengths,
@@ -477,14 +414,9 @@ def compute_sff_image_numba(
             max_wvl,
         )
 
-        # bad_bands_combined = ref_bad_bands_sliced & target_bad_bands_sliced
-
         # Remove bad bands
         ref_spec_bb_removed = ref_spectrum_sliced[ref_bad_bands_sliced]
         ref_wvl_bb_removed = ref_wvls_sliced[ref_bad_bands_sliced]
-        # print(f"numba!@# ref_spec_bb_removed: {ref_spec_bb_removed}")
-        # print(f"numba!@# ref_wvl_bb_removed: {ref_wvl_bb_removed}")
-        # print(f"numba!@# ref_bad_bands_sliced: {ref_bad_bands_sliced}")
         # Calculate Continuum Removal
         ref_spec_cr, _ = continuum_removal_numba(
             ref_spec_bb_removed,
@@ -505,41 +437,19 @@ def compute_sff_image_numba(
 
         finite_mask = np.isfinite(ref_spec_cr_target_grid_target_bb).astype(np.bool_)
         ref_bad_bands = ref_bad_bands & finite_mask
-        # ref_spectrum_good_bands = ref_spectrum_sliced[bad_bands_combined]
-        # wvls_sliced_good_bands = target_wvls_sliced[bad_bands_combined]
-
-        # # Start computing sff
-        # ref_spectrum_cr, _ = continuum_removal_numba(
-        #     ref_spectrum_good_bands,
-        #     wvls_sliced_good_bands,
-        # )
-        # print(f"^%^ ref_spectrum_cr.shape: {ref_spectrum_cr.shape}")
-        # print(f"ref_spectrum_sliced: {ref_spectrum_sliced}")
-        # print(f"ref_spectrum_interp: {ref_spectrum_interp}")
-        # print(f"&$& ref_spectrum_good_bands: {ref_spectrum_good_bands}")
-        # print(f"$%$ ref_spectrum_cr: {ref_spectrum_cr} before - 1.0")
         ref_spectrum_cr = np.float32(1.0) - ref_spec_cr_target_grid_target_bb
-        # print(f"$%$ ref_spectrum_cr: {ref_spectrum_cr}")
 
         num = dot3d_numba(target_image_cr, ref_spectrum_cr, ref_bad_bands)
-        # print(f"num: {num}")
         denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
-        # print(f"denom: {denom}")
         scale = num / denom
-        # print(f"$%! scale: {scale}")
 
         resid = compute_resid_numba(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
-        # print(f"resid: {resid}")
         ref_good_bands_num = ref_bad_bands.sum()
         rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)  # noqa: F841
-        # print(f"#$### nanmean_last_axis_3d_numba(resid**2): {nanmean_last_axis_3d_numba(resid**2)}")
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
         out_rmse[i, :, :] = rmse
         out_scale[i, :, :] = scale
-        # print(f"!$#$#$#@ cls: {out_classification[i, :, :]}")
-        # print(f"rmse: {rmse}")
-        # print(f"scale: {scale}")
 
     return out_classification, out_rmse, out_scale
 
@@ -560,10 +470,8 @@ class SFFTool(GenericSpectralComputationTool):
     # keep metric-specific name but wire into parent's UI
     def set_method_threshold(self, value: float | None) -> None:
         self._max_rms = float(value) if value is not None else self._max_rms
-        print(f"New max rms: {self._max_rms}")
 
     def details_columns(self) -> List[tuple]:
-        # include scale column that is specific to SFF
         return [
             (self.SCORE_HEADER, "score"),
             ("Max RMS", "threshold"),
@@ -593,49 +501,6 @@ class SFFTool(GenericSpectralComputationTool):
         f = interp1d(x_src, y_src, kind="linear", bounds_error=False, fill_value="extrapolate")
         return f(x_dst)
 
-    @staticmethod
-    def _continuum_curve(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-        n = y.size
-        if n < 2:
-            return np.maximum(y, 1e-12)
-        idx = [0]
-        for i in range(1, n - 1):
-            if (y[i] >= y[i - 1]) and (y[i] >= y[i + 1]):
-                idx.append(i)
-        idx.append(n - 1)
-        idx = np.unique(idx)
-        changed = True
-        while changed and len(idx) > 2:
-            changed = False
-            keep = [idx[0]]
-            for k in range(1, len(idx) - 1):
-                i_prev, i, i_next = keep[-1], idx[k], idx[k + 1]
-                x0, y0 = x[i_prev], y[i_prev]
-                x1, y1 = x[i_next], y[i_next]
-                if x1 == x0:
-                    if y[i] < max(y0, y1):
-                        changed = True
-                        continue
-                else:
-                    t = (x[i] - x0) / (x1 - x0)
-                    y_line = y0 + t * (y1 - y0)
-                    if y[i] < y_line - 1e-12:
-                        changed = True
-                        continue
-                keep.append(i)
-            keep.append(idx[-1])
-            idx = np.array(keep, dtype=int)
-        f = interp1d(x[idx], y[idx], kind="linear", bounds_error=False, fill_value="extrapolate")
-        cont = f(x)
-        return np.maximum(cont, 1e-12)
-
-    @classmethod
-    def _continuum_remove_and_invert(cls, x: np.ndarray, y: np.ndarray) -> np.ndarray:
-        cont = cls._continuum_curve(x, y)
-        cr = y / cont
-        return 1.0 - cr
-
-    # compute SFF RMS + scale between target and ref
     def compute_score(
         self,
         target: Spectrum,
@@ -712,21 +577,6 @@ class SFFTool(GenericSpectralComputationTool):
             max_wvl=max_wvl_value,
         )
 
-        # # --- Build a common "good" mask like target_bad_bands_sliced does in the image code ---
-        # # Here we also enforce finiteness, since continuum_removal is not NaN-aware.
-        # finite_mask = np.isfinite(target_arr_sliced) & np.isfinite(ref_arr_sliced)
-        # if finite_mask.sum() < MIN_SAMPLES:
-        #     return (np.nan, {})
-
-        # t_vals = target_arr_sliced[finite_mask]
-        # r_vals = ref_arr_sliced[finite_mask]
-        # w_vals = target_wvls_sliced[finite_mask]
-
-        # --- Continuum removal + inversion (1 - CR) for both target and reference ---
-        # This mirrors:
-        #   ref_spectrum_cr, _ = continuum_removal(...)
-        #   ref_spectrum_cr = 1.0 - ref_spectrum_cr
-        # and the analogous image-side continuum_removal_image + (1 - ...) combo.
         ref_arr_bb_removed = ref_arr_sliced[ref_bad_bands_sliced]
         ref_wvl_bb_removed = target_wvls_sliced[ref_bad_bands_sliced]
         ref_cr_bb_removed, _ = continuum_removal(ref_arr_bb_removed, ref_wvl_bb_removed)
@@ -779,10 +629,6 @@ class SFFTool(GenericSpectralComputationTool):
         thresholds: np.ndarray,  # float32[:]
         python_mode: bool = False,
     ) -> List[int]:
-        for spec in reference_spectra:
-            print(f"type(spec): {type(spec)}")
-            print(f"spec.shape: {spec.get_shape()}")
-
         if not python_mode:
             out_cls, out_rmse, out_scale = compute_sff_image_numba(
                 target_image_arr,
