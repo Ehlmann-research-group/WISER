@@ -15,6 +15,8 @@ from wiser.gui.util import (
     compute_rmse_numba,
     mean_last_axis_3d,
     mean_last_axis_3d_numba,
+    compute_image_norm,
+    compute_image_norm_numba,
 )
 from test_utils.test_arrays import sam_sff_arr_reg
 
@@ -344,8 +346,8 @@ class TestGuiUtil(unittest.TestCase):
 
         gt_rmse = gt_resid**2
         gt_rmse = np.sqrt(gt_rmse.sum(axis=-1) / mask.sum())
-        self.assertTrue(np.allclose((gt_resid**2), rmse_numba))
-        self.assertTrue(np.allclose(gt_resid, rmse_py))
+        self.assertTrue(np.allclose(rmse_py, rmse_numba))
+        self.assertTrue(np.allclose(gt_rmse, rmse_py))
 
     def test_compute_rmse_with_mask(self):
         target_img = np.array(
@@ -435,10 +437,10 @@ class TestGuiUtil(unittest.TestCase):
 
         gt_rmse = gt_resid**2
         gt_rmse = np.sqrt(gt_rmse.sum(axis=-1) / mask.sum())
-        self.assertTrue(np.allclose((gt_resid**2), rmse_numba))
-        self.assertTrue(np.allclose(gt_resid, rmse_py))
+        self.assertTrue(np.allclose(rmse_py, rmse_numba))
+        self.assertTrue(np.allclose(gt_rmse, rmse_py))
 
-    def test_nanmean_last_axis_3d(self):
+    def test_mean_last_axis_3d(self):
         resid = np.array(
             [
                 [
@@ -480,3 +482,48 @@ class TestGuiUtil(unittest.TestCase):
 
         self.assertTrue(np.allclose(gt_mean, mean_py))
         self.assertTrue(np.allclose(gt_mean, mean_numba))
+
+    def test_compute_image_norm_with_mask(self):
+        # shape: (rows, cols, bands) = (3, 4, 5)
+        target_img = np.array(
+            [
+                [
+                    [0.0, 0.5, 0.0, 0.5, 0.0],
+                    [0.0, 0.5, 0.0, 0.5, 0.0],
+                    [0.0, 0.5, 0.0, 0.5, 0.0],
+                    [0.0, 0.5, 0.0, 0.5, 0.0],
+                ],
+                [
+                    [0.0, 0.6, 0.0, 1.0, 0.0],
+                    [0.0, 0.6, 0.0, 1.0, 0.0],
+                    [0.0, 0.6, 0.0, 1.0, 0.0],
+                    [0.0, 0.6, 0.0, 1.0, 0.0],
+                ],
+                [
+                    [0.0, 0.4, 0.2, 0.06666666, 0.0],
+                    [0.0, 0.4, 0.2, 0.06666666, 0.0],
+                    [0.0, 0.4, 0.2, 0.06666666, 0.0],
+                    [0.0, 0.4, 0.2, 0.06666666, 0.0],
+                ],
+            ],
+            dtype=np.float32,
+        )
+
+        # Keep only bands 1 and 2 (indexing from 0)
+        ref_bad_bands = np.array([0, 1, 1, 0, 0], dtype=np.bool_)
+
+        # Ground-truth norm: sqrt(sum over k of mask[k] * v[i,j,k]^2)
+        gt_norm_sq = (target_img**2) * ref_bad_bands[None, None, :]
+        gt_norm = np.sqrt(gt_norm_sq.sum(axis=-1))
+
+        norm_py = compute_image_norm(
+            target_image_arr=target_img,
+            ref_bad_bands=ref_bad_bands,
+        )
+        norm_numba = compute_image_norm_numba(
+            target_image_arr=target_img,
+            ref_bad_bands=ref_bad_bands,
+        )
+
+        self.assertTrue(np.allclose(gt_norm, norm_py))
+        self.assertTrue(np.allclose(norm_py, norm_numba))

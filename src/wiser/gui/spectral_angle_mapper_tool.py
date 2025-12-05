@@ -22,6 +22,8 @@ from .util import (
     slice_to_bounds_1D_numba,
     dot3d,
     dot3d_numba,
+    compute_image_norm,
+    compute_image_norm_numba,
 )
 
 
@@ -134,10 +136,9 @@ def compute_sam_image(
         ref_spec_norm = np.sqrt(
             (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands)),
         )
-        # Returns a view of the array
-        target_image_arr_sliced[:, :, ~ref_bad_bands] = 0.0
-        target_image_arr_norm = np.sqrt(
-            (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
+        target_image_arr_norm = compute_image_norm(
+            target_image_arr=target_image_arr_sliced,
+            ref_bad_bands=ref_bad_bands,
         )
         denom = target_image_arr_norm * ref_spec_norm
         dot_prod_out = dot3d(
@@ -390,9 +391,9 @@ def compute_sam_image_numba(
         ref_spec_norm = np.sqrt(
             (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands)),
         )
-        target_image_arr_sliced[:, :, ~ref_bad_bands] = 0.0
-        target_image_arr_norm = np.sqrt(
-            (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),
+        target_image_arr_norm = compute_image_norm_numba(
+            target_image_arr=target_image_arr_sliced,
+            ref_bad_bands=ref_bad_bands,
         )
 
         denom = target_image_arr_norm * ref_spec_norm

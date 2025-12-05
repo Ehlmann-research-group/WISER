@@ -505,6 +505,84 @@ def interp1d_monotonic_numba(x, y, x_new):
     return out
 
 
+def compute_image_norm(target_image_arr, ref_bad_bands):
+    """
+    Pure NumPy reference implementation for compute_image_norm_numba.
+
+    Computes per-pixel L2 norm over bands where ref_bad_bands[k] is True,
+    without ever constructing a 3D temporary array.
+
+    Args:
+        target_image_arr (np.ndarray):
+            Array of shape (rows, cols, bands), float32.
+        ref_bad_bands (np.ndarray):
+            Boolean 1D mask of shape (bands,), True = keep band.
+
+    Returns:
+        np.ndarray:
+            Float32 2D array of shape (rows, cols) with per-pixel norm.
+    """
+    target = target_image_arr.astype(np.float32, copy=False)
+    rows, cols, bands = target.shape
+
+    # Accumulate squared values in 2D
+    out = np.zeros((rows, cols), dtype=np.float32)
+
+    for k in range(bands):
+        if not ref_bad_bands[k]:
+            continue
+        band2d = target[:, :, k]  # 2D view, no copy
+        # band2d * band2d is 2D, so the temporary is only 2D
+        out += band2d * band2d
+
+    np.sqrt(out, out=out)
+    return out
+
+
+compute_image_norm_sig = types.float32[:, :](
+    types.float32[:, :, :],  # target_image_arr_sliced
+    types.boolean[:],  # ref_bad_bands
+)
+
+
+@numba_njit_wrapper(
+    non_njit_func=compute_image_norm,
+    signature=compute_image_norm_sig,
+    parallel=True,
+    cache=True,
+)
+def compute_image_norm_numba(target_image_arr, ref_bad_bands):
+    """
+    Compute per-pixel L2 norm of a continuum-removed image cube over the
+    bands where ref_bad_bands[k] == True, without ever materializing a
+    3D temporary array.
+
+    Args:
+        target_image_arr (np.ndarray):
+            Float32 array of shape (rows, cols, bands).
+        ref_bad_bands (np.ndarray):
+            Boolean 1D mask of shape (bands,), True = keep band.
+
+    Returns:
+        np.ndarray:
+            Float32 2D array of shape (rows, cols) with the per-pixel norm.
+    """
+    rows, cols, bands = target_image_arr.shape
+    out = np.empty((rows, cols), dtype=np.float32)
+
+    for i in prange(rows):
+        for j in range(cols):
+            acc = 0.0
+            # Accumulate squared values only on good bands
+            for k in range(bands):
+                if ref_bad_bands[k]:
+                    v = target_image_arr[i, j, k]
+                    acc += v * v
+            out[i, j] = np.sqrt(acc)
+
+    return out
+
+
 def populate_combo_box_with_units(
     cbox: QComboBox, default_unit: Optional[u.Unit] = u.nanometer, use_none_unit=True
 ):
