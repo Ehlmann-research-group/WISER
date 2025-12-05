@@ -10,12 +10,16 @@ from PySide2.QtWidgets import *
 
 import matplotlib
 import numpy as np
+from numba import types, prange
+from scipy.interpolate import interp1d as _scipy_interp1d
 from PIL import Image
 import cv2
 from astropy import units as u
 
 import math
 import enum
+
+from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 
 class StateChange(enum.Enum):
@@ -27,6 +31,453 @@ class StateChange(enum.Enum):
     ITEM_ADDED = 1
     ITEM_EDITED = 2
     ITEM_REMOVED = 3
+
+
+def compute_resid(target_image_cr, scale, ref_spectrum_cr, mask):
+    """
+    Vectorized equivalent of compute_resid_numba using NumPy broadcasting.
+
+    Args:
+        target_image_cr (np.ndarray):
+            A 3D array of shape (rows, cols, bands) representing the
+            continuum-removed target image cube.
+        scale (np.ndarray):
+            A 2D array of shape (rows, cols) containing per-pixel scale
+            factors.
+        ref_spectrum_cr (np.ndarray):
+            A 1D array of length (bands,) containing the reference
+            continuum-removed spectrum.
+        ref_spectrum_cr (np.ndarray):
+            A 1D array of length (bands,) mask for what bands are good
+            to use in target_image_cr and ref_spectrum_cr
+
+    Returns:
+        np.ndarray:
+            A 3D array of shape (rows, cols, bands) where each element is:
+
+                target_image_cr[i, j, k]
+                - scale[i, j] * ref_spectrum_cr[k]
+
+            The output dtype is float32.
+    """
+    return (target_image_cr - scale[:, :, None] * ref_spectrum_cr[None, None, :]) * mask[None, None, :]
+
+
+compute_resid_sig = types.float32[:, :, :](
+    types.float32[:, :, :],
+    types.float32[:, :],
+    types.float32[:],
+    types.boolean[:],
+)
+
+
+@numba_njit_wrapper(
+    non_njit_func=compute_resid,
+    signature=compute_resid_sig,
+    parallel=True,
+    cache=True,
+)
+def compute_resid_numba(target_image_cr, scale2d, ref1d, mask1d):
+    """
+    Computes the residual between target_image_cr and scale2d * ref1d.
+    Masks out the residual computation where the mask is 0.
+    target_image_cr is shape (y, x, b), scale2d is (y, x), ref1d is (b,),
+    and mask is (b,) where 1's are keep, 0's are ignore.
+    """
+    rows, cols, bands = target_image_cr.shape
+    out = np.empty_like(target_image_cr, dtype=np.float32)
+
+    for k in prange(bands):
+        # 2D slice of output for band k
+        for i in prange(rows):
+            for j in range(cols):
+                out[i, j, k] = (target_image_cr[i, j, k] - scale2d[i, j] * ref1d[k]) * mask1d[k]
+
+    return out
+
+
+def mean_last_axis_3d(a: np.ndarray, total: np.float32) -> np.ndarray:
+    """
+    NumPy version: compute nanmean over the last axis of a 3D array.
+
+    Parameters
+    ----------
+    a : np.ndarray
+        3D array (will be treated as float).
+
+    Returns
+    -------
+    out : np.ndarray
+        2D array of nanmeans over the last axis.
+    """
+    return np.sum(a, axis=-1).astype(np.float32) / total
+
+
+mean3d_last_axis_sig = types.float32[:, :](types.float32[:, :, :], types.float32)
+
+
+@numba_njit_wrapper(
+    non_njit_func=mean_last_axis_3d,
+    signature=mean3d_last_axis_sig,
+    cache=True,
+)
+def mean_last_axis_3d_numba(a, divisor):
+    """
+    Compute the nanmean over the last axis (axis=2) of a 3D float32 array.
+
+    Parameters
+    ----------
+    a : float32[:, :, :]
+        Input 3D array.
+
+    Returns
+    -------
+    out : float32[:, :]
+        2D array where out[i, j] is the mean of a[i, j, :]
+        ignoring NaNs. If all values along the last axis are NaN,
+        out[i, j] will be NaN (matching np.nanmean behavior).
+    """
+    n0 = a.shape[0]
+    n1 = a.shape[1]
+    n2 = a.shape[2]
+
+    out = np.empty((n0, n1), dtype=np.float32)
+
+    for i in range(n0):
+        for j in range(n1):
+            total = 0.0
+            for k in range(n2):
+                val = a[i, j, k]
+                total += val
+
+            out[i, j] = total / divisor
+
+    return out
+
+
+def dot3d(a, b, mask):
+    """
+    Dot product of a 3D array of shape (y, x, b) and
+    a 1D array of shape (b,). Returns a 2D array shaped (y, x).
+    Mask is shaped (b,) and 1's are to keep 0's are to remove.
+    """
+    mask_float = mask.astype(np.float32)
+
+    b_masked = b * mask_float
+
+    return np.dot(a, b_masked)
+
+
+dot3d_sig = types.float32[:, :](types.float32[:, :, :], types.float32[:], types.boolean[:])
+
+
+@numba_njit_wrapper(
+    non_njit_func=dot3d,
+    signature=dot3d_sig,
+)
+def dot3d_numba(a, b, mask):
+    """
+    Dot product of a 3D array of shape (y, x, b)
+    and a 1D array of shape (b,). Returns a 2D array
+    shaped (y, x). Mask is shaped (b,) and 1's are to
+    keep 0's are to remove.
+    """
+    y = a.shape[0]
+    x = a.shape[1]
+    nb = a.shape[2]
+
+    out = np.empty((y, x), dtype=np.float32)
+
+    for i in prange(y):
+        for j in range(x):
+            s = 0.0
+            for k in range(nb):
+                s += a[i, j, k] * b[k] * mask[k]
+            out[i, j] = s
+
+    return out
+
+
+def interp1d_monotonic(x, y, x_new):
+    """Perform linear interpolation on strictly increasing `x` and `x_new`.
+
+    This function wraps :func:`scipy.interpolate.interp1d` to mimic the
+    behavior of a monotonic, single-pass linear interpolation routine.
+    Both `x` and `x_new` are assumed to be strictly increasing. When
+    `extrapolate` is False, values of `x_new` that fall outside the
+    domain ``[x[0], x[-1]]`` are assigned `fill_value`. When
+    `extrapolate` is True, values outside the domain are linearly
+    extrapolated using the end segments of the data.
+
+    Args:
+        x (np.ndarray):
+            A 1D float array of strictly increasing x-coordinates.
+        y (np.ndarray):
+            A 1D float array of values corresponding to `x`. Must have
+            the same length as `x`.
+        x_new (np.ndarray):
+            A 1D float array of strictly increasing query points at
+            which interpolation and extrapolation is
+            evaluated.
+
+    Returns:
+        np.ndarray:
+            A 1D float array of interpolated and possibly extrapolated
+            values evaluated at each point in `x_new`.
+    """
+    f = _scipy_interp1d(
+        x,
+        y,
+        kind="linear",
+        bounds_error=False,
+        fill_value=np.nan,
+        assume_sorted=True,
+    )
+
+    # Evaluate at x_new
+    out = f(x_new)
+    return np.asarray(out, dtype=float)
+
+
+def slice_to_bounds_3D(
+    spectrum_arr: np.ndarray,
+    wvls: np.ndarray,
+    bad_bands: np.ndarray,
+    min_wvl: np.float32,
+    max_wvl: np.float32,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Slice a 3D spectrum array along the band axis using wavelength bounds.
+
+    The input cube is assumed to have shape (b, y, x), where the first axis
+    is the spectral (band) dimension. `wvls` and `bad_bands` are 1D arrays
+    of length `b`. A boolean mask is built over the band axis based on the
+    wavelength bounds, and that mask is applied to `spectrum_arr`, `wvls`,
+    and `bad_bands`.
+
+    Args:
+        spectrum_arr (np.ndarray):
+            3D array of shape (b, y, x), where `b` is the number of bands.
+        wvls (np.ndarray):
+            1D float array of shape (b,), the wavelength for each band.
+        bad_bands (np.ndarray):
+            1D boolean array of shape (b,), flags for each band.
+        min_wvl (np.float32):
+            Minimum wavelength to keep. If None (in the pure Python version),
+            no lower bound is applied.
+        max_wvl (np.float32):
+            Maximum wavelength to keep. If None (in the pure Python version),
+            no upper bound is applied.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray]:
+            - spectrum_arr_sliced: 3D array of shape (b_kept, y, x)
+            - wvls_sliced: 1D array of shape (b_kept,)
+            - bad_bands_sliced: 1D boolean array of shape (b_kept,)
+    """
+    if spectrum_arr.ndim != 3:
+        raise ValueError(f"spectrum_arr must be 3D (b, y, x); got shape {spectrum_arr.shape}")
+
+    b, _, _ = spectrum_arr.shape
+
+    if wvls.ndim != 1 or bad_bands.ndim != 1 or wvls.shape[0] != b or bad_bands.shape[0] != b:
+        raise ValueError(
+            "Shape mismatch: "
+            f"spectrum_arr has shape {spectrum_arr.shape}, "
+            f"wvls has shape {wvls.shape}, "
+            f"bad_bands has shape {bad_bands.shape}"
+        )
+
+    mask = np.ones(wvls.shape, dtype=np.bool_)
+    if min_wvl is not None:
+        mask &= wvls >= min_wvl
+    if max_wvl is not None:
+        mask &= wvls <= max_wvl
+
+    # Apply mask along band axis
+    return spectrum_arr[mask, :, :], wvls[mask], bad_bands[mask]
+
+
+# Numba signature for 3D version
+slice_bounds_3d_sig = types.Tuple(
+    (
+        types.float32[:, :, :],
+        types.float32[:],
+        types.boolean[:],
+    )
+)(
+    types.float32[:, :, :],
+    types.float32[:],
+    types.boolean[:],
+    types.float32,
+    types.float32,
+)
+
+
+@numba_njit_wrapper(
+    non_njit_func=slice_to_bounds_3D,
+    signature=slice_bounds_3d_sig,
+    parallel=True,
+)
+def slice_to_bounds_3D_numba(
+    spectrum_arr: np.ndarray,
+    wvls: np.ndarray,
+    bad_bands: np.ndarray,
+    min_wvl: np.float32,
+    max_wvl: np.float32,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Numba-compatible version of slice_to_bounds_3D.
+
+    See `slice_to_bounds_3D` for full documentation.
+    """
+    if spectrum_arr.ndim != 3:
+        raise ValueError(f"spectrum_arr must be 3D (b, y, x); got shape {spectrum_arr.shape}")
+
+    b, _, _ = spectrum_arr.shape
+
+    if wvls.ndim != 1 or bad_bands.ndim != 1 or wvls.shape[0] != b or bad_bands.shape[0] != b:
+        raise ValueError(
+            "Shape mismatch: "
+            f"spectrum_arr has shape {spectrum_arr.shape}, "
+            f"wvls has shape {wvls.shape}, "
+            f"bad_bands has shape {bad_bands.shape}"
+        )
+
+    mask = np.ones(wvls.shape, dtype=np.bool_)
+    # NOTE: in pure njit with the explicit signature, min_wvl/max_wvl
+    # are float32, so they cannot actually be None; these checks will
+    # always be True there. They're still useful when called via the
+    # non-njit fallback.
+    if min_wvl is not None:
+        mask &= wvls >= min_wvl
+    if max_wvl is not None:
+        mask &= wvls <= max_wvl
+
+    return spectrum_arr[mask, :, :], wvls[mask], bad_bands[mask]
+
+
+def slice_to_bounds_1D(
+    spectrum_arr: np.ndarray,
+    wvls: np.ndarray,
+    bad_bands: np.ndarray,
+    min_wvl: np.float32,
+    max_wvl: np.float32,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if (
+        spectrum_arr.ndim != 1
+        or spectrum_arr.shape[0] != wvls.shape[0]
+        or spectrum_arr.shape[0] != bad_bands.shape[0]
+    ):
+        raise ValueError(
+            f"Shape mismatch: reflectance has shape {spectrum_arr.shape}, "
+            f"wavelengths has shape {wvls.shape}, "
+            f"bad_bands has shape {bad_bands.shape}"
+        )
+
+    mask = np.ones(wvls.shape, dtype=np.bool_)
+    if min_wvl is not None:
+        mask &= wvls >= min_wvl
+    if max_wvl is not None:
+        mask &= wvls <= max_wvl
+
+    return spectrum_arr[mask], wvls[mask], bad_bands[mask]
+
+
+slice_bounds_sig = types.Tuple((types.float32[:], types.float32[:], types.boolean[:]))(
+    types.float32[:], types.float32[:], types.boolean[:], types.float32, types.float32
+)
+
+
+@numba_njit_wrapper(
+    non_njit_func=slice_to_bounds_1D,
+    signature=slice_bounds_sig,
+    parallel=True,
+)
+def slice_to_bounds_1D_numba(
+    spectrum_arr: np.ndarray,
+    wvls: np.ndarray,
+    ref_bad_bands: np.ndarray,
+    min_wvl: np.float32,
+    max_wvl: np.float32,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if (
+        spectrum_arr.ndim != 1
+        or spectrum_arr.shape[0] != wvls.shape[0]
+        or spectrum_arr.shape[0] != ref_bad_bands.shape[0]
+    ):
+        raise ValueError(
+            f"Shape mismatch: reflectance has shape {spectrum_arr.shape}, "
+            f"wavelengths has shape {wvls.shape}, "
+            f"bad_bands has shape {ref_bad_bands.shape}"
+        )
+
+    mask = np.ones(wvls.shape, dtype=np.bool_)
+    if min_wvl is not None:
+        mask &= wvls >= min_wvl
+    if max_wvl is not None:
+        mask &= wvls <= max_wvl
+
+    return spectrum_arr[mask], wvls[mask], ref_bad_bands[mask]
+
+
+interp1d_monotonic_sig = types.float32[:](types.float32[:], types.float32[:], types.float32[:])
+
+
+@numba_njit_wrapper(
+    non_njit_func=interp1d_monotonic,
+    signature=interp1d_monotonic_sig,
+    cache=True,
+)
+def interp1d_monotonic_numba(x, y, x_new):
+    """
+    Perform linear interpolation on strictly increasing `x` and `x_new` arrays.
+
+    This function implements a single-pass, monotonic, linear interpolation
+    algorithm that is compatible with Numba's `njit`. Both `x` and `x_new`
+    must be strictly increasing. Values in `x_new` that fall outside the
+    range `[x[0], x[-1]]` are returned as np.nan.
+
+    Args:
+        x (np.ndarray):
+            A 1D float array of strictly increasing x-coordinates.
+        y (np.ndarray):
+            A 1D float array containing values corresponding to `x`.
+        x_new (np.ndarray):
+            A 1D float array of strictly increasing query points at which
+            interpolation is evaluated.
+
+    Returns:
+        np.ndarray:
+            A 1D float array of interpolated values evaluated at each point
+            in `x_new`.
+    """
+    n = x.shape[0]
+    m = x_new.shape[0]
+    out = np.empty(m, dtype=np.float32)
+
+    j = 0  # index into x
+
+    for i in range(m):
+        xn = x_new[i]
+
+        # handle out-of-bounds (no extrapolation)
+        if xn < x[0] or xn > x[n - 1]:
+            out[i] = np.nan
+            continue
+
+        # advance j until we find x[j] <= xn <= x[j+1]
+        # we know xn is >= previous x_new, so j never moves backwards
+        while j < n - 2 and x[j + 1] < xn:
+            j += 1
+
+        x0 = x[j]
+        x1 = x[j + 1]
+        y0 = y[j]
+        y1 = y[j + 1]
+
+        t = (xn - x0) / (x1 - x0)
+        out[i] = y0 + t * (y1 - y0)
+
+    return out
 
 
 def populate_combo_box_with_units(

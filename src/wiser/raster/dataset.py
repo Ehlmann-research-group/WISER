@@ -336,7 +336,7 @@ class SpectralMetadata:
     def get_has_wavelengths(self) -> bool:
         return self._has_wavelengths
 
-    def get_wavelengths(self) -> List[u.Quantity]:
+    def get_wavelengths(self) -> Optional[List[u.Quantity]]:
         return self._wavelengths
 
     def get_wavelength_units(self) -> u.Unit:
@@ -672,11 +672,11 @@ class RasterDataSet(Serializable):
         return self.get_band_memory_size() * self.num_bands()
 
     def get_band_unit(self) -> Optional[u.Unit]:
-        """
+        """cd
         Returns the units used for all bands' wavelengths, or ``None`` if bands
         do not specify units.
         """
-        return self._impl.read_band_unit()
+        return self._band_info[0]["wavelength"].unit
 
     def band_list(self) -> List[Dict[str, Any]]:
         """
@@ -719,8 +719,20 @@ class RasterDataSet(Serializable):
                 *   'wavelength_units' - the string version of the band's
                     wavelength-units value
         """
-        self._band_info = band_list
+        self._band_info = copy.deepcopy(band_list)
         self._has_wavelengths = self._compute_has_wavelengths()
+
+    def set_band_descriptions(self, band_descriptions: List[str]):
+        """
+        This sets just the band description for all the bands in the dataset
+        based on what is in band_descriptions list.
+        """
+        assert len(band_descriptions) == len(self._band_info), (
+            "Passed in band_descriptions must be the same length" " as dataset's _band_info"
+        )
+        for i in range(len(band_descriptions)):
+            b = self._band_info[i]
+            b["description"] = band_descriptions[i]
 
     def set_band_unit(self, unit: u.Unit):
         """
@@ -736,6 +748,13 @@ class RasterDataSet(Serializable):
         that can be converted to wavelength); otherwise, returns ``False``.
         """
         return self._has_wavelengths
+
+    def get_wavelengths(self) -> Optional[List[u.Quantity]]:
+        """
+        Returns the wavelengths of the dataset if it has wavelengths.
+        """
+        if self.has_wavelengths():
+            return [b["wavelength"] for b in self._band_info]
 
     def default_display_bands(self) -> Optional[DisplayBands]:
         """

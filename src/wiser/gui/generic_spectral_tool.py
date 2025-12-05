@@ -1,10 +1,12 @@
 # Generic shared logic for spectral computations (parent class)
 from __future__ import annotations
 
-from typing import List, Optional, Dict, Any, Tuple, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, Tuple, TYPE_CHECKING, Union
 import os
 import warnings
 import numpy as np
+from numba import njit, prange, types
+from wiser.utils.numba_wrapper import numba_njit_wrapper
 
 from PySide2.QtWidgets import (
     QDialog,
@@ -24,15 +26,19 @@ from PySide2.QtWidgets import (
 from PySide2.QtCore import Qt, QSettings
 from astropy import units as u
 
-from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
+from wiser.raster.spectrum import Spectrum, NumPyArraySpectrum
 from wiser.raster.envi_spectral_library import ENVISpectralLibrary
 from wiser.raster.spectral_library import ListSpectralLibrary
+from wiser.raster.dataset import RasterDataSet
 from wiser.gui.import_spectra_text import ImportSpectraTextDialog
 from wiser.gui.spectrum_plot import SpectrumPlotGeneric
 from wiser.gui.generated.generic_spectral_computation_ui import (
     Ui_GenericSpectralComputation,
-)  # generated from .ui
-from .util import populate_combo_box_with_units, StateChange
+)
+from .util import (
+    populate_combo_box_with_units,
+    StateChange,
+)
 
 from wiser.config import FLAGS
 
@@ -43,6 +49,29 @@ DEFAULT_NO_SPECTRA_TEXT = "No spectra collected"
 DEFAULT_NO_DATASETS_TEXT = "No image cubes loaded"
 
 
+class SpectralComputationInputs:
+    def __init__(
+        self,
+        target: Union[Spectrum, "RasterDataSet"],
+        mode: str,
+        refs: List[Spectrum],
+        thresholds: List[float],
+        global_thr: float,
+        min_wvl: Optional[u.Quantity],
+        max_wvl: Optional[u.Quantity],
+        lib_name_by_spec_id: Dict[int, str],
+    ):
+        assert len(refs) == len(thresholds), "Number of refs and thresholds must me equal!"
+        self.target = target
+        self.mode = mode  # Either 'Spectrum' or 'Image Cube'
+        self.refs = refs
+        self.thresholds = thresholds
+        self.global_thr = global_thr
+        self.min_wvl = min_wvl
+        self.max_wvl = max_wvl
+        self.lib_name_by_spec_id = lib_name_by_spec_id
+
+
 class GenericSpectralComputationTool(QDialog):
     """
     Template/parent for spectral computations (SAM, SFF, etc.).
@@ -51,8 +80,7 @@ class GenericSpectralComputationTool(QDialog):
       - RUN_BUTTON_TEXT (str)
       - SCORE_HEADER (str)                 : name for Score column in details/history
       - THRESHOLD_SPIN_CONFIG (dict)       : min, max, decimals, step
-      - SPEC_THRESHOLD_ATTR (str)          : e.g., "_sam_threshold" or "_sff_max_rms"
-      - compute_score(self, ref) -> (float, dict)
+      - compute_score(self, target, ref) -> (float, dict)
           returns (score, extras), NaN score to skip
       - details_columns(self) -> List[Tuple[str, str]]
           list of (header, key) for detail table (must include "score" and "threshold")
@@ -64,7 +92,6 @@ class GenericSpectralComputationTool(QDialog):
     SCORE_HEADER = "Score"
     THRESHOLD_HEADER = "Initial Threshold"
     THRESHOLD_SPIN_CONFIG = dict(min=0.0, max=1.0, decimals=2, step=0.5)
-    SPEC_THRESHOLD_ATTR = "_method_threshold"
 
     # default thresholds: children should set self._method_threshold and configure spin
     def __init__(self, widget_name: str, app_state: ApplicationState, parent: QWidget = None):
@@ -92,13 +119,7 @@ class GenericSpectralComputationTool(QDialog):
         self._add_interpolation_note()
 
         self._app_state = app_state
-        self._target: Optional[NumPyArraySpectrum] = None
-        self.library: List[NumPyArraySpectrum] = []
-        self._lib_name_by_spec_id: Dict[int, str] = {}
-
-        # shared wavelength bounds; units are the chosen units
-        self._min_wavelength: Optional[u.Quantity] = None
-        self._max_wavelength: Optional[u.Quantity] = None
+        self._target: Optional[Spectrum] = None
 
         self._run_history: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -130,30 +151,25 @@ class GenericSpectralComputationTool(QDialog):
         return "GENERIC"
 
     # ----------------- Public setters/getters -----------------
-    def set_target(self, target: NumPyArraySpectrum) -> None:
-        self._target = target
 
-    def set_method_threshold(self, value: Optional[float]) -> None:
-        # child class may proxy this to its own attribute name
-        self._method_threshold = None if value is None else float(value)
-
-    def set_library(self, spectra: List[NumPyArraySpectrum]) -> None:
-        self.library = list(spectra)
-
-    def set_wavelength_min(self, min_q: Optional[u.Quantity]) -> None:
-        self._min_wavelength = min_q
-
-    def set_wavelength_max(self, max_q: Optional[u.Quantity]) -> None:
-        self._max_wavelength = max_q
-
-    def get_target_name(self) -> str:
-        return self._target.get_name() if self._target else "<no target>"
+    def get_target_name(self, target: Spectrum) -> str:
+        return target.get_name() if target else "<no target>"
 
     def get_wavelength_min(self) -> Optional[u.Quantity]:
-        return self._min_wavelength
+        try:
+            min_v = float(self._ui.lineEdit.text())
+            unit = self._get_wavelength_units()
+            return u.Quantity(min_v, unit)
+        except ValueError:
+            raise ValueError("Min wavelength must be a number.")
 
     def get_wavelength_max(self) -> Optional[u.Quantity]:
-        return self._max_wavelength
+        try:
+            max_v = float(self._ui.lineEdit_2.text())
+            unit = self._get_wavelength_units()
+            return u.Quantity(max_v, unit)
+        except ValueError:
+            raise ValueError("Max wavelength must be a number.")
 
     def _get_wavelength_units(self) -> u.Unit:
         return self._ui.cbox_units.currentData()
@@ -166,6 +182,7 @@ class GenericSpectralComputationTool(QDialog):
         ui.addCancelBtn.clicked.connect(self.cancel)
         ui.addLibBtn.clicked.connect(self._on_add_library_clicked)
         ui.addSpecBtn.clicked.connect(self._on_add_spectrum_clicked)
+        ui.btn_add_collected_spec.clicked.connect(self._on_add_collected_spectrum)
         ui.SelectTargetData.currentTextChanged.connect(self._on_target_type_changed)
         ui.clearRunsBtn.clicked.connect(self._on_clear_runs_clicked)
 
@@ -211,6 +228,18 @@ class GenericSpectralComputationTool(QDialog):
         ui.SelectTargetData.blockSignals(False)
         ui.SelectTargetData.setCurrentText("Spectrum")
         self._on_target_type_changed("Spectrum")
+
+    def _on_add_collected_spectrum(self):
+        spec = self._app_state.choose_spectrum_ui()
+        if spec is None:
+            return
+
+        self.addSpectrumRow()
+        row = self._spec_rows[-1]
+        spec_name = spec.get_name()
+        row["checkbox"].setText(f"{spec_name}")
+        row["checkbox"].setChecked(True)
+        row["specs"].extend([spec])
 
     # ----------------- File pickers -----------------
     def _on_add_spectrum_clicked(self):
@@ -420,7 +449,16 @@ class GenericSpectralComputationTool(QDialog):
                 ui.addRunBtn.setEnabled(False)
 
     # ----------------- Shared input resolution -----------------
-    def _slice_to_bounds(self, spectrum: NumPyArraySpectrum) -> Tuple[np.ndarray, u.Quantity]:
+    def _slice_to_bounds(
+        self,
+        spectrum: Spectrum,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
+    ) -> Tuple[np.ndarray, u.Quantity]:
+        """
+        Slices the given spectrum to the specified wavelength bounds.
+        Returns a numpy array and a list of u.Quantity objects
+        """
         wls = spectrum.get_wavelengths()
         if not isinstance(wls, u.Quantity):
             unit = (
@@ -433,49 +471,43 @@ class GenericSpectralComputationTool(QDialog):
             unit = self._get_wavelength_units()
             wls = u.Quantity(wls.value, unit)
 
-        if self._min_wavelength is not None:
-            wls = wls.to(self._min_wavelength.unit)
-        if self._max_wavelength is not None:
-            wls = wls.to(self._max_wavelength.unit)
+        min_wvl = min_wvl.to(unit)
+        max_wvl = max_wvl.to(unit)
 
-        raw_r = spectrum.get_spectrum()
-        arr = raw_r.value if isinstance(raw_r, u.Quantity) else np.asarray(raw_r)
+        arr = spectrum.get_spectrum()
         if arr.ndim != 1 or arr.shape[0] != wls.shape[0]:
             raise ValueError(
                 f"Shape mismatch: reflectance has shape {arr.shape}, wavelengths has shape {wls.shape}"
             )
 
         mask = np.ones(wls.shape, dtype=bool)
-        if self._min_wavelength is not None:
-            mask &= wls >= self._min_wavelength
-        if self._max_wavelength is not None:
-            mask &= wls <= self._max_wavelength
+        if min_wvl is not None:
+            mask &= wls >= min_wvl
+        if max_wvl is not None:
+            mask &= wls <= max_wvl
 
         return arr[mask], wls[mask]
 
-    def _set_inputs(self) -> List[NumPyArraySpectrum]:
+    def _set_inputs(self) -> SpectralComputationInputs:
         try:
-            min_v = float(self._ui.lineEdit.text())
-            max_v = float(self._ui.lineEdit_2.text())
             global_thr = float(self._ui.method_threshold.value())
         except ValueError:
-            raise ValueError("Min, Max, and Threshold must be numbers.")
-        if min_v >= max_v:
-            raise ValueError("Min wavelength must be < Max wavelength.")
+            raise ValueError("Threshold must be numbers.")
 
         units = self._get_wavelength_units()
-        min_wl = u.Quantity(min_v, units)
-        max_wl = u.Quantity(max_v, units)
+        min_wl = self.get_wavelength_min()
+        max_wl = self.get_wavelength_max()
+        if min_wl >= max_wl:
+            raise ValueError("Min wavelength must be < Max wavelength.")
 
         mode = self._ui.SelectTargetData.currentText()
         target = self._ui.SelectTargetData_2.currentData()
         if target is None:
             raise ValueError(f"No {mode.lower()} selected.")
 
-        next_id = self._app_state.take_next_id()
-
-        self._lib_name_by_spec_id.clear()
-        refs: List[NumPyArraySpectrum] = []
+        lib_name_by_spec_id: Dict[int, str] = {}
+        refs: List[Spectrum] = []
+        thresholds: List[float] = []
 
         # Libraries
         for lib_row in self._lib_rows:
@@ -488,11 +520,12 @@ class GenericSpectralComputationTool(QDialog):
                     arr = envilib._data[i]
                     name = envilib._spectra_names[i] if hasattr(envilib, "_spectra_names") else None
                     spec_from_lib = NumPyArraySpectrum(arr=arr, name=name, wavelengths=wls)
-                    spec_from_lib.set_id(next_id)
-                    self._lib_name_by_spec_id[spec_from_lib.get_id()] = lib_filename
-                    setattr(spec_from_lib, self.SPEC_THRESHOLD_ATTR, row_thr)
-                    next_id += 1
+                    if spec_from_lib.get_id() is None:
+                        next_id = self._app_state.take_next_id()
+                        spec_from_lib.set_id(next_id)
+                    lib_name_by_spec_id[spec_from_lib.get_id()] = lib_filename
                     refs.append(spec_from_lib)
+                    thresholds.append(row_thr)
 
         # Individual spectra
         for row in self._spec_rows:
@@ -500,54 +533,234 @@ class GenericSpectralComputationTool(QDialog):
                 row_thr = float(row["threshold"].value())
                 spec_filename = os.path.basename(row.get("path") or "")
                 for spec in row["specs"]:
-                    spec.set_id(next_id)
-                    self._lib_name_by_spec_id[spec.get_id()] = spec_filename
-                    setattr(spec, self.SPEC_THRESHOLD_ATTR, row_thr)
-                    next_id += 1
+                    if spec.get_id() is None:
+                        next_id = self._app_state.take_next_id()
+                        spec.set_id(next_id)
+                    lib_name_by_spec_id[spec.get_id()] = spec_filename
                     refs.append(spec)
+                    thresholds.append(row_thr)
 
         if not refs:
             raise ValueError("Please check at least one reference file.")
 
-        self.set_wavelength_min(min_wl)
-        self.set_wavelength_max(max_wl)
-        self.set_method_threshold(global_thr)
-        self.set_target(target)
-        self.set_library(refs)
-        return refs
+        spectral_inputs = SpectralComputationInputs(
+            target=target,
+            mode=mode,
+            refs=refs,
+            thresholds=thresholds,
+            global_thr=global_thr,
+            min_wvl=min_wl,
+            max_wvl=max_wl,
+            lib_name_by_spec_id=lib_name_by_spec_id,
+        )
+        return spectral_inputs
 
     # ----------------- Match pipeline -----------------
-    def compute_score(self, ref: NumPyArraySpectrum) -> Tuple[float, Dict[str, Any]]:
+    def compute_score(
+        self,
+        target: Spectrum,
+        ref: Spectrum,
+        min_wvl: u.Quantity,
+        max_wvl: u.Quantity,
+    ) -> Tuple[float, Dict[str, Any]]:
         """Child must implement. Return (score, extras_dict). NaN to skip."""
         raise NotImplementedError
 
-    def _row_threshold_for(self, spec: NumPyArraySpectrum, default: float) -> float:
-        return float(getattr(spec, self.SPEC_THRESHOLD_ATTR, default))
+    def compute_score_image(
+        self,
+        target_image_name: str,
+        target_image_arr: np.ndarray,
+        target_wavelengths: np.ndarray,
+        target_bad_bands: np.ndarray,
+        min_wvl: np.float32,
+        max_wvl: np.float32,
+        reference_spectra: List[Spectrum],
+        reference_spectra_arr: np.ndarray,
+        reference_spectra_wvls: np.ndarray,
+        reference_spectra_bad_bands: np.ndarray,
+        reference_spectra_indices: np.ndarray,
+        thresholds: np.ndarray,
+        python_mode: bool = False,
+    ) -> List[int]:
+        """Child must implement. Return Nothing. Load dataset into app instead."""
+        raise NotImplementedError
 
-    def find_matches(self) -> List[Dict[str, Any]]:
+    def find_matches(
+        self,
+        spectral_inputs: SpectralComputationInputs,
+        python_mode: bool = False,
+    ) -> Union[List[Dict[str, Any]], List[int]]:
+        """Find spectral matches for a single spectrum or an image cube.
+
+        This method operates in two modes, driven by ``spectral_inputs.mode``:
+
+        * ``"Spectrum"``: Compute a similarity score between a single target
+        spectrum and each reference spectrum. Return a list of match records
+        (one per passing reference), including metadata and any extra fields
+        from ``compute_score``.
+        * ``"Image Cube"``: Treat the target as a raster
+        dataset, compute per-pixel scores against all reference spectra
+        (via ``compute_score_image``), and attach the resulting products to
+        the application. In this mode, the method returns ``None`` and all
+        side effects are handled by the callee.
+        * Any other mode: Error
+
+        Matching uses a shared convention where **lower scores are better**,
+        and a match is accepted if ``score <= threshold``.
+
+        Args:
+            spectral_inputs (SpectralComputationInputs):
+                Container for all inputs required to perform the
+                spectral computation. Expected to provide
+
+                * ``target``: Either a :class:`Spectrum` (Spectrum mode)
+                or a :class:`RasterDataSet` (image mode).
+                * ``min_wvl`` / ``max_wvl``: Wavelength bounds for the comparison.
+                * ``lib_name_by_spec_id``: Mapping from reference spectrum ID to
+                library name.
+                * ``refs``: Iterable of reference spectra.
+                * ``mode``: String flag controlling behavior (e.g. ``"Spectrum"``
+                or ``"Image Cube"``).
+                * ``thresholds``: Iterable of per-reference score thresholds.
+
+            python_mode (bool):
+                Whether to run the compute intensive algorithms in python or not.
+                If False, it tries to run in compiled numba code.
+
+        Returns:
+            Optional(List(Dict(str, Any))):
+                In ``"Spectrum"`` mode, a list of dictionaries describing each
+                reference that passes its threshold. Each dictionary includes
+
+                * ``target_name``: Name of the target spectrum.
+                * ``reference_data``: Name of the reference spectrum.
+                * ``library_name``: Library that the reference belongs to (if any).
+                * ``score``: Numeric score returned by ``compute_score``.
+                * ``threshold``: Threshold used for acceptance.
+                * ``min_wavelength`` / ``max_wavelength``: Bounds used for matching.
+                * ``ref_obj``: The reference spectrum object itself.
+                * Any additional key/value pairs returned in ``extras`` from
+                :meth:`compute_score`.
+
+                In image mode (non-``"Spectrum"``), returns ``None``. In that
+                case, the concrete subclass is responsible for consuming the
+                output of :meth:`compute_score_image` and attaching datasets
+                to the application state.
+
+        Raises:
+            AssertionError: If ``spectral_inputs.mode == "Spectrum"`` but
+                ``spectral_inputs.target`` is not a :class:`Spectrum`,
+                or if image mode is selected but the target is not a
+                :class:`RasterDataSet`.
+            AssertionError: If the number of thresholds does not match the
+                number of reference spectra in image mode.
+            ValueError: May be raised indirectly from lower-level routines
+                (e.g., wavelength unit conversion, array shape mismatches)
+                invoked by :meth:`compute_score` or :meth:`compute_score_image`.
+
+        """
         matches: List[Dict[str, Any]] = []
-        global_thr = float(self._ui.method_threshold.value())
+        target = spectral_inputs.target
+        min_wvl = spectral_inputs.min_wvl
+        max_wvl = spectral_inputs.max_wvl
+        lib_name_by_spec_id = spectral_inputs.lib_name_by_spec_id
+        references = spectral_inputs.refs
+        mode = spectral_inputs.mode
 
-        for spec in self.library:
-            score, extras = self.compute_score(spec)
-            if not np.isfinite(score):
-                continue
-            thr = self._row_threshold_for(spec, global_thr)
-            if score <= thr:  # shared convention: lower score is better, pass if <= threshold
-                matches.append(
-                    {
-                        "target_name": self.get_target_name(),
-                        "reference_data": spec.get_name(),
-                        "library_name": self._lib_name_by_spec_id.get(spec.get_id(), ""),
-                        "score": float(score),
-                        "threshold": float(thr),
-                        "min_wavelength": self.get_wavelength_min(),
-                        "max_wavelength": self.get_wavelength_max(),
-                        "ref_obj": spec,
-                        **extras,
-                    }
-                )
-        return matches
+        if mode == "Spectrum":
+            assert isinstance(target, Spectrum), "Spectrum selected but target is not a spectrum!"
+            for spec, row_thr in zip(spectral_inputs.refs, spectral_inputs.thresholds):
+                score, extras = self.compute_score(spectral_inputs.target, spec, min_wvl, max_wvl)
+                if not np.isfinite(score):
+                    continue
+                if score <= row_thr:  # shared convention: lower score is better, pass if <= threshold
+                    matches.append(
+                        {
+                            "target_name": target.get_name(),
+                            "reference_data": spec.get_name(),
+                            "library_name": lib_name_by_spec_id.get(spec.get_id(), ""),
+                            "score": float(score),
+                            "threshold": float(row_thr),
+                            "min_wavelength": min_wvl,
+                            "max_wavelength": max_wvl,
+                            "ref_obj": spec,
+                            **extras,
+                        }
+                    )
+            return matches
+        elif mode == "Image Cube":
+            # Image mode: run per-pixel scoring against all reference spectra.
+            assert isinstance(target, RasterDataSet)
+            target_unit = target.get_band_unit()
+            target_image_cube = target.get_image_data()  # [b][y][x]
+
+            # Convert dataset bad-band flags → boolean mask (True = keep).
+            target_wavelengths = [b["wavelength"].to(target_unit).value for b in target.get_band_info()]
+            target_wavelengths = np.array(target_wavelengths, dtype=np.float32)
+            target_bad_bands = np.array(target.get_bad_bands()).astype(
+                np.bool_
+            )  # 1's correspond for bands we keep, 0's don't
+
+            # Normalize user wavelength bounds to dataset units.
+            new_min_wvl = min_wvl.to(target_unit)
+            new_min_wvl = np.float32(new_min_wvl.value)
+            new_max_wvl = max_wvl.to(target_unit)
+            new_max_wvl = np.float32(new_max_wvl.value)
+
+            # Build packed reference buffers (values + wavelengths).
+            length_all_references = 0
+            ref_offsets = [0]
+            for ref in references:
+                length_of_ref = ref.get_shape()[0]
+                length_all_references += length_of_ref
+                ref_offsets.append(ref_offsets[-1] + length_of_ref)
+
+            new_refs_arr = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
+            new_refs_wvl = np.full((length_all_references,), fill_value=np.nan, dtype=np.float32)
+            new_refs_bad_bands = np.ones((length_all_references,), dtype=np.bool_)
+
+            # Copy reference spectra into packed buffers.
+            i = 0
+            for ref in references:
+                ref_unit = ref.get_wavelength_units()
+                if ref_unit is None:
+                    continue
+                new_refs_arr[ref_offsets[i] : ref_offsets[i + 1]] = ref.get_spectrum()
+                wvls = [wvl.to(target_unit).value for wvl in ref.get_wavelengths()]
+                new_refs_wvl[ref_offsets[i] : ref_offsets[i + 1]] = wvls
+                bad_bands = ref.get_bad_bands()
+                new_refs_bad_bands[ref_offsets[i] : ref_offsets[i + 1]] = bad_bands
+                i += 1
+
+            # Per-reference thresholds
+            thresholds = np.array(spectral_inputs.thresholds, dtype=np.float32)
+            ref_offsets = np.array(ref_offsets, dtype=np.uint32)
+            assert thresholds.shape[0] == len(references)
+
+            if isinstance(target_image_cube, np.ma.MaskedArray):
+                target_image_arr = target_image_cube.data
+            else:
+                target_image_arr = target_image_cube
+
+            # It's the child class's job to add the output to WISER
+            ds_ids = self.compute_score_image(
+                target_image_name=target.get_name(),
+                target_image_arr=target_image_arr,
+                target_wavelengths=target_wavelengths,
+                target_bad_bands=target_bad_bands,
+                min_wvl=new_min_wvl,
+                max_wvl=new_max_wvl,
+                reference_spectra=references,
+                reference_spectra_arr=new_refs_arr,
+                reference_spectra_wvls=new_refs_wvl,
+                reference_spectra_bad_bands=new_refs_bad_bands,
+                reference_spectra_indices=ref_offsets,
+                thresholds=thresholds,
+                python_mode=python_mode,
+            )
+            return ds_ids
+        else:
+            raise ValueError("Spectral computation mode must be 'Spectrum' or 'Image Cube'.")
 
     def sort_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return sorted(matches, key=lambda rec: rec["score"]) if matches else []
@@ -559,40 +772,46 @@ class GenericSpectralComputationTool(QDialog):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             try:
-                self._set_inputs()
+                spectral_inputs = self._set_inputs()
             except Exception as e:
                 self._show_message("warning", "Invalid input", str(e))
                 raise e
-                return
 
             try:
-                matches = self.find_matches()
+                matches = self.find_matches(spectral_inputs)
+                if spectral_inputs.mode == "Image Cube":
+                    return
                 sorted_matches = self.sort_matches(matches)
             except Exception as e:
                 import traceback
 
                 self._show_message("error", "Error during run", str(e), details=traceback.format_exc())
                 raise e
-                return
 
             if sorted_matches:
-                self._record_run(self._target, sorted_matches)
-                self._view_details_dialog(sorted_matches, self._target)
+                self._record_run(spectral_inputs, sorted_matches)
+                self._view_details_dialog(sorted_matches, spectral_inputs.target)
             else:
                 self._show_message(
                     "info",
                     "No matches found",
                     "No matches were found within the threshold.",
                     informative=f"Threshold: {self._ui.method_threshold.value()}, "
-                    f"Range: {self._min_wavelength} – {self._max_wavelength}",
+                    f"Range: {spectral_inputs.min_wvl} - {spectral_inputs.max_wvl}",
                 )
+
         finally:
             QApplication.restoreOverrideCursor()
             ui.addRunBtn.setEnabled(True)
 
-    def _record_run(self, target: NumPyArraySpectrum, sorted_matches: List[Dict[str, Any]]) -> None:
+    def _record_run(
+        self,
+        spectral_inputs: SpectralComputationInputs,
+        sorted_matches: List[Dict[str, Any]],
+    ) -> None:
         if not sorted_matches:
             return
+        target = spectral_inputs.target
         key = target.get_name() or "<unnamed target>"
         best = sorted_matches[0]
         run_entry = {
@@ -600,8 +819,8 @@ class GenericSpectralComputationTool(QDialog):
             "matches": list(sorted_matches),
             "best": best,
             "threshold": float(self._ui.method_threshold.value()),
-            "min_wavelength": self._min_wavelength,
-            "max_wavelength": self._max_wavelength,
+            "min_wavelength": spectral_inputs.min_wvl,
+            "max_wavelength": spectral_inputs.max_wvl,
         }
         self._run_history.setdefault(key, []).append(run_entry)
 
@@ -653,7 +872,7 @@ class GenericSpectralComputationTool(QDialog):
         except Exception:
             pass
 
-    def _view_details_dialog(self, matches: List[Dict[str, Any]], target: NumPyArraySpectrum, parent=None):
+    def _view_details_dialog(self, matches: List[Dict[str, Any]], target: Spectrum, parent=None):
         top = matches[:10]
         d = QDialog(parent or self)
         d.setWindowTitle(f"{self.filename_stub()} — Details")
@@ -676,7 +895,7 @@ class GenericSpectralComputationTool(QDialog):
         d.show()
         d.activateWindow()
 
-    def _build_details_layout(self, d: QDialog, rows: List[Dict[str, Any]], target: NumPyArraySpectrum):
+    def _build_details_layout(self, d: QDialog, rows: List[Dict[str, Any]], target: Spectrum):
         from PySide2.QtWidgets import QVBoxLayout, QTableWidget
 
         layout = QVBoxLayout(d)
@@ -810,9 +1029,13 @@ class GenericSpectralComputationTool(QDialog):
         self._lib_rows.clear()
 
     def _save_state(self) -> None:
+        """
+        Saves the current state/laste entered entries to QSettings object.
+        This QSettigns object is used to repopulate the dialog when it closes.
+        """
         s = self._settings()
-        s.setValue("min", self._q_to_units(self._min_wavelength))
-        s.setValue("max", self._q_to_units(self._max_wavelength))
+        s.setValue("min", self._q_to_units(self.get_wavelength_min()))
+        s.setValue("max", self._q_to_units(self.get_wavelength_max()))
         s.setValue("threshold", float(self._ui.method_threshold.value()))
         # target
         mode = self._ui.SelectTargetData.currentText()
@@ -883,12 +1106,10 @@ class GenericSpectralComputationTool(QDialog):
         s = self._settings()
         min_v = s.value("min", type=float)
         max_v = s.value("max", type=float)
-        self._min_wavelength = self._units_to_q(min_v)
-        self._max_wavelength = self._units_to_q(max_v)
-        if self._min_wavelength is not None:
-            self._ui.lineEdit.setText(str(self._min_wavelength.to_value(self._get_wavelength_units())))
-        if self._max_wavelength is not None:
-            self._ui.lineEdit_2.setText(str(self._max_wavelength.to_value(self._get_wavelength_units())))
+        if min_v is not None:
+            self._ui.lineEdit.setText(str(min_v))
+        if max_v is not None:
+            self._ui.lineEdit_2.setText(str(max_v))
         thr = s.value("threshold", None, type=float)
         if thr is not None:
             self._ui.method_threshold.setValue(float(thr))
@@ -997,6 +1218,9 @@ class GenericSpectralComputationTool(QDialog):
 
     # ----------------- Export -----------------
     def save_txt(self, target, matches, parent=None):
+        """
+        Saves the last entered input to a .txt file.
+        """
         tgt_name = getattr(target, "get_name", lambda: None)() or "target"
         safe_target = tgt_name.replace(" ", "_")
         from datetime import datetime
@@ -1022,13 +1246,13 @@ class GenericSpectralComputationTool(QDialog):
 
         # header
         try:
-            min_v = f"{self._min_wavelength.to_value(self._get_wavelength_units()):.1f}"
+            min_v = f"{self.get_wavelength_min().to_value(self._get_wavelength_units()):.1f}"
         except Exception:
-            min_v = str(self._min_wavelength) if self._min_wavelength is not None else "—"
+            min_v = str(self.get_wavelength_min()) if self.get_wavelength_min() is not None else "—"
         try:
-            max_v = f"{self._max_wavelength.to_value(self._get_wavelength_units()):.1f}"
+            max_v = f"{self.get_wavelength_max().to_value(self._get_wavelength_units()):.1f}"
         except Exception:
-            max_v = str(self._max_wavelength) if self._max_wavelength is not None else "—"
+            max_v = str(self.get_wavelength_max()) if self.get_wavelength_max() is not None else "—"
 
         from datetime import datetime
 

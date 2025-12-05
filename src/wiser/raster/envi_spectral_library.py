@@ -141,7 +141,7 @@ class ENVISpectralLibrary(SpectralLibrary):
         """
         return self._num_spectra
 
-    def get_wavelengths(self):
+    def get_wavelengths(self) -> Optional[List[u.Quantity]]:
         wavelengths = []
         for info in self._band_list:
             if "wavelength" not in info:

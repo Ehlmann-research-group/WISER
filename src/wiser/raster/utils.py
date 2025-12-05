@@ -457,6 +457,14 @@ def normalize_ndarray_python(array: np.ndarray, minval=None, maxval=None) -> Uni
     or if the caller wants to normalize to a different min/max than the array's
     actual min/max values.  NaN values are left unaffected.
     """
+    dt = array.dtype
+    if not (np.issubdtype(dt, np.integer) or np.issubdtype(dt, np.floating)):
+        array = array.astype(np.float32)
+    if isinstance(minval, (bool, np.bool_)):
+        minval = float(minval)
+
+    if isinstance(maxval, (bool, np.bool_)):
+        maxval = float(maxval)
     if minval is None:
         minval = np.nanmin(array)
 
