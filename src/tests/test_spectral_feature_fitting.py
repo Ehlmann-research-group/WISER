@@ -231,14 +231,14 @@ class TestSpectralFeatureFitting(unittest.TestCase):
 
     def sff_image_cube_helper(
         self,
-        arr: np.ndarray,  # [b][y][x] shape
+        arr: np.ndarray,
         wvl_list: List[u.Quantity],
-        bad_bands: List[int],  # 1's mean keep, 0's mean remove
+        bad_bands: List[int],
         refs: List[NumPyArraySpectrum],
         thresholds: List[np.float32],
-        gt_cls: np.ndarray,  # [1][y][x]
-        gt_rmse: np.ndarray,  # [1][y][x]
-        gt_scale: np.ndarray,  # [1][y][x]
+        gt_cls: np.ndarray,
+        gt_rmse: np.ndarray,
+        gt_scale: np.ndarray,
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ) -> Tuple[RasterDataSet, RasterDataSet, RasterDataSet, RasterDataSet]:
@@ -499,24 +499,17 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         )
         scale = return_dict["scale"]
 
-        print(f"$$%$ rmse: {rmse}")
-        print(f"$$%$ type(rmse): {type(rmse)}")
-        print(f"$$%$ scale: {scale}")
-        print(f"$$%$ type(scale): {type(scale)}")
         image_rmse = rmse_ds.get_image_data()[0, 0, 0]
         image_scale = scale_ds.get_image_data()[0, 0, 0]
-        print(f"$$%$ image_rmse: {image_rmse}")
-        print(f"$$%$ type(image_rmse): {type(image_rmse)}")
-        print(f"$$%$ image_scale: {image_scale}")
-        print(f"$$%$ type(image_scale): {type(image_scale)}")
+
         self.assertTrue(np.isclose(rmse, image_rmse))
         self.assertTrue(np.isclose(scale, image_scale))
 
     def prepare_inputs(
         self,
-        arr: np.ndarray,  # [b][y][x] shape
+        arr: np.ndarray,
         wvl_list: List[u.Quantity],
-        bad_bands: List[int],  # 1's mean keep, 0's mean remove
+        bad_bands: List[int],
         refs: List[NumPyArraySpectrum],
         thresholds: List[np.float32],
         min_wvl: u.Quantity,
@@ -552,14 +545,14 @@ class TestSpectralFeatureFitting(unittest.TestCase):
 
     def sff_py_numba_comparison_helper(
         self,
-        arr: np.ndarray,  # [b][y][x] shape
+        arr: np.ndarray,
         wvl_list: List[u.Quantity],
-        bad_bands: List[int],  # 1's mean keep, 0's mean remove
+        bad_bands: List[int],
         refs: List[NumPyArraySpectrum],
         thresholds: List[np.float32],
-        gt_cls: np.ndarray,  # [1][y][x]
-        gt_rmse: np.ndarray,  # [1][y][x]
-        gt_scale: np.ndarray,  # [1][y][x]
+        gt_cls: np.ndarray,
+        gt_rmse: np.ndarray,
+        gt_scale: np.ndarray,
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ):
@@ -593,15 +586,6 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         cls_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[0])
         rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
         scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
-
-        print("===================Numba======================")
-        print(f"cls_ds_numba: {cls_ds_numba.get_image_data()}")
-        print(f"rmse_ds_numba: {rmse_ds_numba.get_image_data()}")
-        print(f"scale_ds_numba: {scale_ds_numba.get_image_data()}")
-        print("===================Python======================")
-        print(f"cls_ds_py: {cls_ds_py.get_image_data()}")
-        print(f"rmse_ds_py: {rmse_ds_py.get_image_data()}")
-        print(f"scale_ds_py: {scale_ds_py.get_image_data()}")
 
         self.assertTrue(
             np.allclose(

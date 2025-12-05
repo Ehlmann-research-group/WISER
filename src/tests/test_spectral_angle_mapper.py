@@ -223,13 +223,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
 
     def sam_image_cube_helper(
         self,
-        arr: np.ndarray,  # [b][y][x] shape
+        arr: np.ndarray,
         wvl_list: List[u.Quantity],
-        bad_bands: List[int],  # 1's mean keep, 0's mean remove
+        bad_bands: List[int],
         refs: List[NumPyArraySpectrum],
         thresholds: List[np.float32],
-        gt_cls: np.ndarray,  # [1][y][x]
-        gt_angle: np.ndarray,  # [1][y][x]
+        gt_cls: np.ndarray,
+        gt_angle: np.ndarray,
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ) -> Tuple[RasterDataSet, np.ndarray, np.ndarray]:
@@ -474,13 +474,13 @@ class TestSpectralAngleMapper(unittest.TestCase):
 
     def sam_py_numba_comparison_helper(
         self,
-        arr: np.ndarray,  # [b][y][x] shape
+        arr: np.ndarray,
         wvl_list: List[u.Quantity],
-        bad_bands: List[int],  # 1's mean keep, 0's mean remove
+        bad_bands: List[int],
         refs: List[NumPyArraySpectrum],
         thresholds: List[np.float32],
-        gt_cls: np.ndarray,  # [1][y][x]
-        gt_angle: np.ndarray,  # [1][y][x]
+        gt_cls: np.ndarray,
+        gt_angle: np.ndarray,
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
     ):
@@ -665,9 +665,6 @@ class TestSpectralAngleMapper(unittest.TestCase):
             dtype=np.float32,
         )
 
-        print(f"$%$ cls_ds: {cls_ds.get_image_data()}")
-        print(f"$%$ angle_ds: {angle_ds.get_image_data()}")
-
         self.assertTrue(np.allclose(cls_ds.get_image_data(), cls_ds_py.get_image_data(), atol=1e-5))
         self.assertTrue(np.allclose(angle_ds.get_image_data(), angle_ds_py.get_image_data(), atol=1e-5))
 
@@ -754,12 +751,6 @@ class TestSpectralAngleMapper(unittest.TestCase):
             ],
             dtype=np.float32,
         )
-
-        print(f"$%$ cls_ds: {cls_ds.get_image_data()}")
-        print(f"$%$ angle_ds: {angle_ds.get_image_data()}")
-
-        print(f"$%$ cls_ds_py: {cls_ds_py.get_image_data()}")
-        print(f"$%$ angle_ds_py: {angle_ds_py.get_image_data()}")
 
         # Numerical instability in a few values causing us to change atol
         self.assertTrue(np.allclose(cls_ds.get_image_data(), cls_ds_py.get_image_data(), atol=4e-4))

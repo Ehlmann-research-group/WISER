@@ -414,8 +414,6 @@ class TestContinuumRemoval(unittest.TestCase):
             dtype=np.float32,
         )
         # Continuum removal takes it in the form [y][x][b] not [b][y][x]
-        # spec_arr = spec_arr.transpose((2, 0, 1))
-        print(f"#$##$ spec_arr.shape: {spec_arr.shape}")
         spec_bad_bands = np.array([0, 0, 0, 0, 0], dtype=np.bool_)
         spec_wvl = np.array([100, 200, 300, 400, 500], dtype=np.float32)
 
@@ -465,9 +463,6 @@ class TestContinuumRemoval(unittest.TestCase):
             bands=bands,
         )
         cr_python = cr_python.transpose((1, 2, 0))
-
-        print(f"*&* cr_numba: {cr_numba}")
-        print(f"*&* cr_python: {cr_python}")
 
         self.assertTrue(np.allclose(gt_cr, cr_numba))
         self.assertTrue(np.allclose(gt_cr, cr_python))
