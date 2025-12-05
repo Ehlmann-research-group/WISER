@@ -36,15 +36,15 @@ SFF_NEUTRAL_FILL_VALUE = 1.0
 
 
 def compute_sff_image(
-    target_image_arr: np.ndarray,  # float32[:, :, :]
-    target_wavelengths: np.ndarray,  # float32[:]
-    target_bad_bands: np.ndarray,  # bool[:]
-    min_wvl: np.float32,  # float32
-    max_wvl: np.float32,  # float32
-    reference_spectra: np.ndarray,  # float32 [:]
-    reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
-    reference_spectra_bad_bands: np.ndarray,  # bool[:]
-    reference_spectra_indices: np.ndarray,  # uint32[:]
+    target_image_arr: np.ndarray,
+    target_wavelengths: np.ndarray,
+    target_bad_bands: np.ndarray,
+    min_wvl: np.float32,
+    max_wvl: np.float32,
+    reference_spectra: np.ndarray,
+    reference_spectra_wvls: np.ndarray,
+    reference_spectra_bad_bands: np.ndarray,
+    reference_spectra_indices: np.ndarray,
     thresholds: np.float32,
 ):
     if (
@@ -182,6 +182,8 @@ def compute_sff_image(
 
         ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
+        # We technically shouldn't need to do this because the user's mask should work
+        # but we want to be defensive against bad inputs
         finite_mask = np.isfinite(ref_spec_cr_target_grid_target_bb).astype(np.bool_)
         ref_bad_bands = ref_bad_bands & finite_mask
         ref_spectrum_cr = np.float32(1.0) - ref_spec_cr_target_grid_target_bb
@@ -195,7 +197,7 @@ def compute_sff_image(
         resid = compute_resid(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
         ref_good_bands_num = ref_bad_bands.sum()
 
-        rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)  # noqa: F841
+        rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
         out_rmse[i, :, :] = rmse
@@ -211,15 +213,15 @@ compute_sff_image_sig = types.Tuple(
         types.float32[:, :, :],
     )
 )(
-    types.float32[:, :, :],  # target_image_arr
-    types.float32[:],  # target_wavelengths
-    types.boolean[:],  # target_bad_bands
-    types.float32,  # min_wvl
-    types.float32,  # max_wvl
-    types.float32[:],  # reference_spectra
-    types.float32[:],  # reference_spectra_wvls
-    types.boolean[:],  # reference_spectra_bad_bands
-    types.uint32[:],  # reference_spectra_indices
+    types.float32[:, :, :],
+    types.float32[:],
+    types.boolean[:],
+    types.float32,
+    types.float32,
+    types.float32[:],
+    types.float32[:],
+    types.boolean[:],
+    types.uint32[:],
     types.float32[:],
 )
 
@@ -231,15 +233,15 @@ compute_sff_image_sig = types.Tuple(
     cache=True,
 )
 def compute_sff_image_numba(
-    target_image_arr: np.ndarray,  # float32[:, :, :]
-    target_wavelengths: np.ndarray,  # float32[:]
-    target_bad_bands: np.ndarray,  # bool[:]
-    min_wvl: np.float32,  # float32
-    max_wvl: np.float32,  # float32
-    reference_spectra: np.ndarray,  # float32 [:]
-    reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
-    reference_spectra_bad_bands: np.ndarray,  # bool[:]
-    reference_spectra_indices: np.ndarray,  # uint32[:]
+    target_image_arr: np.ndarray,
+    target_wavelengths: np.ndarray,
+    target_bad_bands: np.ndarray,
+    min_wvl: np.float32,
+    max_wvl: np.float32,
+    reference_spectra: np.ndarray,
+    reference_spectra_wvls: np.ndarray,
+    reference_spectra_bad_bands: np.ndarray,
+    reference_spectra_indices: np.ndarray,
     thresholds: np.float32,
 ):
     """Compute Spectral Feature Fitting (SFF) classification for an image.
@@ -435,6 +437,8 @@ def compute_sff_image_numba(
 
         ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
 
+        # We technically shouldn't need to do this because the user's mask should work
+        # but we want to be defensive against bad inputs
         finite_mask = np.isfinite(ref_spec_cr_target_grid_target_bb).astype(np.bool_)
         ref_bad_bands = ref_bad_bands & finite_mask
         ref_spectrum_cr = np.float32(1.0) - ref_spec_cr_target_grid_target_bb
@@ -445,7 +449,7 @@ def compute_sff_image_numba(
 
         resid = compute_resid_numba(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
         ref_good_bands_num = ref_bad_bands.sum()
-        rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)  # noqa: F841
+        rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
         out_rmse[i, :, :] = rmse
@@ -616,17 +620,17 @@ class SFFTool(GenericSpectralComputationTool):
     def compute_score_image(
         self,
         target_image_name: str,
-        target_image_arr: np.ndarray,  # float32[:, :, :]
-        target_wavelengths: np.ndarray,  # float32[:]
-        target_bad_bands: np.ndarray,  # bool[:]
-        min_wvl: np.float32,  # float32
-        max_wvl: np.float32,  # float32
+        target_image_arr: np.ndarray,
+        target_wavelengths: np.ndarray,
+        target_bad_bands: np.ndarray,
+        min_wvl: np.float32,
+        max_wvl: np.float32,
         reference_spectra: List[NumPyArraySpectrum],
-        reference_spectra_arr: np.ndarray,  # float32 [:]
-        reference_spectra_wvls: np.ndarray,  # float32[:], in target_image_arr units
-        reference_spectra_bad_bands: np.ndarray,  # bool[:]
-        reference_spectra_indices: np.ndarray,  # uint32[:]
-        thresholds: np.ndarray,  # float32[:]
+        reference_spectra_arr: np.ndarray,
+        reference_spectra_wvls: np.ndarray,
+        reference_spectra_bad_bands: np.ndarray,
+        reference_spectra_indices: np.ndarray,
+        thresholds: np.ndarray,
         python_mode: bool = False,
     ) -> List[int]:
         if not python_mode:
