@@ -164,15 +164,15 @@ compute_sam_image_sig = types.Tuple(
         types.float32[:, :, :],
     )
 )(
-    types.float32[:, :, :],  # target_image_arr
-    types.float32[:],  # target_wavelengths
-    types.boolean[:],  # target_bad_bands
-    types.float32,  # min_wvl
-    types.float32,  # max_wvl
-    types.float32[:],  # reference_spectra
-    types.float32[:],  # reference_spectra_wvls
-    types.boolean[:],  # reference_spectra_bad_bands
-    types.uint32[:],  # reference_spectra_indices
+    types.float32[:, :, :],
+    types.float32[:],
+    types.boolean[:],
+    types.float32,
+    types.float32,
+    types.float32[:],
+    types.float32[:],
+    types.boolean[:],
+    types.uint32[:],
     types.float32[:],
 )
 

@@ -710,21 +710,7 @@ class ApplicationState(QObject):
 
         # If we already have an active spectrum, remove its ID from the mapping.
         if self._active_spectrum:
-            # TODO: Figure out why I get a key error sometimes here
-            try:
-                del self._all_spectra[self._active_spectrum.get_id()]
-            except KeyError:
-                # Fallback: search for mismatched-key entries
-                target_id = self._active_spectrum.get_id()
-
-                key_to_delete = None
-                for key, spec in self._all_spectra.items():
-                    if spec.get_id() == target_id:
-                        key_to_delete = key
-                        break
-
-                if key_to_delete is not None:
-                    del self._all_spectra[key_to_delete]
+            del self._all_spectra[self._active_spectrum.get_id()]
 
         # Assign an ID to this spectrum if it doesn't have one.
         if spectrum is not None and spectrum.get_id() is None:
