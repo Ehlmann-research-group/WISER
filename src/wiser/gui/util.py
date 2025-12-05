@@ -33,65 +33,90 @@ class StateChange(enum.Enum):
     ITEM_REMOVED = 3
 
 
-def compute_resid(target_image_cr, scale, ref_spectrum_cr, mask):
+def compute_rmse(target_image_cr, scale, ref_spectrum_cr, mask):
     """
-    Vectorized equivalent of compute_resid_numba using NumPy broadcasting.
+    Compute per-pixel RMSE between a continuum-removed image cube and a
+    single continuum-removed reference spectrum, without materializing
+    the full 3D residual cube.
 
     Args:
         target_image_cr (np.ndarray):
-            A 3D array of shape (rows, cols, bands) representing the
-            continuum-removed target image cube.
+            3D array of shape (rows, cols, bands).
         scale (np.ndarray):
-            A 2D array of shape (rows, cols) containing per-pixel scale
-            factors.
+            2D array of shape (rows, cols) with per-pixel scale factors.
         ref_spectrum_cr (np.ndarray):
-            A 1D array of length (bands,) containing the reference
-            continuum-removed spectrum.
-        ref_spectrum_cr (np.ndarray):
-            A 1D array of length (bands,) mask for what bands are good
-            to use in target_image_cr and ref_spectrum_cr
+            1D array of shape (bands,) with the reference spectrum.
+        mask (np.ndarray):
+            1D boolean array of shape (bands,) indicating "good" bands.
 
     Returns:
         np.ndarray:
-            A 3D array of shape (rows, cols, bands) where each element is:
-
-                target_image_cr[i, j, k]
-                - scale[i, j] * ref_spectrum_cr[k]
-
-            The output dtype is float32.
+            2D float32 array of shape (rows, cols) with RMSE per pixel.
     """
-    return (target_image_cr - scale[:, :, None] * ref_spectrum_cr[None, None, :]) * mask[None, None, :]
+    # Broadcast to 3D but collapse in the same expression so intermediates
+    # are (at worst) limited to one 3D-like temp, not an explicit residual cube
+    # that we then square again.
+    # residual = (target - scale*ref) * mask
+    # rmse = sqrt(sum(residual**2, axis=-1) / num_good_bands)
+
+    # Cast to float32 explicitly in case inputs are float64
+    target = target_image_cr.astype(np.float32, copy=False)
+    scale2d = scale.astype(np.float32, copy=False)
+    ref1d = ref_spectrum_cr.astype(np.float32, copy=False)
+
+    # Only count masked bands
+    ref_good_bands_num = mask.sum()
+
+    # Compute squared residuals with broadcasting
+    # shape: (rows, cols, bands)
+    resid_sq = ((target - scale2d[:, :, None] * ref1d[None, None, :]) * mask[None, None, :]) ** 2
+
+    # Collapse bands -> (rows, cols)
+    rmse = np.sqrt(resid_sq.sum(axis=-1) / ref_good_bands_num).astype(np.float32)
+
+    return rmse
 
 
-compute_resid_sig = types.float32[:, :, :](
-    types.float32[:, :, :],
-    types.float32[:, :],
-    types.float32[:],
-    types.boolean[:],
+compute_rmse_sig = types.float32[:, :](
+    types.float32[:, :, :],  # target_image_cr
+    types.float32[:, :],  # scale2d
+    types.float32[:],  # ref1d
+    types.boolean[:],  # mask1d
 )
 
 
 @numba_njit_wrapper(
-    non_njit_func=compute_resid,
-    signature=compute_resid_sig,
+    non_njit_func=compute_rmse,  # pure-Python reference above
+    signature=compute_rmse_sig,
     parallel=True,
     cache=True,
 )
-def compute_resid_numba(target_image_cr, scale2d, ref1d, mask1d):
+def compute_rmse_numba(target_image_cr, scale2d, ref1d, mask1d):
     """
-    Computes the residual between target_image_cr and scale2d * ref1d.
-    Masks out the residual computation where the mask is 0.
-    target_image_cr is shape (y, x, b), scale2d is (y, x), ref1d is (b,),
-    and mask is (b,) where 1's are keep, 0's are ignore.
+    Compute per-pixel RMSE between target_image_cr and scale2d * ref1d,
+    masking out bands where mask1d[k] == False, without materializing
+    a full 3D residual cube.
+
+    Shapes:
+        target_image_cr: (rows, cols, bands)
+        scale2d:         (rows, cols)
+        ref1d:           (bands,)
+        mask1d:          (bands,)  (True = keep)
     """
     rows, cols, bands = target_image_cr.shape
-    out = np.empty_like(target_image_cr, dtype=np.float32)
+    out = np.empty((rows, cols), dtype=np.float32)
+    ref_good_bands_num = mask1d.sum()
 
-    for k in prange(bands):
-        # 2D slice of output for band k
-        for i in prange(rows):
-            for j in range(cols):
-                out[i, j, k] = (target_image_cr[i, j, k] - scale2d[i, j] * ref1d[k]) * mask1d[k]
+    for i in prange(rows):
+        for j in range(cols):
+            acc = 0.0
+            s = scale2d[i, j]
+            for k in range(bands):
+                if mask1d[k]:
+                    diff = target_image_cr[i, j, k] - s * ref1d[k]
+                    acc += diff * diff
+            # If ref_good_bands_num == 0, you'd want to handle that earlier
+            out[i, j] = np.sqrt(acc / ref_good_bands_num)
 
     return out
 

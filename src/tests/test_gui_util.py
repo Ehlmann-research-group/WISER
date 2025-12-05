@@ -11,8 +11,8 @@ from wiser.gui.util import (
     interp1d_monotonic_numba,
     dot3d,
     dot3d_numba,
-    compute_resid,
-    compute_resid_numba,
+    compute_rmse,
+    compute_rmse_numba,
     mean_last_axis_3d,
     mean_last_axis_3d_numba,
 )
@@ -256,7 +256,7 @@ class TestGuiUtil(unittest.TestCase):
         self.assertTrue(np.allclose(gt_arr, dot_numba, equal_nan=True))
         self.assertTrue(np.allclose(gt_arr, dot_py, equal_nan=True))
 
-    def test_compute_resid(self):
+    def test_compute_rmse(self):
         target_img = np.array(
             [
                 [
@@ -329,23 +329,25 @@ class TestGuiUtil(unittest.TestCase):
             dtype=np.float32,
         )
         mask = np.array([1, 1, 1, 1, 1], dtype=np.bool_)
-        resid_py = compute_resid(
+        rmse_py = compute_rmse(
             target_image_cr=target_img,
             scale=scale,
             ref_spectrum_cr=ref_arr,
             mask=mask,
         )
-        resid_numba = compute_resid_numba(
+        rmse_numba = compute_rmse_numba(
             target_image_cr=target_img,
             scale2d=scale,
             ref1d=ref_arr,
             mask1d=mask,
         )
 
-        self.assertTrue(np.allclose(gt_resid, resid_numba))
-        self.assertTrue(np.allclose(gt_resid, resid_py))
+        gt_rmse = gt_resid**2
+        gt_rmse = np.sqrt(gt_rmse.sum(axis=-1) / mask.sum())
+        self.assertTrue(np.allclose((gt_resid**2), rmse_numba))
+        self.assertTrue(np.allclose(gt_resid, rmse_py))
 
-    def test_compute_resid_with_mask(self):
+    def test_compute_rmse_with_mask(self):
         target_img = np.array(
             [
                 [
@@ -418,21 +420,23 @@ class TestGuiUtil(unittest.TestCase):
             dtype=np.float32,
         )
         mask = np.array([0, 1, 1, 0, 1], dtype=np.bool_)
-        resid_py = compute_resid(
+        rmse_py = compute_rmse(
             target_image_cr=target_img,
             scale=scale,
             ref_spectrum_cr=ref_arr,
             mask=mask,
         )
-        resid_numba = compute_resid_numba(
+        rmse_numba = compute_rmse_numba(
             target_image_cr=target_img,
             scale2d=scale,
             ref1d=ref_arr,
             mask1d=mask,
         )
 
-        self.assertTrue(np.allclose(gt_resid, resid_numba))
-        self.assertTrue(np.allclose(gt_resid, resid_py))
+        gt_rmse = gt_resid**2
+        gt_rmse = np.sqrt(gt_rmse.sum(axis=-1) / mask.sum())
+        self.assertTrue(np.allclose((gt_resid**2), rmse_numba))
+        self.assertTrue(np.allclose(gt_resid, rmse_py))
 
     def test_nanmean_last_axis_3d(self):
         resid = np.array(

@@ -134,6 +134,7 @@ def compute_sam_image(
         ref_spec_norm = np.sqrt(
             (np.dot(ref_spectrum_good_bands, ref_spectrum_good_bands)),
         )
+        # Returns a view of the array
         target_image_arr_sliced[:, :, ~ref_bad_bands] = 0.0
         target_image_arr_norm = np.sqrt(
             (target_image_arr_sliced * target_image_arr_sliced).sum(axis=-1),

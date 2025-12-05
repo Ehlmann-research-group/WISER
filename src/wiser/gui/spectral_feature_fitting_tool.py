@@ -22,8 +22,8 @@ from .util import (
     slice_to_bounds_1D_numba,
     dot3d,
     dot3d_numba,
-    compute_resid,
-    compute_resid_numba,
+    compute_rmse,
+    compute_rmse_numba,
 )
 from wiser.gui.permanent_plugins.continuum_removal_plugin import (
     continuum_removal_image,
@@ -194,10 +194,7 @@ def compute_sff_image(
         denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
         scale = num / denom
 
-        resid = compute_resid(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
-        ref_good_bands_num = ref_bad_bands.sum()
-
-        rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)
+        rmse = compute_rmse(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
         out_rmse[i, :, :] = rmse
@@ -447,9 +444,7 @@ def compute_sff_image_numba(
         denom = np.float32((ref_spectrum_cr * ref_spectrum_cr).sum())
         scale = num / denom
 
-        resid = compute_resid_numba(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
-        ref_good_bands_num = ref_bad_bands.sum()
-        rmse = np.sqrt(np.sum(resid**2, axis=-1) / ref_good_bands_num)
+        rmse = compute_rmse_numba(target_image_cr, scale, ref_spectrum_cr, ref_bad_bands)
         thr = thresholds[i]
         out_classification[i, :, :] = rmse < thr
         out_rmse[i, :, :] = rmse
