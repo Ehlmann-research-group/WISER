@@ -672,10 +672,12 @@ class RasterDataSet(Serializable):
         return self.get_band_memory_size() * self.num_bands()
 
     def get_band_unit(self) -> Optional[u.Unit]:
-        """cd
+        """
         Returns the units used for all bands' wavelengths, or ``None`` if bands
         do not specify units.
         """
+        if self._band_info[0].get("wavelength") is None:
+            return None
         return self._band_info[0]["wavelength"].unit
 
     def band_list(self) -> List[Dict[str, Any]]:
