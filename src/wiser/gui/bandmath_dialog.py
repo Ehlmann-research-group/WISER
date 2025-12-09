@@ -241,9 +241,7 @@ class DatasetBandChooserWidget(QWidget):
 
         padding = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth) * 4
         arrow_width = self.style().pixelMetric(QStyle.PM_IndicatorWidth)  # not perfect but OK proxy
-        width = (
-            fm.boundingRect(longest).width() + padding + arrow_width + DATASET_CHOOSER_EXTRA_PADDING
-        )  # magic number
+        width = fm.boundingRect(longest).width() + padding + arrow_width + DATASET_CHOOSER_EXTRA_PADDING
 
         self.band_chooser.setMinimumWidth(width)
 
