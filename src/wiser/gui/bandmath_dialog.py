@@ -36,6 +36,8 @@ import copy
 
 logger = logging.getLogger(__name__)
 
+DATASET_CHOOSER_EXTRA_PADDING = 25
+
 
 def guess_variable_type_from_name(variable: str) -> bandmath.VariableType:
     """
@@ -216,6 +218,8 @@ class DatasetBandChooserWidget(QWidget):
             logger.info(f"Couldn't retrieve dataset with ID {ds_id}")
             return
 
+        longest = ""
+
         for b in dataset.band_list():
             # TODO(donnie):  Generate a band name in some generalized way.
 
@@ -226,6 +230,20 @@ class DatasetBandChooserWidget(QWidget):
                 desc = f'Band {b["index"]}'
 
             self.band_chooser.addItem(desc, b["index"])
+
+            if len(desc) > len(longest):
+                longest = desc
+
+        self.band_chooser.setSizeAdjustPolicy(QComboBox.AdjustToContentsOnFirstShow)
+
+        # Force width to largest string
+        fm = self.band_chooser.fontMetrics()
+
+        padding = self.style().pixelMetric(QStyle.PM_DefaultFrameWidth) * 4
+        arrow_width = self.style().pixelMetric(QStyle.PM_IndicatorWidth)  # not perfect but OK proxy
+        width = fm.boundingRect(longest).width() + padding + arrow_width + DATASET_CHOOSER_EXTRA_PADDING
+
+        self.band_chooser.setMinimumWidth(width)
 
     def _on_dataset_changed(self, index):
         """
