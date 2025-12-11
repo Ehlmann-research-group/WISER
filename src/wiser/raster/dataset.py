@@ -17,8 +17,6 @@ from .dataset_impl import (
     NumPyRasterDataImpl,
     ENVI_GDALRasterDataImpl,
     NetCDF_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl,
-    PDS4_GDALRasterDataImpl,
     JP2_GDAL_PDR_RasterDataImpl,
 )
 from .utils import (
