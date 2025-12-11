@@ -1,5 +1,10 @@
 # Contributing Guide
 
+By contributing, you agree to the Developer Certificate of Origin
+that is found in the file named `DCO` in the root directory of this
+repository. All commits must include a `Signed-off-by:` line
+added by running: `git commit -s -m "message"`.
+
 ## Disclaimer!
 
 TODO: Flesh out the 'legalness' of this statement.
