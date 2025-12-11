@@ -17,3 +17,4 @@ repos:
         entry: bash -c 'grep -q "^Signed-off-by:" "$1" || (echo "ERROR; Missing Signed-off-by line. Use; git commit -s" && exit 1)' --
         language: system
         stages: [commit-msg]
+  
