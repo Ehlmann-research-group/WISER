@@ -27,7 +27,9 @@ extended:
 *   :class:`wiser.plugins.ContextMenuPlugin` - context-menu plugins
 *   :class:`wiser.plugins.BandMathPlugin` - band-math plugins
 
-Each of these classes has slightly different functionality to implement.
+Each of these classes has slightly different functionality to implement. Refer to
+`this google doc <https://docs.google.com/document/d/1UITFb5CtNxJWagINsDQE0fsk5CLoFAM-XXjO-qbucAU/edit?usp=sharing>`_
+for more information on making "tools" menu and context-menu plugins.
 
 **Note:**  To implement a WISER plugin, you will need to be comfortable with
 these libraries:
