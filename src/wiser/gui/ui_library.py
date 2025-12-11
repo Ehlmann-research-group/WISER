@@ -145,11 +145,20 @@ class DynamicInputDialog(QDialog):
                     ...
                 ]
 
-                - For DynamicInputType.COMBO_BOX:
+                - For DynamicInputType.COMBO_BOX (= 0):
                     Provide a 4th element: a list of items for the combo box.
-                - For DynamicInputType.FLOAT_NO_UNITS:
+                - For DynamicInputType.FLOAT_NO_UNITS (= 1):
                     4th element is ignored (can be None).
-                - For DynamicInputType.FLOAT_UNITS:
+                - For DynamicInputType.FLOAT_UNITS (= 2):
+                    4th element is ignored (can be None). A unit selector combo is created
+                    using populate_combo_box_with_units.
+                - For DynamicInputType.INT_NO_UNITS (= 3):
+                    4th element is ignored (can be None). A unit selector combo is created
+                    using populate_combo_box_with_units.
+                - For DynamicInputType.INT_UNITS (= 4):
+                    4th element is ignored (can be None). A unit selector combo is created
+                    using populate_combo_box_with_units.
+                - For DynamicInputType.STRING (= 5):
                     4th element is ignored (can be None). A unit selector combo is created
                     using populate_combo_box_with_units.
 
