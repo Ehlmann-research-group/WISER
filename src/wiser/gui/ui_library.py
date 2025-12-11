@@ -117,7 +117,7 @@ class DynamicInputDialog(QDialog):
     """
     This class lets plugin creators make a dialog with inputs that they can set!
 
-    You make use of this class by using the function create_input_dialog
+    You make use of this class by using the function create_input_dialog. Test signing
     """
 
     def __init__(
