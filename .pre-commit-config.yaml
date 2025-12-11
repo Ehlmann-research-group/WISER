@@ -1,3 +1,6 @@
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Pin to a Ruff release tag
@@ -6,3 +9,12 @@ repos:
       - id: ruff
       - id: ruff-format
         args: [--check]
+
+  - repo: local
+    hooks:
+      - id: dco-signoff
+        name: Check DCO sign-off
+        entry: bash -c 'grep -q "^Signed-off-by:" "$1" || (echo "ERROR; Missing Signed-off-by line. Use; git commit -s" && exit 1)' --
+        language: system
+        stages: [commit-msg]
+  
