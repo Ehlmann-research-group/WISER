@@ -836,3 +836,142 @@ class TestSpectralAngleMapper(unittest.TestCase):
                 equal_nan=False,
             )
         )
+
+    def test_find_matches_target_dataset_no_wavelengths(self):
+        sam_tool = SAMTool(self.test_model.app_state)
+
+        # Load dataset WITHOUT setting band wavelengths
+        ds = self.test_model.load_dataset(sam_sff_masked_arr_basic)
+
+        # Create a valid reference spectrum WITH wavelengths
+        ref_arr = np.array([0.0, 50.0, 100.0, 150.0], dtype=np.float32)
+        ref_wls = [
+            100 * u.nm,
+            300 * u.nm,
+            500 * u.nm,
+            700 * u.nm,
+        ]
+        reference_spec = NumPyArraySpectrum(
+            ref_arr,
+            name="ref_1",
+            wavelengths=ref_wls,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=[reference_spec],
+            thresholds=[np.float32(10.0)],
+            global_thr=None,
+            min_wvl=0 * u.nm,
+            max_wvl=3000 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+
+        self.assertIsNone(result)
+
+    def test_find_matches_target_spectrum_no_wavelengths(self):
+        sam_tool = SAMTool(self.test_model.app_state)
+
+        # Create target spectrum WITHOUT wavelengths
+        target_arr = np.array([10, 20, 30, 40], dtype=np.float32)
+        target_spec = NumPyArraySpectrum(
+            target_arr,
+            name="target_no_wvl",
+            wavelengths=None,
+        )
+
+        # Valid reference spectrum WITH wavelengths
+        ref_arr = np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)
+        ref_wls = [
+            100 * u.nm,
+            200 * u.nm,
+            300 * u.nm,
+            400 * u.nm,
+        ]
+        reference_spec = NumPyArraySpectrum(
+            ref_arr,
+            name="ref_1",
+            wavelengths=ref_wls,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=target_spec,
+            mode="Single Spectrum",
+            refs=[reference_spec],
+            thresholds=[np.float32(10.0)],
+            global_thr=None,
+            min_wvl=0 * u.nm,
+            max_wvl=3000 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+
+        self.assertIsNone(result)
+
+    def test_find_matches_image_cube_reference_missing_wavelengths(self):
+        sam_tool = SAMTool(self.test_model.app_state)
+
+        # Load target dataset WITH wavelengths
+        ds = self.test_model.load_dataset(sam_sff_masked_arr_basic)
+
+        wvl_list = [
+            200 * u.nm,
+            300 * u.nm,
+            400 * u.nm,
+            600 * u.nm,
+        ]
+
+        band_list = []
+        for i, wvl in enumerate(wvl_list):
+            band_list.append(
+                {
+                    "index": i,
+                    "description": f"{wvl.value} {wvl.unit}",
+                    "wavelength": wvl,
+                    "wavelength_str": f"{wvl.to_value(wvl.unit)}",
+                    "wavelength_units": wvl.unit.to_string(),
+                }
+            )
+
+        ds.set_band_list(band_list)
+
+        # Reference spectrum WITH wavelengths
+        ref_good_arr = np.array([0.0, 50.0, 100.0, 150.0], dtype=np.float32)
+        ref_good_wls = [
+            100 * u.nm,
+            300 * u.nm,
+            500 * u.nm,
+            700 * u.nm,
+        ]
+        ref_good = NumPyArraySpectrum(
+            ref_good_arr,
+            name="ref_good",
+            wavelengths=ref_good_wls,
+        )
+
+        # Reference spectrum WITHOUT wavelengths
+        ref_bad_arr = np.array([10.0, 20.0, 30.0, 40.0], dtype=np.float32)
+        ref_bad = NumPyArraySpectrum(
+            ref_bad_arr,
+            name="ref_bad",
+            wavelengths=None,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=[ref_good, ref_bad],  # mixed refs
+            thresholds=[np.float32(10.0), np.float32(10.0)],
+            global_thr=None,
+            min_wvl=0 * u.nm,
+            max_wvl=3000 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+
+        self.assertIsNone(result)
