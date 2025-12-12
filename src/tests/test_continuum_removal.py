@@ -315,27 +315,21 @@ class TestContinuumRemoval(unittest.TestCase):
         ):
             raise RuntimeError("Couldn't extract all values from spectrum!")
 
-        spectrum = NumPyArraySpectrum(spectrum_arr, "Test_Spectrum", wavelengths=wvls_arr)
-        ground_truth_hull = NumPyArraySpectrum(convex_hull, "Convex_Hull", wavelengths=wvls_arr)
-        ground_truth_continuum_removed = NumPyArraySpectrum(
-            spectrum_continuum_removed_arr, "Continuum_Removed", wavelengths=wvls_arr
-        )
-
         cr_numba_spec, cr_numba_hull = continuum_removal_numba(
-            reflectance=spectrum_arr.astype(np.float32), waves=wvls_arr.astype(np.float32)
+            reflectance=spectrum_arr.astype(np.float32),
+            waves=wvls_arr.astype(np.float32),
         )
 
         cr_reg_spec, cr_reg_hull = continuum_removal(
-            reflectance=spectrum.get_spectrum(), waves=spectrum.get_wavelengths()
+            reflectance=spectrum_arr.astype(np.float32),
+            waves=wvls_arr.astype(np.float32),
         )
 
         assert cr_numba_spec.shape == cr_reg_spec.shape
         assert np.allclose(cr_numba_spec, cr_reg_spec, atol=1e-07, equal_nan=True)
         assert np.allclose(cr_numba_hull, cr_reg_hull, atol=1e-07, equal_nan=True)
-        assert np.allclose(
-            cr_numba_spec, ground_truth_continuum_removed.get_spectrum(), atol=1e-07, equal_nan=True
-        )
-        assert np.allclose(cr_numba_hull, ground_truth_hull.get_spectrum(), atol=1e-07, equal_nan=True)
+        assert np.allclose(cr_numba_spec, spectrum_continuum_removed_arr, atol=1e-07, equal_nan=True)
+        assert np.allclose(cr_numba_hull, convex_hull, atol=1e-07, equal_nan=True)
 
     def test_subset_425_bands_and_nan(self):
         """Test subsetting continuum removal for the 425x7x7 dataset to be a 225x4x3 dataset"""
@@ -522,8 +516,6 @@ class TestContinuumRemoval(unittest.TestCase):
             spec_object=spec,
             context=context,
         )
-
-        # --- Assertions ---
 
         # Objects returned
         self.assertIsNotNone(continuum_removed_spec)
