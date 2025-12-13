@@ -263,7 +263,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
         gt_angle: np.ndarray,
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
-    ) -> Tuple[RasterDataSet, np.ndarray, np.ndarray]:
+    ) -> Tuple[RasterDataSet, RasterDataSet, RasterDataSet]:
         ds = self.test_model.load_dataset(arr)
         ds.set_bad_bands(bad_bands=bad_bands)
         band_list = []
@@ -361,7 +361,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             max_wvl=max_wvl,
         )
 
-    def test_fail_with_nan(self):
+    def test_succeed_with_nan(self):
         bad_bands = [1, 0, 1, 1]
         wvl_list: List[u.Quantity] = [
             200 * u.nm,
@@ -384,45 +384,35 @@ class TestSpectralAngleMapper(unittest.TestCase):
         thresholds = [np.float32(10.0)]
 
         gt_cls = np.array(
-            [
-                [
-                    [False, False, False, False],
-                    [True, True, True, True],
-                    [False, False, False, False],
-                ],
-            ],
+            [[[False, False, False, False], [True, True, False, True], [False, False, False, False]]],
+            dtype=np.bool_,
         )
 
         gt_angle = np.array(
             [
                 [
                     [19.454195, 19.454195, 19.454195, 19.454195],
-                    [6.0172796, 6.0172796, 6.0172796, 6.0172796],
+                    [6.0172796, 6.0172796, 30.580404, 6.0172796],
                     [22.7592, 22.7592, 22.7592, 22.7592],
-                ],
+                ]
             ],
+            dtype=np.float32,
         )
 
         min_wvl = 200 * u.nm
         max_wvl = 600 * u.nm
 
-        try:
-            self.sam_image_cube_helper(
-                arr=sam_sff_fail_masked_array,
-                wvl_list=wvl_list,
-                bad_bands=bad_bands,
-                refs=refs,
-                thresholds=thresholds,
-                gt_cls=gt_cls,
-                gt_angle=gt_angle,
-                min_wvl=min_wvl,
-                max_wvl=max_wvl,
-            )
-        except ValueError:
-            # The np.nan in sam_sff_fail_masked_array should raise a value error
-            self.assertTrue(True)
-
-        self.assertFalse(False)
+        self.sam_image_cube_helper(
+            arr=sam_sff_fail_masked_array,
+            wvl_list=wvl_list,
+            bad_bands=bad_bands,
+            refs=refs,
+            thresholds=thresholds,
+            gt_cls=gt_cls,
+            gt_angle=gt_angle,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
 
     def test_sam_target_image_single_spec_same(self):
         bad_bands = [1, 0, 1, 1]
