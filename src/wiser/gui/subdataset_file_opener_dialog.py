@@ -243,7 +243,7 @@ class SubdatasetFileOpenerDialog(QDialog):
         else:
             self._ui.chk_box_srs.setText("No spatial reference system available")
             self._ui.chk_box_srs.setChecked(False)
-            self._ui_chk_box_srs.setEnabled(False)
+            self._ui.chk_box_srs.setEnabled(False)
 
         self._set_checkbox_enabled_state(self._ui.chk_box_srs, self._ui.chk_box_srs.isChecked())
 
