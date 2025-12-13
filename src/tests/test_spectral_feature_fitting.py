@@ -74,6 +74,39 @@ class TestSpectralFeatureFitting(unittest.TestCase):
         self.assertTrue(np.isclose(rmse, 0, atol=1e-5))
         self.assertTrue(np.isclose(scale, 1, atol=1e-5))
 
+    def test_sff_same_spectra_nans(self):
+        sff_tool = SFFTool(self.test_model.app_state)
+        test_target_arr = np.array([np.nan, 200, 100, 400, 500])
+        test_target_wls = [100 * u.nm, 200 * u.nm, 300 * u.nm, 400 * u.nm, 500 * u.nm]
+        test_ref_arr = np.array([300, 200, 100, 400, np.nan])
+        test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
+        test_ref_spectrum = NumPyArraySpectrum(
+            test_ref_arr,
+            name="test_ref",
+            wavelengths=test_ref_wls,
+        )
+        target_spectrum = NumPyArraySpectrum(
+            test_target_arr,
+            name="test_target",
+            wavelengths=test_target_wls,
+        )
+        min_wvl = 100 * u.nm
+        max_wvl = 600 * u.nm
+        score = sff_tool.compute_score(
+            target=target_spectrum,
+            ref=test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
+        rmse = score[0]
+        scale = score[1]["scale"]
+
+        gt_rmse = 0.16063957411774124
+        gt_scale = 0.7037748088941462
+
+        self.assertTrue(np.isclose(rmse, gt_rmse, atol=1e-5))
+        self.assertTrue(np.isclose(scale, gt_scale, atol=1e-5))
+
     def test_sff_half_scale(self):
         sff_tool = SFFTool(self.test_model.app_state)
         test_target_arr = np.array([400, 300, 200, 300, 400])
@@ -1062,3 +1095,127 @@ class TestSpectralFeatureFitting(unittest.TestCase):
                 equal_nan=False,
             )
         )
+
+    def test_sff_image_cube_nan_outside_wavelength_range(self):
+        """
+        Ensure SFF works when NaNs exist outside the wavelength range,
+        as long as the selected wavelength window contains no NaNs.
+
+        We do NOT check exact RMSE or scale values.
+        We only verify:
+        - results are produced
+        - RMSE and scale values are finite
+        - python and numba implementations are numerically consistent
+        """
+
+        sff_tool = SFFTool(self.test_model.app_state)
+
+        # Image cube: shape (bands, rows, cols)
+        # NaNs exist outside wavelength window
+        arr = np.array(
+            [
+                [[np.nan, np.nan], [np.nan, np.nan]],  # band 0 (outside)
+                [[3.0, 4.0], [5.0, 6.0]],  # band 1 (inside)
+                [[2.0, 3.0], [4.0, 5.0]],  # band 2 (inside)
+                [[3.0, 4.0], [5.0, 6.0]],  # band 3 (inside)
+                [[np.nan, np.nan], [np.nan, np.nan]],  # band 4 (outside)
+                [[np.nan, np.nan], [np.nan, np.nan]],  # band 5 (outside)
+            ],
+            dtype=np.float32,
+        )
+
+        wvl_list = [
+            100 * u.nm,  # band 0
+            200 * u.nm,  # band 1
+            300 * u.nm,  # band 2
+            400 * u.nm,  # band 3
+            500 * u.nm,  # band 4
+            600 * u.nm,  # band 5
+        ]
+
+        ds = self.test_model.load_dataset(arr)
+
+        # Attach wavelengths
+        band_list = []
+        for i, wvl in enumerate(wvl_list):
+            band_list.append(
+                {
+                    "index": i,
+                    "description": f"{wvl.value} {wvl.unit}",
+                    "wavelength": wvl,
+                    "wavelength_str": f"{wvl.value}",
+                    "wavelength_units": wvl.unit.to_string(),
+                }
+            )
+        ds.set_band_list(band_list)
+
+        # Reference spectrum with NaNs outside wavelength window
+        ref_arr = np.array([np.nan, 7, 5.2, 7, 8, np.nan], dtype=np.float32)
+        ref_wvls = [100 * u.nm, 200 * u.nm, 310 * u.nm, 400 * u.nm, 500 * u.nm, 600 * u.nm]
+        reference_spec = NumPyArraySpectrum(
+            ref_arr,
+            name="ref",
+            wavelengths=ref_wvls,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=[reference_spec],
+            thresholds=[np.float32(0.5)],
+            global_thr=None,
+            min_wvl=200 * u.nm,
+            max_wvl=600 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        # Run NUMBA path
+        ds_ids_numba = sff_tool.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=False,
+        )
+
+        # Run PYTHON path
+        ds_ids_py = sff_tool.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=True,
+        )
+
+        self.assertIsNotNone(ds_ids_numba)
+        self.assertIsNotNone(ds_ids_py)
+        self.assertEqual(len(ds_ids_numba), 3)
+        self.assertEqual(len(ds_ids_py), 3)
+
+        rmse_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
+        scale_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[2])
+
+        rmse_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
+        scale_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[2])
+
+        rmse_numba = rmse_ds_numba.get_image_data()
+        scale_numba = scale_ds_numba.get_image_data()
+
+        rmse_py = rmse_ds_py.get_image_data()
+        scale_py = scale_ds_py.get_image_data()
+
+        gt_rmse = np.array(
+            [
+                [0.05133442, 0.03850082],
+                [0.03080065, 0.02566721],
+            ],
+            dtype=np.float32,
+        )
+
+        gt_scale = np.array(
+            [
+                [1.1232917, 0.8424688],
+                [0.6739750, 0.5616459],
+            ],
+            dtype=np.float32,
+        )
+
+        # Consistency checks
+        self.assertTrue(np.allclose(rmse_numba, rmse_py, atol=1e-6))
+        self.assertTrue(np.allclose(scale_numba, scale_py, atol=1e-6))
+        self.assertTrue(np.allclose(gt_rmse, rmse_numba, atol=1e-6))
+        self.assertTrue(np.allclose(gt_scale, scale_numba, atol=1e-6))

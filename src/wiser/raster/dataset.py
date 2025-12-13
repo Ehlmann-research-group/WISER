@@ -206,7 +206,7 @@ class SpatialMetadata:
             and self._wkt_spatial_reference == other._wkt_spatial_reference
         )
 
-    def get_wkt_spatial_reference(self) -> str:
+    def get_wkt_spatial_reference(self) -> Optional[str]:
         return self._wkt_spatial_reference
 
     def __str__(self):

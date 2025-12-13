@@ -30,8 +30,9 @@ from wiser.gui.permanent_plugins.continuum_removal_plugin import (
 
 from wiser.utils.numba_wrapper import convert_to_float32_if_needed
 
-from wiser.raster.spectrum import NumPyArraySpectrum
+from wiser.raster.spectrum import NumPyArraySpectrum, Spectrum
 from wiser.raster.dataset import dict_list_equal
+from test_utils.test_arrays import clean_test_arr
 
 from astropy import units as u
 
@@ -314,27 +315,21 @@ class TestContinuumRemoval(unittest.TestCase):
         ):
             raise RuntimeError("Couldn't extract all values from spectrum!")
 
-        spectrum = NumPyArraySpectrum(spectrum_arr, "Test_Spectrum", wavelengths=wvls_arr)
-        ground_truth_hull = NumPyArraySpectrum(convex_hull, "Convex_Hull", wavelengths=wvls_arr)
-        ground_truth_continuum_removed = NumPyArraySpectrum(
-            spectrum_continuum_removed_arr, "Continuum_Removed", wavelengths=wvls_arr
-        )
-
         cr_numba_spec, cr_numba_hull = continuum_removal_numba(
-            reflectance=spectrum_arr.astype(np.float32), waves=wvls_arr.astype(np.float32)
+            reflectance=spectrum_arr.astype(np.float32),
+            waves=wvls_arr.astype(np.float32),
         )
 
         cr_reg_spec, cr_reg_hull = continuum_removal(
-            reflectance=spectrum.get_spectrum(), waves=spectrum.get_wavelengths()
+            reflectance=spectrum_arr.astype(np.float32),
+            waves=wvls_arr.astype(np.float32),
         )
 
         assert cr_numba_spec.shape == cr_reg_spec.shape
         assert np.allclose(cr_numba_spec, cr_reg_spec, atol=1e-07, equal_nan=True)
         assert np.allclose(cr_numba_hull, cr_reg_hull, atol=1e-07, equal_nan=True)
-        assert np.allclose(
-            cr_numba_spec, ground_truth_continuum_removed.get_spectrum(), atol=1e-07, equal_nan=True
-        )
-        assert np.allclose(cr_numba_hull, ground_truth_hull.get_spectrum(), atol=1e-07, equal_nan=True)
+        assert np.allclose(cr_numba_spec, spectrum_continuum_removed_arr, atol=1e-07, equal_nan=True)
+        assert np.allclose(cr_numba_hull, convex_hull, atol=1e-07, equal_nan=True)
 
     def test_subset_425_bands_and_nan(self):
         """Test subsetting continuum removal for the 425x7x7 dataset to be a 225x4x3 dataset"""
@@ -466,3 +461,90 @@ class TestContinuumRemoval(unittest.TestCase):
 
         self.assertTrue(np.allclose(gt_cr, cr_numba))
         self.assertTrue(np.allclose(gt_cr, cr_python))
+
+    def test_continuum_removal_numpy_dataset_no_metadata(self):
+        # Load dataset from numpy array
+        ds = self.test_model.load_dataset(clean_test_arr)
+
+        # Create and run continuum removal
+        plugin = ContinuumRemovalPlugin()
+        context = {
+            "wiser": self.test_model.app_state,
+            "dataset": ds,
+        }
+
+        out_ds = plugin.image(
+            min_rows=0,
+            max_rows=6,
+            min_cols=0,
+            max_cols=12,
+            min_band=0,
+            max_band=7,
+            context=context,
+        )
+
+        # Basic sanity checks
+        self.assertIsNotNone(out_ds)
+
+        out_data = out_ds.get_image_data()
+
+        # Shape should match selected region
+        self.assertEqual(out_data.shape, ds.get_shape())
+
+        # Continuum removal output should be finite
+        self.assertTrue(np.all(np.isfinite(out_data)))
+
+    def test_continuum_removal_numpy_spectrum_no_metadata(self):
+        # Use a single pixel spectrum from the clean test array
+        # clean_test_arr is [bands, rows, cols]
+        spectrum_arr = clean_test_arr[:, 0, 0].astype(np.float32)
+
+        num_bands = spectrum_arr.shape[0]
+
+        spec = NumPyArraySpectrum(
+            spectrum_arr,
+            name="test_spectrum",
+        )
+
+        plugin = ContinuumRemovalPlugin()
+
+        context = {
+            "wiser": self.test_model.app_state,
+        }
+
+        continuum_removed_spec, convex_hull = plugin.plot_continuum_removal(
+            spec_object=spec,
+            context=context,
+        )
+
+        # Objects returned
+        self.assertIsNotNone(continuum_removed_spec)
+        self.assertIsNotNone(convex_hull)
+
+        # Correct types
+        self.assertIsInstance(continuum_removed_spec, Spectrum)
+        self.assertIsInstance(convex_hull, Spectrum)
+
+        # Same length as input
+        self.assertEqual(
+            continuum_removed_spec.get_spectrum().shape[0],
+            num_bands,
+        )
+        self.assertEqual(
+            convex_hull.get_spectrum().shape[0],
+            num_bands,
+        )
+
+        # Wavelengths preserved
+        self.assertEqual(
+            continuum_removed_spec.get_wavelengths(),
+            spec.get_wavelengths(),
+        )
+        self.assertEqual(
+            convex_hull.get_wavelengths(),
+            spec.get_wavelengths(),
+        )
+
+        # Output values are finite
+        self.assertTrue(np.all(np.isfinite(continuum_removed_spec.get_spectrum())))
+        self.assertTrue(np.all(np.isfinite(convex_hull.get_spectrum())))

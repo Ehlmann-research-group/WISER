@@ -563,7 +563,11 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         if spectrum.dtype != np.float32:
             spectrum = spectrum.astype(np.float32)
         wavelengths_org = spec_object.get_wavelengths()  # type <astropy>
-        wavelengths = np.array([i.value for i in wavelengths_org])
+        if spec_object.has_wavelengths():
+            wavelengths = np.array([i.value for i in wavelengths_org])
+        else:
+            # In this case, we get a list of ints for the band indices
+            wavelengths = np.array(wavelengths_org)
         if wavelengths.dtype != np.float32:
             wavelengths = wavelengths.astype(np.float32)
 
@@ -633,6 +637,7 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         image_data = dataset.get_image_data_subset(
             min_cols, min_rows, min_band, dcols, drows, dband
         )  # [b][rows=y=height][cols=x=width]
+        has_wavelengths = dataset.has_wavelengths()
         # A numpy array such that the pixel (x, y) values (spectrum value)
         # of band b are at element array[b][y][x]
         filename = dataset.get_name()
@@ -653,11 +658,6 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
         # TODO (Joshua G-K): Add better logic here for when user selected bands don't match?
         if max_band < max_default:
             default_bands = [0, 1, 2]
-
-        min_band_wvl = dataset.band_list()[min_band]["wavelength"]
-        # We have to do -1 here because calling this function, max_band was
-        # increased by 1 to include the max band (since getting band data is exclusive)
-        max_band_wvl = dataset.band_list()[max_band - 1]["wavelength"]
 
         # Get all of the metadata information we need to perform continuum removal
         cols = np.int32(max_cols - min_cols)
@@ -690,16 +690,22 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
 
         # Copy the metadata over
         spatial_metadata = dataset.get_spatial_metadata()
-        new_spatial_metadata = SpatialMetadata.subset_to_window(
-            spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols
-        )
-        new_data.copy_spatial_metadata(new_spatial_metadata)
+        if spatial_metadata.get_spatial_ref():
+            new_spatial_metadata = SpatialMetadata.subset_to_window(
+                spatial_metadata, dataset, min_rows, max_rows, min_cols, max_cols
+            )
+            new_data.copy_spatial_metadata(new_spatial_metadata)
 
-        source_spectral_metadata = dataset.get_spectral_metadata()
-        new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(
-            source_spectral_metadata, min_band_wvl, max_band_wvl
-        )
-        new_data.copy_spectral_metadata(new_spectral_metadata)
+        if has_wavelengths:
+            min_band_wvl = dataset.band_list()[min_band]["wavelength"]
+            # We have to do -1 here because calling this function, max_band was
+            # increased by 1 to include the max band (since getting band data is exclusive)
+            max_band_wvl = dataset.band_list()[max_band - 1]["wavelength"]
+            source_spectral_metadata = dataset.get_spectral_metadata()
+            new_spectral_metadata = SpectralMetadata.subset_by_wavelength_range(
+                source_spectral_metadata, min_band_wvl, max_band_wvl
+            )
+            new_data.copy_spectral_metadata(new_spectral_metadata)
 
         # Add the dataset to WISER
         context["wiser"].add_dataset(new_data)

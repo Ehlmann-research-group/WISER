@@ -538,10 +538,11 @@ class NumPyArraySpectrum(Spectrum):
     def get_wavelengths(self) -> List[u.Quantity]:
         """
         Returns a list of wavelength values corresponding to each band.  The
-        individual values are astropy values-with-units.
+        individual values are astropy values-with-units. If the spectrum
+        doesn't have wavelengths, it returns a list from 0 to num_bands() - 1
         """
-        if self._wavelengths is None:
-            raise KeyError("Spectrum doesn't have wavelengths")
+        if not self.has_wavelengths():
+            return [i for i in range(self.num_bands())]
 
         return self._wavelengths
 

@@ -204,6 +204,21 @@ class TestGuiUtil(unittest.TestCase):
         self.assertTrue(np.allclose(gt_y_interp, y_interp_py, equal_nan=True))
         self.assertTrue(np.allclose(gt_y_interp, y_interp_numba, equal_nan=True))
 
+    def test_1D_linear_interp_nans(self):
+        x_orig = np.array([100, 200, 250, 300, 400], dtype=np.float32)
+        y_orig = np.array([np.nan, 1, 2, 3, np.nan], dtype=np.float32)
+        x_new = np.array([100, 200, 270, 300, 400], dtype=np.float32)
+
+        gt_y_interp = np.array([np.nan, 1.0, 2.4, 3.0, np.nan], dtype=np.float32)
+
+        y_interp_py = interp1d_monotonic(x=x_orig, y=y_orig, x_new=x_new)
+
+        y_interp_numba = interp1d_monotonic_numba(x=x_orig, y=y_orig, x_new=x_new)
+
+        self.assertTrue(np.allclose(y_interp_py, y_interp_numba, equal_nan=True))
+        self.assertTrue(np.allclose(gt_y_interp, y_interp_py, equal_nan=True))
+        self.assertTrue(np.allclose(gt_y_interp, y_interp_numba, equal_nan=True))
+
     def test_dot3D(self):
         arr = sam_sff_arr_reg
         bad_bands = np.array([1, 0, 1, 1, 1, 1], dtype=np.bool_)

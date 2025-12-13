@@ -589,7 +589,7 @@ class GenericSpectralComputationTool(QDialog):
         self,
         spectral_inputs: SpectralComputationInputs,
         python_mode: bool = False,
-    ) -> Union[List[Dict[str, Any]], List[int]]:
+    ) -> Optional[Union[List[Dict[str, Any]], List[int]]]:
         """Find spectral matches for a single spectrum or an image cube.
 
         This method operates in two modes, driven by ``spectral_inputs.mode``:
@@ -666,6 +666,11 @@ class GenericSpectralComputationTool(QDialog):
         lib_name_by_spec_id = spectral_inputs.lib_name_by_spec_id
         references = spectral_inputs.refs
         mode = spectral_inputs.mode
+
+        # Ensure all inputs have wavelengths
+        all_have_wvls = self.ensure_wavelengths(target, references)
+        if not all_have_wvls:
+            return None
 
         if mode == "Spectrum":
             assert isinstance(target, Spectrum), "Spectrum selected but target is not a spectrum!"
@@ -762,6 +767,42 @@ class GenericSpectralComputationTool(QDialog):
         else:
             raise ValueError("Spectral computation mode must be 'Spectrum' or 'Image Cube'.")
 
+    def ensure_wavelengths(self, target: Union[RasterDataSet, Spectrum], references: List[Spectrum]) -> bool:
+        """
+        Check to make sure that the target and the references have wavelengths.
+        Returns True if they do. False if they don't
+        """
+
+        # Check target
+        if isinstance(target, (Spectrum, RasterDataSet)):
+            target_has_wavelengths = target.has_wavelengths()
+        else:
+            target_has_wavelengths = False
+
+        # Find reference spectra without wavelengths
+        spectra_without_wvl = [spectrum for spectrum in references if not spectrum.has_wavelengths()]
+
+        if spectra_without_wvl or not target_has_wavelengths:
+            messages = []
+
+            if not target_has_wavelengths:
+                target_name = target.get_name() if hasattr(target, "get_name") else ""
+                messages.append(f"The target '{target_name}' does not have wavelength information.")
+
+            if spectra_without_wvl:
+                names = ", ".join(s.get_name() for s in spectra_without_wvl)
+                messages.append(
+                    f"The following reference spectra do not have wavelength information:\n{names}"
+                )
+
+            QMessageBox.warning(
+                self,
+                "Missing Wavelength Information",
+                "\n\n".join(messages),
+            )
+            return False
+        return True
+
     def sort_matches(self, matches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return sorted(matches, key=lambda rec: rec["score"]) if matches else []
 
@@ -779,7 +820,7 @@ class GenericSpectralComputationTool(QDialog):
 
             try:
                 matches = self.find_matches(spectral_inputs)
-                if spectral_inputs.mode == "Image Cube":
+                if matches is None or spectral_inputs.mode == "Image Cube":
                     return
                 sorted_matches = self.sort_matches(matches)
             except Exception as e:
