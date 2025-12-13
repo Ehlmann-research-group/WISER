@@ -86,8 +86,6 @@ def compute_sff_image(
     # Validate numerical integrity
     if not np.isfinite(target_image_arr_sliced).all():
         raise ValueError("Target image array is not finite after cleaning")
-    if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
-        raise ValueError("Reference spectra array is not finite")
 
     num_spectra = reference_spectra_indices.shape[0] - 1
 
@@ -341,8 +339,6 @@ def compute_sff_image_numba(
     # Validate numerical integrity
     if not np.isfinite(target_image_arr_sliced).all():
         raise ValueError("Target image array is not finite after cleaning")
-    if not np.isfinite(reference_spectra[reference_spectra_bad_bands]).all():
-        raise ValueError("Reference spectra array is not finite")
 
     num_spectra = reference_spectra_indices.shape[0] - 1
 
