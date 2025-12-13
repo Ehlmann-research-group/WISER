@@ -204,7 +204,6 @@ class TestGuiUtil(unittest.TestCase):
         self.assertTrue(np.allclose(gt_y_interp, y_interp_py, equal_nan=True))
         self.assertTrue(np.allclose(gt_y_interp, y_interp_numba, equal_nan=True))
 
-
     def test_1D_linear_interp_nans(self):
         x_orig = np.array([100, 200, 250, 300, 400], dtype=np.float32)
         y_orig = np.array([np.nan, 1, 2, 3, np.nan], dtype=np.float32)

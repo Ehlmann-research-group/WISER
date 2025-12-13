@@ -508,7 +508,7 @@ def interp1d_monotonic_numba(x, y, x_new):
         # we know xn is >= previous x_new, so j never moves backwards
         while j < n - 2 and x[j + 1] < xn:
             j += 1
-        
+
         if xn == x[j + 1]:
             out[i] = y[j + 1]
             continue

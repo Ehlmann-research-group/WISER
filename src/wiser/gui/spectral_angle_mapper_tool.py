@@ -59,6 +59,9 @@ def compute_sam_image(
     )
     # Now slice the bad bands out of the array
     target_image_arr_sliced = target_image_arr_sliced[target_bad_bands_sliced, :, :]
+    target_non_finite_mask = ~np.isfinite(target_image_arr_sliced)
+    # Setting to 0.0 should not affect calculations
+    target_image_arr_sliced[target_non_finite_mask] = 0.0
     if not np.isfinite(target_image_arr_sliced).all():
         raise ValueError("Target image array is not finite after cleaning")
 
@@ -128,7 +131,7 @@ def compute_sam_image(
         ref_bad_bands = ref_bad_bands_sliced & finite_mask
 
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
-        ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
+        ref_bad_bands = ref_bad_bands[target_bad_bands_sliced]
 
         # Compute the angle
         ref_spectrum_good_bands[~ref_bad_bands] = 0.0
@@ -309,6 +312,16 @@ def compute_sam_image_numba(
     )
     # Now slice the bad bands out of the array
     target_image_arr_sliced = target_image_arr_sliced[target_bad_bands_sliced, :, :]
+    # Now, we must set the non-finite values to 0, so they don't show up in
+    # the scale or RMSE
+    target_non_finite_mask = ~np.isfinite(target_image_arr_sliced)
+    B, Y, X = target_image_arr_sliced.shape
+    for b in prange(B):
+        for y in range(Y):
+            for x in range(X):
+                if target_non_finite_mask[b, y, x]:
+                    target_image_arr_sliced[b, y, x] = 0.0
+
     if not np.isfinite(target_image_arr_sliced).all():
         raise ValueError("Target image array is not finite after cleaning")
 
@@ -382,7 +395,7 @@ def compute_sam_image_numba(
         ref_bad_bands = ref_bad_bands_sliced & finite_mask
 
         ref_spectrum_good_bands = ref_spectrum_sliced[target_bad_bands_sliced]
-        ref_bad_bands = ref_bad_bands_sliced[target_bad_bands_sliced]
+        ref_bad_bands = ref_bad_bands[target_bad_bands_sliced]
 
         # Compute the angle
         ref_spectrum_good_bands[~ref_bad_bands] = 0.0
