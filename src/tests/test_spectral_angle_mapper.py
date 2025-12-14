@@ -686,7 +686,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             dtype=np.float32,
         )
 
-        # TODO (Joshua G-K): Figure out why angle_ds_py and angle_ds are different. It only
+        # TODO (Joshua G-K): Figure out why angle_ds_py and angle_ds are slightly different. It only
         # happens when I actually enable numba for the function compute_sam_image_numba. Then
         # make atol 1-e5
         self.assertTrue(np.allclose(cls_ds.get_image_data(), cls_ds_py.get_image_data(), atol=4e-2))
@@ -778,7 +778,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
 
         # Numerical instability in a few values causing us to change atol
         # TODO (Joshua G-K): Figure out why angle_ds is 0.0 where angle_ds_py is 0.01978234. It has to
-        # do with making compute_sam_image_numba actually use numba, but I haven't pinpointed it yet.
+        # do with making compute_sam_image_numba getting JITed, but I haven't pinpointed it yet.
         # Then make atol = 1e-5
         self.assertTrue(np.allclose(cls_ds.get_image_data(), cls_ds_py.get_image_data(), atol=4e-2))
         self.assertTrue(np.allclose(angle_ds.get_image_data(), angle_ds_py.get_image_data(), atol=4e-2))

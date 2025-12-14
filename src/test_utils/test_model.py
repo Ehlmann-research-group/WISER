@@ -1932,25 +1932,6 @@ class WiserTestModel:
     # region Bandmath
     # ==========================================
 
-    # TODO (Joshua G-K): Write the way to interface with bandmath's batch job.
-    # I don't know if these tests will be worth while to code. Thorough documentation
-    # may be a better option.
-
-    # Code to create a bandmath batch job. We would have to give the expression,
-    # variable bindings, suffix, and an optional load results into wiser or output folder
-    # destination, one of these has to be not None. It should press the button to create
-    # the batch job and type in the expression line edit (ledit_expression) and for
-    # the suffix, type in the QLineEdit ledit_result_name and mimic clicking the check box
-    # for load results into wiser (chkbox_load_into_wiser)
-
-    # Code to start a bandmath batch job based off of the batch job's id
-
-    # Code to cancel a bandmath job based on the job's id
-
-    # Code to remove a bandmath job based on the job's id
-
-    # Code to view the progress bar of the batch job
-
     # ==========================================
     # region Adding Plugins
     # ==========================================
