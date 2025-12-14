@@ -1,3 +1,7 @@
+"""
+Provides a way to not use our numba code if numba does not work on the machine. Donnie Pinkston had an issue
+getting numba to work on Mac about 4-5 years ago, so I (Joshua G-K) made this.
+"""
 import numpy as np
 
 try:

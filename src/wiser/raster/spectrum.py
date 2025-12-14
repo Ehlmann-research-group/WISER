@@ -332,6 +332,13 @@ class Spectrum(abc.ABC, Serializable):
         """Returns the number of spectral bands in the spectrum."""
         pass
 
+    def get_bad_bands(self) -> np.ndarray:
+        """
+        Returns a boolean numpy array indicating which bands are bad (1 for bands
+        to keep, 0 for bands to removed).  If no bad bands are defined, returns None.
+        """
+        return np.array([1] * self.num_bands(), dtype=np.bool_)
+
     def get_shape(self) -> Tuple[int]:
         """
         Returns the shape of the spectrum.  This is always simply
@@ -433,7 +440,8 @@ class Spectrum(abc.ABC, Serializable):
         editable = metadata["editable"]
         discardable = metadata["discardable"]
         spectrum = NumPyArraySpectrum(spectrum_arr, name, source_name, wavelengths, editable, discardable)
-        spectrum.set_id(id)
+        if spectrum.get_id() is None:
+            spectrum.set_id(id)
         return spectrum
 
 
@@ -471,6 +479,8 @@ class NumPyArraySpectrum(Spectrum):
         self._editable = editable
         self._discardable = discardable
 
+        self._bad_bands: np.ndarray = np.array([1] * arr.shape[0], dtype=np.bool_)
+
     def get_name(self) -> Optional[str]:
         """
         Returns the current name of the spectrum, or ``None`` if no name has
@@ -505,6 +515,17 @@ class NumPyArraySpectrum(Spectrum):
         """Returns the number of spectral bands in the spectrum."""
         return self._arr.shape[0]
 
+    def set_bad_bands(self, bad_bands: np.ndarray):
+        """Sets the bad bands array for this spectrum. 1 is keep, 0 is ignore."""
+        assert bad_bands.ndim == 1 and bad_bands.shape[0] == self.num_bands(), (
+            "Passed in bad bands either doesn't have 1 dimension or doesn't have"
+            "same number of bands as this spectrum!"
+        )
+        self._bad_bands = bad_bands
+
+    def get_bad_bands(self):
+        return self._bad_bands
+
     def has_wavelengths(self) -> bool:
         """
         Returns True if this spectrum has wavelength units for all bands, False
@@ -517,10 +538,11 @@ class NumPyArraySpectrum(Spectrum):
     def get_wavelengths(self) -> List[u.Quantity]:
         """
         Returns a list of wavelength values corresponding to each band.  The
-        individual values are astropy values-with-units.
+        individual values are astropy values-with-units. If the spectrum
+        doesn't have wavelengths, it returns a list from 0 to num_bands() - 1
         """
-        if self._wavelengths is None:
-            raise KeyError("Spectrum doesn't have wavelengths")
+        if not self.has_wavelengths():
+            return [i for i in range(self.num_bands())]
 
         return self._wavelengths
 
@@ -655,6 +677,11 @@ class RasterDataSetSpectrum(Spectrum):
     def num_bands(self) -> int:
         """Returns the number of spectral bands in the raster data."""
         return self._dataset.num_bands()
+
+    def get_bad_bands(self):
+        if self._dataset.get_bad_bands() is None:
+            return np.array([1] * self.num_bands(), dtype=np.bool_)
+        return np.array(self._dataset.get_bad_bands(), dtype=np.bool_)
 
     def get_elem_type(self) -> np.dtype:
         """

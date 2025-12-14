@@ -1,24 +1,20 @@
 # Contributing Guide
 
-First and foremonst, thank you for being interested enough in 
-WISER to look at this document. We are always welcoming 
-contributors! 
+By contributing, you agree to the Developer Certificate of Origin
+that is found in the file named `DCO` in the root directory of this
+repository. All commits must include a `Signed-off-by:` line
+added by running: `git commit -s -m "message"`.
 
 ## Table of Contents
 
 
 ## Environment Details
 
-TODO (Joshua G-K): Add a link for the environment-setup.md
-when we make a github page for it.
-
 If you are thinking about contributing to WISER with code,
 then you will need to set up your environment. We have detailed
 documentation on how to do this under _doc\sphinx-general-wiser-docs\source\developer-content\environment-setup.md_
 
 ## How to submit changes
-TODO (Joshua G-K): Add a link for the code-review-and-quality.md
-when we make a github page for it.
 
 All changes are submitted view pull requests on github. You 
 will need a github account and git installed on your computer 
@@ -34,17 +30,14 @@ For information on how your pull request will be reviewed, go
 to _doc\sphinx-general-wiser-docs\source\developer-content\code-review-and-quality.md_.
 
 ## How to report a bug
-TODO (Joshua G-K): Make this path into links
 
 Read more on how to report a bug here: _doc\sphinx-general-wiser-docs\source\general-content\bug-submitting-guide.md_. 
 
 ## How to request an "enhancement"
-TODO (Joshua G-K): Make this path into links
 
 Read more on how to submit a feature/enhancement request here: _doc\sphinx-general-wiser-docs\source\general-content\feature-submitting-guide.md_.
 
 ## Style Guide / Coding Conventions
-TODO (Joshua G-K): Make this path into links
 
 Many of our style and coding conventions can be found here: _doc\sphinx-general-wiser-docs\source\developer-content\code-review-and-quality.md_.
 
@@ -115,8 +108,8 @@ The project lead is the person who has the
 final say on all major project decisions. Their role is
 to lead the project in a direction that satisfies its
 mission but also satisfies the community. It is not
-uncommon for the BDFL to resolve disputes on project
-direction for the open-source software. The BDFL of
+uncommon for the Project Lead to resolve disputes on project
+direction for the open-source software. The Project Lead of
 WISER is Bethany Ehlmann.
 
 ### Maintainer
@@ -128,14 +121,12 @@ listed below:
 1. Joshua Garcia-Kimble
 
 #### Becoming a maintainer
-TODO: Flush this out with Bethany
-
 Becoming a maintainer of WISER isn't a set-in-stone process.
-It is mainly dependent on if the BDFL thinks that you should
+It is mainly dependent on if the Project Lead thinks that you should
 be a maintainer. To increase your odds of becoming a maintainer
 it would be good to make consistent contributions to the project,
 voice your opinion about the direction the project should take
-in the community, and by interfacing with the BDFL and current
+in the community, and by interfacing with the Project Lead and current
 maintainers. This would build trust between WISER's 'upper-brass'
 and your. 
 
@@ -145,14 +136,12 @@ A commit is simply a change to the repository. It is likely to either
 be code or documentation.
 
 #### Becoming a committer
-TODO: Flush this out with Bethany
-
 Like with becoming a maintainer, becoming a committer of WISER
 isn't a set-in-stone process. It is mainly dependent on if the
-BDFL and the maintainers think that you should be a committer.
+Project Lead and the maintainers think that you should be a committer.
 To increase your odds of becoming a committer it would be good
 to make active contributions involving either writing good
-code or good documentation. Interfacing with the BDFL and the
+code or good documentation. Interfacing with the Project Lead and the
 current maintainers is necessary in order to build trust.
 Unlike becoming a maintainer, is not as important to actively
 voice your opinion on the direction of the project. This is
@@ -181,8 +170,10 @@ who contributes to making the WISER project better.
 There are some ways to contribute that are well-defined. 
 There are other ways to contribute that aren't so well-defined.
 
-For the well-defined ways, you can can look through the issues on the github and tackle them. Some issues will be marked with
-beginner to signal that it is a good way for new contributors to get experience with WISER. Contributions 
+For the well-defined ways, you can can look through the issues on the
+github and tackle them. Some issues will be marked with
+beginner to signal that it is a good way for new contributors to
+get experience with WISER. Contributions 
 here can be in the form of either code or documentation or
 simply a useful comment on the issue. 
 
@@ -193,16 +184,15 @@ a maintainer comments on if this new feature aligns with
 the mission of WISER before you code. That way you don't
 put in a lot of work to not see the new feature make it into
 the project. Learn more about creating issues for feature
-requests here (TODO: Make the page for submitting feature requests).
+requests here at _doc/sphinx-general-wiser-docs/feature-submitting-guide.md_.
 
-You can also get in contact with the maintainers or BDFL
+You can also get in contact with the maintainers or Project Lead
 if you want to do other forms of contributions like triaging
 issues, planning events, or anything else. A good way to 
-do this is to use our forum (TODO: Figure out a WISER forum
-to use). Emailing the BDFL or maintainer is not recommended
-as the forum is a better options to keep track of everything
-in one place (TODO: Depending on the forum we use, we may
-need to email, but hopefully not).
+do this is to use this github's Discussion section. Emailing
+the Project Lead or maintainer is not recommended
+as the forum is a better option to keep track of everything
+in one place.
 
 ## List of Authors
 
