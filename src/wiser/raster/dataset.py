@@ -17,8 +17,6 @@ from .dataset_impl import (
     NumPyRasterDataImpl,
     ENVI_GDALRasterDataImpl,
     NetCDF_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl,
-    PDS4_GDALRasterDataImpl,
     JP2_GDAL_PDR_RasterDataImpl,
 )
 from .utils import (
@@ -208,7 +206,7 @@ class SpatialMetadata:
             and self._wkt_spatial_reference == other._wkt_spatial_reference
         )
 
-    def get_wkt_spatial_reference(self) -> str:
+    def get_wkt_spatial_reference(self) -> Optional[str]:
         return self._wkt_spatial_reference
 
     def __str__(self):
@@ -1857,8 +1855,6 @@ class RasterDataDynamicBand(RasterBand, Serializable):
         assert band_index is not None or (
             wavelength_value is not None and wavelength_units is not None and epsilon is not None
         ), "Either band_index or wavelength_value, wavelength_units, and epsilon must be provided"
-        # TODO (Joshua G-K): Make a cleaner way of passing in the filepath if we are
-        # coming from a RasterDataBatchBand.
         # Currently, if we call this function using the data from a RasterDataBatchBand,
         # we will have to load the dataset using the filepath which will have to be added
         # to band_metadata.

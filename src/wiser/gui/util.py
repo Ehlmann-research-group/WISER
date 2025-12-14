@@ -440,9 +440,23 @@ def interp1d_monotonic(x, y, x_new):
         assume_sorted=True,
     )
 
-    # Evaluate at x_new
-    out = f(x_new)
-    return np.asarray(out, dtype=float)
+    out = np.asarray(f(x_new), dtype=float)
+
+    j = 0
+    n = len(x)
+
+    for i in range(len(x_new)):
+        xn = x_new[i]
+
+        # Advance j until x[j] >= xn
+        while j < n and x[j] < xn:
+            j += 1
+
+        # Exact wavelength hit
+        if j < n and x[j] == xn and np.isfinite(y[j]):
+            out[i] = y[j]
+
+    return out
 
 
 interp1d_monotonic_sig = types.float32[:](types.float32[:], types.float32[:], types.float32[:])
@@ -494,6 +508,10 @@ def interp1d_monotonic_numba(x, y, x_new):
         # we know xn is >= previous x_new, so j never moves backwards
         while j < n - 2 and x[j + 1] < xn:
             j += 1
+
+        if xn == x[j + 1]:
+            out[i] = y[j + 1]
+            continue
 
         x0 = x[j]
         x1 = x[j + 1]

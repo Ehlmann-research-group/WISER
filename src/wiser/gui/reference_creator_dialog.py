@@ -222,7 +222,7 @@ class ReferenceCreatorDialog(QDialog):
 
     def _on_reset_clicked(self):
         """Slot that really performs the reset."""
-        # ---- 1.  Clear internal values ---------------------------------
+        # Clear internal values
         self._axis_ingestion_value = None
         self._semi_major_value = None
         self._latitude = None
@@ -230,7 +230,7 @@ class ReferenceCreatorDialog(QDialog):
         self._lon_meridian = None
         self._current_starting_crs_name = NO_CRS_NAME
 
-        # ---- 2.  Clear the editor widgets ------------------------------
+        # Clear the editor widgets
         for le in (
             self._ui.ledit_flat_minor,
             self._ui.ledit_semi_major,
@@ -241,7 +241,7 @@ class ReferenceCreatorDialog(QDialog):
         ):
             le.clear()
 
-        # ---- 3.  Put the “Starting CRS” combo back to “(None)” ----------
+        # Put the "Starting CRS" combo back to "(None)"
         cbox = self._ui.cbox_user_crs
         none_idx = cbox.findText(self.tr(NO_CRS_NAME))
         if none_idx == -1:  # fallback: last entry
@@ -253,7 +253,8 @@ class ReferenceCreatorDialog(QDialog):
 
     def _init_create_crs_button(self):
         """
-        Should just run self._create_crs()
+        Initialize the button that creates the CRS from all the information
+        in this dialog.
         """
         create_btn = self._ui.btn_create_crs
         if create_btn is None:
@@ -263,7 +264,7 @@ class ReferenceCreatorDialog(QDialog):
 
     def _init_user_created_crs(self):
         """
-        Populate the “Starting CRS” combo box with user-defined CRS objects that
+        Populate the "Starting CRS" combo box with user-defined CRS objects that
         were persisted in ApplicationState.  Each entry's *text* is the dict key
         and the *userData* is the osr.SpatialReference itself.
         """
@@ -335,15 +336,15 @@ class ReferenceCreatorDialog(QDialog):
 
         srs: osr.SpatialReference = self._app_state.get_user_created_crs().get(name)[0]
         creator_state: CrsCreatorState = self._app_state.get_user_created_crs().get(name)[1]
-        if srs is None:  # shouldn’t happen
+        if srs is None:  # shouldn't happen
             return
 
-        # Ask before clobbering whatever the user already entered
+        # Ask before removing whatever the user already entered
         if (
             QMessageBox.question(
                 self,
                 "Replace current parameters?",
-                "Loading “{0}” will overwrite all fields you have entered so far.\n" "Continue?".format(name),
+                "Loading '{0}' will overwrite all fields you have entered so far.\n Continue?".format(name),
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No,
             )
@@ -359,17 +360,15 @@ class ReferenceCreatorDialog(QDialog):
                     cbox.blockSignals(False)
             return
 
-        # -----------------------------------------------------------------
         # Convert to pyproj for convenient interrogation
-        # -----------------------------------------------------------------
         pycrs = pyproj.CRS.from_wkt(srs.ExportToWkt())
 
-        # ---------- Prime meridian & “equator” (lat_0) --------------------
+        # Prime meridian & "equator" (lat_0)
         pm_lon = creator_state.lon_meridian
         self._ui.ledit_prime_meridian.setText(str(pm_lon))
         self._lon_meridian = pm_lon
 
-        # ---------- Shape / ellipsoid parameters -------------------------
+        # Shape / ellipsoid parameters
         a = creator_state.semi_major_value
         spheroid = creator_state.shape_type == ShapeTypes.SPHEROID
 
@@ -389,7 +388,7 @@ class ReferenceCreatorDialog(QDialog):
 
         # Semi‑minor / inverse‑flattening
         if spheroid:
-            # Sphere – disable the flat/minor widgets
+            # Sphere - disable the flat/minor widgets
             self._ui.ledit_flat_minor.clear()
             self._ui.cbox_flat_minor.setEnabled(False)
             self._ui.ledit_flat_minor.setEnabled(False)
@@ -421,7 +420,7 @@ class ReferenceCreatorDialog(QDialog):
                 self._ui.cbox_flat_minor.setEnabled(True)
                 self._ui.ledit_flat_minor.setText(f"{inv_f}")
 
-        # ---------- Projection (or none) ---------------------------------
+        # Projection (or none)
         proj_type = creator_state.proj_type
 
         self._update_extra_polar_stereo_params_display()
@@ -467,7 +466,7 @@ class ReferenceCreatorDialog(QDialog):
             self._ui.cbox_lat_chooser.setEnabled(False)
             self._ui.ledit_lat_value.setEnabled(False)
 
-        # ---------- CRS name ---------------------------------------------
+        # CRS name
         self._ui.ledit_crs_name.setText(name)
         self._ui.ledit_crs_name.editingFinished.emit()
         self._crs_name = name
@@ -491,15 +490,17 @@ class ReferenceCreatorDialog(QDialog):
 
     def _init_cbox_lat_chooser(self):
         """
-        Initializes self._ui.cbox_lat_chooser to have all the values in LatitudeTypes. The text shown
-        should be the value of the enum and the value of the cbox should be the enum
+        Initializes self._ui.cbox_lat_chooser to have all the values in
+        LatitudeTypes. The text shown should be the value of the enum and
+        the value of the cbox should be the enum.
 
         class LatitudeTypes(Enum):
             CENTRAL_LATITUDE = "Central Latitude"
             TRUE_SCALE_LATITUDE = "True Scale Lat"
 
-        When a new cbox item is clicked the function _on_change_lat_choice should be called which sets
-        an instance variable called self._latitude_choice
+        When a new cbox item is clicked the function _on_change_lat_choice
+        should be called which sets an instance variable called
+        self._latitude_choice.
         """
         cbox = self._ui.cbox_lat_chooser
         cbox.clear()
@@ -567,7 +568,7 @@ class ReferenceCreatorDialog(QDialog):
         # Populate the axis type combo box
         self._ui.cbox_flat_minor.clear()
         for axis_type in EllipsoidAxisType:
-            # display text is the enum value, store enum itself as user data
+            # Display text is the enum value, store enum itself as user data
             self._ui.cbox_flat_minor.addItem(axis_type.value, axis_type)
 
         # Connect combo box signal to slot
@@ -707,7 +708,7 @@ class ReferenceCreatorDialog(QDialog):
         self._crs_name = self._ui.ledit_crs_name.text()
 
     def _create_crs(self):
-        # --- 1. Basic validation -------------------------------------------------
+        # Basic validation
         if self._crs_name is None:
             QMessageBox.warning(
                 self,
@@ -795,7 +796,7 @@ class ReferenceCreatorDialog(QDialog):
                     QMessageBox.warning(
                         self,
                         self.tr("Missing value"),
-                        self.tr("The scale factor value is None. Please enter\n" "a scale factor value."),
+                        self.tr("The scale factor value is None. Please enter\n a scale factor value."),
                     )
                     return
 
@@ -809,7 +810,7 @@ class ReferenceCreatorDialog(QDialog):
                         self,
                         self.tr("Missing value"),
                         self.tr(
-                            "The central latitude sign is None. Please select\n" "a central latitude sign."
+                            "The central latitude sign is None. Please select\n a central latitude sign."
                         ),
                     )
                     return

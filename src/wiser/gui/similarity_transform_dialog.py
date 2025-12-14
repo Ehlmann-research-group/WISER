@@ -32,18 +32,12 @@ import numpy as np
 
 import cv2
 
-# from enum import Enum
-
-# class InterpolationOptions(Enum):
-
 INTERPOLATION_TYPES = {
     "Nearest": cv2.INTER_NEAREST,
     "Nearest Exact": cv2.INTER_NEAREST_EXACT,
     "Linear": cv2.INTER_LINEAR,
     "Linear Exact": cv2.INTER_LINEAR_EXACT,
-    # "Cubic":             cv2.INTER_CUBIC,
     "Area": cv2.INTER_AREA,
-    # "Lanczos4":          cv2.INTER_LANCZOS4,
 }
 
 
@@ -56,7 +50,7 @@ class SimilarityTransformDialog(QDialog):
         self._ui = Ui_SimilarityTransform()
         self._ui.setupUi(self)
 
-        # --- Image renderings ----------------------------------------------------
+        # Image renderings
         self._rotate_scale_pane = SimilarityTransformPane(app_state)
         self._translate_pane = SimilarityTransformPane(app_state, translation=True)
         self._translate_pane.pixel_selected_for_translation.connect(self._on_translation_pixel_selected)
@@ -64,13 +58,13 @@ class SimilarityTransformDialog(QDialog):
         self._rotate_scale_pane.dataset_changed.connect(self._on_rotate_scale_dataset_changed)
         self._init_rasterpanes()
 
-        # --- Internal state ----------------------------------------------------
+        # Internal state
         self._image_rotation: float = 0.0  # degrees CCW
         self._image_scale: float = 1.0  # isotropic scale factor
         self._lat_north_translate: float = 0.0
         self._lon_east_translate: float = 0.0
 
-        # --- Validators --------------------------------------------------------
+        # Validators
         rot_validator = QDoubleValidator(0.0, 360.0, 4, self)
         rot_validator.setNotation(QDoubleValidator.StandardNotation)
         self._ui.ledit_rotation.setValidator(rot_validator)
@@ -79,7 +73,7 @@ class SimilarityTransformDialog(QDialog):
         scale_validator.setNotation(QDoubleValidator.StandardNotation)
         self._ui.ledit_scale.setValidator(scale_validator)
 
-        # --- Defaults ----------------------------------------------------------
+        # Defaults
         self._ui.ledit_rotation.setText("0.0")
         self._ui.ledit_scale.setText("1.0")
 
@@ -87,19 +81,20 @@ class SimilarityTransformDialog(QDialog):
         self._ui.slider_rotation.setSingleStep(1)
         self._ui.slider_rotation.setValue(0)
 
-        # --- Signal ↔ slot wiring ----------------------------------------------
-        # 1. Rotation – keep QLineEdit and QSlider in sync, but avoid infinite loops.
+        # Signal, Slot Wiring
+
+        # Rotation - keep QLineEdit and QSlider in sync, but avoid infinite loops.
         self._ui.ledit_rotation.textEdited.connect(self._on_rotation_edited)
         self._ui.slider_rotation.valueChanged.connect(self._on_slider_rotation_changed)
 
-        # 2. Scale.
+        # Scale.
         self._ui.ledit_scale.textEdited.connect(self._on_scale_edited)
 
-        # 3. Buttons.
+        # Buttons.
         self._ui.btn_rotate_scale.clicked.connect(self._on_run_rotate_scale)
         self._ui.btn_create_translation.clicked.connect(self._on_create_translation)
 
-        # 4. Translation edits.
+        # Translation edits.
         self._ui.ledit_lat_north.textChanged.connect(self._on_lat_north_changed)
         self._ui.ledit_lon_east.textChanged.connect(self._on_lon_east_changed)
 
@@ -118,17 +113,15 @@ class SimilarityTransformDialog(QDialog):
             "Get help on translating coordinate systems",
         )
 
-    # -------------------------------------------------------------------------
-    # Initializers
-    # -------------------------------------------------------------------------
+    # region Initializers
 
     def _init_interpolation_cbox(self):
         cbox = self._ui.cbox_interpolation
         cbox.clear()
-        # populate combo with user‐friendly labels
+        # Populate combo with user‐friendly labels
         for label, interp_type in INTERPOLATION_TYPES.items():
             cbox.addItem(label, interp_type)
-        # optionally set a default, e.g. “Linear”
+        # Set a default, e.g. “Linear”
         default = "Linear"
         idx = cbox.findText(default)
         if idx != -1:
@@ -172,13 +165,11 @@ class SimilarityTransformDialog(QDialog):
     def _get_interpolation_type(self) -> int:
         return self._ui.cbox_interpolation.currentData()
 
-    # -------------------------------------------------------------------------
-    # Rotation handlers
-    # -------------------------------------------------------------------------
+    # region Rotation handlers
 
     @Slot(str)
     def _on_rotation_edited(self, text: str) -> None:
-        """User typed a rotation value – sync slider and store state."""
+        """User typed a rotation value - sync slider and store state."""
         if not text:
             return  # ignore empty edits
         try:
@@ -190,7 +181,7 @@ class SimilarityTransformDialog(QDialog):
         value = max(0.0, min(360.0, value))
         self._image_rotation = value
 
-        # Update slider without triggering its signal.
+        # Update slider without triggering its signal to prevent infinite loop.
         self._ui.slider_rotation.blockSignals(True)
         self._ui.slider_rotation.setValue(int(round(value)))
         self._ui.slider_rotation.blockSignals(False)
@@ -198,8 +189,9 @@ class SimilarityTransformDialog(QDialog):
 
     @Slot(int)
     def _on_slider_rotation_changed(self, value: int) -> None:
-        """Slider moved by user – sync line‑edit and store integer rotation."""
-        # Update line‑edit without re‑entering _on_rotation_edited.
+        """Slider moved by user - sync line-edit and store integer rotation."""
+        # Update line‑edit without re‑entering _on_rotation_edited by temporarily
+        # blocking singals.
         self._ui.ledit_rotation.blockSignals(True)
         self._ui.ledit_rotation.setText(f"{value}")
         self._ui.ledit_rotation.blockSignals(False)
@@ -208,13 +200,11 @@ class SimilarityTransformDialog(QDialog):
 
         self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
-    # -------------------------------------------------------------------------
-    # Scale handlers
-    # -------------------------------------------------------------------------
+    # region Scale handlers
 
     @Slot(str)
     def _on_scale_edited(self, text: str) -> None:
-        """Scale edited – store value between 0 and 100 (float)."""
+        """Scale edited - store value between 0 and 100 (float)."""
         if not text:
             return
         try:
@@ -227,9 +217,7 @@ class SimilarityTransformDialog(QDialog):
         self._image_scale = value
         self._rotate_scale_pane.rotate_and_scale_rasterview(self._image_rotation, self._image_scale)
 
-    # -------------------------------------------------------------------------
-    # Translation handlers
-    # -------------------------------------------------------------------------
+    # region Translation handlers
 
     @Slot()
     def _on_lat_north_changed(self) -> None:
@@ -291,11 +279,11 @@ class SimilarityTransformDialog(QDialog):
     def _update_upper_left_coord_labels(self):
         (
             origin_lon_east,
-            pixel_w,
-            rot_x,
+            _,
+            _,
             origin_lat_north,
-            rot_y,
-            pixel_h,
+            _,
+            _,
         ) = self._translation_dataset.get_geo_transform()
         self.set_lon_east_ul_text(str(origin_lon_east + self._lon_east_translate))
         self.set_lat_north_ul_text(str(origin_lat_north + self._lat_north_translate))
@@ -334,22 +322,17 @@ class SimilarityTransformDialog(QDialog):
         self.set_orig_coord_text(self._make_point_to_text(orig_geo_coords))
         self.set_new_coord_text(self._make_point_to_text(new_geo_coord))
 
-    # -------------------------------------------------------------------------
-    # Button handlers
-    # -------------------------------------------------------------------------
+    # region Button handlers
 
     @Slot()
     def _on_run_rotate_scale(self) -> None:
         self._on_create_rotated_scaled_dataset()
-        # Placeholder – real implementation will apply transform.
 
     @Slot()
     def _on_create_translation(self) -> None:
         self._on_create_translated_dataset()
-        # Placeholder – real implementation will apply translation.
 
     def _on_choose_save_filename_rs(self, checked=False):
-        # TODO (Joshua G-K): Allow this to also save as an .hdr
         file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         # Restrict selection to only .tif files.
@@ -386,7 +369,6 @@ class SimilarityTransformDialog(QDialog):
             self._ui.ledit_save_path_rs.setText(filename)
 
     def _on_choose_save_filename_translate(self, checked=False):
-        # TODO (Joshua G-K): Allow this to also save as an .hdr
         file_dialog = QFileDialog(parent=self, caption=self.tr("Save raster dataset"))
 
         # Restrict selection to only .tif files.
@@ -422,9 +404,7 @@ class SimilarityTransformDialog(QDialog):
                     return
             self._ui.ledit_save_path_translate.setText(filename)
 
-    # -------------------------------------------------------------------------
-    # Public helper methods for external callers
-    # -------------------------------------------------------------------------
+    # region Public helper methods for external callers
 
     def set_orig_coord_text(self, text: str) -> None:
         """Update the previous coordinate label."""
@@ -448,10 +428,10 @@ class SimilarityTransformDialog(QDialog):
 
     # region Convenience getters
 
-    def image_rotation(self) -> float:
+    def get_image_rotation(self) -> float:
         return self._image_rotation
 
-    def image_scale(self) -> float:
+    def get_image_scale(self) -> float:
         return self._image_scale
 
     def _get_translated_geotransform(self) -> tuple[float, float]:
@@ -491,9 +471,7 @@ class SimilarityTransformDialog(QDialog):
             QMessageBox.warning(
                 self,
                 self.tr("Rotate/Scale Dataset Not Selected"),
-                self.tr(
-                    "You have no rotate/scale dataset selected.\n" "Please select a rotate/scale dataset."
-                ),
+                self.tr("You have no rotate/scale dataset selected.\n Please select a rotate/scale dataset."),
             )
             return
         driver: gdal.Driver = gdal.GetDriverByName("GTiff")
@@ -534,14 +512,24 @@ class SimilarityTransformDialog(QDialog):
                 ratio = MAX_RAM_BYTES / output_bytes  # Proportion of bands to use for each iteration
             else:
                 ratio = 1
-            new_dataset = driver.Create(save_path, pixmap_width, pixmap_height, num_bands, gdal_data_type)
+            # Create the actual dataset that we want
+            new_dataset = driver.Create(
+                save_path,
+                pixmap_width,
+                pixmap_height,
+                num_bands,
+                gdal_data_type,
+            )
             if new_dataset is None:
                 raise RuntimeError("Failed to create the output dataset")
+            # The number of bands we operate on per iteration of creating
+            # th rotated and scaled dataset
             num_bands_per = int(ratio * num_bands)
             if num_bands_per <= 0:
                 num_bands_per == 1
             ds_data_ignore = self._rotate_scale_dataset.get_data_ignore_value()
             data_ignore = ds_data_ignore if ds_data_ignore is not None else 0
+            # Rotate and scale bands at the appropriate interval
             for band_index in range(0, num_bands, num_bands_per):
                 band_list_index = [
                     band for band in range(band_index, band_index + num_bands_per) if band < num_bands
@@ -566,6 +554,7 @@ class SimilarityTransformDialog(QDialog):
                 if len(rotated_scaled_band_arr.shape) == 2:
                     rotated_scaled_band_arr = rotated_scaled_band_arr
                 elif len(rotated_scaled_band_arr.shape) == 3:
+                    # y, x, b -> b, y, x
                     rotated_scaled_band_arr = np.transpose(rotated_scaled_band_arr, (2, 0, 1))
                 else:
                     raise RuntimeError(
@@ -581,8 +570,10 @@ class SimilarityTransformDialog(QDialog):
                     rotated_scaled_band_arr,
                     gdal_data_type,
                 )
+            # Copies numeric metadata like wavelenghs, bad bands, data ignore, and default bands
             copy_metadata_to_gdal_dataset(new_dataset, self._rotate_scale_dataset)
             new_dataset.FlushCache()
+            # Copies geographic data separately
             if self._rotate_scale_dataset.has_geographic_info():
                 new_dataset.SetSpatialRef(self._rotate_scale_dataset.get_spatial_ref())
                 gt = self._rotate_scale_dataset.get_geo_transform()
@@ -641,12 +632,12 @@ class SimilarityTransformDialog(QDialog):
             return
 
         try:
-            self.set_translate_message_text("Starting Translation.")
+            self.set_translate_message_text(self.tr("Starting Translation."))
             if isinstance(self._translation_dataset.get_impl(), GDALRasterDataImpl):
                 impl = self._translation_dataset.get_impl()
                 translation_gdal_dataset = impl.gdal_dataset
                 if driver is None:
-                    raise RuntimeError("GDAL driver not available")
+                    raise RuntimeError(self.tr("GDAL driver not available"))
                 new_dataset: gdal.Dataset = driver.CreateCopy(save_path, translation_gdal_dataset, 0)
                 new_dataset.SetGeoTransform(new_geo_transform)
                 copy_metadata_to_gdal_dataset(new_dataset, self._translation_dataset)

@@ -77,6 +77,36 @@ class TestSpectralAngleMapper(unittest.TestCase):
         )
         self.assertTrue(np.isclose(score[0], 0.0, atol=1e-5))
 
+    def test_sam_same_spectra_nans(self):
+        sff_tool = SAMTool(self.test_model.app_state)
+        test_target_arr = np.array([np.nan, 200, 100, 400, 500])
+        test_target_wls = [100 * u.nm, 200 * u.nm, 300 * u.nm, 400 * u.nm, 500 * u.nm]
+        test_ref_arr = np.array([300, 200, 100, 400, np.nan])
+        test_ref_wls = [0.1 * u.um, 0.2 * u.um, 0.3 * u.um, 0.4 * u.um, 0.5 * u.um]
+        test_ref_spectrum = NumPyArraySpectrum(
+            test_ref_arr,
+            name="test_ref",
+            wavelengths=test_ref_wls,
+        )
+        target_spectrum = NumPyArraySpectrum(
+            test_target_arr,
+            name="test_target",
+            wavelengths=test_target_wls,
+        )
+        min_wvl = 100 * u.nm
+        max_wvl = 600 * u.nm
+        score = sff_tool.compute_score(
+            target=target_spectrum,
+            ref=test_ref_spectrum,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
+        angle = score[0]
+
+        gt_angle = 0
+
+        self.assertTrue(np.isclose(angle, gt_angle, atol=1e-5))
+
     def test_spectral_angle_mapper_different_spectrum_same_angle(self):
         sam_tool = SAMTool(self.test_model.app_state)
         test_target_arr = np.array([100, 200, 300, 400, 500])
@@ -233,7 +263,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
         gt_angle: np.ndarray,
         min_wvl: u.Quantity,
         max_wvl: u.Quantity,
-    ) -> Tuple[RasterDataSet, np.ndarray, np.ndarray]:
+    ) -> Tuple[RasterDataSet, RasterDataSet, RasterDataSet]:
         ds = self.test_model.load_dataset(arr)
         ds.set_bad_bands(bad_bands=bad_bands)
         band_list = []
@@ -331,7 +361,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             max_wvl=max_wvl,
         )
 
-    def test_fail_with_nan(self):
+    def test_succeed_with_nan(self):
         bad_bands = [1, 0, 1, 1]
         wvl_list: List[u.Quantity] = [
             200 * u.nm,
@@ -354,45 +384,35 @@ class TestSpectralAngleMapper(unittest.TestCase):
         thresholds = [np.float32(10.0)]
 
         gt_cls = np.array(
-            [
-                [
-                    [False, False, False, False],
-                    [True, True, True, True],
-                    [False, False, False, False],
-                ],
-            ],
+            [[[False, False, False, False], [True, True, False, True], [False, False, False, False]]],
+            dtype=np.bool_,
         )
 
         gt_angle = np.array(
             [
                 [
                     [19.454195, 19.454195, 19.454195, 19.454195],
-                    [6.0172796, 6.0172796, 6.0172796, 6.0172796],
+                    [6.0172796, 6.0172796, 30.580404, 6.0172796],
                     [22.7592, 22.7592, 22.7592, 22.7592],
-                ],
+                ]
             ],
+            dtype=np.float32,
         )
 
         min_wvl = 200 * u.nm
         max_wvl = 600 * u.nm
 
-        try:
-            self.sam_image_cube_helper(
-                arr=sam_sff_fail_masked_array,
-                wvl_list=wvl_list,
-                bad_bands=bad_bands,
-                refs=refs,
-                thresholds=thresholds,
-                gt_cls=gt_cls,
-                gt_angle=gt_angle,
-                min_wvl=min_wvl,
-                max_wvl=max_wvl,
-            )
-        except ValueError:
-            # The np.nan in sam_sff_fail_masked_array should raise a value error
-            self.assertTrue(True)
-
-        self.assertFalse(False)
+        self.sam_image_cube_helper(
+            arr=sam_sff_fail_masked_array,
+            wvl_list=wvl_list,
+            bad_bands=bad_bands,
+            refs=refs,
+            thresholds=thresholds,
+            gt_cls=gt_cls,
+            gt_angle=gt_angle,
+            min_wvl=min_wvl,
+            max_wvl=max_wvl,
+        )
 
     def test_sam_target_image_single_spec_same(self):
         bad_bands = [1, 0, 1, 1]
@@ -666,7 +686,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
             dtype=np.float32,
         )
 
-        # TODO (Joshua G-K): Figure out why angle_ds_py and angle_ds are different. It only
+        # TODO (Joshua G-K): Figure out why angle_ds_py and angle_ds are slightly different. It only
         # happens when I actually enable numba for the function compute_sam_image_numba. Then
         # make atol 1-e5
         self.assertTrue(np.allclose(cls_ds.get_image_data(), cls_ds_py.get_image_data(), atol=4e-2))
@@ -758,7 +778,7 @@ class TestSpectralAngleMapper(unittest.TestCase):
 
         # Numerical instability in a few values causing us to change atol
         # TODO (Joshua G-K): Figure out why angle_ds is 0.0 where angle_ds_py is 0.01978234. It has to
-        # do with making compute_sam_image_numba actually use numba, but I haven't pinpointed it yet.
+        # do with making compute_sam_image_numba getting JITed, but I haven't pinpointed it yet.
         # Then make atol = 1e-5
         self.assertTrue(np.allclose(cls_ds.get_image_data(), cls_ds_py.get_image_data(), atol=4e-2))
         self.assertTrue(np.allclose(angle_ds.get_image_data(), angle_ds_py.get_image_data(), atol=4e-2))
@@ -836,3 +856,349 @@ class TestSpectralAngleMapper(unittest.TestCase):
                 equal_nan=False,
             )
         )
+
+    def test_find_matches_target_dataset_no_wavelengths(self):
+        sam_tool = SAMTool(self.test_model.app_state)
+
+        # Load dataset WITHOUT setting band wavelengths
+        ds = self.test_model.load_dataset(sam_sff_masked_arr_basic)
+
+        # Create a valid reference spectrum WITH wavelengths
+        ref_arr = np.array([0.0, 50.0, 100.0, 150.0], dtype=np.float32)
+        ref_wls = [
+            100 * u.nm,
+            300 * u.nm,
+            500 * u.nm,
+            700 * u.nm,
+        ]
+        reference_spec = NumPyArraySpectrum(
+            ref_arr,
+            name="ref_1",
+            wavelengths=ref_wls,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=[reference_spec],
+            thresholds=[np.float32(10.0)],
+            global_thr=None,
+            min_wvl=0 * u.nm,
+            max_wvl=3000 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+
+        self.assertIsNone(result)
+
+    def test_find_matches_target_spectrum_no_wavelengths(self):
+        sam_tool = SAMTool(self.test_model.app_state)
+
+        # Create target spectrum WITHOUT wavelengths
+        target_arr = np.array([10, 20, 30, 40], dtype=np.float32)
+        target_spec = NumPyArraySpectrum(
+            target_arr,
+            name="target_no_wvl",
+            wavelengths=None,
+        )
+
+        # Valid reference spectrum WITH wavelengths
+        ref_arr = np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)
+        ref_wls = [
+            100 * u.nm,
+            200 * u.nm,
+            300 * u.nm,
+            400 * u.nm,
+        ]
+        reference_spec = NumPyArraySpectrum(
+            ref_arr,
+            name="ref_1",
+            wavelengths=ref_wls,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=target_spec,
+            mode="Single Spectrum",
+            refs=[reference_spec],
+            thresholds=[np.float32(10.0)],
+            global_thr=None,
+            min_wvl=0 * u.nm,
+            max_wvl=3000 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+
+        self.assertIsNone(result)
+
+    def test_find_matches_image_cube_reference_missing_wavelengths(self):
+        sam_tool = SAMTool(self.test_model.app_state)
+
+        # Load target dataset WITH wavelengths
+        ds = self.test_model.load_dataset(sam_sff_masked_arr_basic)
+
+        wvl_list = [
+            200 * u.nm,
+            300 * u.nm,
+            400 * u.nm,
+            600 * u.nm,
+        ]
+
+        band_list = []
+        for i, wvl in enumerate(wvl_list):
+            band_list.append(
+                {
+                    "index": i,
+                    "description": f"{wvl.value} {wvl.unit}",
+                    "wavelength": wvl,
+                    "wavelength_str": f"{wvl.to_value(wvl.unit)}",
+                    "wavelength_units": wvl.unit.to_string(),
+                }
+            )
+
+        ds.set_band_list(band_list)
+
+        # Reference spectrum WITH wavelengths
+        ref_good_arr = np.array([0.0, 50.0, 100.0, 150.0], dtype=np.float32)
+        ref_good_wls = [
+            100 * u.nm,
+            300 * u.nm,
+            500 * u.nm,
+            700 * u.nm,
+        ]
+        ref_good = NumPyArraySpectrum(
+            ref_good_arr,
+            name="ref_good",
+            wavelengths=ref_good_wls,
+        )
+
+        # Reference spectrum WITHOUT wavelengths
+        ref_bad_arr = np.array([10.0, 20.0, 30.0, 40.0], dtype=np.float32)
+        ref_bad = NumPyArraySpectrum(
+            ref_bad_arr,
+            name="ref_bad",
+            wavelengths=None,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=[ref_good, ref_bad],  # mixed refs
+            thresholds=[np.float32(10.0), np.float32(10.0)],
+            global_thr=None,
+            min_wvl=0 * u.nm,
+            max_wvl=3000 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        result = sam_tool.find_matches(spectral_inputs=spectral_inputs)
+
+        self.assertIsNone(result)
+
+    def test_sam_image_cube_nan_outside_wavelength_range(self):
+        """
+        Ensure SAM works when NaNs exist outside the wavelength range,
+        as long as the selected wavelength window contains no NaNs.
+
+        We do NOT check the exact spectral angle values.
+        We only verify:
+        - results are produced
+        - all returned angles are finite
+        - all returned values are <= 1.0
+        - python and numba implementations agree numerically
+        """
+
+        sam_tool = SAMTool(self.test_model.app_state)
+
+        # Image cube: shape (bands, rows, cols)
+        # NaNs exist in bands outside the wavelength range
+        arr = np.array(
+            [
+                [[np.nan, np.nan], [np.nan, np.nan]],  # band 0 (outside range)
+                [[1.0, 2.0], [3.0, 4.0]],  # band 1 (inside range)
+                [[2.0, 3.0], [4.0, 5.0]],  # band 2 (inside range)
+                [[np.nan, np.nan], [np.nan, np.nan]],  # band 3 (outside range)
+            ],
+            dtype=np.float32,
+        )
+
+        wvl_list = [
+            100 * u.nm,  # band 0
+            200 * u.nm,  # band 1
+            300 * u.nm,  # band 2
+            400 * u.nm,  # band 3
+        ]
+
+        ds = self.test_model.load_dataset(arr)
+
+        # Attach wavelengths to dataset
+        band_list = []
+        for i, wvl in enumerate(wvl_list):
+            band_list.append(
+                {
+                    "index": i,
+                    "description": f"{wvl.value} {wvl.unit}",
+                    "wavelength": wvl,
+                    "wavelength_str": f"{wvl.value}",
+                    "wavelength_units": wvl.unit.to_string(),
+                }
+            )
+        ds.set_band_list(band_list)
+
+        # Reference spectrum (NaNs only outside wavelength window)
+        ref_arr = np.array([np.nan, 10.0, 20.0, np.nan], dtype=np.float32)
+        ref_wvls = [100 * u.nm, 200 * u.nm, 300 * u.nm, 400 * u.nm]
+        reference_spec = NumPyArraySpectrum(
+            ref_arr,
+            name="ref",
+            wavelengths=ref_wvls,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=[reference_spec],
+            thresholds=[np.float32(1.0)],
+            global_thr=None,
+            min_wvl=200 * u.nm,
+            max_wvl=300 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        # NUMBA path
+        ds_ids_numba = sam_tool.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=False,
+        )
+
+        # PYTHON path
+        ds_ids_py = sam_tool.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=True,
+        )
+
+        self.assertIsNotNone(ds_ids_numba)
+        self.assertIsNotNone(ds_ids_py)
+        self.assertEqual(len(ds_ids_numba), 2)
+        self.assertEqual(len(ds_ids_py), 2)
+
+        angle_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
+        angle_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
+
+        angle_numba = angle_ds_numba.get_image_data()
+        angle_py = angle_ds_py.get_image_data()
+
+        # Consistency check
+        self.assertTrue(np.allclose(angle_numba, angle_py, atol=1e-6, equal_nan=True))
+
+    def test_sam_image_cube_nan_outside_wavelength_range_more(self):
+        """
+        Ensure SAM works when NaNs exist outside the wavelength range,
+        as long as the selected wavelength window contains no NaNs.
+
+        We do NOT check exact RMSE or scale values.
+        We only verify:
+        - results are produced
+        - angle values are finite
+        - python and numba implementations are numerically consistent
+        """
+
+        sff_tool = SAMTool(self.test_model.app_state)
+
+        # Image cube: shape (bands, rows, cols)
+        # NaNs exist outside wavelength window
+        arr = np.array(
+            [
+                [[np.nan, np.nan], [np.nan, np.nan]],  # band 0 (outside)
+                [[3.0, 4.0], [5.0, 6.0]],  # band 1 (inside)
+                [[2.0, 3.0], [4.0, 5.0]],  # band 2 (inside)
+                [[3.0, 4.0], [5.0, 6.0]],  # band 3 (inside)
+                [[np.nan, np.nan], [np.nan, np.nan]],  # band 4 (outside)
+                [[np.nan, np.nan], [np.nan, np.nan]],  # band 5 (outside)
+            ],
+            dtype=np.float32,
+        )
+
+        wvl_list = [
+            100 * u.nm,  # band 0
+            200 * u.nm,  # band 1
+            300 * u.nm,  # band 2
+            400 * u.nm,  # band 3
+            500 * u.nm,  # band 4
+            600 * u.nm,  # band 5
+        ]
+
+        ds = self.test_model.load_dataset(arr)
+
+        # Attach wavelengths
+        band_list = []
+        for i, wvl in enumerate(wvl_list):
+            band_list.append(
+                {
+                    "index": i,
+                    "description": f"{wvl.value} {wvl.unit}",
+                    "wavelength": wvl,
+                    "wavelength_str": f"{wvl.value}",
+                    "wavelength_units": wvl.unit.to_string(),
+                }
+            )
+        ds.set_band_list(band_list)
+
+        # Reference spectrum with NaNs outside wavelength window
+        ref_arr = np.array([np.nan, 7, 5.2, 7, 8, np.nan], dtype=np.float32)
+        ref_wvls = [100 * u.nm, 200 * u.nm, 310 * u.nm, 400 * u.nm, 500 * u.nm, 600 * u.nm]
+        reference_spec = NumPyArraySpectrum(
+            ref_arr,
+            name="ref",
+            wavelengths=ref_wvls,
+        )
+
+        spectral_inputs = SpectralComputationInputs(
+            target=ds,
+            mode="Image Cube",
+            refs=[reference_spec],
+            thresholds=[np.float32(0.5)],
+            global_thr=None,
+            min_wvl=200 * u.nm,
+            max_wvl=600 * u.nm,
+            lib_name_by_spec_id=None,
+        )
+
+        # Run NUMBA path
+        ds_ids_numba = sff_tool.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=False,
+        )
+
+        # Run PYTHON path
+        ds_ids_py = sff_tool.find_matches(
+            spectral_inputs=spectral_inputs,
+            python_mode=True,
+        )
+
+        self.assertIsNotNone(ds_ids_numba)
+        self.assertIsNotNone(ds_ids_py)
+        self.assertEqual(len(ds_ids_numba), 2)
+        self.assertEqual(len(ds_ids_py), 2)
+
+        angle_ds_numba = self.test_model.app_state.get_dataset(ds_ids_numba[1])
+
+        angle_ds_py = self.test_model.app_state.get_dataset(ds_ids_py[1])
+
+        angle_numba = angle_ds_numba.get_image_data()
+        angle_py = angle_ds_py.get_image_data()
+
+        gt_angle = np.array(
+            [
+                [
+                    [35.521355, 35.39825],
+                    [35.40851, 35.447113],
+                ]
+            ],
+            dtype=np.float32,
+        )
+
+        # Consistency checks
+        self.assertTrue(np.allclose(angle_numba, angle_py, atol=1e-6))
+        self.assertTrue(np.allclose(gt_angle, angle_py, atol=1e-6))

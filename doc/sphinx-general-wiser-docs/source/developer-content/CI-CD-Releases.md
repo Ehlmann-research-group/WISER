@@ -5,13 +5,9 @@ development. It is a practice that is meant to allow
 code to be release as frequently as possible. The
 continuous integration encourages code to be frequently
 merged into main and continuous deployment encourages
-stable builds to be made frequently. Currently, the deployment process for WISER is run nightly. Ideally,
-we would run it on ever PR to main but this process takes
-a long time.
-
-TODO (Joshua-GK): Figure out a way to run constant builds
-(currently I am thinking that nightly builds will work, maybe figure out a way to speed up pyinstaller builds
-so we can feasibly run the build process on every PR)
+stable builds to be made frequently. Currently, the deployment
+process for WISER is run manually, but we are looking into 
+running it nightly or more frequently. 
 
 ## Continuous Integration
 
@@ -64,9 +60,6 @@ Testing happens after linting.
 
 ## Continuous Deployment
 
-TODO (Joshua G-K) Finish this section, figure out continuous
-deployment framework we want.
-
 We are still figuring out what type of continuous 
 deployment framework that we want for WISER. Currently,
 the build process takes a pretty long time (around 24
@@ -75,19 +68,19 @@ infeasible for developers to run on each push to a pull
 request. We need to look into a way to speed up our builds 
 (<10 minutes would be good).
 
-The deployment code is in the github action `prod-deploy.yml`. It builds WISER on all three platforms (windows, macos arm, macos intel) then runs tests inside of each WISER distributable. Running these tests ensures that
-WISER actually starts up and that core WISER functionality
+The deployment code is in the github action `prod-deploy.yml`. It
+builds WISER on all three platforms (windows, macos arm, macos intel)
+then runs tests inside of each WISER distributable. Running these tests
+ensures that WISER actually starts up and that core WISER functionality
 has been properly packaged up. 
 
 It is important to note that these build artifacts still
-need somne more work done to them to become our
+need somne more work done to them in order to become our
 distributables. The Windows artifact needs to be code-signed
 then packaged into an installer. The MacOS artifacts
 need to be packaged into a .dmg and code-signed. 
 
-### Production Testing
-
-TODO Finish this section.
+### "Production" Testing
 
 Currently, we test on our distributables in the github
 runners by running WISER with the `--test_mode` flag. We
@@ -105,9 +98,6 @@ code that can be deployed at a moments notice. However,
 currently we are still deciding whether we should run 
 deployment tests on every PR to `main` and `rel/**` or
 nightly.
-
-TODO (Joshua G-K): Figure out if we should do nightly builds
-or run builds on each PR to main/rel** branches.
 
 #### Deployment Tests
 

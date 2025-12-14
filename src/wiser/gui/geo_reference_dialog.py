@@ -66,8 +66,6 @@ class COLUMN_ID(IntEnum):
     REMOVAL_COL = 9
 
 
-ID_PROPERTY = "ENTRY_ID"
-
 RESAMPLE_ALGORITHMS = {name: getattr(gdal, name) for name in dir(gdal) if name.startswith("GRA_")}
 
 
@@ -86,7 +84,11 @@ min_points_per_transform = {
 }
 
 
-class GeneralCRS:
+class GeneralCRS(ABC):
+    """
+    The base class representing a generic coordinate reference system
+    """
+
     def get_osr_crs(self) -> Optional[osr.SpatialReference]:
         """
         Gets a osr.SpatialReference object for this class
@@ -98,6 +100,11 @@ class GeneralCRS:
 
 
 class AuthorityCodeCRS(GeneralCRS):
+    """
+    This class represents a coordinate reference system that is made
+    from just the autority name and the authority code.
+    """
+
     def __init__(self, authority_name: str, authority_code: int):
         self.authority_name = authority_name
         self.authority_code = authority_code
@@ -116,6 +123,11 @@ class AuthorityCodeCRS(GeneralCRS):
 
 
 class UserGeneratedCRS(GeneralCRS):
+    """
+    This class represents a CRS that the user made in the
+    reference_creator_dialog
+    """
+
     def __init__(self, name: str, crs: osr.SpatialReference):
         self._name = name
         self._crs = crs
@@ -125,6 +137,10 @@ class UserGeneratedCRS(GeneralCRS):
 
 
 class WktGeneratedCRS(GeneralCRS):
+    """
+    A coordinate reference system generated from a wkt string
+    """
+
     def __init__(self, name: str, wkt: str):
         self._name = name
         self._wkt = wkt
@@ -144,6 +160,11 @@ COMMON_SRS = {
 
 
 class GeoRefTableEntry:
+    """
+    This class contains all the information needed to populate a row in the
+    geo reference table.
+    """
+
     def __init__(
         self,
         gcp_pair: GroundControlPointPair,
@@ -222,13 +243,16 @@ class GeoRefTableEntry:
 
 
 class NumericDelegate(QStyledItemDelegate):
+    """
+    A simple class for validating float inputs to QLineEdits
+    """
+
     def __init__(self, parent=None, minimum=0.0):
         super().__init__(parent)
         self._minimum = minimum
 
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
-        # allow e.g. floats ≥0 with up to 10 decimals
         validator = QDoubleValidator(self._minimum, 1e10, 15, editor)
         validator.setNotation(QDoubleValidator.StandardNotation)
         editor.setValidator(validator)
@@ -252,6 +276,7 @@ class GeoReferencerDialog(QDialog):
         self._target_cbox = self._ui.cbox_target_dataset_chooser
         self._reference_cbox = self._ui.cbox_reference_dataset_chooser
 
+        # Create the GeoReferencePanes that the user will see
         self._target_rasterpane = GeoReferencerPane(
             app_state=app_state, pane_type=PointSelectorType.TARGET_POINT_SELECTOR
         )
@@ -261,6 +286,8 @@ class GeoReferencerDialog(QDialog):
         self._georeferencer_task_delegate = GeoReferencerTaskDelegate(
             self._target_rasterpane, self._reference_rasterpane, self, app_state
         )
+        # Hook up the task delegate to each pane so it can handle the logic
+        # for the user adding gcps
         self._target_rasterpane.set_task_delegate(self._georeferencer_task_delegate)
         self._reference_rasterpane.set_task_delegate(self._georeferencer_task_delegate)
 
@@ -313,7 +340,7 @@ class GeoReferencerDialog(QDialog):
         self._init_manual_ref_crs_finder()
         self._init_manual_ref_point_enter()
         self._init_warp_button()
-        self._update_manual_ref_chooser_display(None)
+        self._show_manual_ref_chooser_display(True)
         self._init_help_button()
         self._init_gcp_io_buttons()
 
@@ -373,7 +400,7 @@ class GeoReferencerDialog(QDialog):
 
         srs_to_choose_cbox.activated.connect(self._on_switch_chosen_ref_srs)
 
-        # initialize the find button
+        # Initialize the find button
         find_crs_btn = self._ui.btn_find_crs
         find_crs_btn.clicked.connect(self._on_find_crs)
 
@@ -381,7 +408,7 @@ class GeoReferencerDialog(QDialog):
         make_into_help_button(
             self._ui.tbtn_help,
             "https://ehlmann-research-group.github.io/WISER-UserManual/Georeferencer/#reference-system-information",
-            "Get help on reference systems",
+            "Learn more about reference systems",
         )
 
     def _update_ref_crs_cbox_items(self):
@@ -393,19 +420,20 @@ class GeoReferencerDialog(QDialog):
         for name, (srs, _) in self._app_state.get_user_created_crs().items():
             srs_to_choose_cbox.addItem(name, UserGeneratedCRS(name, srs))
 
-    def _update_manual_ref_chooser_display(self, dataset: Optional[RasterDataSet]):
+    def _show_manual_ref_chooser_display(self, show_manual_chooser: bool):
         """
-        We want to enable this when no data is selected and disable this when data is selected
+        Shows the manual reference chooser UI if there is no dataset passed in. Shows
+        the reference dataset if there is a dataset passed in.
         """
         if self._manual_entry_spacer is None:
             self._manual_entry_spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        if dataset is None:
+        if show_manual_chooser:
             # We want to make sure the manual chooser is being shown
             self._ui.widget_manual_entry.show()
             self._ui.widget_ref_image.hide()
             self._add_manual_spacer_once()
         else:
-            # We want to make sure it is not being shown
+            # We want to make sure the manual reference chooser is not being shown
             self._ui.widget_manual_entry.hide()
             self._ui.widget_ref_image.show()
             self._ui.vlayout_reference.removeItem(self._manual_entry_spacer)
@@ -639,6 +667,9 @@ class GeoReferencerDialog(QDialog):
             self._update_panes()
 
     def _on_save_gcps_clicked(self, checked: bool):
+        """
+        Save GCPs either as a QGIS or ENVI gcp file format
+        """
         if not self._table_entry_list:
             QMessageBox.information(self, "No GCPs", "There are no ground-control points to save.")
             return
@@ -764,6 +795,10 @@ class GeoReferencerDialog(QDialog):
         self._add_srs_to_ref_choose_cbox(srs_name, AuthorityCodeCRS(authority_str, float(authority_code)))
 
     def _on_cell_changed(self, row: int, col: int):
+        """
+        Correctly syncs self._table_entry_list with changes to the GUI table
+        then calls the georeference function with this updated _table_entry_list
+        """
         table_widget = self._ui.table_gcps
         if self._suppress_cell_changed:
             return
@@ -880,6 +915,9 @@ class GeoReferencerDialog(QDialog):
         self._georeference()
 
     def _on_choose_default_color(self):
+        """
+        Changes the default color of the already added points.
+        """
         color = QColorDialog.getColor(parent=self, initial=self._initial_default_color)
         if color.isValid():
             color_str = color.name()
@@ -893,6 +931,15 @@ class GeoReferencerDialog(QDialog):
             self._update_panes()
 
     def _on_choose_color(self, table_entry: GeoRefTableEntry):
+        """
+        Chooses color for a specific row in the table.
+
+        Parameters
+        ----------
+        - table_entry: GeoRefTableEntry
+            Our internal representation of the row whose color we
+            want to change
+        """
         row = table_entry.get_id()
         initial_color = QColor(self._table_entry_list[row].get_color())
         color = QColorDialog.getColor(parent=self, initial=initial_color)
@@ -903,6 +950,10 @@ class GeoReferencerDialog(QDialog):
             self._update_panes()
 
     def _on_enabled_clicked(self, table_entry: GeoRefTableEntry, checked: bool):
+        """
+        This enables or disables a row in the table, making the GCPs in that row
+        not used for calculation
+        """
         # Since the table_entry's ID can change, don't just pass in the row_to_add
         row_to_add = table_entry.get_id()
         self._set_row_enabled_state(row_to_add, checked)
@@ -925,6 +976,9 @@ class GeoReferencerDialog(QDialog):
         self._georeference()
 
     def _on_removal_button_clicked(self, table_entry: GeoRefTableEntry):
+        """
+        Removes an row from the table
+        """
         self._remove_table_entry(table_entry)
         self._georeference()
 
@@ -1010,17 +1064,22 @@ class GeoReferencerDialog(QDialog):
             pass
         self._reference_rasterpane.show_dataset(dataset)
         self._update_output_srs_cbox_items()
-        self._update_manual_ref_chooser_display(dataset)
+        self._show_manual_ref_chooser_display(False)
         self._prev_ref_dataset_index = self._reference_cbox.currentIndex()
 
     # region Helpers
 
-    def compare_srs_lenient(self, srs1: osr.SpatialReference, srs2: osr.SpatialReference):
+    def compare_srs_lenient(
+        self,
+        srs1: osr.SpatialReference,
+        srs2: osr.SpatialReference,
+    ):
         """
-        Compares srs1 and srs2, but first puts them to WKT, then reimports them as an osr.SpatialReference.
-        We do this because sometimes srs's are the same but because of how they were imported, some
-        less-important meta data may have been lost. We get rid of this meta data for both srs's by
-        using this function
+        Compares srs1 and srs2, but first puts them to WKT, then reimports them as
+        an osr.SpatialReference. We do this because sometimes srs's are the same
+        but because of how they were imported, some less-important meta data may
+        have been lost. We get rid of this meta data for both srs's by using this
+        function.
         """
         wkt_1 = srs1.ExportToWkt()
         wkt_2 = srs2.ExportToWkt()
@@ -1033,20 +1092,38 @@ class GeoReferencerDialog(QDialog):
 
         return srs1_clone.IsSame(srs2_clone)
 
-    def load_gcps_and_srs(self, gcp_points: List[Tuple[float, float, float, float]], gcp_srs: GeneralCRS):
+    def load_gcps_and_srs(
+        self,
+        gcp_points: List[Tuple[float, float, float, float]],
+        gcp_srs: GeneralCRS,
+    ):
         """
-        Loads the gcps in with the specified srs
+        Adds a list of GCPs that are each represented by (map_x, map_y, pix_x, pix_y)
+        into the table with the specified spatial reference system. This ensures
+        that the GCPs are correctly drawn onto the target dataset and reference
+        dataset.
+
+        Parameters
+        ----------
+        - gcp_points
+            A list of the GCP pairs. The first two floats are the spatial
+            coordinates (X, Y) of the point. The second two points are the
+            raster coordinates of the point (X, Y) in the target datasets frame.
+
+        - gcp_srs
+            The spatial reference system that we give the GCPs
         """
+        # Without the target dataset, we can't do anything. But we can still
+        # add GCP points if we don't have the reference dataset
         target_ds = self._get_target_dataset()
         if target_ds is None:
             return
-
         ref_ds = self._get_ref_dataset()
 
         skipped_gcps = []
         if ref_ds is not None and self.compare_srs_lenient(gcp_srs.get_osr_crs(), ref_ds.get_spatial_ref()):
             for map_x, map_y, pix_x, pix_y in gcp_points:
-                # Verify pixel-within-images
+                # Verify that the GCP is inside of the target dataset
                 if not (0 <= pix_x < target_ds.get_width() and 0 <= pix_y < target_ds.get_height()):
                     skipped_gcps.append(
                         (
@@ -1054,9 +1131,11 @@ class GeoReferencerDialog(QDialog):
                             "Target GCP Pixel is outside of target dataset's raster bounds.",
                         )
                     )
-                    # self.set_message_text("Skipped one GCP: target pixel outside image bounds.")
                     continue
+                # Transform the spatial coordinats to pixel coordinates in the reference dataset's
+                # frame
                 ref_px = ref_ds.geo_to_pixel_coords_exact((map_x, map_y))
+                # Ensure the pixel is inside of the reference dataset
                 if ref_px is None or not (
                     0 <= ref_px[0] < ref_ds.get_width() and 0 <= ref_px[1] < ref_ds.get_height()
                 ):
@@ -1073,10 +1152,13 @@ class GeoReferencerDialog(QDialog):
                 pair = GroundControlPointPair(tgt_gcp, ref_gcp)
                 self.gcp_pair_added.emit(pair)
         else:
-            # mismatch – fall back to manual entry mode
+            # Mismatch or no reference dataset – fall back to manual entry mode
+
+            # Set the reference dataset chosen to None and show the manual reference
+            # chooser UI elements
             self._reference_cbox.setCurrentIndex(self._reference_cbox.findData(-1))
-            self._update_manual_ref_chooser_display(None)
-            # Populate the srs in the cbox_choose_crs
+            self._show_manual_ref_chooser_display(True)
+            # Populate the spatial reference system in the cbox_choose_crs
             self._add_srs_to_ref_choose_cbox(gcp_srs.get_osr_crs().GetName(), gcp_srs)
             self.set_message_text(
                 "Reference CRS changed to match GCP file; select each "
@@ -1351,7 +1433,10 @@ class GeoReferencerDialog(QDialog):
         ],
     ):
         """
-        Disable all cells in a given row except for the one columns in the exempt_columns list."
+        This is used to disable a given row so it won't be used for georeferencing.
+        We visually disable the row by disabling all columns in a given row except
+        for the columns in the exempt_columns list. We also set our internal
+        representation of that row (in self._table_entry_list) to disabled.
         """
         table_widget = self._ui.table_gcps
         total_columns = table_widget.columnCount()
@@ -1377,6 +1462,10 @@ class GeoReferencerDialog(QDialog):
         self._table_entry_list[row].set_enabled(row_enabled_state)
 
     def _set_all_residuals_NA(self):
+        """
+        Sets all of the residual values in a row to NA. This is used when
+        there aren't enough points to do georeferencing.
+        """
         table_widget = self._ui.table_gcps
         for row in range(table_widget.rowCount()):
             item = table_widget.item(row, COLUMN_ID.RESIDUAL_X_COL)
@@ -1460,8 +1549,8 @@ class GeoReferencerDialog(QDialog):
     def _remove_table_entry(self, table_entry: GeoRefTableEntry) -> Optional[int]:
         """
         Removes the table entry and returns the index removed. If the table entry
-        is not found in the list, this errors. Table entry
-        equality is done based on memory location.
+        is not found in the list, this errors. Table entry equality is done based
+        on reference.
 
         table_entry.get_id() should be the table entries index in both the
         TableWidget and the _table_entry_list. We uses asserts to ensure this
@@ -1482,49 +1571,21 @@ class GeoReferencerDialog(QDialog):
         table_widget.removeRow(index_removed)
 
         # We must update the entry id's after we remove the rows so that
-        # the table entry's are in their correct rows
+        # the table entries are in their correct rows
         self._update_entry_ids()
         self._update_panes()
 
     def _update_residuals(self, table_entry: GeoRefTableEntry):
+        """
+        Visually update what the residual cell in the table widget says to accurate
+        match the residual values in table_entry.
+        """
         table_widget = self._ui.table_gcps
         row_to_add = table_entry.get_id()
         assert row_to_add < table_widget.rowCount()
 
         residual_x = table_entry.get_residual_x()
         residual_y = table_entry.get_residual_y()
-        res_x_str = "N/A"
-        if residual_x is not None:
-            res_x_str = str(residual_x)
-
-        res_y_str = "N/A"
-        if residual_y is not None:
-            res_y_str = str(residual_y)
-
-        res_x_item = QTableWidgetItem(res_x_str)
-        res_x_item.setFlags(res_x_item.flags() & ~Qt.ItemIsEditable)
-        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_X_COL, res_x_item)
-        res_y_item = QTableWidgetItem(res_y_str)
-        res_y_item.setFlags(res_y_item.flags() & ~Qt.ItemIsEditable)
-        table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, res_y_item)
-
-    def _sync_gcp_table_row_with_table_entry(self, table_entry: GeoRefTableEntry):
-        table_widget = self._ui.table_gcps
-        row_to_add = table_entry.get_id()
-        assert row_to_add < table_widget.rowCount()
-        gcp_pair = table_entry.get_gcp_pair()
-
-        target_x = gcp_pair.get_target_gcp().get_point()[0]
-        target_y = gcp_pair.get_target_gcp().get_point()[1]
-        ref_x, ref_y = gcp_pair.get_reference_gcp_spatial_coord()
-
-        residual_x = table_entry.get_residual_x()
-        residual_y = table_entry.get_residual_y()
-        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_X_COL, QTableWidgetItem(str(target_x)))
-        table_widget.setItem(row_to_add, COLUMN_ID.TARGET_Y_COL, QTableWidgetItem(str(target_y)))
-        table_widget.setItem(row_to_add, COLUMN_ID.REF_X_COL, QTableWidgetItem(str(ref_x)))
-        table_widget.setItem(row_to_add, COLUMN_ID.REF_Y_COL, QTableWidgetItem(str(ref_y)))
-
         res_x_str = "N/A"
         if residual_x is not None:
             res_x_str = str(residual_x)
@@ -1541,6 +1602,11 @@ class GeoReferencerDialog(QDialog):
         table_widget.setItem(row_to_add, COLUMN_ID.RESIDUAL_Y_COL, res_y_item)
 
     def _update_entry_ids(self):
+        """
+        Used to resync the id values that the table entries in self._table_entry_list
+        have with the their position in the list. Also updates the table widget to
+        properly show the new id.
+        """
         table_widget = self._ui.table_gcps
         for i in range(len(self._table_entry_list)):
             table_entry = self._table_entry_list[i]
@@ -1588,6 +1654,9 @@ class GeoReferencerDialog(QDialog):
         self._update_dataset_chooser(self._reference_cbox)
 
     def _update_dataset_chooser(self, dataset_chooser: QComboBox):
+        """
+        Populates the passed in QComboBox with datasets from app_state
+        """
         app_state = self._app_state
 
         num_datasets = app_state.num_datasets()
@@ -1648,7 +1717,8 @@ class GeoReferencerDialog(QDialog):
 
     def _add_srs_to_output_cbox(self, srs_name: str, crs: GeneralCRS):
         """
-        Adds the coordinate reference system that the user found to the choose combo box
+        Adds the coordinate reference system that the user found to the
+        manual reference combo box.
         """
         crs_choose_cbox = self._ui.cbox_srs
         osr_crs = crs.get_osr_crs()
@@ -1708,6 +1778,10 @@ class GeoReferencerDialog(QDialog):
         )
 
     def _get_entry_gcp_list(self) -> List[Tuple[GeoRefTableEntry, gdal.GCP]]:
+        """
+        Goes through all of the rows in the table widget and makes a gdal.GCP object
+        from them so we can pass these into GDAL's georeferencer.
+        """
         gcps: List[Tuple[GeoRefTableEntry, gdal.GCP]] = []
         for table_entry in self._table_entry_list:
             if not table_entry.is_enabled():
@@ -1751,7 +1825,7 @@ class GeoReferencerDialog(QDialog):
         elif self._ui.widget_manual_entry.isVisible():
             return self._get_manual_ref_chosen_crs()
         else:
-            raise RuntimeError("Both the dataset shown is none and the " "manual entry widget is None")
+            raise RuntimeError("Both the dataset shown is none and the manual entry widget is None")
 
     def _georeference(self):
         save_path = self._get_save_file_path()
@@ -1783,12 +1857,16 @@ class GeoReferencerDialog(QDialog):
         assert (
             ref_projection is not None and ref_srs is not None
         ), f"ref_srs ({ref_srs}) or ref_project ({ref_projection}) is None!"
+
+        # We need a temporary gdal dataset so we can calculate the residuals
+        # without making a massive data object
         temp_gdal_ds = None
         place_holder_arr = np.zeros((1, 1), np.uint8)
         temp_gdal_ds: gdal.Dataset = gdal_array.OpenNumPyArray(place_holder_arr, True)
         temp_gdal_ds.SetSpatialRef(ref_srs)
         temp_gdal_ds.SetGCPs([pair[1] for pair in gcps], ref_projection)
 
+        # Set all of the metadata we need to
         self._warp_kwargs = {
             "copyMetadata": True,
             "resampleAlg": self._curr_resample_alg,
@@ -1814,6 +1892,8 @@ class GeoReferencerDialog(QDialog):
         self._warp_kwargs["transformerOptions"] = self._transform_options
 
         try:
+            # This will be used to transform the pixel coordinate to the
+            # output srs coordinate that has undergone the spatial warping
             tr_pixel_to_output_srs: gdal.Transformer = gdal.Transformer(
                 temp_gdal_ds, None, self._transform_options
             )
@@ -1826,6 +1906,10 @@ class GeoReferencerDialog(QDialog):
 
         try:
             # Sneak peek into the transformed dataset's geo transform so we can use them later
+            # when calculating residuals. We don't just use the geotransform here to calculate
+            # residuals because transformed_gt goes from the warped datasets pixel coordinates
+            # to the warped dataset's spatial coordinates. Our GCPs are just in the target
+            # dataset's pixel coordinates and reference srs's spatial coordinates.
             warp_options = gdal.WarpOptions(**self._warp_kwargs)
             warp_save_path = f"/vsimem/temp_band_{0}"
             place_holder_arr = np.zeros((1, 1), np.uint8)
@@ -1834,9 +1918,19 @@ class GeoReferencerDialog(QDialog):
             transformed_ds: gdal.Dataset = gdal.Warp(warp_save_path, temp_gdal_ds, options=warp_options)
             transformed_gt = transformed_ds.GetGeoTransform()
 
+            # The output_srs here is the target spatial reference system (srs). In case
+            # the target srs is different from the reference srs, then we need a way to
+            # go between them.
             tr_output_srs_to_ref_srs = osr.CoordinateTransformation(output_srs, ref_srs)
 
             residuals = []
+            # The general flow of calculating the residuals is to go from our target
+            # dataset's pixel coordinate (gcp.GCPPixel, gcp.GCPLine) to our output
+            # srs coordinates. Then we go from the output srs coordinate to the
+            # reference srs coordinate. We then get the difference in reference srs
+            # coordinates from the original GCP to get the spatial error. Then to make
+            # it a pixel error we divide by the width/height per pixel of the warped
+            # dataset's geo transform.
             for entry, gcp in gcps:
                 # These coordinates could get back to us in either lat/lon, lon/lat,
                 # or north/easting, easting/north
@@ -1851,34 +1945,16 @@ class GeoReferencerDialog(QDialog):
                     output_spatial_x, output_spatial_y, 0
                 )
 
-                # print(f"output_spatial_x: {output_spatial_x}")
-                # print(f"output_spatial_y: {output_spatial_y}")
-
                 ref_spatial_x, ref_spatial_y = (
                     ref_spatial_coord[0],
                     ref_spatial_coord[1],
                 )
 
-                # print(f"reference_spatial_x: {ref_spatial_x}")
-                # print(f"reference_spatial_y: {ref_spatial_y}")
-
-                # print(f"gcp.GCPX: {gcp.GCPX}")
-                # print(f"gcp.GCPY: {gcp.GCPY}")
-
                 error_spatial_x = gcp.GCPX - ref_spatial_x
                 error_spatial_y = gcp.GCPY - ref_spatial_y
 
-                # print(f"error_spatial_x: {error_spatial_x}")
-                # print(f"error_spatial_y: {error_spatial_y}")
-
-                # print(f"transformed_gt[1]: {transformed_gt[1]}")
-                # print(f"transformed_gt[5]: {transformed_gt[5]}")
-
                 error_raster_x = error_spatial_x / transformed_gt[1]
                 error_raster_y = error_spatial_y / transformed_gt[5]
-
-                # print(f"error_raster_x: {error_raster_x}")
-                # print(f"error_raster_y: {error_raster_y}")
 
                 entry.set_residual_x(round(error_raster_x, 6))
                 entry.set_residual_y(round(error_raster_y, 6))
@@ -1949,11 +2025,11 @@ class GeoReferencerDialog(QDialog):
 
             self.set_message_text(self.tr("Starting warp..."))
 
-            # I warp one band of the input dataset to a virtual memory file,
-            # so I can create the correct output data size.
-            # Then I create the output dataset with width and height equal to the warp,
-            # but correct number of bands
-            # Then I override each band in the created array and flush cache
+            # We warp one band of the input dataset to a virtual memory file,
+            # so we can create the correct output data size.
+            # Then we create the output dataset with width and height equal to the warp,
+            # but correct number of bands.
+            # Then we override each band in the created array and flush cache.
             output_size: Tuple[int, int] = None
             output_dataset: gdal.Dataset = None
             driver: gdal.Driver = gdal.GetDriverByName("GTiff")
@@ -2052,11 +2128,6 @@ class GeoReferencerDialog(QDialog):
                         transformed_ds.ReadAsArray(),
                         gdal_dtype,
                     )
-
-                    # print(
-                    #     f"Warping bands: {min(band_list_index)} to {max(band_list_index)} "
-                    #     f"out of {target_dataset.num_bands()}"
-                    # )
 
                     gdal.Unlink(warp_save_path)
                     transformed_ds = None

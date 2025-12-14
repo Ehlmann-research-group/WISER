@@ -73,6 +73,12 @@ A utility for plugin developers to use to easily collect user input through a GU
 .. autoclass:: wiser.gui.ui_library.DynamicInputDialog
     :members:
 
+DynamicInputType
+----------------
+.. autoclass:: wiser.gui.ui_library.DynamicInputType
+    :members:
+    :undoc-members:
+
 TableDisplayWidget
 ------------------
 
@@ -82,7 +88,7 @@ A utility for plugin developers to easily display information in a table.
     :members:
 
 MatplotlibDisplayWidget
-------------------
+-----------------------
 
 A utility for plugin developers to easily display matplotlib plots.
 

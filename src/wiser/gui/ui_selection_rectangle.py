@@ -164,10 +164,6 @@ class RectangleSelectionEditor(TaskDelegate):
 
     def _pick_control_point(self, p):
         for idx, cp in enumerate(self._control_points):
-            # TODO(donnie):  May be too difficult to pick control-points if we
-            #     only check equality, not "is this point within a certain
-            #     distance".  Note that this picking occurs within data-set
-            #     coordinate space.
             if manhattan_distance(p, cp) <= 2:
                 return idx
 

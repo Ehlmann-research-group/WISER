@@ -14,7 +14,7 @@ main Tool Menu concise and easy to navigate.
 Example Tools-Menu Plugin
 -------------------------
 
-Okay, lets get into an example plugin.
+Okay, lets see an example plugin.
 
 .. literalinclude:: ../../src/example_plugins/tool_plugin.py
    :language: python

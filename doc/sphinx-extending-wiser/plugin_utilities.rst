@@ -91,6 +91,8 @@ plot a list of spectra in a spectrum plot. Here is an example of its use:
 
 .. code-block:: python
 
+        self._app_state = wiser
+
         test_spectrum_y = np.array(
             [
                 0.25744912028312683,

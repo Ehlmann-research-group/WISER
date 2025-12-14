@@ -20,6 +20,7 @@ Extending WISER
     plugin_dependencies
     wiser_state
     supporting_types
+    more_example_plugins
 
 
 Indices and tables
