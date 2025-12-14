@@ -3,6 +3,9 @@ import unittest
 import tests.context
 
 from wiser import bandmath
+import pytest
+
+pytestmark = [pytest.mark.unit]
 
 
 class TestBandmathParser(unittest.TestCase):

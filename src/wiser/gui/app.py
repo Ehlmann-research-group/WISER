@@ -76,6 +76,7 @@ from wiser.raster.data_cache import DataCache
 from test_utils.test_event_loop_functions import TestingWidget
 
 from wiser.gui.permanent_plugins.continuum_removal_plugin import ContinuumRemovalPlugin
+from wiser.gui.permanent_plugins.pca_plugin import PCAPlugin
 from wiser.gui.parallel_task import ParallelTaskProcess
 from wiser.gui.spectral_angle_mapper_tool import SAMTool
 from wiser.gui.spectral_feature_fitting_tool import SFFTool
@@ -226,18 +227,15 @@ class DataVisualizerApp(QMainWindow):
         self._zoom_pane.display_bands_change.connect(self._on_display_bands_change)
         self._zoom_pane.roi_selection_changed.connect(self._on_roi_selection_changed)
 
-        # =======================================
         # EVENTS
 
         self._app_state.dataset_added.connect(self._on_dataset_added)
         self._app_state.dataset_removed.connect(self._on_dataset_removed)
 
-        # =======================================
         # TESTING ITEMS
 
         self._invisible_testing_widget = TestingWidget()
 
-        # =======================================
         # GUI PIECES WITH PERSISTENCE
         self._bandmath_dialog: BandMathDialog = None
         self._geo_ref_dialog: GeoReferencerDialog = None
@@ -398,7 +396,7 @@ class DataVisualizerApp(QMainWindow):
 
         # Permanent plugins (we keep them as plugins so future users can see how
         # cool plugins are made)
-        permanent_plugins = [("ContinuumRemovalPlugin", ContinuumRemovalPlugin())]
+        permanent_plugins = [("ContinuumRemovalPlugin", ContinuumRemovalPlugin()), ("PCAPlugin", PCAPlugin())]
         for pc_name, plugin_class in permanent_plugins:
             logger.debug(f'Instantiating plugin class "{pc_name}"')
             if not plugins.utils.is_plugin(plugin_class):

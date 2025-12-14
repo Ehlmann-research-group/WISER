@@ -29,6 +29,7 @@ FILENAMES=\
 	import_spectra_text_ui.py \
 	import_wavelengths_ui.py \
 	interactive_scatter_plot_ui.py \
+	pca_dialog_ui.py \
 	reference_system_creator_ui.py \
 	roi_info_editor_ui.py \
 	save_dataset_advanced_details_ui.py \

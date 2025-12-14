@@ -27,28 +27,91 @@ class HelloContextPlugin(ContextMenuPlugin):
         add sub-menus to the Tools menu.
         """
         if context_type == ContextMenuType.RASTER_VIEW:
-            # Context-menu display in a raster-view, which probably is showing a
-            # dataset.  The current dataset is passed to the plugin.
+            """
+            Context-menu display in a raster-view, which probably is showing a
+            dataset.  The current dataset is passed to the plugin.
+
+            Example code to get all necessary pieces of data for this context_type:
+            ```python
+            # A RasterDataSet object
+            dataset = context["dataset"]
+            # A 3 or 1 tuple of integers
+            display_bands = context["display_bands"]
+            # Every context_type has the app_state in the "wiser" key
+            app_state = context["wiser"]
+            ```
+            """
             pass
 
         elif context_type == ContextMenuType.SPECTRUM_PLOT:
-            # Context-menu display in the spectrum-plot window.
+            """
+            Context-menu display in the spectrum-plot window.
+            
+            While this context_type makes the context dict have
+            no additional keys, we stil have the app_state key:
+
+            Example code to get all necessary pieces of data for this context_type:
+            ```python
+            # Every context_type has the app_state in the "wiser" key
+            app_state = context["wiser"]
+            ```
+            """
             pass
 
         elif context_type == ContextMenuType.DATASET_PICK:
-            # A specific dataset was picked.  This may not be in the context of
-            # a raster-view window, e.g. if the user right-clicks on a dataset
-            # in the info viewer.
+            """
+            A specific dataset was picked.  This may not be in the context of
+            a raster-view window, e.g. if the user right-clicks on a dataset
+            in the info viewer.
+            
+            Example code to get all necessary pieces of data for this context_type:
+            ```python
+            # A RasterDataSet object
+            dataset = context["dataset"]
+            # A 3 or 1 tuple of integers
+            display_bands = context["display_bands"]
+            # An (int, int) tuple of the clicked pixel in the dataset above
+            ds_coord = context["ds_coord"]
+            # Every context_type has the app_state in the "wiser" key
+            app_state = context["wiser"]
+            ```
+            """
             pass
 
         elif context_type == ContextMenuType.SPECTRUM_PICK:
-            # A specific spectrum was picked.  The spectrum is passed to the
-            # plugin.
+            """
+            A specific spectrum was picked.  The spectrum is passed to the
+            plugin.
+            
+            Example code to get all necessary pieces of data for this context_type:
+            ```python
+            # A Spectrum object
+            spectrum = context["spectrum"]
+            # Every context_type has the app_state in the "wiser" key
+            app_state = context["wiser"]
+            ```
+            """
             pass
 
         elif context_type == ContextMenuType.ROI_PICK:
-            # A specific ROI was picked.  The ROI is passed, along with the
-            # current dataset (if available).
+            """
+            A specific ROI was picked.  The ROI is passed, along with the
+            current dataset (if available).
+            
+            Example code to get all necessary pieces of data for this context_type:
+            ```python
+            # A RasterDataSet object
+            dataset = context["dataset"]
+            # A 3 or 1 tuple of integers
+            display_bands = context["display_bands"]
+            # A RegionOfInterest object that was picked by the user
+            roi = context["roi"]
+            # An (int, int) tuple of the clicked pixel in the dataset above
+            ds_coord = context["ds_coord"]
+            # Every context_type has the app_state in the "wiser" key
+            app_state = context["wiser"]
+            ```
+            """
             pass
 
         else:

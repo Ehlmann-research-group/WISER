@@ -18,7 +18,7 @@ IDENT="${AD_CODESIGN_KEY_NAME}"
 ENTITLEMENTS="install-mac/entitlements.plist"
 
 echo "▶︎ Signing leaf binaries (dylib, so, exec)…"
-find "$APP/Contents" -type f \( -name '*.dylib' -o -name '*.so' -o -perm -111 \) |
+find "$APP/Contents" -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 |
 while read -r BIN; do
   if file "$BIN" | grep -q 'Mach-O'; then
     codesign --force --options runtime --timestamp \

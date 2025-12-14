@@ -302,30 +302,49 @@ class ScatterPlot2DDialog(QDialog):
         cbox_x_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
             cbox_x_dataset.addItem(dataset.get_name(), dataset.get_id())
-        cbox_x_dataset.currentIndexChanged.connect(lambda checked: self._on_cbox_dataset_changed())
+        cbox_x_dataset.currentIndexChanged.connect(lambda checked: self._on_cbox_dataset_x_changed())
 
         cbox_y_dataset.clear()
         cbox_y_dataset.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
             cbox_y_dataset.addItem(dataset.get_name(), dataset.get_id())
-        cbox_y_dataset.currentIndexChanged.connect(lambda checked: self._on_cbox_dataset_changed())
+        cbox_y_dataset.currentIndexChanged.connect(lambda checked: self._on_cbox_dataset_y_changed())
 
         cbox_render_ds.clear()
         cbox_render_ds.addItem(self.tr("(no data)"), -1)
         for dataset in datasets:
             cbox_render_ds.addItem(dataset.get_name(), dataset.get_id())
 
-        self._sync_band_choosers()
+        self._sync_band_chooser_x()
+        self._sync_band_chooser_y()
 
-    def _sync_band_choosers(self):
-        """Synchronizes the band choosers for the x and y axes with
-        the datasets chosen for the x and y axes.
-        """
         cbox_x_band = self._ui.cbox_x_band
         spin_box_x_band = self._ui.sbox_x_band_number
 
         cbox_y_band = self._ui.cbox_y_band
         spin_box_y_band = self._ui.sbox_y_band_number
+        # Keeps the combo box and spin box in sync
+        cbox_x_band.currentIndexChanged.connect(
+            lambda checked: self._combo_box_changed(cbox_x_band, spin_box_x_band)
+        )
+        spin_box_x_band.valueChanged.connect(
+            lambda checked: self._spin_box_changed(cbox_x_band, spin_box_x_band)
+        )
+
+        # Keeps the combo box and spin box in sync
+        cbox_y_band.currentIndexChanged.connect(
+            lambda checked: self._combo_box_changed(cbox_y_band, spin_box_y_band)
+        )
+        spin_box_y_band.valueChanged.connect(
+            lambda checked: self._spin_box_changed(cbox_y_band, spin_box_y_band)
+        )
+
+    def _sync_band_chooser_x(self):
+        """Synchronizes the band choosers for the x axis with
+        the datasets chosen for the x axis.
+        """
+        cbox_x_band = self._ui.cbox_x_band
+        spin_box_x_band = self._ui.sbox_x_band_number
 
         x_dataset_id = self._ui.cbox_x_dataset.currentData()
         if self._app_state.has_dataset(x_dataset_id):
@@ -349,6 +368,13 @@ class ScatterPlot2DDialog(QDialog):
         else:
             cbox_x_band.clear()
 
+    def _sync_band_chooser_y(self):
+        """Synchronizes the band choosers for the y axis with
+        the datasets chosen for the y axis.
+        """
+        cbox_y_band = self._ui.cbox_y_band
+        spin_box_y_band = self._ui.sbox_y_band_number
+
         y_dataset_id = self._ui.cbox_y_dataset.currentData()
         if self._app_state.has_dataset(y_dataset_id):
             dataset = self._app_state.get_dataset(y_dataset_id)
@@ -370,22 +396,6 @@ class ScatterPlot2DDialog(QDialog):
             spin_box_y_band.setRange(0, len(band_descriptions) - 1)
         else:
             cbox_y_band.clear()
-
-        # Keeps the combo box and spin box in sync
-        cbox_x_band.currentIndexChanged.connect(
-            lambda checked: self._combo_box_changed(cbox_x_band, spin_box_x_band)
-        )
-        spin_box_x_band.valueChanged.connect(
-            lambda checked: self._spin_box_changed(cbox_x_band, spin_box_x_band)
-        )
-
-        # Keeps the combo box and spin box in sync
-        cbox_y_band.currentIndexChanged.connect(
-            lambda checked: self._combo_box_changed(cbox_y_band, spin_box_y_band)
-        )
-        spin_box_y_band.valueChanged.connect(
-            lambda checked: self._spin_box_changed(cbox_y_band, spin_box_y_band)
-        )
 
     def _check_bands(self) -> bool:
         """Checks to make sure we have valid bands for the x and y axes."""
@@ -473,8 +483,11 @@ class ScatterPlot2DDialog(QDialog):
     def _on_dataset_removed(self, ds_id: int):
         self._init_band_dataset_choosers()
 
-    def _on_cbox_dataset_changed(self):
-        self._sync_band_choosers()
+    def _on_cbox_dataset_x_changed(self):
+        self._sync_band_chooser_x()
+
+    def _on_cbox_dataset_y_changed(self):
+        self._sync_band_chooser_y()
 
     def _colormap_chooser(self):
         dialog_cmap_chooser = QDialog(self)
@@ -698,7 +711,6 @@ class ScatterPlot2DDialog(QDialog):
         spin: PySide2.QtWidgets.QAbstractSpinBox.QSpinBox
             Editable spin box that has a range of all available band numbers
         """
-
         idx = combo.currentIndex()
         spin.setValue(idx)
 
@@ -712,7 +724,6 @@ class ScatterPlot2DDialog(QDialog):
         spin: PySide2.QtWidgets.QAbstractSpinBox.QSpinBox
             Editable spin box that has a range of all available band numbers
         """
-
         idx = spin.value()
         combo.setCurrentIndex(idx)
 
@@ -870,12 +881,6 @@ class ScatterPlot2DDialog(QDialog):
         density = ax.scatter_density(x, y, cmap=colormap[1])
         x_range = max(self._x_max - self._x_min, 0)
         y_range = max(self._y_max - self._y_min, 0)
-        print(f"x_range: {x_range}")
-        print(f"y_range: {y_range}")
-        print(f"self._x_min: {self._x_min}")
-        print(f"self._x_max: {self._x_max}")
-        print(f"self._y_min: {self._y_min}")
-        print(f"self._y_max: {self._y_max}")
         ax.set_xlim(self._x_min - x_range / 10, self._x_max + x_range / 10)
         ax.set_ylim(self._y_min - y_range / 10, self._y_max + y_range / 10)
         fig.colorbar(density, label="Number of points per spectral value")
@@ -904,12 +909,6 @@ class ScatterPlot2DDialog(QDialog):
         ax.scatter(x, y, s=1, c="#1f77b4", alpha=0.6, linewidths=0)
         x_range = max(self._x_max - self._x_min, 0)
         y_range = max(self._y_max - self._y_min, 0)
-        print(f"x_range: {x_range}")
-        print(f"y_range: {y_range}")
-        print(f"self._x_min: {self._x_min}")
-        print(f"self._x_max: {self._x_max}")
-        print(f"self._y_min: {self._y_min}")
-        print(f"self._y_max: {self._y_max}")
         ax.set_xlim(self._x_min - x_range / 10, self._x_max + x_range / 10)
         ax.set_ylim(self._y_min - y_range / 10, self._y_max + y_range / 10)
 

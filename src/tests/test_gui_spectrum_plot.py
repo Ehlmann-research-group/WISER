@@ -4,6 +4,13 @@ from PySide2.QtCore import *
 import tests.context
 from wiser.gui.spectrum_plot import generate_ticks
 
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+    pytest.mark.unit,
+]
+
 
 class TestGuiSpectrumPlot(unittest.TestCase):
     """

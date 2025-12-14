@@ -8,6 +8,8 @@ import numpy as np
 import astropy.units as u
 
 from test_utils.test_model import WiserTestModel
+from test_utils.test_arrays import sam_sff_arr_reg
+
 from wiser.raster.dataset import (
     RasterDataSet,
     RasterDataBand,
@@ -15,6 +17,12 @@ from wiser.raster.dataset import (
     RasterDataDynamicBand,
 )
 from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
+
+import pytest
+
+pytestmark = [
+    pytest.mark.smoke,
+]
 
 
 class TestDataSerialization(unittest.TestCase):
@@ -44,6 +52,19 @@ class TestDataSerialization(unittest.TestCase):
 
         reconstructed_dataset: RasterDataSet = serializedForm.get_serializable_class().deserialize_into_class(
             serializedForm.get_serialize_value(), serializedForm.get_metadata()
+        )
+
+        assert reconstructed_dataset.is_metadata_same(
+            ds
+        ), "The reconstructed dataset has different metadata from the original dataset"
+
+    def test_numpy_dataset_serialization(self):
+        arr = sam_sff_arr_reg
+        ds = self.test_model.load_dataset(arr)
+        serialized_ds = ds.get_serialized_form()
+
+        reconstructed_dataset: RasterDataSet = serialized_ds.get_serializable_class().deserialize_into_class(
+            serialized_ds.get_serialize_value(), serialized_ds.get_metadata()
         )
 
         assert reconstructed_dataset.is_metadata_same(

@@ -53,3 +53,44 @@ A spectrum may be constructed from a NumPy array using the
 
 .. autoclass:: wiser.raster.NumPyArraySpectrum
     :members:
+
+
+Region Of Interest
+------------------
+
+A region of interest that is draw on the screen is represented by the ``Region Of Interest``
+class.
+
+.. autoclass:: wiser.raster.RegionOfInterest
+    :members:
+    :undoc-members:
+
+DynamicInputDialog
+------------------
+
+A utility for plugin developers to use to easily collect user input through a GUI.
+
+.. autoclass:: wiser.gui.ui_library.DynamicInputDialog
+    :members:
+
+DynamicInputType
+----------------
+.. autoclass:: wiser.gui.ui_library.DynamicInputType
+    :members:
+    :undoc-members:
+
+TableDisplayWidget
+------------------
+
+A utility for plugin developers to easily display information in a table.
+
+.. autoclass:: wiser.gui.ui_library.TableDisplayWidget
+    :members:
+
+MatplotlibDisplayWidget
+-----------------------
+
+A utility for plugin developers to easily display matplotlib plots.
+
+.. autoclass:: wiser.gui.ui_library.MatplotlibDisplayWidget
+    :members:

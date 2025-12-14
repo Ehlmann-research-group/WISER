@@ -17,8 +17,6 @@ from .dataset_impl import (
     NumPyRasterDataImpl,
     ENVI_GDALRasterDataImpl,
     NetCDF_GDALRasterDataImpl,
-    GTiff_GDALRasterDataImpl,
-    PDS4_GDALRasterDataImpl,
     JP2_GDAL_PDR_RasterDataImpl,
 )
 from .utils import (
@@ -208,7 +206,7 @@ class SpatialMetadata:
             and self._wkt_spatial_reference == other._wkt_spatial_reference
         )
 
-    def get_wkt_spatial_reference(self) -> str:
+    def get_wkt_spatial_reference(self) -> Optional[str]:
         return self._wkt_spatial_reference
 
     def __str__(self):
@@ -336,7 +334,7 @@ class SpectralMetadata:
     def get_has_wavelengths(self) -> bool:
         return self._has_wavelengths
 
-    def get_wavelengths(self) -> List[u.Quantity]:
+    def get_wavelengths(self) -> Optional[List[u.Quantity]]:
         return self._wavelengths
 
     def get_wavelength_units(self) -> u.Unit:
@@ -676,7 +674,9 @@ class RasterDataSet(Serializable):
         Returns the units used for all bands' wavelengths, or ``None`` if bands
         do not specify units.
         """
-        return self._impl.read_band_unit()
+        if self._band_info[0].get("wavelength") is None:
+            return None
+        return self._band_info[0]["wavelength"].unit
 
     def band_list(self) -> List[Dict[str, Any]]:
         """
@@ -702,12 +702,59 @@ class RasterDataSet(Serializable):
         """
         return self._band_info
 
+    def set_band_list(self, band_list: List[Dict[str, Any]]):
+        """
+        This should ONLY be used for datasets that have NumPyRasterDataImpl as
+        their impl type. This can be VERY destructive to metadata for other
+        impl dataset types. Use with caution!
+
+        Args:
+            band_list (List[Dict[str, Any]]):
+                band_list should contain at least one of these keys:
+                *   'index' - the integer index of the band (always present)
+                *   'description' - the string description of the band
+                *   'wavelength' - a value-with-units for the spectral wavelength of
+                    the band.  astropy.units is used to represent the values-with-units.
+                *   'wavelength_str' - the string version of the band's wavelength
+                *   'wavelength_units' - the string version of the band's
+                    wavelength-units value
+        """
+        self._band_info = copy.deepcopy(band_list)
+        self._has_wavelengths = self._compute_has_wavelengths()
+
+    def set_band_descriptions(self, band_descriptions: List[str]):
+        """
+        This sets just the band description for all the bands in the dataset
+        based on what is in band_descriptions list.
+        """
+        assert len(band_descriptions) == len(self._band_info), (
+            "Passed in band_descriptions must be the same length" " as dataset's _band_info"
+        )
+        for i in range(len(band_descriptions)):
+            b = self._band_info[i]
+            b["description"] = band_descriptions[i]
+
+    def set_band_unit(self, unit: u.Unit):
+        """
+        This should ONLY be used for datasets that have NumPyRasterDataImpl as
+        their impl type. This can be destructive to metadata for other
+        impl dataset types. Use with caution!
+        """
+        self._band_unit = unit
+
     def has_wavelengths(self):
         """
         Returns ``True`` if all bands specify a wavelength (or some other unit
         that can be converted to wavelength); otherwise, returns ``False``.
         """
         return self._has_wavelengths
+
+    def get_wavelengths(self) -> Optional[List[u.Quantity]]:
+        """
+        Returns the wavelengths of the dataset if it has wavelengths.
+        """
+        if self.has_wavelengths():
+            return [b["wavelength"] for b in self._band_info]
 
     def default_display_bands(self) -> Optional[DisplayBands]:
         """
@@ -1201,10 +1248,13 @@ class RasterDataSet(Serializable):
     def determine_link_state(self, dataset: "RasterDataSet") -> GeographicLinkState:
         """
         Tests to see if the passed in dataset is compatible to link with the current dataset
+
+        Args:
+            dataset (RasterDataSet):
+                The dataset that we want to determine our dataset's link state with
+
         Returns:
-            0 is no link,
-            1 is pixel link,
-            2 is spatial link
+            GeographicLinkState: 0 is no link, 1 is pixel link, 2 is spatial link
         """
         ds0_dim = (self.get_width(), self.get_height())
         ds_dim = (dataset.get_width(), dataset.get_height())
@@ -1412,16 +1462,18 @@ class RasterDataSet(Serializable):
         dataset_serialize_value: Union[str, np.ndarray], dataset_metadata: Dict
     ) -> "RasterDataSet":
         """
-        We need to properly open up the dataset, if it is a subdataset, then we need to properly
-        open that subdataset.
+        We need to properly open up the dataset, if it is a subdataset, then we need
+        to properly open that subdataset.
 
         Args:
-            - dataset_serialize_value: A string that represents the file path to the dataset, or a numpy array
-            that represents the data in the dataset.
-            - dataset_metadata: A dictionary that represents the metadata needed to recreate this object.
+            dataset_serialize_value (Union[str, np.ndarray]):
+                A string that represents the file path to the dataset, or a numpy array
+                that represents the data in the dataset.
+            dataset_metadata (Dict):
+                A dictionary that represents the metadata needed to recreate this object.
 
         Returns:
-            A RasterDataSet object that represents the dataset.
+            RasterDataSet: Takes the passed in parameters and reconstructs a dataset ojbect.
         """
         if isinstance(dataset_serialize_value, str) and dataset_serialize_value.startswith("NETCDF:"):
             dataset_serialize_value = dataset_serialize_value[7:]
@@ -1626,6 +1678,9 @@ class RasterBand(ABC):
         """Return the backing data set."""
         return self._dataset
 
+    def get_data_ignore(self) -> Optional[Number]:
+        return self._dataset.get_data_ignore_value()
+
     def get_spatial_metadata(self) -> SpatialMetadata:
         ds = self._dataset
         spatial_metadata = SpatialMetadata(ds._geo_transform, ds._wkt_spatial_reference)
@@ -1655,6 +1710,9 @@ class RasterDataBand(RasterBand, Serializable):
         super().__init__(dataset)
 
         self._band_index = band_index
+
+    def get_band_info(self):
+        return self._dataset.band_list()[self._band_index]
 
     def get_band_index(self) -> int:
         """Return the 0-based index of the band in the backing data set."""

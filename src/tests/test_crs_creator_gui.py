@@ -40,6 +40,12 @@ from wiser.gui.reference_creator_dialog import (
 
 from wiser.gui.geo_reference_dialog import UserGeneratedCRS, AuthorityCodeCRS
 
+import pytest
+
+pytestmark = [
+    pytest.mark.functional,
+]
+
 
 class TestCRSCreator(unittest.TestCase):
     """

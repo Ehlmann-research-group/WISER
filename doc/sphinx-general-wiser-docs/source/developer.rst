@@ -1,4 +1,4 @@
-Running and Building WISER
+Developing WISER
 ==========================================
 
 Contributors and Maintainers of WISER can use these pages as reference for
@@ -16,4 +16,8 @@ adding to WISER.
 
     developer-content/codesign-mac.md
 
+    developer-content/CI-CD-Releases.md
+
     developer-content/branching-strategy.md
+
+    developer-content/testing-standards.md
