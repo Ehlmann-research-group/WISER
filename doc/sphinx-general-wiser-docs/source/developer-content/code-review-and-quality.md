@@ -187,7 +187,6 @@ a plugin (or internal WISER functionality) relies on.
 3. Use exceptions over error codes
     - Return useful values, raise on error.
     - Don’t overload **None** or **False** to mean “something exploded”. You can still return **None** or **False** just not in-place of an error.
-  Log, don’t print.
 4. Use the logging module with module-level loggers.
     - Don’t log at ERROR for things the user can reasonably fix (e.g. invalid user input).
  
