@@ -18,8 +18,7 @@ class TaskDelegate:
     only the functions that are needed.
 
     After every event-handling operation is called, the raster pane will refresh
-    its UI.  (TODO:  THIS IS SLOW, and the delegate should be the one who
-    requests UI refreshes, so it can specify the region that needs updating.)
+    its UI.
 
     Once the task is completed, the raster pane will call the delegate's
     finish() implementation, in order to perform any final operations associated

@@ -65,7 +65,7 @@ class PCAPlugin(plugins.ContextMenuPlugin):
         self,
         dataset: RasterDataSet,
         num_components: int,
-        estimator: ESTIMATOR_TYPES,  # TODO (Joshua G-K): Add correlation estimator
+        estimator: ESTIMATOR_TYPES,
         app_state: "ApplicationState",
         test_mode: bool = False,
     ):

@@ -655,7 +655,6 @@ class ContinuumRemovalPlugin(plugins.ContextMenuPlugin):
 
         max_default = max(default_bands)
 
-        # TODO (Joshua G-K): Add better logic here for when user selected bands don't match?
         if max_band < max_default:
             default_bands = [0, 1, 2]
 
