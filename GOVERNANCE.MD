@@ -7,7 +7,7 @@ project and how disputes are handled over these types of
 decisions. There are three main types of governance: benevolent
 dictator for life (BDFL), meritocracy, and liberal contribution.
 They each have a different way of making decisions for their
-project.
+project
 
 
 ## WISER's Governance
