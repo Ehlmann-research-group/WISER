@@ -16,6 +16,7 @@ jobs:
       with:
         publish: false
         documentation_path: doc/sphinx-general-wiser-docs/source
+        requirements_path: doc/sphinx-general-wiser-docs/requirements.txt
     - uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
