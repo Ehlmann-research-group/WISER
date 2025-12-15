@@ -1,0 +1,661 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>WISER Overview &#8212; WISER Docs</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=613452eb" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a11d3fb1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-content/overview';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Contrast Stretch" href="contrast-stretch.html" />
+    <link rel="prev" title="WISER User Manual" href="../user-manual.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
+    <script>document.write(`<img src="../_static/icon_128x128.png" class="logo__image only-dark" alt="WISER Docs - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../get-started.html">Getting started</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../user-manual.html">WISER User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">WISER Overview</a></li>
+
+
+
+<li class="toctree-l2"><a class="reference internal" href="contrast-stretch.html">Contrast Stretch</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer.html">Developing WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/devenv-win.html">Developing and Building WISER on Windows 10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/CI-CD-Releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/branching-strategy.html">Branching Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-standards.html">Testing Standards</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/user-content/overview.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>WISER Overview</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">WISER Overview</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-configuration">WISER Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-crash-and-error-reporting">WISER Crash and Error Reporting</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wavelengths-for-red-green-blue-colors">Wavelengths for Red/Green/Blue Colors</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#viewing-an-image">Viewing an Image</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-tools">Dataset Tools</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-chooser">Dataset Chooser</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#band-chooser">Band Chooser</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contrast-stretch-tool">Contrast Stretch Tool</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#regions-of-interest">Regions of Interest</a></li>
+</ul>
+
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="wiser-overview">
+<h1>WISER Overview<a class="headerlink" href="#wiser-overview" title="Link to this heading">#</a></h1>
+<p>The goal of WISER is to provide an intuitive and configurable user interface
+that supports many different workflows and styles of interaction.  When WISER
+is started, the UI looks like this:</p>
+<img class="img_center" src="../_static/images/wiser_start.png" width="80%">
+<p>The WISER interface provides multiple panes for displaying raster data at
+varying levels of magnification.  The Context Pane starts out on the left side
+of the UI, and shows the raster data “scaled out,” so that either one or both
+dimensions are fully visible within the pane.  The primary viewing area is
+called the Main Window, providing more detailed interactions with raster data,
+possibly scaled up to as much as 1600%.  In the above screenshot, no raster
+data is loaded yet, so these areas display “(no data)”.</p>
+<p>Across the top of the Main Window is the Main Toolbar, which provides various
+tools to work with raster data:</p>
+<img class="img_center" src="../_static/images/main_toolbar.png" width="70%">
+<p>The buttons marked “Display Toggles” will show and hide specific tools for
+interacting with spectral data.  These buttons are as follows:</p>
+<img class="img_center" src="../_static/images/display_toggles.png" width="40%">
+<p>These tools are described in subsequent sections.</p>
+<p><strong>NOTE:</strong>  WISER can also be extended with custom functionality through its
+<a class="reference external" href="https://ehlmann-research-group.github.io/WISER-Plugin-API/">plugin API</a>.</p>
+<section id="wiser-configuration">
+<h2>WISER Configuration<a class="headerlink" href="#wiser-configuration" title="Link to this heading">#</a></h2>
+<p>WISER provides a configuration panel for specifying common configuration across
+the various tools.  You can access these properties through the WISER menubar.
+For example, on macOS you can access “WISER” -&gt; “Preferences” to show this
+dialog:</p>
+<img class="img_center" src="../_static/images/wiser_config.png" width="30%">
+<p>These settings are saved on disk so that they don’t need to be specified every
+time.  Some additional details are given in the following sections.</p>
+<section id="wiser-crash-and-error-reporting">
+<h3>WISER Crash and Error Reporting<a class="headerlink" href="#wiser-crash-and-error-reporting" title="Link to this heading">#</a></h3>
+<p>WISER is capable of sending crash reports to an online service called
+<a class="reference external" href="https://www.bugsnag.com">BugSnag</a>.  This option is <strong>off</strong> by default, but
+it is very helpful if you turn this feature on so that application errors and
+crashes can be identified and addressed automatically.  No personally
+identifying information is sent to BugSnag, but some users may still not want
+to leave such a feature on.</p>
+</section>
+<section id="wavelengths-for-red-green-blue-colors">
+<h3>Wavelengths for Red/Green/Blue Colors<a class="headerlink" href="#wavelengths-for-red-green-blue-colors" title="Link to this heading">#</a></h3>
+<p>For spectral data sets that include visible-light frequencies, WISER is able to
+automatically choose “true-color” bands that are close to the frequencies of
+red, green and blue light.  However, different data sets and instruments may
+require tweaking of what is considered “red”, “green” or “blue”.  Thus, WISER
+allows the user to configure these values.</p>
+</section>
+</section>
+</section>
+<section id="viewing-an-image">
+<h1>Viewing an Image<a class="headerlink" href="#viewing-an-image" title="Link to this heading">#</a></h1>
+<p>Here is a screenshot of WISER after loading AVIRIS data of the Caltech campus
+and the surrounding Pasadena area.</p>
+<img class="img_center" src="../_static/images/wiser_caltech_annotated.png" width="80%">
+<p>In this image, all of the different tools have been shown using the display
+toggle buttons in the main toolbar:  the context pane, the main window and the
+zoom pane, as well as the spectral plot window and the dataset information
+window.</p>
+<p>All of these components are dockable, and can be moved or resized within the
+WISER user interface.  They can also be undocked from the UI, so that they
+appear as separate windows.  Arrange WISER’s user interface however you like it
+best!</p>
+<p>As the snapshot indicates, the area visible in the zoom pane is indicated in the
+main window.  Correspondingly, the area visible in the main window is indicated
+in the context window.  <em>(Tip:  The color of this viewport highlight can be
+changed in the WISER configuration dialog.)</em>  Mouse-clicks or scrolling within
+the various display windows will update the other windows.</p>
+<p>Mouse clicks within the main or zoom windows will also select the clicked-on
+pixel, and update the spectrum plot window with the pixel’s spectrum.</p>
+</section>
+<section id="dataset-tools">
+<h1>Dataset Tools<a class="headerlink" href="#dataset-tools" title="Link to this heading">#</a></h1>
+<p>The dataset toolbar buttons provide useful operations to switch between
+datasets, change what bands are being displayed, and to adjust the contrast
+stretch of the bands being displayed.  Note that all raster display windows
+have one or more of these buttons, allowing for control of how raster data
+is displayed.</p>
+<img class="img_center" src="../_static/images/main_display_buttons.png" width="30%">
+<section id="dataset-chooser">
+<h2>Dataset Chooser<a class="headerlink" href="#dataset-chooser" title="Link to this heading">#</a></h2>
+<p>The <em>dataset chooser</em> simply allows the user to change what data set is being
+displayed in a given pane.  When clicked, the dataset chooser will show a
+pop-up menu listing all data sets currently loaded, and selecting a different
+data set will switch the display to that data set.</p>
+</section>
+<section id="band-chooser">
+<h2>Band Chooser<a class="headerlink" href="#band-chooser" title="Link to this heading">#</a></h2>
+<p>The <em>band chooser</em> shows a dialog that gives the user significant control over
+what bands are being displayed, and whether the image is to be shown in RGB
+mode (three bands) or grayscale mode (one band only).</p>
+<img class="img_center" src="../_static/images/band_chooser.png" width="40%">
+<p>Besides letting the user select any combination of bands, the band chooser also
+exposes the ability to select the dataset’s default bands, if any were
+indicated in the original data file.  Finally, if the dataset specifies
+wavelengths or frequencies for each band, and if these wavelengths are near the
+red/green/blue frequencies specified in WISER’s global configuration, the band
+chooser can automatically choose the bands closest to these frequencies.</p>
+<p>Note that if a data set does not have default display bands, or if the data
+set doesn’t have visible-light frequencies, the corresponding button in the
+dialog will be disabled.</p>
+</section>
+<section id="contrast-stretch-tool">
+<h2>Contrast Stretch Tool<a class="headerlink" href="#contrast-stretch-tool" title="Link to this heading">#</a></h2>
+<p>The contrast stretch tool provides sophisticated options for adjusting the
+contrast of images being displayed.  This allows the user to bring out details
+in the image data that might otherwise not be perceptible.</p>
+<p>Here is an example of the contrast stretch tool being used with the Caltech
+AVIRIS data.</p>
+<img class="img_center" src="../_static/images/stretch_full_linear.png" width="80%">
+<p>A histogram is shown for each display band, allowing one to see the
+distribution of values for that band.  The user can select both the kind of
+contrast stretch used, and any conditioners to apply to the data before
+applying the stretch.  Because it is useful to see the results of applying
+contrast stretch, changes in the dialog are immediately reflected in the
+affected raster displays.  If the “Cancel” button is pressed, the changes
+will be discarded; otherwise, they will be kept when the dialog is closed.</p>
+<p>Here is another example of applying a 2.5% linear stretch to the Caltech
+AVIRIS data:</p>
+<img class="img_center" src="../_static/images/stretch_2.5_linear.png" width="80%">
+<p>When applying a linear stretch, the sliders may be adjusted to control the
+endpoints of the contrast-stretch operation.  Additionally, minimum and
+maximum values may be specified, to exclude noise that appears outside the
+range of useful data, or to focus in on a specific range of values.</p>
+<p>For a detailed description of how WISER performs contrast stretch calculations,
+please refer to <a class="reference internal" href="contrast-stretch.html"><span class="doc">this document</span></a>.</p>
+</section>
+</section>
+<section id="regions-of-interest">
+<h1>Regions of Interest<a class="headerlink" href="#regions-of-interest" title="Link to this heading">#</a></h1>
+<p>WISER supports the creation of Regions of Interest (ROI) on a raster data set.
+Regions of Interest may be created in both the main window and the zoom window.
+Once a ROI has been created, the average spectrum over the ROI may be plotted,
+and the spectra of all pixels in the ROI may be exported as an ASCII file.</p>
+<p>Here are the Region of Interest tools in the main toolbar:</p>
+<img class="img_center" src="../_static/images/roi_tools_annotated.png" width=400>
+<p>The first button allows a new Region of Interest to be created; a dialog allows
+the user to enter basic details about the Region of Interest.  It is recommended
+to use a different color for each Region of Interest to avoid confusion.</p>
+<img class="img_center" src="../_static/images/roi_create.png" width=400>
+<p>Once a Region of Interest is created, <em>selections</em> may be added to the ROI.
+The right button allows users to create rectangle, polygon, and point-set
+selections, which will then be added to the current Region of Interest.  The
+ROI that the selection is added to may be changed with the drop-down combobox
+in the toolbar.</p>
+<img class="img_center" src="../_static/images/roi_add_selection.png" width=400>
+<blockquote>
+<div><p>Tip:  The status bar at the bottom of the UI provides instructions about how
+to create each kind of selection.</p>
+</div></blockquote>
+<p>Here is the UI state after two Regions of Interest have been created - one named
+“grass” and the other named “solar panels”.  Note that the “solar panels” ROI
+is comprised of multiple overlapping rectangle selections (this could also be
+done with a single polygon selection).  <strong>It is not a problem to have
+overlapping selections in a Region of Interest;</strong> each pixel in the ROI will
+only be used once by operations on the ROI.</p>
+<img class="img_center" src="../_static/images/roi_add_selection_3.png" width=400>
+<p>Once a Region of Interest has been created, right-clicking in the ROI’s
+selections will pop up a context menu providing various operations with the ROI.</p>
+<ul class="simple">
+<li><p>The ROI’s information or display color may be edited</p></li>
+<li><p>Individual selections in the ROI may be edited or deleted, or the entire
+ROI may be deleted</p></li>
+<li><p>The average spectrum of the ROI may be displayed in the spectrum plot
+window</p></li>
+<li><p>The spectra of every pixel in the ROI may be exported as an ASCII file</p></li>
+</ul>
+<img class="img_center" src="../_static/images/roi_ctx_menu.png" width=600>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../user-manual.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">WISER User Manual</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="contrast-stretch.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Contrast Stretch</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">WISER Overview</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-configuration">WISER Configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wiser-crash-and-error-reporting">WISER Crash and Error Reporting</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wavelengths-for-red-green-blue-colors">Wavelengths for Red/Green/Blue Colors</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#viewing-an-image">Viewing an Image</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-tools">Dataset Tools</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-chooser">Dataset Chooser</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#band-chooser">Band Chooser</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contrast-stretch-tool">Contrast Stretch Tool</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#regions-of-interest">Regions of Interest</a></li>
+</ul>
+
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Joshua Garcia-Kimble
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Joshua Garcia-Kimble.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

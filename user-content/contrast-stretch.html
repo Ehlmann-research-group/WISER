@@ -1,0 +1,618 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Contrast Stretch &#8212; WISER Docs</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=613452eb" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a11d3fb1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-content/contrast-stretch';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Developing WISER" href="../developer.html" />
+    <link rel="prev" title="WISER Overview" href="overview.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
+    <script>document.write(`<img src="../_static/icon_128x128.png" class="logo__image only-dark" alt="WISER Docs - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../get-started.html">Getting started</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../user-manual.html">WISER User Manual</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="overview.html">WISER Overview</a></li>
+
+
+
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Contrast Stretch</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer.html">Developing WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/environment-setup.html">Environment setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/devenv-win.html">Developing and Building WISER on Windows 10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/CI-CD-Releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/branching-strategy.html">Branching Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer-content/testing-standards.html">Testing Standards</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/user-content/contrast-stretch.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Contrast Stretch</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#specifying-minimum-and-maximum-limits-on-band-data">Specifying Minimum and Maximum Limits on Band Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview-of-display-calculations">Overview of Display Calculations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stretch-types">Stretch Types</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linear-stretch">100% Linear Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Linear Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#histogram-equalization-stretch">Histogram Equalization Stretch</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditioners">Conditioners</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="contrast-stretch">
+<span id="id1"></span><h1>Contrast Stretch<a class="headerlink" href="#contrast-stretch" title="Link to this heading">#</a></h1>
+<p>WISER supports manipulating the contrast stretch of data sets being displayed.
+This is often very helpful to bring out important details in the data.</p>
+<p>Before discussing how stretch may be applied, it is important to understand what
+WISER must do to display data.  The band data being displayed may be of many
+different data types; floating point or integer data, of various bit widths
+(e.g. 8, 16, 32 or 64 bits).  Therefore, the data itself may cover many
+different ranges of values.  The Workbench must map each band’s values to an
+integer color value in the range [0, 255].  If the Workbench is showing image
+data in RGB mode, this must occur for each color channel; if the Workbench is
+using grayscale then only one band is being used and it is mapped to a single
+[0, 255] value.</p>
+<p>Note that raster data sets may specify “data ignore values” - values that should
+explicitly be ignored by tools working with the data.  The Workbench filters out
+such values before any of this processing occurs; they are represented as NaNs,
+and all stretch calculations are implemented to ignore NaN values throughout.</p>
+<p>Finally, note that the calculations for displaying raster data are not used
+when plotting spectra; spectrum calculations use the raster data directly.</p>
+<section id="specifying-minimum-and-maximum-limits-on-band-data">
+<h2>Specifying Minimum and Maximum Limits on Band Data<a class="headerlink" href="#specifying-minimum-and-maximum-limits-on-band-data" title="Link to this heading">#</a></h2>
+<p>The Contrast Stretch UI provides users the ability to specify minimum and
+maximum limits on band data.  This can be useful when raster data doesn’t
+specify a “data ignore value,” or when raster data is computed and has a large
+range of possible values, but only a small range of “useful” or “interesting”
+values.</p>
+<p>The min/max limits are applied before any histograms are computed in the
+Contrast Stretch UI.  Note that values outside of the min/max limits are simply
+filtered out; they are not clamped to the min/max limits.  This is particularly
+important for N% linear stretches and histogram-equalization stretches; values
+outside of the min/max limits are completely ignored in the configuration of
+these stretches.</p>
+</section>
+<section id="overview-of-display-calculations">
+<h2>Overview of Display Calculations<a class="headerlink" href="#overview-of-display-calculations" title="Link to this heading">#</a></h2>
+<p>The Workbench follows this approach for displaying band data.  This process is
+followed for each color channel being displayed.</p>
+<ul>
+<li><p>The band data is normalized to either 32-bit or 64-bit floating point values
+in the range [0.0, 1.0].</p>
+<p>Note that this normalization <em>does not</em> include the application of min/max
+limits; those limits are only used in the calculation of histograms in the
+Contrast Stretch UI.  (TODO:  Will this result in accuracy issues for e.g.
+data sets with a very large range of input values, and a very small range of
+values the user wants to visualize?  Need to think about this!)</p>
+<p>Normalized values are usually 32-bit floating point; they will only be
+64-bit floating point if the input data is also 64-bit floating point.</p>
+</li>
+<li><p>Apply any user-specified conditioner to the data.  Conditioners are
+discussed below, but they are functions that consume normalized data and
+produce normalized data.</p></li>
+<li><p>Apply any user-specified stretch to the data.  Again, this mapping consumes
+normalized data and produces normalized data.</p></li>
+<li><p>The final floating point values are in the range [0.0, 1.0], so they are
+multiplied by 255.0 and then cast to an 8-bit unsigned integer to yield a
+color intensity.</p></li>
+</ul>
+</section>
+<section id="stretch-types">
+<h2>Stretch Types<a class="headerlink" href="#stretch-types" title="Link to this heading">#</a></h2>
+<p>WISER supports three stretch types:</p>
+<ul class="simple">
+<li><p>100% linear stretch</p></li>
+<li><p>Linear stretch</p></li>
+<li><p>Histogram equalization stretch</p></li>
+</ul>
+<p>If WISER is displaying an RGB image, all color channels will use the same
+stretch type.  It is not possible to configure WISER to display different color
+channels of the same image with different stretch types.  (Obviously, the
+parameters for each channel may be different, as each channel’s data
+distribution will be different.)</p>
+<section id="linear-stretch">
+<h3>100% Linear Stretch<a class="headerlink" href="#linear-stretch" title="Link to this heading">#</a></h3>
+<p>The “100% linear stretch” type causes the Workbench to follow a very
+straightforward, simple mapping of band data to color values in the range
+[0, 255].  The specific mapping depends on the type of the input data.</p>
+<ol class="arabic simple">
+<li><p>The minimum and maximum data value for each band is determined.</p></li>
+<li><p>Values in each band are mapped to the range [0.0, 1.0] with a simple
+calculation:  (value - band_min) / (band_max - band_min).  This is typically
+represented as a 32-bit floating point value, but may be 64-bit floating
+point if the initial data was 64-bit floating point.</p></li>
+<li><p>Values are then scaled to integers in the range [0, 255], with 0.0 mapping
+to 0, and 1.0 mapping to 255.</p></li>
+</ol>
+<p>This approach is called “100% linear stretch” because it is just the “linear
+stretch” method, with low and high bounds taken from the band’s minimum and
+maximum values.</p>
+</section>
+<section id="id2">
+<h3>Linear Stretch<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<p>The “linear stretch” type causes WISER to map band values in a range
+[stretch_low, stretch_high] to floating-point values in the range [0.0, 1.0].</p>
+<ul class="simple">
+<li><p>Values less than stretch_low are mapped to 0.0.</p></li>
+<li><p>Values greater than stretch_high are mapped to 1.0.</p></li>
+<li><p>Values between stretch_low and stretch_high are linearly mapped to a value
+in the range [0.0, 1.0].</p></li>
+</ul>
+<p>These intermediate values are then mapped to a color value in the range
+[0, 255].</p>
+<p>WISER supports arbitrary values for the stretch_low and stretch_high values,
+and each color channel will specify its own values for stretch_low and
+stretch_high.  The Contrast Stretch UI calculates and displays a histogram of
+the band data for each channel, to aid the user in selecting appropriate
+stretch_low / stretch_high values.  In addition, the UI provides the ability to
+apply a 2.5% or 5% linear stretch across all channels.</p>
+<p>For an N% linear stretch, WISER will choose each channel’s stretch_low and
+stretch_high such that (N/2)% of the low values will be excluded, and (N/2)%
+of the high values will be excluded.  This is computed from the band’s
+histogram, and is therefore approximate.  (As mentioned earlier, this histogram
+is computed after the min/max limits have been used to filter the band’s data.)</p>
+</section>
+<section id="histogram-equalization-stretch">
+<h3>Histogram Equalization Stretch<a class="headerlink" href="#histogram-equalization-stretch" title="Link to this heading">#</a></h3>
+<p>The “histogram equalization stretch” type causes WISER to map the normalized
+band values to floating point values in the range [0.0, 1.0] such that the
+density of the output values is uniform across this range.  This is computed
+from the band’s histogram.  (As mentioned earlier, this histogram is computed
+after the min/max limits have been used to filter the band’s data.)</p>
+</section>
+</section>
+<section id="conditioners">
+<h2>Conditioners<a class="headerlink" href="#conditioners" title="Link to this heading">#</a></h2>
+<p>Conditioners can be useful when the input data’s distribution needs to be
+modified; for example, to bring out details in low intensity values and to mute
+variations in high intensity values.  WISER supports three conditioner options:</p>
+<ul class="simple">
+<li><p>No conditioner</p></li>
+<li><p>Square root conditioner</p></li>
+<li><p>Logarithmic conditioner</p></li>
+</ul>
+<p>All conditioners consume normalized data, and produce normalized data.  In the
+case of “no conditioner,” this can be thought of as the identity function, but
+the implementation simply does nothing.</p>
+<p>It may be noted that sqrt(x) for x in [0.0, 1.0] already produces values only
+in the range [0.0, 1.0].  This is what WISER does for square root conditioning.</p>
+<p>In the case of logarithmic conditioner, WISER uses the function
+log<sub>2</sub>(x + 1.0); when given values in the range [0.0, 1.0], this will
+only produce values in the range [0.0, 1.0].</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="overview.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">WISER Overview</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../developer.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Developing WISER</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#specifying-minimum-and-maximum-limits-on-band-data">Specifying Minimum and Maximum Limits on Band Data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview-of-display-calculations">Overview of Display Calculations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stretch-types">Stretch Types</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linear-stretch">100% Linear Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Linear Stretch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#histogram-equalization-stretch">Histogram Equalization Stretch</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditioners">Conditioners</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Joshua Garcia-Kimble
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Joshua Garcia-Kimble.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

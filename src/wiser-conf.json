@@ -1,6 +1,0 @@
-{
-    "online-bug-reporting" : false,
-    "feature-flags" : {
-        "interactive-spectrum-plot" : true
-    }
-}

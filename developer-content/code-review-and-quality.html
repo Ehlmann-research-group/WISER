@@ -1,0 +1,816 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Code Review and Quality Guide &#8212; WISER Docs</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=613452eb" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a11d3fb1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/code-review-and-quality';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
+    <script>document.write(`<img src="../_static/icon_128x128.png" class="logo__image only-dark" alt="WISER Docs - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../get-started.html">Getting started</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-manual.html">WISER User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/overview.html">WISER Overview</a></li>
+
+
+
+<li class="toctree-l2"><a class="reference internal" href="../user-content/contrast-stretch.html">Contrast Stretch</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../developer.html">Developing WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="environment-setup.html">Environment setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-win.html">Developing and Building WISER on Windows 10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CI-CD-Releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="branching-strategy.html">Branching Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-standards.html">Testing Standards</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/code-review-and-quality.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Code Review and Quality Guide</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review-guidelines">Code Review Guidelines</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-we-look-for">What We Look For</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pr-expectations">PR Expectations</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commit-message-standards">Commit Message Standards</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#format">Format</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#guidelines">Guidelines</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#merge-commits">Merge Commits</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commenting-style">Commenting Style</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-principles">General Principles</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#formatting-conventions">Formatting Conventions</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-and-code-style">Naming and Code Style</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#python-naming-conventions">Python Naming Conventions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gui-widget-naming">GUI Widget Naming</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#private-and-public-attributes-methods">Private and public attributes/methods</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#enforced-code-style">Enforced Code Style</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-design">Code Design</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-design-rules">General Design Rules</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="code-review-and-quality-guide">
+<h1>Code Review and Quality Guide<a class="headerlink" href="#code-review-and-quality-guide" title="Link to this heading">#</a></h1>
+<p>This document explains how <strong>code review</strong> and <strong>code submittal</strong> work in WISER.<br />
+Its purpose is to help contributors and maintainers write consistent, maintainable, and
+readable code - and to make the review process efficient and collaborative.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
+<p>Code review and submittal in WISER are centered on producing <strong>high-quality, maintainable code</strong>
+that aligns with the project’s design philosophy and long-term vision.<br />
+This guide covers:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#code-review-guidelines"><span class="xref myst">Code Review Guidelines</span></a></p></li>
+<li><p><a class="reference internal" href="#commit-message-standards"><span class="xref myst">Commit Message Standards</span></a></p></li>
+<li><p><a class="reference internal" href="#commenting-style"><span class="xref myst">Commenting Style</span></a></p></li>
+<li><p><a class="reference internal" href="#naming-and-code-style"><span class="xref myst">Naming and Code Style</span></a></p></li>
+</ul>
+<p>All pull requests (PRs) should be tied to an <strong>existing issue</strong>.<br />
+If no issue exists, <strong>create one first</strong> - we provide templates for common issue types to make this easy.</p>
+</section>
+<section id="code-review-guidelines">
+<h2>Code Review Guidelines<a class="headerlink" href="#code-review-guidelines" title="Link to this heading">#</a></h2>
+<p>Code review in WISER focuses on ensuring that contributions meet both <strong>functional</strong> and <strong>design</strong> expectations.</p>
+<section id="what-we-look-for">
+<h3>What We Look For<a class="headerlink" href="#what-we-look-for" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Category</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Maintainability &amp; Readability</strong></p></td>
+<td><p>Is the code easy to understand and modify? Are variables and functions well named?</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Design Quality</strong></p></td>
+<td><p>Is the code modular, well-structured, and aligned with WISER’s architecture?</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Correctness</strong></p></td>
+<td><p>Does the code do what it’s supposed to do? Are there tests verifying its behavior?</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Simplicity</strong></p></td>
+<td><p>Can the code be simplified without losing clarity or function?</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Style Conformance</strong></p></td>
+<td><p>Are naming conventions, comment formats, and indentation consistent with the project’s style?</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Documentation Needs</strong></p></td>
+<td><p>Does this change need documentation? Should it be added before or after merging? (It’s okay to open a second PR for docs or tests.)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Performance</strong></p></td>
+<td><p>Are there any obvious inefficiencies or bottlenecks?</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Duplication</strong></p></td>
+<td><p>Does similar code already exist elsewhere? If so, can it be reused?</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Scope &amp; Focus</strong></p></td>
+<td><p>Is the code single-purpose? Avoid adding multiple unrelated changes in one PR.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="pr-expectations">
+<h3>PR Expectations<a class="headerlink" href="#pr-expectations" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Every PR should have a <strong>clear purpose</strong> and be linked to an <strong>issue</strong>.</p></li>
+<li><p>Keep PRs <strong>small and focused</strong>. Avoid exceeding a few hundred lines of changes where possible.</p></li>
+<li><p>If documentation or tests are pending, you may open a <strong>follow-up PR</strong>.</p></li>
+<li><p>Reviewers are encouraged to comment on <strong>design clarity, naming, and simplicity</strong> just as much as functionality.</p></li>
+</ul>
+</section>
+</section>
+<section id="commit-message-standards">
+<h2>Commit Message Standards<a class="headerlink" href="#commit-message-standards" title="Link to this heading">#</a></h2>
+<p>Commit messages communicate the <em>why</em> behind changes.</p>
+<section id="format">
+<h3>Format<a class="headerlink" href="#format" title="Link to this heading">#</a></h3>
+<p>A proper commit message should look like this:</p>
+<blockquote>
+<div><p>Short subject line (max 50 chars)</p>
+<p>Detailed body explaining what changed and why.</p>
+</div></blockquote>
+<p>Wrap lines at 50 characters.</p>
+<p>We use semantic commit messages for the title
+and summary. It’s described <a class="reference external" href="https://sparkbox.com/foundry/semantic_commit_messages">here</a>.
+Use the below prefixes at the start of each PR merge
+commit title (it would also help the reviewer to
+do this for all other commit messages):</p>
+<ul class="simple">
+<li><p>feat:     (feature)</p></li>
+<li><p>fix:      (fix)</p></li>
+<li><p>docs:     (documentation)</p></li>
+<li><p>style:    (style change)</p></li>
+<li><p>refactor: (code refactor)</p></li>
+<li><p>perf:     (performance improvement)</p></li>
+<li><p>test:     (adding tests)</p></li>
+<li><p>hotfix:   (quick urgen fix)</p></li>
+<li><p>build:    (changes to build system)</p></li>
+<li><p>ci:       (changes to continuous integration)</p></li>
+<li><p>chore:    (miscellaneous task)</p></li>
+<li><p>rev:      (revision)</p></li>
+</ul>
+</section>
+<section id="guidelines">
+<h3>Guidelines<a class="headerlink" href="#guidelines" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Keep commit messages <strong>clear and concise</strong>.</p></li>
+<li><p>Describe <strong>what</strong> was done and <strong>why</strong>.</p></li>
+<li><p>Long, detailed messages are helpful during PR review but are less important after a squash merge.</p></li>
+<li><p>Avoid long unbroken lines; insert newlines around 50 characters.</p></li>
+</ul>
+</section>
+<section id="merge-commits">
+<h3>Merge Commits<a class="headerlink" href="#merge-commits" title="Link to this heading">#</a></h3>
+<p>When squash merging a PR:</p>
+<ul class="simple">
+<li><p>The <strong>PR title</strong> becomes the <strong>merge commit title</strong>, followed by the PR number (e.g., <code class="docutils literal notranslate"><span class="pre">feat:</span> <span class="pre">add</span> <span class="pre">spectral</span> <span class="pre">viewer</span> <span class="pre">#298</span></code>).</p></li>
+<li><p>The <strong>PR description</strong> serves as the commit body.</p></li>
+<li><p>After merging:</p>
+<ul>
+<li><p><strong>Delete your branch</strong> both locally and on GitHub.</p></li>
+<li><p><strong>Pull from <code class="docutils literal notranslate"><span class="pre">main</span></code></strong> to sync your local repository.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="commenting-style">
+<h2>Commenting Style<a class="headerlink" href="#commenting-style" title="Link to this heading">#</a></h2>
+<p>Comments clarify <em>why</em> code exists - not just <em>what</em> it does.<br />
+Focus on explaining reasoning, design choices, and non-obvious logic.</p>
+<blockquote>
+<div><p>Reference: <a class="reference external" href="https://blog.openreplay.com/dos-and-donts-of-commenting-code/">Do’s and Don’ts of Commenting Code</a></p>
+</div></blockquote>
+<section id="general-principles">
+<h3>General Principles<a class="headerlink" href="#general-principles" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Explain the “why.”</strong> Use comments to clarify design decisions, algorithms, or tricky logic.</p></li>
+<li><p><strong>Avoid redundancy.</strong> Don’t restate what the code already clearly expresses.</p></li>
+<li><p><strong>Comment for others.</strong> Write for future maintainers and collaborators.</p></li>
+<li><p><strong>Use inline comments sparingly.</strong> Prefer comments at function or block level for clarity.</p></li>
+<li><p><strong>At API boundaries</strong>, explain how to use or extend the code.</p></li>
+</ul>
+</section>
+<section id="formatting-conventions">
+<h3>Formatting Conventions<a class="headerlink" href="#formatting-conventions" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Example</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>File/Module Header</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;&quot;Brief</span> <span class="pre">description</span> <span class="pre">of</span> <span class="pre">what</span> <span class="pre">this</span> <span class="pre">file/module</span> <span class="pre">does</span> <span class="pre">and</span> <span class="pre">why</span> <span class="pre">it</span> <span class="pre">exists.&quot;&quot;&quot;</span></code></p></td>
+<td><p>At the top of every file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Class/Function Docstrings</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;&quot;Explain</span> <span class="pre">purpose,</span> <span class="pre">behavior,</span> <span class="pre">and</span> <span class="pre">key</span> <span class="pre">parameters.&quot;&quot;&quot;</span></code></p></td>
+<td><p>Triple quotes.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Block Comments</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;&quot;&quot;Describe</span> <span class="pre">logic</span> <span class="pre">behind</span> <span class="pre">a</span> <span class="pre">block</span> <span class="pre">of</span> <span class="pre">code.&quot;&quot;&quot;</span></code></p></td>
+<td><p>Triple quotes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Inline Comments</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">Explain</span> <span class="pre">non-obvious</span> <span class="pre">line</span> <span class="pre">or</span> <span class="pre">condition</span></code></p></td>
+<td><p>Use <code class="docutils literal notranslate"><span class="pre">#</span></code> sparingly for complex expressions.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="naming-and-code-style">
+<h2>Naming and Code Style<a class="headerlink" href="#naming-and-code-style" title="Link to this heading">#</a></h2>
+<p>Code should be <strong>self-describing</strong>: good names make code easier to read and maintain.</p>
+<section id="python-naming-conventions">
+<h3>Python Naming Conventions<a class="headerlink" href="#python-naming-conventions" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Element</p></th>
+<th class="head"><p>Convention</p></th>
+<th class="head"><p>Example</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Classes</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PascalCase</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ImageProcessor</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Functions</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">snake_case</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">load_dataset()</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Variables</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">snake_case</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">spectral_band</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Constants</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ALL_CAPS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">MAX_CACHE_SIZE</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="gui-widget-naming">
+<h3>GUI Widget Naming<a class="headerlink" href="#gui-widget-naming" title="Link to this heading">#</a></h3>
+<p>Since WISER uses <strong>PySide2</strong>, a wrapper around <strong>Qt</strong> (a C++ library), some functions may follow Qt’s C++ naming conventions - this is acceptable when overriding or subclassing Qt components.</p>
+<p>To maintain clarity in GUI code, widgets should use consistent prefixes:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Widget Type</p></th>
+<th class="head"><p>Prefix</p></th>
+<th class="head"><p>Example</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Push Button</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">btn_</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">btn_apply_stretch</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Label</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lbl_</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lbl_filename</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Widget</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">wdgt_</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">wdgt_spectral_viewer</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Combo Box</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cbox_</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cbox_bandselector</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Tool Button</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tbtn_</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tbtn_zoom_in</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Line Edit</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ledit_</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ledit_path_input</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Spin Box</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sbox_</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sbox_frame_index</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="private-and-public-attributes-methods">
+<h3>Private and public attributes/methods<a class="headerlink" href="#private-and-public-attributes-methods" title="Link to this heading">#</a></h3>
+<p>In a class, a private attribute (variable) should have an underscore infront of it. If it does not
+have an underscore infront of it, then it’s assumped to be public. Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="bp">self</span><span class="o">.</span><span class="n">_update_table</span>  <span class="c1"># Private</span>
+<span class="c1"># vs</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">update_table</span>  <span class="c1"># Public</span>
+</pre></div>
+</div>
+<p>Python does not enforce variables that have an underscore prefix to be private,
+but it is common practice to not access them directly. If you need to, consider
+first why the variable is private and then make a getter for it.</p>
+<p>The same naming convention rules apply for private and public methods (functions).</p>
+</section>
+<section id="enforced-code-style">
+<h3>Enforced Code Style<a class="headerlink" href="#enforced-code-style" title="Link to this heading">#</a></h3>
+<p>Python formatting is <strong>enforced automatically</strong>:</p>
+<ul class="simple">
+<li><p>Style rules are defined in <strong><code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code></strong>.</p></li>
+<li><p>They are validated by <strong>pre-commit hooks</strong> and <strong>GitHub Actions</strong>.</p></li>
+<li><p>Always run pre-commit checks locally before pushing to avoid CI failures.</p></li>
+</ul>
+</section>
+</section>
+<section id="code-design">
+<h2>Code Design<a class="headerlink" href="#code-design" title="Link to this heading">#</a></h2>
+<p>Code design is very important to the maintainability of code and how hard
+future refactors will be. Making a set of rules that gives us perfect maintainability
+and minimal refactors seems impossible, so these rules may be updated as we see fit.</p>
+<section id="general-design-rules">
+<h3>General Design Rules<a class="headerlink" href="#general-design-rules" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p>Try to keep functions backwards compatible. We do not want to break something that
+a plugin (or internal WISER functionality) relies on.</p></li>
+<li><p>Document contracts, not just parameters</p>
+<ul class="simple">
+<li><p>What does this function guarantee? What does it expect?</p></li>
+<li><p>E.g. “Raises ValueError if array has NaNs.”</p></li>
+</ul>
+</li>
+<li><p>Use exceptions over error codes</p>
+<ul class="simple">
+<li><p>Return useful values, raise on error.</p></li>
+<li><p>Don’t overload <strong>None</strong> or <strong>False</strong> to mean “something exploded”. You can still return <strong>None</strong> or <strong>False</strong> just not in-place of an error.</p></li>
+</ul>
+</li>
+<li><p>Use the logging module with module-level loggers.</p>
+<ul class="simple">
+<li><p>Don’t log at ERROR for things the user can reasonably fix (e.g. invalid user input).</p></li>
+</ul>
+</li>
+</ol>
+</section>
+</section>
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
+<p>In WISER, code review and submission are designed to:</p>
+<ul class="simple">
+<li><p>Maintain <strong>clarity</strong>, <strong>simplicity</strong>, and <strong>design consistency</strong>.</p></li>
+<li><p>Encourage <strong>collaboration</strong> and <strong>shared responsibility</strong> for quality.</p></li>
+<li><p>Keep the codebase healthy, documented, and performant.</p></li>
+</ul>
+<p>By following these guidelines, we ensure that WISER remains sustainable and welcoming to contributors - now and in the future.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review-guidelines">Code Review Guidelines</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-we-look-for">What We Look For</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pr-expectations">PR Expectations</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commit-message-standards">Commit Message Standards</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#format">Format</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#guidelines">Guidelines</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#merge-commits">Merge Commits</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#commenting-style">Commenting Style</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-principles">General Principles</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#formatting-conventions">Formatting Conventions</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-and-code-style">Naming and Code Style</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#python-naming-conventions">Python Naming Conventions</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#gui-widget-naming">GUI Widget Naming</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#private-and-public-attributes-methods">Private and public attributes/methods</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#enforced-code-style">Enforced Code Style</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-design">Code Design</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general-design-rules">General Design Rules</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Joshua Garcia-Kimble
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Joshua Garcia-Kimble.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

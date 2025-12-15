@@ -1,0 +1,655 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>CI/CD and Releases &#8212; WISER Docs</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=613452eb" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a11d3fb1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/CI-CD-Releases';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Branching Strategy" href="branching-strategy.html" />
+    <link rel="prev" title="Code-signing WISER on the Mac" href="codesign-mac.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
+    <script>document.write(`<img src="../_static/icon_128x128.png" class="logo__image only-dark" alt="WISER Docs - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../get-started.html">Getting started</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-manual.html">WISER User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/overview.html">WISER Overview</a></li>
+
+
+
+<li class="toctree-l2"><a class="reference internal" href="../user-content/contrast-stretch.html">Contrast Stretch</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../developer.html">Developing WISER</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="environment-setup.html">Environment setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-win.html">Developing and Building WISER on Windows 10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="branching-strategy.html">Branching Strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing-standards.html">Testing Standards</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/CI-CD-Releases.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>CI/CD and Releases</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-integration">Continuous Integration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linting-formatting">Linting / Formatting</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dev-testing">Dev Testing</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-deployment">Continuous Deployment</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#production-testing">“Production” Testing</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#deployment-tests">Deployment Tests</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#deployment-test-signing">Deployment Test Signing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#releases">Releases</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#release-process">Release Process</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="ci-cd-and-releases">
+<h1>CI/CD and Releases<a class="headerlink" href="#ci-cd-and-releases" title="Link to this heading">#</a></h1>
+<p>CI/CD stands for continuous integration/continuous
+development. It is a practice that is meant to allow
+code to be release as frequently as possible. The
+continuous integration encourages code to be frequently
+merged into main and continuous deployment encourages
+stable builds to be made frequently. Currently, the deployment
+process for WISER is run manually, but we are looking into
+running it nightly or more frequently.</p>
+<section id="continuous-integration">
+<h2>Continuous Integration<a class="headerlink" href="#continuous-integration" title="Link to this heading">#</a></h2>
+<p>In WISER we will be practicing continuous integration. Read <a class="reference external" href="https://martinfowler.com/articles/branching-patterns.html#ContinuousIntegration">this</a>
+to learn more. That article has a lot of useful information on branching strategies
+if you want to read more.</p>
+<p>WISER currently has two main github actions to increase code quality:
+linting/formatting and development tests. We use ruff to do our linting
+and formatting because it is fast. For testing, we use pytest. Read on
+for more information on how the these are set up.</p>
+<section id="linting-formatting">
+<h3>Linting / Formatting<a class="headerlink" href="#linting-formatting" title="Link to this heading">#</a></h3>
+<p>As previously said, we use ruff to do linting and formatting. We control
+the rules for this in <em>pyproject.toml</em>. You will see that there are a
+few rules that we ignore for linting. Read the comments in <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/pull/238">this</a> PR for more information.</p>
+<p>Linting can be done with the command <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">check</span> <span class="pre">.</span></code>. If there are any
+safe fixes that can be done do <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">check</span> <span class="pre">--fix</span> <span class="pre">.</span></code>. You should not do
+<code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">check</span> <span class="pre">--fix</span> <span class="pre">--unsafe-fixes</span> <span class="pre">.</span></code> unless you are very confident.</p>
+<p>Formatting can be done with <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">format</span></code>. Note that the command <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">format</span></code>
+will change files in order to make the formatting changes. If you do not
+want to do this and you just want to check to see if things are formatted
+correctly, do <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">format</span> <span class="pre">--check</span></code>.</p>
+<p>There is a pre-commit hook to perform the linting and formatting. However,
+you have to install it the pre-commit first. Pre-commit hooks that are
+defined in .pre-commit-config are automatically installed if you run the
+command <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code> in the <em>etc/</em> folder. You can also run the
+commands  <code class="docutils literal notranslate"><span class="pre">pre-commit</span> <span class="pre">clean</span></code> then <code class="docutils literal notranslate"><span class="pre">pre-commit</span> <span class="pre">install</span></code> while you’re in the
+dev environment.</p>
+<p>The linting / formatting is also done on push and pull-request to <code class="docutils literal notranslate"><span class="pre">main</span></code>
+and release branches <code class="docutils literal notranslate"><span class="pre">rel/**</span></code>.</p>
+</section>
+<section id="dev-testing">
+<h3>Dev Testing<a class="headerlink" href="#dev-testing" title="Link to this heading">#</a></h3>
+<p>Testing is only done on push and pull-request to <code class="docutils literal notranslate"><span class="pre">main</span></code> and release branches
+<code class="docutils literal notranslate"><span class="pre">rel/**</span></code>. We use micromamba to make the conda environment to run our tests.
+Micromamba is great because it is fast to make the environment and can be
+quickly pulled from cache. The cache is made from the file <em>etc/dev-conda-lock.yml</em>
+and will update when this file is changed. The tests use the cache and
+also update the cache, so there are two rules that update the micromamba
+environment cache. When running tests, we simply <code class="docutils literal notranslate"><span class="pre">cd</span></code> into <em>src/tests</em> and
+run the command <code class="docutils literal notranslate"><span class="pre">pytest</span> <span class="pre">-s</span> <span class="pre">.</span></code>.</p>
+<p>Testing happens after linting.</p>
+</section>
+</section>
+<section id="continuous-deployment">
+<h2>Continuous Deployment<a class="headerlink" href="#continuous-deployment" title="Link to this heading">#</a></h2>
+<p>We are still figuring out what type of continuous
+deployment framework that we want for WISER. Currently,
+the build process takes a pretty long time (around 24
+minutes for the longest build). This seems a bit
+infeasible for developers to run on each push to a pull
+request. We need to look into a way to speed up our builds
+(&lt;10 minutes would be good).</p>
+<p>The deployment code is in the github action <code class="docutils literal notranslate"><span class="pre">prod-deploy.yml</span></code>. It
+builds WISER on all three platforms (windows, macos arm, macos intel)
+then runs tests inside of each WISER distributable. Running these tests
+ensures that WISER actually starts up and that core WISER functionality
+has been properly packaged up.</p>
+<p>It is important to note that these build artifacts still
+need somne more work done to them in order to become our
+distributables. The Windows artifact needs to be code-signed
+then packaged into an installer. The MacOS artifacts
+need to be packaged into a .dmg and code-signed.</p>
+<section id="production-testing">
+<h3>“Production” Testing<a class="headerlink" href="#production-testing" title="Link to this heading">#</a></h3>
+<p>Currently, we test on our distributables in the github
+runners by running WISER with the <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> flag. We
+do this because we want to make sure everything in our
+distributables was packaged up correctly. For example, to
+test that JP2OpenJPEG.dll was properly packaged into the
+build, we would have a test that would try opening up a very
+small JP2 file that we can run with a command like <code class="docutils literal notranslate"><span class="pre">./WISER_Bin</span> <span class="pre">--mode</span> <span class="pre">test</span></code>. So you can see how it is important
+to run tests on the build artifact.</p>
+<p>We want to build these
+artifacts and run these tests on <code class="docutils literal notranslate"><span class="pre">main</span></code> and <code class="docutils literal notranslate"><span class="pre">rel/**</span></code> banches
+because these branches are meant to contain very stable
+code that can be deployed at a moments notice. However,
+currently we are still deciding whether we should run
+deployment tests on every PR to <code class="docutils literal notranslate"><span class="pre">main</span></code> and <code class="docutils literal notranslate"><span class="pre">rel/**</span></code> or
+nightly.</p>
+<section id="deployment-tests">
+<h4>Deployment Tests<a class="headerlink" href="#deployment-tests" title="Link to this heading">#</a></h4>
+<p>We currently have a github action that builds WISER on the github runners then runs
+our smoke tests then uploads distribution files to github. Currently, this only happens
+by workflow_dispatch, which means a developer must manually make it run.</p>
+<p>There are also simple make recipes to build and test wiser locally.
+The make commands <code class="docutils literal notranslate"><span class="pre">smoke-test-win-build</span></code> and <code class="docutils literal notranslate"><span class="pre">smoke-test-mac-build</span></code> when run from the root directory
+build WISER and run the <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> locally. This is useful to find build bugs as well.</p>
+<p>This github action is under .github\workflows\prod-deploy.yml .</p>
+</section>
+<section id="deployment-test-signing">
+<h4>Deployment Test Signing<a class="headerlink" href="#deployment-test-signing" title="Link to this heading">#</a></h4>
+<p>The good thing about the pipeline in the <a class="reference internal" href="#deployment-tests"><span class="xref myst">Deployment Tests</span></a> section
+is that we can deploy directly from it. Since the artifacts from these tests were
+built on a fresh machine (the github runner), we know its more reproducible than building
+it locally! All we have to do is pull the artifact down to our local machine and
+sign it. I have <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/pull/257">made code to do this</a>.</p>
+<p>You can run this code by going into the root directory and doing</p>
+<p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-mac</span> <span class="pre">LINK=&lt;link-address-of-artifact&gt;</span> <span class="pre">MAC_DIST_GITHUB_NAME=&lt;artifact-github-name&gt;</span></code></p>
+<p>or simply</p>
+<p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-windows</span> <span class="pre">LINK=&lt;link-address-of-artifact&gt;</span></code></p>
+<p>for windows.
+This step requires you to have Github’s CLI tool installed which lets you use the
+command <code class="docutils literal notranslate"><span class="pre">gh</span></code>. The logic for this step is in the files /src/devtools/sign_mac.py and
+/src/devtools/sign_windows.py. It was originally introduced on
+<a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/pull/257">this</a> branch.</p>
+</section>
+</section>
+</section>
+<section id="releases">
+<h2>Releases<a class="headerlink" href="#releases" title="Link to this heading">#</a></h2>
+<p>WISER releases should always be made from a release branch. Release
+notes should accompany releases. Build artifacts
+should accompany releases. These build artifacts won’t be
+signed. Additionally, official release should be
+made on the GitHub through the <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/releases">Releases feature</a>
+and the release should be tagged.</p>
+</section>
+<section id="release-process">
+<h2>Release Process<a class="headerlink" href="#release-process" title="Link to this heading">#</a></h2>
+<p>The process of creating a release is documented below.</p>
+<ol class="arabic">
+<li><p>Build WISER through the GitHub workflow <code class="docutils literal notranslate"><span class="pre">prod-deploy</span></code>.</p></li>
+<li><p>Do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-mac</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sign-windows</span></code> to run the signing
+logic. For signing on mac, you must have a valid Apple Developer
+signing certificate tied to a paid Apple Developer Program account.
+For signing on windows, you must have a windows code signing
+certificate. This is tied to an individual or a legal entity.</p>
+<p>a. If you do code sign your own distribution, please do not
+present it to others as a official WISER release unless you have
+been explicitly allowed to do so for a specific release.</p>
+</li>
+<li><p>If you are making an official release, you will need access to
+the <a class="reference external" href="https://ehlmann.caltech.edu/wiser/index.html">WISER website</a>
+and a stable place to host the WISER distributable. When you have
+access to this, you will add a download link to the website for the
+new release.</p></li>
+<li><p>You will need to make a release on GitHub with the release notes
+and tag the release’s commit.</p></li>
+<li><p>You will then need to put the release on the <a class="reference external" href="https://ehlmann.caltech.edu/wiser/release-notes.html">website’s release notes page</a>.</p></li>
+<li><p>Lastly, you will need to update the plugin API documentation on
+the page for [Plugin Dependencies](https://ehlmann-research-group.
+github.io/WISER-Plugin-API/plugin_dependencies.html) to include all
+of the dependencies in the latest version.</p></li>
+<li><p>Finally, if have the permissions to, then you should send an
+email to wiser-announce&#64;caltech.edu to announce a new release of
+WISER with a summary of what is in the release. If you don’t have
+permission to, reach out to someone who does with the email you want
+them to send.</p></li>
+</ol>
+<blockquote>
+<div><p><strong>Note</strong>: This process can only be done by a maintainer with
+access to all of these resources. This intentionally limits who can
+do official WISER releases. If the community thinks that an official
+WISER release should be done, please reach out to the maintainers.</p>
+</div></blockquote>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="codesign-mac.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Code-signing WISER on the Mac</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="branching-strategy.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Branching Strategy</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-integration">Continuous Integration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linting-formatting">Linting / Formatting</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dev-testing">Dev Testing</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-deployment">Continuous Deployment</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#production-testing">“Production” Testing</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#deployment-tests">Deployment Tests</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#deployment-test-signing">Deployment Test Signing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#releases">Releases</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#release-process">Release Process</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Joshua Garcia-Kimble
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Joshua Garcia-Kimble.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

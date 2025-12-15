@@ -1,0 +1,720 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Testing Standards &#8212; WISER Docs</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../_static/style.css?v=613452eb" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a11d3fb1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/testing-standards';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Engaging With WISER" href="../contributing.html" />
+    <link rel="prev" title="Branching Strategy" href="branching-strategy.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/icon_128x128.png" class="logo__image only-light" alt="WISER Docs - Home"/>
+    <script>document.write(`<img src="../_static/icon_128x128.png" class="logo__image only-dark" alt="WISER Docs - Home"/>`);</script>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../get-started.html">Getting started</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-manual.html">WISER User Manual</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-content/overview.html">WISER Overview</a></li>
+
+
+
+<li class="toctree-l2"><a class="reference internal" href="../user-content/contrast-stretch.html">Contrast Stretch</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../developer.html">Developing WISER</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="environment-setup.html">Environment setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-win.html">Developing and Building WISER on Windows 10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CI-CD-Releases.html">CI/CD and Releases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="branching-strategy.html">Branching Strategy</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Testing Standards</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../contributing.html">Engaging With WISER</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/feature-submitting-guide.html">Feature Submitting Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../general-content/bug-submitting-guide.html">Bug Submitting Guide</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Ehlmann-research-group/WISER" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/developer-content/testing-standards.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Testing Standards</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose-scope">Purpose &amp; Scope</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing-philosophy-principles">Testing Philosophy / Principles</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-organization">Test Organization</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-structure-pytest">Naming &amp; Structure (pytest)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-markers">Test Markers</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-ci-cd-integration">Running Tests &amp; CI/CD Integration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local">Local</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-marker-groups">Selecting Marker Groups</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-integration-ci">Continuous Integration (CI)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-deployment-cd">Continuous Deployment (CD)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-guidelines">Test Guidelines</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-maintenance-flakiness">Test Maintenance &amp; Flakiness</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-flaky-tests">Handling Flaky Tests</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isolation-requirements">Isolation Requirements</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#updating-tests">Updating Tests</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#deprecating-tests">Deprecating Tests</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ownership">Ownership</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review">Code Review</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#test-environment">Test Environment</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tests-are-expected-in-the-same-pr">Tests Are Expected in the Same PR</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="testing-standards">
+<h1>Testing Standards<a class="headerlink" href="#testing-standards" title="Link to this heading">#</a></h1>
+<section id="purpose-scope">
+<h2>Purpose &amp; Scope<a class="headerlink" href="#purpose-scope" title="Link to this heading">#</a></h2>
+<p>Reliable testing is essential to maintaining a stable and trustworthy codebase. Our tests protect against regressions when code changes, enable confident refactoring, and increase trust in the correctness of new features. Tests should be treated as production-grade code: readable, maintainable, and updated as the software evolves.</p>
+<p>This guide covers our approach to all tests that are in WISER which mainly include <strong>unit tests</strong>, <strong>functional tests</strong>, <strong>integration tests</strong>, <strong>end-to-end tests</strong>, and <strong>performance tests</strong>. Each plays a different role in verifying system correctness, and contributors are expected to write tests appropriate to the type of change they are making.</p>
+<p>This document applies to <strong>all contributors</strong>, including new contributors submitting their first PR, committers implementing new features, and maintainers reviewing contributions.</p>
+</section>
+<section id="testing-philosophy-principles">
+<h2>Testing Philosophy / Principles<a class="headerlink" href="#testing-philosophy-principles" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><strong>Fast and deterministic:</strong> Tests should run quickly and produce the same result every time.</p></li>
+<li><p><strong>Isolated:</strong> Tests should not depend on global state, shared data, or hidden side effects.</p></li>
+<li><p><strong>Parallel-safe:</strong> Tests should not interfere with one another so that they can be executed in parallel.</p></li>
+<li><p><strong>Readable and maintainable:</strong> Tests should be easy to understand and evolve as the code evolves.</p></li>
+<li><p><strong>Typical + edge cases:</strong> Tests should cover both the common use-cases and the boundary conditions where failures are likely to occur.</p></li>
+<li><p><strong>Hardware or external dependency tests must be explicitly marked.</strong></p></li>
+</ul>
+<p>We follow a <strong>test pyramid approach</strong>:</p>
+<ol class="arabic simple">
+<li><p><strong>Unit Tests</strong> — small, isolated, fast.</p></li>
+<li><p><strong>Functional Tests</strong> — test core workflows.</p></li>
+<li><p><strong>Integration Tests</strong> — exercise interactions between multiple components.</p></li>
+<li><p><strong>End-to-End Tests</strong> — validate the full user-facing experience.</p></li>
+</ol>
+<p>We do <strong>not</strong> chase coverage numbers for their own sake. Instead, your tests should meaningfully cover the behavior of the feature you are implementing, which will generally result in good functional coverage naturally.</p>
+</section>
+<section id="test-organization">
+<h2>Test Organization<a class="headerlink" href="#test-organization" title="Link to this heading">#</a></h2>
+<p>Tests currently live at:</p>
+<p><em>src/tests/</em></p>
+<p>As of <strong>11/05/2025</strong>, we do not yet organize tests by type (unit, integration, etc.), but this may be introduced later as the test suite grows.</p>
+<section id="naming-structure-pytest">
+<h3>Naming &amp; Structure (pytest)<a class="headerlink" href="#naming-structure-pytest" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Test filenames must start with:<br />
+<code class="docutils literal notranslate"><span class="pre">test_*.py</span></code></p></li>
+<li><p>If the test works y by clicking through gui elements and only
+tests one piece of functionality, put <code class="docutils literal notranslate"><span class="pre">_gui</span></code> at the end. If it tests
+the interface between two features put <code class="docutils literal notranslate"><span class="pre">_integ</span></code> at  the end. We may change or get rid of this in the future in place of pytest markers.</p></li>
+<li><p>Currently, there are no hard set rules dictating what to name the rest of the file, but generally it should be make clear what is being tested and any specifics about what is being tested.</p></li>
+<li><p>Test classes should follow Python testing patterns. If using unittest style, inherit from <code class="docutils literal notranslate"><span class="pre">unittest.TestCase</span></code>.</p></li>
+<li><p>Test functions should start with <code class="docutils literal notranslate"><span class="pre">test_</span></code>.</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">test_my_feature</span><span class="p">():</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="test-markers">
+<h2>Test Markers<a class="headerlink" href="#test-markers" title="Link to this heading">#</a></h2>
+<p>Test markers are declared in the root <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">tool</span><span class="o">.</span><span class="n">pytest</span><span class="o">.</span><span class="n">ini_options</span><span class="p">]</span>
+<span class="n">markers</span> <span class="o">=</span> <span class="p">[</span>
+  <span class="c1"># ...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>Markers are used to classify and selectively run tests (<code class="docutils literal notranslate"><span class="pre">smoke</span></code>, <code class="docutils literal notranslate"><span class="pre">integration</span></code>, <code class="docutils literal notranslate"><span class="pre">device</span></code>, <code class="docutils literal notranslate"><span class="pre">slow</span></code>, etc.).</p>
+<p>If a contributor believes a new marker is needed:</p>
+<ol class="arabic simple">
+<li><p>Write a test using the proposed marker.</p></li>
+<li><p>Open a PR explaining why existing markers are insufficient.</p></li>
+<li><p>Add a descriptive entry for the marker in pyproject.toml.</p></li>
+</ol>
+</section>
+<section id="running-tests-ci-cd-integration">
+<h2>Running Tests &amp; CI/CD Integration<a class="headerlink" href="#running-tests-ci-cd-integration" title="Link to this heading">#</a></h2>
+<section id="local">
+<h3>Local<a class="headerlink" href="#local" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>src/tests
+pytest<span class="w"> </span>.
+</pre></div>
+</div>
+</section>
+<section id="selecting-marker-groups">
+<h3>Selecting Marker Groups<a class="headerlink" href="#selecting-marker-groups" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pytest<span class="w"> </span>-m<span class="w"> </span>smoke
+pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;smoke and not slow&quot;</span>
+pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;(device or integration) and not slow&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="continuous-integration-ci">
+<h3>Continuous Integration (CI)<a class="headerlink" href="#continuous-integration-ci" title="Link to this heading">#</a></h3>
+<p>CI on github runners runs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>src/tests
+pytest<span class="w"> </span>.
+</pre></div>
+</div>
+</section>
+<section id="continuous-deployment-cd">
+<h3>Continuous Deployment (CD)<a class="headerlink" href="#continuous-deployment-cd" title="Link to this heading">#</a></h3>
+<p>CD runs a WISER build  in test mode. Example on MacOSX</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./WISER_Bin<span class="w"> </span>--test_mode
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">--test_mode</span></code> executes <code class="docutils literal notranslate"><span class="pre">pytest</span> <span class="pre">.</span></code> against <em>src/tests</em> inside the bundled distribution.</p>
+</section>
+</section>
+<section id="test-guidelines">
+<h2>Test Guidelines<a class="headerlink" href="#test-guidelines" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Principle</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Arrange → Act → Assert</p></td>
+<td><p>Organize test logic clearly.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Minimize side-effects</p></td>
+<td><p>Avoid unnecessary I/O, network access, or global state changes in unit tests.</p></td>
+</tr>
+<tr class="row-even"><td><p>Mock/stub appropriately</p></td>
+<td><p>Replace external dependencies where full execution is unnecessary.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Independent and repeatable</p></td>
+<td><p>Tests must not depend on execution order or shared state.</p></td>
+</tr>
+<tr class="row-even"><td><p>Avoid magic numbers</p></td>
+<td><p>Use named constants or helper functions to clarify intent.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Avoid flakiness</p></td>
+<td><p>Tests should not depend on timing, network reliability, or nondeterministic behavior.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="test-maintenance-flakiness">
+<h2>Test Maintenance &amp; Flakiness<a class="headerlink" href="#test-maintenance-flakiness" title="Link to this heading">#</a></h2>
+<section id="handling-flaky-tests">
+<h3>Handling Flaky Tests<a class="headerlink" href="#handling-flaky-tests" title="Link to this heading">#</a></h3>
+<p>If a test behaves inconsistently:</p>
+<ol class="arabic simple">
+<li><p><strong>Identify</strong> the flakiness.</p></li>
+<li><p><strong>Mark</strong> it as <code class="docutils literal notranslate"><span class="pre">xfail</span></code> so CI remains stable.</p></li>
+<li><p><strong>Submit a PR</strong> marking it xfail.</p></li>
+<li><p>After merge, submit a <strong>follow-up PR</strong> that fixes the underlying issue.</p></li>
+</ol>
+</section>
+<section id="isolation-requirements">
+<h3>Isolation Requirements<a class="headerlink" href="#isolation-requirements" title="Link to this heading">#</a></h3>
+<p>A properly isolated test:</p>
+<ul class="simple">
+<li><p>Passes regardless of execution order.</p></li>
+<li><p>Has no hidden dependencies (network, locale, external services) unless explicitly mocked.</p></li>
+<li><p>Does not share mutable state between tests.</p></li>
+<li><p>Runs correctly under parallel execution (pytest -n auto).</p></li>
+</ul>
+</section>
+<section id="updating-tests">
+<h3>Updating Tests<a class="headerlink" href="#updating-tests" title="Link to this heading">#</a></h3>
+<p>If code changes introduce new behavior or modify APIs:</p>
+<ul class="simple">
+<li><p>Update relevant tests.</p></li>
+<li><p>Add tests for newly introduced code paths.</p></li>
+<li><p>Fix broken tests that fail for valid reasons.</p></li>
+</ul>
+</section>
+<section id="deprecating-tests">
+<h3>Deprecating Tests<a class="headerlink" href="#deprecating-tests" title="Link to this heading">#</a></h3>
+<p>You may remove a test if:</p>
+<ul class="simple">
+<li><p>The feature it covers is intentionally removed.</p></li>
+<li><p>The test overlaps with other tests and provides no meaningful value.</p></li>
+</ul>
+</section>
+<section id="ownership">
+<h3>Ownership<a class="headerlink" href="#ownership" title="Link to this heading">#</a></h3>
+<p>Everyone is responsible for tests:</p>
+<ul class="simple">
+<li><p>If you introduce new functionality → you write the tests.</p></li>
+<li><p>If you refactor functionality → you update the tests.</p></li>
+<li><p>If a test breaks unrelated to your change → fix it or report it.</p></li>
+</ul>
+</section>
+<section id="code-review">
+<h3>Code Review<a class="headerlink" href="#code-review" title="Link to this heading">#</a></h3>
+<p>All tests must go through code review and pass CI.</p>
+</section>
+<section id="test-environment">
+<h3>Test Environment<a class="headerlink" href="#test-environment" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>CI runs tests in a development-like environment on Linux GitHub runners.</p></li>
+<li><p>CD runs tests in environments similar to production (macOS ARM, macOS Intel, Windows).
+Note: CD currently tests on the same runner that performs the build. In the future we plan to test distributed artifacts on separate machines (macOS code signing poses additional constraints).</p></li>
+</ul>
+</section>
+</section>
+<section id="tests-are-expected-in-the-same-pr">
+<h2>Tests Are Expected in the Same PR<a class="headerlink" href="#tests-are-expected-in-the-same-pr" title="Link to this heading">#</a></h2>
+<p>When introducing new features or changes, tests should be included in the same PR.</p>
+<p>If the feature is too large to test immediately:</p>
+<ul>
+<li><p>Submit a follow-up PR containing the tests.</p></li>
+<li><p>The feature must be gated behind a feature flag and clearly annotated:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># NOT-TESTED: feature not yet covered by test suite. </span>
+<span class="c1"># Tracking: &lt;link to PR with tests&gt;</span>
+</pre></div>
+</div>
+<p>No feature is considered complete until the corresponding tests have been merged.</p>
+</li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="branching-strategy.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Branching Strategy</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../contributing.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Engaging With WISER</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#purpose-scope">Purpose &amp; Scope</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#testing-philosophy-principles">Testing Philosophy / Principles</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-organization">Test Organization</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-structure-pytest">Naming &amp; Structure (pytest)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-markers">Test Markers</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-tests-ci-cd-integration">Running Tests &amp; CI/CD Integration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local">Local</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-marker-groups">Selecting Marker Groups</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-integration-ci">Continuous Integration (CI)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-deployment-cd">Continuous Deployment (CD)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-guidelines">Test Guidelines</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#test-maintenance-flakiness">Test Maintenance &amp; Flakiness</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-flaky-tests">Handling Flaky Tests</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#isolation-requirements">Isolation Requirements</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#updating-tests">Updating Tests</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#deprecating-tests">Deprecating Tests</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ownership">Ownership</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#code-review">Code Review</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#test-environment">Test Environment</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tests-are-expected-in-the-same-pr">Tests Are Expected in the Same PR</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Joshua Garcia-Kimble
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Joshua Garcia-Kimble.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
