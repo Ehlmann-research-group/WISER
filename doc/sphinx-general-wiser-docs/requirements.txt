@@ -3,3 +3,4 @@ pydata-sphinx-theme
 myst-parser
 sphinx-autodoc-typehints
 sphinx-autodoc2
+enum-tools[sphinx]
