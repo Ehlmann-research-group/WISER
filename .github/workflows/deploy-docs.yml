@@ -2,6 +2,7 @@ name: Deploy Sphinx documentation to Pages
 
 on:
   push:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
