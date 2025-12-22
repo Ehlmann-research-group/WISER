@@ -1400,7 +1400,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             assert expr_info.spectral_metadata_source == caltech_ds.get_spectral_metadata()
 
     def bandmath_preloaded_data_with_batch_helper(self, run_sync: bool):
-        # Load in caltech_4_100_150nm
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
         target_path = os.path.normpath(
@@ -1656,6 +1655,97 @@ class TestBandmathEvaluator(unittest.TestCase):
             epsilon=20,
         )
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
+
+    def bandmath_test_single_vars_helper(self, run_sync: bool):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        target_path = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+        )
+
+        batch_test_folder = os.path.normpath(
+            os.path.join(
+                current_dir,
+                "..",
+                "test_utils",
+                "test_datasets",
+                "bandmath_batch_test_input_folder",
+            )
+        )
+
+        caltech_ds = self.test_model.load_dataset(target_path)
+
+        band = RasterDataBand(caltech_ds, 0)
+
+        spectrum = SpectrumAtPoint(caltech_ds, (1, 1))
+
+        vars = [
+            (VariableType.IMAGE_CUBE, caltech_ds),
+            (VariableType.IMAGE_BAND, band),
+            (VariableType.SPECTRUM, spectrum),
+        ]
+
+        for var in vars:
+            expr = "a"
+            variables = {
+                "a": var,
+            }
+            expr_info = get_bandmath_expr_info(expr, variables, {})
+            suffix = "test_result"
+            cache = DataCache()
+            process_manager = bandmath.eval_bandmath_expr(
+                succeeded_callback=lambda _: None,
+                status_callback=lambda _: None,
+                error_callback=lambda _: None,
+                bandmath_expr=expr,
+                expr_info=expr_info,
+                result_name=suffix,
+                cache=cache,
+                variables=variables,
+                functions={},
+                use_synchronous_method=run_sync,
+            )
+            process_manager.get_task().wait()
+            results = process_manager.get_task().get_result()
+            for result_type, result, result_name, expr_info in results:
+                assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                    result_ds = load_image_from_bandmath_result(
+                        result_type, result, result_name, expr, expr_info, loader, None
+                    )
+                    result_arr = result_ds.get_image_data()
+                    original_file_name = (
+                        result_name[: -(len(suffix))] if result_name.endswith(suffix) else result_name
+                    )
+                    original_ds = loader.load_from_file(
+                        path=os.path.normpath(os.path.join(batch_test_folder, original_file_name))
+                    )[0]
+                    if var[0] == VariableType.IMAGE_CUBE:
+                        var_arr = var[1].get_image_data()
+                    elif var[0] == VariableType.IMAGE_BAND:
+                        var_arr = var[1].get_data()
+                    elif var[0] == VariableType.SPECTRUM:
+                        var_arr = var[1].get_spectrum()
+                        if var_arr.ndim == 1:
+                            var_arr = var_arr[:, np.newaxis, np.newaxis]
+                    else:
+                        self.fail(f"Unexpected variable type: {var[0]}")
+
+                    assert np.allclose(result_arr, original_ds.get_image_data() + var_arr)
+
+                    assert expr_info.spatial_metadata_source is not None
+                    assert expr_info.spectral_metadata_source is not None
+                    assert expr_info.spatial_metadata_source == original_ds.get_spatial_metadata()
+                    assert expr_info.spectral_metadata_source == original_ds.get_spectral_metadata()
+
+                    del result
+                    del original_ds
+
+    def test_single_variables_sync(self):
+        self.bandmath_test_single_vars_helper(run_sync=True)
+
+    def test_single_variables_async(self):
+        self.bandmath_test_single_vars_helper(run_sync=False)
 
 
 if __name__ == "__main__":
