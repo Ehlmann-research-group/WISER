@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple, Union, TYPE_CHECKING, Optional
+from typing import Any, List, Tuple, Union, TYPE_CHECKING, Optional, Dict
 
 import re
 import datetime
@@ -20,7 +20,7 @@ from enum import Enum
 
 from wiser.raster.spectrum import NumPyArraySpectrum
 
-from wiser.raster.serializable import SerializedForm
+from wiser.raster.serializable import SerializedForm, Serializable
 
 from wiser.gui.parallel_task import ParallelTaskProcess
 
@@ -41,11 +41,11 @@ from .builtins.constants import (
 
 from PySide2.QtWidgets import QMessageBox, QWidget
 
+import logging
+
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
     from wiser.raster.loader import RasterDataLoader
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,33 @@ Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_output")
+
+BandMathResultInfo = Tuple[VariableType, SerializedForm, str, BandMathExprInfo]
+
+
+class PrimitiveSerialized(Serializable):
+    """
+    While primitives are already serializable, this class makes working
+    with serialized primitives alongside our more complex serialized classes
+    easier because everything will have the same interface.
+
+    Attributes:
+        primitive_value: A primitive value that we want to wrap in this class
+    """
+
+    def __init__(self, primitive: Any):
+        self._primitive = primitive
+
+    def get_serialized_form(self):
+        return SerializedForm(
+            serializable_class=PrimitiveSerialized,
+            serialize_value=self._primitive,
+            metadata={},
+        )
+
+    @staticmethod
+    def deserialize_into_class(serialize_value: str, metadata: Dict):
+        return PrimitiveSerialized(serialize_value)
 
 
 class MathOperations(Enum):
@@ -276,7 +303,7 @@ def save_band_from_bandmath_result(
 def bandmath_success_callback(
     parent: QWidget,
     app_state: "ApplicationState",
-    results: List[Tuple[VariableType, SerializedForm, str]],
+    results: List[BandMathResultInfo],
     expression: str,
     batch_enabled: bool,
     load_into_wiser: bool,

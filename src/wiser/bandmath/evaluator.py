@@ -32,7 +32,7 @@ from .utils import (
     np_dtype_to_gdal,
     write_raster_to_dataset,
     max_bytes_to_chunk,
-    get_valid_ignore_value,
+    BandMathResultInfo,
 )
 
 from wiser import bandmath
@@ -983,7 +983,7 @@ def eval_bandmath_expr(
 
 def serialize_bandmath_variables(
     variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
-) -> Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool]]]:
+) -> Dict[str, Tuple[VariableType, Union[SerializedForm, str, bool, np.float32]]]:
     """
     This function serializes the 'variables' and 'functions' dictionaries into a
     format that can be passed to a subprocess. In the subprocess, we will
@@ -1385,7 +1385,7 @@ def eval_all_bandmath_expr(
                 {"Numerator": count, "Denominator": total, "Status": "Finished"},
             ]
         )
-        serialized_results: List[Tuple[VariableType, SerializedForm, str, BandMathExprInfo]] = []
+        serialized_results: List[BandMathResultInfo] = []
         for result_type, result_value, result_name, result_expr_info in outputs:
             if isinstance(result_value, Serializable):
                 serialized_results.append(

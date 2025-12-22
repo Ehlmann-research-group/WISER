@@ -23,7 +23,10 @@ class Serializable:
 
     @staticmethod
     @abstractmethod
-    def deserialize_into_class(dataset_serialize_value: Union[str, np.ndarray], dataset_metadata: Dict):
+    def deserialize_into_class(
+        serialize_value: Union[str, np.ndarray, str, bool, np.float32],
+        metadata: Dict,
+    ) -> "Serializable":
         """
         This should recreate the object from the serialized form that is
         obtained from the get_serialized_form method.

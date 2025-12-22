@@ -1458,79 +1458,73 @@ class RasterDataSet(Serializable):
         return False
 
     @staticmethod
-    def deserialize_into_class(
-        dataset_serialize_value: Union[str, np.ndarray], dataset_metadata: Dict
-    ) -> "RasterDataSet":
+    def deserialize_into_class(serialize_value: Union[str, np.ndarray], metadata: Dict) -> "RasterDataSet":
         """
         We need to properly open up the dataset, if it is a subdataset, then we need
         to properly open that subdataset.
 
         Args:
-            dataset_serialize_value (Union[str, np.ndarray]):
+            serialize_value (Union[str, np.ndarray]):
                 A string that represents the file path to the dataset, or a numpy array
                 that represents the data in the dataset.
-            dataset_metadata (Dict):
+            metadata (Dict):
                 A dictionary that represents the metadata needed to recreate this object.
 
         Returns:
             RasterDataSet: Takes the passed in parameters and reconstructs a dataset ojbect.
         """
-        if isinstance(dataset_serialize_value, str) and dataset_serialize_value.startswith("NETCDF:"):
-            dataset_serialize_value = dataset_serialize_value[7:]
+        if isinstance(serialize_value, str) and serialize_value.startswith("NETCDF:"):
+            serialize_value = serialize_value[7:]
         try:
-            if isinstance(dataset_serialize_value, str):
+            if isinstance(serialize_value, str):
                 impl = None
-                if dataset_metadata.get("impl_type") == "NetCDF_GDALRasterDataImpl":
-                    subdataset_name = dataset_metadata["subdataset_name"]
+                if metadata.get("impl_type") == "NetCDF_GDALRasterDataImpl":
+                    subdataset_name = metadata["subdataset_name"]
                     assert subdataset_name, "ERROR: Subdataset name for netcdf dataset is empty or none"
                     impl = NetCDF_GDALRasterDataImpl.try_load_file(
-                        dataset_serialize_value,
+                        serialize_value,
                         subdataset_name=subdataset_name,
                         interactive=False,
                     )[0]
-                elif dataset_metadata.get("impl_type") == "ENVI_GDALRasterDataImpl":
-                    impl = ENVI_GDALRasterDataImpl.try_load_file(dataset_serialize_value, interactive=False)[
-                        0
-                    ]
-                elif dataset_metadata.get("impl_type") == "JP2_GDAL_PDR_RasterDataImpl":
-                    impl = JP2_GDAL_PDR_RasterDataImpl.try_load_file(
-                        dataset_serialize_value, interactive=False
-                    )[0]
-                elif dataset_metadata.get("impl_type") == "GDALRasterDataImpl":
-                    impl = GDALRasterDataImpl.try_load_file(dataset_serialize_value, interactive=False)[0]
-                elif dataset_metadata.get("impl_type") == "PDRRasterDataImpl":
-                    impl = PDRRasterDataImpl.try_load_file(dataset_serialize_value, interactive=False)[0]
-                elif dataset_metadata.get("impl_type") == "NumPyRasterDataImpl":
-                    raise ValueError("Numpy array should not have dataset_serialize_value as string")
+                elif metadata.get("impl_type") == "ENVI_GDALRasterDataImpl":
+                    impl = ENVI_GDALRasterDataImpl.try_load_file(serialize_value, interactive=False)[0]
+                elif metadata.get("impl_type") == "JP2_GDAL_PDR_RasterDataImpl":
+                    impl = JP2_GDAL_PDR_RasterDataImpl.try_load_file(serialize_value, interactive=False)[0]
+                elif metadata.get("impl_type") == "GDALRasterDataImpl":
+                    impl = GDALRasterDataImpl.try_load_file(serialize_value, interactive=False)[0]
+                elif metadata.get("impl_type") == "PDRRasterDataImpl":
+                    impl = PDRRasterDataImpl.try_load_file(serialize_value, interactive=False)[0]
+                elif metadata.get("impl_type") == "NumPyRasterDataImpl":
+                    raise ValueError("Numpy array should not have serialize_value as string")
                 else:
-                    raise ValueError(f"Unsupported implementation type: {dataset_metadata.get('impl_type')}")
+                    raise ValueError(f"Unsupported implementation type: {metadata.get('impl_type')}")
                 dataset = RasterDataSet(impl, None)
-            elif isinstance(dataset_serialize_value, np.ndarray):
-                impl = NumPyRasterDataImpl(dataset_serialize_value)
+            elif isinstance(serialize_value, np.ndarray):
+                impl = NumPyRasterDataImpl(serialize_value)
                 dataset = RasterDataSet(impl, None)
             else:
-                raise ValueError(f"Unsupported dataset_serialize_value type: {type(dataset_serialize_value)}")
-            dataset.copy_serialized_metadata_from(dataset_metadata)
+                raise ValueError(f"Unsupported serialize_value type: {type(serialize_value)}")
+            dataset.copy_serialized_metadata_from(metadata)
             return dataset
         except Exception as e:
             raise ValueError(f"Error deserializing dataset:\n{e}")
 
-    def copy_serialized_metadata_from(self, dataset_metadata: Dict) -> None:
+    def copy_serialized_metadata_from(self, metadata: Dict) -> None:
         """
-        Copies the metadata from the dataset_metadata dictionary into this object. This
+        Copies the metadata from the metadata dictionary into this object. This
         is useful when reconstructing RasterDataSet objects meta data in another process.
         This is needed because the user can change the in memory copy of the RasterDataSet
         object and so if we reconstruct this object just from the impl dataset, we would
         not get this changed metadata.
         """
-        serial_save_state = dataset_metadata.get("save_state", None)
-        serial_elem_type = dataset_metadata.get("elem_type", None)
-        serial_data_ignore_value = dataset_metadata.get("data_ignore_value", None)
-        serial_bad_bands = dataset_metadata.get("bad_bands", None)
-        serial_wkt_spatial_ref = dataset_metadata.get("wkt_spatial_ref", None)
-        serial_geo_transform = dataset_metadata.get("geo_transform", None)
-        serial_wavelengths: List[u.Quantity] = dataset_metadata.get("wavelengths", None)
-        serial_wavelength_units = dataset_metadata.get("wavelength_units", None)
+        serial_save_state = metadata.get("save_state", None)
+        serial_elem_type = metadata.get("elem_type", None)
+        serial_data_ignore_value = metadata.get("data_ignore_value", None)
+        serial_bad_bands = metadata.get("bad_bands", None)
+        serial_wkt_spatial_ref = metadata.get("wkt_spatial_ref", None)
+        serial_geo_transform = metadata.get("geo_transform", None)
+        serial_wavelengths: List[u.Quantity] = metadata.get("wavelengths", None)
+        serial_wavelength_units = metadata.get("wavelength_units", None)
         if serial_save_state:
             self.set_save_state(serial_save_state)
         if serial_elem_type:
@@ -1745,7 +1739,7 @@ class RasterDataBand(RasterBand, Serializable):
     @staticmethod
     def deserialize_into_class(band_index: int, band_metadata: Dict) -> "RasterDataBand":
         dataset = RasterDataSet.deserialize_into_class(
-            band_metadata["dataset_serialize_value"], band_metadata["dataset_metadata"]
+            band_metadata["serialize_value"], band_metadata["metadata"]
         )
         return RasterDataBand(dataset, band_index)
 
@@ -1759,13 +1753,13 @@ class RasterDataBand(RasterBand, Serializable):
         """
         serialized_form = self._dataset.get_serialized_form()
         serializable_class = serialized_form.get_serializable_class()
-        dataset_serialize_value = serialized_form.get_serialize_value()
-        dataset_metadata = serialized_form.get_metadata()
+        serialize_value = serialized_form.get_serialize_value()
+        metadata = serialized_form.get_metadata()
         metadata = {
             "band_index": self._band_index,
             "dataset_serializable_class": serializable_class,
-            "dataset_serialize_value": dataset_serialize_value,
-            "dataset_metadata": dataset_metadata,
+            "serialize_value": serialize_value,
+            "metadata": metadata,
         }
         return SerializedForm(self.__class__, self._band_index, metadata)
 
@@ -1859,18 +1853,17 @@ class RasterDataDynamicBand(RasterBand, Serializable):
         # we will have to load the dataset using the filepath which will have to be added
         # to band_metadata.
         if "dataset_serializable_class" in band_metadata:
-            assert "dataset_serialize_value" in band_metadata and "dataset_metadata" in band_metadata, (
-                "dataset_serialize_value and dataset_metadata must be provided if "
-                "dataset_serializable_class is provided"
+            assert "serialize_value" in band_metadata and "metadata" in band_metadata, (
+                "serialize_value and metadata must be provided if " "dataset_serializable_class is provided"
             )
             dataset = band_metadata["dataset_serializable_class"].deserialize_into_class(
-                band_metadata["dataset_serialize_value"],
-                band_metadata["dataset_metadata"],
+                band_metadata["serialize_value"],
+                band_metadata["metadata"],
             )
         else:
             dataset = loader.load_from_file(path=band_metadata["filepath"], interactive=False)[0]
-        if "dataset_metadata" in band_metadata:
-            dataset.copy_serialized_metadata_from(band_metadata["dataset_metadata"])
+        if "metadata" in band_metadata:
+            dataset.copy_serialized_metadata_from(band_metadata["metadata"])
 
         return RasterDataDynamicBand(dataset, band_index, wavelength_value, wavelength_units, epsilon)
 
@@ -1884,16 +1877,16 @@ class RasterDataDynamicBand(RasterBand, Serializable):
         """
         serialized_form = self._dataset.get_serialized_form()
         serializable_class = serialized_form.get_serializable_class()
-        dataset_serialize_value = serialized_form.get_serialize_value()
-        dataset_metadata = serialized_form.get_metadata()
+        serialize_value = serialized_form.get_serialize_value()
+        metadata = serialized_form.get_metadata()
         metadata = {
             "band_index": self._band_index,
             "wavelength_value": self._wavelength_value,
             "wavelength_units": self._wavelength_units,
             "epsilon": self._epsilon,
             "dataset_serializable_class": serializable_class,
-            "dataset_serialize_value": dataset_serialize_value,
-            "dataset_metadata": dataset_metadata,
+            "serialize_value": serialize_value,
+            "metadata": metadata,
         }
         return SerializedForm(self.__class__, self._band_index, metadata)
 
