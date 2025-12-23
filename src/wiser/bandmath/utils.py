@@ -20,7 +20,7 @@ from enum import Enum
 
 from wiser.raster.spectrum import NumPyArraySpectrum
 
-from wiser.raster.serializable import SerializedForm, Serializable
+from wiser.raster.serializable import SerializedForm
 
 from wiser.gui.parallel_task import ParallelTaskProcess
 
@@ -31,6 +31,7 @@ from wiser.raster.dataset import (
     SaveState,
     RasterDataDynamicBand,
 )
+from wiser.raster.spectrum import Spectrum
 from .builtins.constants import (
     RATIO_OF_MEM_TO_USE,
     DEFAULT_IGNORE_VALUE,
@@ -80,7 +81,7 @@ def bandmath_error_callback(task: ParallelTaskProcess):
 
 def load_image_from_bandmath_result(
     result_type: Union[VariableType, RasterDataSet],
-    result: Union[SerializedForm, np.ndarray],
+    result: SerializedForm,
     result_name: str,
     expression: Optional[str],
     expr_info: "BandMathExprInfo",
@@ -94,7 +95,7 @@ def load_image_from_bandmath_result(
         metadata = result.get_metadata()
         if "save_state" not in metadata:
             metadata["save_state"] = SaveState.IN_DISK_NOT_SAVED
-        ds = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
+        ds = RasterDataSet.deserialize_into_class(result)
         if expression:
             ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
         if expr_info.spatial_metadata_source:
@@ -127,7 +128,7 @@ def load_image_from_bandmath_result(
 
 def save_image_from_bandmath_result(
     result_type: Union[VariableType, RasterDataSet],
-    result: Union[SerializedForm, np.ndarray],
+    result: SerializedForm,
     result_name: str,
     expression: Optional[str],
     expr_info: "BandMathExprInfo",
@@ -143,7 +144,7 @@ def save_image_from_bandmath_result(
         metadata = result.get_metadata()
         if "save_state" not in metadata:
             metadata["save_state"] = SaveState.IN_DISK_NOT_SAVED
-        ds = RasterDataSet.deserialize_into_class(result.get_serialize_value(), metadata)
+        ds = RasterDataSet.deserialize_into_class(result)
         if expression:
             ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
         if expr_info.spatial_metadata_source:
@@ -172,7 +173,7 @@ def save_image_from_bandmath_result(
 
 
 def load_band_from_bandmath_result(
-    result: Union[SerializedForm, np.ndarray],
+    result: SerializedForm,
     result_name: str,
     expression: str,
     expr_info: "BandMathExprInfo",
@@ -187,7 +188,7 @@ def load_band_from_bandmath_result(
     if isinstance(result, SerializedForm):
         generic_raster_band_class = result.get_serializable_class()
         raster_band: RasterDataBand = generic_raster_band_class.deserialize_into_class(
-            result.get_serialize_value(), result.get_metadata()
+            result,
         )
         assert isinstance(raster_band, (RasterDataDynamicBand, RasterDataBand))
         arr = raster_band.get_data()
@@ -222,7 +223,7 @@ def load_band_from_bandmath_result(
 
 
 def save_band_from_bandmath_result(
-    result: Union[SerializedForm, np.ndarray],
+    result: SerializedForm,
     result_name: str,
     expression: str,
     expr_info: "BandMathExprInfo",
@@ -241,7 +242,7 @@ def save_band_from_bandmath_result(
     if isinstance(result, SerializedForm):
         generic_raster_band_class = result.get_serializable_class()
         raster_band: RasterDataBand = generic_raster_band_class.deserialize_into_class(
-            result.get_serialize_value(), result.get_metadata()
+            result,
         )
         assert isinstance(raster_band, (RasterDataDynamicBand, RasterDataBand))
         arr = raster_band.get_data()
@@ -499,7 +500,8 @@ async def get_lhs_rhs_values_async(
     rhs_value = None
     rhs_future = None
     should_be_the_same = False
-    if not isinstance(lhs.value, np.ndarray):
+    # This is for dataset's that we will need to do I/O to read from
+    if isinstance(lhs.value, (RasterDataSet, RasterDataBand, Spectrum)):
         # Check to see if queue is empty. If it's not, then we can immediately get the data
         if read_task_queue[LHS_KEY].empty():
             read_lhs_future_onto_queue(
@@ -530,7 +532,9 @@ async def get_lhs_rhs_values_async(
     lhs_value_shape[0] = len(index_list_current)
     lhs_value_shape = tuple(lhs_value_shape)
 
-    if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
+    if rhs.type == VariableType.IMAGE_CUBE and isinstance(
+        lhs.value, (RasterDataSet, RasterDataBand, Spectrum)
+    ):
         # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
         if (
             isinstance(lhs.value, RasterDataSet)
@@ -587,7 +591,7 @@ async def get_lhs_value_async(
 ):
     lhs_value = None
     lhs_future = None
-    if not isinstance(lhs.value, np.ndarray):
+    if isinstance(lhs.value, (RasterDataSet, RasterDataBand, Spectrum)):
         # Check to see if queue is empty. If it's not, then we can immediately get the data
         if read_task_queue[LHS_KEY].empty():
             read_lhs_future_onto_queue(

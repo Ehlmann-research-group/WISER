@@ -19,6 +19,7 @@ from wiser.bandmath.utils import (
     reorder_args,
 )
 
+from wiser.raster.serializable import BasicValueSerialized
 
 COMPARE_OPERATORS = {
     "==": np.equal,
@@ -227,12 +228,12 @@ class OperatorCompare(BandMathFunction):
         # Take care of the simple case first, where it's just two numbers.
         # Use the eval() built-in function to evaluate the comparison.
         if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
-            flag = eval(f"{lhs.value} {self.operator} {rhs.value}")
+            flag = eval(f"{lhs.as_scalar()} {self.operator} {rhs.as_scalar()}")
             if flag:
                 result = 1
             else:
                 result = 0
-            return BandMathValue(VariableType.NUMBER, result)
+            return BandMathValue(VariableType.NUMBER, BasicValueSerialized(result))
 
         # If we got here, we are comparing more complex data types.
 

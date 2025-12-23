@@ -42,14 +42,11 @@ from wiser.raster.serializable import Serializable, SerializedForm
 from wiser.raster.data_cache import DataCache
 from wiser.raster.dataset import (
     RasterDataSet,
-    RasterDataBand,
-    SpectralMetadata,
     RasterDataBatchBand,
     RasterDataDynamicBand,
 )
-from wiser.raster.spectrum import Spectrum
 from wiser.raster.loader import RasterDataLoader
-from wiser.raster.dataset_impl import SaveState
+from wiser.raster.serializable import BasicValueSerialized
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -432,12 +429,12 @@ class BandMathEvaluatorAsync(AsyncTransformer):
     def true(self, args):
         """Returns a BandMathValue of True."""
         logger.debug(" * true")
-        return BandMathValue(VariableType.BOOLEAN, True, computed=False)
+        return BandMathValue(VariableType.BOOLEAN, BasicValueSerialized(True), computed=False)
 
     def false(self, args):
         """Returns a BandMathValue of False."""
         logger.debug(" * false")
-        return BandMathValue(VariableType.BOOLEAN, False, computed=False)
+        return BandMathValue(VariableType.BOOLEAN, BasicValueSerialized(False), computed=False)
 
     def number(self, args):
         """Returns a BandMathValue containing a specific number."""
@@ -512,7 +509,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         and is wrapped in a BandMathValue object.
         """
         logger.debug(" * NUMBER")
-        return BandMathValue(VariableType.NUMBER, float(token), computed=False)
+        return BandMathValue(VariableType.NUMBER, BasicValueSerialized(float(token)), computed=False)
 
     def STRING(self, token) -> str:
         """
@@ -558,6 +555,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         oper = args[1]
         rhs = args[2]
 
+        # Since we do not await the future, this is effectively synchronous
         future = asyncio.run_coroutine_threadsafe(
             OperatorCompare(oper).apply([lhs, rhs], self.index_list), self._event_loop
         )
@@ -573,6 +571,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         oper = values[1]
         rhs = values[2]
 
+        # Since we do not await the future, this is effectively synchronous
         if oper == "+":
             future = asyncio.run_coroutine_threadsafe(
                 OperatorAdd().apply([lhs, rhs], self.index_list), self._event_loop
@@ -597,6 +596,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         oper = args[1]
         rhs = args[2]
 
+        # Since we do not await the future, this is effectively synchronous
         if oper == "*":
             future = asyncio.run_coroutine_threadsafe(
                 OperatorMultiply().apply([lhs, rhs], self.index_list), self._event_loop
@@ -617,6 +617,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         """
         logger.debug(" * power_expr")
 
+        # Since we do not await the future, this is effectively synchronous
         future = asyncio.run_coroutine_threadsafe(
             OperatorPower().apply([args[0], args[1]], self.index_list), self._event_loop
         )
@@ -629,6 +630,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         logger.debug(" * unary_negate_expr")
         # args[0] is the '-' character
 
+        # Since we do not await the future, this is effectively synchronous
         future = asyncio.run_coroutine_threadsafe(
             OperatorUnaryNegate().apply([args[1]], self.index_list), self._event_loop
         )
@@ -637,12 +639,12 @@ class BandMathEvaluator(lark.visitors.Transformer):
     def true(self, args):
         """Returns a BandMathValue of True."""
         logger.debug(" * true")
-        return BandMathValue(VariableType.BOOLEAN, True, computed=False)
+        return BandMathValue(VariableType.BOOLEAN, BasicValueSerialized(True), computed=False)
 
     def false(self, args):
         """Returns a BandMathValue of False."""
         logger.debug(" * false")
-        return BandMathValue(VariableType.BOOLEAN, False, computed=False)
+        return BandMathValue(VariableType.BOOLEAN, BasicValueSerialized(False), computed=False)
 
     def number(self, args):
         """Returns a BandMathValue containing a specific number."""
@@ -717,7 +719,11 @@ class BandMathEvaluator(lark.visitors.Transformer):
         and is wrapped in a BandMathValue object.
         """
         logger.debug(" * NUMBER")
-        return BandMathValue(VariableType.NUMBER, float(token), computed=False)
+        return BandMathValue(
+            VariableType.NUMBER,
+            BasicValueSerialized(float(token)),
+            computed=False,
+        )
 
     def STRING(self, token) -> str:
         """

@@ -71,12 +71,12 @@ class SerializedForm:
 
 class BasicValueSerialized(Serializable):
     """
-    While primitives are already serializable, this class makes working
-    with serialized primitives alongside our more complex serialized classes
-    easier because everything will have the same interface.
+    This class makes working with serialized basic types (primitives
+    and arrays) and our more complex serialized classes easier by
+    ensuring everything has the same interface.
 
     Attributes:
-        primitive_value: A primitive value that we want to wrap in this class
+        value: A basic value that we want to wrap in this class
     """
 
     def __init__(self, value: Any):
@@ -93,5 +93,6 @@ class BasicValueSerialized(Serializable):
         )
 
     @staticmethod
-    def deserialize_into_class(serialize_value: str, metadata: Dict):
+    def deserialize_into_class(serializedForm: SerializedForm) -> "BasicValueSerialized":
+        serialize_value = serializedForm.get_serialize_value()
         return BasicValueSerialized(serialize_value)

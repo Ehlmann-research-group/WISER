@@ -22,6 +22,8 @@ from wiser.bandmath.utils import (
     reorder_args,
 )
 
+from wiser.raster.serializable import BasicValueSerialized
+
 
 class OperatorPower(BandMathFunction):
     """
@@ -142,7 +144,9 @@ class OperatorPower(BandMathFunction):
 
         # Take care of the simple case first, where it's just two numbers.
         if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
-            return BandMathValue(VariableType.NUMBER, lhs.value**rhs.value)
+            return BandMathValue(
+                VariableType.NUMBER, BasicValueSerialized(lhs.as_scalar() ** rhs.as_scalar())
+            )
 
         # If we got here, we are working with more complex data types.
 

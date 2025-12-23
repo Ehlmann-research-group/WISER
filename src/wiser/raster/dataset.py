@@ -1458,7 +1458,7 @@ class RasterDataSet(Serializable):
         return False
 
     @staticmethod
-    def deserialize_into_class(serialize_value: Union[str, np.ndarray], metadata: Dict) -> "RasterDataSet":
+    def deserialize_into_class(serializedForm: SerializedForm) -> "RasterDataSet":
         """
         We need to properly open up the dataset, if it is a subdataset, then we need
         to properly open that subdataset.
@@ -1473,6 +1473,8 @@ class RasterDataSet(Serializable):
         Returns:
             RasterDataSet: Takes the passed in parameters and reconstructs a dataset ojbect.
         """
+        serialize_value = serializedForm.get_serialize_value()
+        metadata = serializedForm.get_metadata()
         if isinstance(serialize_value, str) and serialize_value.startswith("NETCDF:"):
             serialize_value = serialize_value[7:]
         try:
@@ -1743,8 +1745,13 @@ class RasterDataBand(RasterBand, Serializable):
         if not isinstance(band_index, int):
             band_index = int(band_index)
 
+        dataset_serialized = SerializedForm(
+            RasterDataSet,
+            band_metadata["dataset_serialize_value"],
+            band_metadata["dataset_metadata"],
+        )
         dataset = RasterDataSet.deserialize_into_class(
-            band_metadata["dataset_serialize_value"], band_metadata["dataset_metadata"]
+            dataset_serialized,
         )
         return RasterDataBand(dataset, band_index)
 
@@ -1840,7 +1847,6 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             return False
 
     @staticmethod
-    # def deserialize_into_class(band_index: int, band_metadata: Dict) -> "RasterDataDynamicBand":
     def deserialize_into_class(serializedForm: SerializedForm) -> "RasterDataDynamicBand":
         metadata = serializedForm.get_metadata()
         band_index = int(metadata["band_index"])

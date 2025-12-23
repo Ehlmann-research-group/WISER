@@ -188,18 +188,15 @@ class BandMathValue:
         elif self.type == VariableType.SPECTRUM:
             if isinstance(self.value, Spectrum):
                 return self.value.get_shape()
-
         # If we got here, we don't know how to convert the value into a NumPy
         # array.
         raise TypeError(f"Don't know how to get shape of {self.type} value")
 
     def get_elem_type(self) -> np.dtype:
-        print("getting element type!!")
         if isinstance(self.value, np.ndarray):
             return self.value.dtype
 
         if isinstance(self.value, BasicValueSerialized):
-            print("it is BasicValueSerialized!")
             assert isinstance(self.value.get_basic_value(), np.ndarray)
             return self.value.get_basic_value().dtype
 
@@ -225,6 +222,7 @@ class BandMathValue:
         scalar is defined as a singular value, so boolean is considered a scalar.
         """
         if self.type == VariableType.NUMBER or self.type == VariableType.BOOLEAN:
+            assert isinstance(self.value, BasicValueSerialized)
             return self.value.get_basic_value()
         raise ValueError(f"This BandMathValue type is not a scalar. It is a {self.type.name}")
 
@@ -238,6 +236,10 @@ class BandMathValue:
         # If the value is already a NumPy array, we are done!
         if isinstance(self.value, np.ndarray):
             return self.value
+
+        if isinstance(self.value, BasicValueSerialized):
+            assert isinstance(self.value.get_basic_value(), np.ndarray)
+            return self.value.get_basic_value()
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):
