@@ -1,7 +1,7 @@
 import abc
 import enum
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
 
@@ -10,7 +10,6 @@ import copy
 from wiser.raster.dataset import (
     RasterDataSet,
     RasterDataBand,
-    RasterDataDynamicBand,
     RasterDataBatchBand,
     RasterBand,
     SpectralMetadata,
@@ -18,16 +17,16 @@ from wiser.raster.dataset import (
 )
 from wiser.raster.spectrum import Spectrum
 
+from wiser.raster.serializable import BasicValueSerialized, Serializable, SerializedForm
 
 FolderPathType = str
 BANDMATH_VALUE_TYPE = Union[
-    RasterDataSet,
-    RasterDataBand,
-    RasterDataBatchBand,
-    Spectrum,
-    FolderPathType,
-    bool,
-    np.float32,
+    Serializable,
+    np.ndarray,
+]
+BANDMATH_SERIALIZED_TYPE = Union[
+    SerializedForm,
+    np.ndarray,
 ]
 
 
@@ -160,7 +159,7 @@ class BandMathValue:
 
         self.name: Optional[str] = None
         self.type: VariableType = type
-        self.value: BANDMATH_VALUE_TYPE = value
+        self.value: Serializable = value
         self.computed: bool = computed
         self.is_intermediate = is_intermediate
 
@@ -170,6 +169,10 @@ class BandMathValue:
     def get_shape(self) -> Tuple:
         if isinstance(self.value, np.ndarray):
             return self.value.shape
+
+        if isinstance(self.value, BasicValueSerialized):
+            assert isinstance(self.value.get_basic_value(), np.ndarray)
+            return self.value.get_basic_value().shape
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):
@@ -182,7 +185,6 @@ class BandMathValue:
         elif self.type == VariableType.SPECTRUM:
             if isinstance(self.value, Spectrum):
                 return self.value.get_shape()
-
         # If we got here, we don't know how to convert the value into a NumPy
         # array.
         raise TypeError(f"Don't know how to get shape of {self.type} value")
@@ -190,6 +192,10 @@ class BandMathValue:
     def get_elem_type(self) -> np.dtype:
         if isinstance(self.value, np.ndarray):
             return self.value.dtype
+
+        if isinstance(self.value, BasicValueSerialized):
+            assert isinstance(self.value.get_basic_value(), np.ndarray)
+            return self.value.get_basic_value().dtype
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):
@@ -207,6 +213,19 @@ class BandMathValue:
         # array.
         raise TypeError(f"Don't know how to get element-type of {self.type} value")
 
+    def as_scalar(self) -> Union[int, float, bool]:
+        """
+        If this BandMathValue is a scalar type, it will return that type. Here
+        scalar is defined as a singular value, so boolean is considered a scalar.
+        """
+        if self.type == VariableType.NUMBER or self.type == VariableType.BOOLEAN:
+            assert not isinstance(
+                self.value, BasicValueSerialized
+            ), "BandMathValue of type NUMBER or BOOLEAN should not have BasicValueSerialized in as_scalar"
+            assert isinstance(self.value, BasicValueSerialized)
+            return self.value.get_basic_value()
+        raise ValueError(f"This BandMathValue type is not a scalar. It is a {self.type.name}")
+
     def as_numpy_array(self) -> np.ndarray:
         """
         If a band-math value is an image cube, image band, or spectrum, this
@@ -217,6 +236,11 @@ class BandMathValue:
         # If the value is already a NumPy array, we are done!
         if isinstance(self.value, np.ndarray):
             return self.value
+
+        if isinstance(self.value, BasicValueSerialized):
+            raise ValueError("BasicValueSerialized should never be in BandMathValue in as_numpy_array!")
+            assert isinstance(self.value.get_basic_value(), np.ndarray)
+            return self.value.get_basic_value()
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):

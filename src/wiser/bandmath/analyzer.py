@@ -115,6 +115,8 @@ class BandMathAnalyzer(lark.visitors.Transformer):
     def variable(self, args) -> BandMathExprInfo:
         # Look up the variable's type and value.
         name = args[0]
+        print(f"args: {args}")
+        print(f"name: {name}")
         (_type, value) = self._variables[name]
 
         info = BandMathExprInfo(_type)

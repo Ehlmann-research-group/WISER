@@ -19,7 +19,6 @@ from wiser.bandmath.utils import (
     reorder_args,
 )
 
-
 COMPARE_OPERATORS = {
     "==": np.equal,
     "!=": np.not_equal,

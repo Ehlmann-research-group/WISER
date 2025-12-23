@@ -26,8 +26,6 @@ from wiser.gui.app_state import ApplicationState
 from wiser.utils.numba_wrapper import numba_njit_wrapper, convert_to_float32_if_needed
 from wiser.raster.utils import ARRAY_NUMBA_THRESHOLD
 
-import pdb
-
 logger = logging.getLogger(__name__)
 
 
