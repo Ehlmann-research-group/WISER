@@ -24,7 +24,7 @@ from wiser.raster.serializable import SerializedForm, Serializable
 
 from wiser.gui.parallel_task import ParallelTaskProcess
 
-from .types import VariableType, BandMathExprInfo, BandMathValue
+from .types import VariableType
 from wiser.raster.dataset import (
     RasterDataBand,
     RasterDataSet,
@@ -33,7 +33,6 @@ from wiser.raster.dataset import (
 )
 from .builtins.constants import (
     RATIO_OF_MEM_TO_USE,
-    MAX_RAM_BYTES,
     DEFAULT_IGNORE_VALUE,
     LHS_KEY,
     RHS_KEY,
@@ -46,6 +45,10 @@ import logging
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
     from wiser.raster.loader import RasterDataLoader
+    from .types import BandMathExprInfo, BandMathValue
+
+BandMathResultInfo = Tuple[VariableType, SerializedForm, str, "BandMathExprInfo"]
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,33 +56,6 @@ Number = Union[int, float]
 Scalar = Union[int, float, bool]
 
 TEMP_FOLDER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_output")
-
-BandMathResultInfo = Tuple[VariableType, SerializedForm, str, BandMathExprInfo]
-
-
-class PrimitiveSerialized(Serializable):
-    """
-    While primitives are already serializable, this class makes working
-    with serialized primitives alongside our more complex serialized classes
-    easier because everything will have the same interface.
-
-    Attributes:
-        primitive_value: A primitive value that we want to wrap in this class
-    """
-
-    def __init__(self, primitive: Any):
-        self._primitive = primitive
-
-    def get_serialized_form(self):
-        return SerializedForm(
-            serializable_class=PrimitiveSerialized,
-            serialize_value=self._primitive,
-            metadata={},
-        )
-
-    @staticmethod
-    def deserialize_into_class(serialize_value: str, metadata: Dict):
-        return PrimitiveSerialized(serialize_value)
 
 
 class MathOperations(Enum):
@@ -107,7 +83,7 @@ def load_image_from_bandmath_result(
     result: Union[SerializedForm, np.ndarray],
     result_name: str,
     expression: Optional[str],
-    expr_info: BandMathExprInfo,
+    expr_info: "BandMathExprInfo",
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
 ) -> RasterDataSet:
@@ -154,7 +130,7 @@ def save_image_from_bandmath_result(
     result: Union[SerializedForm, np.ndarray],
     result_name: str,
     expression: Optional[str],
-    expr_info: BandMathExprInfo,
+    expr_info: "BandMathExprInfo",
     output_folder: str,
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
@@ -199,7 +175,7 @@ def load_band_from_bandmath_result(
     result: Union[SerializedForm, np.ndarray],
     result_name: str,
     expression: str,
-    expr_info: BandMathExprInfo,
+    expr_info: "BandMathExprInfo",
     parent: QWidget = None,
     loader: "RasterDataLoader" = None,
     app_state: "ApplicationState" = None,
@@ -249,7 +225,7 @@ def save_band_from_bandmath_result(
     result: Union[SerializedForm, np.ndarray],
     result_name: str,
     expression: str,
-    expr_info: BandMathExprInfo,
+    expr_info: "BandMathExprInfo",
     output_folder: str,
     parent: QWidget = None,
     loader: "RasterDataLoader" = None,
@@ -510,8 +486,8 @@ def get_valid_ignore_value(dataset: gdal.Dataset, default_ignore_value: float):
 
 
 async def get_lhs_rhs_values_async(
-    lhs: BandMathValue,
-    rhs: BandMathValue,
+    lhs: "BandMathValue",
+    rhs: "BandMathValue",
     index_list_current: List[int],
     index_list_next: List[int],
     read_task_queue: queue.Queue,
@@ -602,7 +578,7 @@ async def get_lhs_rhs_values_async(
 
 
 async def get_lhs_value_async(
-    lhs: BandMathValue,
+    lhs: "BandMathValue",
     index_list_current: List[int],
     index_list_next: List[int],
     read_task_queue: queue.Queue,
@@ -763,7 +739,7 @@ def print_tree_with_meta(tree: lark.ParseTree, indent=0):
         print(f"{indent_str}{tree} {meta_info} (Terminal)")
 
 
-def get_lhs_rhs_values(lhs: BandMathValue, rhs: BandMathValue, index_list: List[int]):
+def get_lhs_rhs_values(lhs: "BandMathValue", rhs: "BandMathValue", index_list: List[int]):
     rhs_value = None
     same_datasets = False
     lhs_value = lhs.as_numpy_array_by_bands(index_list)
@@ -785,7 +761,7 @@ def get_lhs_rhs_values(lhs: BandMathValue, rhs: BandMathValue, index_list: List[
 
 
 def read_lhs_future_onto_queue(
-    lhs: BandMathValue,
+    lhs: "BandMathValue",
     index_list: List[int],
     event_loop,
     read_thread_pool,
@@ -796,7 +772,7 @@ def read_lhs_future_onto_queue(
 
 
 def read_rhs_future_onto_queue(
-    rhs: BandMathValue,
+    rhs: "BandMathValue",
     lhs_value_shape: Tuple[int],
     index_list: List[int],
     event_loop,
@@ -813,7 +789,7 @@ def read_rhs_future_onto_queue(
     read_task_queue.put((future, (min(index_list), max(index_list))))
 
 
-def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: BandMathValue):
+def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: "BandMathValue"):
     """
     lhs is assumed to have variable type ImageCube,
     band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]
@@ -868,7 +844,7 @@ def prepare_array(arr):
     return arr
 
 
-def is_scalar(value: BandMathValue) -> bool:
+def is_scalar(value: "BandMathValue") -> bool:
     """
     Returns ``True`` if the band-math value is a number or Boolean, ``False``
     otherwise.
@@ -876,7 +852,7 @@ def is_scalar(value: BandMathValue) -> bool:
     return value.type in [VariableType.NUMBER, VariableType.BOOLEAN]
 
 
-def is_number(value: BandMathValue) -> bool:
+def is_number(value: "BandMathValue") -> bool:
     """
     Returns ``True`` if the band-math value is a number, ``False`` otherwise.
     """
@@ -926,7 +902,7 @@ def reorder_args(lhs_type: VariableType, rhs_type: VariableType, lhs: Any, rhs: 
     return (lhs, rhs)
 
 
-def check_image_cube_compatible(arg: BandMathExprInfo, cube_shape: Tuple[int, int, int]) -> None:
+def check_image_cube_compatible(arg: "BandMathExprInfo", cube_shape: Tuple[int, int, int]) -> None:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on an image-cube with the specified
@@ -983,7 +959,7 @@ def check_image_cube_compatible(arg: BandMathExprInfo, cube_shape: Tuple[int, in
         assert arg.result_type in [VariableType.NUMBER, VariableType.BOOLEAN]
 
 
-def check_image_band_compatible(arg: BandMathExprInfo, band_shape: Tuple[int, int]) -> None:
+def check_image_band_compatible(arg: "BandMathExprInfo", band_shape: Tuple[int, int]) -> None:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on an image-band with the specified
@@ -1019,7 +995,7 @@ def check_image_band_compatible(arg: BandMathExprInfo, band_shape: Tuple[int, in
         assert arg.result_type in [VariableType.NUMBER, VariableType.BOOLEAN]
 
 
-def check_spectrum_compatible(arg: BandMathExprInfo, spectrum_shape: Tuple[int]) -> None:
+def check_spectrum_compatible(arg: "BandMathExprInfo", spectrum_shape: Tuple[int]) -> None:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on a spectrum with the specified shape.
@@ -1056,7 +1032,7 @@ def check_spectrum_compatible(arg: BandMathExprInfo, spectrum_shape: Tuple[int])
 
 
 def make_image_cube_compatible(
-    arg: BandMathValue, cube_shape: Tuple[int, int, int]
+    arg: "BandMathValue", cube_shape: Tuple[int, int, int]
 ) -> Union[np.ndarray, Scalar]:
     """
     Given a band-math value, this function converts it to a value that is
@@ -1122,13 +1098,13 @@ def make_image_cube_compatible(
     else:
         # This is a scalar:  number or Boolean
         assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
-        result = arg.value
+        result = arg.as_scalar()
 
     return result
 
 
 def make_image_cube_compatible_by_bands(
-    arg: BandMathValue, cube_shape: Tuple[int, int, int], band_list: List[int]
+    arg: "BandMathValue", cube_shape: Tuple[int, int, int], band_list: List[int]
 ) -> Union[np.ndarray, Scalar]:
     """
     Given a band-math value and a list of bands, this function converts it to a value that is
@@ -1228,7 +1204,9 @@ def are_shapes_broadcastable(shape1, shape2):
     return True
 
 
-def make_image_band_compatible(arg: BandMathValue, band_shape: Tuple[int, int]) -> Union[np.ndarray, Scalar]:
+def make_image_band_compatible(
+    arg: "BandMathValue", band_shape: Tuple[int, int]
+) -> Union[np.ndarray, Scalar]:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on an image-band with the specified
@@ -1265,12 +1243,12 @@ def make_image_band_compatible(arg: BandMathValue, band_shape: Tuple[int, int]) 
     else:
         # This is a scalar:  number or Boolean
         assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
-        result = arg.value
+        result = arg.as_scalar()
 
     return result
 
 
-def make_spectrum_compatible(arg: BandMathValue, spectrum_shape: Tuple[int]) -> Union[np.ndarray, Scalar]:
+def make_spectrum_compatible(arg: "BandMathValue", spectrum_shape: Tuple[int]) -> Union[np.ndarray, Scalar]:
     """
     Given a band-math value, this function converts it to a value that is
     "compatible with" a NumPy operation on a spectrum with the specified shape.
@@ -1307,7 +1285,7 @@ def make_spectrum_compatible(arg: BandMathValue, spectrum_shape: Tuple[int]) -> 
     else:
         # This is a scalar:  number or Boolean
         assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
-        result = arg.value
+        result = arg.as_scalar()
 
     return result
 

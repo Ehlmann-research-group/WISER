@@ -1737,9 +1737,14 @@ class RasterDataBand(RasterBand, Serializable):
         return self._band_index == other._band_index and self._dataset.is_metadata_same(other._dataset)
 
     @staticmethod
-    def deserialize_into_class(band_index: int, band_metadata: Dict) -> "RasterDataBand":
+    def deserialize_into_class(serializedForm: SerializedForm) -> "RasterDataBand":
+        band_index = serializedForm.get_serialize_value()
+        band_metadata = serializedForm.get_metadata()
+        if not isinstance(band_index, int):
+            band_index = int(band_index)
+
         dataset = RasterDataSet.deserialize_into_class(
-            band_metadata["serialize_value"], band_metadata["metadata"]
+            band_metadata["dataset_serialize_value"], band_metadata["dataset_metadata"]
         )
         return RasterDataBand(dataset, band_index)
 
@@ -1758,8 +1763,8 @@ class RasterDataBand(RasterBand, Serializable):
         metadata = {
             "band_index": self._band_index,
             "dataset_serializable_class": serializable_class,
-            "serialize_value": serialize_value,
-            "metadata": metadata,
+            "dataset_serialize_value": serialize_value,
+            "dataset_metadata": metadata,
         }
         return SerializedForm(self.__class__, self._band_index, metadata)
 
@@ -1835,35 +1840,37 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             return False
 
     @staticmethod
-    def deserialize_into_class(band_index: int, band_metadata: Dict) -> "RasterDataDynamicBand":
+    # def deserialize_into_class(band_index: int, band_metadata: Dict) -> "RasterDataDynamicBand":
+    def deserialize_into_class(serializedForm: SerializedForm) -> "RasterDataDynamicBand":
+        metadata = serializedForm.get_metadata()
+        band_index = int(metadata["band_index"])
         from wiser.raster.loader import RasterDataLoader
 
         loader = RasterDataLoader()
         wavelength_value = (
-            float(band_metadata["wavelength_value"])
-            if band_metadata["wavelength_value"] is not None
-            else None
+            float(metadata["wavelength_value"]) if metadata["wavelength_value"] is not None else None
         )
-        wavelength_units = get_spectral_unit_from_any(band_metadata.get("wavelength_units", None))
-        epsilon = float(band_metadata["epsilon"]) if band_metadata["epsilon"] is not None else None
+        wavelength_units = get_spectral_unit_from_any(metadata.get("wavelength_units", None))
+        epsilon = float(metadata["epsilon"]) if metadata["epsilon"] is not None else None
         assert band_index is not None or (
             wavelength_value is not None and wavelength_units is not None and epsilon is not None
         ), "Either band_index or wavelength_value, wavelength_units, and epsilon must be provided"
         # Currently, if we call this function using the data from a RasterDataBatchBand,
         # we will have to load the dataset using the filepath which will have to be added
-        # to band_metadata.
-        if "dataset_serializable_class" in band_metadata:
-            assert "serialize_value" in band_metadata and "metadata" in band_metadata, (
-                "serialize_value and metadata must be provided if " "dataset_serializable_class is provided"
+        # to metadata.
+        if "dataset_serializable_class" in metadata:
+            assert "dataset_serialize_value" in metadata and "dataset_metadata" in metadata, (
+                "dataset_serialize_value and metadata must be provided if "
+                "dataset_serializable_class is provided"
             )
-            dataset = band_metadata["dataset_serializable_class"].deserialize_into_class(
-                band_metadata["serialize_value"],
-                band_metadata["metadata"],
+            dataset = metadata["dataset_serializable_class"].deserialize_into_class(
+                metadata["dataset_serialize_value"],
+                metadata["dataset_metadata"],
             )
         else:
-            dataset = loader.load_from_file(path=band_metadata["filepath"], interactive=False)[0]
-        if "metadata" in band_metadata:
-            dataset.copy_serialized_metadata_from(band_metadata["metadata"])
+            dataset = loader.load_from_file(path=metadata["filepath"], interactive=False)[0]
+        if "dataset_metadata" in metadata:
+            dataset.copy_serialized_metadata_from(metadata["dataset_metadata"])
 
         return RasterDataDynamicBand(dataset, band_index, wavelength_value, wavelength_units, epsilon)
 
@@ -1885,8 +1892,8 @@ class RasterDataDynamicBand(RasterBand, Serializable):
             "wavelength_units": self._wavelength_units,
             "epsilon": self._epsilon,
             "dataset_serializable_class": serializable_class,
-            "serialize_value": serialize_value,
-            "metadata": metadata,
+            "dataset_serialize_value": serialize_value,
+            "dataset_metadata": metadata,
         }
         return SerializedForm(self.__class__, self._band_index, metadata)
 
@@ -1939,11 +1946,14 @@ class RasterDataBatchBand(Serializable):
         return self._epsilon
 
     @staticmethod
-    def deserialize_into_class(folderpath: str, band_metadata: Dict) -> "RasterDataBatchBand":
-        band_index = band_metadata["band_index"]
-        wavelength_value = band_metadata["wavelength_value"]
-        wavelength_units = band_metadata["wavelength_units"]
-        epsilon = band_metadata["epsilon"]
+    def deserialize_into_class(serializedForm: SerializedForm) -> "RasterDataBatchBand":
+        folderpath = serializedForm.get_serialize_value()
+        meta_data = serializedForm.get_metadata()
+        band_index = meta_data["band_index"]
+        band_index = meta_data["band_index"]
+        wavelength_value = meta_data["wavelength_value"]
+        wavelength_units = meta_data["wavelength_units"]
+        epsilon = meta_data["epsilon"]
         return RasterDataBatchBand(folderpath, band_index, wavelength_value, wavelength_units, epsilon)
 
     def get_serialized_form(self) -> SerializedForm:

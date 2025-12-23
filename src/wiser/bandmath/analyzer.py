@@ -115,6 +115,8 @@ class BandMathAnalyzer(lark.visitors.Transformer):
     def variable(self, args) -> BandMathExprInfo:
         # Look up the variable's type and value.
         name = args[0]
+        print(f"args: {args}")
+        print(f"name: {name}")
         (_type, value) = self._variables[name]
 
         info = BandMathExprInfo(_type)
@@ -212,5 +214,12 @@ def get_bandmath_expr_info(
 
     parser = lark.Lark.open("bandmath.lark", rel_to=__file__, start="expression")
     tree = parser.parse(bandmath_expr)
+    print(f"lowered_variables.keys: {lower_variables.keys()}")
+    print(f"lowered_variables.values: {lower_variables.values()}")
+    print(f"lowered_functions.keys: {lower_functions.keys()}")
+    # print(f"lowered_functions.values: {lower_functions.values()}")
+    import pdb
+
     analyzer = BandMathAnalyzer(lower_variables, lower_functions)
+    pdb.set_trace()
     return analyzer.transform(tree)

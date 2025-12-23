@@ -18,13 +18,12 @@ from .generated.band_math_ui import Ui_BandMathDialog
 from .app_state import ApplicationState
 from .rasterview import RasterView
 
-from wiser.raster.dataset import RasterDataBand, RasterDataSet, RasterDataBatchBand
-from wiser.raster.spectrum import Spectrum
+from wiser.raster.dataset import RasterDataBand, RasterDataBatchBand
+from wiser.raster.serializable import Serializable, BasicValueSerialized
 from wiser import bandmath
 from wiser.bandmath.utils import (
     get_dimensions,
     bandmath_success_callback,
-    bandmath_progress_callback,
     bandmath_error_callback,
 )
 from wiser.bandmath.types import BANDMATH_VALUE_TYPE
@@ -2150,7 +2149,7 @@ class BandMathDialog(QDialog):
 
     def get_variable_bindings(
         self,
-    ) -> Dict[str, Tuple[bandmath.VariableType, BANDMATH_VALUE_TYPE]]:
+    ) -> Dict[str, Tuple[bandmath.VariableType, Serializable]]:
         """
         Returns the variable bindings as specified by the user.  The result is
         in the form that is required by bandmath.evaluator.eval_bandmath_expr().
@@ -2194,7 +2193,7 @@ class BandMathDialog(QDialog):
                 # Which is good because the user will know to specify all bindings.
                 input_folder = self._get_input_folder()
                 if input_folder:
-                    value = input_folder
+                    value = BasicValueSerialized(input_folder)
             elif var_type == bandmath.VariableType.IMAGE_BAND_BATCH:
                 input_folder = self._get_input_folder()
                 band_batch_chooser: ImageBandBatchChooserWidget = self._ui.tbl_variables.cellWidget(row, 2)
@@ -2219,6 +2218,9 @@ class BandMathDialog(QDialog):
             else:
                 raise AssertionError(f"Unrecognized binding type {var_type} for variable {var}")
 
+            assert isinstance(
+                value, Serializable
+            ), f"value from get_variable_bindings is not Serializable, instead it's {type(value)}"
             variables[var] = (var_type, value)
 
         return variables
