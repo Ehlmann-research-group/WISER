@@ -22,8 +22,6 @@ from wiser.bandmath.utils import (
     MathOperations,
 )
 
-from wiser.raster.serializable import BasicValueSerialized
-
 
 def _apply_sign(sign, value):
     """
@@ -153,7 +151,7 @@ class OperatorSubtract(BandMathFunction):
 
         # Take care of the simple case first, where it's just two numbers.
         if lhs.type == VariableType.NUMBER and rhs.type == VariableType.NUMBER:
-            return BandMathValue(VariableType.NUMBER, BasicValueSerialized(lhs.as_scalar() - rhs.as_scalar()))
+            return BandMathValue(VariableType.NUMBER, lhs.value - rhs.value)
 
         # Subtraction is not commutative, but it's still easier to arrange the
         # arguments to make the calculation logic easier.

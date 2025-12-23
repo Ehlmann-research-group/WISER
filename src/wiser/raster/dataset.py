@@ -1848,9 +1848,12 @@ class RasterDataDynamicBand(RasterBand, Serializable):
 
     @staticmethod
     def deserialize_into_class(serializedForm: SerializedForm) -> "RasterDataDynamicBand":
-        metadata = serializedForm.get_metadata()
-        band_index = int(metadata["band_index"])
         from wiser.raster.loader import RasterDataLoader
+
+        metadata = serializedForm.get_metadata()
+        band_index = metadata.get("band_index", None)
+        if band_index is not None:
+            band_index = int(band_index)
 
         loader = RasterDataLoader()
         wavelength_value = (

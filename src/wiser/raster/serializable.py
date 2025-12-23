@@ -73,7 +73,8 @@ class BasicValueSerialized(Serializable):
     """
     This class makes working with serialized basic types (primitives
     and arrays) and our more complex serialized classes easier by
-    ensuring everything has the same interface.
+    ensuring everything has the same interface. When deserialized,
+    it just returns the basic value.
 
     Attributes:
         value: A basic value that we want to wrap in this class
@@ -95,4 +96,4 @@ class BasicValueSerialized(Serializable):
     @staticmethod
     def deserialize_into_class(serializedForm: SerializedForm) -> "BasicValueSerialized":
         serialize_value = serializedForm.get_serialize_value()
-        return BasicValueSerialized(serialize_value)
+        return serialize_value

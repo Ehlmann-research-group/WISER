@@ -1102,7 +1102,7 @@ def make_image_cube_compatible(
     else:
         # This is a scalar:  number or Boolean
         assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
-        result = arg.as_scalar()
+        result = arg.value
 
     return result
 
@@ -1247,7 +1247,7 @@ def make_image_band_compatible(
     else:
         # This is a scalar:  number or Boolean
         assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
-        result = arg.as_scalar()
+        result = arg.value
 
     return result
 
@@ -1289,7 +1289,7 @@ def make_spectrum_compatible(arg: "BandMathValue", spectrum_shape: Tuple[int]) -
     else:
         # This is a scalar:  number or Boolean
         assert arg.type in [VariableType.NUMBER, VariableType.BOOLEAN]
-        result = arg.as_scalar()
+        result = arg.value
 
     return result
 

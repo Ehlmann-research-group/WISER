@@ -16,7 +16,7 @@ import numpy as np
 from wiser import bandmath
 from wiser.bandmath import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
-from wiser.bandmath.types import BandMathExprInfo
+from wiser.bandmath.types import BandMathExprInfo, BANDMATH_VALUE_TYPE
 from wiser.raster.dataset import (
     RasterDataSet,
     RasterDataBand,
@@ -104,7 +104,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         for result_type, result_value, result_name, expr_info in results:
             self.assertEqual(result_type, VariableType.NUMBER)
-            self.assertEqual(result_value.get_serialize_value(), 5)
+            self.assertEqual(result_value, 5)
 
     # ===========================================================================
     # SIMPLE ADDITION TESTS
@@ -125,11 +125,8 @@ class TestBandmathEvaluator(unittest.TestCase):
             "band": (VariableType.IMAGE_BAND, BasicValueSerialized(band)),
         }
 
-        expr_info = get_bandmath_expr_info(
-            "image + band",
-            variables,
-            {},
-        )
+        expr = "image + band"
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -138,7 +135,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image + band",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
@@ -148,7 +145,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         process_manager.get_task().wait()
         results: List[
-            Tuple[VariableType, SerializedForm, str, BandMathExprInfo]
+            Tuple[VariableType, BANDMATH_VALUE_TYPE, str, BandMathExprInfo]
         ] = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
@@ -156,13 +153,15 @@ class TestBandmathEvaluator(unittest.TestCase):
 
             # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
             if result_type == RasterDataSet:
+                assert isinstance(result, SerializedForm)
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
                 result_arr = result_dataset.get_image_data()
                 result_shape = result_dataset.get_shape()
             elif result_type == VariableType.IMAGE_CUBE:
-                result_arr = result.get_serialize_value()
+                assert isinstance(result, np.ndarray)
+                result_arr = result
                 result_shape = result_arr.shape
             else:
                 self.fail(f"Unexpected result type: {result_type}")
@@ -244,12 +243,15 @@ class TestBandmathEvaluator(unittest.TestCase):
             for x in range(band.shape[0]):
                 band[x, y] = 0.5 * x + 10 * y
 
+        variables = {
+            "image": (VariableType.IMAGE_CUBE, BasicValueSerialized(img)),
+            "band": (VariableType.IMAGE_BAND, BasicValueSerialized(band)),
+        }
+
+        expr = "band + image"
         expr_info = get_bandmath_expr_info(
-            "band + image",
-            {
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
+            expr,
+            variables,
             {},
         )
         result_name = "test_result"
@@ -260,14 +262,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="band + image",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -310,7 +309,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         band = make_band(4, 5)
         band.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("b + 0.5", {"b": (VariableType.IMAGE_BAND, band)}, {})
+        expr = "b + 0.5"
+        variables = {"b": (VariableType.IMAGE_BAND, BasicValueSerialized(band))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -319,11 +320,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="b + 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"b": (VariableType.IMAGE_BAND, band)},
+            variables=variables,
             functions={},
         )
 
@@ -357,7 +358,11 @@ class TestBandmathEvaluator(unittest.TestCase):
         spectrum = make_spectrum(15)
         spectrum.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("S1 + 0.5", {"s1": (VariableType.SPECTRUM, spectrum)}, {})
+        expr = "S1 + 0.5"
+        variables = {
+            "s1": (VariableType.SPECTRUM, BasicValueSerialized(spectrum)),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -366,11 +371,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="S1 + 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"s1": (VariableType.SPECTRUM, spectrum)},
+            variables=variables,
             functions={},
         )
 
@@ -393,7 +398,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("0.5 + image", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "0.5 + image"
+        variables = {"image": (VariableType.IMAGE_CUBE, BasicValueSerialized(img))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -402,11 +409,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="0.5 + image",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -440,7 +447,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         band = make_band(4, 5)
         band.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("0.5 + b", {"b": (VariableType.IMAGE_BAND, band)}, {})
+        expr = "0.5 + b"
+        variables = {"b": (VariableType.IMAGE_BAND, BasicValueSerialized(band))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
 
         cache = DataCache()
 
@@ -448,11 +457,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="0.5 + b",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=None,
             cache=cache,
-            variables={"b": (VariableType.IMAGE_BAND, band)},
+            variables=variables,
             functions={},
         )
 
@@ -485,7 +494,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         spectrum = make_spectrum(15)
         spectrum.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("0.5 + S1", {"s1": (VariableType.SPECTRUM, spectrum)}, {})
+        expr = "0.5 + S1"
+        variables = {"s1": (VariableType.SPECTRUM, BasicValueSerialized(spectrum))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -494,11 +505,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="0.5 + S1",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"s1": (VariableType.SPECTRUM, spectrum)},
+            variables=variables,
             functions={},
         )
 
@@ -530,14 +541,12 @@ class TestBandmathEvaluator(unittest.TestCase):
             for x in range(band.shape[0]):
                 band[x, y] = 0.5 * x + 10 * y
 
-        expr_info = get_bandmath_expr_info(
-            "image - band",
-            {
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
-            {},
-        )
+        expr = "image - band"
+        variables = {
+            "image": (VariableType.IMAGE_CUBE, BasicValueSerialized(img)),
+            "band": (VariableType.IMAGE_BAND, BasicValueSerialized(band)),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -546,14 +555,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image - band",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -596,7 +602,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("image - 0.5", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "image - 0.5"
+        variables = {"image": (VariableType.IMAGE_CUBE, BasicValueSerialized(img))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -605,11 +613,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image - 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -643,7 +651,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         band = make_band(4, 5)
         band.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("B1 - 0.5", {"B1": (VariableType.IMAGE_BAND, band)}, {})
+        expr = "B1 - 0.5"
+        variables = {"B1": (VariableType.IMAGE_BAND, BasicValueSerialized(band))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -652,11 +662,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="B1 - 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"B1": (VariableType.IMAGE_BAND, band)},
+            variables=variables,
             functions={},
         )
 
@@ -679,7 +689,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         spectrum = make_spectrum(15)
         spectrum.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("s - 0.5", {"s": (VariableType.SPECTRUM, spectrum)}, {})
+        expr = "s - 0.5"
+        variables = {"s": (VariableType.SPECTRUM, BasicValueSerialized(spectrum))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -688,11 +700,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="s - 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"s": (VariableType.SPECTRUM, spectrum)},
+            variables=variables,
             functions={},
         )
 
@@ -718,7 +730,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("image * 2", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "image * 2"
+        variables = {"image": (VariableType.IMAGE_CUBE, BasicValueSerialized(img))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -727,11 +741,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image * 2",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -765,7 +779,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("2 * image", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "2 * image"
+        variables = {"image": (VariableType.IMAGE_CUBE, BasicValueSerialized(img))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -774,11 +790,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="2 * image",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -815,7 +831,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("image / 0.5", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "image / 0.5"
+        variables = {"image": (VariableType.IMAGE_CUBE, BasicValueSerialized(img))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -824,11 +842,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image / 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -871,16 +889,14 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(3.0)
         d.fill(4.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a + b) + (c + d)",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a + b) + (c + d)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, BasicValueSerialized(a)),
+            "b": (VariableType.IMAGE_BAND, BasicValueSerialized(b)),
+            "c": (VariableType.IMAGE_CUBE, BasicValueSerialized(c)),
+            "d": (VariableType.SPECTRUM, BasicValueSerialized(d)),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -889,16 +905,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a + b) + (c + d)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -948,16 +959,14 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(3.0)
         d.fill(4.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a * b) * (c * d)",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a * b) * (c * d)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, BasicValueSerialized(a)),
+            "b": (VariableType.IMAGE_BAND, BasicValueSerialized(b)),
+            "c": (VariableType.IMAGE_CUBE, BasicValueSerialized(c)),
+            "d": (VariableType.SPECTRUM, BasicValueSerialized(d)),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -966,16 +975,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a * b) * (c * d)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1025,16 +1029,14 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(4.0)
         d.fill(2.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a / b) / (c / d)",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a / b) / (c / d)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, BasicValueSerialized(a)),
+            "b": (VariableType.IMAGE_BAND, BasicValueSerialized(b)),
+            "c": (VariableType.IMAGE_CUBE, BasicValueSerialized(c)),
+            "d": (VariableType.SPECTRUM, BasicValueSerialized(d)),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -1043,16 +1045,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a / b) / (c / d)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1102,16 +1099,14 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(5.0)
         d.fill(1.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a - b) - (c - d)",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a - b) - (c - d)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, BasicValueSerialized(a)),
+            "b": (VariableType.IMAGE_BAND, BasicValueSerialized(b)),
+            "c": (VariableType.IMAGE_CUBE, BasicValueSerialized(c)),
+            "d": (VariableType.SPECTRUM, BasicValueSerialized(d)),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -1120,16 +1115,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a - b) - (c - d)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1172,7 +1162,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         a = make_image(2, 3, 4)
         a.fill(10.0)
 
-        expr_info = get_bandmath_expr_info("-a + 1", {"a": (VariableType.IMAGE_CUBE, a)}, {})
+        expr = "-a + 1"
+        variables = {"a": (VariableType.IMAGE_CUBE, BasicValueSerialized(a))}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -1181,11 +1173,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="-a + 1",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"a": (VariableType.IMAGE_CUBE, a)},
+            variables=variables,
             functions={},
         )
 
@@ -1222,11 +1214,12 @@ class TestBandmathEvaluator(unittest.TestCase):
         a.fill(4.0)
         b.fill(2.0)
 
-        expr_info = get_bandmath_expr_info(
-            "a**b - (a**0.5)",
-            {"a": (VariableType.IMAGE_CUBE, a), "b": (VariableType.IMAGE_BAND, b)},
-            {},
-        )
+        expr = "a**b - (a**0.5)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, BasicValueSerialized(a)),
+            "b": (VariableType.IMAGE_BAND, BasicValueSerialized(b)),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -1235,14 +1228,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="a**b - (a**0.5)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1288,16 +1278,14 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(4.0)
         d.fill(2.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a / b) - (c * d) + a**0.5",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a / b) - (c * d) + a**0.5"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, BasicValueSerialized(a)),
+            "b": (VariableType.IMAGE_BAND, BasicValueSerialized(b)),
+            "c": (VariableType.IMAGE_CUBE, BasicValueSerialized(c)),
+            "d": (VariableType.SPECTRUM, BasicValueSerialized(d)),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
@@ -1306,16 +1294,11 @@ class TestBandmathEvaluator(unittest.TestCase):
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a / b) - (c * d) + a**0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1370,18 +1353,20 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         caltech_ds = self.test_model.load_dataset(target_path)
 
-        expr_info = get_bandmath_expr_info("a + 0", {"a": (VariableType.IMAGE_CUBE, caltech_ds)}, {})
+        expr = "a + 0"
+        variables = {"a": (VariableType.IMAGE_CUBE, caltech_ds)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
         cache = DataCache()
         process_manager = bandmath.eval_bandmath_expr(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="a + 0",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"a": (VariableType.IMAGE_CUBE, caltech_ds)},
+            variables=variables,
             functions={},
         )
 
@@ -1545,6 +1530,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             )
             process_manager.get_task().wait()
             results = process_manager.get_task().get_result()
+
             for result_type, result, result_name, expr_info in results:
                 original_file_name = (
                     result_name[: -(len(suffix))] if result_name.endswith(suffix) else result_name
@@ -1763,5 +1749,5 @@ class TestBandmathEvaluator(unittest.TestCase):
 if __name__ == "__main__":
     test_class = TestBandmathEvaluator()
     test_class.setUp()
-    test_class.test_bandmath_numbers_only()
+    test_class.test_bandmath_preloaded_data_with_band_wvl_batch_async()
     test_class.tearDown()

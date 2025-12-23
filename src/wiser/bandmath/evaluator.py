@@ -36,7 +36,7 @@ from .utils import (
 )
 
 from wiser import bandmath
-from wiser.bandmath.types import BANDMATH_VALUE_TYPE
+from wiser.bandmath.types import BANDMATH_VALUE_TYPE, BANDMATH_SERIALIZED_TYPE
 
 from wiser.raster.serializable import Serializable, SerializedForm
 from wiser.raster.data_cache import DataCache
@@ -429,12 +429,12 @@ class BandMathEvaluatorAsync(AsyncTransformer):
     def true(self, args):
         """Returns a BandMathValue of True."""
         logger.debug(" * true")
-        return BandMathValue(VariableType.BOOLEAN, BasicValueSerialized(True), computed=False)
+        return BandMathValue(VariableType.BOOLEAN, True, computed=False)
 
     def false(self, args):
         """Returns a BandMathValue of False."""
         logger.debug(" * false")
-        return BandMathValue(VariableType.BOOLEAN, BasicValueSerialized(False), computed=False)
+        return BandMathValue(VariableType.BOOLEAN, False, computed=False)
 
     def number(self, args):
         """Returns a BandMathValue containing a specific number."""
@@ -509,7 +509,7 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         and is wrapped in a BandMathValue object.
         """
         logger.debug(" * NUMBER")
-        return BandMathValue(VariableType.NUMBER, BasicValueSerialized(float(token)), computed=False)
+        return BandMathValue(VariableType.NUMBER, float(token), computed=False)
 
     def STRING(self, token) -> str:
         """
@@ -639,12 +639,12 @@ class BandMathEvaluator(lark.visitors.Transformer):
     def true(self, args):
         """Returns a BandMathValue of True."""
         logger.debug(" * true")
-        return BandMathValue(VariableType.BOOLEAN, BasicValueSerialized(True), computed=False)
+        return BandMathValue(VariableType.BOOLEAN, True, computed=False)
 
     def false(self, args):
         """Returns a BandMathValue of False."""
         logger.debug(" * false")
-        return BandMathValue(VariableType.BOOLEAN, BasicValueSerialized(False), computed=False)
+        return BandMathValue(VariableType.BOOLEAN, False, computed=False)
 
     def number(self, args):
         """Returns a BandMathValue containing a specific number."""
@@ -721,7 +721,7 @@ class BandMathEvaluator(lark.visitors.Transformer):
         logger.debug(" * NUMBER")
         return BandMathValue(
             VariableType.NUMBER,
-            BasicValueSerialized(float(token)),
+            float(token),
             computed=False,
         )
 
@@ -988,7 +988,7 @@ def eval_bandmath_expr(
 
 
 def serialize_bandmath_variables(
-    variables: Dict[str, Tuple[VariableType, Serializable]],
+    variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
 ) -> Dict[str, Tuple[VariableType, SerializedForm]]:
     """
     This function serializes the 'variables' and 'functions' dictionaries into a
@@ -1000,10 +1000,10 @@ def serialize_bandmath_variables(
     for var_name, var_tuple in variables.items():
         var_type = var_tuple[0]
         var_value = var_tuple[1]
-        assert isinstance(
-            var_value, Serializable
-        ), f"A var_value is not of type Serializable, instead it's {type(var_value)}"
-        variables_serialized[var_name] = (var_type, var_value.get_serialized_form())
+        if isinstance(var_value, Serializable):
+            variables_serialized[var_name] = (var_type, var_value.get_serialized_form())
+        else:
+            variables_serialized[var_name] = (var_type, BasicValueSerialized(var_value).get_serialized_form())
     return variables_serialized
 
 
@@ -1112,7 +1112,10 @@ def serialized_form_to_variable(
     """
     assert isinstance(var_value, SerializedForm), "The argument var_value is not a SerializedForm"
     if var_type == VariableType.IMAGE_CUBE:
+        print(f"var_type: {var_type}")
+        print(f"type(var_value): {type(var_value)}")
         obj = var_value.get_serializable_class().deserialize_into_class(var_value)
+        print(f"type(obj): {type(obj)}")
         return {var_name: (var_type, obj)}
     # At this point, even though the type is image cube batch, we are loading a filepath
     elif var_type == VariableType.IMAGE_CUBE_BATCH:
@@ -1160,7 +1163,10 @@ def serialized_form_to_variable(
         obj = var_value.get_serializable_class().deserialize_into_class(var_value)
         return {var_name: (var_type, obj)}
 
+    # This should actually never be reached because the user supplied variables
+    # can only be a Spectrum, Image Band, or Image CUbe
     elif var_type == VariableType.NUMBER or var_type == VariableType.BOOLEAN:
+        raise ValueError("var_type should never be a NUMER or BOOLEAN")
         obj = var_value.get_serializable_class().deserialize_into_class(var_value)
         return {var_name: (var_type, obj)}
 
@@ -1288,7 +1294,7 @@ def eval_all_bandmath_expr(
     expr_info: BandMathExprInfo,
     result_name: str,
     cache: DataCache,
-    serialized_variables: Dict[str, Tuple[VariableType, SerializedForm]],
+    serialized_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
     lower_functions: Dict[str, BandMathFunction],
     number_of_intermediates: int,
     tree: lark.ParseTree,
@@ -1316,7 +1322,8 @@ def eval_all_bandmath_expr(
                         {"Numerator": count, "Denominator": total, "Status": "Running"},
                     ]
                 )
-                # Second we deserialize all of the variables
+                # Second we deserialize all of the variables, so they should
+                # all be in their "native" form
                 current_variables = {}
                 for var_name, var_tuple in serialized_variables.items():
                     var_type = var_tuple[0]
@@ -1335,7 +1342,7 @@ def eval_all_bandmath_expr(
                 current_expr_info = bandmath.get_bandmath_expr_info(
                     bandmath_expr, current_variables, lower_functions
                 )
-                # Then we calculate the result
+                # Then we calculate the result and serialize it
                 result = eval_singular_bandmath_expr(
                     expr_info=current_expr_info,
                     result_name=new_result_name,
@@ -1370,7 +1377,7 @@ def eval_all_bandmath_expr(
                         },
                     ]
                 )
-                outputs.append((None, None, new_result_name, None))
+                outputs.append((None, e, traceback.format_exc(), None))
 
         child_conn.send(
             [

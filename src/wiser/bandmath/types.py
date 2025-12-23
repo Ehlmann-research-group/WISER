@@ -17,18 +17,16 @@ from wiser.raster.dataset import (
 )
 from wiser.raster.spectrum import Spectrum
 
-from wiser.raster.serializable import BasicValueSerialized
-
-if TYPE_CHECKING:
-    from wiser.raster.serializable import Serializable
+from wiser.raster.serializable import BasicValueSerialized, Serializable, SerializedForm
 
 FolderPathType = str
 BANDMATH_VALUE_TYPE = Union[
-    RasterDataSet,
-    RasterDataBand,
-    RasterDataBatchBand,
-    Spectrum,
-    BasicValueSerialized,
+    Serializable,
+    np.ndarray,
+]
+BANDMATH_SERIALIZED_TYPE = Union[
+    SerializedForm,
+    np.ndarray,
 ]
 
 
@@ -173,7 +171,6 @@ class BandMathValue:
             return self.value.shape
 
         if isinstance(self.value, BasicValueSerialized):
-            print("it is BasicValueSerialized!")
             assert isinstance(self.value.get_basic_value(), np.ndarray)
             return self.value.get_basic_value().shape
 
@@ -222,6 +219,9 @@ class BandMathValue:
         scalar is defined as a singular value, so boolean is considered a scalar.
         """
         if self.type == VariableType.NUMBER or self.type == VariableType.BOOLEAN:
+            assert not isinstance(
+                self.value, BasicValueSerialized
+            ), "BandMathValue of type NUMBER or BOOLEAN should not have BasicValueSerialized in as_scalar"
             assert isinstance(self.value, BasicValueSerialized)
             return self.value.get_basic_value()
         raise ValueError(f"This BandMathValue type is not a scalar. It is a {self.type.name}")
@@ -238,6 +238,7 @@ class BandMathValue:
             return self.value
 
         if isinstance(self.value, BasicValueSerialized):
+            raise ValueError("BasicValueSerialized should never be in BandMathValue in as_numpy_array!")
             assert isinstance(self.value.get_basic_value(), np.ndarray)
             return self.value.get_basic_value()
 
