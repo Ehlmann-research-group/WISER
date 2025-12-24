@@ -107,11 +107,19 @@ def load_image_from_bandmath_result(
             app_state.add_dataset(ds, view_dataset=False)
         return ds
     elif result_type == VariableType.IMAGE_CUBE:
-        if not loader:
-            raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
-        cache = app_state.get_cache() if app_state else None
+        # In the case where the user just enters a variable (ex: "a"), then
+        # we will get a serializedForm object back. We then make result be
+        # the array of the value.
+        if isinstance(result, SerializedForm):
+            ds: RasterDataSet = result.get_serializable_class().deserialize_into_class(result)
+        elif isinstance(result, np.ndarray):
+            if not loader:
+                raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
+            cache = app_state.get_cache() if app_state else None
+            ds = loader.dataset_from_numpy_array(result, cache)
+        else:
+            raise TypeError("The image result is neither a np.ndarray or SerializedForm")
         name = result_name if result_name else "Computed"
-        ds = loader.dataset_from_numpy_array(result, cache)
         ds.set_description(f"Computed image-cube:  {expression} ({timestamp})")
 
         if expr_info.spatial_metadata_source:
@@ -195,7 +203,7 @@ def load_band_from_bandmath_result(
         if arr.ndim == 2:
             arr = arr[np.newaxis, :]
             cache = app_state.get_cache() if app_state else None
-            new_dataset = loader.dataset_from_numpy_array(result, cache)
+            new_dataset = loader.dataset_from_numpy_array(arr, cache)
     elif isinstance(result, np.ndarray):
         # Convert the image band into a 1-band image cube
         result = result[np.newaxis, :]
@@ -277,6 +285,34 @@ def save_band_from_bandmath_result(
     return new_dataset
 
 
+def load_spectrum_from_bandmath_result(
+    result: Union[SerializedForm, np.ndarray],
+    result_name: str,
+    expression: str,
+    expr_info: "BandMathExprInfo",
+    timestamp: str,
+    parent: QWidget = None,
+    app_state: "ApplicationState" = None,
+) -> Spectrum:
+    if not result_name:
+        result_name = parent.tr("Computed:  {expression} ({timestamp})")
+        result_name = result_name.format(expression=expression, timestamp=timestamp)
+    if isinstance(result, SerializedForm):
+        new_spectrum = result.get_serializable_class().deserialize_into_class(result)
+    elif isinstance(result, np.ndarray):
+        new_spectrum = NumPyArraySpectrum(result, name=result_name)
+    else:
+        raise TypeError("The spectrum result is neither a np.ndarray or SerializedForm")
+
+    if expr_info.spectral_metadata_source:
+        new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
+
+    if app_state is not None:
+        app_state.set_active_spectrum(new_spectrum)
+
+    return new_spectrum
+
+
 def bandmath_success_callback(
     parent: QWidget,
     app_state: "ApplicationState",
@@ -323,16 +359,15 @@ def bandmath_success_callback(
                     )
 
                 elif result_type == VariableType.SPECTRUM:
-                    if not result_name:
-                        result_name = parent.tr("Computed:  {expression} ({timestamp})")
-                        result_name = result_name.format(expression=expression, timestamp=timestamp)
-
-                    new_spectrum = NumPyArraySpectrum(result, name=result_name)
-
-                    if expr_info.spectral_metadata_source:
-                        new_spectrum.copy_spectral_metadata(expr_info.spectral_metadata_source)
-
-                    app_state.set_active_spectrum(new_spectrum)
+                    load_spectrum_from_bandmath_result(
+                        result=result,
+                        result_name=result_name,
+                        expression=expression,
+                        expr_info=expr_info,
+                        timestamp=timestamp,
+                        parent=parent,
+                        app_state=app_state,
+                    )
         if output_folder:
             for result_type, result, result_name, expr_info in results:
                 logger.debug("Result of band-math evaluation is type " + f"{result_type}, value:\n{result}")
@@ -501,7 +536,7 @@ async def get_lhs_rhs_values_async(
     rhs_future = None
     should_be_the_same = False
     # This is for dataset's that we will need to do I/O to read from
-    if isinstance(lhs.value, (RasterDataSet, RasterDataBand, Spectrum)):
+    if not isinstance(lhs.value, np.ndarray):
         # Check to see if queue is empty. If it's not, then we can immediately get the data
         if read_task_queue[LHS_KEY].empty():
             read_lhs_future_onto_queue(
@@ -532,9 +567,7 @@ async def get_lhs_rhs_values_async(
     lhs_value_shape[0] = len(index_list_current)
     lhs_value_shape = tuple(lhs_value_shape)
 
-    if rhs.type == VariableType.IMAGE_CUBE and isinstance(
-        lhs.value, (RasterDataSet, RasterDataBand, Spectrum)
-    ):
+    if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
         # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
         if (
             isinstance(lhs.value, RasterDataSet)
@@ -591,7 +624,7 @@ async def get_lhs_value_async(
 ):
     lhs_value = None
     lhs_future = None
-    if isinstance(lhs.value, (RasterDataSet, RasterDataBand, Spectrum)):
+    if not isinstance(lhs.value, np.ndarray):
         # Check to see if queue is empty. If it's not, then we can immediately get the data
         if read_task_queue[LHS_KEY].empty():
             read_lhs_future_onto_queue(
