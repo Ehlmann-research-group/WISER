@@ -82,7 +82,7 @@ class OperatorCompare(BandMathFunction):
             # Manually check if it's a batch variable
             if rhs.result_type == VariableType.IMAGE_BAND_BATCH:
                 # We have the same type of image cube batch and image band batch
-                # because in eval_bandmath_expr we will differentiate
+                # because in start_bandmath_evaluation we will differentiate
                 info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
                 info.elem_type = np.byte
                 return info
@@ -106,7 +106,7 @@ class OperatorCompare(BandMathFunction):
 
             if lhs.result_type == VariableType.IMAGE_BAND_BATCH:
                 # We have the same type of image cube batch and image band batch
-                # because in eval_bandmath_expr we will differentiate
+                # because in start_bandmath_evaluation we will differentiate
                 info = BandMathExprInfo(VariableType.IMAGE_CUBE_BATCH)
                 info.elem_type = np.byte
                 return info

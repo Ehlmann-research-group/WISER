@@ -867,7 +867,7 @@ class DataVisualizerApp(QMainWindow):
                         load_into_wiser=load_into_wiser,
                     )
 
-                bandmath.eval_bandmath_expr(
+                bandmath.start_bandmath_evaluation(
                     succeeded_callback=success_callback,
                     status_callback=bandmath_progress_callback,
                     error_callback=bandmath_error_callback,

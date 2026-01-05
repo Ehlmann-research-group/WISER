@@ -12,7 +12,7 @@ from .types import (
 from .parser import get_bandmath_variables, verify_bandmath_expr, bandmath_parses
 
 from .analyzer import get_bandmath_expr_info
-from .evaluator import eval_bandmath_expr
+from .evaluator import start_bandmath_evaluation
 
 __all__ = [
     "VariableType",

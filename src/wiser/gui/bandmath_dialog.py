@@ -1252,7 +1252,7 @@ class BandMathDialog(QDialog):
         def status_callback(progress):
             self.on_bandmath_job_status(job, progress)
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=success_callback,
             status_callback=status_callback,
             error_callback=bandmath_error_callback,
@@ -2152,7 +2152,7 @@ class BandMathDialog(QDialog):
     ) -> Dict[str, Tuple[bandmath.VariableType, Serializable]]:
         """
         Returns the variable bindings as specified by the user.  The result is
-        in the form that is required by bandmath.evaluator.eval_bandmath_expr().
+        in the form that is required by bandmath.evaluator.start_bandmath_evaluation().
 
         Note that this function doesn't guarantee that the variable-bindings
         actually reflect the expression, or that there are no semantic errors

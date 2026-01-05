@@ -37,7 +37,7 @@ def get_hdr_files(folder_path):
 
 def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType, Any]], use_synchronous_method = False):
     '''
-    A helper function for measuring the time it takes to call eval_bandmath_expr
+    A helper function for measuring the time it takes to call start_bandmath_evaluation
     '''
     expr_info = get_bandmath_expr_info(equation,
         variables, {})
@@ -46,7 +46,7 @@ def measure_bandmath_time(equation: str, variables: Dict[str, Tuple[VariableType
     cache = DataCache()
 
     start_time = time.perf_counter()
-    (_, result_dataset) = bandmath.eval_bandmath_expr(bandmath_expr=equation, expr_info=expr_info, result_name=result_name, cache=cache,
+    (_, result_dataset) = bandmath.start_bandmath_evaluation(bandmath_expr=equation, expr_info=expr_info, result_name=result_name, cache=cache,
         variables=variables, functions={}, use_synchronous_method=use_synchronous_method)
     end_time = time.perf_counter()
     return end_time-start_time, result_dataset

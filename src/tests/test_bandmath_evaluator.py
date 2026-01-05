@@ -89,7 +89,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -133,7 +133,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -197,7 +197,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -260,7 +260,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -318,7 +318,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -369,7 +369,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -407,7 +407,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -455,7 +455,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -503,7 +503,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -553,7 +553,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -611,7 +611,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -660,7 +660,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -698,7 +698,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -739,7 +739,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -788,7 +788,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -840,7 +840,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -903,7 +903,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -973,7 +973,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -1043,7 +1043,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -1113,7 +1113,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -1171,7 +1171,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -1226,7 +1226,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -1292,7 +1292,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -1360,7 +1360,7 @@ class TestBandmathEvaluator(unittest.TestCase):
         expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
         cache = DataCache()
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -1433,7 +1433,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             expr_info = get_bandmath_expr_info(expr, variables, {})
             suffix = "test_result"
             cache = DataCache()
-            process_manager = bandmath.eval_bandmath_expr(
+            process_manager = bandmath.start_bandmath_evaluation(
                 succeeded_callback=lambda _: None,
                 status_callback=lambda _: None,
                 error_callback=lambda _: None,
@@ -1518,7 +1518,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             expr_info = get_bandmath_expr_info(expr, variables, {})
             suffix = "test_result"
             cache = DataCache()
-            process_manager = bandmath.eval_bandmath_expr(
+            process_manager = bandmath.start_bandmath_evaluation(
                 succeeded_callback=success_callback,
                 status_callback=status_callback,
                 error_callback=lambda _: None,
@@ -1684,7 +1684,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             expr_info = get_bandmath_expr_info(expr, variables, {})
             suffix = "test_result"
             cache = DataCache()
-            process_manager = bandmath.eval_bandmath_expr(
+            process_manager = bandmath.start_bandmath_evaluation(
                 succeeded_callback=lambda _: None,
                 status_callback=lambda _: None,
                 error_callback=lambda _: None,
@@ -1754,5 +1754,5 @@ class TestBandmathEvaluator(unittest.TestCase):
 if __name__ == "__main__":
     test_class = TestBandmathEvaluator()
     test_class.setUp()
-    test_class.test_single_variables_sync()
+    test_class.test_bandmath_preloaded_data_with_band_index_batch_sync()
     test_class.tearDown()
