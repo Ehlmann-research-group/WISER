@@ -1740,12 +1740,6 @@ class TestBandmathEvaluator(unittest.TestCase):
                 else:
                     self.fail(f"Unexpected variable type: {var[0]}")
 
-                print(f"result_type: {result_type}")
-                print(
-                    f"result_arr type: {type(result_arr)},\nresult_arr: {result_arr}"
-                    f"\nshape: {result_arr.shape}"
-                )
-                print(f"var_arr type: {type(var_arr)},\nvar_arr: {var_arr} \nshape: {var_arr.shape}")
                 assert np.allclose(result_arr, var_arr)
 
                 del result

@@ -1113,10 +1113,7 @@ def serialized_form_to_variable(
     """
     assert isinstance(var_value, SerializedForm), "The argument var_value is not a SerializedForm"
     if var_type == VariableType.IMAGE_CUBE:
-        print(f"var_type: {var_type}")
-        print(f"type(var_value): {type(var_value)}")
         obj = var_value.get_serializable_class().deserialize_into_class(var_value)
-        print(f"type(obj): {type(obj)}")
         return {var_name: (var_type, obj)}
     # At this point, even though the type is image cube batch, we are loading a filepath
     elif var_type == VariableType.IMAGE_CUBE_BATCH:
