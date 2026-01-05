@@ -44,9 +44,11 @@ from wiser.raster.dataset import (
     RasterDataSet,
     RasterDataBatchBand,
     RasterDataDynamicBand,
+    RasterBand,
 )
 from wiser.raster.loader import RasterDataLoader
 from wiser.raster.serializable import BasicValueSerialized
+from wiser.raster.spectrum import Spectrum
 
 if TYPE_CHECKING:
     from wiser.gui.app_state import ApplicationState
@@ -454,7 +456,6 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         name = args[0]
         if name not in self._variables or self._variables[name][1] is None:
             raise BandMathEvalError(f'Variable "{name}" is unspecified')
-
         (type, value) = self._variables[name]
         return BandMathValue(type, value, computed=False)
 
@@ -1538,6 +1539,7 @@ def eval_singular_bandmath_expr(
                 if isinstance(result_value, (asyncio.Future, Coroutine)):
                     result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
                 res = result_value.value
+                res = extract_array(res)
 
                 future = eval._write_thread_pool.submit(
                     write_raster_to_dataset,
@@ -1568,3 +1570,20 @@ def eval_singular_bandmath_expr(
         finally:
             eval.stop()
         return (result_value.type, result_value.value, result_name, expr_info)
+
+
+def extract_array(data) -> np.ndarray:
+    """
+    Extracts the numpy array from the data, the data can be either a numpy array,
+    or a RasterDataBand or RasterDataSet or a Spectrum.
+    """
+    # If the value is already a NumPy array, we are done!
+    if isinstance(data, np.ndarray):
+        return data
+    elif isinstance(data, RasterDataSet):
+        return data.get_image_data()
+    elif isinstance(data, RasterBand):
+        return data.get_data()
+    elif isinstance(data, Spectrum):
+        return data.get_spectrum()
+    raise TypeError(f"Unsupported data type for extraction into numpy array: {type(data)}")

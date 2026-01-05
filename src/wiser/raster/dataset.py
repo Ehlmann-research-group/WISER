@@ -1872,9 +1872,15 @@ class RasterDataDynamicBand(RasterBand, Serializable):
                 "dataset_serialize_value and metadata must be provided if "
                 "dataset_serializable_class is provided"
             )
-            dataset = metadata["dataset_serializable_class"].deserialize_into_class(
+            # import pdb
+            # pdb.set_trace()
+            dataset_serialized_form = SerializedForm(
+                metadata["dataset_serializable_class"],
                 metadata["dataset_serialize_value"],
                 metadata["dataset_metadata"],
+            )
+            dataset = metadata["dataset_serializable_class"].deserialize_into_class(
+                serializedForm=dataset_serialized_form,
             )
         else:
             dataset = loader.load_from_file(path=metadata["filepath"], interactive=False)[0]

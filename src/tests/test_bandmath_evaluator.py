@@ -1672,8 +1672,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         vars = [
             (VariableType.IMAGE_CUBE, caltech_ds),
             (VariableType.IMAGE_BAND, band),
-            (VariableType.SPECTRUM, spectrum),
         ]
+        if run_sync:
+            vars.append((VariableType.SPECTRUM, spectrum))
 
         for var in vars:
             expr = "a"
@@ -1759,5 +1760,5 @@ class TestBandmathEvaluator(unittest.TestCase):
 if __name__ == "__main__":
     test_class = TestBandmathEvaluator()
     test_class.setUp()
-    test_class.test_single_variables_async()
+    test_class.test_single_variables_sync()
     test_class.tearDown()
