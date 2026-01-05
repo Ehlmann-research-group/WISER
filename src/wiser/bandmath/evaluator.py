@@ -1029,7 +1029,7 @@ def subprocess_bandmath(
     if is_batch:
         filepaths = get_batch_filepaths(serialized_variables)
 
-    eval_all_bandmath_expr(
+    eval_bandmath_expressions(
         filepaths=filepaths,
         bandmath_expr=bandmath_expr,
         expr_info=expr_info,
@@ -1286,7 +1286,7 @@ def prepare_bandmath_variables(
     return prepared_variables
 
 
-def eval_all_bandmath_expr(
+def eval_bandmath_expressions(
     filepaths: List[str],
     bandmath_expr: str,
     expr_info: BandMathExprInfo,
@@ -1304,99 +1304,22 @@ def eval_all_bandmath_expr(
     loader = RasterDataLoader()
     # This case is if we are doing batch processing
     if filepaths:
-        outputs = []
-        count = 0
-        total = len(filepaths)
-        for filepath in filepaths:
-            # First we get the result name
-            base = os.path.basename(filepath)
-            name, ext = os.path.splitext(base)
-            new_result_name = f"{name}{result_name}"
-            try:
-                count += 1
-                child_conn.send(
-                    [
-                        "progress",
-                        {"Numerator": count, "Denominator": total, "Status": "Running"},
-                    ]
-                )
-                # Second we deserialize all of the variables, so they should
-                # all be in their "native" form
-                current_variables = {}
-                for var_name, var_tuple in serialized_variables.items():
-                    var_type = var_tuple[0]
-                    var_value = var_tuple[1]
-                    current_variables.update(
-                        serialized_form_to_variable(
-                            var_name,
-                            var_type,
-                            var_value,
-                            loader,
-                            filepath,
-                            subdataset_name=subdataset_name,
-                        )
-                    )
-                # Third we get the proper BandMathExprInfo
-                current_expr_info = bandmath.get_bandmath_expr_info(
-                    bandmath_expr, current_variables, lower_functions
-                )
-                # Then we calculate the result and serialize it
-                result = eval_singular_bandmath_expr(
-                    expr_info=current_expr_info,
-                    result_name=new_result_name,
-                    cache=cache,
-                    lower_variables=current_variables,
-                    lower_functions=lower_functions,
-                    subdataset_name=subdataset_name,
-                    number_of_intermediates=number_of_intermediates,
-                    tree=tree,
-                    use_synchronous_method=use_synchronous_method,
-                    child_conn=child_conn,
-                )
-                outputs.append(result)
-                child_conn.send(
-                    [
-                        "error",
-                        {
-                            "Result Name": result_name,
-                            "Message": None,
-                            "Traceback": None,
-                        },
-                    ]
-                )
-            except Exception as e:
-                child_conn.send(
-                    [
-                        "error",
-                        {
-                            "Result Name": result_name,
-                            "Message": str(e),
-                            "Traceback": traceback.format_exc(),
-                        },
-                    ]
-                )
-                outputs.append((None, e, traceback.format_exc(), None))
-
-        child_conn.send(
-            [
-                "progress",
-                {"Numerator": count, "Denominator": total, "Status": "Finished"},
-            ]
+        evaluate_bandmath_for_filepaths(
+            filepaths=filepaths,
+            bandmath_expr=bandmath_expr,
+            expr_info=expr_info,
+            result_name=result_name,
+            cache=cache,
+            serialized_variables=serialized_variables,
+            lower_functions=lower_functions,
+            number_of_intermediates=number_of_intermediates,
+            tree=tree,
+            use_synchronous_method=use_synchronous_method,
+            child_conn=child_conn,
+            return_queue=return_queue,
+            subdataset_name=subdataset_name,
+            loader=loader,
         )
-        serialized_results: List[BandMathResultInfo] = []
-        for result_type, result_value, result_name, result_expr_info in outputs:
-            if isinstance(result_value, Serializable):
-                serialized_results.append(
-                    (
-                        result_type,
-                        result_value.get_serialized_form(),
-                        result_name,
-                        result_expr_info,
-                    )
-                )
-            else:
-                serialized_results.append((result_type, result_value, result_name, result_expr_info))
-        return_queue.put(serialized_results)
     else:
         child_conn.send(["progress", {"Numerator": 1, "Denominator": 1, "Status": "Running"}])
         new_result_name = result_name
@@ -1584,3 +1507,174 @@ def extract_array(data) -> np.ndarray:
     elif isinstance(data, Spectrum):
         return data.get_spectrum()
     raise TypeError(f"Unsupported data type for extraction into numpy array: {type(data)}")
+
+
+def evaluate_bandmath_for_filepaths(
+    filepaths: List[str],
+    bandmath_expr: str,
+    expr_info: BandMathExprInfo,
+    result_name: str,
+    cache: DataCache,
+    serialized_variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
+    lower_functions: Dict[str, BandMathFunction],
+    number_of_intermediates: int,
+    tree: lark.ParseTree,
+    use_synchronous_method: bool,
+    child_conn: mp_conn.Connection,
+    return_queue: mp.Queue,
+    subdataset_name: str = "",
+    loader: RasterDataLoader = None,
+):
+    outputs = []
+    count = 0
+    total = len(filepaths)
+    for filepath in filepaths:
+        # First we get the result name
+        base = os.path.basename(filepath)
+        name, ext = os.path.splitext(base)
+        new_result_name = f"{name}{result_name}"
+        try:
+            count += 1
+            update_progress_child_conn(
+                child_conn=child_conn, numerator=count, denominator=total, status="Running"
+            )
+            # Second we deserialize all of the variables, so they should
+            # all be in their "native" form
+            current_variables = deserialize_bandmath_variables(
+                serialized_variables=serialized_variables,
+                subdataset_name=subdataset_name,
+                filepath=filepath,
+                loader=loader,
+            )
+            # Third we get the proper BandMathExprInfo
+            current_expr_info = bandmath.get_bandmath_expr_info(
+                bandmath_expr, current_variables, lower_functions
+            )
+            # Then we calculate the result and serialize it
+            result = eval_singular_bandmath_expr(
+                expr_info=current_expr_info,
+                result_name=new_result_name,
+                cache=cache,
+                lower_variables=current_variables,
+                lower_functions=lower_functions,
+                subdataset_name=subdataset_name,
+                number_of_intermediates=number_of_intermediates,
+                tree=tree,
+                use_synchronous_method=use_synchronous_method,
+                child_conn=child_conn,
+            )
+            outputs.append(result)
+            send_error_child_conn(
+                child_conn=child_conn, result_name=result_name, message=None, traceback_str=None
+            )
+        except Exception as e:
+            send_error_child_conn(
+                child_conn=child_conn,
+                result_name=result_name,
+                message=str(e),
+                traceback_str=traceback.format_exc(),
+            )
+            outputs.append((None, e, traceback.format_exc(), None))
+
+    update_progress_child_conn(child_conn=child_conn, numerator=count, denominator=total, status="Finished")
+
+    serialize_and_send_bandmath_results(outputs, return_queue)
+
+
+def update_progress_child_conn(
+    child_conn: mp_conn.Connection,
+    numerator: int,
+    denominator: int,
+    status: str,
+):
+    """
+    Send a progress update to the parent process via the child connection.
+    """
+    child_conn.send(
+        [
+            "progress",
+            {"Numerator": numerator, "Denominator": denominator, "Status": status},
+        ]
+    )
+
+
+def send_error_child_conn(
+    child_conn: mp_conn.Connection,
+    result_name: str,
+    message: str,
+    traceback_str: str,
+):
+    """
+    Send an error message to the parent process via the child connection.
+    """
+    child_conn.send(
+        [
+            "error",
+            {
+                "Result Name": result_name,
+                "Message": message,
+                "Traceback": traceback_str,
+            },
+        ]
+    )
+
+
+def deserialize_bandmath_variables(
+    serialized_variables: Dict[str, Tuple[VariableType, SerializedForm]],
+    subdataset_name: str = "",
+    filepath: str = None,
+    loader: RasterDataLoader = None,
+) -> Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]]:
+    """
+    This function deserializes the bandmath variables from their serialized form.
+    """
+    if loader is None:
+        loader = RasterDataLoader()
+    deserialized_variables = {}
+    for var_name, var_tuple in serialized_variables.items():
+        var_type = var_tuple[0]
+        var_value = var_tuple[1]
+        if isinstance(var_value, SerializedForm):
+            deserialized_variables.update(
+                serialized_form_to_variable(
+                    var_name,
+                    var_type,
+                    var_value,
+                    loader,
+                    filepath=filepath,
+                    subdataset_name=subdataset_name,
+                )
+            )
+        else:
+            raise ValueError("Variable value is not a SerializedForm")
+    return deserialized_variables
+
+
+def serialize_and_send_bandmath_results(
+    results: List[
+        Tuple[
+            Union[VariableType, RasterDataSet.__class__],
+            Union[np.ndarray, RasterDataSet],
+            str,
+            BandMathExprInfo,
+        ]
+    ],
+    return_queue: mp.Queue,
+):
+    """
+    This function serializes the bandmath results and sends them to the return queue.
+    """
+    serialized_results: List[BandMathResultInfo] = []
+    for result_type, result_value, result_name, result_expr_info in results:
+        if isinstance(result_value, Serializable):
+            serialized_results.append(
+                (
+                    result_type,
+                    result_value.get_serialized_form(),
+                    result_name,
+                    result_expr_info,
+                )
+            )
+        else:
+            serialized_results.append((result_type, result_value, result_name, result_expr_info))
+    return_queue.put(serialized_results)
