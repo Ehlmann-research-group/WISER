@@ -16,7 +16,7 @@ from typing import (
 from dataclasses import dataclass, field
 
 import lark
-from lark import Visitor, Tree, Token, v_args
+from lark import Visitor, Tree, Token, v_args, ParseTree
 from lark.exceptions import VisitError, GrammarError
 import numpy as np
 
@@ -51,9 +51,6 @@ from wiser.raster.loader import RasterDataLoader
 from wiser.raster.serializable import BasicValueSerialized
 from wiser.raster.spectrum import Spectrum
 
-if TYPE_CHECKING:
-    from wiser.gui.app_state import ApplicationState
-
 from wiser.gui.subprocessing_manager import ProcessManager
 
 from osgeo import gdal
@@ -81,6 +78,10 @@ from .builtins.constants import (
 )
 
 import traceback
+
+if TYPE_CHECKING:
+    from wiser.gui.app_state import ApplicationState
+    from concurrent.futures import Future
 
 logger = logging.getLogger(__name__)
 
@@ -1057,6 +1058,9 @@ class BandMathJob:
             )
 
 
+# region Bandmath Evaluation
+
+
 def start_bandmath_evaluation(
     bandmath_expr: str,
     expr_info: BandMathExprInfo,
@@ -1279,6 +1283,60 @@ def eval_singular_bandmath_expr(
     number_of_intermediates = single_bandmath_job.number_of_intermediates
     subdataset_name = single_bandmath_job.subdataset_name
     use_synchronous_method = single_bandmath_job.use_synchronous_method
+    result_name = single_bandmath_job.result_name
+    if subdataset_name:
+        result_name = f"{subdataset_name}_{result_name}"
+
+    max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size() * number_of_intermediates)
+    logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
+    # Either we explicitly say we don't want to use the synchronous method or we decide to chunk based
+    # on how big the image cube is.
+    if not use_synchronous_method or (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk):
+        return eval_singular_bandmath_expr_async(
+            single_bandmath_job=single_bandmath_job,
+            max_chunking_bytes=max_chunking_bytes,
+        )
+    else:
+        return eval_singular_bandmath_expr_sync(single_bandmath_job=single_bandmath_job)
+
+
+def eval_singular_bandmath_expr_async(
+    single_bandmath_job: SingleBandMathJob,
+    max_chunking_bytes: Union[float, int],
+) -> Tuple[
+    Union[VariableType, RasterDataSet.__class__],
+    Union[np.ndarray, RasterDataSet],
+    str,
+    BandMathExprInfo,
+]:
+    """
+    Evaluate a single band-math expression asynchronously using chunked execution.
+
+    This function evaluates the band-math expression described by a
+    SingleBandMathJob using an asynchronous evaluator. For image-cube results,
+    the output is computed in band windows to respect memory constraints, with
+    asynchronous I/O read-ahead and write-back. Intermediate results are written
+    incrementally to an on-disk GDAL dataset.
+
+    Args:
+        single_bandmath_job: Fully-resolved band-math job containing deserialized
+            variables, expression metadata, and execution configuration.
+        max_chunking_bytes: Maximum number of bytes available for chunked
+            evaluation.
+
+    Returns:
+        A tuple of:
+            - the result variable type (or RasterDataSet class),
+            - the resulting value (RasterDataSet for image outputs),
+            - the result dataset name,
+            - and the BandMathExprInfo describing the result.
+
+    Raises:
+        Exception: Propagates any exception raised during evaluation or I/O.
+    """
+    expr_info = single_bandmath_job.expr_info
+    number_of_intermediates = single_bandmath_job.number_of_intermediates
+    subdataset_name = single_bandmath_job.subdataset_name
     lower_variables = single_bandmath_job.lower_variables
     lower_functions = single_bandmath_job.lower_functions
     cache = single_bandmath_job.cache
@@ -1287,104 +1345,89 @@ def eval_singular_bandmath_expr(
     if subdataset_name:
         result_name = f"{subdataset_name}_{result_name}"
 
-    gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
+    # Get metadata
+    gdal_type, data_ignore_value = extract_expression_metadata(expr_info)
 
-    max_chunking_bytes, should_chunk = max_bytes_to_chunk(expr_info.result_size() * number_of_intermediates)
-    logger.debug(f"Max chunking bytes: {max_chunking_bytes}")
+    # Evaluate
+    try:
+        evaluator = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
+        out_dataset, out_dataset_gdal, bands, lines, samples = create_output_dataset(
+            expr_info=expr_info,
+            gdal_type=gdal_type,
+            result_name=result_name,
+            cache=cache,
+            temp_folder_path=TEMP_FOLDER_PATH,
+        )
 
-    spectral_metadata = expr_info.spectral_metadata_source
-    data_ignore_value = DEFAULT_IGNORE_VALUE
-    if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
-        data_ignore_value = spectral_metadata.get_data_ignore_value()
+        # Based on memory limits (currently set in constants, but we could make it more adjustable)
+        # find the number of bands that we can access without exceeding it
+        num_bands = compute_bands_per_chunk(
+            max_chunking_bytes, expr_info, number_of_intermediates, lines, samples
+        )
 
-    # Either we explicitly say we don't want to use the synchronous method or we decide to chunk based
-    # on how big the image cube is.
-    if not use_synchronous_method or (expr_info.result_type == VariableType.IMAGE_CUBE and should_chunk):
-        try:
-            eval = BandMathEvaluatorAsync(lower_variables, lower_functions, expr_info.shape)
-            bands = 1
-            lines = 1
-            samples = 1
-            if len(expr_info.shape) == 2:
-                lines, samples = expr_info.shape
-            elif len(expr_info.shape) == 3:
-                bands, lines, samples = expr_info.shape
-            else:
-                raise RuntimeError(f"expr_info shape is neither 2 or 3, its {expr_info.shape}")
-            # Gets the correct file path to make our temporary file
-            result_path = get_unused_file_path_in_folder(TEMP_FOLDER_PATH, result_name)
-            folder_path = os.path.dirname(result_path)
-            if not os.path.exists(folder_path):
-                os.makedirs(folder_path)
-            out_dataset_gdal = gdal.GetDriverByName("ENVI").Create(
-                result_path, samples, lines, bands, gdal_type
+        futures = []
+        for current_bands, next_bands in iter_band_windows(bands, num_bands):
+            # print(f"Min: {min(current_bands)} | Max: {max(current_bands)}")
+
+            arr = evaluate_band_window(evaluator, tree, current_bands, next_bands)
+
+            future = submit_raster_write(
+                evaluator, out_dataset_gdal, current_bands, arr, gdal_type, data_ignore_value
             )
-            # We declare the dataset write after so if any errors occur below,
-            # the file gets destroyed (which happens in del of RasterDataSet)
-            out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
-            # We NO LONGER set the save state here. We must set it in the process that we pass
-            # this piece of data to. If we set it here to IN_DISK_NOT_SAVED, then the garbage
-            # collector will delete the underlying dataset when this process ends.
-            out_dataset.set_dirty()
+            futures.append(future)
+        wait_for_all_futures(futures)
+    except BaseException as e:
+        if evaluator is not None:
+            evaluator.stop()
+        raise e
+    finally:
+        evaluator.stop()
+    return (RasterDataSet, out_dataset, result_name, expr_info)
 
-            # Based on memory limits (currently set in constants,, but we could make it more adjustable)
-            # find the number of bands that we can access without exceeding it
-            bytes_per_element = (
-                np.dtype(expr_info.elem_type).itemsize if expr_info.elem_type is not None else SCALAR_BYTES
-            )
-            max_bytes = max_chunking_bytes / bytes_per_element
-            max_bytes_per_intermediate = max_bytes / number_of_intermediates
-            num_bands = int(np.floor(max_bytes_per_intermediate / (lines * samples)))
-            num_bands = 1 if num_bands < 1 else num_bands
 
-            writing_futures = []
-            for band_index in range(0, bands, num_bands):
-                band_index_list_current = [
-                    band for band in range(band_index, band_index + num_bands) if band < bands
-                ]
-                band_index_list_next = [
-                    band for band in range(band_index + num_bands, band_index + 2 * num_bands) if band < bands
-                ]
-                # print(f"Min: {min(band_index_list_current)} | Max: {max(band_index_list_current)}")
+def eval_singular_bandmath_expr_sync(
+    single_bandmath_job: SingleBandMathJob,
+) -> Tuple[
+    Union[VariableType, RasterDataSet.__class__],
+    Union[np.ndarray, RasterDataSet],
+    str,
+    BandMathExprInfo,
+]:
+    """
+    Evaluate a single band-math expression synchronously.
 
-                eval.index_list_current = band_index_list_current
-                eval.index_list_next = band_index_list_next
+    Args:
+        single_bandmath_job: Fully-resolved band-math job containing deserialized
+            variables, the parsed expression tree, and result metadata.
 
-                result_value = eval.transform(tree)
-                if isinstance(result_value, (asyncio.Future, Coroutine)):
-                    result_value = asyncio.run_coroutine_threadsafe(result_value, eval._event_loop).result()
-                res = result_value.value
-                res = extract_array(res)
+    Returns:
+        A tuple of:
+            - the result variable type (or RasterDataSet class),
+            - the evaluated result value,
+            - the result name,
+            - and the BandMathExprInfo describing the result.
 
-                future = eval._write_thread_pool.submit(
-                    write_raster_to_dataset,
-                    out_dataset_gdal,
-                    band_index_list_current,
-                    res,
-                    gdal_type,
-                    default_ignore_value=data_ignore_value,
-                )
-                writing_futures.append(future)
-            concurrent.futures.wait(writing_futures)
-        except BaseException as e:
-            if eval is not None:
-                eval.stop()
-            raise e
-        finally:
+    Raises:
+        Exception: Propagates any exception raised during evaluation.
+    """
+    try:
+        eval = BandMathEvaluator(
+            single_bandmath_job.lower_variables,
+            single_bandmath_job.lower_functions,
+        )
+        result_value = eval.transform(single_bandmath_job.tree)
+    except BaseException as e:
+        if eval:
             eval.stop()
-        return (RasterDataSet, out_dataset, result_name, expr_info)
-    else:
-        try:
-            eval = BandMathEvaluator(lower_variables, lower_functions)
-            result_value = eval.transform(tree)
-            res = result_value.value
-        except BaseException as e:
-            if eval:
-                eval.stop()
-            raise e
-        finally:
-            eval.stop()
-        return (result_value.type, result_value.value, result_name, expr_info)
+        raise e
+    finally:
+        eval.stop()
+    return (
+        result_value.type,
+        result_value.value,
+        single_bandmath_job.result_name,
+        single_bandmath_job.expr_info,
+    )
 
 
 # region Helpers
@@ -1563,6 +1606,164 @@ def serialize_bandmath_results(
 # Misc helpers
 
 
+def extract_expression_metadata(expr_info: "BandMathExprInfo") -> Tuple[int, Union[float, int]]:
+    """
+    Extract output metadata required for band-math evaluation.
+
+    This function determines the GDAL data type for the expression result and
+    resolves the data ignore value, preferring the value defined in the
+    expression's spectral metadata when available.
+
+    Args:
+        expr_info: BandMathExprInfo describing the result element type and
+            associated spectral metadata.
+
+    Returns:
+        A tuple of (gdal_type, spectral_metadata, data_ignore_value), where:
+            - gdal_type is the GDAL data type corresponding to the expression
+              element type.
+            - data_ignore_value is the value used to fill masked or invalid data.
+    """
+    gdal_type = np_dtype_to_gdal(np.dtype(expr_info.elem_type))
+
+    spectral_metadata = expr_info.spectral_metadata_source
+    data_ignore_value = DEFAULT_IGNORE_VALUE
+    if spectral_metadata is not None and spectral_metadata.get_data_ignore_value() is not None:
+        data_ignore_value = spectral_metadata.get_data_ignore_value()
+
+    return gdal_type, data_ignore_value
+
+
+def wait_for_all_futures(futures: "Future"):
+    """Block until all futures have completed."""
+    concurrent.futures.wait(futures)
+
+
+def submit_raster_write(
+    evaluator: BandMathEvaluatorAsync,
+    gdal_dataset: gdal.Dataset,
+    current_bands: List[int],
+    arr: np.ndarray,
+    gdal_type: int,
+    data_ignore: Union[float, int] = DEFAULT_IGNORE_VALUE,
+) -> "Future":
+    """
+    Submit an asynchronous write of evaluated band data to a GDAL dataset.
+
+    Args:
+        evaluator: Asynchronous band-math evaluator providing the write thread pool.
+        gdal_dataset: GDAL dataset to write the raster data into.
+        current_bands: List of band indices corresponding to the data in `arr`.
+        arr: NumPy array containing evaluated band data for the current window.
+        gdal_type: GDAL data type for writing the raster values.
+        data_ignore: Value used to fill masked elements before writing.
+
+    Returns:
+        A Future representing the asynchronous write operation.
+    """
+    return evaluator._write_thread_pool.submit(
+        write_raster_to_dataset,
+        gdal_dataset,
+        current_bands,
+        arr,
+        gdal_type,
+        default_ignore_value=data_ignore,
+    )
+
+
+def evaluate_band_window(
+    evaluator: BandMathEvaluatorAsync,
+    tree: ParseTree,
+    current_bands: List[int],
+    next_bands: List[int],
+) -> np.ndarray:
+    """
+    Evaluate a single band window of a band-math expression.
+
+    This function evaluates the band-math expression over the specified
+    window of band indices. The `next_bands` argument is used by the
+    evaluator to perform asynchronous I/O read-ahead for upcoming band
+    windows. The resulting values for the current window are returned as
+    a NumPy array.
+
+    As a side effect, this function configures the evaluator's internal
+    state by setting the current and next band index lists prior to
+    execution.
+
+    Args:
+        evaluator: Asynchronous band-math evaluator used to execute the
+            expression.
+        tree: Parsed band-math expression tree.
+        current_bands: List of band indices to evaluate in the current
+            window.
+        next_bands: List of band indices that will be evaluated next, used
+            for asynchronous I/O read-ahead.
+
+    Returns:
+        A NumPy array containing the evaluated result for the current band
+        window.
+    """
+    evaluator.index_list_current = current_bands
+    evaluator.index_list_next = next_bands
+
+    result_value = evaluator.transform(tree)
+    if isinstance(result_value, (asyncio.Future, Coroutine)):
+        result_value = asyncio.run_coroutine_threadsafe(result_value, evaluator._event_loop).result()
+    res = result_value.value
+    res = extract_array(res)
+    return res
+
+
+def iter_band_windows(bands: int, num_bands_per_iter: int):
+    """
+    Yield successive band index windows for chunked band-math evaluation.
+
+    For each iteration, this generator yields a tuple of:
+    - the current band indices to evaluate, and
+    - the next band indices, used for asynchronous I/O read-ahead.
+
+    Args:
+        bands: Total number of bands in the dataset.
+        num_bands_per_iter: Number of bands to include in each evaluation window.
+
+    Yields:
+        Tuples of (current_bands, next_bands), where each element is a list
+        of band indices.
+    """
+    for band_index in range(0, bands, num_bands_per_iter):
+        start = band_index
+        end = min(bands, start + num_bands_per_iter)
+        current_bands = [band for band in range(start, end)]
+        next_start = band_index + num_bands_per_iter
+        next_end = min(bands, band_index + 2 * num_bands_per_iter)
+        next_bands = [band for band in range(next_start, next_end)]
+        yield current_bands, next_bands
+
+
+def compute_bands_per_chunk(max_bytes, expr_info, num_intermediates, lines, samples):
+    """
+    Compute the number of bands that can be processed per chunk under memory constraints.
+
+    Args:
+        max_bytes: Maximum number of bytes allowed for processing a chunk.
+        expr_info: BandMathExprInfo describing the result element type.
+        num_intermediates: Number of intermediate arrays used during evaluation.
+        lines: Number of lines (rows) in the output array.
+        samples: Number of samples (columns) in the output array.
+
+    Returns:
+        The number of bands that can be processed per chunk. Always at least 1.
+    """
+    bytes_per_element = (
+        np.dtype(expr_info.elem_type).itemsize if expr_info.elem_type is not None else SCALAR_BYTES
+    )
+    max_bytes = max_bytes / bytes_per_element
+    max_bytes_per_intermediate = max_bytes / num_intermediates
+    num_bands = int(np.floor(max_bytes_per_intermediate / (lines * samples)))
+    num_bands = 1 if num_bands < 1 else num_bands
+    return num_bands
+
+
 def get_batch_filepaths(
     serialized_variables: Dict[str, Tuple[VariableType, SerializedForm]],
 ) -> List[str]:
@@ -1683,6 +1884,78 @@ def extract_array(data) -> np.ndarray:
     elif isinstance(data, Spectrum):
         return data.get_spectrum()
     raise TypeError(f"Unsupported data type for extraction into numpy array: {type(data)}")
+
+
+def create_output_dataset(
+    *,
+    expr_info: "BandMathExprInfo",
+    gdal_type: int,
+    result_name: str,
+    cache: "DataCache",
+    temp_folder_path: str = "TEMP_FOLDER_PATH",
+) -> Tuple["RasterDataSet", "gdal.Dataset", str, int, int, int, "VariableType"]:
+    """
+    Create an on-disk output dataset for bandmath evaluation.
+
+    This function encapsulates the dataset-creation portion of the async bandmath
+    execution path:
+
+    - Computes the final output name (prefixing with subdataset_name if provided).
+    - Determines GDAL output type based on expr_info.elem_type.
+    - Computes output shape (bands, lines, samples) from expr_info.shape.
+    - Allocates a unique ENVI dataset on disk in TEMP_FOLDER_PATH.
+    - Wraps the GDAL dataset in a RasterDataSet bound to the provided cache.
+    - Marks the RasterDataSet dirty (so the file isn't deleted when this process exits).
+
+    Args:
+        expr_info: BandMathExprInfo describing result type, shape, and element dtype.
+        result_name: Base name for the result dataset.
+        cache: DataCache used to construct the RasterDataSet wrapper.
+        subdataset_name: Optional prefix added to result_name (e.g. "<subdataset>_<result>").
+        temp_folder_path: Folder where temporary ENVI datasets should be created. In your
+            codebase this is typically TEMP_FOLDER_PATH; pass that constant in.
+
+    Returns:
+        A tuple of:
+            (out_dataset, out_dataset_gdal, final_result_name, bands, lines, samples, gdal_type)
+
+        where:
+            - out_dataset is a RasterDataSet wrapper
+            - out_dataset_gdal is the underlying GDAL dataset
+            - final_result_name includes any subdataset prefix
+            - (bands, lines, samples) are output dimensions
+            - gdal_type is the GDAL data type used to create the dataset
+
+    Raises:
+        RuntimeError: If expr_info.shape is not length 2 or 3.
+        OSError: If the output folder cannot be created.
+        Exception: If GDAL dataset creation fails.
+    """
+    # Determine output dimensions
+    bands = 1
+    lines = 1
+    samples = 1
+    if len(expr_info.shape) == 2:
+        lines, samples = expr_info.shape
+    elif len(expr_info.shape) == 3:
+        bands, lines, samples = expr_info.shape
+    else:
+        raise RuntimeError(f"expr_info shape is neither 2 or 3, its {expr_info.shape}")
+
+    # Allocate unique file path and ensure folder exists
+    result_path = get_unused_file_path_in_folder(temp_folder_path, result_name)
+    folder_path = os.path.dirname(result_path)
+    if folder_path and not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
+
+    # Create the GDAL dataset on disk (ENVI)
+    out_dataset_gdal = gdal.GetDriverByName("ENVI").Create(result_path, samples, lines, bands, gdal_type)
+
+    # Wrap into RasterDataSet + mark dirty (prevents GC cleanup in subprocess exit cases)
+    out_dataset = RasterDataLoader().dataset_from_gdal_dataset(out_dataset_gdal, cache)
+    out_dataset.set_dirty()
+
+    return out_dataset, out_dataset_gdal, bands, lines, samples
 
 
 def update_progress_child_conn(
