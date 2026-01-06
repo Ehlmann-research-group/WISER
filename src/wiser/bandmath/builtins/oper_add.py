@@ -153,6 +153,7 @@ class OperatorAdd(BandMathFunction):
         # Since addition is commutative, arrange the arguments to make the
         # calculation logic easier.
         (lhs, rhs) = reorder_args(lhs.type, rhs.type, lhs, rhs)
+
         # Do the addition computation.
         if lhs.type == VariableType.IMAGE_CUBE:
             # Dimensions:  [band][y][x]

@@ -1187,13 +1187,6 @@ def bandmath_subprocess_entrypoint(
     child_conn: mp_conn.Connection,
     return_queue: mp.Queue,
 ):
-    # # First we will decide if we are doing batching or not. If we are doing batching we
-    # # get the filepaths, if we are not doing batching we will make the file paths = [None]
-    # is_batch = is_batch_job(serialized_variables)
-    # filepaths = []
-    # if is_batch:
-    #     filepaths = get_batch_filepaths(serialized_variables)
-
     eval_bandmath_expressions(
         bandmath_job_data=bandmath_job_data,
         child_conn=child_conn,
@@ -1233,40 +1226,11 @@ def eval_bandmath_batch(
     count = 0
     total = len(bandmath_job_data.filepaths)
     for single_bandmath_job in bandmath_job_data:
-        # First we get the result name
-        # base = os.path.basename(filepath)
-        # name, ext = os.path.splitext(base)
-        # new_result_name = f"{name}{result_name}"
         try:
             count += 1
             update_progress_child_conn(
                 child_conn=child_conn, numerator=count, denominator=total, status="Running"
             )
-            # Second we deserialize all of the variables, so they should
-            # all be in their "native" form
-            # current_variables = deserialize_bandmath_variables(
-            #     serialized_variables=serialized_variables,
-            #     subdataset_name=subdataset_name,
-            #     filepath=filepath,
-            #     loader=loader,
-            # )
-            # Third we get the proper BandMathExprInfo
-            # current_expr_info = bandmath.get_bandmath_expr_info(
-            #     bandmath_expr, current_variables, lower_functions
-            # )
-            # bandmath_job = BandMathJob(
-            #     bandmath_expr=bandmath_expr,
-            #     expr_info=current_expr_info,
-            #     result_name=new_result_name,
-            #     serialized_variables=current_variables,
-            #     lower_functions=lower_functions,
-            #     number_of_intermediates=number_of_intermediates,
-            #     tree=tree,
-            #     expr_info=current_expr_info,
-            #     result_name=new_result_name,
-            #     use_synchronous_method=use_synchronous_method,
-            #     subdataset_name=subdataset_name
-            # )
             # Then we calculate the result and serialize it
             result = eval_singular_bandmath_expr(
                 single_bandmath_job,
@@ -1425,7 +1389,7 @@ def eval_singular_bandmath_expr(
 
 # region Helpers
 
-# serialization and deserialization helpers
+# Serialization and deserialization helpers
 
 
 def serialize_bandmath_variables(
