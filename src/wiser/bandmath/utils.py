@@ -90,8 +90,8 @@ def load_image_from_bandmath_result(
 ) -> RasterDataSet:
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
-    # result_type == RasterDataSet if it was so big that it had to get chunked and saved to disk
-    if result_type == RasterDataSet:
+    # Below result type occurs if the dataset was so big it need to be saved to disk
+    if result_type == VariableType.IMAGE_CUBE_DATASET:
         metadata = result.get_metadata()
         if "save_state" not in metadata:
             metadata["save_state"] = SaveState.IN_DISK_NOT_SAVED
@@ -135,7 +135,7 @@ def load_image_from_bandmath_result(
 
 
 def save_image_from_bandmath_result(
-    result_type: Union[VariableType, RasterDataSet],
+    result_type: Union[VariableType],
     result: SerializedForm,
     result_name: str,
     expression: Optional[str],
@@ -147,8 +147,8 @@ def save_image_from_bandmath_result(
     # Compute a timestamp to put in the description
     timestamp = datetime.datetime.now().isoformat()
     save_path = os.path.join(output_folder, result_name)
-    # result_type == RasterDataSet if it was so big that it had to get chunked and saved to disk
-    if result_type == RasterDataSet:
+    # Below result type occurs if the dataset was so big it need to be saved to disk
+    if result_type == VariableType.IMAGE_CUBE_DATASET:
         metadata = result.get_metadata()
         if "save_state" not in metadata:
             metadata["save_state"] = SaveState.IN_DISK_NOT_SAVED
@@ -161,6 +161,8 @@ def save_image_from_bandmath_result(
             ds.copy_spectral_metadata(expr_info.spectral_metadata_source)
         if loader:
             loader.save_dataset_as(ds, save_path, format="ENVI")
+
+        return ds
     elif result_type == VariableType.IMAGE_CUBE:
         if not loader:
             raise AttributeError("Must pass loader into function if result_type is IMAGE_CUBE")
@@ -336,7 +338,7 @@ def bandmath_success_callback(
                 timestamp = datetime.datetime.now().isoformat()
 
                 loader = app_state.get_loader()
-                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
                     load_image_from_bandmath_result(
                         result_type=result_type,
                         result=result,
@@ -376,7 +378,7 @@ def bandmath_success_callback(
                 timestamp = datetime.datetime.now().isoformat()
 
                 loader = app_state.get_loader()
-                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
                     save_image_from_bandmath_result(
                         result_type=result_type,
                         result=result,

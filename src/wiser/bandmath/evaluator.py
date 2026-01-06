@@ -1140,19 +1140,6 @@ def start_bandmath_evaluation(
     # could have an underlying gdal or osgeo object that can't be pickled
     serialized_variables = serialize_bandmath_variables(lower_variables)
 
-    kwargs = {
-        "bandmath_expr": bandmath_expr,
-        "expr_info": expr_info,
-        "result_name": result_name,
-        "cache": None,
-        "serialized_variables": serialized_variables,
-        "lower_functions": lower_functions,
-        "number_of_intermediates": number_of_intermediates,
-        "tree": tree,
-        "use_synchronous_method": use_synchronous_method,
-        "subdataset_name": subdataset_name,
-    }
-
     bandmath_job_data = BandMathJob(
         bandmath_expr=bandmath_expr,
         expr_info=expr_info,
@@ -1304,7 +1291,7 @@ def eval_singular_bandmath_expr_async(
     single_bandmath_job: SingleBandMathJob,
     max_chunking_bytes: Union[float, int],
 ) -> Tuple[
-    Union[VariableType, RasterDataSet.__class__],
+    Union[VariableType],
     Union[np.ndarray, RasterDataSet],
     str,
     BandMathExprInfo,
@@ -1382,13 +1369,13 @@ def eval_singular_bandmath_expr_async(
         raise e
     finally:
         evaluator.stop()
-    return (RasterDataSet, out_dataset, result_name, expr_info)
+    return (VariableType.IMAGE_CUBE_DATASET, out_dataset, result_name, expr_info)
 
 
 def eval_singular_bandmath_expr_sync(
     single_bandmath_job: SingleBandMathJob,
 ) -> Tuple[
-    Union[VariableType, RasterDataSet.__class__],
+    Union[VariableType],
     Union[np.ndarray, RasterDataSet],
     str,
     BandMathExprInfo,

@@ -53,6 +53,8 @@ class VariableType(enum.IntEnum):
 
     IMAGE_BAND_BATCH = 9
 
+    IMAGE_CUBE_DATASET = 10
+
 
 class BandMathExprInfo:
     """

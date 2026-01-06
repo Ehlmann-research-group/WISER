@@ -151,10 +151,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         ] = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 assert isinstance(result, SerializedForm)
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
@@ -213,10 +213,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -276,10 +276,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -334,10 +334,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result_band, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_BAND
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_BAND
 
-            # Check if result_type is RasterDataSet or IMAGE_BAND and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_BAND and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result_band, result_name, None, expr_info, loader, None
                 )
@@ -423,10 +423,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -471,9 +471,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result_band, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_BAND
-            # Check if result_type is RasterDataSet or IMAGE_BAND and handle accordingly
-            if result_type == RasterDataSet:
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_BAND
+
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_BAND and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result_band, result_name, None, expr_info, loader, None
                 )
@@ -569,10 +570,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -627,10 +628,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -755,10 +756,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -804,10 +805,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -856,10 +857,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -919,10 +920,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -989,10 +990,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1059,10 +1060,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1129,10 +1130,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1187,10 +1188,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1242,10 +1243,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1308,10 +1309,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1376,8 +1377,8 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
-            if result_type == RasterDataSet:
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1448,8 +1449,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             process_manager.get_task().wait()
             results = process_manager.get_task().get_result()
             for result_type, result, result_name, expr_info in results:
-                assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
-                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                assert (
+                    result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
+                )
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
                     result_ds = load_image_from_bandmath_result(
                         result_type, result, result_name, expr, expr_info, loader, None
                     )
@@ -1551,7 +1554,7 @@ class TestBandmathEvaluator(unittest.TestCase):
                     raster_batch_band.get_epsilon(),
                 )
                 original_band_arr = original_band.get_data()
-                if result_type == VariableType.IMAGE_CUBE or result_type == RasterDataSet:
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
                     assert isinstance(result, (np.ndarray, SerializedForm))
                     result_ds = load_image_from_bandmath_result(
                         result_type, result, result_name, expr, expr_info, loader, None
@@ -1699,7 +1702,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             process_manager.get_task().wait()
             results = process_manager.get_task().get_result()
             for result_type, result, result_name, expr_info in results:
-                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
                     result_ds = load_image_from_bandmath_result(
                         result_type, result, result_name, expr, expr_info, loader, None
                     )
