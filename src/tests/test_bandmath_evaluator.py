@@ -1,19 +1,23 @@
-import tests.context
-# import context
-
-from astropy import units as u
-
 import os
 import sys
 
+from astropy import units as u
+
+import tests.context
+# import context
+
+
+from typing import Tuple, List, Callable
+
 import unittest
+import datetime
 import numpy as np
-from typing import List, Tuple, Callable
 
 
 from wiser import bandmath
 from wiser.bandmath import VariableType
 from wiser.bandmath.analyzer import get_bandmath_expr_info
+from wiser.bandmath.types import BandMathExprInfo, BANDMATH_VALUE_TYPE
 from wiser.raster.dataset import (
     RasterDataSet,
     RasterDataBand,
@@ -24,13 +28,14 @@ from wiser.raster.loader import RasterDataLoader
 from wiser.raster.spectrum import SpectrumAtPoint
 
 from wiser.raster.data_cache import DataCache
-from wiser.raster.serializable import SerializedForm
+from wiser.raster.serializable import BasicValueSerialized, SerializedForm
 
 from test_utils.test_model import WiserTestModel
 
 from wiser.bandmath.utils import (
     load_image_from_bandmath_result,
     load_band_from_bandmath_result,
+    load_spectrum_from_bandmath_result,
 )
 
 import pytest
@@ -84,7 +89,7 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
@@ -97,9 +102,9 @@ class TestBandmathEvaluator(unittest.TestCase):
         )
 
         process_manager.get_task().wait()
-        result = process_manager.get_task().get_result()
+        results = process_manager.get_task().get_result()
 
-        for result_type, result_value, result_name, expr_info in result:
+        for result_type, result_value, result_name, expr_info in results:
             self.assertEqual(result_type, VariableType.NUMBER)
             self.assertEqual(result_value, 5)
 
@@ -117,49 +122,49 @@ class TestBandmathEvaluator(unittest.TestCase):
             for x in range(band.shape[0]):
                 band[x, y] = 0.5 * x + 10 * y
 
-        expr_info = get_bandmath_expr_info(
-            "image + band",
-            {
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
-            {},
-        )
+        variables = {
+            "image": (VariableType.IMAGE_CUBE, img),
+            "band": (VariableType.IMAGE_BAND, band),
+        }
+
+        expr = "image + band"
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image + band",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
+            variables=variables,
             functions={},
         )
 
         process_manager.get_task().wait()
-        results = process_manager.get_task().get_result()
+        results: List[
+            Tuple[VariableType, BANDMATH_VALUE_TYPE, str, BandMathExprInfo]
+        ] = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
+                assert isinstance(result, SerializedForm)
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
                 result_arr = result_dataset.get_image_data()
                 result_shape = result_dataset.get_shape()
             elif result_type == VariableType.IMAGE_CUBE:
+                assert isinstance(result, np.ndarray)
                 result_arr = result
-                result_shape = result.shape
+                result_shape = result_arr.shape
             else:
                 self.fail(f"Unexpected result type: {result_type}")
 
@@ -169,8 +174,8 @@ class TestBandmathEvaluator(unittest.TestCase):
                 for y in range(result_shape[2]):
                     for x in range(result_shape[1]):
                         self.assertEqual(result_arr[b, x, y], (b + 1.0) + 0.5 * x + 10 * y)
-            # Make sure input image didn't change
 
+            # Make sure input image didn't change
             for value in np.nditer(img[0]):
                 self.assertEqual(value, 1.0)
 
@@ -182,31 +187,36 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("image + 0.5", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        variables = {
+            "image": (VariableType.IMAGE_CUBE, img),
+        }
+
+        expr = "image + 0.5"
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image + 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
         process_manager.get_task().wait()
-        result = process_manager.get_task().get_result()
+        results = process_manager.get_task().get_result()
 
-        for result_type, result, result_name, expr_info in result:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+        for result_type, result, result_name, expr_info in results:
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -235,30 +245,30 @@ class TestBandmathEvaluator(unittest.TestCase):
             for x in range(band.shape[0]):
                 band[x, y] = 0.5 * x + 10 * y
 
+        variables = {
+            "image": (VariableType.IMAGE_CUBE, img),
+            "band": (VariableType.IMAGE_BAND, band),
+        }
+
+        expr = "band + image"
         expr_info = get_bandmath_expr_info(
-            "band + image",
-            {
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
+            expr,
+            variables,
             {},
         )
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="band + image",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -266,10 +276,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -301,20 +311,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         band = make_band(4, 5)
         band.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("b + 0.5", {"b": (VariableType.IMAGE_BAND, band)}, {})
+        expr = "b + 0.5"
+        variables = {"b": (VariableType.IMAGE_BAND, band)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="b + 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"b": (VariableType.IMAGE_BAND, band)},
+            variables=variables,
             functions={},
         )
 
@@ -322,10 +334,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result_band, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_BAND
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_BAND
 
-            # Check if result_type is RasterDataSet or IMAGE_BAND and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_BAND and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result_band, result_name, None, expr_info, loader, None
                 )
@@ -348,20 +360,24 @@ class TestBandmathEvaluator(unittest.TestCase):
         spectrum = make_spectrum(15)
         spectrum.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("S1 + 0.5", {"s1": (VariableType.SPECTRUM, spectrum)}, {})
+        expr = "S1 + 0.5"
+        variables = {
+            "s1": (VariableType.SPECTRUM, spectrum),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="S1 + 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"s1": (VariableType.SPECTRUM, spectrum)},
+            variables=variables,
             functions={},
         )
 
@@ -384,20 +400,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("0.5 + image", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "0.5 + image"
+        variables = {"image": (VariableType.IMAGE_CUBE, img)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="0.5 + image",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -405,10 +423,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -431,19 +449,21 @@ class TestBandmathEvaluator(unittest.TestCase):
         band = make_band(4, 5)
         band.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("0.5 + b", {"b": (VariableType.IMAGE_BAND, band)}, {})
+        expr = "0.5 + b"
+        variables = {"b": (VariableType.IMAGE_BAND, band)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="0.5 + b",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=None,
             cache=cache,
-            variables={"b": (VariableType.IMAGE_BAND, band)},
+            variables=variables,
             functions={},
         )
 
@@ -451,9 +471,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result_band, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_BAND
-            # Check if result_type is RasterDataSet or IMAGE_BAND and handle accordingly
-            if result_type == RasterDataSet:
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_BAND
+
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_BAND and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result_band, result_name, None, expr_info, loader, None
                 )
@@ -476,20 +497,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         spectrum = make_spectrum(15)
         spectrum.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("0.5 + S1", {"s1": (VariableType.SPECTRUM, spectrum)}, {})
+        expr = "0.5 + S1"
+        variables = {"s1": (VariableType.SPECTRUM, spectrum)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="0.5 + S1",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"s1": (VariableType.SPECTRUM, spectrum)},
+            variables=variables,
             functions={},
         )
 
@@ -521,30 +544,25 @@ class TestBandmathEvaluator(unittest.TestCase):
             for x in range(band.shape[0]):
                 band[x, y] = 0.5 * x + 10 * y
 
-        expr_info = get_bandmath_expr_info(
-            "image - band",
-            {
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
-            {},
-        )
+        expr = "image - band"
+        variables = {
+            "image": (VariableType.IMAGE_CUBE, img),
+            "band": (VariableType.IMAGE_BAND, band),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image - band",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "image": (VariableType.IMAGE_CUBE, img),
-                "band": (VariableType.IMAGE_BAND, band),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -552,10 +570,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -587,20 +605,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("image - 0.5", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "image - 0.5"
+        variables = {"image": (VariableType.IMAGE_CUBE, img)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image - 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -608,10 +628,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -634,20 +654,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         band = make_band(4, 5)
         band.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("B1 - 0.5", {"B1": (VariableType.IMAGE_BAND, band)}, {})
+        expr = "B1 - 0.5"
+        variables = {"B1": (VariableType.IMAGE_BAND, band)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="B1 - 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"B1": (VariableType.IMAGE_BAND, band)},
+            variables=variables,
             functions={},
         )
 
@@ -670,20 +692,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         spectrum = make_spectrum(15)
         spectrum.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("s - 0.5", {"s": (VariableType.SPECTRUM, spectrum)}, {})
+        expr = "s - 0.5"
+        variables = {"s": (VariableType.SPECTRUM, spectrum)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="s - 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"s": (VariableType.SPECTRUM, spectrum)},
+            variables=variables,
             functions={},
         )
 
@@ -709,20 +733,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("image * 2", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "image * 2"
+        variables = {"image": (VariableType.IMAGE_CUBE, img)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image * 2",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -730,10 +756,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -756,20 +782,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("2 * image", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "2 * image"
+        variables = {"image": (VariableType.IMAGE_CUBE, img)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="2 * image",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -777,10 +805,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -806,20 +834,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         img = make_image(2, 4, 5)
         img.fill(2.5)
 
-        expr_info = get_bandmath_expr_info("image / 0.5", {"image": (VariableType.IMAGE_CUBE, img)}, {})
+        expr = "image / 0.5"
+        variables = {"image": (VariableType.IMAGE_CUBE, img)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="image / 0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"image": (VariableType.IMAGE_CUBE, img)},
+            variables=variables,
             functions={},
         )
 
@@ -827,10 +857,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -862,34 +892,27 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(3.0)
         d.fill(4.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a + b) + (c + d)",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a + b) + (c + d)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, a),
+            "b": (VariableType.IMAGE_BAND, b),
+            "c": (VariableType.IMAGE_CUBE, c),
+            "d": (VariableType.SPECTRUM, d),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a + b) + (c + d)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -897,10 +920,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -939,34 +962,27 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(3.0)
         d.fill(4.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a * b) * (c * d)",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a * b) * (c * d)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, a),
+            "b": (VariableType.IMAGE_BAND, b),
+            "c": (VariableType.IMAGE_CUBE, c),
+            "d": (VariableType.SPECTRUM, d),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a * b) * (c * d)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -974,10 +990,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1016,34 +1032,27 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(4.0)
         d.fill(2.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a / b) / (c / d)",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a / b) / (c / d)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, a),
+            "b": (VariableType.IMAGE_BAND, b),
+            "c": (VariableType.IMAGE_CUBE, c),
+            "d": (VariableType.SPECTRUM, d),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a / b) / (c / d)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1051,10 +1060,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1093,34 +1102,27 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(5.0)
         d.fill(1.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a - b) - (c - d)",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a - b) - (c - d)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, a),
+            "b": (VariableType.IMAGE_BAND, b),
+            "c": (VariableType.IMAGE_CUBE, c),
+            "d": (VariableType.SPECTRUM, d),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a - b) - (c - d)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1128,10 +1130,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1163,20 +1165,22 @@ class TestBandmathEvaluator(unittest.TestCase):
         a = make_image(2, 3, 4)
         a.fill(10.0)
 
-        expr_info = get_bandmath_expr_info("-a + 1", {"a": (VariableType.IMAGE_CUBE, a)}, {})
+        expr = "-a + 1"
+        variables = {"a": (VariableType.IMAGE_CUBE, a)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="-a + 1",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"a": (VariableType.IMAGE_CUBE, a)},
+            variables=variables,
             functions={},
         )
 
@@ -1184,10 +1188,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1213,27 +1217,25 @@ class TestBandmathEvaluator(unittest.TestCase):
         a.fill(4.0)
         b.fill(2.0)
 
-        expr_info = get_bandmath_expr_info(
-            "a**b - (a**0.5)",
-            {"a": (VariableType.IMAGE_CUBE, a), "b": (VariableType.IMAGE_BAND, b)},
-            {},
-        )
+        expr = "a**b - (a**0.5)"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, a),
+            "b": (VariableType.IMAGE_BAND, b),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="a**b - (a**0.5)",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1241,10 +1243,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1279,34 +1281,27 @@ class TestBandmathEvaluator(unittest.TestCase):
         c.fill(4.0)
         d.fill(2.0)
 
-        expr_info = get_bandmath_expr_info(
-            "(a / b) - (c * d) + a**0.5",
-            {
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
-            {},
-        )
+        expr = "(a / b) - (c * d) + a**0.5"
+        variables = {
+            "a": (VariableType.IMAGE_CUBE, a),
+            "b": (VariableType.IMAGE_BAND, b),
+            "c": (VariableType.IMAGE_CUBE, c),
+            "d": (VariableType.SPECTRUM, d),
+        }
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
 
         cache = DataCache()
 
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="(a / b) - (c * d) + a**0.5",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={
-                "a": (VariableType.IMAGE_CUBE, a),
-                "b": (VariableType.IMAGE_BAND, b),
-                "c": (VariableType.IMAGE_CUBE, c),
-                "d": (VariableType.SPECTRUM, d),
-            },
+            variables=variables,
             functions={},
         )
 
@@ -1314,10 +1309,10 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
 
-            # Check if result_type is RasterDataSet or IMAGE_CUBE and handle accordingly
-            if result_type == RasterDataSet:
+            # Check if result_type is IMAGE_CUBE_DATASET or IMAGE_CUBE and handle accordingly
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1361,18 +1356,20 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         caltech_ds = self.test_model.load_dataset(target_path)
 
-        expr_info = get_bandmath_expr_info("a + 0", {"a": (VariableType.IMAGE_CUBE, caltech_ds)}, {})
+        expr = "a + 0"
+        variables = {"a": (VariableType.IMAGE_CUBE, caltech_ds)}
+        expr_info = get_bandmath_expr_info(expr, variables, {})
         result_name = "test_result"
         cache = DataCache()
-        process_manager = bandmath.eval_bandmath_expr(
+        process_manager = bandmath.start_bandmath_evaluation(
             succeeded_callback=lambda _: None,
             status_callback=lambda _: None,
             error_callback=lambda _: None,
-            bandmath_expr="a + 0",
+            bandmath_expr=expr,
             expr_info=expr_info,
             result_name=result_name,
             cache=cache,
-            variables={"a": (VariableType.IMAGE_CUBE, caltech_ds)},
+            variables=variables,
             functions={},
         )
 
@@ -1380,8 +1377,8 @@ class TestBandmathEvaluator(unittest.TestCase):
         results = process_manager.get_task().get_result()
 
         for result_type, result, result_name, expr_info in results:
-            assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
-            if result_type == RasterDataSet:
+            assert result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
+            if result_type == VariableType.IMAGE_CUBE_DATASET:
                 result_dataset = load_image_from_bandmath_result(
                     result_type, result, result_name, None, expr_info, loader, None
                 )
@@ -1400,7 +1397,6 @@ class TestBandmathEvaluator(unittest.TestCase):
             assert expr_info.spectral_metadata_source == caltech_ds.get_spectral_metadata()
 
     def bandmath_preloaded_data_with_batch_helper(self, run_sync: bool):
-        # Load in caltech_4_100_150nm
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
         target_path = os.path.normpath(
@@ -1438,7 +1434,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             expr_info = get_bandmath_expr_info(expr, variables, {})
             suffix = "test_result"
             cache = DataCache()
-            process_manager = bandmath.eval_bandmath_expr(
+            process_manager = bandmath.start_bandmath_evaluation(
                 succeeded_callback=lambda _: None,
                 status_callback=lambda _: None,
                 error_callback=lambda _: None,
@@ -1453,8 +1449,10 @@ class TestBandmathEvaluator(unittest.TestCase):
             process_manager.get_task().wait()
             results = process_manager.get_task().get_result()
             for result_type, result, result_name, expr_info in results:
-                assert result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE
-                if result_type == RasterDataSet or result_type == VariableType.IMAGE_CUBE:
+                assert (
+                    result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE
+                )
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
                     result_ds = load_image_from_bandmath_result(
                         result_type, result, result_name, expr, expr_info, loader, None
                     )
@@ -1523,7 +1521,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             expr_info = get_bandmath_expr_info(expr, variables, {})
             suffix = "test_result"
             cache = DataCache()
-            process_manager = bandmath.eval_bandmath_expr(
+            process_manager = bandmath.start_bandmath_evaluation(
                 succeeded_callback=success_callback,
                 status_callback=status_callback,
                 error_callback=lambda _: None,
@@ -1537,6 +1535,7 @@ class TestBandmathEvaluator(unittest.TestCase):
             )
             process_manager.get_task().wait()
             results = process_manager.get_task().get_result()
+
             for result_type, result, result_name, expr_info in results:
                 original_file_name = (
                     result_name[: -(len(suffix))] if result_name.endswith(suffix) else result_name
@@ -1555,7 +1554,7 @@ class TestBandmathEvaluator(unittest.TestCase):
                     raster_batch_band.get_epsilon(),
                 )
                 original_band_arr = original_band.get_data()
-                if result_type == VariableType.IMAGE_CUBE or result_type == RasterDataSet:
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
                     assert isinstance(result, (np.ndarray, SerializedForm))
                     result_ds = load_image_from_bandmath_result(
                         result_type, result, result_name, expr, expr_info, loader, None
@@ -1573,7 +1572,10 @@ class TestBandmathEvaluator(unittest.TestCase):
                     )
                     result_arr = result_ds.get_image_data()
                 else:
-                    self.fail(f"Unexpected result type: {result_type}")
+                    self.fail(
+                        f"Unexpected result type: {result_type}.\n"
+                        f"Error message: {process_manager.get_task().get_error()}"
+                    )
                 if var[0] == VariableType.IMAGE_CUBE:
                     var_arr = var[1].get_image_data()
                 elif var[0] == VariableType.IMAGE_BAND:
@@ -1657,9 +1659,103 @@ class TestBandmathEvaluator(unittest.TestCase):
         )
         self.bandmath_preloaded_data_with_band_batch_helper(raster_batch_band, run_sync=False)
 
+    def bandmath_test_single_vars_helper(self, run_sync: bool):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        target_path = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+        )
+
+        caltech_ds = self.test_model.load_dataset(target_path)
+
+        band = RasterDataBand(caltech_ds, 0)
+
+        spectrum = SpectrumAtPoint(caltech_ds, (1, 1))
+
+        vars = [
+            (VariableType.IMAGE_CUBE, caltech_ds),
+            (VariableType.IMAGE_BAND, band),
+        ]
+        if run_sync:
+            vars.append((VariableType.SPECTRUM, spectrum))
+
+        for var in vars:
+            expr = "a"
+            variables = {
+                "a": var,
+            }
+            expr_info = get_bandmath_expr_info(expr, variables, {})
+            suffix = "test_result"
+            cache = DataCache()
+            process_manager = bandmath.start_bandmath_evaluation(
+                succeeded_callback=lambda _: None,
+                status_callback=lambda _: None,
+                error_callback=lambda _: None,
+                bandmath_expr=expr,
+                expr_info=expr_info,
+                result_name=suffix,
+                cache=cache,
+                variables=variables,
+                functions={},
+                use_synchronous_method=run_sync,
+            )
+            process_manager.get_task().wait()
+            results = process_manager.get_task().get_result()
+            for result_type, result, result_name, expr_info in results:
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
+                    result_ds = load_image_from_bandmath_result(
+                        result_type, result, result_name, expr, expr_info, loader, None
+                    )
+                    result_arr = result_ds.get_image_data()
+                elif result_type == VariableType.IMAGE_BAND:
+                    result_ds = load_band_from_bandmath_result(
+                        result=result,
+                        result_name=result_name,
+                        expression=expr,
+                        expr_info=expr_info,
+                        loader=loader,
+                        parent=None,
+                        app_state=None,
+                    )
+                    result_arr = result_ds.get_image_data()
+                elif result_type == VariableType.SPECTRUM:
+                    timestamp = datetime.datetime.now().isoformat()
+                    result_spec = load_spectrum_from_bandmath_result(
+                        result=result,
+                        result_name=result_name,
+                        expression=expr,
+                        expr_info=expr_info,
+                        timestamp=timestamp,
+                        parent=None,
+                        app_state=None,
+                    )
+                    result_arr = result_spec.get_spectrum()
+                    result_arr = result_arr[:, np.newaxis, np.newaxis]
+
+                if var[0] == VariableType.IMAGE_CUBE:
+                    var_arr = var[1].get_image_data()
+                elif var[0] == VariableType.IMAGE_BAND:
+                    var_arr = var[1].get_data()
+                elif var[0] == VariableType.SPECTRUM:
+                    var_arr = var[1].get_spectrum()
+                    if var_arr.ndim == 1:
+                        var_arr = var_arr[:, np.newaxis, np.newaxis]
+                else:
+                    self.fail(f"Unexpected variable type: {var[0]}")
+
+                assert np.allclose(result_arr, var_arr)
+
+                del result
+
+    def test_single_variables_sync(self):
+        self.bandmath_test_single_vars_helper(run_sync=True)
+
+    def test_single_variables_async(self):
+        self.bandmath_test_single_vars_helper(run_sync=False)
+
 
 if __name__ == "__main__":
     test_class = TestBandmathEvaluator()
     test_class.setUp()
-    test_class.test_bandmath_preloaded_data_with_band_index_batch_async()
+    test_class.test_bandmath_preloaded_data_with_band_index_batch_sync()
     test_class.tearDown()

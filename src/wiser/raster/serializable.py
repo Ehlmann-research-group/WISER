@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
-from typing import Tuple, Union, Dict
+from abc import abstractmethod
+from typing import Union, Dict, Any
 import numpy as np
 
 
@@ -23,7 +23,9 @@ class Serializable:
 
     @staticmethod
     @abstractmethod
-    def deserialize_into_class(dataset_serialize_value: Union[str, np.ndarray], dataset_metadata: Dict):
+    def deserialize_into_class(
+        serializedForm: "SerializedForm",
+    ) -> "Serializable":
         """
         This should recreate the object from the serialized form that is
         obtained from the get_serialized_form method.
@@ -41,7 +43,7 @@ class SerializedForm:
     def __init__(
         self,
         serializable_class: "Serializable",
-        serialize_value: Union[str, np.ndarray],
+        serialize_value: Union[str, np.ndarray, bool, np.float32],
         metadata: Dict,
     ):
         """
@@ -60,8 +62,38 @@ class SerializedForm:
     def get_serializable_class(self) -> "Serializable":
         return self._serializable_class
 
-    def get_serialize_value(self) -> Union[str, np.ndarray]:
+    def get_serialize_value(self) -> Union[str, np.ndarray, bool, np.float32]:
         return self._serialize_value
 
     def get_metadata(self) -> Dict:
         return self._metadata
+
+
+class BasicValueSerialized(Serializable):
+    """
+    This class makes working with serialized basic types (primitives
+    and arrays) and our more complex serialized classes easier by
+    ensuring everything has the same interface. When deserialized,
+    it just returns the basic value.
+
+    Attributes:
+        value: A basic value that we want to wrap in this class
+    """
+
+    def __init__(self, value: Any):
+        self._value = value
+
+    def get_basic_value(self):
+        return self._value
+
+    def get_serialized_form(self):
+        return SerializedForm(
+            serializable_class=BasicValueSerialized,
+            serialize_value=self._value,
+            metadata={},
+        )
+
+    @staticmethod
+    def deserialize_into_class(serializedForm: SerializedForm) -> "BasicValueSerialized":
+        serialize_value = serializedForm.get_serialize_value()
+        return serialize_value

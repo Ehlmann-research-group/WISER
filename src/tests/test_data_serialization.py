@@ -13,7 +13,6 @@ from test_utils.test_arrays import sam_sff_arr_reg
 from wiser.raster.dataset import (
     RasterDataSet,
     RasterDataBand,
-    RasterDataBatchBand,
     RasterDataDynamicBand,
 )
 from wiser.raster.spectrum import NumPyArraySpectrum, SpectrumAtPoint
@@ -51,7 +50,7 @@ class TestDataSerialization(unittest.TestCase):
         serializedForm = ds.get_serialized_form()
 
         reconstructed_dataset: RasterDataSet = serializedForm.get_serializable_class().deserialize_into_class(
-            serializedForm.get_serialize_value(), serializedForm.get_metadata()
+            serializedForm=serializedForm,
         )
 
         assert reconstructed_dataset.is_metadata_same(
@@ -64,7 +63,7 @@ class TestDataSerialization(unittest.TestCase):
         serialized_ds = ds.get_serialized_form()
 
         reconstructed_dataset: RasterDataSet = serialized_ds.get_serializable_class().deserialize_into_class(
-            serialized_ds.get_serialize_value(), serialized_ds.get_metadata()
+            serializedForm=serialized_ds,
         )
 
         assert reconstructed_dataset.is_metadata_same(
@@ -86,7 +85,7 @@ class TestDataSerialization(unittest.TestCase):
         band = RasterDataBand(ds, 2)
         serializedForm = band.get_serialized_form()
         reconstructed_band: RasterDataBand = serializedForm.get_serializable_class().deserialize_into_class(
-            serializedForm.get_serialize_value(), serializedForm.get_metadata()
+            serializedForm=serializedForm,
         )
 
         assert reconstructed_band.is_metadata_same(
@@ -109,7 +108,7 @@ class TestDataSerialization(unittest.TestCase):
         serializedForm = band.get_serialized_form()
         reconstructed_band: RasterDataDynamicBand = (
             serializedForm.get_serializable_class().deserialize_into_class(
-                serializedForm.get_serialize_value(), serializedForm.get_metadata()
+                serializedForm=serializedForm,
             )
         )
 
@@ -133,7 +132,7 @@ class TestDataSerialization(unittest.TestCase):
         serializedForm = band.get_serialized_form()
         reconstructed_band: RasterDataDynamicBand = (
             serializedForm.get_serializable_class().deserialize_into_class(
-                serializedForm.get_serialize_value(), serializedForm.get_metadata()
+                serializedForm=serializedForm,
             )
         )
 
@@ -148,7 +147,7 @@ class TestDataSerialization(unittest.TestCase):
         serializedForm = spectrum.get_serialized_form()
         reconstructed_spectrum: NumPyArraySpectrum = (
             serializedForm.get_serializable_class().deserialize_into_class(
-                serializedForm.get_serialize_value(), serializedForm.get_metadata()
+                serializedForm=serializedForm,
             )
         )
 
@@ -172,7 +171,7 @@ class TestDataSerialization(unittest.TestCase):
         serializedForm = spectrum.get_serialized_form()
         reconstructed_spectrum: SpectrumAtPoint = (
             serializedForm.get_serializable_class().deserialize_into_class(
-                serializedForm.get_serialize_value(), serializedForm.get_metadata()
+                serializedForm=serializedForm,
             )
         )
 
@@ -190,8 +189,7 @@ class TestDataSerialization(unittest.TestCase):
 
     #   reconstructed_dataset: RasterDataSet = (
     #     serializedForm.get_serializable_class().deserialize_into_class(
-    #         serializedForm.get_serialize_value(),
-    #         serializedForm.get_metadata(),
+    #        serializedForm=serializedForm,
     #     )
     # )
 
@@ -203,10 +201,7 @@ if __name__ == "__main__":
     test_data_serialization = TestDataSerialization()
     test_data_serialization.setUp()
     try:
-        test_data_serialization.test_raster_data_band()
-        test_data_serialization.test_raster_data_dynamic_band_index()
+        # test_data_serialization.test_raster_data_dynamic_band_index()
         test_data_serialization.test_raster_data_dynamic_band_wavelength()
-        test_data_serialization.test_numpy_array_spectrum()
-        test_data_serialization.test_spectrum_at_point()
     finally:
         test_data_serialization.tearDown()

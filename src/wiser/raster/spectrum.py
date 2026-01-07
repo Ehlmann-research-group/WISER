@@ -426,11 +426,13 @@ class Spectrum(abc.ABC, Serializable):
         return spectral_metadata
 
     @staticmethod
-    def deserialize_into_class(spectrum_arr: Union[str, np.ndarray], metadata: Dict) -> "NumPyArraySpectrum":
+    def deserialize_into_class(serializedForm: SerializedForm) -> "NumPyArraySpectrum":
         """
         This should recreate the object from the serialized form that is obtained from the
         get_serialized_form method.
         """
+        spectrum_arr = serializedForm.get_serialize_value()
+        metadata = serializedForm.get_metadata()
         name = metadata["name"]
         source_name = metadata["source_name"]
         id = metadata["id"]

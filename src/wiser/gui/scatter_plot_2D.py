@@ -92,10 +92,10 @@ def _create_scatter_plot_intensive_operations(
     return_queue: mp.Queue,
 ):
     x_dataset = RasterDataSet.deserialize_into_class(
-        x_dataset_serialized.get_serialize_value(), x_dataset_serialized.get_metadata()
+        x_dataset_serialized,
     )
     y_dataset = RasterDataSet.deserialize_into_class(
-        y_dataset_serialized.get_serialize_value(), y_dataset_serialized.get_metadata()
+        y_dataset_serialized,
     )
     x_band = x_dataset.get_band_data(x_band_idx)
     y_band = y_dataset.get_band_data(y_band_idx)
