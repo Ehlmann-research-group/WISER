@@ -136,10 +136,11 @@ class AsyncTransformer(lark.visitors.Transformer):
                     return await f.visit_wrapper(f, tree.data, children, tree.meta)
                 else:
                     # Check if the transformation method is async or sync
-                    if inspect.isawaitable(f):
-                        return await f(children)
+                    res = f(children)
+                    if inspect.isawaitable(res):
+                        return await res
                     else:
-                        return f(children)
+                        return res
             except GrammarError:
                 raise
             except Exception as e:
@@ -237,14 +238,14 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
         functions: Dict[str, Callable],
         shape: Tuple[int, int, int] = None,
-        use_parallelization=True,
+        use_async_io=True,
     ):
         self._variables = variables
         self._functions = functions
         self.index_list_current = None
         self.index_list_next = None
         self._shape = shape
-        if use_parallelization:
+        if use_async_io:
             self._read_data_queue_dict = {}
             self._write_data_queue = queue.Queue()
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
@@ -878,19 +879,6 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
         """
         logger.debug(" * unary_negate_expr")
         return self.find_current_interm_and_update_max(args[1], 0)
-
-
-# @dataclass(frozen=True)
-# class BandMathJob:
-#     bandmath_expr: str
-#     expr_info: BandMathExprInfo
-#     result_name: str
-#     serialized_variables: dict
-#     lower_functions: dict
-#     number_of_intermediates: int
-#     tree: lark.ParseTree
-#     use_synchronous_method: bool
-#     subdataset_name: str = ""
 
 
 @dataclass(frozen=True)

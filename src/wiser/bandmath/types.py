@@ -241,8 +241,6 @@ class BandMathValue:
 
         if isinstance(self.value, BasicValueSerialized):
             raise ValueError("BasicValueSerialized should never be in BandMathValue in as_numpy_array!")
-            assert isinstance(self.value.get_basic_value(), np.ndarray)
-            return self.value.get_basic_value()
 
         if self.type == VariableType.IMAGE_CUBE:
             if isinstance(self.value, RasterDataSet):

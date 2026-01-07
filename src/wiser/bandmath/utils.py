@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple, Union, TYPE_CHECKING, Optional, Dict
+from typing import Any, List, Tuple, Union, TYPE_CHECKING, Optional, Dict, Awaitable
 
 import re
 import datetime
@@ -17,6 +17,7 @@ from lark import Tree
 from osgeo import gdal
 
 from enum import Enum
+from dataclasses import dataclass
 
 from wiser.raster.spectrum import NumPyArraySpectrum
 
@@ -523,97 +524,239 @@ def get_valid_ignore_value(dataset: gdal.Dataset, default_ignore_value: float):
     return min_value
 
 
+def pop_future(
+    q: queue.Queue,
+    enqueue_fn,  # callable that enqueues (future, meta...) into q
+):
+    """Pop and return the next future from a queue (index 0), enqueuing one first if the queue is empty."""
+    if q.empty():
+        enqueue_fn()
+    return q.get()[0]
+
+
+def maybe_prefetch_next(should_read_next: bool, prefetch_fn):
+    """Invoke a prefetch function only if the next chunk should be read."""
+    if should_read_next:
+        prefetch_fn()
+
+
+@dataclass(frozen=True)
+class ReadPlan:
+    shape: tuple
+    value: Optional[np.ndarray] = None
+    future: Optional[Awaitable[np.ndarray]] = None
+
+    def __post_init__(self):
+        if self.value is None and self.future is None:
+            raise ValueError("Both self.value and self.future are None! One must exist!")
+
+
+def band_subset_shape(lhs: "BandMathValue", band_list: List[int]) -> tuple:
+    """Return the expected array shape for a band-subset without reading the data."""
+    lhs_value_shape = list(lhs.get_shape())
+    lhs_value_shape[0] = len(band_list)
+    lhs_value_shape = tuple(lhs_value_shape)
+    return lhs_value_shape
+
+
+def plan_lhs_read(
+    lhs: "BandMathValue",
+    index_list_current: List[int],
+    index_list_next: List[int],
+    read_task_queue: Dict[str, queue.Queue],
+    read_thread_pool: ThreadPoolExecutor,
+    event_loop: asyncio.AbstractEventLoop,
+) -> Tuple[ReadPlan, bool]:
+    """Plan how to obtain LHS data for the current band chunk (and optionally prefetch the next).
+
+    This function creates a :class:`ReadPlan` describing how the left-hand-side (LHS) operand
+    should be produced for a band-math evaluation over a subset of bands.
+
+    - If ``lhs.value`` is already a NumPy array, the requested band subset is computed
+      immediately and returned as a value-based plan (no asynchronous I/O).
+    - Otherwise, the function ensures a read task exists for ``index_list_current``, pops the
+      resulting awaitable from the LHS task queue, and returns a future-based plan. If
+      ``should_continue_reading_bands(index_list_next, lhs)`` is True, it also schedules a
+      prefetch read for the next band chunk.
+
+    Args:
+        lhs: The left-hand-side band-math operand.
+        index_list_current: Band indices for the current chunk to be evaluated.
+        index_list_next: Band indices for the next chunk to prefetch (if enabled).
+        read_task_queue: Mapping of queue keys (e.g., ``LHS_KEY``) to per-operand task queues.
+            The LHS queue is expected to store items whose first element is an awaitable/future
+            yielding a NumPy array for a requested band subset.
+        read_thread_pool: Thread pool used to execute blocking dataset reads.
+        event_loop: Event loop used when scheduling dataset reads and creating futures.
+
+    Returns:
+        A tuple ``(lhs_plan, should_read_next)`` where:
+        - ``lhs_plan`` is a :class:`ReadPlan` with ``shape`` set to the expected shape of the
+          current band subset and either ``value`` (immediate) or ``future`` (I/O-backed) set.
+        - ``should_read_next`` indicates whether a prefetch for ``index_list_next`` was enqueued.
+
+    Raises:
+        KeyError: If ``LHS_KEY`` is not present in ``read_task_queue``.
+        Exception: Any exception related to queue operations or task scheduling may be raised
+            immediately; exceptions from dataset reads will surface when the returned future is
+            awaited.
+    """
+    shape = band_subset_shape(lhs, index_list_current)
+
+    # If lhs is a numpy array, it is already fully loaded into memory, so we don't
+    # do any async io
+    if isinstance(lhs.value, np.ndarray):
+        return ReadPlan(value=lhs.as_numpy_array_by_bands(index_list_current), shape=shape), False
+
+    def enqueue_lhs_future():
+        read_lhs_future_onto_queue(
+            lhs,
+            index_list_current,
+            event_loop,
+            read_thread_pool,
+            read_task_queue[LHS_KEY],
+        )
+
+    # Pop the future from the queue. If queue is empty, enqueue future
+    lhs_future = pop_future(read_task_queue[LHS_KEY], enqueue_lhs_future)
+
+    should_read_next = should_continue_reading_bands(index_list_next, lhs)
+
+    # If we should, read the next bands into memory and put the future onto the queue
+    if should_read_next:
+        read_lhs_future_onto_queue(
+            lhs,
+            index_list_next,
+            event_loop,
+            read_thread_pool,
+            read_task_queue[LHS_KEY],
+        )
+
+    return ReadPlan(future=lhs_future, shape=shape), should_read_next
+
+
+def plan_rhs_read(
+    rhs: "BandMathValue",
+    lhs: "BandMathValue",
+    lhs_read_plan: ReadPlan,
+    should_read_next: bool,
+    index_list_current: List[int],
+    index_list_next: List[int],
+    read_task_queue: Dict[str, queue.Queue],
+    read_thread_pool: ThreadPoolExecutor,
+    event_loop: asyncio.AbstractEventLoop,
+) -> ReadPlan:
+    """Plan how to obtain RHS data for the current band chunk (and optionally prefetch the next).
+
+    This function creates a :class:`ReadPlan` describing how the RHS operand should be produced
+    for a band-math operation given the LHS read plan.
+
+    - If the RHS does not require asynchronous I/O (e.g., it is not an image-cube/dataset operand
+      or the LHS is already in-memory), the RHS value is constructed immediately via
+      :func:`make_image_cube_compatible_by_bands` and returned as a value-based plan.
+    - Otherwise, this function ensures a RHS read task exists for the current band chunk,
+      pops the resulting future from the RHS task queue, and returns a future-based plan.
+      If ``should_read_next`` is True, it also enqueues a prefetch read for the next band chunk.
+
+    Args:
+        rhs: The right-hand-side band-math operand.
+        lhs: The left-hand-side band-math operand (used to compute the next-chunk shape).
+        lhs_read_plan: The read plan produced for the LHS operand for the current chunk.
+            Its ``shape`` is used as the target shape for making RHS compatible.
+        should_read_next: Whether to prefetch the RHS for ``index_list_next``.
+        index_list_current: Band indices for the current chunk.
+        index_list_next: Band indices for the next chunk to prefetch (if enabled).
+        read_task_queue: Mapping of queue keys (e.g., ``RHS_KEY``) to per-operand task queues.
+            The RHS queue is expected to contain items whose first element is an awaitable/future
+            yielding a NumPy array.
+        read_thread_pool: Thread pool used for scheduling dataset reads.
+        event_loop: Event loop used to create/attach asynchronous read futures.
+
+    Returns:
+        A :class:`ReadPlan` for the RHS operand. The returned plan will have:
+        - ``shape`` set to ``lhs_read_plan.shape``.
+        - either ``value`` set (if computed immediately), or ``future`` set (if I/O is required).
+
+    Raises:
+        KeyError: If ``RHS_KEY`` is not present in ``read_task_queue``.
+        Exception: Propagates any exception raised by the underlying queue/future creation
+            utilities when the returned future is later awaited.
+    """
+    # If the lhs is an array, then it is already fully loaded into memory so we just do a regular
+    # subset. Or if the rhs is not an image cube we also do a regular subset
+    if isinstance(lhs.value, np.ndarray) or (
+        rhs.type not in (VariableType.IMAGE_CUBE, VariableType.IMAGE_CUBE_DATASET)
+    ):
+        return ReadPlan(
+            value=make_image_cube_compatible_by_bands(rhs, lhs_read_plan.shape, index_list_current),
+            shape=lhs_read_plan.shape,
+        )
+
+    def enqueue_rhs_future():
+        read_rhs_future_onto_queue(
+            rhs,
+            lhs_read_plan.shape,
+            index_list_current,
+            event_loop,
+            read_thread_pool,
+            read_task_queue[RHS_KEY],
+        )
+
+    # Pop the rhs future off the queue. If there is no future on the queue, put one there
+    rhs_future = pop_future(read_task_queue[RHS_KEY], enqueue_rhs_future)
+
+    # If we should, read another future onto the queue
+    if should_read_next:
+        next_lhs_shape = band_subset_shape(lhs, index_list_next)
+        read_rhs_future_onto_queue(
+            rhs,
+            next_lhs_shape,
+            index_list_next,
+            event_loop,
+            read_thread_pool,
+            read_task_queue[RHS_KEY],
+        )
+
+    return ReadPlan(future=rhs_future, shape=lhs_read_plan.shape)
+
+
+async def resolve_read_plan(read_plan: ReadPlan):
+    if read_plan.value is not None:
+        return read_plan.value
+    return await read_plan.future
+
+
 async def get_lhs_rhs_values_async(
     lhs: "BandMathValue",
     rhs: "BandMathValue",
     index_list_current: List[int],
     index_list_next: List[int],
-    read_task_queue: queue.Queue,
+    read_task_queue: Dict[str, queue.Queue],
     read_thread_pool: ThreadPoolExecutor,
     event_loop: asyncio.AbstractEventLoop,
 ):
-    lhs_value = None
-    lhs_future = None
-    rhs_value = None
-    rhs_future = None
-    should_be_the_same = False
-    # This is for dataset's that we will need to do I/O to read from
-    if not isinstance(lhs.value, np.ndarray):
-        # Check to see if queue is empty. If it's not, then we can immediately get the data
-        if read_task_queue[LHS_KEY].empty():
-            read_lhs_future_onto_queue(
-                lhs,
-                index_list_current,
-                event_loop,
-                read_thread_pool,
-                read_task_queue[LHS_KEY],
-            )
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        else:
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        should_read_next = should_continue_reading_bands(index_list_next, lhs)
-        # Allows us to read data into the future so there's little down time in between I/O
-        if should_read_next:
-            read_lhs_future_onto_queue(
-                lhs,
-                index_list_next,
-                event_loop,
-                read_thread_pool,
-                read_task_queue[LHS_KEY],
-            )
-    else:
-        lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
+    lhs_read_plan, read_next = plan_lhs_read(
+        lhs=lhs,
+        index_list_current=index_list_current,
+        index_list_next=index_list_next,
+        read_task_queue=read_task_queue,
+        read_thread_pool=read_thread_pool,
+        event_loop=event_loop,
+    )
 
-    # We need to get lhs_value's shape since we may not have the actual array by this time
-    lhs_value_shape = list(lhs.get_shape())
-    lhs_value_shape[0] = len(index_list_current)
-    lhs_value_shape = tuple(lhs_value_shape)
+    rhs_read_plan = plan_rhs_read(
+        rhs=rhs,
+        lhs=lhs,
+        lhs_read_plan=lhs_read_plan,
+        should_read_next=read_next,
+        index_list_current=index_list_current,
+        index_list_next=index_list_next,
+        read_task_queue=read_task_queue,
+        read_thread_pool=read_thread_pool,
+        event_loop=event_loop,
+    )
 
-    if rhs.type == VariableType.IMAGE_CUBE and not isinstance(lhs.value, np.ndarray):
-        # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-        if (
-            isinstance(lhs.value, RasterDataSet)
-            and isinstance(rhs.value, RasterDataSet)
-            and lhs.value == rhs.value
-        ):
-            should_be_the_same = True
-        else:
-            if read_task_queue[RHS_KEY].empty():
-                read_rhs_future_onto_queue(
-                    rhs,
-                    lhs_value_shape,
-                    index_list_current,
-                    event_loop,
-                    read_thread_pool,
-                    read_task_queue[RHS_KEY],
-                )
-                rhs_future = read_task_queue[RHS_KEY].get()[0]
-            else:
-                rhs_future = read_task_queue[RHS_KEY].get()[0]
-            if should_read_next:
-                # We have to get the size of the next data to read
-                next_lhs_shape = list(lhs.get_shape())
-                next_lhs_shape[0] = len(index_list_next)
-                next_lhs_shape = tuple(next_lhs_shape)
-                read_rhs_future_onto_queue(
-                    rhs,
-                    next_lhs_shape,
-                    index_list_next,
-                    event_loop,
-                    read_thread_pool,
-                    read_task_queue[RHS_KEY],
-                )
-    else:
-        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value_shape, index_list_current)
-
-    if rhs_future is not None:
-        rhs_value = await rhs_future
-    if lhs_future is not None:
-        lhs_value = await lhs_future
-    if should_be_the_same:
-        rhs_value = lhs_value
-
-    return lhs_value, rhs_value
+    return await resolve_read_plan(lhs_read_plan), await resolve_read_plan(rhs_read_plan)
 
 
 async def get_lhs_value_async(
@@ -624,36 +767,104 @@ async def get_lhs_value_async(
     read_thread_pool: ThreadPoolExecutor,
     event_loop: asyncio.AbstractEventLoop,
 ):
-    lhs_value = None
-    lhs_future = None
-    if not isinstance(lhs.value, np.ndarray):
-        # Check to see if queue is empty. If it's not, then we can immediately get the data
-        if read_task_queue[LHS_KEY].empty():
-            read_lhs_future_onto_queue(
-                lhs,
-                index_list_current,
-                event_loop,
-                read_thread_pool,
-                read_task_queue[LHS_KEY],
-            )
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        else:
-            lhs_future = read_task_queue[LHS_KEY].get()[0]
-        should_read_next = should_continue_reading_bands(index_list_next, lhs)
-        # Allows us to read data into the future so there's little down time in between I/O
-        if should_read_next:
-            read_lhs_future_onto_queue(
-                lhs,
-                index_list_next,
-                event_loop,
-                read_thread_pool,
-                read_task_queue[LHS_KEY],
-            )
+    """Return the LHS value for the current band chunk, prefetching the next chunk if needed."""
+    lhs_plan, _should_read_next = plan_lhs_read(
+        lhs=lhs,
+        index_list_current=index_list_current,
+        index_list_next=index_list_next,
+        read_task_queue=read_task_queue,
+        read_thread_pool=read_thread_pool,
+        event_loop=event_loop,
+    )
+    return await resolve_read_plan(lhs_plan)
+
+
+def get_lhs_rhs_values(lhs: "BandMathValue", rhs: "BandMathValue", index_list: List[int]):
+    rhs_value = None
+    same_datasets = False
+    lhs_value = lhs.as_numpy_array_by_bands(index_list)
+
+    # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
+
+    if (
+        isinstance(lhs.value, RasterDataSet)
+        and isinstance(rhs.value, RasterDataSet)
+        and lhs.value == rhs.value
+    ):
+        same_datasets = True
+    if same_datasets:
+        rhs_value = lhs_value
     else:
-        lhs_value = lhs.as_numpy_array_by_bands(index_list_current)
-    if lhs_future is not None:
-        lhs_value = await lhs_future
-    return lhs_value
+        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
+
+    return lhs_value, rhs_value
+
+
+def read_lhs_future_onto_queue(
+    lhs: "BandMathValue",
+    index_list: List[int],
+    event_loop,
+    read_thread_pool,
+    read_task_queue,
+):
+    future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
+    read_task_queue.put((future, (min(index_list), max(index_list))))
+
+
+def read_rhs_future_onto_queue(
+    rhs: "BandMathValue",
+    lhs_value_shape: Tuple[int],
+    index_list: List[int],
+    event_loop,
+    read_thread_pool,
+    read_task_queue,
+):
+    future = event_loop.run_in_executor(
+        read_thread_pool,
+        make_image_cube_compatible_by_bands,
+        rhs,
+        lhs_value_shape,
+        index_list,
+    )
+    read_task_queue.put((future, (min(index_list), max(index_list))))
+
+
+def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: "BandMathValue"):
+    """Determine whether additional band reads are required for an image cube.
+
+    This function checks whether it is valid and necessary to continue reading
+    spectral bands from the left-hand-side (LHS) operand during band-math
+    evaluation. It assumes the LHS represents an `ImageCube`-type value and that
+    the requested band indices are already sorted in ascending order.
+
+    Reading should not continue if the LHS is an intermediate result (i.e.,
+    already materialized in memory) or if no band indices are provided.
+
+    Args:
+        band_index_list_sorted: Sorted list of requested band indices
+        lhs: A ``BandMathValue`` representing the left-hand-side operand.
+            Must correspond to an image cube.
+
+    Returns:
+        True if band reading should continue; False otherwise.
+
+    Raises:
+        AssertionError: If the requested band range exceeds the total number
+            of bands in the image cube.
+
+    Notes:
+        This function assumes the evaluator has already validated that the
+        requested band indices are within bounds of the dataset.
+    """
+    total_num_bands, _, _ = lhs.get_shape()
+    if lhs.is_intermediate:
+        return False
+    if band_index_list_sorted == [] or band_index_list_sorted is None:
+        return False
+    max_curr_band = band_index_list_sorted[-1]
+    min_curr_band = band_index_list_sorted[0]
+    assert (max_curr_band - min_curr_band) < total_num_bands
+    return True
 
 
 def max_bytes_to_chunk(dataset_bytes: int) -> Tuple[float, bool]:
@@ -776,74 +987,6 @@ def print_tree_with_meta(tree: lark.ParseTree, indent=0):
         if hasattr(tree, "unique_id") or hasattr(tree, "LEFT"):
             meta_info = f"(unique_id: {getattr(tree, 'unique_id', 'N/A')})"
         print(f"{indent_str}{tree} {meta_info} (Terminal)")
-
-
-def get_lhs_rhs_values(lhs: "BandMathValue", rhs: "BandMathValue", index_list: List[int]):
-    rhs_value = None
-    same_datasets = False
-    lhs_value = lhs.as_numpy_array_by_bands(index_list)
-
-    # Get the rhs value from the queue. If there isn't one on the queue we put one on the queue and wait
-
-    if (
-        isinstance(lhs.value, RasterDataSet)
-        and isinstance(rhs.value, RasterDataSet)
-        and lhs.value == rhs.value
-    ):
-        same_datasets = True
-    if same_datasets:
-        rhs_value = lhs_value
-    else:
-        rhs_value = make_image_cube_compatible_by_bands(rhs, lhs_value.shape, index_list)
-
-    return lhs_value, rhs_value
-
-
-def read_lhs_future_onto_queue(
-    lhs: "BandMathValue",
-    index_list: List[int],
-    event_loop,
-    read_thread_pool,
-    read_task_queue,
-):
-    future = event_loop.run_in_executor(read_thread_pool, lhs.as_numpy_array_by_bands, index_list)
-    read_task_queue.put((future, (min(index_list), max(index_list))))
-
-
-def read_rhs_future_onto_queue(
-    rhs: "BandMathValue",
-    lhs_value_shape: Tuple[int],
-    index_list: List[int],
-    event_loop,
-    read_thread_pool,
-    read_task_queue,
-):
-    future = event_loop.run_in_executor(
-        read_thread_pool,
-        make_image_cube_compatible_by_bands,
-        rhs,
-        lhs_value_shape,
-        index_list,
-    )
-    read_task_queue.put((future, (min(index_list), max(index_list))))
-
-
-def should_continue_reading_bands(band_index_list_sorted: List[int], lhs: "BandMathValue"):
-    """
-    lhs is assumed to have variable type ImageCube,
-    band_index_list_sorted is sorted in increasing order i.e. [1, 3, 4, 8]
-    We shouldn't have to check if the max band is greater than lhs because
-    evaluator should take care of handing us the correct bands
-    """
-    total_num_bands, _, _ = lhs.get_shape()
-    if lhs.is_intermediate:
-        return False
-    if band_index_list_sorted == [] or band_index_list_sorted is None:
-        return False
-    max_curr_band = band_index_list_sorted[-1]
-    min_curr_band = band_index_list_sorted[0]
-    assert (max_curr_band - min_curr_band) < total_num_bands
-    return True
 
 
 def get_dimensions(type: VariableType, shape: Tuple) -> str:
