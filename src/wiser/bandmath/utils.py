@@ -768,7 +768,7 @@ async def get_lhs_value_async(
     event_loop: asyncio.AbstractEventLoop,
 ):
     """Return the LHS value for the current band chunk, prefetching the next chunk if needed."""
-    lhs_plan, _should_read_next = plan_lhs_read(
+    lhs_plan, _ = plan_lhs_read(
         lhs=lhs,
         index_list_current=index_list_current,
         index_list_next=index_list_next,
