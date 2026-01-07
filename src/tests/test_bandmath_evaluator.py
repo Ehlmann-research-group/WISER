@@ -1762,21 +1762,49 @@ class TestBandmathEvaluator(unittest.TestCase):
 
         caltech_ds = self.test_model.load_dataset(target_path)
 
+        band = RasterDataBand(caltech_ds, 0)
+
         spectrum = SpectrumAtPoint(caltech_ds, (1, 1))
 
-        vars = [
-            (VariableType.IMAGE_CUBE, caltech_ds),
+        # An arbitrary number so we can hit a conditional in the builtin functions
+        number = 0.3
+
+        built_in_exprs = [
+            [
+                "dotprod(a, b)",
+                {"a": (VariableType.IMAGE_CUBE, caltech_ds), "b": (VariableType.SPECTRUM, spectrum)},
+                np.tensordot(caltech_ds.get_image_data(), spectrum.get_spectrum(), axes=[[0], [0]]),
+            ],
+            [
+                "tan(a)",
+                {"a": (VariableType.IMAGE_CUBE, caltech_ds)},
+                np.ma.tan(caltech_ds.get_image_data()),
+            ],
+            [
+                "tan(a)",
+                {"a": (VariableType.IMAGE_BAND, band)},
+                np.ma.tan(band.get_data()),
+            ],
+            [
+                "arctan2(a, b)",
+                {"a": (VariableType.IMAGE_CUBE, caltech_ds), "b": (VariableType.SPECTRUM, spectrum)},
+                np.ma.arctan2(caltech_ds.get_image_data(), spectrum.get_spectrum()[:, None, None]),
+            ],
+            [
+                "arctan2(a, b)",
+                {"a": (VariableType.IMAGE_CUBE, caltech_ds), "b": (VariableType.IMAGE_BAND, band)},
+                np.ma.arctan2(caltech_ds.get_image_data(), band.get_data()),
+            ],
+            [
+                "arctan2(a, b)",
+                {"a": (VariableType.IMAGE_CUBE, caltech_ds), "b": (VariableType.NUMBER, number)},
+                np.ma.arctan2(caltech_ds.get_image_data(), np.array([number])),
+            ],
         ]
 
-        if run_sync:
-            vars.append((VariableType.SPECTRUM, spectrum))
-
-        for var in vars:
-            expr = "dotprod(a, b)"
-            variables = {
-                "a": var,
-                "b": (VariableType.SPECTRUM, spectrum),
-            }
+        for built_in_expr in built_in_exprs:
+            expr = built_in_expr[0]
+            variables = built_in_expr[1]
             expr_info = get_bandmath_expr_info(expr, variables, {})
             suffix = "test_result"
             cache = DataCache()
@@ -1793,7 +1821,43 @@ class TestBandmathEvaluator(unittest.TestCase):
                 use_synchronous_method=run_sync,
             )
             process_manager.get_task().wait()
-            process_manager.get_task().get_result()
+            results = process_manager.get_task().get_result()
+            for result_type, result, result_name, expr_info in results:
+                if result_type == VariableType.IMAGE_CUBE_DATASET or result_type == VariableType.IMAGE_CUBE:
+                    result_ds = load_image_from_bandmath_result(
+                        result_type, result, result_name, expr, expr_info, loader, None
+                    )
+                    result_arr = result_ds.get_image_data()
+                elif result_type == VariableType.IMAGE_BAND:
+                    result_ds = load_band_from_bandmath_result(
+                        result=result,
+                        result_name=result_name,
+                        expression=expr,
+                        expr_info=expr_info,
+                        loader=loader,
+                        parent=None,
+                        app_state=None,
+                    )
+                    result_arr = result_ds.get_image_data()
+                elif result_type == VariableType.SPECTRUM:
+                    timestamp = datetime.datetime.now().isoformat()
+                    result_spec = load_spectrum_from_bandmath_result(
+                        result=result,
+                        result_name=result_name,
+                        expression=expr,
+                        expr_info=expr_info,
+                        timestamp=timestamp,
+                        parent=None,
+                        app_state=None,
+                    )
+                    result_arr = result_spec.get_spectrum()
+                    result_arr = result_arr[:, np.newaxis, np.newaxis]
+
+                gt_arr = built_in_expr[2]
+
+                assert np.allclose(result_arr, gt_arr)
+
+                del result
 
     def test_bandmath_builtin_func_sync(self):
         self.bandmath_test_builtin_func_helper(run_sync=True)

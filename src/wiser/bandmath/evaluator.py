@@ -880,6 +880,67 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
         logger.debug(" * unary_negate_expr")
         return self.find_current_interm_and_update_max(args[1], 0)
 
+    def function(self, args) -> BandMathValue:
+        """
+        Currently, we just treat these functions like the basic +,-,/,*
+
+        TODO (Joshua G-K): Create a way to use the function's analyze method
+        to get the output type of the lhs and rhs side. Then use this in
+        find_current_interm_and_update_max.
+        """
+        logger.debug(" * function")
+        func_name = args[0]
+        func_args = args[1:]
+
+        has_named_args = False
+        for fa in func_args:
+            if fa.name is None:
+                if has_named_args:
+                    raise BandMathEvalError(
+                        "Named arguments must be " "specified after all positional arguments"
+                    )
+            else:
+                has_named_args = True
+
+        if func_name not in self._functions:
+            raise BandMathEvalError(f'Unrecognized function "{func_name}"')
+
+        def make_bandmath_exprs_from_values(values: List[BandMathValue]) -> List[BandMathExprInfo]:
+            """Build BandMathExprInfo (type/shape/elem_type) for each BandMathValue."""
+            exprs: List[BandMathExprInfo] = []
+            for v in values:
+                info = BandMathExprInfo(result_type=v.type)
+                if v.type in (
+                    VariableType.IMAGE_CUBE,
+                    VariableType.IMAGE_BAND,
+                    VariableType.SPECTRUM,
+                ) or isinstance(v.value, (np.ndarray, BasicValueSerialized)):
+                    info.shape = v.get_shape()
+                    info.elem_type = v.get_elem_type()
+                exprs.append(info)
+            return exprs
+
+        # Calculate how many intermediates this function needs
+        expr_infos = make_bandmath_exprs_from_values(func_args)
+        increment_counter = 0
+        for i in range(len(expr_infos)):
+            expr_info = expr_infos[i]
+            if expr_info.result_type in (VariableType.IMAGE_CUBE, VariableType.IMAGE_CUBE_DATASET):
+                self.increment_interm_running_total()
+                increment_counter += 1
+
+        for i in range(increment_counter):
+            self.decrement_interm_running_total()
+
+        func_impl = self._functions[func_name]
+        expr_info_output: "BandMathExprInfo" = func_impl.analyze(expr_infos)
+        has_intermediate = 0
+        if expr_info_output.result_type:
+            self.increment_interm_running_total()
+            has_intermediate = 1
+
+        return has_intermediate
+
 
 @dataclass(frozen=True)
 class SingleBandMathJob:
@@ -1509,10 +1570,9 @@ def serialized_form_to_variable(
         obj = var_value.get_serializable_class().deserialize_into_class(var_value)
         return {var_name: (var_type, obj)}
 
-    # This should actually never be reached because the user supplied variables
-    # can only be a Spectrum, Image Band, or Image CUbe
+    # This should only be reached in testing
     elif var_type == VariableType.NUMBER or var_type == VariableType.BOOLEAN:
-        raise ValueError("var_type should never be a NUMER or BOOLEAN")
+        return {var_name: (var_type, var_value.get_serialize_value())}
 
     else:
         raise ValueError(f"Unsupported variable type: {var_type}")
