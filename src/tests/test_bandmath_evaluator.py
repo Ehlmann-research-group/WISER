@@ -1753,9 +1753,57 @@ class TestBandmathEvaluator(unittest.TestCase):
     def test_single_variables_async(self):
         self.bandmath_test_single_vars_helper(run_sync=False)
 
+    def bandmath_test_builtin_func_helper(self, run_sync: bool):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        target_path = os.path.normpath(
+            os.path.join(current_dir, "..", "test_utils", "test_datasets", "caltech_4_100_150_nm")
+        )
+
+        caltech_ds = self.test_model.load_dataset(target_path)
+
+        spectrum = SpectrumAtPoint(caltech_ds, (1, 1))
+
+        vars = [
+            (VariableType.IMAGE_CUBE, caltech_ds),
+        ]
+
+        if run_sync:
+            vars.append((VariableType.SPECTRUM, spectrum))
+
+        for var in vars:
+            expr = "dotprod(a, b)"
+            variables = {
+                "a": var,
+                "b": (VariableType.SPECTRUM, spectrum),
+            }
+            expr_info = get_bandmath_expr_info(expr, variables, {})
+            suffix = "test_result"
+            cache = DataCache()
+            process_manager = bandmath.start_bandmath_evaluation(
+                succeeded_callback=lambda _: None,
+                status_callback=lambda _: None,
+                error_callback=lambda _: None,
+                bandmath_expr=expr,
+                expr_info=expr_info,
+                result_name=suffix,
+                cache=cache,
+                variables=variables,
+                functions={},
+                use_synchronous_method=run_sync,
+            )
+            process_manager.get_task().wait()
+            process_manager.get_task().get_result()
+
+    def test_bandmath_builtin_func_sync(self):
+        self.bandmath_test_builtin_func_helper(run_sync=True)
+
+    def test_bandmath_builtin_func_async(self):
+        self.bandmath_test_builtin_func_helper(run_sync=False)
+
 
 if __name__ == "__main__":
     test_class = TestBandmathEvaluator()
     test_class.setUp()
-    test_class.test_bandmath_preloaded_data_with_band_index_batch_sync()
+    test_class.test_bandmath_builtin_func_async()
     test_class.tearDown()
