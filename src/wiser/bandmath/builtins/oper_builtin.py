@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+import traceback
 
 from wiser.bandmath import BandMathExprInfo
 from wiser.bandmath.utils import (

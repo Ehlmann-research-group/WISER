@@ -136,10 +136,11 @@ class AsyncTransformer(lark.visitors.Transformer):
                     return await f.visit_wrapper(f, tree.data, children, tree.meta)
                 else:
                     # Check if the transformation method is async or sync
-                    if inspect.isawaitable(f):
-                        return await f(children)
+                    res = f(children)
+                    if inspect.isawaitable(res):
+                        return await res
                     else:
-                        return f(children)
+                        return res
             except GrammarError:
                 raise
             except Exception as e:
@@ -237,14 +238,14 @@ class BandMathEvaluatorAsync(AsyncTransformer):
         variables: Dict[str, Tuple[VariableType, BANDMATH_VALUE_TYPE]],
         functions: Dict[str, Callable],
         shape: Tuple[int, int, int] = None,
-        use_parallelization=True,
+        use_async_io=True,
     ):
         self._variables = variables
         self._functions = functions
         self.index_list_current = None
         self.index_list_next = None
         self._shape = shape
-        if use_parallelization:
+        if use_async_io:
             self._read_data_queue_dict = {}
             self._write_data_queue = queue.Queue()
             self._read_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=NUM_READERS)
@@ -879,18 +880,66 @@ class NumberOfIntermediatesFinder(BandMathEvaluator):
         logger.debug(" * unary_negate_expr")
         return self.find_current_interm_and_update_max(args[1], 0)
 
+    def function(self, args) -> BandMathValue:
+        """
+        Currently, we just treat these functions like the basic +,-,/,*
 
-# @dataclass(frozen=True)
-# class BandMathJob:
-#     bandmath_expr: str
-#     expr_info: BandMathExprInfo
-#     result_name: str
-#     serialized_variables: dict
-#     lower_functions: dict
-#     number_of_intermediates: int
-#     tree: lark.ParseTree
-#     use_synchronous_method: bool
-#     subdataset_name: str = ""
+        TODO (Joshua G-K): Create a way to use the function's analyze method
+        to get the output type of the lhs and rhs side. Then use this in
+        find_current_interm_and_update_max.
+        """
+        logger.debug(" * function")
+        func_name = args[0]
+        func_args = args[1:]
+
+        has_named_args = False
+        for fa in func_args:
+            if fa.name is None:
+                if has_named_args:
+                    raise BandMathEvalError(
+                        "Named arguments must be " "specified after all positional arguments"
+                    )
+            else:
+                has_named_args = True
+
+        if func_name not in self._functions:
+            raise BandMathEvalError(f'Unrecognized function "{func_name}"')
+
+        def make_bandmath_exprs_from_values(values: List[BandMathValue]) -> List[BandMathExprInfo]:
+            """Build BandMathExprInfo (type/shape/elem_type) for each BandMathValue."""
+            exprs: List[BandMathExprInfo] = []
+            for v in values:
+                info = BandMathExprInfo(result_type=v.type)
+                if v.type in (
+                    VariableType.IMAGE_CUBE,
+                    VariableType.IMAGE_BAND,
+                    VariableType.SPECTRUM,
+                ) or isinstance(v.value, (np.ndarray, BasicValueSerialized)):
+                    info.shape = v.get_shape()
+                    info.elem_type = v.get_elem_type()
+                exprs.append(info)
+            return exprs
+
+        # Calculate how many intermediates this function needs
+        expr_infos = make_bandmath_exprs_from_values(func_args)
+        increment_counter = 0
+        for i in range(len(expr_infos)):
+            expr_info = expr_infos[i]
+            if expr_info.result_type in (VariableType.IMAGE_CUBE, VariableType.IMAGE_CUBE_DATASET):
+                self.increment_interm_running_total()
+                increment_counter += 1
+
+        for i in range(increment_counter):
+            self.decrement_interm_running_total()
+
+        func_impl = self._functions[func_name]
+        expr_info_output: "BandMathExprInfo" = func_impl.analyze(expr_infos)
+        has_intermediate = 0
+        if expr_info_output.result_type:
+            self.increment_interm_running_total()
+            has_intermediate = 1
+
+        return has_intermediate
 
 
 @dataclass(frozen=True)
@@ -1521,10 +1570,9 @@ def serialized_form_to_variable(
         obj = var_value.get_serializable_class().deserialize_into_class(var_value)
         return {var_name: (var_type, obj)}
 
-    # This should actually never be reached because the user supplied variables
-    # can only be a Spectrum, Image Band, or Image CUbe
+    # This should only be reached in testing
     elif var_type == VariableType.NUMBER or var_type == VariableType.BOOLEAN:
-        raise ValueError("var_type should never be a NUMER or BOOLEAN")
+        return {var_name: (var_type, var_value.get_serialize_value())}
 
     else:
         raise ValueError(f"Unsupported variable type: {var_type}")
