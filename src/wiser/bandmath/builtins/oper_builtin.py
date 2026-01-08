@@ -136,13 +136,7 @@ class OperatorTrigFunctionTwoArgs(BandMathFunction):
             result_arr = self._func(lhs_value, rhs_value)
         elif rhs.type == VariableType.NUMBER:
             rhs_value = np.array([rhs.value])
-            print(f"#$% type(lhs.value): {type(lhs.type)}")
-            print(f"lhs_value.shape: {lhs_value.shape}")
             result_arr = self._func(lhs_value, rhs_value)
-            print(f"lhs_value: {lhs_value}")
-            print(f"rhs_value: {rhs_value}")
-            print(f"self._func: {self._func}")
-            print(f"result_arr: {result_arr}")
         else:
             rhs_value = rhs.as_numpy_array()
             result_arr = self._func(lhs_value, rhs_value)
