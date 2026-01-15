@@ -9,7 +9,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 
-# ---- 1) Copy lock + spec into image (as requested) ----
+# 1) Copy lock + spec into image (as requested)
 WORKDIR /work
 COPY etc/prod-conda-lock.yml /work/prod-conda-lock.yml
 COPY WISER-ubuntu.spec /work/WISER-ubuntu.spec
@@ -20,7 +20,7 @@ COPY . /work
 RUN [ -d /work/dist ]  && rm -rf /work/dist  || true \
  && [ -d /work/build ] && rm -rf /work/build || true
 
-# ---- 2) Install micromamba (Docker-safe install: put binary on PATH) ----
+# 2) Install micromamba (Docker-safe install: put binary on PATH)
 # The install.sh puts micromamba in ~/.local/bin and relies on shell init,
 # which is why `micromamba` isn't found during Docker RUN steps. :contentReference[oaicite:3]{index=3}
 #
@@ -34,13 +34,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
        | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba \
     && micromamba --version
 
-# ---- 3) Create env from conda-lock file ----
+# 3) Create env from conda-lock file
 ARG ENV_NAME=wiser-prod
 ENV WISER_ENV=prod
 RUN micromamba create -y -n "${ENV_NAME}" -f /work/prod-conda-lock.yml \
  && micromamba clean -a -y
 
-# ---- 4) Run PyInstaller using the spec file ----
+# 4) Run PyInstaller using the spec file 
 RUN micromamba run -n "${ENV_NAME}" pyinstaller /work/WISER-ubuntu.spec
 
 # Ensure sqlite SONAME/aliases exist in the bundle (_internal)
@@ -66,12 +66,7 @@ RUN set -euxo pipefail; \
     find "$internal_dir" -type f \( -name "*_gdal*.so*" -o -name "libgdal.so*" \) -print \
       -exec patchelf --force-rpath --set-rpath '$ORIGIN' {} \;
 
-RUN set -euxo pipefail; \
-    internal_dir="$(find /work/dist -type d -name _internal -print -quit)"; \
-    find "$internal_dir" -type f \( -name "*_gdal*.so*" -o -name "libgdal.so*" \) -print \
-      -exec patchelf --print-rpath {} \;
-
-# ---- 4b) Patch libgdal.so.* to stop requiring sqlite via an absolute conda path ----
+# 4b) Patch libgdal.so.* to stop requiring sqlite via an absolute conda path ----
 # If DT_NEEDED contains a slash, the dynamic loader treats it as a literal pathname
 # (bypasses RPATH/RUNPATH/LD_LIBRARY_PATH searching), so we must rewrite it.
 # patchelf --replace-needed rewrites DT_NEEDED. :contentReference[oaicite:1]{index=1}
@@ -97,12 +92,10 @@ RUN set -euxo pipefail; \
     readelf -d "$gdal_so" | grep -i sqlite
 
 
-# ---- 5) Put artifacts somewhere easy to export ----
+# 5) Put artifacts somewhere easy to export
 RUN mkdir -p /out \
  && if [ -d /work/dist ]; then cp -a /work/dist/. /out/; fi \
  && if [ -d /work/build ]; then cp -a /work/build/. /out/build/; fi \
  && ls -lah /out
-
-# (Removed VOLUME ["/out"] to avoid anonymous-volume surprises when exporting artifacts.) :contentReference[oaicite:4]{index=4}
 
 CMD ["bash"]
