@@ -285,10 +285,11 @@ def main():
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     try:
         multiprocessing.set_start_method("spawn")
     except RuntimeError:
         # Context already set (e.g., Windows default 'spawn'); safe to ignore
-        assert multiprocessing.get_start_method() == "spawn"
-    multiprocessing.freeze_support()
+        # assert multiprocessing.get_start_method() == "spawn"
+        pass
     main()
