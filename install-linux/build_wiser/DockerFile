@@ -1,20 +1,17 @@
 # syntax=docker/dockerfile:1
 
 # Phase B: build WISER + run PyInstaller, output to /out
-# Assumes you already built Phase A image: wiser-phasea:ubuntu20.04-amd64
 
-FROM wiser-phasea:ubuntu20.04-amd64
+ARG PHASEA_IMAGE=wiser-phasea:ubuntu20.04-amd64
+FROM ${PHASEA_IMAGE}
 
 ARG DEBIAN_FRONTEND=noninteractive
-
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 
 # 1) Copy lock + spec into image (as requested)
 WORKDIR /work
 COPY etc/prod-conda-lock.yml /work/prod-conda-lock.yml
 COPY WISER-ubuntu.spec /work/WISER-ubuntu.spec
-
-# Copy source tree into image
 COPY . /work
 
 RUN [ -d /work/dist ]  && rm -rf /work/dist  || true \

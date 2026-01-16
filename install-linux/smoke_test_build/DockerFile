@@ -2,11 +2,11 @@
 
 # Phase C: smoke test the PyInstaller output from Phase B
 
-# 1) "artifact stage": reference your already-built Phase B image
-FROM --platform=linux/amd64 wiser-phaseb:ubuntu20.04-amd64 AS artifact
+ARG PHASEB_IMAGE=wiser-phaseb:ubuntu20.04-amd64
+ARG PHASEA_IMAGE=wiser-phasea:ubuntu20.04-amd64
 
-# 2) "runtime/test stage": based on Phase A
-FROM --platform=linux/amd64 wiser-phasea:ubuntu20.04-amd64
+FROM ${PHASEB_IMAGE} AS artifact
+FROM ${PHASEA_IMAGE}
 
 ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
