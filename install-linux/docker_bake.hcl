@@ -2,29 +2,87 @@ variable "PLATFORMS" {
   default = ["linux/amd64"]
 }
 
-target "phasea" {
-  dockerfile = "install-linux/ubuntu_amd64/Dockerfile"   # or per-distro file
+# Phase A: two distros, same Dockerfile
+target "phasea_ubuntu2004" {
+  dockerfile = "install-linux/base_image/Dockerfile"
   platforms  = PLATFORMS
-  tags       = ["wiser-phasea:ubuntu20.04-amd64"]
+  tags       = ["wiser-phasea:ubuntu20.04"]
+  args = { BASE_IMAGE = "ubuntu:20.04" }
 }
 
-target "phaseb" {
-  depends_on = ["phasea"]
-  dockerfile = "install-linux/build_wiser/Dockerfile"
+target "phasea_debian11" {
+  dockerfile = "install-linux/base_image/Dockerfile"
   platforms  = PLATFORMS
-  tags       = ["wiser-phaseb:ubuntu20.04-amd64"]
+  tags       = ["wiser-phasea:debian11"]
+  args = { BASE_IMAGE = "debian:11" }
+}
+
+target "phasea_fedora39" {
+  dockerfile = "install-linux/base_image_fedora/Dockerfile"
+  platforms  = PLATFORMS
+  tags       = ["wiser-phasea:fedora39"]
   args = {
-    PHASEA_IMAGE = "wiser-phasea:ubuntu20.04-amd64"
+    BASE_IMAGE = "fedora:39"
   }
 }
 
-target "phasec" {
-  depends_on = ["phaseb"]
+# Phase B: one Dockerfile, parameterized by which Phase A tag to use
+target "phaseb_ubuntu2004" {
+  depends_on = ["phasea_ubuntu2004"]
+  dockerfile = "install-linux/build_wiser/Dockerfile"
+  platforms  = PLATFORMS
+  tags       = ["wiser-phaseb:ubuntu20.04"]
+  args = { PHASEA_IMAGE = "wiser-phasea:ubuntu20.04" }
+}
+
+target "phaseb_debian11" {
+  depends_on = ["phasea_debian11"]
+  dockerfile = "install-linux/build_wiser/Dockerfile"
+  platforms  = PLATFORMS
+  tags       = ["wiser-phaseb:debian11"]
+  args = { PHASEA_IMAGE = "wiser-phasea:debian11" }
+}
+
+target "phaseb_fedora39" {
+  depends_on = ["phasea_fedora39"]
+  dockerfile = "install-linux/build_wiser_fedora/Dockerfile"
+  platforms  = PLATFORMS
+  tags       = ["wiser-phaseb:fedora39"]
+  args = {
+    PHASEA_IMAGE = "wiser-phasea:fedora39"
+  }
+}
+
+# Phase C: parameterized by PhaseA + PhaseB tags
+target "phasec_ubuntu2004" {
+  depends_on = ["phaseb_ubuntu2004"]
   dockerfile = "install-linux/smoke_test_build/Dockerfile"
   platforms  = PLATFORMS
-  tags       = ["wiser-phasec:ubuntu20.04-amd64"]
+  tags       = ["wiser-phasec:ubuntu20.04"]
   args = {
-    PHASEA_IMAGE = "wiser-phasea:ubuntu20.04-amd64"
-    PHASEB_IMAGE = "wiser-phaseb:ubuntu20.04-amd64"
+    PHASEA_IMAGE = "wiser-phasea:ubuntu20.04"
+    PHASEB_IMAGE = "wiser-phaseb:ubuntu20.04"
+  }
+}
+
+target "phasec_debian11" {
+  depends_on = ["phaseb_debian11"]
+  dockerfile = "install-linux/smoke_test_build/Dockerfile"
+  platforms  = PLATFORMS
+  tags       = ["wiser-phasec:debian11"]
+  args = {
+    PHASEA_IMAGE = "wiser-phasea:debian11"
+    PHASEB_IMAGE = "wiser-phaseb:debian11"
+  }
+}
+
+target "phasec_fedora39" {
+  depends_on = ["phaseb_fedora39"]
+  dockerfile = "install-linux/smoke_test_build_fedora/Dockerfile"
+  platforms  = PLATFORMS
+  tags       = ["wiser-phasec:fedora39"]
+  args = {
+    PHASEA_IMAGE = "wiser-phasea:fedora39"
+    PHASEB_IMAGE = "wiser-phaseb:fedora39"
   }
 }
