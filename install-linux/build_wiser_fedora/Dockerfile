@@ -34,7 +34,26 @@ RUN micromamba create -y -n "${ENV_NAME}" -f /work/prod-conda-lock.yml \
  && micromamba clean -a -y
 
 # 4) Run PyInstaller using the spec file
-RUN micromamba run -n "${ENV_NAME}" pyinstaller /work/WISER-ubuntu.spec
+RUN micromamba run -n "${ENV_NAME}" bash -lc '\
+  export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"; \
+  pyinstaller /work/WISER-ubuntu.spec \
+'
+
+RUN set -euxo pipefail; \
+  internal_dir="$(find /work/dist -type d -name _internal -print -quit)"; \
+  test -n "$internal_dir"; \
+  env_lib="/opt/micromamba/envs/${ENV_NAME}/lib"; \
+  for pattern in 'libcurl.so.*' 'libssl.so.*' 'libcrypto.so.*'; do \
+    for src in $env_lib/$pattern; do \
+      [ -e "$src" ] || continue; \
+      cp -av "$src" "$internal_dir/"; \
+    done; \
+  done
+
+RUN set -eux; \
+  internal_dir="$(find /work/dist -type d -name _internal -print -quit)"; \
+  objdump -T "$internal_dir"/libcurl.so.* 2>/dev/null | grep -F OPENSSL_ | sort -u | head -n 10 || true; \
+  readelf --version-info "$internal_dir"/libssl.so.* 2>/dev/null | grep -E 'Name: OPENSSL_' | sort -u || true
 
 # -------------------------------------------------------------------
 # Bundle fixups: sqlite aliases + GDAL RPATH + (optional) replace-needed
