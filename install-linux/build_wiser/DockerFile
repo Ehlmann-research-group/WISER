@@ -37,7 +37,7 @@ ENV WISER_ENV=prod
 RUN micromamba create -y -n "${ENV_NAME}" -f /work/prod-conda-lock.yml \
  && micromamba clean -a -y
 
-# 4) Run PyInstaller using the spec file 
+# 4) Run PyInstaller using the spec file
 RUN micromamba run -n "${ENV_NAME}" pyinstaller /work/WISER-ubuntu.spec
 
 # Ensure sqlite SONAME/aliases exist in the bundle (_internal)
@@ -88,11 +88,15 @@ RUN set -euxo pipefail; \
     # Sanity check: should no longer show the /opt/micromamba path
     readelf -d "$gdal_so" | grep -i sqlite
 
-
-# 5) Put artifacts somewhere easy to export
-RUN mkdir -p /out \
- && if [ -d /work/dist ]; then cp -a /work/dist/. /out/; fi \
- && if [ -d /work/build ]; then cp -a /work/build/. /out/build/; fi \
- && ls -lah /out
+# 5) Put artifacts somewhere easy to export + tarball it (Linux-safe transfer)
+RUN set -euxo pipefail; \
+    mkdir -p /out; \
+    if [ -d /work/dist ]; then cp -a /work/dist/. /out/; fi; \
+    if [ -d /work/build ]; then cp -a /work/build/. /out/build/; fi; \
+    ls -lah /out; \
+    cd /out; \
+    tar -C /out -czf /tmp/WISER.tar.gz .; \
+    mv /tmp/WISER.tar.gz /out/WISER.tar.gz; \
+    ls -lah /out/WISER.tar.gz
 
 CMD ["bash"]
