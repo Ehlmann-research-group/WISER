@@ -1,4 +1,4 @@
-name: Build and Smoke Test WISER
+name: Build and Smoke Test WISER Linux
 
 on: 
   pull_request:
@@ -109,8 +109,8 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          chmod +x install-linux/build_linux_targets.sh
-          ./install-linux/build_linux_targets.sh
+          chmod +x build_linux_targets.sh
+          ./build_linux_targets.sh
 
       # Run the Phase C images so ENTRYPOINT smoke tests actually execute
       - name: Smoke test (run Phase C containers)
