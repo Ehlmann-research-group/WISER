@@ -2,7 +2,7 @@
 
 # Phase B: build WISER + run PyInstaller, output to /out
 
-ARG PHASEA_IMAGE=wiser-phasea:ubuntu20.04-amd64
+ARG PHASEA_IMAGE=wiser-phasea:ubuntu20.04
 FROM ${PHASEA_IMAGE}
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -23,13 +23,19 @@ RUN [ -d /work/dist ]  && rm -rf /work/dist  || true \
 #
 # Install the micromamba binary into /usr/local/bin instead.
 ENV MAMBA_ROOT_PREFIX=/opt/micromamba
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl tar bzip2 \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p "${MAMBA_ROOT_PREFIX}" \
-    && curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
-       | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba \
-    && micromamba --version
+ARG TARGETARCH
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      amd64)  mm_arch="linux-64" ;; \
+      arm64)  mm_arch="linux-aarch64" ;; \
+      *) echo "Unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    apt-get update && apt-get install -y --no-install-recommends ca-certificates curl tar bzip2; \
+    rm -rf /var/lib/apt/lists/*; \
+    mkdir -p "${MAMBA_ROOT_PREFIX}"; \
+    curl -Ls "https://micro.mamba.pm/api/micromamba/${mm_arch}/latest" \
+      | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba; \
+    micromamba --version
 
 # 3) Create env from conda-lock file
 ARG ENV_NAME=wiser-prod

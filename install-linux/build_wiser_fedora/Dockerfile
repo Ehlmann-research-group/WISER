@@ -2,7 +2,7 @@
 
 # Phase B (Fedora): build WISER + run PyInstaller, output to /out
 
-ARG PHASEA_IMAGE=wiser-phasea:fedora39-amd64
+ARG PHASEA_IMAGE=wiser-phasea:fedora39
 FROM ${PHASEA_IMAGE}
 
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
@@ -17,15 +17,21 @@ RUN [ -d /work/dist ]  && rm -rf /work/dist  || true \
  && [ -d /work/build ] && rm -rf /work/build || true
 
 # 2) Install micromamba (Docker-safe install: put binary on PATH)
+ARG TARGETARCH
 ENV MAMBA_ROOT_PREFIX=/opt/micromamba
-RUN dnf -y update \
- && dnf -y install ca-certificates curl tar bzip2 findutils \
- && dnf -y clean all \
- && rm -rf /var/cache/dnf \
- && mkdir -p "${MAMBA_ROOT_PREFIX}" \
- && curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
-    | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba \
- && micromamba --version
+RUN set -eux; \
+    case "$TARGETARCH" in \
+      amd64)  mm_plat="linux-64" ;; \
+      arm64)  mm_plat="linux-aarch64" ;; \
+      *) echo "Unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    dnf -y update; \
+    dnf -y install ca-certificates curl tar bzip2 findutils file; \
+    dnf -y clean all; rm -rf /var/cache/dnf; \
+    mkdir -p "$MAMBA_ROOT_PREFIX"; \
+    curl -Ls "https://micro.mamba.pm/api/micromamba/${mm_plat}/latest" \
+      | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba; \
+    micromamba --version
 
 # 3) Create env from conda-lock file
 ARG ENV_NAME=wiser-prod
