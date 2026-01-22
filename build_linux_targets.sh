@@ -30,7 +30,12 @@ PHASEC_TARGETS=(
 echo "=== BUILDING PHASE A ==="
 for tgt in "${PHASEA_TARGETS[@]}"; do
   echo "→ Building ${tgt}"
-  docker buildx bake -f "${BAKE_FILE}" "${tgt}"
+  docker buildx bake -f "${BAKE_FILE}" \
+    --set '*.output=type=docker' \
+    --set '*.cache-from=type=gha' \
+    --set '*.cache-to=type=gha,mode=max' \
+    --progress=plain \
+    "${tgt}"
 done
 
 # -------------------------------------------------------------------
@@ -39,7 +44,12 @@ done
 echo "=== BUILDING PHASE B ==="
 for tgt in "${PHASEB_TARGETS[@]}"; do
   echo "→ Building ${tgt}"
-  docker buildx bake -f "${BAKE_FILE}" "${tgt}"
+  docker buildx bake -f "${BAKE_FILE}" \
+    --set '*.output=type=docker' \
+    --set '*.cache-from=type=gha' \
+    --set '*.cache-to=type=gha,mode=max' \
+    --progress=plain \
+    "${tgt}"
 done
 
 # -------------------------------------------------------------------
@@ -48,7 +58,12 @@ done
 echo "=== BUILDING PHASE C ==="
 for tgt in "${PHASEC_TARGETS[@]}"; do
   echo "→ Building ${tgt}"
-  docker buildx bake -f "${BAKE_FILE}" "${tgt}"
+  docker buildx bake -f "${BAKE_FILE}" \
+    --set '*.output=type=docker' \
+    --set '*.cache-from=type=gha' \
+    --set '*.cache-to=type=gha,mode=max' \
+    --progress=plain \
+    "${tgt}"
 done
 
 # -------------------------------------------------------------------
