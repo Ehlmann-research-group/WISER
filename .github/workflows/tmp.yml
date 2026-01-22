@@ -129,9 +129,12 @@ jobs:
           mkdir -p dist/linux
 
           # Adjust these paths to match whatever your script outputs
-          cp linux_build_output/*ubuntu_2004*/*WISER*.tar.gz dist/linux/WISER-ubuntu_2004-amd64.tar.gz
-          cp linux_build_output/*debian_11*/*WISER*.tar.gz dist/linux/WISER-debian_11-amd64.tar.gz
-          cp linux_build_output/*fedora_39*/*WISER*.tar.gz dist/linux/WISER-fedora_39-amd64.tar.gz
+          cp linux_build_output/*ubuntu_2004_amd*/*WISER*.tar.gz dist/linux/WISER-ubuntu_2004-amd64.tar.gz
+          cp linux_build_output/*debian_11_amd*/*WISER*.tar.gz dist/linux/WISER-debian_11-amd64.tar.gz
+          cp linux_build_output/*fedora_39_amd*/*WISER*.tar.gz dist/linux/WISER-fedora_39-amd64.tar.gz
+          cp linux_build_output/*ubuntu_2004_arm*/*WISER*.tar.gz dist/linux/WISER-ubuntu_2004-arm64.tar.gz
+          cp linux_build_output/*debian_11_arm*/*WISER*.tar.gz dist/linux/WISER-debian_11-arm64.tar.gz
+          cp linux_build_output/*fedora_39_arm*/*WISER*.tar.gz dist/linux/WISER-fedora_39-arm64.tar.gz
 
           sha256sum dist/linux/*.tar.gz > dist/linux/SHA256SUMS.txt
           ls -lah dist/linux
