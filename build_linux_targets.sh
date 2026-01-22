@@ -24,47 +24,47 @@ PHASEC_TARGETS=(
   "phasec_fedora39"
 )
 
-# -------------------------------------------------------------------
-# Build Phase A
-# -------------------------------------------------------------------
-echo "=== BUILDING PHASE A ==="
-for tgt in "${PHASEA_TARGETS[@]}"; do
-  echo "→ Building ${tgt}"
-  docker buildx bake -f "${BAKE_FILE}" \
-    --set '*.output=type=docker' \
-    --set '*.cache-from=type=gha' \
-    --set '*.cache-to=type=gha,mode=max' \
-    --progress=plain \
-    "${tgt}"
-done
+# # -------------------------------------------------------------------
+# # Build Phase A
+# # -------------------------------------------------------------------
+# echo "=== BUILDING PHASE A ==="
+# for tgt in "${PHASEA_TARGETS[@]}"; do
+#   echo "→ Building ${tgt}"
+#   docker buildx bake -f "${BAKE_FILE}" \
+#     --set '*.output=type=docker' \
+#     --set '*.cache-from=type=gha' \
+#     --set '*.cache-to=type=gha,mode=max' \
+#     --progress=plain \
+#     "${tgt}"
+# done
 
-# -------------------------------------------------------------------
-# Build Phase B
-# -------------------------------------------------------------------
-echo "=== BUILDING PHASE B ==="
-for tgt in "${PHASEB_TARGETS[@]}"; do
-  echo "→ Building ${tgt}"
-  docker buildx bake -f "${BAKE_FILE}" \
-    --set '*.output=type=docker' \
-    --set '*.cache-from=type=gha' \
-    --set '*.cache-to=type=gha,mode=max' \
-    --progress=plain \
-    "${tgt}"
-done
+# # -------------------------------------------------------------------
+# # Build Phase B
+# # -------------------------------------------------------------------
+# echo "=== BUILDING PHASE B ==="
+# for tgt in "${PHASEB_TARGETS[@]}"; do
+#   echo "→ Building ${tgt}"
+#   docker buildx bake -f "${BAKE_FILE}" \
+#     --set '*.output=type=docker' \
+#     --set '*.cache-from=type=gha' \
+#     --set '*.cache-to=type=gha,mode=max' \
+#     --progress=plain \
+#     "${tgt}"
+# done
 
-# -------------------------------------------------------------------
-# Build Phase C
-# -------------------------------------------------------------------
-echo "=== BUILDING PHASE C ==="
-for tgt in "${PHASEC_TARGETS[@]}"; do
-  echo "→ Building ${tgt}"
-  docker buildx bake -f "${BAKE_FILE}" \
-    --set '*.output=type=docker' \
-    --set '*.cache-from=type=gha' \
-    --set '*.cache-to=type=gha,mode=max' \
-    --progress=plain \
-    "${tgt}"
-done
+# # -------------------------------------------------------------------
+# # Build Phase C
+# # -------------------------------------------------------------------
+# echo "=== BUILDING PHASE C ==="
+# for tgt in "${PHASEC_TARGETS[@]}"; do
+#   echo "→ Building ${tgt}"
+#   docker buildx bake -f "${BAKE_FILE}" \
+#     --set '*.output=type=docker' \
+#     --set '*.cache-from=type=gha' \
+#     --set '*.cache-to=type=gha,mode=max' \
+#     --progress=plain \
+#     "${tgt}"
+# done
 
 # -------------------------------------------------------------------
 # Extract Phase B tarballs
@@ -92,7 +92,7 @@ for tgt in "${PHASEB_TARGETS[@]}"; do
 
   echo "Extracting from image: ${img}"
 
-  for arch in amd64 arm64; do
+  for arch in arm64; do
     build_name="${base_name}_${arch}"
     out_dir="${OUTPUT_ROOT}/${build_name}"
     mkdir -p "${out_dir}"
@@ -105,6 +105,7 @@ for tgt in "${PHASEB_TARGETS[@]}"; do
       || { echo "ERROR: /out/WISER.tar.gz not found in ${img} (linux/${arch})"; docker rm "${cid}" >/dev/null; exit 1; }
 
     docker rm "${cid}" >/dev/null
+
 
     cp "/tmp/${build_name}.tar.gz" "${out_dir}/WISER.tar.gz"
     rm "/tmp/${build_name}.tar.gz"
