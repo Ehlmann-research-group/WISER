@@ -36,8 +36,10 @@ target "phaseb_ubuntu2004" {
   platforms  = PLATFORMS
   tags       = ["wiser-phaseb:ubuntu20.04"]
   args = { PHASEA_IMAGE = "wiser-phasea:ubuntu20.04" }
-  pull       = false
-  output = ["type=docker"]
+
+  contexts = {
+    "wiser-phasea:ubuntu20.04" = "target:phasea_ubuntu2004"
+  }
 }
 
 target "phaseb_debian11" {
@@ -46,7 +48,10 @@ target "phaseb_debian11" {
   platforms  = PLATFORMS
   tags       = ["wiser-phaseb:debian11"]
   args = { PHASEA_IMAGE = "wiser-phasea:debian11" }
-  output = ["type=docker"]
+
+  contexts = {
+    "wiser-phasea:debian11" = "target:phasea_debian11"
+  }
 }
 
 target "phaseb_fedora39" {
@@ -57,7 +62,10 @@ target "phaseb_fedora39" {
   args = {
     PHASEA_IMAGE = "wiser-phasea:fedora39"
   }
-  output = ["type=docker"]
+
+  contexts = {
+    "wiser-phasea:fedora39" = "target:phasea_fedora39"
+  }
 }
 
 # Phase C: parameterized by PhaseA + PhaseB tags
@@ -70,7 +78,11 @@ target "phasec_ubuntu2004" {
     PHASEA_IMAGE = "wiser-phasea:ubuntu20.04"
     PHASEB_IMAGE = "wiser-phaseb:ubuntu20.04"
   }
-  output = ["type=docker"]
+
+  contexts = {
+    "wiser-phasea:ubuntu20.04" = "target:phasea_ubuntu2004"
+    "wiser-phaseb:ubuntu20.04" = "target:phaseb_ubuntu2004"
+  }
 }
 
 target "phasec_debian11" {
@@ -82,7 +94,11 @@ target "phasec_debian11" {
     PHASEA_IMAGE = "wiser-phasea:debian11"
     PHASEB_IMAGE = "wiser-phaseb:debian11"
   }
-  output = ["type=docker"]
+
+  contexts = {
+    "wiser-phasea:debian11" = "target:phasea_debian11"
+    "wiser-phaseb:debian11" = "target:phaseb_debian11"
+  }
 }
 
 target "phasec_fedora39" {
@@ -94,5 +110,9 @@ target "phasec_fedora39" {
     PHASEA_IMAGE = "wiser-phasea:fedora39"
     PHASEB_IMAGE = "wiser-phaseb:fedora39"
   }
-  output = ["type=docker"]
+
+  contexts = {
+    "wiser-phasea:fedora39" = "target:phasea_fedora39"
+    "wiser-phaseb:fedora39" = "target:phaseb_fedora39"
+  }
 }
