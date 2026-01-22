@@ -21,6 +21,7 @@ dependencies:
   - python==3.9.23
   - python_abi=3.9
   - astropy=6.0.1
+  - backports.tarfile=1.*
   - conda-forge::blas[build=openblas]
   - gdal=3.10.*
   - hdf4=4.2.*
@@ -47,6 +48,7 @@ dependencies:
   - scipy=1.13.1
   - scikit-learn=1.6.1
   - setuptools=75.8.0
+  - pip
   - pip:
     - bugsnag==4.7.1
     - lark==1.2.2

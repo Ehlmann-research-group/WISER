@@ -114,6 +114,14 @@ def main(prod_yml, additions_txt, out_yml):
             new_deps.append("pip")
         new_deps.append({"pip": pip_block})
 
+    # Ensure conda 'pip' is present whenever a pip block exists
+    if pip_block is not None:
+        conda_names = {canonical_conda_name(d) for d in new_deps if isinstance(d, str)}
+        if "pip" not in conda_names:
+            # Put it immediately before the pip block for readability
+            pip_idx = next(i for i, d in enumerate(new_deps) if isinstance(d, dict) and "pip" in d)
+            new_deps.insert(pip_idx, "pip")
+
     prod["dependencies"] = new_deps
 
     # Optional: give the dev env a different name if you want
