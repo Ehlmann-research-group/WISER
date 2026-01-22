@@ -1,0 +1,152 @@
+name: Build and Smoke Test WISER
+
+on: 
+  pull_request:
+    branches:
+      - main
+  release:
+    types: [created]
+  workflow_dispatch:
+
+# Needed for uploading release assets on release runs
+permissions:
+  contents: write
+
+jobs:
+  # build:
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [windows-latest, macos-15, macos-15-intel]
+  #   runs-on: ${{matrix.os}}
+
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Setup micromamba (prod)
+  #       uses: mamba-org/setup-micromamba@v2
+  #       with:
+  #         micromamba-version: '1.5.10-0'
+  #         environment-file: etc/prod-conda-lock.yml
+  #         environment-name: wiser-prod
+  #         init-shell: >-
+  #           bash
+  #           powershell
+  #         cache-environment: true
+  #         cache-environment-key: wiser-prod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('etc/prod-conda-lock.yml') }}
+  #         cache-downloads: true
+  #         log-level: debug
+  #       timeout-minutes: 10
+
+  #     - name: Build (Windows)
+  #       if: runner.os == 'Windows'
+  #       shell: bash -leo pipefail {0}
+  #       run: |
+  #         make build-win
+  #         ls -la dist/WISER || true
+  #       timeout-minutes: 15
+
+  #     - name: Smoke Test (Windows)
+  #       if: runner.os == 'Windows'
+  #       shell: bash -leo pipefail {0}
+  #       run: |
+  #         cd dist/WISER
+  #         ./WISER.exe --test_mode
+  #       timeout-minutes: 20
+
+  #     - name: Upload artifact Windows
+  #       if: runner.os == 'Windows'
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wiser-${{ runner.os }}-${{ runner.arch }}
+  #         path: dist/**
+  #       timeout-minutes: 20
+
+  #     - name: Build (macOS)
+  #       if: runner.os == 'macOS'
+  #       shell: bash -leo pipefail {0}
+  #       run: |
+  #         make build-mac
+  #         ls -la dist/WISER || true
+  #       timeout-minutes: 25
+
+  #     - name: Smoke Test (macOS)
+  #       if: runner.os == 'macOS'
+  #       shell: bash -leo pipefail {0}
+  #       run: |
+  #         cd dist/WISER
+  #         ./WISER_Bin --test_mode
+  #       timeout-minutes: 20
+
+  #     - name: Pack macOS .app (preserve symlinks & modes)
+  #       if: runner.os == 'macOS'
+  #       run: |
+  #         tar -C dist -czf dist/WISER.app.tgz WISER.app
+  #         shasum -a 256 dist/WISER.app.tgz > dist/WISER.app.tgz.sha256
+  #       timeout-minutes: 20
+
+  #     - name: Upload artifact macOS
+  #       if: runner.os == 'macOS'
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wiser-${{ runner.os }}-${{ runner.arch }}
+  #         path: |
+  #           dist/WISER.app.tgz
+  #           dist/WISER.app.tgz.sha256
+  #       timeout-minutes: 20
+
+  linux:
+    name: Linux (Docker) build + smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Linux targets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          chmod +x install-linux/build_linux_targets.sh
+          ./install-linux/build_linux_targets.sh
+
+      # Run the Phase C images so ENTRYPOINT smoke tests actually execute
+      - name: Smoke test (run Phase C containers)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm wiser-phasec:ubuntu20.04
+          docker run --rm wiser-phasec:debian11
+          docker run --rm wiser-phasec:fedora39
+
+      # Rename into the exact filenames you want
+      - name: Collect and rename tarballs
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/linux
+
+          # Adjust these paths to match whatever your script outputs
+          cp linux_build_output/*ubuntu_2004*/*WISER*.tar.gz dist/linux/WISER-ubuntu_2004-amd64.tar.gz
+          cp linux_build_output/*debian_11*/*WISER*.tar.gz dist/linux/WISER-debian_11-amd64.tar.gz
+          cp linux_build_output/*fedora_39*/*WISER*.tar.gz dist/linux/WISER-fedora_39-amd64.tar.gz
+
+          sha256sum dist/linux/*.tar.gz > dist/linux/SHA256SUMS.txt
+          ls -lah dist/linux
+
+      - name: Upload Linux artifact (Actions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiser-linux-amd64
+          path: dist/linux/**
+          if-no-files-found: error
+
+      - name: Upload Linux assets to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/linux/*.tar.gz
+            dist/linux/SHA256SUMS.txt
