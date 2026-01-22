@@ -3,6 +3,14 @@
 # Tools (override if needed, e.g., `make PY=py`)
 PY ?= python
 
+# Platforms to include in the lockfiles
+LOCK_PLATFORMS := \
+  -p linux-64 \
+  -p linux-aarch64 \
+  -p osx-64 \
+  -p osx-arm64 \
+  -p win-64
+
 # Files
 PROD_YML       := wiser-prod.yml
 DEV_ADDITIONS  := wiser-dev-additions.txt
@@ -12,7 +20,7 @@ PROD_LOCK      := prod-conda-lock.yml
 DEV_LOCK       := dev-conda-lock.yml
 
 .PHONY: dev-yaml prod-lockfile dev-lockfile create-lockfiles \
-        install-dev-env install-prod-env
+        install-dev-env install-prod-env FORCE
 
 ## Build wiser-dev.yml from prod + additions
 $(DEV_YML): $(PROD_YML) $(DEV_ADDITIONS)
@@ -22,14 +30,14 @@ dev-yaml: $(DEV_YML)
 
 ## Create prod lockfile -> prod-conda-lock.yml
 $(PROD_LOCK): $(PROD_YML)
-	conda-lock lock -f "$(PROD_YML)"
+	conda-lock lock $(LOCK_PLATFORMS) -f "$(PROD_YML)"
 	$(PY) -c "import shutil; shutil.move('conda-lock.yml','$(PROD_LOCK)')"
 
 prod-lockfile: $(PROD_LOCK)
 
 ## Create dev lockfile -> dev-conda-lock.yml
 $(DEV_LOCK): $(DEV_YML)
-	conda-lock lock -f "$(DEV_YML)"
+	conda-lock lock $(LOCK_PLATFORMS) -f "$(DEV_YML)"
 	$(PY) -c "import shutil; shutil.move('conda-lock.yml','$(DEV_LOCK)')"
 
 dev-lockfile: $(DEV_LOCK)
