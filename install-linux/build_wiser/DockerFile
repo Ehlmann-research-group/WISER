@@ -30,7 +30,7 @@ RUN set -eux; \
       arm64)  mm_arch="linux-aarch64" ;; \
       *) echo "Unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
-    apt-get update && apt-get install -y --no-install-recommends ca-certificates curl tar bzip2; \
+    apt-get update && apt-get install -y --no-install-recommends ca-certificates curl tar bzip2 make; \
     rm -rf /var/lib/apt/lists/*; \
     mkdir -p "${MAMBA_ROOT_PREFIX}"; \
     curl -Ls "https://micro.mamba.pm/api/micromamba/${mm_arch}/latest" \
@@ -44,7 +44,10 @@ RUN micromamba create -y -n "${ENV_NAME}" -f /work/prod-conda-lock.yml \
  && micromamba clean -a -y
 
 # 4) Run PyInstaller using the spec file
-RUN micromamba run -n "${ENV_NAME}" pyinstaller /work/WISER-ubuntu.spec
+RUN micromamba run -n "${ENV_NAME}" '\
+  cd /work; \
+  make build-linux \
+'
 
 # Ensure sqlite SONAME/aliases exist in the bundle (_internal)
 RUN set -euxo pipefail; \

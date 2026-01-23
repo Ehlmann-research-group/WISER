@@ -26,7 +26,7 @@ RUN set -eux; \
       *) echo "Unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
     esac; \
     dnf -y update; \
-    dnf -y install ca-certificates curl tar bzip2 findutils file; \
+    dnf -y install ca-certificates curl tar bzip2 findutils file make; \
     dnf -y clean all; rm -rf /var/cache/dnf; \
     mkdir -p "$MAMBA_ROOT_PREFIX"; \
     curl -Ls "https://micro.mamba.pm/api/micromamba/${mm_plat}/latest" \
@@ -42,7 +42,8 @@ RUN micromamba create -y -n "${ENV_NAME}" -f /work/prod-conda-lock.yml \
 # 4) Run PyInstaller using the spec file
 RUN micromamba run -n "${ENV_NAME}" bash -lc '\
   export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"; \
-  pyinstaller /work/WISER-ubuntu.spec \
+  cd /work; \
+  make build-linux \
 '
 
 RUN set -euxo pipefail; \
