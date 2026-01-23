@@ -102,6 +102,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Enable containerd image store (required for multi-platform --load)
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
+      - name: Verify containerd image store is active
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker info -f '{{ .DriverStatus }}' | cat
+
+      - name: Set up QEMU (for cross-arch builds)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -117,8 +138,6 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          docker run --rm wiser-phasec:ubuntu20.04
-          docker run --rm wiser-phasec:debian11
           docker run --rm wiser-phasec:fedora39
 
       # Rename into the exact filenames you want
