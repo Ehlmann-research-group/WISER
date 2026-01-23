@@ -133,13 +133,6 @@ jobs:
           chmod +x build_linux_targets.sh
           ./build_linux_targets.sh
 
-      # Run the Phase C images so ENTRYPOINT smoke tests actually execute
-      - name: Smoke test (run Phase C containers)
-        shell: bash
-        run: |
-          set -euxo pipefail
-          docker run --rm wiser-phasec:fedora39
-
       # Rename into the exact filenames you want
       - name: Collect and rename tarballs
         shell: bash
@@ -172,3 +165,10 @@ jobs:
           files: |
             dist/linux/*.tar.gz
             dist/linux/SHA256SUMS.txt
+
+      # Run the Phase C images so ENTRYPOINT smoke tests actually execute
+      - name: Smoke test (run Phase C containers)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm wiser-phasec:fedora39
