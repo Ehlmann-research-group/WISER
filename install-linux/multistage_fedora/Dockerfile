@@ -1,0 +1,244 @@
+# syntax=docker/dockerfile:1
+
+# ============================================================
+# Multi-stage Fedora build:
+#   phasea = base OS + deps
+#   phaseb = build WISER + produce /out/WISER.tar.gz
+#   phasec = smoke test using Xvfb + run_smoke.sh
+#
+# Build examples:
+#   # Build artifact stage (for docker cp):
+#   docker buildx build --platform linux/amd64 -f install-linux/multistage_fedora/Dockerfile \
+#     --target phaseb -t wiser-phaseb:fedora39 --load .
+#
+#   # Build smoke stage (runnable image):
+#   docker buildx build --platform linux/amd64 -f install-linux/multistage_fedora/Dockerfile \
+#     --target phasec -t wiser-phasec:fedora39 --load .
+#
+# ============================================================
+
+ARG BASE_IMAGE=fedora:39
+
+# -----------------------------
+# Phase A (Fedora): deps
+# -----------------------------
+FROM ${BASE_IMAGE} AS phasea
+SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
+
+RUN dnf -y update \
+ && dnf -y install \
+    ca-certificates curl wget git \
+    gcc gcc-c++ make \
+    pkgconf-pkg-config \
+    patchelf file \
+    mesa-libEGL mesa-libGL mesa-dri-drivers \
+    libglvnd-glx \
+    glib2 dbus-libs \
+    libxkbcommon-x11 \
+    libxcb libxcb-devel \
+    xcb-util xcb-util-image xcb-util-keysyms xcb-util-wm xcb-util-renderutil \
+    libXrender libXext libXfixes libXinerama libXrandr \
+    fontconfig \
+    strace pax-utils \
+ && dnf -y clean all \
+ && rm -rf /var/cache/dnf
+
+WORKDIR /work
+CMD ["bash"]
+
+# -----------------------------
+# Phase B (Fedora): build + bundle fixups + /out/WISER.tar.gz
+# -----------------------------
+FROM phasea AS phaseb
+SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
+
+# 1) Copy lock + spec + repo
+WORKDIR /work
+COPY etc/prod-conda-lock.yml /work/prod-conda-lock.yml
+COPY WISER-ubuntu.spec /work/WISER-ubuntu.spec
+COPY . /work
+
+RUN [ -d /work/dist ]  && rm -rf /work/dist  || true \
+ && [ -d /work/build ] && rm -rf /work/build || true
+
+# 2) Install micromamba (arch-aware)
+ARG TARGETARCH
+ENV MAMBA_ROOT_PREFIX=/opt/micromamba
+RUN set -eux; \
+    case "$TARGETARCH" in \
+      amd64)  mm_plat="linux-64" ;; \
+      arm64)  mm_plat="linux-aarch64" ;; \
+      *) echo "Unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    dnf -y update; \
+    dnf -y install ca-certificates curl tar bzip2 findutils file make; \
+    dnf -y clean all; rm -rf /var/cache/dnf; \
+    mkdir -p "$MAMBA_ROOT_PREFIX"; \
+    curl -Ls "https://micro.mamba.pm/api/micromamba/${mm_plat}/latest" \
+      | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba; \
+    micromamba --version
+
+# 3) Create env
+ARG ENV_NAME=wiser-prod
+ENV WISER_ENV=prod
+RUN micromamba create -y -n "${ENV_NAME}" -f /work/prod-conda-lock.yml \
+ && micromamba clean -a -y
+
+# 4) Build (your Fedora version with LD_LIBRARY_PATH)
+RUN micromamba run -n "${ENV_NAME}" bash -lc '\
+  export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"; \
+  cd /work; \
+  make build-linux \
+'
+
+# Copy specific libs from conda env into _internal (Fedora-specific)
+RUN set -euxo pipefail; \
+  internal_dir="$(find /work/dist -type d -name _internal -print -quit)"; \
+  test -n "$internal_dir"; \
+  env_lib="/opt/micromamba/envs/${ENV_NAME}/lib"; \
+  for pattern in "libcurl.so.*" "libssl.so.*" "libcrypto.so.*"; do \
+    for src in $env_lib/$pattern; do \
+      [ -e "$src" ] || continue; \
+      cp -av "$src" "$internal_dir/"; \
+    done; \
+  done
+
+RUN set -eux; \
+  internal_dir="$(find /work/dist -type d -name _internal -print -quit)"; \
+  objdump -T "$internal_dir"/libcurl.so.* 2>/dev/null | grep -F OPENSSL_ | sort -u | head -n 10 || true; \
+  readelf --version-info "$internal_dir"/libssl.so.* 2>/dev/null | grep -E "Name: OPENSSL_" | sort -u || true
+
+# -------------------------------------------------------------------
+# Bundle fixups: sqlite aliases + GDAL RPATH + (optional) replace-needed
+# -------------------------------------------------------------------
+
+# Ensure sqlite SONAME/aliases exist in the bundle (_internal)
+RUN set -euxo pipefail; \
+    internal_dir="$(find /work/dist -type d -name _internal -print -quit 2>/dev/null || true)"; \
+    if [ -z "$internal_dir" ]; then \
+      echo "No _internal directory found; skipping sqlite alias step."; \
+      exit 0; \
+    fi; \
+    absolute_internal_dir="$(cd "$internal_dir" && pwd)"; \
+    cd "$absolute_internal_dir"; \
+    pick_sqlite_target() { \
+      ls -1 libsqlite3.so.* 2>/dev/null | sort -V | tail -n 1; \
+    }; \
+    if ls -1 libsqlite3.so.* >/dev/null 2>&1 && [ ! -e libsqlite3.so ]; then \
+      target="$(pick_sqlite_target)"; \
+      echo "Creating symlink: libsqlite3.so -> $target"; \
+      ln -sf "$target" libsqlite3.so; \
+    fi; \
+    if [ -e libsqlite3.so ] && [ ! -e libsqlite3.so.3 ]; then \
+      echo "Creating symlink: libsqlite3.so.3 -> libsqlite3.so"; \
+      ln -sf libsqlite3.so libsqlite3.so.3; \
+    fi; \
+    if ls -1 libsqlite3.so.* >/dev/null 2>&1 && [ ! -e libsqlite3.so.0 ]; then \
+      target="$(pick_sqlite_target)"; \
+      echo "Creating symlink: libsqlite3.so.0 -> $target"; \
+      ln -sf "$target" libsqlite3.so.0; \
+    fi; \
+    echo "SQLite files now:"; \
+    ls -lah libsqlite3.so* 2>/dev/null || true
+
+# Patch GDAL extension + libgdal to look in PyInstaller _internal first
+RUN set -euxo pipefail; \
+    internal_dir="$(find /work/dist -type d -name _internal -print -quit 2>/dev/null || true)"; \
+    if [ -z "$internal_dir" ]; then \
+      echo "No _internal directory found; skipping GDAL rpath step."; \
+      exit 0; \
+    fi; \
+    absolute_internal_dir="$(cd "$internal_dir" && pwd)"; \
+    found_any=0; \
+    while IFS= read -r -d '' f; do \
+      found_any=1; \
+      echo "patchelf --set-rpath '\$ORIGIN' -> $f"; \
+      patchelf --force-rpath --set-rpath '$ORIGIN' "$f"; \
+    done < <(find "$absolute_internal_dir" -type f \( -iname "*gdal*.so*" -o -iname "libgdal.so*" \) -print0); \
+    if [ "$found_any" -eq 0 ]; then \
+      echo "No GDAL libs found in _internal; skipping rpath step."; \
+    fi
+
+# Patch libgdal.so.* to stop requiring sqlite via an absolute conda path (only if present)
+RUN set -euxo pipefail; \
+    internal_dir="$(find /work/dist -type d -name _internal -print -quit 2>/dev/null || true)"; \
+    if [ -z "$internal_dir" ]; then \
+      echo "No _internal directory found; skipping replace-needed step."; \
+      exit 0; \
+    fi; \
+    absolute_internal_dir="$(cd "$internal_dir" && pwd)"; \
+    gdal_so="$(find "$absolute_internal_dir" -maxdepth 1 -type f -name "libgdal.so*" -print -quit 2>/dev/null || true)"; \
+    if [ -z "$gdal_so" ]; then \
+      echo "No libgdal.so* found; skipping replace-needed step."; \
+      exit 0; \
+    fi; \
+    ABS_SQLITE="/opt/micromamba/envs/${ENV_NAME}/lib/libsqlite3.so"; \
+    echo "Checking DT_NEEDED entries for sqlite in: $gdal_so"; \
+    echo "Looking for absolute path: $ABS_SQLITE"; \
+    if command -v readelf >/dev/null 2>&1 && ( readelf -d "$gdal_so" | grep -Fq "$ABS_SQLITE" ); then \
+      echo "Found absolute sqlite DT_NEEDED; rewriting to libsqlite3.so.0"; \
+      cd "$absolute_internal_dir"; \
+      pick_sqlite_target() { \
+        ls -1 libsqlite3.so.* 2>/dev/null | sort -V | tail -n 1; \
+      }; \
+      if [ ! -e libsqlite3.so.0 ]; then \
+        if ls -1 libsqlite3.so.* >/dev/null 2>&1; then \
+          target="$(pick_sqlite_target)"; \
+          echo "Creating symlink: libsqlite3.so.0 -> $target"; \
+          ln -sf "$target" libsqlite3.so.0; \
+        else \
+          echo "ERROR: No libsqlite3.so.* files found to link from."; \
+          exit 1; \
+        fi; \
+      fi; \
+      patchelf --replace-needed "$ABS_SQLITE" "libsqlite3.so.0" "$gdal_so"; \
+      echo "After patch, sqlite-related entries:"; \
+      readelf -d "$gdal_so" | grep -i sqlite || true; \
+    else \
+      echo "No absolute sqlite DT_NEEDED found; leaving libgdal as-is."; \
+      if command -v readelf >/dev/null 2>&1; then \
+        readelf -d "$gdal_so" | grep -i sqlite || true; \
+      else \
+        echo "readelf not found."; \
+      fi; \
+    fi
+
+# 5) Put artifacts somewhere easy to export + tarball it
+RUN set -euxo pipefail; \
+    mkdir -p /out; \
+    if [ -d /work/dist ]; then cp -a /work/dist/. /out/; fi; \
+    if [ -d /work/build ]; then cp -a /work/build/. /out/build/; fi; \
+    ls -lah /out; \
+    cd /out; \
+    tar -C /out -czf /tmp/WISER.tar.gz .; \
+    mv /tmp/WISER.tar.gz /out/WISER.tar.gz; \
+    ls -lah /out/WISER.tar.gz
+
+CMD ["bash"]
+
+# -----------------------------
+# Phase C (Fedora): smoke test image
+# -----------------------------
+FROM phasea AS phasec
+SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
+
+# Install Xvfb (Fedora)
+RUN dnf -y update \
+ && dnf -y install xorg-x11-server-Xvfb \
+ && dnf -y clean all \
+ && rm -rf /var/cache/dnf
+
+# Copy the artifact from Phase B into this image
+WORKDIR /app
+COPY --from=phaseb /out/ /app/
+
+# Writable HOME/config area
+ENV HOME=/tmp/home
+ENV XDG_CONFIG_HOME=/tmp/xdg-config
+RUN mkdir -p "$HOME" "$XDG_CONFIG_HOME" && chmod -R 777 /tmp/home /tmp/xdg-config
+
+# Smoke test script
+COPY install-linux/run_smoke.sh /usr/local/bin/run_smoke.sh
+RUN chmod +x /usr/local/bin/run_smoke.sh
+
+ENTRYPOINT ["/usr/local/bin/run_smoke.sh"]
