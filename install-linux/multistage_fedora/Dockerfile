@@ -175,6 +175,8 @@ RUN set -euxo pipefail; \
     ABS_SQLITE="/opt/micromamba/envs/${ENV_NAME}/lib/libsqlite3.so"; \
     echo "Checking DT_NEEDED entries for sqlite in: $gdal_so"; \
     echo "Looking for absolute path: $ABS_SQLITE"; \
+    out=$(readelf -d "$gdal_so" | grep -F "$ABS_SQLITE"); \
+    echo "$out"; \
     if command -v readelf >/dev/null 2>&1 && ( readelf -d "$gdal_so" | grep -Fq "$ABS_SQLITE" ); then \
       echo "Found absolute sqlite DT_NEEDED; rewriting to libsqlite3.so.0"; \
       cd "$absolute_internal_dir"; \
