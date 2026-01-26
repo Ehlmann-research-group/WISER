@@ -124,7 +124,11 @@ RUN set -euxo pipefail; \
     mkdir -p /out; \
     if [ -d /work/dist ]; then cp -a /work/dist/. /out/; fi; \
     if [ -d /work/build ]; then cp -a /work/build/. /out/build/; fi; \
-    tar -C /out -czf /out/WISER.tar.gz .
+    ls -lah /out; \
+    cd /out; \
+    tar -C /out -czf /tmp/WISER.tar.gz .; \
+    mv /tmp/WISER.tar.gz /out/WISER.tar.gz; \
+    ls -lah /out/WISER.tar.gz
 
 # ----------------------------
 # Export-only stage (for copying to host via --output type=local)
