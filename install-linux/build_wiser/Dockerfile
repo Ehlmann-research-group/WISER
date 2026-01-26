@@ -44,10 +44,7 @@ RUN micromamba create -y -n "${ENV_NAME}" -f /work/prod-conda-lock.yml \
  && micromamba clean -a -y
 
 # 4) Run PyInstaller using the spec file
-RUN micromamba run -n "${ENV_NAME}" '\
-  cd /work; \
-  make build-linux \
-'
+RUN micromamba run -n "${ENV_NAME}" bash -lc 'cd /work && make build-linux'
 
 # Ensure sqlite SONAME/aliases exist in the bundle (_internal)
 RUN set -euxo pipefail; \
