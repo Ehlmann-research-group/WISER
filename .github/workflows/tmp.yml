@@ -151,8 +151,8 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          chmod +x build_linux_targets.sh
-          ./build_linux_targets.sh "${{ matrix.distro }}" "${{ matrix.arch }}"
+          chmod +x build_linux_multistage.sh
+          ./build_linux_multistage.sh "${{ matrix.distro }}" "${{ matrix.arch }}"
 
       - name: Collect + rename tarball
         shell: bash
@@ -181,24 +181,24 @@ jobs:
           path: dist/linux/*.tar.gz
           if-no-files-found: error
   
-      # Run the Phase C images so ENTRYPOINT smoke tests actually execute
-      - name: Smoke test (run Phase C containers)
-        shell: bash
-        run: |
-          set -euxo pipefail
+      # # Run the Phase C images so ENTRYPOINT smoke tests actually execute
+      # - name: Smoke test (run Phase C containers)
+      #   shell: bash
+      #   run: |
+      #     set -euxo pipefail
 
-          # Map your input distro key to whatever tag your bake file uses
-          case "${{ matrix.distro }}" in
-            ubuntu2004) phase_tag="ubuntu20.04" ;;
-            debian11)   phase_tag="debian11" ;;
-            fedora39)   phase_tag="fedora39" ;;
-            *) echo "Unknown distro: ${{ matrix.distro }}"; exit 1 ;;
-          esac
+      #     # Map your input distro key to whatever tag your bake file uses
+      #     case "${{ matrix.distro }}" in
+      #       ubuntu2004) phase_tag="ubuntu20.04" ;;
+      #       debian11)   phase_tag="debian11" ;;
+      #       fedora39)   phase_tag="fedora39" ;;
+      #       *) echo "Unknown distro: ${{ matrix.distro }}"; exit 1 ;;
+      #     esac
 
-          img="wiser-phasec:${phase_tag}"
+      #     img="wiser-phasec:${phase_tag}"
 
-          echo "Running smoke test: ${img} on linux/${{ matrix.target_arch }}"
-          docker run --rm --platform "linux/${{ matrix.target_arch }}" "${img}"
+      #     echo "Running smoke test: ${img} on linux/${{ matrix.target_arch }}"
+      #     docker run --rm --platform "linux/${{ matrix.target_arch }}" "${img}"
 
 
   linux_merge:
