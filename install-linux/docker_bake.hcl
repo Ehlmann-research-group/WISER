@@ -1,5 +1,5 @@
 variable "PLATFORMS" {
-  default = ["linux/arm64"]
+  default = ["linux/amd64", "linux/arm64"]
 }
 
 # Phase A: two distros, same Dockerfile

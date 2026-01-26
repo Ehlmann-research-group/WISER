@@ -12,7 +12,7 @@ on:
 permissions:
   contents: write
 
-jobs:
+# jobs:
   # build:
   #   strategy:
   #     fail-fast: false
@@ -94,15 +94,47 @@ jobs:
   #           dist/WISER.app.tgz
   #           dist/WISER.app.tgz.sha256
   #       timeout-minutes: 20
+jobs:
+  linux_build:
+    name: Linux build (${{ matrix.distro }} / ${{ matrix.target_arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # amd64 builds on ubuntu-latest
+          - distro: ubuntu2004
+            arch: amd
+            target_arch: amd64
+            runner: ubuntu-latest
+          - distro: debian11
+            arch: amd
+            target_arch: amd64
+            runner: ubuntu-latest
+          - distro: fedora39
+            arch: amd
+            target_arch: amd64
+            runner: ubuntu-latest
 
-  linux:
-    name: Linux (Docker) build + smoke
-    runs-on: ubuntu-latest
+          # arm64 builds on ubuntu-24.04-arm
+          - distro: ubuntu2004
+            arch: arm
+            target_arch: arm64
+            runner: ubuntu-24.04-arm
+          - distro: debian11
+            arch: arm
+            target_arch: arm64
+            runner: ubuntu-24.04-arm
+          - distro: fedora39
+            arch: arm
+            target_arch: arm64
+            runner: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Enable containerd image store (required for multi-platform --load)
+      - name: Enable containerd image store (required for --load)
         uses: docker/setup-docker-action@v4
         with:
           daemon-config: |
@@ -112,37 +144,80 @@ jobs:
               }
             }
 
-      - name: Verify containerd image store is active
-        shell: bash
-        run: |
-          set -euxo pipefail
-          docker info -f '{{ .DriverStatus }}' | cat
-
-      - name: Set up QEMU (for cross-arch builds)
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Linux targets
+      - name: Build Linux target
         shell: bash
         run: |
           set -euxo pipefail
           chmod +x build_linux_targets.sh
-          ./build_linux_targets.sh
+          ./build_linux_targets.sh "${{ matrix.distro }}" "${{ matrix.arch }}"
 
-      # Rename into the exact filenames you want
-      - name: Collect and rename tarballs
+      - name: Collect + rename tarball
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p dist/linux
 
-          # Adjust these paths to match whatever your script outputs
-          cp linux_build_output/*fedora_39_arm*/*WISER*.tar.gz dist/linux/WISER-fedora_39-arm64.tar.gz
+          # Map distro -> your output folder key
+          case "${{ matrix.distro }}" in
+            ubuntu2004) distro_key="ubuntu_2004" ;;
+            debian11)   distro_key="debian_11" ;;
+            fedora39)   distro_key="fedora_39" ;;
+          esac
 
+          src="linux_build_output/${distro_key}_${{ matrix.target_arch }}/WISER.tar.gz"
+          dst="dist/linux/WISER-${distro_key}-${{ matrix.target_arch }}.tar.gz"
+
+          test -f "$src"
+          cp "$src" "$dst"
+          ls -lah dist/linux
+
+      - name: Upload per-build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiser-linux-${{ matrix.distro }}-${{ matrix.target_arch }}
+          path: dist/linux/*.tar.gz
+          if-no-files-found: error
+  
+      # Run the Phase C images so ENTRYPOINT smoke tests actually execute
+      - name: Smoke test (run Phase C containers)
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          # Map your input distro key to whatever tag your bake file uses
+          case "${{ matrix.distro }}" in
+            ubuntu2004) phase_tag="ubuntu20.04" ;;
+            debian11)   phase_tag="debian11" ;;
+            fedora39)   phase_tag="fedora39" ;;
+            *) echo "Unknown distro: ${{ matrix.distro }}"; exit 1 ;;
+          esac
+
+          img="wiser-phasec:${phase_tag}"
+
+          echo "Running smoke test: ${img} on linux/${{ matrix.target_arch }}"
+          docker run --rm --platform "linux/${{ matrix.target_arch }}" "${img}"
+
+
+  linux_merge:
+    name: Linux merge + release upload
+    needs: [linux_build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/linux_parts
+
+      - name: Merge + create SHA256SUMS
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/linux
+          find dist/linux_parts -type f -name '*.tar.gz' -print -exec cp -v {} dist/linux/ \;
           sha256sum dist/linux/*.tar.gz > dist/linux/SHA256SUMS.txt
           ls -lah dist/linux
 
@@ -161,9 +236,68 @@ jobs:
             dist/linux/*.tar.gz
             dist/linux/SHA256SUMS.txt
 
-      # # Run the Phase C images so ENTRYPOINT smoke tests actually execute
-      # - name: Smoke test (run Phase C containers)
-      #   shell: bash
-      #   run: |
-      #     set -euxo pipefail
-      #     docker run --rm wiser-phasec:fedora39
+  # linux:
+  #   name: Linux (Docker) build + smoke
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Enable containerd image store (required for multi-platform --load)
+  #       uses: docker/setup-docker-action@v4
+  #       with:
+  #         daemon-config: |
+  #           {
+  #             "features": {
+  #               "containerd-snapshotter": true
+  #             }
+  #           }
+
+  #     - name: Verify containerd image store is active
+  #       shell: bash
+  #       run: |
+  #         set -euxo pipefail
+  #         docker info -f '{{ .DriverStatus }}' | cat
+
+  #     - name: Set up QEMU (for cross-arch builds)
+  #       uses: docker/setup-qemu-action@v3
+  #       with:
+  #         platforms: arm64
+
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+
+  #     - name: Build Linux targets
+  #       shell: bash
+  #       run: |
+  #         set -euxo pipefail
+  #         chmod +x build_linux_targets.sh
+  #         ./build_linux_targets.sh
+
+  #     # Rename into the exact filenames you want
+  #     - name: Collect and rename tarballs
+  #       shell: bash
+  #       run: |
+  #         set -euxo pipefail
+  #         mkdir -p dist/linux
+
+  #         # Adjust these paths to match whatever your script outputs
+  #         cp linux_build_output/*fedora_39_arm*/*WISER*.tar.gz dist/linux/WISER-fedora_39-arm64.tar.gz
+
+  #         sha256sum dist/linux/*.tar.gz > dist/linux/SHA256SUMS.txt
+  #         ls -lah dist/linux
+
+  #     - name: Upload Linux artifact (Actions)
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wiser-linux
+  #         path: dist/linux/**
+  #         if-no-files-found: error
+
+  #     - name: Upload Linux assets to GitHub Release
+  #       if: github.event_name == 'release'
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         files: |
+  #           dist/linux/*.tar.gz
+  #           dist/linux/SHA256SUMS.txt
