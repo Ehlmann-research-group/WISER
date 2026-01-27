@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=WISER
+Exec=WISER_Bin
+Icon=WISER
+Categories=Science;Education;
+Terminal=true

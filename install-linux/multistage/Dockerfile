@@ -124,6 +124,14 @@ RUN set -euxo pipefail; \
     mkdir -p /out; \
     if [ -d /work/dist ]; then cp -a /work/dist/. /out/; fi; \
     if [ -d /work/build ]; then cp -a /work/build/. /out/build/; fi; \
+    \
+    # --- NEW: include icon in the artifact so smoke stage can build AppDir ---
+    if [ -f /work/icons/wiser.iconset/icon_256x256.png ]; then \
+      cp -a /work/icons/wiser.iconset/icon_256x256.png /out/WISER.png; \
+    else \
+      echo "WARNING: icon not found at /work/icons/wiser.iconset/icon_256x256.png; AppImage will be built without icon"; \
+    fi; \
+    \
     ls -lah /out; \
     cd /out; \
     tar -C /out -czf /tmp/WISER.tar.gz .; \
@@ -142,6 +150,7 @@ COPY --from=build /out/WISER.tar.gz /WISER.tar.gz
 FROM base AS smoke
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth \
@@ -154,7 +163,92 @@ ENV HOME=/tmp/home
 ENV XDG_CONFIG_HOME=/tmp/xdg-config
 RUN mkdir -p "$HOME" "$XDG_CONFIG_HOME" && chmod -R 777 /tmp/home /tmp/xdg-config
 
+COPY install-linux/appimage/AppRun /tmp/appimage/AppRun
+COPY install-linux/appimage/WISER.desktop /tmp/appimage/WISER.desktop
+
+# ------------------------------------------------------------
+# Build AppImage from the PyInstaller artifact tarball, then
+# re-pack to /app/WISER.tar.gz (contains AppImage + SHA256SUMS + RUN.txt)
+# ------------------------------------------------------------
+RUN set -euxo pipefail; \
+    \
+    # 1) Extract the build artifact tarball to /work
+    test -f /app/WISER.tar.gz; \
+    rm -rf /work && mkdir -p /work; \
+    tar -xzf /app/WISER.tar.gz -C /work; \
+    \
+    # Expect one-folder pyinstaller layout inside extracted artifact:
+    test -d /work/WISER; \
+    test -f /work/WISER/WISER_Bin; \
+    test -d /work/WISER/_internal; \
+    \
+    # 2) Pick appimagetool URL + AppImage arch label from TARGETARCH
+    case "${TARGETARCH}" in \
+      amd64)  appimage_arch="x86_64";  tool_url="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" ;; \
+      arm64)  appimage_arch="aarch64"; tool_url="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-aarch64.AppImage" ;; \
+      *) echo "Unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    \
+    # 3) Download appimagetool + chmod
+    curl -L --fail -o /tmp/appimagetool.AppImage "${tool_url}"; \
+    chmod +x /tmp/appimagetool.AppImage; \
+    \
+    # 4) Build WISER.AppDir structure
+    rm -rf /work/WISER.AppDir; \
+    mkdir -p /work/WISER.AppDir/usr/bin; \
+    \
+    # Copy PyInstaller bundle into AppDir payload dir (WISER_Bin + _internal)
+    cp -a /work/WISER/. /work/WISER.AppDir/usr/bin/; \
+    \
+    # Install AppRun + desktop file (and make AppRun executable)
+    install -m 0755 /tmp/appimage/AppRun /work/WISER.AppDir/AppRun; \
+    install -m 0644 /tmp/appimage/WISER.desktop /work/WISER.AppDir/WISER.desktop; \
+    sed -i 's/\r$//' /work/WISER.AppDir/AppRun ; \
+    sed -i 's/\r$//' /work/WISER.AppDir/WISER.desktop; \
+    \
+    # Icon (optional): build stage should have copied this into the artifact as /out/WISER.png
+    if [ -f /work/WISER.png ]; then \
+      install -m 0644 /work/WISER.png /work/WISER.AppDir/WISER.png; \
+    else \
+      echo "WARNING: /work/WISER.png not found; continuing without icon"; \
+    fi; \
+    \
+    # 5) Run appimagetool -> AppImage (with extraction fallback)
+    out_appimage="/work/WISER-${appimage_arch}.AppImage"; \
+    if ARCH="${appimage_arch}" /tmp/appimagetool.AppImage /work/WISER.AppDir "${out_appimage}"; then \
+      echo "appimagetool ran directly."; \
+    else \
+      echo "Direct appimagetool execution failed; falling back to --appimage-extract."; \
+      rm -rf /tmp/squashfs-root; \
+      (cd /tmp && /tmp/appimagetool.AppImage --appimage-extract); \
+      ARCH="${appimage_arch}" /tmp/squashfs-root/AppRun /work/WISER.AppDir "${out_appimage}"; \
+    fi; \
+    test -f "${out_appimage}"; \
+    \
+    # 6) Release bundle: AppImage + SHA256SUMS + RUN.txt
+    rm -rf /work/release && mkdir -p /work/release; \
+    mv "${out_appimage}" "/work/release/WISER-${appimage_arch}.AppImage"; \
+    (cd /work/release && sha256sum "WISER-${appimage_arch}.AppImage" > SHA256SUMS); \
+    printf '%s\n' \
+      "WISER AppImage (${appimage_arch})" \
+      "" \
+      "1) Make executable:" \
+      "   chmod +x WISER-${appimage_arch}.AppImage" \
+      "" \
+      "2) Run:" \
+      "   ./WISER-${appimage_arch}.AppImage" \
+      "" \
+      "Uninstall:" \
+      "- Delete the AppImage file." \
+      > /work/release/RUN.txt; \
+    \
+    # 7) Re-tar to the required output path
+    tar -C /work/release -czf /tmp/WISER.tar.gz .; \
+    mv /tmp/WISER.tar.gz /app/WISER.tar.gz; \
+    ls -lah /app/WISER.tar.gz
+
 COPY install-linux/run_smoke.sh /usr/local/bin/run_smoke.sh
 RUN chmod +x /usr/local/bin/run_smoke.sh
 
 ENTRYPOINT ["/usr/local/bin/run_smoke.sh"]
+
