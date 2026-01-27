@@ -144,7 +144,7 @@ FROM base AS smoke
 ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 
-RUN apt-get update && apt-get install -y --no-install-recommends xvfb \
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
