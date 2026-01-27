@@ -9,15 +9,34 @@ if [[ ! -x "$BIN" ]]; then
   echo "ERROR: Expected executable not found or not executable: $BIN"
   echo "Contents of /app:"
   ls -lah /app || true
-  echo "Contents of /app/WISER (if exists):"
-  ls -lah /app/WISER || true
   exit 1
 fi
 
+# --- FIX START: Robust Libgomp Discovery ---
+# 1. Initialize to empty string to prevent "unbound variable" errors (set -u)
+GOMP_PATH=""
+
+# 2. Attempt to find the library (silence errors with || true)
+FOUND_LIB=$(find /app -name "libgomp.so.1" | head -n 1 || true)
+
+# 3. Only set GOMP_PATH if we actually found something
+if [[ -n "$FOUND_LIB" ]]; then
+    echo "Found libgomp at: $FOUND_LIB"
+    GOMP_PATH="$FOUND_LIB"
+else
+    echo "Info: libgomp.so.1 not found in /app. Skipping preload (safe for AMD64)."
+fi
+# --- FIX END ---
+
 echo "Running smoke test: $BIN --test_mode"
 
-# Run under Xvfb so Qt has a display even on headless runners.
-# If your test_mode truly never initializes Qt, this still works fine.
-xvfb-run -a env LD_PRELOAD="$GOMP_PATH" "$BIN" --test_mode
+# 4. Conditionally run with or without LD_PRELOAD
+if [[ -n "$GOMP_PATH" ]]; then
+    # ARM Fix: Preload the library into the app process only
+    xvfb-run -a env LD_PRELOAD="$GOMP_PATH" "$BIN" --test_mode
+else
+    # Standard Run (AMD64 or if lib not bundled)
+    xvfb-run -a "$BIN" --test_mode
+fi
 
 echo "Smoke test passed."
