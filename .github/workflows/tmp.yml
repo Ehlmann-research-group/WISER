@@ -12,89 +12,104 @@ on:
 permissions:
   contents: write
 
-# jobs:
-  # build:
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       os: [windows-latest, macos-15, macos-15-intel]
-  #   runs-on: ${{matrix.os}}
-
-  #   steps:
-  #     - uses: actions/checkout@v4
-
-  #     - name: Setup micromamba (prod)
-  #       uses: mamba-org/setup-micromamba@v2
-  #       with:
-  #         micromamba-version: '1.5.10-0'
-  #         environment-file: etc/prod-conda-lock.yml
-  #         environment-name: wiser-prod
-  #         init-shell: >-
-  #           bash
-  #           powershell
-  #         cache-environment: true
-  #         cache-environment-key: wiser-prod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('etc/prod-conda-lock.yml') }}
-  #         cache-downloads: true
-  #         log-level: debug
-  #       timeout-minutes: 10
-
-  #     - name: Build (Windows)
-  #       if: runner.os == 'Windows'
-  #       shell: bash -leo pipefail {0}
-  #       run: |
-  #         make build-win
-  #         ls -la dist/WISER || true
-  #       timeout-minutes: 15
-
-  #     - name: Smoke Test (Windows)
-  #       if: runner.os == 'Windows'
-  #       shell: bash -leo pipefail {0}
-  #       run: |
-  #         cd dist/WISER
-  #         ./WISER.exe --test_mode
-  #       timeout-minutes: 20
-
-  #     - name: Upload artifact Windows
-  #       if: runner.os == 'Windows'
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: wiser-${{ runner.os }}-${{ runner.arch }}
-  #         path: dist/**
-  #       timeout-minutes: 20
-
-  #     - name: Build (macOS)
-  #       if: runner.os == 'macOS'
-  #       shell: bash -leo pipefail {0}
-  #       run: |
-  #         make build-mac
-  #         ls -la dist/WISER || true
-  #       timeout-minutes: 25
-
-  #     - name: Smoke Test (macOS)
-  #       if: runner.os == 'macOS'
-  #       shell: bash -leo pipefail {0}
-  #       run: |
-  #         cd dist/WISER
-  #         ./WISER_Bin --test_mode
-  #       timeout-minutes: 20
-
-  #     - name: Pack macOS .app (preserve symlinks & modes)
-  #       if: runner.os == 'macOS'
-  #       run: |
-  #         tar -C dist -czf dist/WISER.app.tgz WISER.app
-  #         shasum -a 256 dist/WISER.app.tgz > dist/WISER.app.tgz.sha256
-  #       timeout-minutes: 20
-
-  #     - name: Upload artifact macOS
-  #       if: runner.os == 'macOS'
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: wiser-${{ runner.os }}-${{ runner.arch }}
-  #         path: |
-  #           dist/WISER.app.tgz
-  #           dist/WISER.app.tgz.sha256
-  #       timeout-minutes: 20
 jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-15, macos-15-intel]
+    runs-on: ${{matrix.os}}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup micromamba (prod)
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: '1.5.10-0'
+          environment-file: etc/prod-conda-lock.yml
+          environment-name: wiser-prod
+          init-shell: >-
+            bash
+            powershell
+          cache-environment: true
+          cache-environment-key: wiser-prod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('etc/prod-conda-lock.yml') }}
+          cache-downloads: true
+          log-level: debug
+        timeout-minutes: 10
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -leo pipefail {0}
+        run: |
+          make build-win
+          ls -la dist/WISER || true
+        timeout-minutes: 15
+
+      - name: Smoke Test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -leo pipefail {0}
+        run: |
+          cd dist/WISER
+          ./WISER.exe --test_mode
+        timeout-minutes: 20
+      
+      - name: Package Windows + checksum
+        if: runner.os == 'Windows'
+        shell: bash -leo pipefail {0}
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/windows
+
+          # Pack the whole dist output (keeps it simple/reliable)
+          (cd dist && zip -r ../dist/windows/WISER-${{ runner.os }}-${{ runner.arch }}.zip .)
+
+          sha256sum dist/windows/WISER-${{ runner.os }}-${{ runner.arch }}.zip > dist/windows/WISER-${{ runner.os }}-${{ runner.arch }}.zip.sha256
+          ls -lah dist/windows
+        timeout-minutes: 10
+
+      - name: Upload artifact Windows
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiser-${{ runner.os }}-${{ runner.arch }}
+          path: dist/**
+          if-no-files-found: error
+        timeout-minutes: 20
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash -leo pipefail {0}
+        run: |
+          make build-mac
+          ls -la dist/WISER || true
+        timeout-minutes: 25
+
+      - name: Smoke Test (macOS)
+        if: runner.os == 'macOS'
+        shell: bash -leo pipefail {0}
+        run: |
+          cd dist/WISER
+          ./WISER_Bin --test_mode
+        timeout-minutes: 20
+
+      - name: Pack macOS .app (preserve symlinks & modes)
+        if: runner.os == 'macOS'
+        run: |
+          tar -C dist -czf dist/WISER.app.tgz WISER.app
+          shasum -a 256 dist/WISER.app.tgz > dist/WISER.app.tgz.sha256
+        timeout-minutes: 20
+
+      - name: Upload artifact macOS
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiser-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/WISER.app.tgz
+            dist/WISER.app.tgz.sha256
+        timeout-minutes: 20
+
   linux_build:
     name: Linux build (${{ matrix.distro }} / ${{ matrix.target_arch }})
     strategy:
@@ -180,110 +195,24 @@ jobs:
           name: wiser-linux-${{ matrix.distro }}-${{ matrix.target_arch }}
           path: dist/linux/*.tar.gz
           if-no-files-found: error
-  
-      # # Run the Phase C images so ENTRYPOINT smoke tests actually execute
-      # - name: Smoke test (run Phase C containers)
-      #   shell: bash
-      #   run: |
-      #     set -euxo pipefail
 
-      #     # Map your input distro key to whatever tag your bake file uses
-      #     case "${{ matrix.distro }}" in
-      #       ubuntu2004) phase_tag="ubuntu20.04" ;;
-      #       debian11)   phase_tag="debian11" ;;
-      #       fedora39)   phase_tag="fedora39" ;;
-      #       *) echo "Unknown distro: ${{ matrix.distro }}"; exit 1 ;;
-      #     esac
-
-      #     img="wiser-phasec:${phase_tag}"
-
-      #     echo "Running smoke test: ${img} on linux/${{ matrix.target_arch }}"
-      #     docker run --rm --platform "linux/${{ matrix.target_arch }}" "${img}"
-
-
-  linux_merge:
-    name: Linux merge + release upload
-    needs: [linux_build]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist/linux_parts
-
-      - name: Merge + create SHA256SUMS
-        shell: bash
-        run: |
-          set -euxo pipefail
-          mkdir -p dist/linux
-          find dist/linux_parts -type f -name '*.tar.gz' -print -exec cp -v {} dist/linux/ \;
-          sha256sum dist/linux/*.tar.gz > dist/linux/SHA256SUMS.txt
-          ls -lah dist/linux
-
-      - name: Upload Linux artifact (Actions)
-        uses: actions/upload-artifact@v4
-        with:
-          name: wiser-linux
-          path: dist/linux/**
-          if-no-files-found: error
-
-      - name: Upload Linux assets to GitHub Release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/linux/*.tar.gz
-            dist/linux/SHA256SUMS.txt
-
-  # linux:
-  #   name: Linux (Docker) build + smoke
+  # linux_merge:
+  #   name: Linux merge + release upload
+  #   needs: [linux_build]
   #   runs-on: ubuntu-latest
 
   #   steps:
-  #     - uses: actions/checkout@v4
-
-  #     - name: Enable containerd image store (required for multi-platform --load)
-  #       uses: docker/setup-docker-action@v4
+  #     - name: Download all build artifacts
+  #       uses: actions/download-artifact@v4
   #       with:
-  #         daemon-config: |
-  #           {
-  #             "features": {
-  #               "containerd-snapshotter": true
-  #             }
-  #           }
+  #         path: dist/linux_parts
 
-  #     - name: Verify containerd image store is active
-  #       shell: bash
-  #       run: |
-  #         set -euxo pipefail
-  #         docker info -f '{{ .DriverStatus }}' | cat
-
-  #     - name: Set up QEMU (for cross-arch builds)
-  #       uses: docker/setup-qemu-action@v3
-  #       with:
-  #         platforms: arm64
-
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v3
-
-  #     - name: Build Linux targets
-  #       shell: bash
-  #       run: |
-  #         set -euxo pipefail
-  #         chmod +x build_linux_targets.sh
-  #         ./build_linux_targets.sh
-
-  #     # Rename into the exact filenames you want
-  #     - name: Collect and rename tarballs
+  #     - name: Merge + create SHA256SUMS
   #       shell: bash
   #       run: |
   #         set -euxo pipefail
   #         mkdir -p dist/linux
-
-  #         # Adjust these paths to match whatever your script outputs
-  #         cp linux_build_output/*fedora_39_arm*/*WISER*.tar.gz dist/linux/WISER-fedora_39-arm64.tar.gz
-
+  #         find dist/linux_parts -type f -name '*.tar.gz' -print -exec cp -v {} dist/linux/ \;
   #         sha256sum dist/linux/*.tar.gz > dist/linux/SHA256SUMS.txt
   #         ls -lah dist/linux
 
