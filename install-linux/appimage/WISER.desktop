@@ -2,6 +2,6 @@
 Type=Application
 Name=WISER
 Exec=WISER_Bin
-Icon=WISER
-Categories=Science;Education;
+Icon=wiser
+Categories=Education;Science;
 Terminal=true
