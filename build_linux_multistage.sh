@@ -83,8 +83,8 @@ tmp_tar="${tmp_dir}/${build_name}.tar.gz"
 cid="$(docker create --platform "linux/${target_arch}" "${img}")" \
   || { echo "ERROR: could not create container for ${img} (linux/${target_arch})"; exit 1; }
 
-docker cp "${cid}:/out/WISER.tar.gz" "${tmp_tar}" \
-  || { echo "ERROR: /out/WISER.tar.gz not found in ${img} (linux/${target_arch})"; docker rm "${cid}" >/dev/null; exit 1; }
+docker cp "${cid}:/app/WISER.tar.gz" "${tmp_tar}" \
+  || { echo "ERROR: /app/WISER.tar.gz not found in ${img} (linux/${target_arch})"; docker rm "${cid}" >/dev/null; exit 1; }
 
 docker rm "${cid}" >/dev/null
 
