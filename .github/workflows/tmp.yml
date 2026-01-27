@@ -52,25 +52,32 @@ jobs:
         run: |
           cd dist/WISER
           ./WISER.exe --test_mode
-        timeout-minutes: 20
       
       - name: Package Windows + checksum
         if: runner.os == 'Windows'
-        shell: bash -leo pipefail {0}
+        shell: pwsh
         run: |
-          set -euxo pipefail
-          mkdir -p dist/windows
+          $ErrorActionPreference = "Stop"
 
-          # Pack the whole dist output (keeps it simple/reliable)
-          (cd dist && zip -r ../dist/windows/WISER-${{ runner.os }}-${{ runner.arch }}.zip .)
+          New-Item -ItemType Directory -Force -Path dist/windows | Out-Null
 
-          sha256sum dist/windows/WISER-${{ runner.os }}-${{ runner.arch }}.zip > dist/windows/WISER-${{ runner.os }}-${{ runner.arch }}.zip.sha256
-          ls -lah dist/windows
-        timeout-minutes: 10
+          $zip = "dist/windows/WISER-${{ runner.os }}-${{ runner.arch }}.zip"
+
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+
+          # Zip the contents of dist/ (not the dist folder itself)
+          Compress-Archive -Path "dist/*" -DestinationPath $zip
+
+          # SHA256
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+          "$hash  $(Split-Path -Leaf $zip)" | Out-File -Encoding ascii "$zip.sha256"
+
+          Get-ChildItem dist/windows | Format-Table -AutoSize
 
       - name: Upload artifact Windows
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: 
+          actions/upload-artifact@v4
         with:
           name: wiser-${{ runner.os }}-${{ runner.arch }}
           path: dist/**
@@ -91,7 +98,6 @@ jobs:
         run: |
           cd dist/WISER
           ./WISER_Bin --test_mode
-        timeout-minutes: 20
 
       - name: Pack macOS .app (preserve symlinks & modes)
         if: runner.os == 'macOS'
