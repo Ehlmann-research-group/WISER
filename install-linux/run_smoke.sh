@@ -18,6 +18,6 @@ echo "Running smoke test: $BIN --test_mode"
 
 # Run under Xvfb so Qt has a display even on headless runners.
 # If your test_mode truly never initializes Qt, this still works fine.
-xvfb-run -a "$BIN" --test_mode
+xvfb-run -a env LD_PRELOAD="$GOMP_PATH" "$BIN" --test_mode
 
 echo "Smoke test passed."

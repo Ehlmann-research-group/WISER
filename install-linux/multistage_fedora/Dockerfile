@@ -177,25 +177,27 @@ RUN set -euxo pipefail; \
     echo "Looking for absolute path: $ABS_SQLITE"; \
     out=$(readelf -d "$gdal_so" | grep -F "$ABS_SQLITE"); \
     echo "$out"; \
-    if command -v readelf >/dev/null 2>&1 && ( readelf -d "$gdal_so" | grep -Fq "$ABS_SQLITE" ); then \
-      echo "Found absolute sqlite DT_NEEDED; rewriting to libsqlite3.so.0"; \
-      cd "$absolute_internal_dir"; \
-      pick_sqlite_target() { \
-        ls -1 libsqlite3.so.* 2>/dev/null | sort -V | tail -n 1; \
-      }; \
-      if [ ! -e libsqlite3.so.0 ]; then \
-        if ls -1 libsqlite3.so.* >/dev/null 2>&1; then \
-          target="$(pick_sqlite_target)"; \
-          echo "Creating symlink: libsqlite3.so.0 -> $target"; \
-          ln -sf "$target" libsqlite3.so.0; \
-        else \
-          echo "ERROR: No libsqlite3.so.* files found to link from."; \
-          exit 1; \
+    if command -v readelf >/dev/null 2>&1; then \
+      if (readelf -d "$gdal_so" 2>/dev/null || true) | grep -Fq "$ABS_SQLITE"; then \
+        echo "Found absolute sqlite DT_NEEDED; rewriting to libsqlite3.so.0"; \
+        cd "$absolute_internal_dir"; \
+        pick_sqlite_target() { \
+            ls -1 libsqlite3.so.* 2>/dev/null | sort -V | tail -n 1; \
+        }; \
+        if [ ! -e libsqlite3.so.0 ]; then \
+            if ls -1 libsqlite3.so.* >/dev/null 2>&1; then \
+            target="$(pick_sqlite_target)"; \
+            echo "Creating symlink: libsqlite3.so.0 -> $target"; \
+            ln -sf "$target" libsqlite3.so.0; \
+            else \
+            echo "ERROR: No libsqlite3.so.* files found to link from."; \
+            exit 1; \
+            fi; \
         fi; \
+        patchelf --replace-needed "$ABS_SQLITE" "libsqlite3.so.0" "$gdal_so"; \
+        echo "After patch, sqlite-related entries:"; \
+        readelf -d "$gdal_so" | grep -i sqlite || true; \
       fi; \
-      patchelf --replace-needed "$ABS_SQLITE" "libsqlite3.so.0" "$gdal_so"; \
-      echo "After patch, sqlite-related entries:"; \
-      readelf -d "$gdal_so" | grep -i sqlite || true; \
     else \
       echo "No absolute sqlite DT_NEEDED found; leaving libgdal as-is."; \
       if command -v readelf >/dev/null 2>&1; then \
