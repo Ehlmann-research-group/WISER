@@ -141,6 +141,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,  # windowed/no console (use True if you want terminal logs)
+    icon=['icons\\wiser.ico'],
 )
 
 coll = COLLECT(
@@ -151,5 +152,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="WISER",   # dist/WISER/...
+    name="WISER",
 )
