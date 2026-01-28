@@ -135,7 +135,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="WISER_Bin",
+    name='WISER',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -152,5 +152,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="WISER",
+    name='WISER',
 )
