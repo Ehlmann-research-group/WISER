@@ -1,9 +1,9 @@
 # Placeholder file, we set this file inside
 # install-linux/appimage/install_wiser_appimage.sh
 [Desktop Entry]
-Type=Placeholder
+Type=Application
 Name=Placeholder
 Exec=Placeholder
 Icon=Placeholder
-Categories=Placeholder
-Terminal=Placeholder
+Categories=Placeholder;
+Terminal=false
