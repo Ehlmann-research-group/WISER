@@ -164,7 +164,6 @@ ENV XDG_CONFIG_HOME=/tmp/xdg-config
 RUN mkdir -p "$HOME" "$XDG_CONFIG_HOME" && chmod -R 777 /tmp/home /tmp/xdg-config
 
 COPY install-linux/appimage/AppRun /tmp/appimage/AppRun
-COPY install-linux/appimage/WISER.desktop /tmp/appimage/WISER.desktop
 COPY install-linux/appimage/install_wiser_appimage.sh /tmp/appimage/install_wiser_appimage.sh
 
 # ------------------------------------------------------------
@@ -203,9 +202,7 @@ RUN set -euxo pipefail; \
     \
     # Install AppRun + desktop file (and make AppRun executable)
     install -m 0755 /tmp/appimage/AppRun /work/WISER.AppDir/AppRun; \
-    install -m 0644 /tmp/appimage/WISER.desktop /work/WISER.AppDir/WISER.desktop; \
     sed -i 's/\r$//' /work/WISER.AppDir/AppRun ; \
-    sed -i 's/\r$//' /work/WISER.AppDir/WISER.desktop; \
     \
     # Icon (optional): build stage should have copied this into the artifact as /out/wiser.png
     if [ -f /work/wiser.png ]; then \
