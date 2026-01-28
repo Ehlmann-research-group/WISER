@@ -67,6 +67,7 @@ mkdir -p "${desktop_dir}"
 # Exec must be absolute path; do not leave $HOME unexpanded in the written file.
 exec_path="${dest_appimage}"
 
+echo "Exec_path: ${exec_path}"
 printf '%s\n' \
   "[Desktop Entry]" \
   "Type=Application" \
@@ -74,7 +75,7 @@ printf '%s\n' \
   "Comment=Workbench for Imaging Spectroscopy Exploration and Research" \
   "Exec=${exec_path}" \
   "Icon=wiser" \
-  "Terminal=false" \
+  "Terminal=true" \
   "Categories=Education;Science;" \
   > "${desktop_file}"
 
