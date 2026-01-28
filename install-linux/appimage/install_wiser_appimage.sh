@@ -79,7 +79,8 @@ printf '%s\n' \
   > "${desktop_file}"
 
 # --- 4) Install icon (extract from AppImage if possible) ---
-icon_dest_dir="${home_dir}/.local/share/icons/hicolor/256x256/apps"
+xdg_dir="${XDG_DATA_DIRS}"
+icon_dest_dir="${xdg_dir}/icons/hicolor/256x256/apps"
 icon_dest="${icon_dest_dir}/wiser.png"
 mkdir -p "${icon_dest_dir}"
 
