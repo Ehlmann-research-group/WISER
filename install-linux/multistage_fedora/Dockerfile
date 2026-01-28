@@ -207,11 +207,19 @@ RUN set -euxo pipefail; \
       fi; \
     fi
 
-# 5) Put artifacts somewhere easy to export + tarball it
+# Exportable output + tarball
 RUN set -euxo pipefail; \
     mkdir -p /out; \
     if [ -d /work/dist ]; then cp -a /work/dist/. /out/; fi; \
     if [ -d /work/build ]; then cp -a /work/build/. /out/build/; fi; \
+    \
+    # --- NEW: include icon in the artifact so smoke stage can build AppDir ---
+    if [ -f /work/icons/wiser.iconset/icon_256x256.png ]; then \
+      cp -a /work/icons/wiser.iconset/icon_256x256.png /out/wiser.png; \
+    else \
+      echo "WARNING: icon not found at /work/icons/wiser.iconset/icon_256x256.png; AppImage will be built without icon"; \
+    fi; \
+    \
     ls -lah /out; \
     cd /out; \
     tar -C /out -czf /tmp/WISER.tar.gz .; \
