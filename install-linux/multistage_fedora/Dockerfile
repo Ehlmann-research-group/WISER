@@ -222,9 +222,15 @@ CMD ["bash"]
 
 # -----------------------------
 # Phase C (Fedora): smoke test image
+#   - consumes /app/WISER.tar.gz from phaseb
+#   - builds WISER AppImage (arch-aware) + adds installer + SHA256SUMS + RUN.txt
+#   - repackages to /app/WISER.tar.gz
+#   - then runs run_smoke.sh
 # -----------------------------
 FROM phasea AS phasec
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
+
+ARG TARGETARCH
 
 # Install Xvfb (Fedora)
 RUN dnf -y update \
@@ -240,6 +246,96 @@ COPY --from=phaseb /out/ /app/
 ENV HOME=/tmp/home
 ENV XDG_CONFIG_HOME=/tmp/xdg-config
 RUN mkdir -p "$HOME" "$XDG_CONFIG_HOME" && chmod -R 777 /tmp/home /tmp/xdg-config
+
+# AppImage templates (avoid heredocs inside RUN)
+COPY install-linux/appimage/AppRun /tmp/appimage/AppRun
+COPY install-linux/appimage/WISER.desktop /tmp/appimage/WISER.desktop
+COPY install-linux/appimage/install_wiser_appimage.sh /tmp/appimage/install_wiser_appimage.sh
+
+# ------------------------------------------------------------
+# Build AppImage from the PyInstaller artifact tarball, then
+# re-pack to /app/WISER.tar.gz (contains AppImage + SHA256SUMS + RUN.txt + installer)
+# ------------------------------------------------------------
+RUN set -euxo pipefail; \
+    \
+    # 1) Extract the build artifact tarball to /work
+    test -f /app/WISER.tar.gz; \
+    rm -rf /work && mkdir -p /work; \
+    tar -xzf /app/WISER.tar.gz -C /work; \
+    \
+    # Expect one-folder pyinstaller layout inside extracted artifact:
+    test -d /work/WISER; \
+    test -f /work/WISER/WISER_Bin; \
+    test -d /work/WISER/_internal; \
+    \
+    # 2) Pick appimagetool URL + AppImage arch label from TARGETARCH
+    case "${TARGETARCH}" in \
+      amd64)  appimage_arch="x86_64";  tool_url="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" ;; \
+      arm64)  appimage_arch="aarch64"; tool_url="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-aarch64.AppImage" ;; \
+      *) echo "Unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    \
+    # 3) Download appimagetool + chmod
+    curl -L --fail -o /tmp/appimagetool.AppImage "${tool_url}"; \
+    chmod +x /tmp/appimagetool.AppImage; \
+    \
+    # 4) Build WISER.AppDir structure
+    rm -rf /work/WISER.AppDir; \
+    mkdir -p /work/WISER.AppDir/usr/bin; \
+    \
+    # Copy PyInstaller bundle into AppDir payload dir (WISER_Bin + _internal)
+    cp -a /work/WISER/. /work/WISER.AppDir/usr/bin/; \
+    \
+    # Install AppRun + desktop file (and make AppRun executable)
+    install -m 0755 /tmp/appimage/AppRun /work/WISER.AppDir/AppRun; \
+    install -m 0644 /tmp/appimage/WISER.desktop /work/WISER.AppDir/WISER.desktop; \
+    sed -i 's/\r$//' /work/WISER.AppDir/AppRun; \
+    sed -i 's/\r$//' /work/WISER.AppDir/WISER.desktop; \
+    \
+    # Icon (optional): phaseb should have copied this into the artifact as /out/wiser.png
+    if [ -f /work/wiser.png ]; then \
+      install -m 0644 /work/wiser.png /work/WISER.AppDir/wiser.png; \
+    else \
+      echo "WARNING: /work/wiser.png not found; continuing without icon"; \
+    fi; \
+    \
+    # 5) Run appimagetool -> AppImage (with extraction fallback)
+    out_appimage="/work/WISER-${appimage_arch}.AppImage"; \
+    if ARCH="${appimage_arch}" /tmp/appimagetool.AppImage /work/WISER.AppDir "${out_appimage}"; then \
+      echo "appimagetool ran directly."; \
+    else \
+      echo "Direct appimagetool execution failed; falling back to --appimage-extract."; \
+      rm -rf /tmp/squashfs-root; \
+      (cd /tmp && /tmp/appimagetool.AppImage --appimage-extract); \
+      ARCH="${appimage_arch}" /tmp/squashfs-root/AppRun /work/WISER.AppDir "${out_appimage}"; \
+    fi; \
+    test -f "${out_appimage}"; \
+    \
+    # 6) Release bundle: AppImage + installer + SHA256SUMS + RUN.txt
+    rm -rf /work/release && mkdir -p /work/release; \
+    mv "${out_appimage}" "/work/release/WISER-${appimage_arch}.AppImage"; \
+    install -m 0755 /tmp/appimage/install_wiser_appimage.sh /work/release/install_wiser_appimage.sh; \
+    sed -i 's/\r$//' /work/release/install_wiser_appimage.sh; \
+    (cd /work/release && sha256sum "WISER-${appimage_arch}.AppImage" > SHA256SUMS); \
+    printf '%s\n' \
+      "WISER AppImage (${appimage_arch})" \
+      "" \
+      "Option A: Run portable (no installation)" \
+      "  chmod +x WISER-${appimage_arch}.AppImage" \
+      "  ./WISER-${appimage_arch}.AppImage" \
+      "" \
+      "Option B: Install desktop launcher (per-user, no sudo)" \
+      "  bash install_wiser_appimage.sh WISER-${appimage_arch}.AppImage" \
+      "" \
+      "Uninstall:" \
+      "  - Portable: delete the AppImage file" \
+      "  - Desktop install: delete ~/Applications/WISER.AppImage and ~/.local/share/applications/wiser.desktop" \
+      > /work/release/RUN.txt; \
+    \
+    # 7) Re-tar to the required output path
+    tar -C /work/release -czf /tmp/WISER.tar.gz .; \
+    mv /tmp/WISER.tar.gz /app/WISER.tar.gz; \
+    ls -lah /app/WISER.tar.gz
 
 # Smoke test script
 COPY install-linux/run_smoke.sh /usr/local/bin/run_smoke.sh
