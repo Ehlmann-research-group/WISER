@@ -67,7 +67,11 @@ mkdir -p "${desktop_dir}"
 # Exec must be absolute path; do not leave $HOME unexpanded in the written file.
 exec_path="${dest_appimage}"
 
-echo "Exec_path: ${exec_path}"
+# When we update to PySide6, instead of doing "StartupWMClass=__main__.py;"
+# We can do:
+# from PySide6.QtGui import QGuiApplication
+# QGuiApplication.setApplicationName("WISER")
+# QGuiApplication.setDesktopFileName("wiser.desktop")
 printf '%s\n' \
   "[Desktop Entry]" \
   "Type=Application" \
@@ -77,11 +81,11 @@ printf '%s\n' \
   "Icon=wiser" \
   "Terminal=true" \
   "Categories=Education;Science;" \
+  "StartupWMClass=__main__.py;" \
   > "${desktop_file}"
 
 # --- 4) Install icon (extract from AppImage if possible) ---
-xdg_dir="${XDG_DATA_DIRS}"
-icon_dest_dir="${xdg_dir}/icons/hicolor/256x256/apps"
+icon_dest_dir="${home_dir}/.local/share/icons/hicolor/256x256/apps"
 icon_dest="${icon_dest_dir}/wiser.png"
 mkdir -p "${icon_dest_dir}"
 
