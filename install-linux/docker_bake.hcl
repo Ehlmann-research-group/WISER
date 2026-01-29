@@ -5,7 +5,7 @@ variable "PLATFORMS" {
 # -------------------------------------------------------------------
 # Multi-stage (A+B+C in one Dockerfile)
 #   - Image includes:
-#       /out/WISER.tar.gz   (artifact for docker cp)
+#       /app/WISER.tar.gz   (artifact for docker cp)
 #       ENTRYPOINT runs smoke test (so "docker run" is Phase C)
 # -------------------------------------------------------------------
 

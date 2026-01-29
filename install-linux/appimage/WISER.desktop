@@ -1,4 +1,5 @@
-# Placeholder file, we set this file inside
+# Placeholder file, we set the wiser.desktop file
+# that is actually used on the user's machine with
 # install-linux/appimage/install_wiser_appimage.sh
 [Desktop Entry]
 Type=Application

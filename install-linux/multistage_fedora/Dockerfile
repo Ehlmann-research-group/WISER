@@ -4,7 +4,8 @@
 # Multi-stage Fedora build:
 #   phasea = base OS + deps
 #   phaseb = build WISER + produce /out/WISER.tar.gz
-#   phasec = smoke test using Xvfb + run_smoke.sh
+#   phasec = smoke test using Xvfb + run_smoke.sh + package
+#           app image, install script, and directions 
 #
 # Build examples:
 #   # Build artifact stage (for docker cp):
@@ -230,7 +231,7 @@ CMD ["bash"]
 
 # -----------------------------
 # Phase C (Fedora): smoke test image
-#   - consumes /app/WISER.tar.gz from phaseb
+#   - consumes /out/WISER.tar.gz from phaseb
 #   - builds WISER AppImage (arch-aware) + adds installer + SHA256SUMS + RUN.txt
 #   - repackages to /app/WISER.tar.gz
 #   - then runs run_smoke.sh
@@ -332,7 +333,7 @@ RUN set -euxo pipefail; \
       "  chmod +x WISER-${appimage_arch}.AppImage" \
       "  ./WISER-${appimage_arch}.AppImage" \
       "" \
-      "Option B: Install desktop launcher (per-user, no sudo)" \
+      "Option B: Install desktop launcher (per-user, no sudo, recommended)" \
       "  bash install_wiser_appimage.sh WISER-${appimage_arch}.AppImage" \
       "" \
       "Uninstall:" \

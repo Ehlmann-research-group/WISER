@@ -13,6 +13,8 @@ if [[ ! -x "$BIN" ]]; then
 fi
 
 # --- FIX START: Robust Libgomp Discovery ---
+# Debian arm64 won't run without libgomp on path
+
 # 1. Initialize to empty string to prevent "unbound variable" errors (set -u)
 GOMP_PATH=""
 

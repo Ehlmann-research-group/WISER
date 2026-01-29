@@ -1,11 +1,14 @@
 # syntax=docker/dockerfile:1
 
 # ============================================================
-# Combined Phase A + B + C (multi-stage)
+# Ubuntu/Debian Build: Phase A + B + C (multi-stage)
+#   phasea = base OS + deps
+#   phaseb = build WISER + produce /out/WISER.tar.gz
+#   phasec = smoke test using Xvfb + run_smoke.sh + package
+#           app image, install script, and directions 
 #
 # Build args:
 #   BASE_IMAGE   e.g. ubuntu:20.04  or  debian:11
-#   ENV_NAME     e.g. wiser-prod
 # ============================================================
 
 ARG BASE_IMAGE=ubuntu:20.04
@@ -14,7 +17,7 @@ ARG ENV_NAME=wiser-prod
 # ----------------------------
 # Phase A (base)
 # ----------------------------
-FROM ${BASE_IMAGE} AS base
+FROM ${BASE_IMAGE} AS phasea
 
 ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
@@ -39,7 +42,7 @@ WORKDIR /work
 # ----------------------------
 # Phase B (build + bundle fixups + tarball)
 # ----------------------------
-FROM base AS build
+FROM phasea AS phaseb
 
 ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
@@ -139,15 +142,9 @@ RUN set -euxo pipefail; \
     ls -lah /out/WISER.tar.gz
 
 # ----------------------------
-# Export-only stage (for copying to host via --output type=local)
-# ----------------------------
-FROM scratch AS artifact
-COPY --from=build /out/WISER.tar.gz /WISER.tar.gz
-
-# ----------------------------
 # Phase C (smoke test image that CONSUMES the artifact)
 # ----------------------------
-FROM base AS smoke
+FROM phasea AS phasec
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG TARGETARCH
@@ -157,7 +154,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends xvfb xauth \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=build /out/ /app/
+COPY --from=phaseb /out/ /app/
 
 ENV HOME=/tmp/home
 ENV XDG_CONFIG_HOME=/tmp/xdg-config
@@ -240,7 +237,7 @@ RUN set -euxo pipefail; \
       "  chmod +x WISER-${appimage_arch}.AppImage" \
       "  ./WISER-${appimage_arch}.AppImage" \
       "" \
-      "Option B: Install desktop launcher (per-user, no sudo)" \
+      "Option B: Install desktop launcher (per-user, no sudo, recommended)" \
       "  bash install_wiser_appimage.sh WISER-${appimage_arch}.AppImage" \
       "" \
       "Uninstall:" \

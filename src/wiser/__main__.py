@@ -289,7 +289,9 @@ if __name__ == "__main__":
     try:
         multiprocessing.set_start_method("spawn")
     except RuntimeError:
-        # Context already set (e.g., Windows default 'spawn'); safe to ignore
-        # assert multiprocessing.get_start_method() == "spawn"
+        # Spawn generally does not work on linux and on linux, the above command
+        # is not able to set the start method to spawn. However, we do use a
+        # start context with spawn, so this shouldn't really mater
+        logger.debug(f"Start method not set to spawn. Defaulting to {multiprocessing.get_start_method()}")
         pass
     main()
