@@ -1,28 +1,28 @@
 name: Build and Smoke Test WISER
 
-on:
+on: 
   release:
     types: [created]
   workflow_dispatch:
+
+# Needed for uploading release assets on release runs
+permissions:
+  contents: write
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        # macos-15 should be Apple silicon
-        # macos-13 should be Intel
         os: [windows-latest, macos-15, macos-15-intel]
     runs-on: ${{matrix.os}}
-    
+
     steps:
       - uses: actions/checkout@v4
 
-      # Micromamba from prod lockfile (conda-lock)
       - name: Setup micromamba (prod)
         uses: mamba-org/setup-micromamba@v2
         with:
-          # Using the latest version caused hanging when linking pixbuf library
           micromamba-version: '1.5.10-0'
           environment-file: etc/prod-conda-lock.yml
           environment-name: wiser-prod
@@ -35,7 +35,6 @@ jobs:
           log-level: debug
         timeout-minutes: 10
 
-      # Build (per OS) using your Makefile targets
       - name: Build (Windows)
         if: runner.os == 'Windows'
         shell: bash -leo pipefail {0}
@@ -43,21 +42,43 @@ jobs:
           make build-win
           ls -la dist/WISER || true
         timeout-minutes: 15
-        
+
       - name: Smoke Test (Windows)
         if: runner.os == 'Windows'
         shell: bash -leo pipefail {0}
         run: |
           cd dist/WISER
           ./WISER.exe --test_mode
-        timeout-minutes: 20
+      
+      - name: Package Windows + checksum
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          New-Item -ItemType Directory -Force -Path dist/windows | Out-Null
+
+          $zip = "dist/windows/WISER-${{ runner.os }}-${{ runner.arch }}.zip"
+
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+
+          # Zip the contents of dist/ (not the dist folder itself)
+          Compress-Archive -Path "dist/*" -DestinationPath $zip
+
+          # SHA256
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+          "$hash  $(Split-Path -Leaf $zip)" | Out-File -Encoding ascii "$zip.sha256"
+
+          Get-ChildItem dist/windows | Format-Table -AutoSize
 
       - name: Upload artifact Windows
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: 
+          actions/upload-artifact@v4
         with:
           name: wiser-${{ runner.os }}-${{ runner.arch }}
           path: dist/**
+          if-no-files-found: error
         timeout-minutes: 20
 
       - name: Build (macOS)
@@ -67,14 +88,13 @@ jobs:
           make build-mac
           ls -la dist/WISER || true
         timeout-minutes: 25
-        
+
       - name: Smoke Test (macOS)
         if: runner.os == 'macOS'
         shell: bash -leo pipefail {0}
         run: |
           cd dist/WISER
           ./WISER_Bin --test_mode
-        timeout-minutes: 20
 
       - name: Pack macOS .app (preserve symlinks & modes)
         if: runner.os == 'macOS'
@@ -92,3 +112,89 @@ jobs:
             dist/WISER.app.tgz
             dist/WISER.app.tgz.sha256
         timeout-minutes: 20
+
+  linux_build:
+    name: Linux build (${{ matrix.distro }} / ${{ matrix.target_arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # amd64 builds on ubuntu-latest
+          - distro: ubuntu2004
+            arch: amd
+            target_arch: amd64
+            runner: ubuntu-latest
+          - distro: debian11
+            arch: amd
+            target_arch: amd64
+            runner: ubuntu-latest
+          - distro: fedora39
+            arch: amd
+            target_arch: amd64
+            runner: ubuntu-latest
+
+          # arm64 builds on ubuntu-24.04-arm
+          - distro: ubuntu2004
+            arch: arm
+            target_arch: arm64
+            runner: ubuntu-24.04-arm
+          - distro: debian11
+            arch: arm
+            target_arch: arm64
+            runner: ubuntu-24.04-arm
+          - distro: fedora39
+            arch: arm
+            target_arch: arm64
+            runner: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable containerd image store (required for --load)
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Linux target
+        shell: bash
+        run: |
+          set -euxo pipefail
+          chmod +x build_linux_multistage.sh
+          ./build_linux_multistage.sh "${{ matrix.distro }}" "${{ matrix.arch }}"
+
+      - name: Collect + rename tarball
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/linux
+
+          # Map distro -> your output folder key
+          case "${{ matrix.distro }}" in
+            ubuntu2004) distro_key="ubuntu_2004" ;;
+            debian11)   distro_key="debian_11" ;;
+            fedora39)   distro_key="fedora_39" ;;
+          esac
+
+          src="linux_build_output/${distro_key}_${{ matrix.target_arch }}/WISER.tar.gz"
+          dst="dist/linux/WISER-${distro_key}-${{ matrix.target_arch }}.tar.gz"
+
+          test -f "$src"
+          cp "$src" "$dst"
+          ls -lah dist/linux
+
+      - name: Upload per-build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiser-linux-${{ matrix.distro }}-${{ matrix.target_arch }}
+          path: dist/linux/*.tar.gz
+          if-no-files-found: error
