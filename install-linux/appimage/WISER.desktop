@@ -2,8 +2,8 @@
 # install-linux/appimage/install_wiser_appimage.sh
 [Desktop Entry]
 Type=Application
-Name=Placeholder
-Exec=Placeholder
-Icon=Placeholder
-Categories=Education;
+Name=WISER
+Exec=WISER_Bin
+Icon=wiser
+Categories=Education;Science;
 Terminal=true
