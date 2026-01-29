@@ -69,7 +69,6 @@ temp_a = Analysis(
     hiddenimports=existing_hidden_imports,
     hookspath=[],
     runtime_hooks=[
-        "pyinstaller_hooks/linux_ld_library_path.py",
         "pyinstaller_hooks/set_wiser_env_prod.py",
         "pyinstaller_hooks/pyi_rth_cv2.py",
     ],
@@ -117,7 +116,6 @@ a = Analysis(
     hiddenimports=existing_hidden_imports,
     hookspath=[],
     runtime_hooks=[
-        "pyinstaller_hooks/linux_ld_library_path.py",
         "pyinstaller_hooks/set_wiser_env_prod.py",
         "pyinstaller_hooks/pyi_rth_cv2.py",
     ],
