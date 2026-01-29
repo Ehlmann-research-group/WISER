@@ -5,5 +5,5 @@ Type=Application
 Name=Placeholder
 Exec=Placeholder
 Icon=Placeholder
-Categories=Placeholder;
-Terminal=false
+Categories=Education;
+Terminal=true
