@@ -81,7 +81,7 @@ printf '%s\n' \
   "Icon=wiser" \
   "Terminal=true" \
   "Categories=Education;Science;" \
-  "StartupWMClass=__main__.py;" \
+  "StartupWMClass=__main__.py" \
   > "${desktop_file}"
 
 # --- 4) Install icon (extract from AppImage if possible) ---
