@@ -34,7 +34,10 @@ set up your conda environments.
 Once you have your conda environments set up, activate the `wiser-prod`
 environment. Then simply run `make build-linux` in the root directory
 of the repository. This should make a linux build that targets your current 
-linux distribution and ISA.
+linux distribution and ISA. It is recommended to instead use the GitHub Action
+to create your linux build as it has code that solves some dynamic library
+dependency issues that you will likely encounter if you just build with
+`make build-linux`.
 
 The build output will be placed in the root directory under `/dist`. Try
 running the output by going to `/dist/WISER` and running the binary by doing
