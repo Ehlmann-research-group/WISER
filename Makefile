@@ -69,6 +69,10 @@ dist-mac : build-mac
 build-win : generated
 	@set WISER_ENV=prod && pyinstaller WISER.spec
 
+build-linux : generated
+	export WISER_ENV=prod
+	pyinstaller WISER-ubuntu.spec
+
 dist-win : build-win
 	$(NSIS) /NOCD /DWISER_VERSION="$(APP_VERSION)" /DSHA1_THUMBPRINT=$(SHA1_THUMBPRINT) install-win\win-install.nsi
 

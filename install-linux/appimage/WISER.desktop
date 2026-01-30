@@ -1,0 +1,10 @@
+# Placeholder file, we set the wiser.desktop file
+# that is actually used on the user's machine with
+# install-linux/appimage/install_wiser_appimage.sh
+[Desktop Entry]
+Type=Application
+Name=WISER
+Exec=WISER_Bin
+Icon=wiser
+Categories=Education;Science;
+Terminal=true

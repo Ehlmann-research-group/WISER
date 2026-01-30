@@ -1,6 +1,6 @@
 # Developing and Building WISER on Windows 10
 
-You will need conda and python installed. You will need to do `pip install conda-lock`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`.
+You will need conda and python installed. You will need to do `pip install conda-lock` and `pip install pyyaml`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`.
 
 ## How to Install Conda
 
