@@ -2,7 +2,7 @@
 
 In order to have reproducible environments across all users and developers, WISER has lockfiles for creating conda environments. Most of this information is detailed in _WISER/doc/sphinx-general-wiser-docs/source/developer-content/environment-setup.md_, but I will go over it quickly here.
 
-You will need conda and python installed. You will need to do `pip install conda-lock`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`. If you are on an ARM mac and you want your dev environment to be for Intel macs, do `make install-dev-env ENV=intel`. And that's it!
+You will need conda and python installed. You will need to do `pip install conda-lock` and `pip install pyyaml`. I suggest you do this inside of a conda-environment. You will also need to have `make` installed. Once you have all of this installed you are ready to go into the /etc folder and run the command `make install-dev-env`. If you are on an ARM mac and you want your dev environment to be for Intel macs, do `make install-dev-env ENV=intel`. And that's it!
 
 ## Important Build Targets
 

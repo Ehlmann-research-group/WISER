@@ -138,8 +138,8 @@ command `gh`. The logic for this step is in the files /src/devtools/sign_mac.py 
 WISER releases should always be made from a release branch. Release 
 notes should accompany releases. Build artifacts 
 should accompany releases. These build artifacts won't be 
-signed. Additionally, official release should be 
-made on the GitHub through the [Releases feature](https://github.com/Ehlmann-research-group/WISER/releases)
+signed due to how artifact creation works. Additionally, official
+releases should be made on the GitHub through the [Releases feature](https://github.com/Ehlmann-research-group/WISER/releases)
 and the release should be tagged.
 
 ## Release Process
@@ -156,6 +156,9 @@ certificate. This is tied to an individual or a legal entity.
     a. If you do code sign your own distribution, please do not 
     present it to others as a official WISER release unless you have 
     been explicitly allowed to do so for a specific release.
+
+    b. Note that WISER currently does not have a code
+    signing mechanism for Linux.
 
 3. If you are making an official release, you will need access to 
 the [WISER website](https://ehlmann.caltech.edu/wiser/index.html) 
