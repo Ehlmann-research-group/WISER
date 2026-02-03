@@ -170,6 +170,7 @@
 <li class="toctree-l2"><a class="reference internal" href="environment-setup.html">Environment setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="devenv-win.html">Developing and Building WISER on Windows 10</a></li>
 <li class="toctree-l2"><a class="reference internal" href="devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-linux.html">Developing and Building WISER on Linux</a></li>
 <li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="branching-strategy.html">Branching Strategy</a></li>
@@ -493,8 +494,8 @@ command <code class="docutils literal notranslate"><span class="pre">gh</span></
 <p>WISER releases should always be made from a release branch. Release
 notes should accompany releases. Build artifacts
 should accompany releases. These build artifacts won’t be
-signed. Additionally, official release should be
-made on the GitHub through the <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/releases">Releases feature</a>
+signed due to how artifact creation works. Additionally, official
+releases should be made on the GitHub through the <a class="reference external" href="https://github.com/Ehlmann-research-group/WISER/releases">Releases feature</a>
 and the release should be tagged.</p>
 </section>
 <section id="release-process">
@@ -510,6 +511,8 @@ certificate. This is tied to an individual or a legal entity.</p>
 <p>a. If you do code sign your own distribution, please do not
 present it to others as a official WISER release unless you have
 been explicitly allowed to do so for a specific release.</p>
+<p>b. Note that WISER currently does not have a code
+signing mechanism for Linux.</p>
 </li>
 <li><p>If you are making an official release, you will need access to
 the <a class="reference external" href="https://ehlmann.caltech.edu/wiser/index.html">WISER website</a>

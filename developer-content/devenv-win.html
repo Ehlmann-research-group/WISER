@@ -170,6 +170,7 @@
 <li class="toctree-l2"><a class="reference internal" href="environment-setup.html">Environment setup</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Developing and Building WISER on Windows 10</a></li>
 <li class="toctree-l2"><a class="reference internal" href="devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-linux.html">Developing and Building WISER on Linux</a></li>
 <li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="CI-CD-Releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="branching-strategy.html">Branching Strategy</a></li>
@@ -363,7 +364,7 @@ document.write(`
                   
   <section id="developing-and-building-wiser-on-windows-10">
 <h1>Developing and Building WISER on Windows 10<a class="headerlink" href="#developing-and-building-wiser-on-windows-10" title="Link to this heading">#</a></h1>
-<p>You will need conda and python installed. You will need to do <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code>. I suggest you do this inside of a conda-environment. You will also need to have <code class="docutils literal notranslate"><span class="pre">make</span></code> installed. Once you have all of this installed you are ready to go into the /etc folder and run the command <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>.</p>
+<p>You will need conda and python installed. You will need to do <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code> and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. I suggest you do this inside of a conda-environment. You will also need to have <code class="docutils literal notranslate"><span class="pre">make</span></code> installed. Once you have all of this installed you are ready to go into the /etc folder and run the command <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>.</p>
 <section id="how-to-install-conda">
 <h2>How to Install Conda<a class="headerlink" href="#how-to-install-conda" title="Link to this heading">#</a></h2>
 <p><a class="reference external" href="https://www.anaconda.com/">Anaconda</a> is a widely used Python package

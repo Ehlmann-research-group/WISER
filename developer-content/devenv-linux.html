@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Developing and Building WISER on MacOS X &#8212; WISER Docs</title>
+    <title>Developing and Building WISER on Linux &#8212; WISER Docs</title>
   
   
   
@@ -41,11 +41,11 @@
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/devenv-mac';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'developer-content/devenv-linux';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Developing and Building WISER on Linux" href="devenv-linux.html" />
-    <link rel="prev" title="Developing and Building WISER on Windows 10" href="devenv-win.html" />
+    <link rel="next" title="Code-signing WISER on the Mac" href="codesign-mac.html" />
+    <link rel="prev" title="Developing and Building WISER on MacOS X" href="devenv-mac.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -169,8 +169,8 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../developer.html">Developing WISER</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="environment-setup.html">Environment setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="devenv-win.html">Developing and Building WISER on Windows 10</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">Developing and Building WISER on MacOS X</a></li>
-<li class="toctree-l2"><a class="reference internal" href="devenv-linux.html">Developing and Building WISER on Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">Developing and Building WISER on Linux</a></li>
 <li class="toctree-l2"><a class="reference internal" href="codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="CI-CD-Releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="branching-strategy.html">Branching Strategy</a></li>
@@ -251,7 +251,7 @@
       
       
       
-      <li><a href="../_sources/developer-content/devenv-mac.md" target="_blank"
+      <li><a href="../_sources/developer-content/devenv-linux.md" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -335,7 +335,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Developing and Building WISER on MacOS X</h1>
+    <h1>Developing and Building WISER on Linux</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -345,7 +345,12 @@ document.write(`
             </div>
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#important-build-targets">Important Build Targets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Developing and Building WISER on Linux</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-install-conda">How to Install Conda</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-build-wiser">How to Build WISER</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-deployment">Continuous Deployment</a></li>
+</ul>
+</li>
 </ul>
             </nav>
         </div>
@@ -357,44 +362,66 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="developing-and-building-wiser-on-macos-x">
-<h1>Developing and Building WISER on MacOS X<a class="headerlink" href="#developing-and-building-wiser-on-macos-x" title="Link to this heading">#</a></h1>
-<p>In order to have reproducible environments across all users and developers, WISER has lockfiles for creating conda environments. Most of this information is detailed in <em>WISER/doc/sphinx-general-wiser-docs/source/developer-content/environment-setup.md</em>, but I will go over it quickly here.</p>
-<p>You will need conda and python installed. You will need to do <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code> and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. I suggest you do this inside of a conda-environment. You will also need to have <code class="docutils literal notranslate"><span class="pre">make</span></code> installed. Once you have all of this installed you are ready to go into the /etc folder and run the command <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>. If you are on an ARM mac and you want your dev environment to be for Intel macs, do <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span> <span class="pre">ENV=intel</span></code>. And that’s it!</p>
-<section id="important-build-targets">
-<h2>Important Build Targets<a class="headerlink" href="#important-build-targets" title="Link to this heading">#</a></h2>
-<p>Before you can run WISER, you must generate various files required by the Qt
-runtime.  These include a <code class="docutils literal notranslate"><span class="pre">resources.py</span></code> file containing all icons used in the
-project, and also a number of <code class="docutils literal notranslate"><span class="pre">*_ui.py</span></code> files which contain UI view code
-generated from the corresponding <code class="docutils literal notranslate"><span class="pre">*.ui</span></code> files created with
-<a class="reference external" href="https://doc.qt.io/qt-5/qtdesigner-manual.html">Qt Designer</a>.  These files are
-generated into the <code class="docutils literal notranslate"><span class="pre">src/gui/generated</span></code> directory of the code-base.</p>
-<p>The WISER project uses <code class="docutils literal notranslate"><span class="pre">make</span></code> to automate various build steps, since it is a
-simple and reliable tool for this kind of work.</p>
-<p>To generate these files, go to the top directory of the WISER project, and run:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Just typing &#39;make&#39; will also run the &#39;generated&#39; target.</span>
-<span class="n">make</span> <span class="n">generated</span>
-</pre></div>
-</div>
-<p>At this point, you should be able to run WISER like this:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">src</span>
-<span class="o">./</span><span class="n">wiser</span> <span class="p">[</span><span class="n">file1</span> <span class="n">file2</span> <span class="o">...</span><span class="p">]</span>
-</pre></div>
-</div>
-<p>To build a distributable <code class="docutils literal notranslate"><span class="pre">.dmg</span></code> file, go back to the top level directory of the
-WISER project, and build this <code class="docutils literal notranslate"><span class="pre">make</span></code> target:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">dist</span><span class="o">-</span><span class="n">mac</span>
-</pre></div>
-</div>
-<p>You can easily test the Mac application like this:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">open</span> <span class="n">dist</span><span class="o">/</span><span class="n">WISER</span><span class="o">.</span><span class="n">app</span>
-</pre></div>
-</div>
-<p>To clean up all generated files and distributable directories, do this from the
-top level directory of the WISER project:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">clean</span>
-</pre></div>
-</div>
+  <section id="developing-and-building-wiser-on-linux">
+<h1>Developing and Building WISER on Linux<a class="headerlink" href="#developing-and-building-wiser-on-linux" title="Link to this heading">#</a></h1>
+<p>You will need conda and python installed. You will need to do <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">conda-lock</span></code> and <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">pyyaml</span></code>. I suggest you do this inside of a conda-environment. You will also need to have <code class="docutils literal notranslate"><span class="pre">make</span></code> installed. Once you have all of this installed you are ready to go into the /etc folder and run the command <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install-dev-env</span></code>.</p>
+<p>Note that you will also need <code class="docutils literal notranslate"><span class="pre">git</span></code> installed. You will likely want <code class="docutils literal notranslate"><span class="pre">build-essential</span></code> installed as well.</p>
+<section id="id1">
+<h2>Developing and Building WISER on Linux<a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
+<p>There are many linux distributions available that target many
+different instruction sets. Currently, we have made WISER builds
+target Ubuntu 20.04, Debian 11, and Fedora 39. WISER builds
+should generally work on future versions of these operating
+systems due to these operating systems striving for backwards
+compatibility. The Instruction Set Architectures (ISAs) that
+WISER builds for are amd64 (aka x86_64) and aarch64 (aka arm64).</p>
+<p>Currently, we have only tested developing WISER on a Ubuntu 22.04.5
+amd64 (x86_64) ISA. The below instructions should work for other linux
+distributions.</p>
+</section>
+<section id="how-to-install-conda">
+<h2>How to Install Conda<a class="headerlink" href="#how-to-install-conda" title="Link to this heading">#</a></h2>
+<p>To build WISER for linux, you must first have the development environments for
+WISER set up on linux. WISER uses conda for package management, so you will need
+conda to do this. Follow the instructions here to install miniconda:
+https://www.anaconda.com/docs/getting-started/miniconda/main.</p>
+<p>Once you have installed conda, follow the directions in <code class="docutils literal notranslate"><span class="pre">Environment</span> <span class="pre">setup</span></code> to
+set up your conda environments.</p>
+</section>
+<section id="how-to-build-wiser">
+<h2>How to Build WISER<a class="headerlink" href="#how-to-build-wiser" title="Link to this heading">#</a></h2>
+<p>Once you have your conda environments set up, activate the <code class="docutils literal notranslate"><span class="pre">wiser-prod</span></code>
+environment. Then simply run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build-linux</span></code> in the root directory
+of the repository. This should make a linux build that targets your current
+linux distribution and ISA. It is recommended to instead use the GitHub Action
+to create your linux build as it has code that solves some dynamic library
+dependency issues that you will likely encounter if you just build with
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build-linux</span></code>.</p>
+<p>The build output will be placed in the root directory under <code class="docutils literal notranslate"><span class="pre">/dist</span></code>. Try
+running the output by going to <code class="docutils literal notranslate"><span class="pre">/dist/WISER</span></code> and running the binary by doing
+<code class="docutils literal notranslate"><span class="pre">./WISER_Bin</span></code>.</p>
+<section id="continuous-deployment">
+<h3>Continuous Deployment<a class="headerlink" href="#continuous-deployment" title="Link to this heading">#</a></h3>
+<p>Currently, the official WISER releases for linux are made in the GitHub action
+for <code class="docutils literal notranslate"><span class="pre">Build</span> <span class="pre">and</span> <span class="pre">Smoke</span> <span class="pre">WISER</span></code>. The way that this works for linux is a bit involved,
+so I will explain here:</p>
+<ol class="arabic simple">
+<li><p>First we create a matrix strategy that lets us run jobs in parallel. These jobs will
+target Ubuntu 20.04 + amd64, Debian 11 + amd64, Fedora 39 + amd64, Ubuntu 20.04 + arm64,
+Debian 11 + arm64, Fedora 39 + arm64.</p></li>
+<li><p>For each of these targets we run the file <code class="docutils literal notranslate"><span class="pre">./build_linux_multistage.sh</span></code> which just takes
+the OS and ISA and runs the corresponding docker bake target that’s in <code class="docutils literal notranslate"><span class="pre">docker_bake.hcl</span></code>.
+The Dockerfile that runs will create an output artifact in <code class="docutils literal notranslate"><span class="pre">/app/WISER.tar.gz</span></code> in the container.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">./build_linux_multistage.sh</span></code> file will then copy the artifact in <code class="docutils literal notranslate"><span class="pre">/app/WISER.tar.gz</span></code>
+to the host machine. It contains the following files:
+a. <code class="docutils literal notranslate"><span class="pre">install_wiser_appimage.sh</span></code>: Used to install the .AppImage on the users machine
+b. <code class="docutils literal notranslate"><span class="pre">RUN.txt</span></code>: Directions for the user on how to run WISER
+c. <code class="docutils literal notranslate"><span class="pre">SHA256SUMS</span></code>: The SHA256 for verifying WISER-x86_64.AppImaage
+d. <code class="docutils literal notranslate"><span class="pre">WISER-x86_64.AppImaage</span></code>: Contains the actual app</p></li>
+<li><p>The GitHub action will then upload <code class="docutils literal notranslate"><span class="pre">/app/WISER.tar.gz</span></code> to GitHub. Unfortunately, the upload
+always zips <code class="docutils literal notranslate"><span class="pre">WISER.tar.gz</span></code> which is a bit redundant as it is already compressed.</p></li>
+</ol>
+</section>
 </section>
 </section>
 
@@ -410,20 +437,20 @@ top level directory of the WISER project:</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="devenv-win.html"
+       href="devenv-mac.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Developing and Building WISER on Windows 10</p>
+        <p class="prev-next-title">Developing and Building WISER on MacOS X</p>
       </div>
     </a>
     <a class="right-next"
-       href="devenv-linux.html"
+       href="codesign-mac.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Developing and Building WISER on Linux</p>
+        <p class="prev-next-title">Code-signing WISER on the Mac</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -443,7 +470,12 @@ top level directory of the WISER project:</p>
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#important-build-targets">Important Build Targets</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Developing and Building WISER on Linux</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-install-conda">How to Install Conda</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-to-build-wiser">How to Build WISER</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#continuous-deployment">Continuous Deployment</a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

@@ -14,6 +14,8 @@ adding to WISER.
 
     developer-content/devenv-mac.md
 
+    developer-content/devenv-linux.md
+
     developer-content/codesign-mac.md
 
     developer-content/CI-CD-Releases.md

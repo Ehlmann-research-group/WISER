@@ -170,6 +170,7 @@
 <li class="toctree-l2"><a class="reference internal" href="developer-content/environment-setup.html">Environment setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-win.html">Developing and Building WISER on Windows 10</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-mac.html">Developing and Building WISER on MacOS X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-content/devenv-linux.html">Developing and Building WISER on Linux</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/codesign-mac.html">Code-signing WISER on the Mac</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/CI-CD-Releases.html">CI/CD and Releases</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-content/branching-strategy.html">Branching Strategy</a></li>
@@ -363,8 +364,10 @@ contributing to WISER. There will be information how environment setup, WISER’
 pipelines, PR best practices, and documentation on the code.</p>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
-<p>WISER currently runs on MacOS 15 (both ARM and Intel) and Windows 10/11. Building
-from source on linux has not been tested, so bugs may occur if you try.</p>
+<p>WISER builds currently target MacOS 15 (both ARM and Intel), Windows 10/11, and Ubuntu 20.04+,
+Debian 11+, and Fedora 39+ for amd64 and aarch64 CPU architectures.</p>
+<p>Building from source on these platforms should work when following the <cite>devenv</cite> guides for that
+platform. If it does not work, please create an issue or discussion post.</p>
 </section>
 </section>
 
