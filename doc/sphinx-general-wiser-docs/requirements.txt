@@ -1,4 +1,5 @@
-sphinx<9
+# The logger in sphinx.ext.autodoc v9.1.0 broke enum_tools.autoenum
+sphinx==8.2.3
 pydata-sphinx-theme
 myst-parser
 sphinx-autodoc-typehints
