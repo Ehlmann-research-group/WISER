@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, Iterable, Literal, Optional, Protocol, Union
+from typing import Callable, Dict, Iterable, List, Literal, Optional, Protocol, Tuple, Union
+
+# TODO (Joshua G-K): Change these later to adapt to the system's constraints
+CPU_BUDGET = 6
+RAM_BUDGET = 4000000000
+THREAD_BUDGET = 32
 
 
 class PriorityClass(Enum):
@@ -10,11 +15,7 @@ class PriorityClass(Enum):
     BACKGROUND = "background"
 
 
-class TaskOutputTypes(Enum):
-    DATASET = "dataset"
-    TEXT = "text"
-    GRAPH = "graph"
-    SPECTRA = "spectra"
+OutputKind = Literal["dataset", "spectra", "graph", "text", "arrays"]
 
 
 class ResidencyPreference(Enum):
@@ -23,12 +24,33 @@ class ResidencyPreference(Enum):
     RAM_REQ = "ram required"
 
 
+Residency = Literal["spill_required", "ram_cacheable", "pin_when_visible"]
+
+
 @dataclass(frozen=True)
 class OutputSpec:
-    """Specifies what output exists and where that output may live"""
+    kind: Literal["dataset", "spectra_list", "text", "graph", "stats"]
+    residency: Residency
+    # dataset fields
+    shape: tuple | None = None
+    dtype: str | None = None
+    # spectra_list fields
+    num_items: int | None = None
 
-    output_type: TaskOutputTypes
-    residency_pref: ResidencyPreference
+
+@dataclass(frozen=True)
+class OutputRef:
+    output_id: str
+    kind: OutputKind
+    storage_kind: Literal["memmap", "zarr", "in_ram"]
+    path: str
+    shape: Tuple[int, ...]
+    dtype: str
+    chunks: Optional[Tuple[int, ...]] = None
+    residency: Residency = "spill_required"
+
+
+# output region types
 
 
 class AlgorithmPattern(Enum):
@@ -57,7 +79,7 @@ class ChunkRef:
 
 
 @dataclass(frozen=True)
-class DatasetChunkRef:
+class DatasetRegionRef:
     y0: int
     y1: int
     x0: int
@@ -67,7 +89,7 @@ class DatasetChunkRef:
 
 
 @dataclass(frozen=True)
-class SpectrumChunkRef:
+class SpectrumRef:
     # single spectrum, no chunking needed most of the time
     pass
 
@@ -95,13 +117,13 @@ class SpatialTileScheme(ChunkingScheme):
     tile_h: int
     tile_w: int
 
-    def iter_chunks(self, meta) -> Iterable[DatasetChunkRef]:
+    def iter_chunks(self, meta) -> Iterable[DatasetRegionRef]:
         H, W, B = meta.height, meta.width, meta.bands
         for y0 in range(0, H, self.tile_h):
             y1 = min(H, y0 + self.tile_h)
             for x0 in range(0, W, self.tile_w):
                 x1 = min(W, x0 + self.tile_w)
-                yield DatasetChunkRef(y0, y1, x0, x1, 0, B)
+                yield DatasetRegionRef(y0, y1, x0, x1, 0, B)
 
 
 @dataclass(frozen=True)
@@ -109,19 +131,19 @@ class SpectralBatchScheme(ChunkingScheme):
     kind: InputKind = "dataset"
     band_step: int = 32
 
-    def iter_chunks(self, meta) -> Iterable[DatasetChunkRef]:
+    def iter_chunks(self, meta) -> Iterable[DatasetRegionRef]:
         H, W, B = meta.height, meta.width, meta.bands
         for b0 in range(0, B, self.band_step):
             b1 = min(B, b0 + self.band_step)
-            yield DatasetChunkRef(0, H, 0, W, b0, b1)
+            yield DatasetRegionRef(0, H, 0, W, b0, b1)
 
 
 @dataclass(frozen=True)
 class SingleSpectrumScheme(ChunkingScheme):
     kind: InputKind = "spectrum"
 
-    def iter_chunks(self, meta=None) -> Iterable[SpectrumChunkRef]:
-        yield SpectrumChunkRef()
+    def iter_chunks(self, meta=None) -> Iterable[SpectrumRef]:
+        yield SpectrumRef()
 
 
 @dataclass(frozen=True)
@@ -186,10 +208,25 @@ class ReduceStage(TaskStage):
 class MapStage(TaskStage):
     resource_model: ResourceModel
     input_spec: StageInputSpec
+    output_spec: OutputSpec
+
+    @abstractmethod
+    def output_region_for(self, input_region: ChunkRef) -> ChunkRef:
+        """Given an input region described by a ChunkRef, return the output region.
+
+        Args:
+            input_region (ChunkRef): The input region that is given
+            to this work unit.
+
+        Returns:
+            ChunkRef: The output region that the data in the input region
+            will map to.
+        """
+        pass
 
     # Estimates
     @abstractmethod
-    def map_fn(self, input_ref, output_ref, kwargs, broadcast_inputs: list[str] = []):
+    def map_fn(self, input_region, output_ref, kwargs, broadcast_inputs: list[str] = []):
         pass
 
 
@@ -197,12 +234,17 @@ class MapStage(TaskStage):
 # goes through the list of spectra, yeilds chunks of them from i0 to i1 based on spectral step
 
 
+@dataclass
 class AlgorithmPipeline:
-    pass
+    stages: List[TaskStage]
 
 
 class TaskPlan:
-    pass
+    """
+    Contains a work unit graph / dependencies.
+        - WOrk units for the same stage are bundled together
+        - Stages that can be run in parallel are
+    """
 
 
 class TaskPlanner:
@@ -212,6 +254,34 @@ class TaskPlanner:
     chunking scheme object for that stage. Creates work unit using stage and chunking scheme.
     (The region that the chunking scheme gives is just metadata for the future).
     """
+
+    def plan_semantic_task(self, semantic_task) -> TaskPlan:
+        """
+        Docstring for plan_algorithm_pipline
+
+        :param self: Description
+        :param algo_pipeline: Description
+        :type algo_pipeline: AlgorithmPipeline
+        """
+
+        """
+        Go through the algorithm pipeline of the semantic task. 
+
+        For each stage:
+            Get the resource model, input_sec, output_spec, and Work Scheduler config.
+
+            WIth the input spec, we will decide what Chunking strat to use. With the 
+            resource model and work scheduler config we will decide the parameters of
+            the chunking strat.
+            
+            We will then get all of the input regions and use the task stage to map
+            them to an output region.
+
+            We will then ask the scheduler for space using the output description.
+            We then reconstruct and return a TaskPlan with all of the work units
+
+        """
+        pass
 
 
 class SemanticTask(ABC):
@@ -236,3 +306,19 @@ class SemanticTask(ABC):
 
     def get_algorithm(self) -> Callable:
         return self._algorithm
+
+
+class SchedulerConfig:
+    """
+    Specifies the computer resources that we can use
+    """
+
+    def __init__(self):
+        self._cpu_budget = CPU_BUDGET
+        self._ram_budget = RAM_BUDGET
+        self._thread_budget = THREAD_BUDGET
+
+
+class WorkScheduler:
+    def __init__(self, config):
+        self._config = config
