@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Protocol, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Protocol, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -20,71 +20,71 @@ class PriorityClass(Enum):
 
 
 OutputKind = Literal["dataset", "spectrum", "spectra_list", "array", "json"]
-StorageKind = Literal["memmap", "zarr", "json", "in_ram"]
+InputKind = Literal["dataset", "spectrum", "spectra_list"]
 
+
+StorageKind = Literal["memmap", "zarr", "json", "in_ram"]
+RefKind = Literal["dataset", "spectra", "spectra_list", "json", "arrays"]
 
 Residency = Literal["spill_required", "ram_cacheable", "pin_when_visible"]
-
-
-@dataclass(frozen=True)
-class OutputDesc:
-    kind: OutputKind
-    residency: Residency
-
-    # For numeric arrays (dataset/spectrum/spectra_list/array)
-    shape: Optional[Tuple[int, ...]] = None
-    dtype: Optional[str] = None  # "float32", "uint16", etc.
-    chunks: Optional[Tuple[int, ...]] = None  # for zarr / chunked storage
-
-    # Optional metadata tags (task_id, stage_id, output_name)
-    tags: Optional[Dict[str, str]] = None
-
-
-# @dataclass(frozen=True)
-# class OutputRef:
-#     output_id: str
-#     kind: OutputKind
-#     storage_kind: StorageKind
-#     path: str
-#     shape: Tuple[int, ...]
-#     dtype: str
-#     chunks: Optional[Tuple[int, ...]] = None
-#     residency: Residency = "spill_required"
-
-
-# output region types
-
-
-class AlgorithmPattern(Enum):
-    MAP = "map"
-    REDUCE = "reduce"
-    FILTER = "filter"
-    SINGLE_SHOT = "single shot"
-
 
 ExecutorType = Literal["thread", "process"]
 
 
-class STAGE_TYPES(Enum):
-    MAP = "map"
-    REDUCE = "reduce"
-
-
-InputKind = Literal["dataset", "spectrum", "spectra_list"]
-
-
-RefKind = Literal["dataset", "spectra", "spectra_list", "json", "arrays"]
-
-
 @dataclass(frozen=True)
 class DataRef:
+    """
+    For actually retrieving the data in disk
+    """
+
     kind: RefKind
     ref_id: str  # stable id in storage registry
     storage_kind: StorageKind
     uri: str  # path or locator
     shape: Optional[Tuple[int, ...]] = None
     dtype: Optional[str] = None
+    chunks: Optional[Tuple[int, ...]] = None
     residency: Residency = "spill_required"
+
+
+@dataclass(frozen=True)
+class AllocationRequest:
+    """
+    To reserve the right amount of space on the disk, different
+    from DataRef which is the actual handle to access the data.
+
+    The name for AllocationRequest is used to get the underlying data ref.
+    """
+
+    name: str  # Unique name to the SemanticTask th
+    kind: OutputKind
+    residency: Residency
+
+    # For numeric arrays (dataset/spectrum/spectra_list/array)
+    shape: Optional[Tuple[int, ...]] = None
+    dtype: Optional[np.dtype] = None
+    chunks: Optional[Tuple[int, ...]] = None  # for zarr / chunked storage
+
+    # Optional metadata tags (task_id, stage_id, output_name)
+    tags: Optional[Dict[str, str]] = None
+
+
+@dataclass(frozen=True)
+class DataBinding:
+    """
+    Declares that a stage produces a semantic output.
+
+    Does NOT allocate storage.
+    Does NOT know shape/dtype.
+    """
+
+    name: str
+    kind: OutputKind = "dataset"
+    residency: Residency = "spill_required"
+
+
+# output region type
+# Input and output regions
 
 
 @dataclass(frozen=True)
@@ -114,10 +114,7 @@ class SpectraBatchRef(ChunkRef):
     i1: int  # index range into list-of-spectra
 
 
-# The chunking scheme is what iterates over the data and gives stuff back.
-# the chunking ref is what it give sback
-
-
+# Returns input and output regions (aka ChunkRefs)
 @dataclass
 class ChunkingScheme(Protocol):
     kind: InputKind = "dataset"
@@ -127,7 +124,7 @@ class ChunkingScheme(Protocol):
 
 
 @dataclass
-class SpatialTileScheme(ChunkingScheme):
+class SpatialTileScheme:
     tile_h: int
     tile_w: int
 
@@ -141,7 +138,7 @@ class SpatialTileScheme(ChunkingScheme):
 
 
 @dataclass(frozen=True)
-class SpectralBatchScheme(ChunkingScheme):
+class SpectralBatchScheme:
     kind: InputKind = "dataset"
     band_step: int = 32
 
@@ -153,7 +150,7 @@ class SpectralBatchScheme(ChunkingScheme):
 
 
 @dataclass(frozen=True)
-class SingleSpectrumScheme(ChunkingScheme):
+class SingleSpectrumScheme:
     kind: InputKind = "spectrum"
 
     def iter_chunks(self, meta=None) -> Iterable[SpectrumRef]:
@@ -161,7 +158,7 @@ class SingleSpectrumScheme(ChunkingScheme):
 
 
 @dataclass(frozen=True)
-class SpectraBatchScheme(ChunkingScheme):
+class SpectraBatchScheme:
     kind: InputKind = "spectra_list"
     batch_size: int = 256
 
@@ -171,24 +168,31 @@ class SpectraBatchScheme(ChunkingScheme):
             yield SpectraBatchRef(i0=i0, i1=min(n, i0 + self.batch_size))
 
 
-@dataclass(frozen=True)
-class DatasetAccessSpec:
-    kind: Literal["dataset"] = "dataset"
-    access: Literal["spatial_tiles", "spectral_batches"] = "spatial_tiles"
+# @dataclass(frozen=True)
+# class DatasetAccessSpec:
+#     kind: Literal["dataset"] = "dataset"
+#     access: Literal["spatial_tiles", "spectral_batches"] = "spatial_tiles"
 
 
-@dataclass(frozen=True)
-class SpectrumAccessSpec:
-    kind: Literal["spectrum"] = "spectrum"
+# @dataclass(frozen=True)
+# class SpectrumAccessSpec:
+#     kind: Literal["spectrum"] = "spectrum"
 
 
-@dataclass(frozen=True)
-class SpectraListAccessSpec:
-    kind: Literal["spectra_list"] = "spectra_list"
-    access: Literal["batches"] = "batches"
+# @dataclass(frozen=True)
+# class SpectraListAccessSpec:
+#     kind: Literal["spectra_list"] = "spectra_list"
+#     access: Literal["batches"] = "batches"
 
 
-StageInputSpec = Union[DatasetAccessSpec, SpectrumAccessSpec, SpectraListAccessSpec]
+# class AlgorithmPattern(Enum):
+#     MAP = "map"
+#     REDUCE = "reduce"
+#     FILTER = "filter"
+#     SINGLE_SHOT = "single shot"
+
+
+# StageInputSpec = Union[DatasetAccessSpec, SpectrumAccessSpec, SpectraListAccessSpec]
 
 
 @dataclass(frozen=True)
@@ -199,39 +203,11 @@ class ResourceModel:
     scratch_bytes_per_pixel: int
 
 
-# class InputRef(Protocol):
-#     kind: InputKind
-
-
-# @dataclass(frozen=True)
-# class DatasetInputRef:
-#     kind: InputKind = "dataset"
-#     uri: str = ""
-#     subdataset: Optional[str] = None
-
-
-# @dataclass(frozen=True)
-# class SpectrumInputRef:
-#     kind: InputKind = "spectrum"
-#     uri: Optional[str] = None
-#     # If spectra are small, either use an id, or the actual array
-#     spectrum_arr: Optional[Spectrum]
-
-
-# @dataclass(frozen=True)
-# class SpectraListInputRef:
-#     kind: InputKind = "spectra_list"
-#     uri: Optional[str] = None
-#     list_id: Optional[str] = None  # app-level identifier
-
-
 class TaskStage(ABC):
     def __init__(
         self,
-        algo_pattern: AlgorithmPattern,
         default_executor: ExecutorType,
     ):
-        self._algo_pattern = algo_pattern
         self._executor = default_executor
 
 
@@ -247,10 +223,12 @@ class ReduceStage(TaskStage):
 @dataclass
 class MapStage(TaskStage):
     resource_model: ResourceModel
-    input_spec: StageInputSpec
-    output_spec: OutputDesc
-    input_ref: DataRef = None
-    output_ref: DataRef = None
+    chunking_scheme_type: type[ChunkingScheme]
+    # Where this stage reads from. It is a key in the task plan's table
+    # __task_input__ is the first input to the semantic task
+    input_binding: DataBinding = field(default_factory=lambda: DataBinding("__task_input__"))
+
+    output_binding: Sequence[DataBinding] = field(default_factory=tuple)
 
     @abstractmethod
     def output_region_for(self, input_region: ChunkRef) -> ChunkRef:
@@ -263,6 +241,28 @@ class MapStage(TaskStage):
         Returns:
             ChunkRef: The output region that the data in the input region
             will map to.
+        """
+        pass
+
+    def make_allocation_requests(
+        self,
+        *,
+        input_meta: "BasePlanMeta",
+        params: dict,
+        chosen_scheme: ChunkingScheme | None,
+    ) -> list[AllocationRequest]:
+        """
+        Docstring for make_allocation_requests
+
+        :param self: Description
+        :param input_meta: Description
+        :type input_meta: "BasePlanMeta"
+        :param params: Description
+        :type params: dict
+        :param chosen_scheme: Description
+        :type chosen_scheme: ChunkingScheme | None
+        :return: Description
+        :rtype: list[AllocationRequest]
         """
         pass
 
@@ -292,13 +292,12 @@ class BasePlanMeta:
 class DatasetPlanMeta(BasePlanMeta):
     """
     Minimal metadata needed to plan chunking and estimate memory for dataset operations.
-    Designed to be lightweight: do NOT put wavelengths/CRS/etc here.
     """
 
     kind: InputKind = "dataset"
     shape: Tuple[int, int, int] = (0, 0, 0)  # [y][x][b]
 
-    # Optional performance hints (nice-to-have)
+    # Optional performance hints
     gdal_block_shape: Optional[Tuple[int, int]] = None  # (block_h, block_w) if known
 
     @property
@@ -344,13 +343,24 @@ class AlgorithmPipeline:
     stages: List[TaskStage]
 
 
+@dataclass
+class WriteSpec:
+    """One write performed by this unit."""
+
+    name: str  # task stage's output binding (e.g. "pca_image")
+    ref: "DataRef"  # where to write
+    region: Optional["ChunkRef"] = None  # None for text/small outputs
+
+
 class WorkUnit:
     unit_id: str
     stage_id: str
     executor_kind: ExecutorType
+    input_ref: DataRef
     input_region: ChunkRef
+    writes: Tuple[WriteSpec, ...]
     fn: Callable[..., Any]
-    kwargs: Dict[str, Any]
+    params: Dict[str, Any]
     # We don't subdivide the ram into i/o, processing, output because the scheduler
     # itself doesn't have divisions
     ram_peak_est_bytes: int
@@ -388,11 +398,11 @@ class ChunkingPolicy(Protocol):
 class SimpleChunkingPolicy:
     def choose(
         self,
-        input_kind,
+        input_kind: InputKind,
         meta: PlanMeta,
         sched_conf: "SchedulerConfig",
         resource_model: ResourceModel,
-        scheme_type: type,
+        scheme_type: type[ChunkingScheme],
         constraints: Dict[str, Any],
     ) -> ChunkingScheme:
         """
@@ -416,6 +426,17 @@ class SimpleChunkingPolicy:
         pass
 
 
+@dataclass(frozen=True)
+class StorageConfig:
+    """
+    This is for storage. So the ram byte limit for the scheduler
+    is for computation and the ram byte limit here is for storage
+    """
+
+    disk_byte_limit: int
+    ram_byte_limit: int
+
+
 class StorageLayer:
     """
     The main purpose of this is to allocate data and return a reference to it.
@@ -426,7 +447,7 @@ class StorageLayer:
 
     def allocate_data(
         self,
-        desc: OutputDesc,
+        desc: AllocationRequest,
         *,
         preferred_storage: Optional[StorageKind] = None,
         ttl_seconds: Optional[int] = None,  # optional: cache eviction hint
@@ -459,7 +480,14 @@ class TaskPlanner:
     Stage in the pipeline and sees the chunking policy reference it wants. Creates a
     chunking scheme object for that stage. Creates work unit using stage and chunking scheme.
     (The region that the chunking scheme gives is just metadata for the future).
+
+    This class will have to be able to fail in submitting a task and if it does fail
+    to tell the TaskManager (which is what communicates with the UI)
     """
+
+    def __init__(self, planning_ctx: PlanningContext):
+        self._ctx = planning_ctx
+        self._queued_tasks: List[SemanticTask]
 
     def plan_semantic_task(self, semantic_task) -> TaskPlan:
         """
@@ -496,18 +524,18 @@ class SemanticTask(ABC):
         priority_class: PriorityClass,
         algorithm_pipeline: AlgorithmPipeline,
         algo_kwargs: Dict,
-        output_spec: OutputDesc,
+        output_spec: AllocationRequest,
     ):
         # The id should be set by whatever uses this task before
         # the task is used
         self.id: Optional[int] = None
         self._priorit_class: PriorityClass = priority_class
-        self._output_spec: OutputDesc = output_spec
+        self._output_spec: AllocationRequest = output_spec
 
         self._algorithm: AlgorithmPipeline = algorithm_pipeline
         self._algo_kwargs: Dict = algo_kwargs
 
-    def get_output_spec(self) -> OutputDesc:
+    def get_output_alloc_request(self) -> AllocationRequest:
         return self._output_spec
 
     def get_algorithm(self) -> Callable:
