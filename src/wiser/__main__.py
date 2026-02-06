@@ -9,6 +9,9 @@ import sys
 
 import multiprocessing
 
+os.environ["NUMBA_DEBUG_CACHE"] = "1"
+os.environ["NUMBA_DEBUG"] = "1"
+
 # ============================================================================
 # Load gdal plugins into path and set gdal environment variables
 #
