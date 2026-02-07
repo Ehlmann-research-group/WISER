@@ -9,8 +9,8 @@ import sys
 
 import multiprocessing
 
-os.environ["NUMBA_DEBUG_CACHE"] = "1"
-os.environ["NUMBA_DEBUG"] = "1"
+# os.environ["NUMBA_DEBUG_CACHE"] = "1"
+# os.environ["NUMBA_DEBUG"] = "1"
 
 if getattr(sys, "frozen", False):
     # We are in a PyInstaller bundle
@@ -256,11 +256,12 @@ def main():
         # TODO(donnie):  Pass Qt arguments
         app = QApplication([])
         icon_path = os.path.join(
-            os.path.abspath(os.path.join(os.getcwd(), os.pardir, os.pardir)),
+            os.path.abspath(os.path.join(os.getcwd(), os.pardir)),
             "icons",
             "wiser.iconset",
             "icon_256x256.png",
         )
+        print(f"icon_path: {icon_path}")
         icon = QIcon(icon_path)
         pixmap = icon.pixmap(256, 256)
         splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
