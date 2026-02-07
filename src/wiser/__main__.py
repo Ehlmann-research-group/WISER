@@ -9,9 +9,6 @@ import sys
 
 import multiprocessing
 
-# os.environ["NUMBA_DEBUG_CACHE"] = "1"
-# os.environ["NUMBA_DEBUG"] = "1"
-
 if getattr(sys, "frozen", False):
     # We are in a PyInstaller bundle
     exe_dir = os.path.dirname(sys.executable)
