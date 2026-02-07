@@ -122,9 +122,7 @@ from PySide2.QtWidgets import *
 
 import matplotlib
 
-# Use absolute imports in __main__.py so that we can pass the file to
-# pyinstaller.
-from wiser.gui.app import DataVisualizerApp
+# Use absolute paths
 from wiser.gui import bug_reporting
 
 
@@ -257,16 +255,38 @@ def main():
     else:
         # TODO(donnie):  Pass Qt arguments
         app = QApplication([])
+        icon_path = os.path.join(
+            os.path.abspath(os.path.join(os.getcwd(), os.pardir, os.pardir)),
+            "icons",
+            "wiser.iconset",
+            "icon_256x256.png",
+        )
+        icon = QIcon(icon_path)
+        pixmap = icon.pixmap(256, 256)
+        splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
+        splash.show()
+        splash.showMessage("WISER is loading, this may take a while…", Qt.AlignCenter, QColor("black"))
+        app.processEvents()
+
+        def load_app() -> QMainWindow:
+            # Use absolute imports in __main__.py so that we can pass the file to
+            # pyinstaller. Also this has heavy imports
+            # heavy imports
+            from wiser.gui.app import DataVisualizerApp
+
+            wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
+            # Set the initial window size to be 70% of the screen size.
+            screen_size = app.screens()[0].size()
+            wiser_ui.resize(screen_size * 0.7)
+            splash.finish(wiser_ui)
+            wiser_ui.show()
+
+            return wiser_ui
+
+        QTimer.singleShot(0, load_app)
 
         # ========================================================================
         # WISER Application Initialization
-
-        wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
-
-        # Set the initial window size to be 70% of the screen size.
-        screen_size = app.screens()[0].size()
-        wiser_ui.resize(screen_size * 0.7)
-        wiser_ui.show()
 
         # If the WISER config file was created for the first time, ask the user if
         # they would like to opt in to online bug reporting.
