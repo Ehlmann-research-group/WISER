@@ -261,12 +261,15 @@ def main():
             "wiser.iconset",
             "icon_256x256.png",
         )
-        print(f"icon_path: {icon_path}")
         icon = QIcon(icon_path)
         pixmap = icon.pixmap(256, 256)
         splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
         splash.show()
-        splash.showMessage("WISER is loading, this may take a while…", Qt.AlignCenter, QColor("black"))
+        splash.showMessage(
+            "WISER may take longer to load the\nfirst time after a fresh intsall.",
+            Qt.AlignHCenter | Qt.AlignBottom,
+            QColor("black"),
+        )
         app.processEvents()
 
         def load_app() -> QMainWindow:
