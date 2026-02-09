@@ -67,6 +67,7 @@ InstallDir "$LOCALAPPDATA\WISER"
 
 
  Function .onInit
+  SetShellVarContext current
 !ifdef INNER
 
   ; If INNER is defined, then we aren't supposed to do anything except write out
