@@ -15,7 +15,7 @@ The ID that WISER is currently (10/7/2025) developed on is Visual Studio Code. A
 ## Installer - NSIS
 
 The [Nullsoft Scriptable Install System (NSIS)](https://nsis.sourceforge.io/Main_Page)
-is used to build the WISER installer.
+is used to build the WISER installer. The installer installs on the user level.
 
 ## Code-Signing
 
