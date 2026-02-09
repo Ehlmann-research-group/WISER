@@ -29,7 +29,6 @@ ManifestDPIAware True
 
 ; --- Per-user defaults (no admin) ---
 RequestExecutionLevel user
-SetShellVarContext current
 
 InstallDir "$LOCALAPPDATA\WISER"
 
@@ -112,22 +111,17 @@ Section "Install"
   ; Check to see if the application already exists
   ; If so, we run the uninstaller
 
+  ; Try per-user first
   ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "UninstallString"
+  StrCmp $0 "" 0 do_uninstall
+
+  ; If not found, try per-machine (may require admin)
+  ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
+  StrCmp $0 "" +2
+  ; If this runs, it may prompt for admin depending on how that uninstall was registered
+  do_uninstall:
   StrCmp $0 "" +1
-
   ExecWait '"$0"'
-
-  ; ; Try per-user first
-  ; ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "UninstallString"
-  ; StrCmp $0 "" 0 do_uninstall
-
-  ; ; If not found, try per-machine (may require admin)
-  ; ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
-  ; StrCmp $0 "" +2
-  ; ; If this runs, it may prompt for admin depending on how that uninstall was registered
-  ; do_uninstall:
-  ; StrCmp $0 "" +2
-  ; ExecWait '"$0"'
 
   ; Clear INSTDIR
   RMDIR /r "$INSTDIR"
