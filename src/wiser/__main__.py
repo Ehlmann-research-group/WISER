@@ -41,7 +41,7 @@ if getattr(sys, "frozen", False):
 else:
     # Running as a script
     exe_dir = os.path.dirname(os.path.abspath(__file__))
-numba_cache_dir = os.path.join(exe_dir, "numba_wiser_cache")
+numba_cache_dir = os.path.join(exe_dir, "Cache", "numba_jit")
 os.makedirs(numba_cache_dir, exist_ok=True)
 
 os.environ["NUMBA_CACHE_DIR"] = numba_cache_dir
