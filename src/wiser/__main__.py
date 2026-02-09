@@ -9,17 +9,6 @@ import sys
 
 import multiprocessing
 
-if getattr(sys, "frozen", False):
-    # We are in a PyInstaller bundle
-    exe_dir = os.path.dirname(sys.executable)
-else:
-    # Running as a script
-    exe_dir = os.path.dirname(os.path.abspath(__file__))
-numba_cache_dir = os.path.join(exe_dir, "numba_wiser_cache")
-os.makedirs(numba_cache_dir, exist_ok=True)
-
-os.environ["NUMBA_CACHE_DIR"] = numba_cache_dir
-
 # ============================================================================
 # Load gdal plugins into path and set gdal environment variables
 #
@@ -45,6 +34,17 @@ from wiser.gui.app_config import (
     check_create_wiser_config_dir,
     ApplicationConfig,
 )
+
+if getattr(sys, "frozen", False):
+    # We are in a PyInstaller bundle
+    exe_dir = get_wiser_config_dir()
+else:
+    # Running as a script
+    exe_dir = os.path.dirname(os.path.abspath(__file__))
+numba_cache_dir = os.path.join(exe_dir, "numba_wiser_cache")
+os.makedirs(numba_cache_dir, exist_ok=True)
+
+os.environ["NUMBA_CACHE_DIR"] = numba_cache_dir
 
 # Try to create the WISER config directory if it doesn't exist.  If an error
 # occurs, make sure to give the user a chance to find out.
