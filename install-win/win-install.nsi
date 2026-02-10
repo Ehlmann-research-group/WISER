@@ -27,8 +27,10 @@ ManifestDPIAware True
   !error "ERROR:  SHA1_THUMBPRINT must be defined on NSIS command-line with /D option"
 !endif
 
-; TODO(donnie):  Currently we build a 64-bit Python frozen app.
-InstallDir "$PROGRAMFILES64\WISER"
+; --- Per-user defaults (no admin) ---
+RequestExecutionLevel user
+
+InstallDir "$LOCALAPPDATA\WISER"
 
 !define REGKEY_UNINSTALL "Software\Microsoft\Windows\CurrentVersion\Uninstall\WISER"
 
@@ -64,6 +66,7 @@ InstallDir "$PROGRAMFILES64\WISER"
 
 
  Function .onInit
+  SetShellVarContext current
 !ifdef INNER
 
   ; If INNER is defined, then we aren't supposed to do anything except write out
@@ -108,13 +111,10 @@ Section "Install"
   ; Check to see if the application already exists
   ; If so, we run the uninstaller
 
-  ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
-  StrCmp $0 "" +2
-
+  ; Try per-user uninstall
+  ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "UninstallString"
+  StrCmp $0 "" +1
   ExecWait '"$0"'
-  
-  ; Force overwriting
-  SetOverwrite on
 
   ; Clear INSTDIR
   RMDIR /r "$INSTDIR"
@@ -137,19 +137,19 @@ Section "Install"
 
   ; Write registry keys to uninstall app through Windows system console
 
-  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayName" "WISER"
-  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "Publisher" "California Institute of Technology"
-  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "RegCompany" "California Institute of Technology"
-  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayVersion" "${WISER_VERSION}"
-  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "DisplayIcon" "$\"$INSTDIR\wiser.ico$\""
+  WriteRegStr HKCU "${REGKEY_UNINSTALL}" "DisplayName" "WISER"
+  WriteRegStr HKCU "${REGKEY_UNINSTALL}" "Publisher" "California Institute of Technology"
+  WriteRegStr HKCU "${REGKEY_UNINSTALL}" "RegCompany" "California Institute of Technology"
+  WriteRegStr HKCU "${REGKEY_UNINSTALL}" "DisplayVersion" "${WISER_VERSION}"
+  WriteRegStr HKCU "${REGKEY_UNINSTALL}" "DisplayIcon" "$\"$INSTDIR\wiser.ico$\""
 
-  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\""
+  WriteRegStr HKCU "${REGKEY_UNINSTALL}" "UninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\""
 
-  WriteRegStr HKLM "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\" /S"
+  WriteRegStr HKCU "${REGKEY_UNINSTALL}" "QuietUninstallString" "$\"$INSTDIR\Uninstall WISER.exe$\" /S"
 
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
-  WriteRegDWORD HKLM "${REGKEY_UNINSTALL}" "EstimatedSize" "$0"
+  WriteRegDWORD HKCU "${REGKEY_UNINSTALL}" "EstimatedSize" "$0"
 
 SectionEnd
 
@@ -172,7 +172,7 @@ Section "Uninstall"
 
   ; Clean up registry keys
 
-  DeleteRegKey HKLM "${REGKEY_UNINSTALL}"
+  DeleteRegKey HKCU "${REGKEY_UNINSTALL}"
 
 SectionEnd
 !endif
