@@ -113,13 +113,6 @@ Section "Install"
 
   ; Try per-user first
   ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "UninstallString"
-  StrCmp $0 "" 0 do_uninstall
-
-  ; If not found, try per-machine (may require admin)
-  ReadRegStr $0 HKLM "${REGKEY_UNINSTALL}" "UninstallString"
-  StrCmp $0 "" +2
-  ; If this runs, it may prompt for admin depending on how that uninstall was registered
-  do_uninstall:
   StrCmp $0 "" +1
   ExecWait '"$0"'
 
