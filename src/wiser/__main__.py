@@ -32,6 +32,7 @@ faulthandler.enable()
 from wiser.gui.app_config import (
     get_wiser_config_dir,
     check_create_wiser_config_dir,
+    resource_path,
     ApplicationConfig,
 )
 
@@ -252,12 +253,7 @@ def main():
     else:
         # TODO(donnie):  Pass Qt arguments
         app = QApplication([])
-        icon_path = os.path.join(
-            os.path.abspath(os.path.join(os.getcwd(), os.pardir)),
-            "icons",
-            "wiser.iconset",
-            "icon_256x256.png",
-        )
+        icon_path = resource_path("icons", "wiser.iconset", "icon_256x256.png")
         icon = QIcon(icon_path)
         pixmap = icon.pixmap(256, 256)
         flags = Qt.WindowDoesNotAcceptFocus | Qt.FramelessWindowHint

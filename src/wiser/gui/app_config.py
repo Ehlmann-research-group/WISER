@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
 import enum
 import json
 import os
@@ -50,6 +54,23 @@ class LegendPlacement(enum.Enum):
     OUTSIDE_LOWER_CENTER = 30
 
     BEST_LOCATION = 50
+
+
+def resource_path(*parts: str) -> str:
+    """
+    Return an absolute path to a bundled resource.
+
+    Works for:
+    - dev: `python -m wiser` (relative to repository root, or module location)
+    - PyInstaller: onefile/onedir via sys._MEIPASS
+    """
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)
+    else:
+        # Point this at your repo root in dev.
+        # Since __main__.py lives at src/wiser/__main__.py, go up to src, then repo root.
+        base = Path(__file__).resolve().parents[3]  # adjust if your layout differs
+    return str(base.joinpath(*parts))
 
 
 def get_wiser_config_dir() -> str:
