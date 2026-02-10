@@ -111,7 +111,7 @@ Section "Install"
   ; Check to see if the application already exists
   ; If so, we run the uninstaller
 
-  ; Try per-user first
+  ; Try per-user uninstall
   ReadRegStr $0 HKCU "${REGKEY_UNINSTALL}" "UninstallString"
   StrCmp $0 "" +1
   ExecWait '"$0"'
