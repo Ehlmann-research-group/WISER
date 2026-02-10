@@ -260,7 +260,8 @@ def main():
         )
         icon = QIcon(icon_path)
         pixmap = icon.pixmap(256, 256)
-        splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
+        flags = Qt.WindowDoesNotAcceptFocus | Qt.FramelessWindowHint
+        splash = QSplashScreen(pixmap, flags)
         splash.show()
         splash.showMessage(
             "WISER may take longer to load the\nfirst time after a fresh intsall.",
