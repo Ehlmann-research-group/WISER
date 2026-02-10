@@ -285,6 +285,7 @@ def main():
 
             return wiser_ui
 
+        # Run load_app when event loop starts
         QTimer.singleShot(0, load_app)
 
         # ========================================================================
