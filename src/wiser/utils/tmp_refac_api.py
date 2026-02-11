@@ -5,194 +5,24 @@ from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Proto
 
 import numpy as np
 
+from .primitives import (
+    ExecutorType,
+    ChunkingScheme,
+    DataBinding,
+    DataRegion,
+    AllocationRequest,
+    InputKind,
+    DiskFormat,
+    DataRef,
+    PriorityClass,
+)
+
 from wiser.raster.spectrum import Spectrum
 
 # TODO (Joshua G-K): Change these later to adapt to the system's constraints
 CPU_BUDGET = 6
 RAM_BUDGET = 4000000000
 THREAD_BUDGET = 32
-
-
-class PriorityClass(Enum):
-    INTERACTIVE = "interactive"
-    RENDER = "render"
-    BACKGROUND = "background"
-
-
-OutputKind = Literal["dataset", "spectrum", "spectra_list", "array", "json"]
-InputKind = Literal["dataset", "spectrum", "spectra_list"]
-
-
-StorageKind = Literal["memmap", "zarr", "json", "in_ram"]
-RefKind = Literal["dataset", "spectra", "spectra_list", "json", "arrays"]
-
-Residency = Literal["spill_required", "ram_cacheable", "pin_when_visible"]
-
-ExecutorType = Literal["thread", "process"]
-
-
-@dataclass(frozen=True)
-class DataRef:
-    """
-    For actually retrieving the data in disk
-    """
-
-    kind: RefKind
-    ref_id: str  # stable id in storage registry
-    storage_kind: StorageKind
-    uri: str  # path or locator
-    shape: Optional[Tuple[int, ...]] = None
-    dtype: Optional[str] = None
-    chunks: Optional[Tuple[int, ...]] = None
-    residency: Residency = "spill_required"
-
-
-@dataclass(frozen=True)
-class AllocationRequest:
-    """
-    To reserve the right amount of space on the disk, different
-    from DataRef which is the actual handle to access the data.
-
-    The name for AllocationRequest is used to get the underlying data ref.
-    """
-
-    name: str  # Unique name to the SemanticTask th
-    kind: OutputKind
-    residency: Residency
-
-    # For numeric arrays (dataset/spectrum/spectra_list/array)
-    shape: Optional[Tuple[int, ...]] = None
-    dtype: Optional[np.dtype] = None
-    chunks: Optional[Tuple[int, ...]] = None  # for zarr / chunked storage
-
-    # Optional metadata tags (task_id, stage_id, output_name)
-    tags: Optional[Dict[str, str]] = None
-
-
-@dataclass(frozen=True)
-class DataBinding:
-    """
-    Declares that a stage produces a semantic output.
-
-    Does NOT allocate storage.
-    Does NOT know shape/dtype.
-    """
-
-    name: str
-    kind: OutputKind = "dataset"
-    residency: Residency = "spill_required"
-
-
-# output region type
-# Input and output regions
-
-
-@dataclass(frozen=True)
-class ChunkRef(ABC):
-    pass
-
-
-@dataclass(frozen=True)
-class DatasetRegionRef(ChunkRef):
-    y0: int
-    y1: int
-    x0: int
-    x1: int
-    b0: int = 0
-    b1: Optional[int] = None  # None = all bands
-
-
-@dataclass(frozen=True)
-class SpectrumRef(ChunkRef):
-    # single spectrum, no chunking needed most of the time
-    pass
-
-
-@dataclass(frozen=True)
-class SpectraBatchRef(ChunkRef):
-    i0: int
-    i1: int  # index range into list-of-spectra
-
-
-# Returns input and output regions (aka ChunkRefs)
-@dataclass
-class ChunkingScheme(Protocol):
-    kind: InputKind = "dataset"
-
-    def iter_chunks(self, meta) -> Iterable["ChunkRef"]:
-        ...
-
-
-@dataclass
-class SpatialTileScheme:
-    tile_h: int
-    tile_w: int
-
-    def iter_chunks(self, meta) -> Iterable[DatasetRegionRef]:
-        H, W, B = meta.height, meta.width, meta.bands
-        for y0 in range(0, H, self.tile_h):
-            y1 = min(H, y0 + self.tile_h)
-            for x0 in range(0, W, self.tile_w):
-                x1 = min(W, x0 + self.tile_w)
-                yield DatasetRegionRef(y0, y1, x0, x1, 0, B)
-
-
-@dataclass(frozen=True)
-class SpectralBatchScheme:
-    kind: InputKind = "dataset"
-    band_step: int = 32
-
-    def iter_chunks(self, meta) -> Iterable[DatasetRegionRef]:
-        H, W, B = meta.height, meta.width, meta.bands
-        for b0 in range(0, B, self.band_step):
-            b1 = min(B, b0 + self.band_step)
-            yield DatasetRegionRef(0, H, 0, W, b0, b1)
-
-
-@dataclass(frozen=True)
-class SingleSpectrumScheme:
-    kind: InputKind = "spectrum"
-
-    def iter_chunks(self, meta=None) -> Iterable[SpectrumRef]:
-        yield SpectrumRef()
-
-
-@dataclass(frozen=True)
-class SpectraBatchScheme:
-    kind: InputKind = "spectra_list"
-    batch_size: int = 256
-
-    def iter_chunks(self, meta) -> Iterable[SpectraBatchRef]:
-        n = meta.num_spectra
-        for i0 in range(0, n, self.batch_size):
-            yield SpectraBatchRef(i0=i0, i1=min(n, i0 + self.batch_size))
-
-
-# @dataclass(frozen=True)
-# class DatasetAccessSpec:
-#     kind: Literal["dataset"] = "dataset"
-#     access: Literal["spatial_tiles", "spectral_batches"] = "spatial_tiles"
-
-
-# @dataclass(frozen=True)
-# class SpectrumAccessSpec:
-#     kind: Literal["spectrum"] = "spectrum"
-
-
-# @dataclass(frozen=True)
-# class SpectraListAccessSpec:
-#     kind: Literal["spectra_list"] = "spectra_list"
-#     access: Literal["batches"] = "batches"
-
-
-# class AlgorithmPattern(Enum):
-#     MAP = "map"
-#     REDUCE = "reduce"
-#     FILTER = "filter"
-#     SINGLE_SHOT = "single shot"
-
-
-# StageInputSpec = Union[DatasetAccessSpec, SpectrumAccessSpec, SpectraListAccessSpec]
 
 
 @dataclass(frozen=True)
@@ -231,15 +61,15 @@ class MapStage(TaskStage):
     output_binding: Sequence[DataBinding] = field(default_factory=tuple)
 
     @abstractmethod
-    def output_region_for(self, input_region: ChunkRef) -> ChunkRef:
-        """Given an input region described by a ChunkRef, return the output region.
+    def output_region_for(self, input_region: DataRegion) -> DataRegion:
+        """Given an input region described by a DataRegion, return the output region.
 
         Args:
-            input_region (ChunkRef): The input region that is given
+            input_region (DataRegion): The input region that is given
             to this work unit.
 
         Returns:
-            ChunkRef: The output region that the data in the input region
+            DataRegion: The output region that the data in the input region
             will map to.
         """
         pass
@@ -349,24 +179,27 @@ class WriteSpec:
 
     name: str  # task stage's output binding (e.g. "pca_image")
     ref: "DataRef"  # where to write
-    region: Optional["ChunkRef"] = None  # None for text/small outputs
+    region: Optional["DataRegion"] = None  # None for text/small outputs
 
 
+@dataclass(frozen=True)
 class WorkUnit:
     unit_id: str
     stage_id: str
     executor_kind: ExecutorType
     input_ref: DataRef
-    input_region: ChunkRef
+    input_region: DataRegion
     writes: Tuple[WriteSpec, ...]
     fn: Callable[..., Any]
     params: Dict[str, Any]
+    broadcast: Dict[str, "DataRef"]
     # We don't subdivide the ram into i/o, processing, output because the scheduler
     # itself doesn't have divisions
     ram_peak_est_bytes: int
-    deps: Tuple["WorkUnit", ...] = ()
+    deps: Tuple[str, ...] = ()  # dependency unit_ids (NOT WorkUnit objects)
 
 
+@dataclass
 class TaskPlan:
     """
     Contains a work unit graph / dependencies.
@@ -380,6 +213,7 @@ class TaskPlan:
         default_factory=dict
     )  # Each work unit has a parent and/or a child
     stage_work_units: Dict[str, List[str]] = field(default_factory=dict)  # List of work units per stage
+    bindings: Dict[str, DataRef] = field(default_factory=dict)
 
 
 class ChunkingPolicy(Protocol):
@@ -437,6 +271,7 @@ class StorageConfig:
     ram_byte_limit: int
 
 
+@dataclass
 class StorageLayer:
     """
     The main purpose of this is to allocate data and return a reference to it.
@@ -445,16 +280,19 @@ class StorageLayer:
     :var stage: Description
     """
 
+    data_refs: Dict[str, DataRef] = field(default_factory=dict)  # ref_id and DataRef
+    mem_backed_data: Dict[str, Any] = field(default_factory=dict)  # uri, data (for when uri is in memory)
+
     def allocate_data(
         self,
         desc: AllocationRequest,
         *,
-        preferred_storage: Optional[StorageKind] = None,
+        storage_kind: Optional[DiskFormat] = None,
         ttl_seconds: Optional[int] = None,  # optional: cache eviction hint
     ) -> "DataRef":
         pass
 
-    def write_region(self, data: DataRef, chunk_ref: ChunkRef) -> bool:
+    def write_region(self, data: DataRef, chunk_ref: DataRegion, value: Any) -> bool:
         pass
 
     def write_data(self, ref: DataRef, value: Any) -> None:  # for text/small arrays
@@ -463,7 +301,7 @@ class StorageLayer:
     def read_data(self, ref_id: str) -> DataRef:
         pass
 
-    def read_region(self, ref_id: str, chunk_ref: ChunkRef):
+    def read_region(self, ref_id: str, chunk_ref: DataRegion):
         pass
 
 
