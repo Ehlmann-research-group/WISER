@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from abc import ABC
 from enum import Enum
 from typing import Dict, Literal, Optional, Tuple, Iterable, Protocol
+import tempfile
+from pathlib import Path
 
 import numpy as np
 
@@ -26,6 +28,10 @@ Residency = Literal["spill_required", "ram_cacheable"]
 ExecutorType = Literal["thread", "process"]
 
 MaterializationLocation = Literal["none", "ram", "disk"]
+
+
+def temp_dir() -> Path:
+    return Path(tempfile.gettempdir()) / "wiser"
 
 
 @dataclass(frozen=True)

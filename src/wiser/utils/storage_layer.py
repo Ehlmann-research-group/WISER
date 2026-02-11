@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Literal
-from abc import ABC
+from typing import Any, Dict, Optional
 import json
 import uuid
+import tempfile
 from urllib.parse import urlparse, quote, unquote
 
 import numpy as np
@@ -17,11 +17,11 @@ from .primitives import (
     AllocationRequest,
     DiskFormat,
     DataRegion,
-    OutputKind,
     RefKind,
     SpectraBatchRef,
     SpectrumRef,
     DatasetRegionRef,
+    temp_dir,
 )
 
 
@@ -48,10 +48,11 @@ class StorageLayer:
     """
 
     # Where disk-backed allocations are created
-    root_dir: Path = Path("/tmp/wiser")
+    root_dir: Path = temp_dir()
 
     # Simple RAM budget model (bytes). If None, treat as "infinite" for now.
-    ram_budget_bytes: Optional[int] = None
+    ram_byte_limit: Optional[int] = None
+    disk_byte_limit: Optional[int] = None
 
     # Registries
     data_refs: Dict[str, DataRef] = field(default_factory=dict)  # ref_id -> DataRef
@@ -331,10 +332,10 @@ class StorageLayer:
         return "memmap"
 
     def _can_fit_in_ram(self, desc: AllocationRequest) -> bool:
-        if self.ram_budget_bytes is None:
+        if self.ram_byte_limit is None:
             return True
         needed = self._estimate_request_bytes(desc)
-        return (self._ram_used_bytes + needed) <= self.ram_budget_bytes
+        return (self._ram_used_bytes + needed) <= self.ram_byte_limit
 
     def _estimate_request_bytes(self, desc: AllocationRequest) -> int:
         if desc.kind == "json":

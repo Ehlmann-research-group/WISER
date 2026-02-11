@@ -1,28 +1,26 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Tuple, Union
 
 import numpy as np
 
 from .primitives import (
-    ExecutorType,
+    AllocationRequest,
     ChunkingScheme,
     DataBinding,
-    DataRegion,
-    AllocationRequest,
-    InputKind,
-    DiskFormat,
     DataRef,
+    DataRegion,
+    ExecutorType,
+    InputKind,
     PriorityClass,
 )
+from .storage_layer import StorageLayer
 
-from wiser.raster.spectrum import Spectrum
 
-# TODO (Joshua G-K): Change these later to adapt to the system's constraints
-CPU_BUDGET = 6
-RAM_BUDGET = 4000000000
-THREAD_BUDGET = 32
+class SchedulerConfig(Protocol):
+    """Scheduler configuration interface used for planning-time typing."""
 
 
 @dataclass(frozen=True)
@@ -260,51 +258,6 @@ class SimpleChunkingPolicy:
         pass
 
 
-@dataclass(frozen=True)
-class StorageConfig:
-    """
-    This is for storage. So the ram byte limit for the scheduler
-    is for computation and the ram byte limit here is for storage
-    """
-
-    disk_byte_limit: int
-    ram_byte_limit: int
-
-
-@dataclass
-class StorageLayer:
-    """
-    The main purpose of this is to allocate data and return a reference to it.
-
-    Then to read data and return a reference to it
-    :var stage: Description
-    """
-
-    data_refs: Dict[str, DataRef] = field(default_factory=dict)  # ref_id and DataRef
-    mem_backed_data: Dict[str, Any] = field(default_factory=dict)  # uri, data (for when uri is in memory)
-
-    def allocate_data(
-        self,
-        desc: AllocationRequest,
-        *,
-        storage_kind: Optional[DiskFormat] = None,
-        ttl_seconds: Optional[int] = None,  # optional: cache eviction hint
-    ) -> "DataRef":
-        pass
-
-    def write_region(self, data: DataRef, chunk_ref: DataRegion, value: Any) -> bool:
-        pass
-
-    def write_data(self, ref: DataRef, value: Any) -> None:  # for text/small arrays
-        pass
-
-    def read_data(self, ref_id: str) -> DataRef:
-        pass
-
-    def read_region(self, ref_id: str, chunk_ref: DataRegion):
-        pass
-
-
 @dataclass
 class PlanningContext:
     sched_cfg: "SchedulerConfig"
@@ -378,19 +331,3 @@ class SemanticTask(ABC):
 
     def get_algorithm(self) -> Callable:
         return self._algorithm
-
-
-class SchedulerConfig:
-    """
-    Specifies the computer resources that we can use
-    """
-
-    def __init__(self):
-        self._cpu_budget = CPU_BUDGET
-        self._ram_budget = RAM_BUDGET
-        self._thread_budget = THREAD_BUDGET
-
-
-class WorkScheduler:
-    def __init__(self, config):
-        self._config = config
