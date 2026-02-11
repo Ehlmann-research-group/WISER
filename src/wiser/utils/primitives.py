@@ -45,7 +45,7 @@ class DataRef:
     uri: str  # backend-specific identifier (path, uuid, etc.)
     disk_format: Optional[DiskFormat] = None
     shape: Optional[Tuple[int, ...]] = None
-    dtype: Optional[str] = None
+    dtype: Optional[np.dtype] = None
     chunks: Optional[Tuple[int, ...]] = None
     residency: Residency = "spill_required"
     materialization_loc: MaterializationLocation = "none"
@@ -68,7 +68,7 @@ class DataRef:
 
         # Get bytes per element from dtype
         try:
-            itemsize = np.dtype(self.dtype).itemsize
+            itemsize = self.dtype.itemsize
         except Exception:
             return None
 

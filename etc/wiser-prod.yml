@@ -48,6 +48,7 @@ dependencies:
   - scipy=1.13.1
   - scikit-learn=1.6.1
   - setuptools=75.8.0
+  - zarr=2.18.*
   - pip
   - pip:
     - bugsnag==4.7.1

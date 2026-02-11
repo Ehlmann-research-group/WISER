@@ -1,4 +1,3 @@
-# ==================== imports (keep with StorageLayer) ====================
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -24,7 +23,6 @@ from .primitives import (
 )
 
 
-# ==================== StorageLayer ====================
 @dataclass
 class StorageLayer:
     """
@@ -107,7 +105,7 @@ class StorageLayer:
                 uri=uri,
                 disk_format=None,  # not disk-backed
                 shape=tuple(desc.shape) if desc.shape is not None else None,
-                dtype=str(desc.dtype) if desc.dtype is not None else None,
+                dtype=desc.dtype,
                 chunks=tuple(desc.chunks) if desc.chunks is not None else None,
                 residency=desc.residency,
                 materialization_loc="ram",
@@ -158,7 +156,7 @@ class StorageLayer:
                 uri=uri,
                 disk_format="memmap",
                 shape=tuple(desc.shape),
-                dtype=str(desc.dtype),
+                dtype=desc.dtype,
                 chunks=None,
                 residency=desc.residency,
                 materialization_loc="disk",
@@ -191,7 +189,7 @@ class StorageLayer:
                 uri=uri,
                 disk_format="zarr",
                 shape=tuple(desc.shape),
-                dtype=str(desc.dtype),
+                dtype=desc.dtype,
                 chunks=chunks,
                 residency=desc.residency,
                 materialization_loc="disk",
@@ -346,7 +344,7 @@ class StorageLayer:
         n = 1
         for d in desc.shape:
             n *= int(d)
-        return n * np.dtype(desc.dtype).itemsize
+        return n * desc.dtype.itemsize
 
     # -------------------------------------------------------------------------
     # Allocation helpers
@@ -447,4 +445,7 @@ class StorageLayer:
         parsed = urlparse(uri)
         if parsed.scheme != "zarr":
             raise ValueError(f"Not a zarr URI: {uri}")
-        return Path(unquote(parsed.path)).resolve()
+        raw = parsed.path if parsed.path else parsed.netloc
+
+        p = Path(unquote(raw))
+        return p.resolve()
