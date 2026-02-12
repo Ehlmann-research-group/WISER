@@ -344,7 +344,7 @@ class StorageLayer:
         n = 1
         for d in desc.shape:
             n *= int(d)
-        return n * desc.dtype.itemsize
+        return n * np.dtype(desc.dtype).itemsize
 
     # -------------------------------------------------------------------------
     # Allocation helpers
@@ -435,7 +435,10 @@ class StorageLayer:
         parsed = urlparse(uri)
         if parsed.scheme != "file":
             raise ValueError(f"Not a file URI: {uri}")
-        return Path(unquote(parsed.path)).resolve()
+        raw = parsed.path if parsed.path else parsed.netloc
+
+        p = Path(unquote(raw))
+        return p.resolve()
 
     def _path_to_zarr_uri(self, path: Path) -> str:
         p = path.resolve()

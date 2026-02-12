@@ -85,7 +85,7 @@ class AllocationRequest:
     """
 
     name: str  # Unique name to the SemanticTask th
-    kind: OutputKind
+    kind: RefKind
     residency: Residency
     size_est: int
 
