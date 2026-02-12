@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
 import enum
 import json
 import os
@@ -5,10 +9,6 @@ import platform
 import warnings
 
 from typing import Any, Dict
-
-from PySide2.QtCore import *
-from PySide2.QtGui import *
-from PySide2.QtWidgets import *
 
 from wiser import version
 
@@ -54,6 +54,22 @@ class LegendPlacement(enum.Enum):
     OUTSIDE_LOWER_CENTER = 30
 
     BEST_LOCATION = 50
+
+
+def resource_path(*parts: str) -> str:
+    """
+    Return an absolute path to a bundled resource.
+
+    Works for:
+    - dev: `python -m wiser` (relative to repository root, or module location)
+    - PyInstaller: onefile/onedir via sys._MEIPASS
+    """
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)
+    else:
+        # Going up 3 gets us to the project root
+        base = Path(__file__).resolve().parents[3]
+    return str(base.joinpath(*parts))
 
 
 def get_wiser_config_dir() -> str:

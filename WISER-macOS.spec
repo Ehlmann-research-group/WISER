@@ -24,6 +24,7 @@ existing_datas = [
                  ('./src/test_utils/test_spectra', 'test_utils/test_spectra'),
                  ('./src/example_plugins', 'example_plugins'),
                  ('./src/tests', 'tests'),
+                ("./icons/wiser.iconset/icon_256x256.png", "icons/wiser.iconset")
              ]
 
 existing_hidden_imports = [
