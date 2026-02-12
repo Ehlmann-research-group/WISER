@@ -33,6 +33,7 @@ dependencies:
 - scipy=1.13.1
 - scikit-learn=1.6.1
 - setuptools=75.8.0
+- zarr=2.18.*
 - sphinx=7.4.7
 - sphinx-autodoc2=0.5.*
 - sphinx-toolbox=4.*
