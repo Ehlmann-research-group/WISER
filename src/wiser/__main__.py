@@ -38,11 +38,11 @@ from wiser.gui.app_config import (
 
 if getattr(sys, "frozen", False):
     # We are in a PyInstaller bundle
-    exe_dir = get_wiser_config_dir()
+    app_data_dir = get_wiser_config_dir()
 else:
     # Running as a script
-    exe_dir = os.path.dirname(os.path.abspath(__file__))
-numba_cache_dir = os.path.join(exe_dir, "Cache", "numba_jit")
+    app_data_dir = os.path.dirname(os.path.abspath(__file__))
+numba_cache_dir = os.path.join(app_data_dir, "Cache", "numba_jit")
 os.makedirs(numba_cache_dir, exist_ok=True)
 
 os.environ["NUMBA_CACHE_DIR"] = numba_cache_dir
