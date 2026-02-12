@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 import json
+import logging
 import uuid
 from urllib.parse import urlparse, quote, unquote
 
@@ -21,6 +22,9 @@ from .primitives import (
     DatasetRegionRef,
     temp_dir,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -95,6 +99,14 @@ class StorageLayer:
         if want_ram and self._can_fit_in_ram(desc):
             uri = f"mem://{ref_id}"
             obj = self._allocate_in_ram_object(desc)
+            logger.info(
+                "Allocating RAM object for ref_id=%s uri=%s kind=%s shape=%s dtype=%s",
+                ref_id,
+                uri,
+                kind,
+                desc.shape,
+                desc.dtype,
+            )
             self.mem_backed_data[uri] = obj
             self.mem_backed_est[uri] = desc.size_est
             self._ram_used_bytes += self._estimate_bytes(obj, fallback_est=desc.size_est)
@@ -111,6 +123,13 @@ class StorageLayer:
                 materialization_loc="ram",
             )
             self.data_refs[ref_id] = ref
+            logger.info(
+                "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
+                ref.ref_id,
+                ref.uri,
+                ref.materialization_loc,
+                ref.disk_format,
+            )
             return ref
 
         # Otherwise: allocate to disk
@@ -131,6 +150,13 @@ class StorageLayer:
                 materialization_loc="disk",
             )
             self.data_refs[ref_id] = ref
+            logger.info(
+                "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
+                ref.ref_id,
+                ref.uri,
+                ref.materialization_loc,
+                ref.disk_format,
+            )
             return ref
 
         if disk_kind == "memmap":
@@ -162,6 +188,13 @@ class StorageLayer:
                 materialization_loc="disk",
             )
             self.data_refs[ref_id] = ref
+            logger.info(
+                "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
+                ref.ref_id,
+                ref.uri,
+                ref.materialization_loc,
+                ref.disk_format,
+            )
             return ref
 
         if disk_kind == "zarr":
@@ -195,13 +228,20 @@ class StorageLayer:
                 materialization_loc="disk",
             )
             self.data_refs[ref_id] = ref
+            logger.info(
+                "Created DataRef ref_id=%s uri=%s materialization_loc=%s disk_format=%s",
+                ref.ref_id,
+                ref.uri,
+                ref.materialization_loc,
+                ref.disk_format,
+            )
             return ref
 
         raise ValueError(f"Unknown DiskFormat: {disk_kind}")
 
-    def write_region(self, data: DataRef, chunk_ref: DataRegion, value: Any) -> bool:
+    def write_region(self, data: DataRef, chunk_ref: DataRegion, value: Any) -> None:
         """
-        Write `value` into `data` at region `chunk_ref`.
+        Write `value` into `data` at region `chunk_ref`. Should not be used with json.
 
         Returns True on success, False on error.
         """
@@ -209,7 +249,14 @@ class StorageLayer:
             if data.materialization_loc == "ram":
                 obj = self._get_ram_object(data.uri)
                 self._write_region_into_array(obj, chunk_ref, value)
-                return True
+                logger.info(
+                    "write_region success materialization_loc=%s uri=%s disk_format=%s region=%s",
+                    data.materialization_loc,
+                    data.uri,
+                    data.disk_format,
+                    chunk_ref,
+                )
+                return
 
             if data.materialization_loc == "disk":
                 if data.disk_format == "json":
@@ -220,17 +267,38 @@ class StorageLayer:
                     self._write_region_into_array(arr, chunk_ref, value)
                     if hasattr(arr, "flush"):
                         arr.flush()
-                    return True
+                    logger.info(
+                        "write_region success materialization_loc=%s uri=%s disk_format=%s region=%s",
+                        data.materialization_loc,
+                        data.uri,
+                        data.disk_format,
+                        chunk_ref,
+                    )
+                    return
                 if data.disk_format == "zarr":
                     z = self._open_zarr_array(data.uri, mode="r+")
                     self._write_region_into_array(z, chunk_ref, value)
-                    return True
+                    logger.info(
+                        "write_region success materialization_loc=%s uri=%s disk_format=%s region=%s",
+                        data.materialization_loc,
+                        data.uri,
+                        data.disk_format,
+                        chunk_ref,
+                    )
+                    return
 
             raise ValueError(
                 f"Unsupported materialization/storage: {data.materialization_loc}/{data.disk_format}"
             )
-        except Exception:
-            return False
+        except Exception as e:
+            logger.exception(
+                "write_region failed materialization_loc=%s uri=%s disk_format=%s region=%s",
+                data.materialization_loc,
+                data.uri,
+                data.disk_format,
+                chunk_ref,
+            )
+            raise e
 
     def write_data(self, ref: DataRef, value: Any) -> None:
         """
@@ -241,6 +309,12 @@ class StorageLayer:
         - memmap: open mmap and assign
         - zarr: open and assign
         """
+        logger.info(
+            "write_data uri=%s materialization_loc=%s disk_format=%s",
+            ref.uri,
+            ref.materialization_loc,
+            ref.disk_format,
+        )
         if ref.materialization_loc == "ram":
             existing = self.mem_backed_data.get(ref.uri, None)
             if isinstance(existing, np.ndarray) and isinstance(value, np.ndarray):
@@ -283,7 +357,9 @@ class StorageLayer:
         Return the DataRef handle (metadata + locator).
         """
         try:
-            return self.data_refs[ref_id]
+            ref = self.data_refs[ref_id]
+            logger.info("read_data ref_id=%s uri=%s", ref_id, ref.uri)
+            return ref
         except KeyError as e:
             raise KeyError(f"Unknown ref_id: {ref_id}") from e
 
@@ -293,6 +369,13 @@ class StorageLayer:
         For JSON refs, ignores chunk_ref and returns the whole object.
         """
         ref = self.read_data(ref_id)
+        logger.info(
+            "read_region materialization_loc=%s uri=%s disk_format=%s region=%s",
+            ref.materialization_loc,
+            ref.uri,
+            ref.disk_format,
+            chunk_ref,
+        )
 
         if ref.materialization_loc == "ram":
             obj = self._get_ram_object(ref.uri)
