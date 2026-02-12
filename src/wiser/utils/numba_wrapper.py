@@ -97,6 +97,9 @@ def numba_njit_wrapper(non_njit_func, nopython=True, cache=True, signature=None,
     Args:
         non_njit_func (function): A function that's not written to be optimized by njit
         nopython (bool): Use Numba's `nopython` mode.
+        cache (bool): Cache the code onto disk. When combined with a signature the cache
+            happens at import time
+        signature (numba.types.signature): The type signature for this function
         parallel (bool): Enable parallel computation.
 
     """
