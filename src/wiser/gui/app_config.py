@@ -67,9 +67,8 @@ def resource_path(*parts: str) -> str:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         base = Path(sys._MEIPASS)
     else:
-        # Point this at your repo root in dev.
-        # Since __main__.py lives at src/wiser/__main__.py, go up to src, then repo root.
-        base = Path(__file__).resolve().parents[3]  # adjust if your layout differs
+        # Going up 3 gets us to the project root
+        base = Path(__file__).resolve().parents[3]
     return str(base.joinpath(*parts))
 
 
