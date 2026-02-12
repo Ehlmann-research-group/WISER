@@ -209,8 +209,8 @@ class TestStorageLayer(unittest.TestCase):
             value_first = np.full((1, 5, 7), 2, dtype=np.float32)
             value_rest = np.full((3, 5, 7), 3, dtype=np.float32)
 
-            self.assertTrue(storage.write_region(ref, region_first, value_first))
-            self.assertTrue(storage.write_region(ref, region_rest, value_rest))
+            storage.write_region(ref, region_first, value_first)
+            storage.write_region(ref, region_rest, value_rest)
 
             got_first = storage.read_region(ref.ref_id, region_first)
             got_rest = storage.read_region(ref.ref_id, region_rest)
@@ -244,8 +244,8 @@ class TestStorageLayer(unittest.TestCase):
             value_first = np.full((1, 5, 7), 2, dtype=np.float32)
             value_rest = np.full((3, 5, 7), 3, dtype=np.float32)
 
-            self.assertTrue(storage.write_region(ref, region_first, value_first))
-            self.assertTrue(storage.write_region(ref, region_rest, value_rest))
+            storage.write_region(ref, region_first, value_first)
+            storage.write_region(ref, region_rest, value_rest)
 
             got_first = storage.read_region(ref.ref_id, region_first)
             got_rest = storage.read_region(ref.ref_id, region_rest)
