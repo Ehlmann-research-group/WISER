@@ -111,7 +111,9 @@ FunctionEnd
 !ifndef INNER
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE ValidateInstallDir
 !insertmacro MUI_PAGE_DIRECTORY
-!undef MUI_PAGE_CUSTOMFUNCTION_LEAVE
+  !ifdef MUI_PAGE_CUSTOMFUNCTION_LEAVE
+    !undef MUI_PAGE_CUSTOMFUNCTION_LEAVE
+  !endif
 !endif
 !insertmacro MUI_PAGE_INSTFILES
 
