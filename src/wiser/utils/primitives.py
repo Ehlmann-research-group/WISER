@@ -84,7 +84,9 @@ class AllocationRequest:
     The name for AllocationRequest is used to get the underlying data ref.
     """
 
-    name: str  # Unique name to the SemanticTask th
+    # Unique name to be used as the binding to the DataRef
+    # that is allocated by this AllocationRequest
+    name: str
     kind: RefKind
     residency: Residency
     size_est: int
@@ -113,8 +115,9 @@ class DataBinding:
 
 
 @dataclass(frozen=True)
-class DataRegion(ABC):
-    pass
+class DataRegion:
+    def scalar_count(self) -> int:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
@@ -123,20 +126,38 @@ class DatasetRegionRef(DataRegion):
     y1: int
     x0: int
     x1: int
-    b0: int = 0
-    b1: Optional[int] = None  # None = all bands
+    b0: int
+    b1: int
+
+    def scalar_count(self) -> int:
+        if self.b1 is None:
+            raise ValueError("DatasetRegionRef.scalar_count requires b1 to be set.")
+        if self.y1 < self.y0 or self.x1 < self.x0 or self.b1 < self.b0:
+            raise ValueError("DatasetRegionRef has invalid bounds.")
+        return (self.y1 - self.y0) * (self.x1 - self.x0) * (self.b1 - self.b0)
 
 
 @dataclass(frozen=True)
 class SpectrumRef(DataRegion):
     # single spectrum, no chunking needed most of the time
-    pass
+    length: int
+
+    def scalar_count(self) -> int:
+        if self.length < 0:
+            raise ValueError("SpectrumRef length must be non-negative.")
+        return self.length
 
 
 @dataclass(frozen=True)
 class SpectraBatchRef(DataRegion):
     i0: int
-    i1: int  # index range into list-of-spectra
+    i1: int  # index range into list-of-spectra, inclusive
+    length: int
+
+    def scalar_count(self) -> int:
+        if self.i1 < self.i0 or self.length < 0:
+            raise ValueError("SpectraBatchRef has invalid bounds.")
+        return (self.i1 - self.i0 + 1) * self.length
 
 
 # Returns input and output regions (aka ChunkRefs)
@@ -179,7 +200,7 @@ class SingleSpectrumScheme:
     kind: InputKind = "spectrum"
 
     def iter_chunks(self, meta=None) -> Iterable[SpectrumRef]:
-        yield SpectrumRef()
+        yield SpectrumRef(meta.length)
 
 
 @dataclass(frozen=True)
