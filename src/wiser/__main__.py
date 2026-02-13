@@ -32,17 +32,16 @@ faulthandler.enable()
 from wiser.gui.app_config import (
     get_wiser_config_dir,
     check_create_wiser_config_dir,
-    resource_path,
     ApplicationConfig,
 )
 
 if getattr(sys, "frozen", False):
     # We are in a PyInstaller bundle
-    app_data_dir = get_wiser_config_dir()
+    exe_dir = get_wiser_config_dir()
 else:
     # Running as a script
-    app_data_dir = os.path.dirname(os.path.abspath(__file__))
-numba_cache_dir = os.path.join(app_data_dir, "Cache", "numba_jit")
+    exe_dir = os.path.dirname(os.path.abspath(__file__))
+numba_cache_dir = os.path.join(exe_dir, "numba_wiser_cache")
 os.makedirs(numba_cache_dir, exist_ok=True)
 
 os.environ["NUMBA_CACHE_DIR"] = numba_cache_dir
@@ -120,7 +119,9 @@ from PySide2.QtWidgets import *
 
 import matplotlib
 
-# Use absolute paths
+# Use absolute imports in __main__.py so that we can pass the file to
+# pyinstaller.
+from wiser.gui.app import DataVisualizerApp
 from wiser.gui import bug_reporting
 
 
@@ -253,39 +254,16 @@ def main():
     else:
         # TODO(donnie):  Pass Qt arguments
         app = QApplication([])
-        icon_path = resource_path("icons", "wiser.iconset", "icon_256x256.png")
-        icon = QIcon(icon_path)
-        pixmap = icon.pixmap(256, 256)
-        flags = Qt.WindowDoesNotAcceptFocus | Qt.FramelessWindowHint
-        splash = QSplashScreen(pixmap, flags)
-        splash.show()
-        splash.showMessage(
-            "WISER may take longer to load the\nfirst time after a fresh intsall.",
-            Qt.AlignHCenter | Qt.AlignBottom,
-            QColor("black"),
-        )
-        app.processEvents()
-
-        def load_app() -> QMainWindow:
-            # Use absolute imports in __main__.py so that we can pass the file to
-            # pyinstaller. Also this has heavy imports
-            # heavy imports
-            from wiser.gui.app import DataVisualizerApp
-
-            wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
-            # Set the initial window size to be 70% of the screen size.
-            screen_size = app.screens()[0].size()
-            wiser_ui.resize(screen_size * 0.7)
-            splash.finish(wiser_ui)
-            wiser_ui.show()
-
-            return wiser_ui
-
-        # Run load_app when event loop starts
-        QTimer.singleShot(0, load_app)
 
         # ========================================================================
         # WISER Application Initialization
+
+        wiser_ui = DataVisualizerApp(config_path=config_path, config=config)
+
+        # Set the initial window size to be 70% of the screen size.
+        screen_size = app.screens()[0].size()
+        wiser_ui.resize(screen_size * 0.7)
+        wiser_ui.show()
 
         # If the WISER config file was created for the first time, ask the user if
         # they would like to opt in to online bug reporting.
