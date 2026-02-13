@@ -15,6 +15,10 @@ from .primitives import (
     ExecutorType,
     InputKind,
     PriorityClass,
+    SingleSpectrumScheme,
+    SpatialTileScheme,
+    SpectraBatchScheme,
+    SpectralBatchDatasetScheme,
 )
 from .storage_layer import StorageLayer
 
@@ -45,9 +49,9 @@ class TaskStage:
 
     broadcast_input: Dict[str,] = field(default_factory=dict)
 
-    def plan_meta_for(input_ref: DataRef) -> PlanMeta:
+    def plan_meta_for(input_ref: DataRef) -> BasePlanMeta:
         """
-        Given an input DataRef, output a PlanMeta. A PlanMeta
+        Given an input DataRef, output a BasePlanMeta. A BasePlanMeta
         is just a description dimensions in the image cube, spectrum,
         or spectra in the input_ref
         """
@@ -173,10 +177,6 @@ class SpectraListPlanMeta(BasePlanMeta):
     spectrum_length: int = 0
 
 
-# Union type used by planner + chunk chooser
-PlanMeta = Union[DatasetPlanMeta, SpectrumPlanMeta, SpectraListPlanMeta]
-
-
 @dataclass
 class AlgorithmPipeline:
     stages: List[TaskStage]
@@ -230,8 +230,7 @@ class TaskPlan:
 class ChunkingPolicy(Protocol):
     def choose(
         self,
-        input_kind: InputKind,
-        meta: PlanMeta,
+        meta: BasePlanMeta,
         sched: "SchedulerConfig",
         resource_model: ResourceModel,
         scheme_type: type,
@@ -243,8 +242,7 @@ class ChunkingPolicy(Protocol):
 class SimpleChunkingPolicy:
     def choose(
         self,
-        input_kind: InputKind,
-        meta: PlanMeta,
+        meta: BasePlanMeta,
         sched_conf: "SchedulerConfig",
         resource_model: ResourceModel,
         scheme_type: type[ChunkingScheme],
@@ -268,7 +266,46 @@ class SimpleChunkingPolicy:
         :return: Description
         :rtype: ChunkingScheme
         """
-        pass
+
+        # 1) Validate InputKind matches
+        scheme_kind = getattr(scheme_type, "kind", None)
+        if scheme_kind is None:
+            raise TypeError(f"{scheme_type.__name__} must define a class variable `kind` (InputKind).")
+
+        if scheme_kind != meta.kind:
+            raise ValueError(
+                f"ChunkingScheme InputKind mismatch: scheme_type={scheme_type.__name__} "
+                f"has kind={scheme_kind!r}, but meta.kind={meta.kind!r}."
+            )
+
+        # 2) Instantiate with simple logic for known schemes
+        if scheme_type is SpatialTileScheme:
+            # tile_h/tile_w = 1/3 of height/width
+            tile_h = max(1, int(meta.height // 3))  # type: ignore[attr-defined]
+            tile_w = max(1, int(meta.width // 3))  # type: ignore[attr-defined]
+            return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
+
+        if scheme_type is SpectralBatchDatasetScheme:
+            # band_step = 1/3 of bands
+            band_step = max(1, int(meta.bands // 3))  # type: ignore[attr-defined]
+            return SpectralBatchDatasetScheme(band_step=band_step)
+
+        if scheme_type is SpectraBatchScheme:
+            # batch_size = 1/3 of num_spectra
+            batch_size = max(1, int(meta.num_spectra // 3))  # type: ignore[attr-defined]
+            return SpectraBatchScheme(batch_size=batch_size)
+
+        if scheme_type is SingleSpectrumScheme:
+            return SingleSpectrumScheme()
+
+        # 3) Fallback: instantiate with default constructor
+        try:
+            return scheme_type()  # type: ignore[call-arg]
+        except TypeError as e:
+            raise TypeError(
+                f"Don't know how to instantiate scheme_type={scheme_type.__name__}. "
+                "Either provide a no-arg constructor or add a case in SimpleChunkingPolicy.choose()."
+            ) from e
 
 
 @dataclass
@@ -323,12 +360,11 @@ class TaskPlanner:
             # 2) resolve stage input ref
             input_ref = plan.bindings[stage.input_binding.name]
 
-            # 3) compute minimal meta (your real code uses PlanMeta from DataRef)
+            # 3) compute minimal meta (your real code uses BasePlanMeta from DataRef)
             input_meta = stage.plan_meta_for(input_ref)
 
             # 4) choose chunking scheme
             scheme = self._ctx.chunking_policy.choose(
-                input_kind=input_meta.kind,
                 meta=input_meta,
                 sched=self._ctx.sched_cfg,
                 resource_model=stage.resource_model,
@@ -387,7 +423,7 @@ class TaskPlanner:
         rm: ResourceModel,
         input_region: DataRegion,
         writes: Sequence[WriteSpec],
-        input_meta: PlanMeta,
+        input_meta: BasePlanMeta,
     ) -> int:
         # Very rough: fixed + per-pixel in/out + scratch. Assumes DataRegion can compute pixel count.
         in_scalar_count = input_region.scalar_count()  # you likely already have this

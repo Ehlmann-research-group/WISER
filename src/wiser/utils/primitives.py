@@ -3,7 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from abc import ABC
 from enum import Enum
-from typing import Dict, Literal, Optional, Tuple, Iterable, Protocol
+from typing import (
+    Dict,
+    Literal,
+    Optional,
+    Tuple,
+    Iterable,
+    Protocol,
+    TYPE_CHECKING,
+    ClassVar,
+)
 import tempfile
 from pathlib import Path
 
@@ -28,6 +37,9 @@ Residency = Literal["spill_required", "ram_cacheable"]
 ExecutorType = Literal["thread", "process"]
 
 MaterializationLocation = Literal["none", "ram", "disk"]
+
+if TYPE_CHECKING:
+    from wiser.utils.task_system import BasePlanMeta
 
 
 def temp_dir() -> Path:
@@ -162,19 +174,20 @@ class SpectraBatchRef(DataRegion):
 
 # Returns input and output regions (aka ChunkRefs)
 @dataclass
-class ChunkingScheme(Protocol):
-    kind: InputKind = "dataset"
+class ChunkingScheme(ABC):
+    kind: ClassVar[InputKind] = "dataset"
 
-    def iter_chunks(self, meta) -> Iterable["DataRegion"]:
-        ...
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable["DataRegion"]:
+        pass
 
 
 @dataclass
-class SpatialTileScheme:
+class SpatialTileScheme(ChunkingScheme):
+    kind: ClassVar[InputKind] = "dataset"
     tile_h: int
     tile_w: int
 
-    def iter_chunks(self, meta) -> Iterable[DatasetRegionRef]:
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[DatasetRegionRef]:
         H, W, B = meta.height, meta.width, meta.bands
         for y0 in range(0, H, self.tile_h):
             y1 = min(H, y0 + self.tile_h)
@@ -184,11 +197,11 @@ class SpatialTileScheme:
 
 
 @dataclass(frozen=True)
-class SpectralBatchScheme:
-    kind: InputKind = "dataset"
+class SpectralBatchDatasetScheme(ChunkingScheme):
+    kind: ClassVar[InputKind] = "dataset"
     band_step: int = 32
 
-    def iter_chunks(self, meta) -> Iterable[DatasetRegionRef]:
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[DatasetRegionRef]:
         H, W, B = meta.height, meta.width, meta.bands
         for b0 in range(0, B, self.band_step):
             b1 = min(B, b0 + self.band_step)
@@ -196,19 +209,19 @@ class SpectralBatchScheme:
 
 
 @dataclass(frozen=True)
-class SingleSpectrumScheme:
-    kind: InputKind = "spectrum"
+class SingleSpectrumScheme(ChunkingScheme):
+    kind: ClassVar[InputKind] = "spectrum"
 
-    def iter_chunks(self, meta=None) -> Iterable[SpectrumRef]:
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectrumRef]:
         yield SpectrumRef(meta.length)
 
 
 @dataclass(frozen=True)
-class SpectraBatchScheme:
-    kind: InputKind = "spectra_list"
+class SpectraBatchScheme(ChunkingScheme):
+    kind: ClassVar[InputKind] = "spectra_list"
     batch_size: int = 256
 
-    def iter_chunks(self, meta) -> Iterable[SpectraBatchRef]:
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectraBatchRef]:
         n = meta.num_spectra
         for i0 in range(0, n, self.batch_size):
             yield SpectraBatchRef(i0=i0, i1=min(n, i0 + self.batch_size))
