@@ -87,7 +87,7 @@ existing_hidden_imports = _hidden
 # pyinstaller_hooks/pyi_rth_cv2.py is meant to help fix this as well.
 cv2_binaries = collect_dynamic_libs(
     "cv2",
-    search_patterns=["cv2*.so", "cv2*.dylib", "python-*/cv2*.so", "python-*/cv2*.dylib"]
+    search_patterns=["cv2*.so", "cv2*.dylib", "python-*/cv2*.so", "python-*/cv2*.dylib"],
 )
 
 existing_binaries += cv2_binaries
