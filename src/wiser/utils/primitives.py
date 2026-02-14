@@ -196,7 +196,7 @@ class SpatialTileScheme(ChunkingScheme):
                 yield DatasetRegionRef(y0, y1, x0, x1, 0, B)
 
 
-@dataclass(frozen=True)
+@dataclass
 class SpectralBatchDatasetScheme(ChunkingScheme):
     kind: ClassVar[InputKind] = "dataset"
     band_step: int = 32
@@ -208,7 +208,7 @@ class SpectralBatchDatasetScheme(ChunkingScheme):
             yield DatasetRegionRef(0, H, 0, W, b0, b1)
 
 
-@dataclass(frozen=True)
+@dataclass
 class SingleSpectrumScheme(ChunkingScheme):
     kind: ClassVar[InputKind] = "spectrum"
 
@@ -216,7 +216,7 @@ class SingleSpectrumScheme(ChunkingScheme):
         yield SpectrumRef(meta.length)
 
 
-@dataclass(frozen=True)
+@dataclass
 class SpectraBatchScheme(ChunkingScheme):
     kind: ClassVar[InputKind] = "spectra_list"
     batch_size: int = 256

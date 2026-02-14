@@ -67,7 +67,10 @@ class ReduceStage(TaskStage):
 
 @dataclass
 class MapStage(TaskStage):
-    chunking_scheme_type: type[ChunkingScheme]
+    # TODO (Joshua G-K): output_region_for should output a list of DataRegions
+    # or at least multiple data regions (make its in a Dict). This is because
+    # on task stage should be able to output more than one output.
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
 
     @abstractmethod
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -94,7 +97,10 @@ class MapStage(TaskStage):
     ) -> list[AllocationRequest]:
         """
         Make allocation requests that the Task Planner will
-        send to the storage layer.
+        send to the storage layer. An allocation request should
+        not be per each chunked region. It should be for each output.
+        For example, if you had a 400x500 dataset that would be chunked
+        into tenths, you would only do one allocation of 400x500 still.
 
         :param self: Description
         :param input_meta: Description
@@ -280,22 +286,26 @@ class SimpleChunkingPolicy:
 
         # 2) Instantiate with simple logic for known schemes
         if scheme_type is SpatialTileScheme:
+            assert isinstance(meta, DatasetPlanMeta)
             # tile_h/tile_w = 1/3 of height/width
             tile_h = max(1, int(meta.height // 3))  # type: ignore[attr-defined]
             tile_w = max(1, int(meta.width // 3))  # type: ignore[attr-defined]
             return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
 
         if scheme_type is SpectralBatchDatasetScheme:
+            assert isinstance(meta, DatasetPlanMeta)
             # band_step = 1/3 of bands
             band_step = max(1, int(meta.bands // 3))  # type: ignore[attr-defined]
             return SpectralBatchDatasetScheme(band_step=band_step)
 
         if scheme_type is SpectraBatchScheme:
+            assert isinstance(meta, SpectraListPlanMeta)
             # batch_size = 1/3 of num_spectra
             batch_size = max(1, int(meta.num_spectra // 3))  # type: ignore[attr-defined]
             return SpectraBatchScheme(batch_size=batch_size)
 
         if scheme_type is SingleSpectrumScheme:
+            assert isinstance(meta, SpectrumPlanMeta)
             return SingleSpectrumScheme()
 
         # 3) Fallback: instantiate with default constructor
