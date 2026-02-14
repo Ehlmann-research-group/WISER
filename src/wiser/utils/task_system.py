@@ -130,7 +130,7 @@ class BasePlanMeta:
     """Minimal, cheap-to-compute planning metadata."""
 
     kind: InputKind
-    dtype: np.dtype
+    dtype: np.dtype = np.dtype("float32")
 
     @property
     def dtype_bytes(self) -> int:
@@ -237,7 +237,7 @@ class ChunkingPolicy(Protocol):
     def choose(
         self,
         meta: BasePlanMeta,
-        sched: "SchedulerConfig",
+        sched_conf: "SchedulerConfig",
         resource_model: ResourceModel,
         scheme_type: type,
         constraints: Dict[str, Any],
@@ -376,7 +376,7 @@ class TaskPlanner:
             # 4) choose chunking scheme
             scheme = self._ctx.chunking_policy.choose(
                 meta=input_meta,
-                sched=self._ctx.sched_cfg,
+                sched_conf=self._ctx.sched_cfg,
                 resource_model=stage.resource_model,
                 scheme_type=stage.chunking_scheme_type,
                 constraints={},
