@@ -3,7 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from abc import ABC
 from enum import Enum
-from typing import Dict, Literal, Optional, Tuple, Iterable, Protocol
+from typing import (
+    Dict,
+    Literal,
+    Optional,
+    Tuple,
+    Iterable,
+    Protocol,
+    TYPE_CHECKING,
+    ClassVar,
+)
 import tempfile
 from pathlib import Path
 
@@ -28,6 +37,9 @@ Residency = Literal["spill_required", "ram_cacheable"]
 ExecutorType = Literal["thread", "process"]
 
 MaterializationLocation = Literal["none", "ram", "disk"]
+
+if TYPE_CHECKING:
+    from wiser.utils.task_system import BasePlanMeta
 
 
 def temp_dir() -> Path:
@@ -84,7 +96,9 @@ class AllocationRequest:
     The name for AllocationRequest is used to get the underlying data ref.
     """
 
-    name: str  # Unique name to the SemanticTask th
+    # Unique name to be used as the binding to the DataRef
+    # that is allocated by this AllocationRequest
+    name: str
     kind: RefKind
     residency: Residency
     size_est: int
@@ -113,8 +127,9 @@ class DataBinding:
 
 
 @dataclass(frozen=True)
-class DataRegion(ABC):
-    pass
+class DataRegion:
+    def scalar_count(self) -> int:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
@@ -123,37 +138,56 @@ class DatasetRegionRef(DataRegion):
     y1: int
     x0: int
     x1: int
-    b0: int = 0
-    b1: Optional[int] = None  # None = all bands
+    b0: int
+    b1: int
+
+    def scalar_count(self) -> int:
+        if self.b1 is None:
+            raise ValueError("DatasetRegionRef.scalar_count requires b1 to be set.")
+        if self.y1 < self.y0 or self.x1 < self.x0 or self.b1 < self.b0:
+            raise ValueError("DatasetRegionRef has invalid bounds.")
+        return (self.y1 - self.y0) * (self.x1 - self.x0) * (self.b1 - self.b0)
 
 
 @dataclass(frozen=True)
 class SpectrumRef(DataRegion):
     # single spectrum, no chunking needed most of the time
-    pass
+    length: int
+
+    def scalar_count(self) -> int:
+        if self.length < 0:
+            raise ValueError("SpectrumRef length must be non-negative.")
+        return self.length
 
 
 @dataclass(frozen=True)
 class SpectraBatchRef(DataRegion):
     i0: int
-    i1: int  # index range into list-of-spectra
+    i1: int  # index range into list-of-spectra, inclusive
+    length: int
+
+    def scalar_count(self) -> int:
+        if self.i1 < self.i0 or self.length < 0:
+            raise ValueError("SpectraBatchRef has invalid bounds.")
+        return (self.i1 - self.i0 + 1) * self.length
 
 
 # Returns input and output regions (aka ChunkRefs)
 @dataclass
-class ChunkingScheme(Protocol):
-    kind: InputKind = "dataset"
+class ChunkingScheme(ABC):
+    kind: ClassVar[InputKind] = "dataset"
 
-    def iter_chunks(self, meta) -> Iterable["DataRegion"]:
-        ...
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable["DataRegion"]:
+        pass
 
 
 @dataclass
-class SpatialTileScheme:
+class SpatialTileScheme(ChunkingScheme):
+    kind: ClassVar[InputKind] = "dataset"
     tile_h: int
     tile_w: int
 
-    def iter_chunks(self, meta) -> Iterable[DatasetRegionRef]:
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[DatasetRegionRef]:
         H, W, B = meta.height, meta.width, meta.bands
         for y0 in range(0, H, self.tile_h):
             y1 = min(H, y0 + self.tile_h)
@@ -162,32 +196,32 @@ class SpatialTileScheme:
                 yield DatasetRegionRef(y0, y1, x0, x1, 0, B)
 
 
-@dataclass(frozen=True)
-class SpectralBatchScheme:
-    kind: InputKind = "dataset"
+@dataclass
+class SpectralBatchDatasetScheme(ChunkingScheme):
+    kind: ClassVar[InputKind] = "dataset"
     band_step: int = 32
 
-    def iter_chunks(self, meta) -> Iterable[DatasetRegionRef]:
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[DatasetRegionRef]:
         H, W, B = meta.height, meta.width, meta.bands
         for b0 in range(0, B, self.band_step):
             b1 = min(B, b0 + self.band_step)
             yield DatasetRegionRef(0, H, 0, W, b0, b1)
 
 
-@dataclass(frozen=True)
-class SingleSpectrumScheme:
-    kind: InputKind = "spectrum"
+@dataclass
+class SingleSpectrumScheme(ChunkingScheme):
+    kind: ClassVar[InputKind] = "spectrum"
 
-    def iter_chunks(self, meta=None) -> Iterable[SpectrumRef]:
-        yield SpectrumRef()
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectrumRef]:
+        yield SpectrumRef(meta.length)
 
 
-@dataclass(frozen=True)
-class SpectraBatchScheme:
-    kind: InputKind = "spectra_list"
+@dataclass
+class SpectraBatchScheme(ChunkingScheme):
+    kind: ClassVar[InputKind] = "spectra_list"
     batch_size: int = 256
 
-    def iter_chunks(self, meta) -> Iterable[SpectraBatchRef]:
+    def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectraBatchRef]:
         n = meta.num_spectra
         for i0 in range(0, n, self.batch_size):
             yield SpectraBatchRef(i0=i0, i1=min(n, i0 + self.batch_size))

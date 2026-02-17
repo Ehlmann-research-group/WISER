@@ -15,6 +15,10 @@ from .primitives import (
     ExecutorType,
     InputKind,
     PriorityClass,
+    SingleSpectrumScheme,
+    SpatialTileScheme,
+    SpectraBatchScheme,
+    SpectralBatchDatasetScheme,
 )
 from .storage_layer import StorageLayer
 
@@ -26,23 +30,36 @@ class SchedulerConfig(Protocol):
 @dataclass(frozen=True)
 class ResourceModel:
     fixed_overhead_bytes: int
-    bytes_per_pixel_in: int
-    bytes_per_pixel_out: int
-    scratch_bytes_per_pixel: int
+    bytes_per_scalar_in: int
+    bytes_per_scalar_out: int
+    scratch_bytes_per_scalar_in: int
 
 
-class TaskStage(ABC):
-    def __init__(
-        self,
-        default_executor: ExecutorType,
-    ):
-        self._executor = default_executor
+@dataclass
+class TaskStage:
+    default_executor: ExecutorType
+    input_ref: DataRef
+    resource_model: ResourceModel
+
+    # Where this stage reads from. It is a key in the task plan's table
+    # __task_input__ is the first input to the semantic task
+    input_binding: DataBinding = field(default_factory=lambda: DataBinding("__task_input__"))
+
+    output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
+
+    broadcast_input: Dict[str,] = field(default_factory=dict)
+
+    def plan_meta_for(input_ref: DataRef) -> BasePlanMeta:
+        """
+        Given an input DataRef, output a BasePlanMeta. A BasePlanMeta
+        is just a description dimensions in the image cube, spectrum,
+        or spectra in the input_ref
+        """
+        pass
 
 
 @dataclass
 class ReduceStage(TaskStage):
-    resource_model: ResourceModel
-
     @abstractmethod
     def reduce_fn():
         pass
@@ -50,13 +67,10 @@ class ReduceStage(TaskStage):
 
 @dataclass
 class MapStage(TaskStage):
-    resource_model: ResourceModel
-    chunking_scheme_type: type[ChunkingScheme]
-    # Where this stage reads from. It is a key in the task plan's table
-    # __task_input__ is the first input to the semantic task
-    input_binding: DataBinding = field(default_factory=lambda: DataBinding("__task_input__"))
-
-    output_binding: Sequence[DataBinding] = field(default_factory=tuple)
+    # TODO (Joshua G-K): output_region_for should output a list of DataRegions
+    # or at least multiple data regions (make its in a Dict). This is because
+    # on task stage should be able to output more than one output.
+    chunking_scheme_type: type[ChunkingScheme] = SpatialTileScheme
 
     @abstractmethod
     def output_region_for(self, input_region: DataRegion) -> DataRegion:
@@ -76,11 +90,17 @@ class MapStage(TaskStage):
         self,
         *,
         input_meta: "BasePlanMeta",
-        params: dict,
+        # we will probably neede a params dict, but I don't know if it
+        # will be a UI passed in parameter or something the developer will code
+        # params: dict,
         chosen_scheme: ChunkingScheme | None,
     ) -> list[AllocationRequest]:
         """
-        Docstring for make_allocation_requests
+        Make allocation requests that the Task Planner will
+        send to the storage layer. An allocation request should
+        not be per each chunked region. It should be for each output.
+        For example, if you had a 400x500 dataset that would be chunked
+        into tenths, you would only do one allocation of 400x500 still.
 
         :param self: Description
         :param input_meta: Description
@@ -94,14 +114,15 @@ class MapStage(TaskStage):
         """
         pass
 
-    # Estimates
     @abstractmethod
-    def map_fn(self, input_region, output_ref, kwargs, broadcast_inputs: list[str] = []):
+    def map_fn(
+        self,
+        input_region,
+        output_ref,
+        kwargs,
+        broadcast_inputs: list[str] = [],
+    ) -> Callable:
         pass
-
-
-# list of spectra
-# goes through the list of spectra, yeilds chunks of them from i0 to i1 based on spectral step
 
 
 @dataclass(frozen=True)
@@ -109,7 +130,7 @@ class BasePlanMeta:
     """Minimal, cheap-to-compute planning metadata."""
 
     kind: InputKind
-    dtype: np.dtype
+    dtype: np.dtype = np.dtype("float32")
 
     @property
     def dtype_bytes(self) -> int:
@@ -162,10 +183,6 @@ class SpectraListPlanMeta(BasePlanMeta):
     spectrum_length: int = 0
 
 
-# Union type used by planner + chunk chooser
-PlanMeta = Union[DatasetPlanMeta, SpectrumPlanMeta, SpectraListPlanMeta]
-
-
 @dataclass
 class AlgorithmPipeline:
     stages: List[TaskStage]
@@ -189,7 +206,9 @@ class WorkUnit:
     input_region: DataRegion
     writes: Tuple[WriteSpec, ...]
     fn: Callable[..., Any]
-    params: Dict[str, Any]
+    # I think the params should be in fn (so fn ilike a lambda with params preloaded)
+    # but I am still unsure so keeping it for now.
+    # params: Dict[str, Any]
     broadcast: Dict[str, "DataRef"]
     # We don't subdivide the ram into i/o, processing, output because the scheduler
     # itself doesn't have divisions
@@ -217,9 +236,8 @@ class TaskPlan:
 class ChunkingPolicy(Protocol):
     def choose(
         self,
-        input_kind: InputKind,
-        meta: PlanMeta,
-        sched: "SchedulerConfig",
+        meta: BasePlanMeta,
+        sched_conf: "SchedulerConfig",
         resource_model: ResourceModel,
         scheme_type: type,
         constraints: Dict[str, Any],
@@ -230,8 +248,7 @@ class ChunkingPolicy(Protocol):
 class SimpleChunkingPolicy:
     def choose(
         self,
-        input_kind: InputKind,
-        meta: PlanMeta,
+        meta: BasePlanMeta,
         sched_conf: "SchedulerConfig",
         resource_model: ResourceModel,
         scheme_type: type[ChunkingScheme],
@@ -255,7 +272,50 @@ class SimpleChunkingPolicy:
         :return: Description
         :rtype: ChunkingScheme
         """
-        pass
+
+        # 1) Validate InputKind matches
+        scheme_kind = getattr(scheme_type, "kind", None)
+        if scheme_kind is None:
+            raise TypeError(f"{scheme_type.__name__} must define a class variable `kind` (InputKind).")
+
+        if scheme_kind != meta.kind:
+            raise ValueError(
+                f"ChunkingScheme InputKind mismatch: scheme_type={scheme_type.__name__} "
+                f"has kind={scheme_kind!r}, but meta.kind={meta.kind!r}."
+            )
+
+        # 2) Instantiate with simple logic for known schemes
+        if scheme_type is SpatialTileScheme:
+            assert isinstance(meta, DatasetPlanMeta)
+            # tile_h/tile_w = 1/3 of height/width
+            tile_h = max(1, int(meta.height // 3))  # type: ignore[attr-defined]
+            tile_w = max(1, int(meta.width // 3))  # type: ignore[attr-defined]
+            return SpatialTileScheme(tile_h=tile_h, tile_w=tile_w)
+
+        if scheme_type is SpectralBatchDatasetScheme:
+            assert isinstance(meta, DatasetPlanMeta)
+            # band_step = 1/3 of bands
+            band_step = max(1, int(meta.bands // 3))  # type: ignore[attr-defined]
+            return SpectralBatchDatasetScheme(band_step=band_step)
+
+        if scheme_type is SpectraBatchScheme:
+            assert isinstance(meta, SpectraListPlanMeta)
+            # batch_size = 1/3 of num_spectra
+            batch_size = max(1, int(meta.num_spectra // 3))  # type: ignore[attr-defined]
+            return SpectraBatchScheme(batch_size=batch_size)
+
+        if scheme_type is SingleSpectrumScheme:
+            assert isinstance(meta, SpectrumPlanMeta)
+            return SingleSpectrumScheme()
+
+        # 3) Fallback: instantiate with default constructor
+        try:
+            return scheme_type()  # type: ignore[call-arg]
+        except TypeError as e:
+            raise TypeError(
+                f"Don't know how to instantiate scheme_type={scheme_type.__name__}. "
+                "Either provide a no-arg constructor or add a case in SimpleChunkingPolicy.choose()."
+            ) from e
 
 
 @dataclass
@@ -266,53 +326,131 @@ class PlanningContext:
 
 
 class TaskPlanner:
-    """
-    Takes in a SemanticTask. Goes through its AlgorithmPipeline. Goes through each
-    Stage in the pipeline and sees the chunking policy reference it wants. Creates a
-    chunking scheme object for that stage. Creates work unit using stage and chunking scheme.
-    (The region that the chunking scheme gives is just metadata for the future).
+    """Turns a semantic task (pipeline + params + input) into a TaskPlan (DAG of WorkUnits)."""
 
-    This class will have to be able to fail in submitting a task and if it does fail
-    to tell the TaskManager (which is what communicates with the UI)
-    """
+    def __init__(self, ctx: PlanningContext):
+        self._ctx = ctx
+        self._unit_counter = 0
 
-    def __init__(self, planning_ctx: PlanningContext):
-        self._ctx = planning_ctx
-        self._queued_tasks: List[SemanticTask]
+    def _new_unit_id(self, plan_id: str) -> str:
+        # TODO: Give unit's a uuid4
+        self._unit_counter += 1
+        return f"{plan_id}:u{self._unit_counter:06d}"
 
-    def plan_semantic_task(self, semantic_task) -> TaskPlan:
+    def plan_semantic_task(self, semantic_task: SemanticTask) -> TaskPlan:
         """
-        Docstring for plan_algorithm_pipline
-
-        :param self: Description
-        :param algo_pipeline: Description
-        :type algo_pipeline: AlgorithmPipeline
+        Rough flow (map-only draft):
+        - bindings["__task_input__"] = semantic_task.input_ref
+        - for each stage:
+            - resolve stage input ref via bindings
+            - choose chunking scheme
+            - allocate outputs up front and bind them
+            - expand regions -> WorkUnits
+            - add dependencies (here: stage barrier; later you can do finer DAG)
         """
 
-        """
-        Go through the algorithm pipeline of the semantic task. 
+        # TODO: give plan id a uuid4
+        plan_id = f"plan:{semantic_task.id}"
+        plan = TaskPlan(plan_id=plan_id, semantic_task_id=str(semantic_task.id))
 
-        For each stage:
-            Get the resource model, input_sec, output_spec, and Work Scheduler config.
+        # 1) init bindings
+        bindings: Dict[str, DataRef] = {"__task_input__": semantic_task.input_ref}
 
-            WIth the input spec, we will decide what Chunking strat to use. With the 
-            resource model and work scheduler config we will decide the parameters of
-            the chunking strat.
-            
-            We will then get all of the input regions and use the task stage to map
-            them to an output region.
+        plan.bindings.update(bindings)
 
-            We will then ask the scheduler for space using the output description.
-            We then reconstruct and return a TaskPlan with all of the work units
+        # A simple policy: all units in stage i depend on completion of *all* units in stage i-1.
+        prev_stage_unit_ids: List[str] = []
 
-        """
-        pass
+        for stage_idx, stage in enumerate(semantic_task.get_algorithm().stages):
+            stage_id = f"s{stage_idx:02d}"
+
+            if not isinstance(stage, MapStage):
+                raise NotImplementedError("Draft only implements MapStage expansion.")
+
+            # 2) resolve stage input ref
+            input_ref = plan.bindings[stage.input_binding.name]
+
+            # 3) compute minimal meta (your real code uses BasePlanMeta from DataRef)
+            input_meta = stage.plan_meta_for(input_ref)
+
+            # 4) choose chunking scheme
+            scheme = self._ctx.chunking_policy.choose(
+                meta=input_meta,
+                sched_conf=self._ctx.sched_cfg,
+                resource_model=stage.resource_model,
+                scheme_type=stage.chunking_scheme_type,
+                constraints={},
+            )
+
+            # 5) allocate outputs up front
+            alloc_reqs = stage.make_allocation_requests(
+                input_meta=input_meta,
+                # params=semantic_task.params(),
+                chosen_scheme=scheme,
+            )
+            for req in alloc_reqs:
+                out_ref = self._ctx.storage.allocate_data(req)
+                plan.bindings[req.name] = out_ref
+
+            # 6) expand regions -> WorkUnits
+            unit_ids_for_stage: List[str] = []
+
+            for input_region in scheme.iter_chunks(input_meta):
+                out_writes: List[WriteSpec] = []
+                for ob in stage.output_bindings:
+                    out_ref = plan.bindings[ob.name]
+                    out_region = stage.output_region_for(input_region)
+                    out_writes.append(WriteSpec(name=ob.name, ref=out_ref, region=out_region))
+
+                # 7) estimate RAM (rough)
+                ram_est = self._estimate_ram(stage.resource_model, input_region, out_writes, input_meta)
+
+                unit_id = self._new_unit_id(plan_id)
+                unit = WorkUnit(
+                    unit_id=unit_id,
+                    stage_id=stage_id,
+                    executor_kind=stage.default_executor,
+                    input_ref=input_ref,
+                    input_region=input_region,
+                    writes=tuple(out_writes),
+                    fn=stage.map_fn,
+                    # params=dict(stage.params()),
+                    broadcast=dict[str, DataRef](stage.broadcast_input),  # name->DataRef
+                    ram_peak_est_bytes=ram_est,
+                    deps=tuple(prev_stage_unit_ids),
+                )
+
+                plan.work_units[unit_id] = unit
+                unit_ids_for_stage.append(unit_id)
+
+            plan.stage_work_units[stage_id] = unit_ids_for_stage
+            prev_stage_unit_ids = unit_ids_for_stage
+
+        return plan
+
+    def _estimate_ram(
+        self,
+        rm: ResourceModel,
+        input_region: DataRegion,
+        writes: Sequence[WriteSpec],
+        input_meta: BasePlanMeta,
+    ) -> int:
+        # Very rough: fixed + per-pixel in/out + scratch. Assumes DataRegion can compute pixel count.
+        in_scalar_count = input_region.scalar_count()  # you likely already have this
+        out_scalar_count = sum((w.region.scalar_count() if w.region is not None else 0) for w in writes)
+        return (
+            rm.fixed_overhead_bytes
+            + rm.bytes_per_scalar_in * in_scalar_count * input_meta.dtype_bytes
+            + rm.bytes_per_scalar_out * out_scalar_count * input_meta.dtype_bytes
+            + rm.scratch_bytes_per_scalar_in * in_scalar_count
+        )
 
 
 class SemanticTask(ABC):
     def __init__(
         self,
         priority_class: PriorityClass,
+        input_ref: DataRef,
         algorithm_pipeline: AlgorithmPipeline,
         algo_kwargs: Dict,
         output_spec: AllocationRequest,
@@ -320,6 +458,7 @@ class SemanticTask(ABC):
         # The id should be set by whatever uses this task before
         # the task is used
         self.id: Optional[int] = None
+        self.input_ref = input_ref
         self._priorit_class: PriorityClass = priority_class
         self._output_spec: AllocationRequest = output_spec
 
@@ -329,5 +468,5 @@ class SemanticTask(ABC):
     def get_output_alloc_request(self) -> AllocationRequest:
         return self._output_spec
 
-    def get_algorithm(self) -> Callable:
+    def get_algorithm(self) -> AlgorithmPipeline:
         return self._algorithm
