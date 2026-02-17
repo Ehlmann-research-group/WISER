@@ -31,7 +31,7 @@ RUN dnf -y update \
     ca-certificates curl wget git \
     gcc gcc-c++ make \
     pkgconf-pkg-config \
-    patchelf file \
+    patchelf file binutils \
     mesa-libEGL mesa-libGL mesa-dri-drivers \
     libglvnd-glx \
     glib2 dbus-libs \
@@ -109,104 +109,15 @@ RUN set -eux; \
   objdump -T "$internal_dir"/libcurl.so.* 2>/dev/null | grep -F OPENSSL_ | sort -u | head -n 10 || true; \
   readelf --version-info "$internal_dir"/libssl.so.* 2>/dev/null | grep -E "Name: OPENSSL_" | sort -u || true
 
-# -------------------------------------------------------------------
-# Bundle fixups: sqlite aliases + GDAL RPATH + (optional) replace-needed
-# -------------------------------------------------------------------
-
-# Ensure sqlite SONAME/aliases exist in the bundle (_internal)
+# Bundle ELF dependency scrub/verify:
+# Conda absolute paths can leak into DT_NEEDED/RUNPATH (notably GDAL -> sqlite),
+# which breaks portability on target Linux hosts.
 RUN set -euxo pipefail; \
-    internal_dir="$(find /work/dist -type d -name _internal -print -quit 2>/dev/null || true)"; \
-    if [ -z "$internal_dir" ]; then \
-      echo "No _internal directory found; skipping sqlite alias step."; \
-      exit 0; \
-    fi; \
-    absolute_internal_dir="$(cd "$internal_dir" && pwd)"; \
-    cd "$absolute_internal_dir"; \
-    pick_sqlite_target() { \
-      ls -1 libsqlite3.so.* 2>/dev/null | sort -V | tail -n 1; \
-    }; \
-    if ls -1 libsqlite3.so.* >/dev/null 2>&1 && [ ! -e libsqlite3.so ]; then \
-      target="$(pick_sqlite_target)"; \
-      echo "Creating symlink: libsqlite3.so -> $target"; \
-      ln -sf "$target" libsqlite3.so; \
-    fi; \
-    if [ -e libsqlite3.so ] && [ ! -e libsqlite3.so.3 ]; then \
-      echo "Creating symlink: libsqlite3.so.3 -> libsqlite3.so"; \
-      ln -sf libsqlite3.so libsqlite3.so.3; \
-    fi; \
-    if ls -1 libsqlite3.so.* >/dev/null 2>&1 && [ ! -e libsqlite3.so.0 ]; then \
-      target="$(pick_sqlite_target)"; \
-      echo "Creating symlink: libsqlite3.so.0 -> $target"; \
-      ln -sf "$target" libsqlite3.so.0; \
-    fi; \
-    echo "SQLite files now:"; \
-    ls -lah libsqlite3.so* 2>/dev/null || true
-
-# Patch GDAL extension + libgdal to look in PyInstaller _internal first
-RUN set -euxo pipefail; \
-    internal_dir="$(find /work/dist -type d -name _internal -print -quit 2>/dev/null || true)"; \
-    if [ -z "$internal_dir" ]; then \
-      echo "No _internal directory found; skipping GDAL rpath step."; \
-      exit 0; \
-    fi; \
-    absolute_internal_dir="$(cd "$internal_dir" && pwd)"; \
-    found_any=0; \
-    while IFS= read -r -d '' f; do \
-      found_any=1; \
-      echo "patchelf --set-rpath '\$ORIGIN' -> $f"; \
-      patchelf --force-rpath --set-rpath '$ORIGIN' "$f"; \
-    done < <(find "$absolute_internal_dir" -type f \( -iname "*gdal*.so*" -o -iname "libgdal.so*" \) -print0); \
-    if [ "$found_any" -eq 0 ]; then \
-      echo "No GDAL libs found in _internal; skipping rpath step."; \
-    fi
-
-# Patch libgdal.so.* to stop requiring sqlite via an absolute conda path (only if present)
-RUN set -euxo pipefail; \
-    internal_dir="$(find /work/dist -type d -name _internal -print -quit 2>/dev/null || true)"; \
-    if [ -z "$internal_dir" ]; then \
-      echo "No _internal directory found; skipping replace-needed step."; \
-      exit 0; \
-    fi; \
-    absolute_internal_dir="$(cd "$internal_dir" && pwd)"; \
-    gdal_so="$(find "$absolute_internal_dir" -maxdepth 1 -type f -name "libgdal.so*" -print -quit 2>/dev/null || true)"; \
-    if [ -z "$gdal_so" ]; then \
-      echo "No libgdal.so* found; skipping replace-needed step."; \
-      exit 0; \
-    fi; \
-    ABS_SQLITE="/opt/micromamba/envs/${ENV_NAME}/lib/libsqlite3.so"; \
-    echo "Checking DT_NEEDED entries for sqlite in: $gdal_so"; \
-    echo "Looking for absolute path: $ABS_SQLITE"; \
-    out=$(readelf -d "$gdal_so" | grep -F "$ABS_SQLITE"); \
-    echo "$out"; \
-    if command -v readelf >/dev/null 2>&1; then \
-      if (readelf -d "$gdal_so" 2>/dev/null || true) | grep -Fq "$ABS_SQLITE"; then \
-        echo "Found absolute sqlite DT_NEEDED; rewriting to libsqlite3.so.0"; \
-        cd "$absolute_internal_dir"; \
-        pick_sqlite_target() { \
-            ls -1 libsqlite3.so.* 2>/dev/null | sort -V | tail -n 1; \
-        }; \
-        if [ ! -e libsqlite3.so.0 ]; then \
-            if ls -1 libsqlite3.so.* >/dev/null 2>&1; then \
-            target="$(pick_sqlite_target)"; \
-            echo "Creating symlink: libsqlite3.so.0 -> $target"; \
-            ln -sf "$target" libsqlite3.so.0; \
-            else \
-            echo "ERROR: No libsqlite3.so.* files found to link from."; \
-            exit 1; \
-            fi; \
-        fi; \
-        patchelf --replace-needed "$ABS_SQLITE" "libsqlite3.so.0" "$gdal_so"; \
-        echo "After patch, sqlite-related entries:"; \
-        readelf -d "$gdal_so" | grep -i sqlite || true; \
-      fi; \
-    else \
-      echo "No absolute sqlite DT_NEEDED found; leaving libgdal as-is."; \
-      if command -v readelf >/dev/null 2>&1; then \
-        readelf -d "$gdal_so" | grep -i sqlite || true; \
-      else \
-        echo "readelf not found."; \
-      fi; \
-    fi
+    internal_dir="$(find /work/dist -type d -name _internal -print -quit)"; \
+    test -n "$internal_dir"; \
+    sed -i 's/\r$//' /work/install-linux/scripts/patch_internal_elf_deps.sh /work/install-linux/scripts/verify_internal_elf_deps.sh; \
+    bash /work/install-linux/scripts/patch_internal_elf_deps.sh "$internal_dir" "${ENV_NAME}"; \
+    bash /work/install-linux/scripts/verify_internal_elf_deps.sh "$internal_dir"
 
 # Exportable output + tarball
 RUN set -euxo pipefail; \

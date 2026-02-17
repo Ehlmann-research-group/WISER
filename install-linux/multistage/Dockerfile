@@ -25,7 +25,7 @@ SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget git \
     build-essential pkg-config \
-    patchelf file \
+    patchelf file binutils \
     # Qt/OpenGL/EGL runtime deps (PySide2 common deps)
     libegl1 libgl1 \
     libgl1-mesa-dri \
@@ -81,46 +81,15 @@ RUN micromamba create -y -n "${ENV_NAME}" -f /work/prod-conda-lock.yml \
 # Run build (avoid bash -l; keep env PATH intact)
 RUN micromamba run -n "${ENV_NAME}" make -C /work build-linux
 
-# ---- Bundle fixups ----
+# Bundle ELF dependency scrub/verify:
+# Conda absolute paths can leak into DT_NEEDED/RUNPATH (notably GDAL -> sqlite),
+# which breaks portability on target Linux hosts.
 RUN set -euxo pipefail; \
-    internal_dir="$(find /work/dist -type d -name _internal -print -quit 2>/dev/null || true)"; \
-    if [ -z "$internal_dir" ]; then \
-      echo "No _internal directory found under /work/dist; skipping fixups."; \
-      exit 0; \
-    fi; \
-    absolute_internal_dir="$(cd "$internal_dir" && pwd)"; \
-    cd "$absolute_internal_dir"; \
-    pick_sqlite_target() { ls -1 libsqlite3.so.* 2>/dev/null | sort -V | tail -n 1; }; \
-    \
-    echo "== Step 1: sqlite SONAME/aliases =="; \
-    if ls -1 libsqlite3.so.* >/dev/null 2>&1 && [ ! -e libsqlite3.so ]; then \
-      target="$(pick_sqlite_target)"; \
-      ln -sf "$target" libsqlite3.so; \
-    fi; \
-    if [ -e libsqlite3.so ] && [ ! -e libsqlite3.so.3 ]; then \
-      ln -sf libsqlite3.so libsqlite3.so.3; \
-    fi; \
-    if ls -1 libsqlite3.so.* >/dev/null 2>&1 && [ ! -e libsqlite3.so.0 ]; then \
-      target="$(pick_sqlite_target)"; \
-      ln -sf "$target" libsqlite3.so.0; \
-    fi; \
-    \
-    echo "== Step 2: GDAL RPATH to \$ORIGIN =="; \
-    found_any=0; \
-    while IFS= read -r -d '' f; do \
-      found_any=1; \
-      patchelf --force-rpath --set-rpath '$ORIGIN' "$f"; \
-    done < <(find "$absolute_internal_dir" -type f \( -iname "*gdal*.so*" -o -iname "libgdal.so*" \) -print0); \
-    if [ "$found_any" -eq 0 ]; then echo "No GDAL libs found; skipping."; fi; \
-    \
-    echo "== Step 3: replace-needed (only if absolute DT_NEEDED present) =="; \
-    gdal_so="$(find "$absolute_internal_dir" -maxdepth 1 -type f -name 'libgdal.so*' -print -quit 2>/dev/null || true)"; \
-    if [ -z "$gdal_so" ]; then echo "No libgdal.so* found; skipping."; exit 0; fi; \
-    ABS_SQLITE="/opt/micromamba/envs/${ENV_NAME}/lib/libsqlite3.so"; \
-    if readelf -d "$gdal_so" | grep -Fq "$ABS_SQLITE"; then \
-      patchelf --replace-needed "$ABS_SQLITE" "libsqlite3.so.0" "$gdal_so"; \
-    fi; \
-    readelf -d "$gdal_so" | grep -i sqlite || true
+    internal_dir="$(find /work/dist -type d -name _internal -print -quit)"; \
+    test -n "$internal_dir"; \
+    sed -i 's/\r$//' /work/install-linux/scripts/patch_internal_elf_deps.sh /work/install-linux/scripts/verify_internal_elf_deps.sh; \
+    bash /work/install-linux/scripts/patch_internal_elf_deps.sh "$internal_dir" "${ENV_NAME}"; \
+    bash /work/install-linux/scripts/verify_internal_elf_deps.sh "$internal_dir"
 
 # Exportable output + tarball
 RUN set -euxo pipefail; \
