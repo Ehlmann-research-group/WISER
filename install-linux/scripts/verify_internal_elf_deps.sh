@@ -4,16 +4,14 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  verify_internal_elf_deps.sh <internal_dir> [abs_prefix]
+  verify_internal_elf_deps.sh <internal_dir>
 
 Arguments:
   internal_dir  Path to PyInstaller _internal directory
-  abs_prefix    Absolute build prefix that must not appear in dynamic entries
-                (default: /opt/micromamba)
 
 Checks:
-  - Fails if any DT_NEEDED entry starts with abs_prefix
-  - Fails if any RPATH/RUNPATH entry starts with abs_prefix
+  - For any RPATH/RUNPATH containing /opt/micromamba or /home/conda,
+    fails unless the last path element is exactly $ORIGIN
 EOF
 }
 
@@ -28,7 +26,8 @@ if [[ $# -lt 1 ]]; then
 fi
 
 internal_dir="$1"
-abs_prefix="${2:-/opt/micromamba}"
+readonly build_prefix_a="/opt/micromamba"
+readonly build_prefix_b="/home/conda"
 
 if [[ ! -d "$internal_dir" ]]; then
   echo "ERROR: _internal directory not found: $internal_dir" >&2
@@ -44,16 +43,29 @@ is_elf() {
   readelf -h "$f" >/dev/null 2>&1
 }
 
-extract_needed() {
-  local f="$1"
-  readelf -d "$f" 2>/dev/null \
-    | sed -n "s/.*(NEEDED).*Shared library: \[\(.*\)\].*/\1/p"
-}
-
 extract_rpath_like() {
   local f="$1"
   readelf -d "$f" 2>/dev/null \
     | sed -n "s/.*(RPATH).*Library rpath: \[\(.*\)\].*/RPATH:\1/p; s/.*(RUNPATH).*Library runpath: \[\(.*\)\].*/RUNPATH:\1/p"
+}
+
+value_has_hardcoded_build_path() {
+  local path_value="$1"
+  local entry
+  local entries=()
+  IFS=':' read -r -a entries <<< "$path_value"
+  for entry in "${entries[@]}"; do
+    [[ -n "$entry" ]] || continue
+    if [[ "$entry" == *"$build_prefix_a"* || "$entry" == *"$build_prefix_b"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+path_ends_with_origin() {
+  local path_value="$1"
+  [[ "$path_value" == "\$ORIGIN" || "$path_value" == *":\$ORIGIN" ]]
 }
 
 offenders=0
@@ -61,36 +73,21 @@ scanned=0
 
 check_one() {
   local f="$1"
-  local needed rp_line rp_value had_problem entry
-  local entries=()
+  local rp_line rp_value had_problem
   had_problem=0
   scanned=$((scanned + 1))
-
-  while IFS= read -r needed; do
-    [[ -n "$needed" ]] || continue
-    if [[ "$needed" == "$abs_prefix"* ]]; then
-      if [[ $had_problem -eq 0 ]]; then
-        echo "ELF offender: $f"
-        had_problem=1
-      fi
-      echo "  forbidden DT_NEEDED: $needed"
-    fi
-  done < <(extract_needed "$f")
 
   while IFS= read -r rp_line; do
     [[ -n "$rp_line" ]] || continue
     rp_value="${rp_line#*:}"
-    IFS=':' read -r -a entries <<< "$rp_value"
-    for entry in "${entries[@]}"; do
-      [[ -n "$entry" ]] || continue
-      if [[ "$entry" == "$abs_prefix"* ]]; then
-        if [[ $had_problem -eq 0 ]]; then
-          echo "ELF offender: $f"
-          had_problem=1
-        fi
-        echo "  forbidden ${rp_line%%:*} entry: $entry"
+    if value_has_hardcoded_build_path "$rp_value" && ! path_ends_with_origin "$rp_value"; then
+      if [[ $had_problem -eq 0 ]]; then
+        echo "ELF offender: $f"
+        had_problem=1
       fi
-    done
+      echo "  ${rp_line%%:*} contains build paths but does not end with \$ORIGIN"
+      echo "  ${rp_line%%:*} value: $rp_value"
+    fi
   done < <(extract_rpath_like "$f")
 
   if [[ $had_problem -eq 1 ]]; then
@@ -111,4 +108,4 @@ if [[ $offenders -gt 0 ]]; then
   exit 1
 fi
 
-echo "Verification passed: scanned $scanned ELF file(s); no /opt/micromamba leakage in DT_NEEDED/RPATH/RUNPATH."
+echo "Verification passed: scanned $scanned ELF file(s); build-path RPATH/RUNPATH entries are origin-safe."

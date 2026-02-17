@@ -83,8 +83,8 @@ RUN micromamba run -n "${ENV_NAME}" make -C /work build-linux
 
 # Bundle ELF dependency scrub/verify:
 # Conda absolute paths can leak into DT_NEEDED/RUNPATH (notably GDAL -> sqlite),
-# which breaks portability on target Linux hosts. We do not force/overwrite
-# RPATH; we only scrub micromamba paths and adjust RUNPATH when required.
+# and some bundled libs carry hard-coded build paths in RPATH/RUNPATH.
+# We do not force-convert tags; we append $ORIGIN when those build paths appear.
 RUN set -euxo pipefail; \
     internal_dir="$(find /work/dist -type d -name _internal -print -quit)"; \
     test -n "$internal_dir"; \

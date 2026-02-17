@@ -17,11 +17,9 @@ Arguments:
 Behavior:
   - Scans all ELF files under _internal (shared libs and extension modules)
   - Rewrites only /opt/micromamba* DT_NEEDED entries via patchelf --replace-needed
-  - Updates RUNPATH safely:
-      * strips /opt/micromamba* entries
-      * preserves existing entries
-      * ensures $ORIGIN is present when RUNPATH exists, or for files modified by replace-needed
-      * leaves RPATH-only files untouched
+  - If RPATH/RUNPATH contains hard-coded build paths (/opt/micromamba, /home/conda),
+    appends $ORIGIN as the final path element (without removing existing entries)
+  - Does not force-convert RPATH<->RUNPATH and does not overwrite to only $ORIGIN
   - Creates sqlite aliases:
       libsqlite3.so -> latest libsqlite3.so.*
       libsqlite3.so.0 -> latest libsqlite3.so.*
@@ -43,6 +41,8 @@ internal_dir="$1"
 env_name="${2:-wiser-prod}"
 abs_prefix="${3:-/opt/micromamba}"
 abs_sqlite="${4:-/opt/micromamba/envs/${env_name}/lib/libsqlite3.so}"
+readonly build_prefix_a="/opt/micromamba"
+readonly build_prefix_b="/home/conda"
 
 if [[ ! -d "$internal_dir" ]]; then
   echo "ERROR: _internal directory not found: $internal_dir" >&2
@@ -123,85 +123,71 @@ bundle_needs_sqlite3_so3() {
   return 1
 }
 
-rebuild_runpath_with_origin() {
-  local old_runpath="$1"
+value_has_hardcoded_build_path() {
+  local path_value="$1"
+  local entry
   local entries=()
-  local new_entries=()
-  local entry existing
-  local has_origin=0
-  local seen
-
-  IFS=':' read -r -a entries <<< "$old_runpath"
+  IFS=':' read -r -a entries <<< "$path_value"
   for entry in "${entries[@]}"; do
     [[ -n "$entry" ]] || continue
-    if [[ "$entry" == "$abs_prefix"* ]]; then
-      continue
-    fi
-    if [[ "$entry" == "\$ORIGIN" ]]; then
-      has_origin=1
-    fi
-    # Preserve order; de-duplicate only exact repeats.
-    seen=0
-    for existing in "${new_entries[@]}"; do
-      if [[ "$existing" == "$entry" ]]; then
-        seen=1
-        break
-      fi
-    done
-    if [[ $seen -eq 0 ]]; then
-      new_entries+=("$entry")
+    if [[ "$entry" == *"$build_prefix_a"* || "$entry" == *"$build_prefix_b"* ]]; then
+      return 0
     fi
   done
-
-  if [[ $has_origin -eq 0 ]]; then
-    new_entries=("\$ORIGIN" "${new_entries[@]}")
-  fi
-
-  local out=""
-  for entry in "${new_entries[@]}"; do
-    if [[ -z "$out" ]]; then
-      out="$entry"
-    else
-      out="${out}:$entry"
-    fi
-  done
-  printf '%s' "$out"
+  return 1
 }
 
-update_runpath_if_needed() {
+path_ends_with_origin() {
+  local path_value="$1"
+  [[ "$path_value" == "\$ORIGIN" || "$path_value" == *":\$ORIGIN" ]]
+}
+
+append_origin_suffix_if_needed() {
+  local path_value="$1"
+  local updated="$path_value"
+  if ! value_has_hardcoded_build_path "$path_value"; then
+    printf '%s' "$updated"
+    return 0
+  fi
+
+  if ! path_ends_with_origin "$path_value"; then
+    updated="${path_value}:\$ORIGIN"
+  fi
+  printf '%s' "$updated"
+}
+
+update_runtime_path_if_needed() {
   local f="$1"
-  local replaced_needed="$2"
-  local runpath rpath new_runpath
+  local runpath rpath new_path
 
   runpath="$(extract_runpath "$f")"
   rpath="$(extract_rpath "$f")"
 
   if [[ -n "$runpath" ]]; then
-    new_runpath="$(rebuild_runpath_with_origin "$runpath")"
-    if [[ "$new_runpath" != "$runpath" ]]; then
+    new_path="$(append_origin_suffix_if_needed "$runpath")"
+    if [[ "$new_path" != "$runpath" ]]; then
       echo "set-runpath: $f"
-      echo "  old: ${runpath}"
-      echo "  new: ${new_runpath}"
-      patchelf --set-rpath "$new_runpath" "$f"
+      echo "  old RUNPATH: ${runpath}"
+      echo "  new RUNPATH: ${new_path}"
+      patchelf --set-rpath "$new_path" "$f"
     fi
     return 0
   fi
 
-  # No RUNPATH present:
-  # - If file was patched and has no RPATH either, create RUNPATH=$ORIGIN.
-  # - If it has RPATH only, leave it untouched.
-  if [[ "$replaced_needed" -eq 1 && -z "$rpath" ]]; then
-    echo "set-runpath: $f"
-    echo "  old: <none>"
-    echo "  new: \$ORIGIN"
-    patchelf --set-rpath '$ORIGIN' "$f"
+  if [[ -n "$rpath" ]]; then
+    new_path="$(append_origin_suffix_if_needed "$rpath")"
+    if [[ "$new_path" != "$rpath" ]]; then
+      echo "set-rpath: $f"
+      echo "  old RPATH: ${rpath}"
+      echo "  new RPATH: ${new_path}"
+      patchelf --set-rpath "$new_path" "$f"
+    fi
   fi
 }
 
 patch_one() {
   local f="$1"
   local needed old base
-  local replaced_needed=0
   while IFS= read -r needed; do
     [[ -n "$needed" ]] || continue
     if [[ "$needed" == "$abs_prefix"* ]]; then
@@ -215,12 +201,11 @@ patch_one() {
         echo "replace-needed: $f"
         echo "  $old -> $base"
         patchelf --replace-needed "$old" "$base" "$f"
-        replaced_needed=1
       fi
     fi
   done < <(extract_needed "$f")
 
-  update_runpath_if_needed "$f" "$replaced_needed"
+  update_runtime_path_if_needed "$f"
 }
 
 ensure_sqlite_aliases
