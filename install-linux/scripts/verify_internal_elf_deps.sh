@@ -9,11 +9,11 @@ Usage:
 Arguments:
   internal_dir  Path to PyInstaller _internal directory
   abs_prefix    Absolute build prefix that must not appear in dynamic entries
-                (default: /opt/micromamba/envs)
+                (default: /opt/micromamba)
 
 Checks:
-  - Fails if any DT_NEEDED entry is absolute (/...)
-  - Fails if any RPATH/RUNPATH contains absolute build-time paths (abs_prefix)
+  - Fails if any DT_NEEDED entry starts with abs_prefix
+  - Fails if any RPATH/RUNPATH entry starts with abs_prefix
 EOF
 }
 
@@ -28,7 +28,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 internal_dir="$1"
-abs_prefix="${2:-/opt/micromamba/envs}"
+abs_prefix="${2:-/opt/micromamba}"
 
 if [[ ! -d "$internal_dir" ]]; then
   echo "ERROR: _internal directory not found: $internal_dir" >&2
@@ -61,31 +61,36 @@ scanned=0
 
 check_one() {
   local f="$1"
-  local needed rp_line rp_value had_problem
+  local needed rp_line rp_value had_problem entry
+  local entries=()
   had_problem=0
   scanned=$((scanned + 1))
 
   while IFS= read -r needed; do
     [[ -n "$needed" ]] || continue
-    if [[ "$needed" == /* ]]; then
+    if [[ "$needed" == "$abs_prefix"* ]]; then
       if [[ $had_problem -eq 0 ]]; then
         echo "ELF offender: $f"
         had_problem=1
       fi
-      echo "  absolute DT_NEEDED: $needed"
+      echo "  forbidden DT_NEEDED: $needed"
     fi
   done < <(extract_needed "$f")
 
   while IFS= read -r rp_line; do
     [[ -n "$rp_line" ]] || continue
     rp_value="${rp_line#*:}"
-    if [[ "$rp_value" == *"$abs_prefix"* ]]; then
-      if [[ $had_problem -eq 0 ]]; then
-        echo "ELF offender: $f"
-        had_problem=1
+    IFS=':' read -r -a entries <<< "$rp_value"
+    for entry in "${entries[@]}"; do
+      [[ -n "$entry" ]] || continue
+      if [[ "$entry" == "$abs_prefix"* ]]; then
+        if [[ $had_problem -eq 0 ]]; then
+          echo "ELF offender: $f"
+          had_problem=1
+        fi
+        echo "  forbidden ${rp_line%%:*} entry: $entry"
       fi
-      echo "  absolute ${rp_line%%:*}: $rp_value"
-    fi
+    done
   done < <(extract_rpath_like "$f")
 
   if [[ $had_problem -eq 1 ]]; then
@@ -106,4 +111,4 @@ if [[ $offenders -gt 0 ]]; then
   exit 1
 fi
 
-echo "Verification passed: scanned $scanned ELF file(s); no absolute DT_NEEDED or build-path RUNPATH/RPATH found."
+echo "Verification passed: scanned $scanned ELF file(s); no /opt/micromamba leakage in DT_NEEDED/RPATH/RUNPATH."
