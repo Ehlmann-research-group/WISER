@@ -73,6 +73,8 @@ def _derive_region_meta(meta: DataMeta, region: DataRegion) -> RegionMeta:
 
 
 class ExternalHandle(Protocol):
+    """Read-only adapter for externally loaded data objects."""
+
     kind: InputKind
 
     def read_region(self, region: DataRegion) -> Any:

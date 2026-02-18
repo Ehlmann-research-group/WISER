@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 import numpy as np
-
+from astropy import units as u
 import tests.context
 from wiser.utils.primitives import (
     AllocationRequest,
@@ -280,8 +280,8 @@ class TestStorageLayer(unittest.TestCase):
             def get_wavelengths(self):
                 return [500.0, 700.0]
 
-            def get_band_unit(self):
-                return None
+            def get_band_unit(self) -> u.Unit:
+                return u.nm
 
             def get_data_ignore_value(self):
                 return -9999.0
@@ -314,10 +314,14 @@ class TestStorageLayer(unittest.TestCase):
             meta = storage.get_meta(ref.ref_id)
             self.assertEqual(meta.kind, "dataset")
             self.assertEqual(meta.shape, (4, 5, 2))
-            np.testing.assert_array_equal(meta.bad_bands, np.array([1, 0]))
+            self.assertEqual(meta.elem_type, np.float32)
+            self.assertEqual(meta.wavelength_units, u.nm)
+            self.assertTrue(np.array_equal(meta.bad_bands, np.array([1, 0])))
+            self.assertEqual(meta.crs_wkt, "EPSG:4326")
+            self.assertEqual(meta.geotransform, (0.0, 1.0, 0.0, 0.0, 0.0, -1.0))
 
             region_meta = storage.get_region_meta(ref.ref_id, DatasetRegionRef(0, 2, 0, 2, 0, 1))
-            np.testing.assert_array_equal(region_meta.wavelengths, np.array([500.0]))
+            self.assertTrue(np.array_equal(region_meta.wavelengths, np.array([500.0])))
 
     def test_external_refs_refuse_writes_and_meta_updates(self):
         class _FakeSpectrum:
