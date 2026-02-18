@@ -17,6 +17,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+from astropy import units as u
 
 
 class PriorityClass(Enum):
@@ -37,6 +38,7 @@ Residency = Literal["spill_required", "ram_cacheable"]
 ExecutorType = Literal["thread", "process"]
 
 MaterializationLocation = Literal["none", "ram", "disk"]
+RefSource = Literal["allocated", "external"]
 
 if TYPE_CHECKING:
     from wiser.utils.task_system import BasePlanMeta
@@ -61,6 +63,8 @@ class DataRef:
     chunks: Optional[Tuple[int, ...]] = None
     residency: Residency = "spill_required"
     materialization_loc: MaterializationLocation = "none"
+    source: RefSource = "allocated"
+    readonly: bool = False
 
     def get_byte_estimate(self) -> Optional[int]:
         # Need both to estimate
@@ -85,6 +89,19 @@ class DataRef:
             return None
 
         return n_elems * itemsize
+
+
+@dataclass(frozen=True)
+class DataMeta:
+    kind: RefKind
+    shape: Tuple[int, ...]
+    elem_type: np.dtype
+    wavelengths: Optional[np.ndarray] = None
+    wavelength_units: Optional[u.Unit] = None
+    nodata: Optional[float | int] = None
+    bad_bands: Optional[np.ndarray] = None
+    crs_wkt: Optional[str] = None
+    geotransform: Optional[Tuple[float, ...]] = None
 
 
 @dataclass(frozen=True)
@@ -133,6 +150,17 @@ class DataRegion:
 
 
 @dataclass(frozen=True)
+class RegionMeta:
+    region: DataRegion
+    wavelengths: Optional[np.ndarray] = None
+    wavelength_units: Optional[u.Unit] = None
+    nodata: Optional[float | int] = None
+    bad_bands: Optional[np.ndarray] = None
+    crs_wkt: Optional[str] = None
+    geotransform: Optional[Tuple[float, ...]] = None
+
+
+@dataclass(frozen=True)
 class DatasetRegionRef(DataRegion):
     y0: int
     y1: int
@@ -163,13 +191,13 @@ class SpectrumRef(DataRegion):
 @dataclass(frozen=True)
 class SpectraBatchRef(DataRegion):
     i0: int
-    i1: int  # index range into list-of-spectra, inclusive
+    i1: int  # index range into list-of-spectra, exclusive
     length: int
 
     def scalar_count(self) -> int:
         if self.i1 < self.i0 or self.length < 0:
             raise ValueError("SpectraBatchRef has invalid bounds.")
-        return (self.i1 - self.i0 + 1) * self.length
+        return (self.i1 - self.i0) * self.length
 
 
 # Returns input and output regions (aka ChunkRefs)
@@ -224,4 +252,8 @@ class SpectraBatchScheme(ChunkingScheme):
     def iter_chunks(self, meta: "BasePlanMeta") -> Iterable[SpectraBatchRef]:
         n = meta.num_spectra
         for i0 in range(0, n, self.batch_size):
-            yield SpectraBatchRef(i0=i0, i1=min(n, i0 + self.batch_size))
+            yield SpectraBatchRef(
+                i0=i0,
+                i1=min(n, i0 + self.batch_size),
+                length=meta.spectrum_length,
+            )

@@ -45,17 +45,12 @@ class _RecordingStorage:
             chunks=req.chunks,
             residency=req.residency,
             materialization_loc="ram",
+            source="allocated",
+            readonly=False,
         )
 
 
 class _IdentityMapStage(MapStage):
-    def plan_meta_for(self, input_ref: DataRef):
-        return DatasetPlanMeta(
-            kind="dataset",
-            dtype=np.dtype(np.float32),
-            shape=input_ref.shape,
-        )
-
     def output_region_for(self, input_region: DatasetRegionRef) -> DatasetRegionRef:
         return input_region
 
@@ -90,11 +85,19 @@ class TestTaskPlanner(unittest.TestCase):
             chunks=None,
             residency="ram_cacheable",
             materialization_loc="ram",
+            source="allocated",
+            readonly=False,
+        )
+        input_meta = DatasetPlanMeta(
+            kind="dataset",
+            dtype=np.dtype(np.float32),
+            shape=input_ref.shape,
         )
 
         stage = _IdentityMapStage(
             default_executor="thread",
             input_ref=input_ref,
+            input_plan_meta=input_meta,
             resource_model=ResourceModel(
                 fixed_overhead_bytes=0,
                 bytes_per_scalar_in=1,
