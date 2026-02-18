@@ -39,6 +39,7 @@ class ResourceModel:
 class TaskStage:
     default_executor: ExecutorType
     input_ref: DataRef
+    input_plan_meta: "BasePlanMeta"
     resource_model: ResourceModel
 
     # Where this stage reads from. It is a key in the task plan's table
@@ -48,14 +49,6 @@ class TaskStage:
     output_bindings: Sequence[DataBinding] = field(default_factory=tuple)
 
     broadcast_input: Dict[str,] = field(default_factory=dict)
-
-    def plan_meta_for(input_ref: DataRef) -> BasePlanMeta:
-        """
-        Given an input DataRef, output a BasePlanMeta. A BasePlanMeta
-        is just a description dimensions in the image cube, spectrum,
-        or spectra in the input_ref
-        """
-        pass
 
 
 @dataclass
@@ -370,8 +363,8 @@ class TaskPlanner:
             # 2) resolve stage input ref
             input_ref = plan.bindings[stage.input_binding.name]
 
-            # 3) compute minimal meta (your real code uses BasePlanMeta from DataRef)
-            input_meta = stage.plan_meta_for(input_ref)
+            # 3) use stage planning metadata provided by the semantic planner.
+            input_meta = stage.input_plan_meta
 
             # 4) choose chunking scheme
             scheme = self._ctx.chunking_policy.choose(
